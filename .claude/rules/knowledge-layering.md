@@ -82,7 +82,7 @@ When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an
 
 Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
 
-The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b critic)**. `critic`'s axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
+The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b `claude-kit:critic`)**. The critic's axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
 
 | Claim a plan leans on | Verify by |
 |---|---|

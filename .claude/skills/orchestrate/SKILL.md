@@ -125,6 +125,12 @@ After user approval, proceed to Step 1b (mandatory critic review).
 
 After the user approves the plan (G1), launch a `claude-kit:critic` subagent via the Agent tool to review the plan for blind spots. The agent comes from the claude-kit plugin (`enabledPlugins` in `.claude/settings.json` — Pastura keeps no local copy); it carries no model pin, so **pass `model: opus` explicitly** at invocation. If the agent type is unavailable (plugin not yet trusted/installed on this machine), stop and surface that instead of silently skipping the critique.
 
+```
+Agent(subagent_type: "claude-kit:critic", model: "opus", description: "...", prompt: "...")
+```
+
+The explicit `model: "opus"` is load-bearing, not decorative: the plugin critic has no frontmatter pin (unlike the retired local `critic.md`), so an omitted `model` silently inherits the session model — which the all-🎵 cost lever (Step 1) may set to Sonnet, quietly downgrading this mandatory bias-resistant gate. Keeping it a literal block (mirroring Step 4) makes the Opus pin mechanical rather than recalled from prose.
+
 > **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths.
 >
 > Task: {TASK_DESCRIPTION}
