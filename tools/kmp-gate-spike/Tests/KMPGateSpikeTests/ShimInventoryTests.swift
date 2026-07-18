@@ -46,6 +46,48 @@ struct ShimInventoryTests {
     #expect(retroactive.hits.allSatisfy { $0.file == "SharedEngineRunner.swift" })
   }
 
+  /// Fixture lines for the two tests below, assembled from fragments.
+  ///
+  /// They must not appear verbatim in this file's *code*. `roots` includes the
+  /// Tests directory, so a literal `@retroactive @unchecked Sendable` written
+  /// as a string here is counted by `scan` as a real shim — indistinguishable
+  /// from the ones in `SharedEngineRunner.swift`, inflating the measured
+  /// budget. That is the scanner's original defect (counting its own predicate
+  /// strings) in a new costume. Doc comments are exempt — `scan` skips lines
+  /// whose trimmed form starts with `//` — so this prose may name the patterns
+  /// freely.
+  ///
+  /// `fixturesAreNotCountedAsShims` is what actually holds the invariant.
+  /// `scanIsNotVacuous`'s `count == 2` catches only a regressed
+  /// `retroactiveLine`; the other two feed buckets no test pins a count on, so
+  /// they would inflate the budget silently.
+  private static let retroactiveLine =
+    "extension SimulationEvent: @" + "retroactive @" + "unchecked Sendable {}"
+  private static let uncheckedLine =
+    "nonisolated" + " final class RunHandleBox: @" + "unchecked Sendable {"
+  private static let nonisolatedLine =
+    "nonisolated" + " public enum ShimInventoryError: Error {"
+
+  /// The fixtures above must stay fragmented in source.
+  ///
+  /// Pins the invariant directly rather than through a hit count: an exact
+  /// count on the two unpinned buckets would be a tripwire on every unrelated
+  /// `@unchecked Sendable` added to this package, whereas the hazard is
+  /// specifically "a fixture got collapsed back into one literal".
+  @Test("fixture strings are not themselves counted as shims")
+  func fixturesAreNotCountedAsShims() throws {
+    let source = try String(contentsOfFile: #filePath, encoding: .utf8)
+    let code = source.split(separator: "\n")
+      .filter { !$0.trimmingCharacters(in: .whitespaces).hasPrefix("//") }
+      .joined(separator: "\n")
+
+    for fixture in [Self.retroactiveLine, Self.uncheckedLine, Self.nonisolatedLine] {
+      #expect(
+        !code.contains(fixture),
+        "fixture appears verbatim in code and will be counted as a real shim: \(fixture)")
+    }
+  }
+
   /// Pins `classify`'s "most specific first" precedence on the lines that
   /// actually overlap.
   ///
@@ -62,26 +104,8 @@ struct ShimInventoryTests {
   /// but **a 2↔3 swap fails nothing today** — it silently moves four types out
   /// of "hand-asserted Sendable conformance" while `total`, the retroactive
   /// count, and the old exclusivity assertion all stay green.
-  /// Fixture lines for the two precedence tests, assembled from fragments.
-  ///
-  /// They must not appear verbatim anywhere in this file's *code*. `roots`
-  /// includes the Tests directory, so a literal `@retroactive @unchecked
-  /// Sendable` written as a string here is counted by `scan` as a real vouch —
-  /// indistinguishable from the two in `SharedEngineRunner.swift`, inflating
-  /// the measured budget. That is the scanner's original defect (counting its
-  /// own predicate strings) in a new costume; `scanIsNotVacuous`'s
-  /// `count == 2` catches it, which is how this was found. Doc comments are
-  /// exempt — `scan` skips lines whose trimmed form starts with `//` — so the
-  /// prose above may name the patterns freely.
-  private static let retroactiveLine =
-    "extension SimulationEvent: @" + "retroactive @" + "unchecked Sendable {}"
-  private static let uncheckedLine =
-    "nonisolated" + " final class RunHandleBox: @" + "unchecked Sendable {"
-  private static let nonisolatedLine =
-    "nonisolated" + " public enum ShimInventoryError: Error {"
-
   @Test("classification precedence is most-specific-first")
-  func classifyPrefersTheMoreSpecificRule() throws {
+  func classifyPrefersTheMoreSpecificRule() {
     let cases: [(line: String, expected: String?)] = [
       // Rules 1 and 2 both match — 1 must win.
       (Self.retroactiveLine, "retroactive Sendable vouch"),
@@ -111,7 +135,10 @@ struct ShimInventoryTests {
     let produced = [Self.retroactiveLine, Self.uncheckedLine, Self.nonisolatedLine]
       .compactMap(ShimInventory.classify)
 
-    #expect(produced.count == 3, "a fixture stopped matching its rule")
+    // Locality guard only — `classifyPrefersTheMoreSpecificRule` is what pins
+    // each fixture to its bucket. This just keeps the loop below from passing
+    // vacuously on an empty `produced`.
+    #expect(produced.count == 3)
     for bucket in produced {
       #expect(reported.contains(bucket), "classify returns an unreported bucket: \(bucket)")
     }

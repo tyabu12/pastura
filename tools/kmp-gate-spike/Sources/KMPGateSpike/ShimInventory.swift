@@ -130,10 +130,11 @@ public struct ShimInventory: Sendable {
   /// Assigns a line to at most one category, most specific first.
   ///
   /// `internal` rather than `private` so `ShimInventoryTests` can pin the
-  /// precedence directly. Going through `scan(roots:)` cannot reach it: `scan`
-  /// throws ``ShimInventoryError/staleExclusion(_:)`` unless every name in
-  /// ``excluded`` appears in the scanned roots, so a fixture directory holding
-  /// only the overlapping lines throws before classifying anything.
+  /// precedence directly. Going through `scan(roots:)` cannot reach it without
+  /// fabricating one file per ``excluded`` entry: `scan` throws
+  /// ``ShimInventoryError/staleExclusion(_:)`` unless every name in that list
+  /// appears in the scanned roots, so a fixture directory holding only the
+  /// overlapping lines throws before classifying anything.
   static func classify(_ line: String) -> String? {
     if line.contains("@retroactive") && line.contains("Sendable") {
       return "retroactive Sendable vouch"

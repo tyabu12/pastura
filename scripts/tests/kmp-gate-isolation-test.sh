@@ -69,7 +69,15 @@ PBX
 
 mkdir -p "$CLEAN_APPDIR/Pastura"
 
-# run_case <expect-fire:yes|no> <label> <manifest> <pbxproj> <app-dir>
+# run_case <expect:yes|no|unparseable> <label> <manifest> <pbxproj> <app-dir>
+#
+# Exit codes are checked EXACTLY, not just for non-zero. The guard exits 1 on a
+# violation, 2 on bad inputs (missing file, unknown flag) and 3 when it cannot
+# parse the manifest. Accepting "any non-zero" for a positive case would let the
+# whole suite go green on a mistyped fixture path or a renamed `--pbxproj` flag
+# — the vacuous-guard failure this file's header argues against, reproduced one
+# level up. Positives additionally must carry the violation marker, so an
+# unrelated error cannot masquerade as a detection.
 run_case() {
   local expect="$1" label="$2" manifest="$3" pbxproj="$4" appdir="$5"
   local out rc
@@ -78,17 +86,46 @@ run_case() {
   rc=$?
   set -e
 
-  if [ "$expect" = "yes" ] && [ "$rc" -eq 0 ]; then
-    echo "FAIL [$label]: guard did NOT fire (exit 0) on a real B' violation" >&2
-    echo "  guard output: $out" >&2
-    fail=1
-  elif [ "$expect" = "no" ] && [ "$rc" -ne 0 ]; then
-    echo "FAIL [$label]: guard fired (exit $rc) on a clean input — false positive" >&2
-    echo "  guard output: $out" >&2
-    fail=1
-  else
-    echo "ok [$label]"
-  fi
+  case "$expect" in
+    yes)
+      if [ "$rc" -ne 1 ]; then
+        echo "FAIL [$label]: expected a violation (exit 1), got exit $rc" >&2
+        echo "  guard output: $out" >&2
+        fail=1
+        return
+      fi
+      case "$out" in
+        *"decision B' violated"*) echo "ok [$label]" ;;
+        *)
+          echo "FAIL [$label]: exit 1 without a violation message — wrong cause?" >&2
+          echo "  guard output: $out" >&2
+          fail=1
+          ;;
+      esac
+      ;;
+    no)
+      if [ "$rc" -ne 0 ]; then
+        echo "FAIL [$label]: guard fired (exit $rc) on a clean input — false positive" >&2
+        echo "  guard output: $out" >&2
+        fail=1
+      else
+        echo "ok [$label]"
+      fi
+      ;;
+    unparseable)
+      if [ "$rc" -ne 3 ]; then
+        echo "FAIL [$label]: expected fail-closed parse error (exit 3), got exit $rc" >&2
+        echo "  guard output: $out" >&2
+        fail=1
+      else
+        echo "ok [$label]"
+      fi
+      ;;
+    *)
+      echo "FAIL [$label]: unknown expectation '$expect'" >&2
+      fail=1
+      ;;
+  esac
 }
 
 # ---------------------------------------------------------------- negatives --
@@ -136,6 +173,26 @@ m="$TMP/p-url-then-binarytarget.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .package(url: "https://example.com/pkg"), .binaryTarget(name: "Leak", path: "L.xcframework"),' >>"$m"
 run_case yes "//-bearing string literal preceding .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
 
+# ------------------------------------------------------- fail-closed parses --
+# The stripper models single-line string literals only. A Swift multi-line
+# (`"""`) literal resets its quote state at each line boundary, so a `/*` inside
+# one is read as a real block-comment opener and everything after it — including
+# a genuine `.binaryTarget` further down — is swallowed. That is a fail-OPEN, so
+# the scanner must instead detect that it lost the thread and refuse to vouch.
+m="$TMP/e-multiline-string.swift"; cp "$CLEAN_MANIFEST" "$m"
+cat >>"$m" <<'SWIFT'
+let doc = """
+example /* not a comment
+"""
+let leak = Package(targets: [ .binaryTarget(name: "X", path: "X.xcframework") ])
+SWIFT
+run_case unparseable "multi-line string literal containing /*" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+
+# An unterminated block comment is the same class, reached the obvious way.
+m="$TMP/e-unterminated-block.swift"; cp "$CLEAN_MANIFEST" "$m"
+printf '/* opened and never closed\n' >>"$m"
+run_case unparseable "unterminated block comment" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+
 m="$TMP/p-spike-reference.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .target(name: "Consumer", path: "tools/kmp-gate-spike/Sources/KMPGateSpike"),' >>"$m"
 run_case yes "root manifest reaches into tools/kmp-gate-spike" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
@@ -167,7 +224,11 @@ git -C "$a" config user.email t@example.com
 git -C "$a" config user.name t
 echo "binary" >"$a/Pastura/PasturaShared.xcframework/ios-arm64/stub"
 git -C "$a" add -A
-git -C "$a" commit -qm "tracked framework"
+# Ambient global config must not reach these fixtures: a contributor with
+# commit.gpgsign=true, or core.hooksPath pointing at this repo's hooks, would
+# otherwise get a spurious failure — or a swiftlint/xcodebuild run inside a
+# shell test.
+git -C "$a" -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm "tracked framework"
 run_case yes "tracked framework swept in via PBXFileSystemSynchronizedRootGroup" \
   "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$a"
 

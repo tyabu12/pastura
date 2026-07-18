@@ -34,15 +34,18 @@
 #   NOT COVERED  an SPM *remote* package that itself declares a `.binaryTarget`.
 #                 Resolving one leaves no `.xcframework` text in the pbxproj —
 #                 only an `XCSwiftPackageProductDependency` plus an entry in
-#                 `Package.resolved` — so no grep here can see it. A known
-#                 hole, not an oversight.
+#                 `Package.resolved` — so no grep here can see it.
 #
-# What B′ is actually about, since the invariant reads wider than it is: the
-# cost it protects against is ASSEMBLING the KMP XCFramework (~6m32s cold), not
-# depending on any binary artifact. `llama.swift` already vendors a prebuilt
-# `llama.xcframework` into the iOS lane and does not violate B′ — it is
-# downloaded, not built. Read every check here as "no lane acquires a
-# dependency on the KMP-assembled framework".
+# That last one is not hypothetical: `llama.swift` is a live instance. Its
+# manifest declares `.binaryTarget(url: ".../llama-b8694-xcframework.zip")`, so
+# the iOS lane already resolves a prebuilt XCFramework — and
+# `grep -c xcframework project.pbxproj` is still 0.
+#
+# Which is also what B′ actually means, since the invariant as worded reads
+# wider than it is: the cost it protects against is ASSEMBLING the KMP
+# XCFramework (~6m32s cold), not depending on any binary artifact. llama.swift
+# does not violate B′ — it is downloaded, not built. Read every check here as
+# "no lane acquires a dependency on the KMP-assembled framework".
 #
 # Checks (1) and (2) strip comments from the manifest first: a comment
 # EXPLAINING that the root deliberately has no binary target must not trip the
@@ -88,7 +91,7 @@ if [ ! -d "$APP_DIR" ]; then
   exit 2
 fi
 
-# Strip Swift comments while respecting string literals.
+# Strip Swift comments while respecting single-line string literals.
 #
 # A naive `s|//.*||` is wrong in a way that fails OPEN: it also truncates at the
 # `//` inside a string, so a line such as
@@ -97,11 +100,22 @@ fi
 #
 # loses everything from `https:` onward — and any `binaryTarget` token sitting
 # after that point on the same line disappears with it. The gate then passes on
-# a real violation. Tracking quote state costs ~20 lines and removes the whole
-# class. Block comments are tracked across lines for the same reason.
+# a real violation. Tracking quote state removes that case.
+#
+# What it does NOT model: Swift multi-line (`"""`) and raw (`#"…"#`) string
+# literals. `in_str` resets at every line boundary, so a `/*` inside a `"""`
+# block is read as a real block-comment opener and everything after it is
+# swallowed — including a genuine `.binaryTarget` further down the file. Rather
+# than pretend to parse Swift, the scanner detects that it has lost the thread
+# and exits non-zero: an unclosed block comment at EOF, or a line ending inside
+# a string. The caller treats that as a hard failure, so "I could not parse this
+# manifest" is fail-CLOSED rather than a silent pass.
+#
+# `#if` blocks are deliberately unmodelled: a `.binaryTarget` inside one still
+# greps, which errs in the safe direction.
 strip_swift_comments() {
   awk '
-    BEGIN { in_block = 0 }
+    BEGIN { in_block = 0; lost = 0 }
     {
       line = $0; out = ""; i = 1; n = length(line); in_str = 0
       while (i <= n) {
@@ -120,10 +134,32 @@ strip_swift_comments() {
         if (c == "\"") { in_str = 1 }
         out = out c; i++
       }
+      # A line ending inside a string literal means a multi-line or raw string —
+      # the shape this scanner cannot follow.
+      if (in_str) { lost = 1 }
       print out
     }
+    END { if (in_block || lost) { exit 3 } }
   ' "$1"
 }
+
+# Strip once into a file rather than piping into grep.
+#
+# `if strip_swift_comments … | grep -n …` fails OPEN under `set -o pipefail`:
+# the pipeline reports the RIGHTMOST non-zero status, so a non-zero stripper
+# turns a MATCHING grep into a false "no violation" — and would silently
+# discard the fail-closed exit above. A bare redirect lets `set -e` catch the
+# stripper instead.
+STRIPPED="$(mktemp)"
+trap 'rm -f "$STRIPPED"' EXIT
+
+if ! strip_swift_comments "$MANIFEST" >"$STRIPPED"; then
+  echo "::error file=$MANIFEST::ADR-023 decision B' guard could not parse the" \
+       "manifest (unterminated block comment, or a multi-line/raw string" \
+       "literal the scanner does not model). Failing closed rather than" \
+       "reporting a clean result it cannot vouch for."
+  exit 3
+fi
 
 fail() {
   # `::error file=…::` renders as a GitHub annotation on the real run; harmless
@@ -133,13 +169,13 @@ fail() {
 }
 
 # (1) + (2) — the two manifest-borne lanes.
-if strip_swift_comments "$MANIFEST" | grep -n 'binaryTarget'; then
+if grep -n 'binaryTarget' "$STRIPPED"; then
   fail "$MANIFEST" "the root manifest declares a .binaryTarget, so every per-PR \
 'swift build' now requires an assembled XCFramework. Keep the gate consumer in \
 tools/kmp-gate-spike/Package.swift."
 fi
 
-if strip_swift_comments "$MANIFEST" | grep -n 'kmp-gate-spike'; then
+if grep -n 'kmp-gate-spike' "$STRIPPED"; then
   fail "$MANIFEST" "the root manifest references tools/kmp-gate-spike."
 fi
 
@@ -158,7 +194,9 @@ fi
 # were build-verified there (`xcodebuild build` SUCCEEDED, framework embedded
 # and codesigned), which is the property this grep depends on: Xcode accepted
 # and acted on exactly this text.
-if grep -n 'xcframework' "$PBXPROJ"; then
+# `-i`: a framework named `Foo.XCFramework` on disk would otherwise slip past,
+# and the extra matches a case-fold admits are all fail-closed.
+if grep -in 'xcframework' "$PBXPROJ"; then
   fail "$PBXPROJ" "the Xcode project references an .xcframework, so the iOS \
 xcodebuild lane now requires an assembled XCFramework."
 fi
@@ -179,7 +217,11 @@ fi
 # § "Rename / namespace-sweep completion gate" makes the same call for the
 # same reason.
 if git -C "$APP_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-  TRACKED_XCF="$(git -C "$APP_DIR" ls-files -- '*.xcframework' '*.xcframework/*' | head -1)"
+  # No `| head -1`: git takes SIGPIPE when head closes early, and under
+  # `set -o pipefail` that aborts the script with a bare 141 — red with no
+  # annotation, which reads as infra noise rather than a verdict.
+  TRACKED_XCF="$(git -C "$APP_DIR" ls-files -- '*.xcframework' '*.xcframework/*')"
+  TRACKED_XCF="${TRACKED_XCF%%$'\n'*}"
   if [ -n "$TRACKED_XCF" ]; then
     fail "$APP_DIR/$TRACKED_XCF" "a tracked .xcframework is present under $APP_DIR. \
 The project uses PBXFileSystemSynchronizedRootGroup, so this is swept into the \
