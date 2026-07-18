@@ -153,12 +153,25 @@ strip_swift_comments() {
 STRIPPED="$(mktemp)"
 trap 'rm -f "$STRIPPED"' EXIT
 
-if ! strip_swift_comments "$MANIFEST" >"$STRIPPED"; then
+# Status 3 is the scanner's own "I lost the thread" signal. Any OTHER non-zero
+# is the scanner itself breaking (an awk syntax error, a missing interpreter),
+# which is fail-closed too but is a different thing to be told — and if both
+# reported the same message, the perturbation test could not tell a correct
+# refusal from a broken stripper.
+strip_rc=0
+strip_swift_comments "$MANIFEST" >"$STRIPPED" || strip_rc=$?
+
+if [ "$strip_rc" -eq 3 ]; then
   echo "::error file=$MANIFEST::ADR-023 decision B' guard could not parse the" \
        "manifest (unterminated block comment, or a multi-line/raw string" \
        "literal the scanner does not model). Failing closed rather than" \
        "reporting a clean result it cannot vouch for."
   exit 3
+elif [ "$strip_rc" -ne 0 ]; then
+  echo "::error file=$MANIFEST::ADR-023 decision B' guard's comment stripper" \
+       "failed unexpectedly (exit $strip_rc) — this is a bug in the guard, not" \
+       "a verdict on the manifest."
+  exit 4
 fi
 
 fail() {

@@ -323,8 +323,11 @@ public sealed class SimulationEvent {
      *
      * The `when` below is an expression over a sealed class with no `else`, so
      * the compiler rejects it the moment a subclass is added — and
-     * `:shared:models:jvmTest` runs on every PR, so that rejection is a
-     * per-PR gate rather than a nightly one.
+     * `:shared:models:jvmTest` runs on every PR that touches `shared/`, which
+     * a new subclass necessarily does, so that rejection is a per-PR gate
+     * rather than a nightly one. (The job is path-gated, not unconditional —
+     * the guarantee holds because the gate's trigger and the change that
+     * needs gating are the same edit.)
      *
      * Enumerated exhaustively on purpose: an `else -> false` would restore the
      * silent-default this exists to remove.

@@ -189,8 +189,12 @@ run_case yes "//-bearing string literal preceding .binaryTarget" "$m" "$CLEAN_PB
 
 # The motivating shape: a `"""` block whose interior contains `/*`. The stripper
 # reads that `/*` as a real block-comment opener and swallows every later line,
-# including the genuine `.binaryTarget` below it — a fail-OPEN. Caught by
-# `in_block` (the `*/` never arrives), not by `lost`.
+# including the genuine `.binaryTarget` below it — a fail-OPEN.
+#
+# BOTH detectors trip here: the `"""` opener is three quotes, so line 1 also
+# ends mid-string and sets `lost`. `in_block` alone is sufficient (the `*/`
+# never arrives), which is exactly why this case cannot serve as `lost`'s
+# control — the balanced-`"""` case below is.
 m="$TMP/e-multiline-string.swift"; cp "$CLEAN_MANIFEST" "$m"
 cat >>"$m" <<'SWIFT'
 let doc = """
@@ -260,6 +264,37 @@ git -C "$u" config user.email t@example.com
 git -C "$u" config user.name t
 echo "build output" >"$u/Pastura/DerivedData/artifacts/llama.xcframework/ios-arm64/stub"
 run_case no "untracked .xcframework in build output" "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$u"
+
+# ------------------------------------------------------- unforced code paths --
+# Two behaviours no case above reaches. Both are cheap to pin and one of them is
+# the guard's ONLY fail-open, so leaving it unexercised is the shape this file
+# exists to argue against.
+
+# Check (4) skips (warns, passes) when the app dir is not in a git work tree.
+# `git ls-files` has nothing to say outside a repository, and failing there
+# would make the guard unusable on an exported tarball. Deliberate, so pinned.
+n="$TMP/n-appdir-not-a-repo"
+mkdir -p "$n/Pastura/Vendor.xcframework"
+run_case no "app dir outside a git work tree (check 4 skips)" \
+  "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$n"
+
+# Input errors must be exit 2 — distinct from a violation (1) and from a parse
+# refusal (3). `run_case`'s header claims exact-code checking is what stops a
+# mistyped path going green; these make that claim executable.
+set +e
+out="$("$GUARD" --manifest "$TMP/does-not-exist.swift" --pbxproj "$CLEAN_PBXPROJ" \
+  --app-dir "$CLEAN_APPDIR" 2>&1)"; rc=$?
+set -e
+if [ "$rc" -eq 2 ]; then echo "ok [missing manifest is exit 2]"; else
+  echo "FAIL [missing manifest]: expected exit 2, got $rc — $out" >&2; fail=1
+fi
+
+set +e
+out="$("$GUARD" --bogus-flag 2>&1)"; rc=$?
+set -e
+if [ "$rc" -eq 2 ]; then echo "ok [unknown argument is exit 2]"; else
+  echo "FAIL [unknown argument]: expected exit 2, got $rc — $out" >&2; fail=1
+fi
 
 # ------------------------------------------------------------- the real repo --
 # The guard must be green on the real files as they stand. Placed last so a

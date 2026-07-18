@@ -90,9 +90,10 @@ struct ShimInventoryTests {
       // Same predicate `scan` applies before classifying — comment lines are
       // exempt, which is why the prose here may name the patterns freely.
       guard !line.trimmingCharacters(in: .whitespaces).hasPrefix("//") else { continue }
+      let bucket = ShimInventory.classify(String(line))
       #expect(
-        ShimInventory.classify(String(line)) == nil,
-        "line \(index + 1) of this file classifies as a shim: \(line)")
+        bucket == nil,
+        "line \(index + 1) of this file classifies as '\(bucket ?? "")': \(line)")
     }
   }
 
@@ -109,8 +110,10 @@ struct ShimInventoryTests {
   /// `@retroactive @unchecked Sendable` matches rules 1 and 2, and
   /// `nonisolated final class … : @unchecked Sendable` matches rules 2 and 3.
   /// A 1↔2 swap already fails `scanIsNotVacuous` via `retroactive.count == 2`,
-  /// but **a 2↔3 swap fails nothing today** — it silently moves four types out
-  /// of "hand-asserted Sendable conformance" while `total`, the retroactive
+  /// but **a 2↔3 swap fails nothing today** — it silently moves every
+  /// `nonisolated … : @unchecked Sendable` declaration in the scanned roots
+  /// (ten lines, four of them in `SharedEngineRunner.swift`) out of
+  /// "hand-asserted Sendable conformance", while `total`, the retroactive
   /// count, and the old exclusivity assertion all stay green.
   @Test("classification precedence is most-specific-first")
   func classifyPrefersTheMoreSpecificRule() {
