@@ -193,6 +193,35 @@ if grep -q -- "--profile" "$ARGV3"; then
   fail "run_scenario: --profile should NOT be passed when only trailing flags follow timeout"
 fi
 
+# --- run_scenario.sh --max-response-tokens / --guided-generation (#1154) ----
+# The FM token-budget battery drives these. `--guided-generation` is a BOOLEAN
+# flag consuming no value; a parser that treated it as value-taking would
+# silently swallow whatever followed it, so the canary puts another flag after
+# it and asserts that one survives.
+ARGV_FM="$TMP/argv_fm.log"
+STATUS_FM=$(
+  cd "$REPO_ROOT" && \
+  PASTURA_HARNESS_BIN="$FAKE_BIN" FAKE_ARGV_CAPTURE="$ARGV_FM" \
+  bash .claude/skills/scenario-factory/scripts/run_scenario.sh \
+    "$DUMMY_YAML" - "$TMP/out_fm.jsonl" 60 --backend foundation-models \
+    --guided-generation --max-response-tokens 512
+)
+printf '%s' "$STATUS_FM" | python3 -c "import json,sys; d=json.load(sys.stdin); assert d['status']=='ok', d" \
+  || fail "run_scenario: fm token-budget canary expected status ok, got: $STATUS_FM"
+grep -q -- "--guided-generation" "$ARGV_FM" \
+  || fail "run_scenario: --guided-generation not passed through argv"
+grep -q -- "--max-response-tokens 512" "$ARGV_FM" \
+  || fail "run_scenario: --max-response-tokens not passed through argv (swallowed by the boolean flag?)"
+
+# neither flag appears unless asked for — otherwise every prior battery's argv
+# would silently change shape
+if grep -q -- "--guided-generation" "$ARGV3"; then
+  fail "run_scenario: --guided-generation must not appear unless requested"
+fi
+if grep -q -- "--max-response-tokens" "$ARGV3"; then
+  fail "run_scenario: --max-response-tokens must not appear unless requested"
+fi
+
 # trailing flags must not disturb the llama-cpp default path
 ARGV4="$TMP/argv4.log"
 STATUS4=$(

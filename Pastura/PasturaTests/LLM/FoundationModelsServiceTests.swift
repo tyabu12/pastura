@@ -1,5 +1,6 @@
 #if canImport(FoundationModels)
 
+  import Foundation
   import FoundationModels
   import Testing
 
@@ -95,6 +96,130 @@
         description(of: locale).hasPrefix("Foundation Models unsupported language or locale — "))
       // Unprefixed classes still share the generic bucket by design.
       #expect(description(of: other).hasPrefix("Foundation Models generation failed — "))
+    }
+
+    // MARK: - Guided-generation schema builder
+
+    /// The ONLY machine gate on the guided-generation path (#1154 / #1072
+    /// reversal condition 1). Real inference needs an Apple Intelligence device,
+    /// but the `OutputSchema` → `GenerationSchema` translation is pure logic, so
+    /// it runs in CI (every Swift job pins Xcode 26.4, which ships the FM SDK).
+    @available(iOS 26, macOS 26, *)
+    @Test func guidedSchemaCarriesEveryDeclaredFieldAndNothingElse() throws {
+      let json = try schemaJSON(
+        from: OutputSchema(fields: [
+          .init(name: "statement", kind: .string),
+          .init(name: "inner_thought", kind: .string)
+        ]))
+
+      let properties = json["properties"] as? [String: Any] ?? [:]
+      #expect(Set(properties.keys) == ["statement", "inner_thought"])
+      // Every declared field is mandatory — an optional field would let the
+      // model omit one and still satisfy the schema, which is precisely the
+      // missing-key failure `JSONResponseParser` exists to catch.
+      let required = json["required"] as? [String] ?? []
+      #expect(Set(required) == ["statement", "inner_thought"])
+    }
+
+    /// Field ORDER is load-bearing and is carried explicitly by the schema's
+    /// `x-order` key. ``OutputSchema/fields`` documents its order as the single
+    /// source of truth for the primary-first policy — the same ordering
+    /// `GBNFGrammarBuilder` and `PromptBuilder` consume so grammar and prompt
+    /// cannot drift — and `PartialOutputExtractor` relies on the primary field
+    /// arriving first for progressive streaming display. The guided path must
+    /// not silently reorder it.
+    @available(iOS 26, macOS 26, *)
+    @Test func guidedSchemaPreservesDeclaredFieldOrder() throws {
+      let json = try schemaJSON(
+        from: OutputSchema(fields: [
+          .init(name: "statement", kind: .string),
+          .init(name: "inner_thought", kind: .string)
+        ]))
+
+      #expect(json["x-order"] as? [String] == ["statement", "inner_thought"])
+    }
+
+    /// Pins the claim the guided path's why-comment makes: `.choice` maps to a
+    /// plain String leaf, exactly like `.string`. `OutputSchema.Kind.choice`
+    /// carries no option payload, so there is nothing to enumerate — if a future
+    /// change starts emitting `anyOf:` for `.choice`, this fails and forces the
+    /// decision to be explicit rather than incidental.
+    @available(iOS 26, macOS 26, *)
+    @Test func guidedSchemaTreatsChoiceAsAPlainString() throws {
+      let asChoice = OutputSchema(fields: [.init(name: "action", kind: .choice)])
+      let asString = OutputSchema(fields: [.init(name: "action", kind: .string)])
+
+      #expect(try canonical(schemaJSON(from: asChoice)) == canonical(schemaJSON(from: asString)))
+    }
+
+    /// Negative control — a guard's success case proves nothing on its own.
+    /// Adding a field MUST change the schema, or the assertions above would also
+    /// pass against a builder that silently dropped every field.
+    ///
+    /// This control only works on the CANONICALIZED form. `JSONEncoder` output
+    /// for `GenerationSchema` is dictionary-backed and its top-level key order
+    /// varies between two encodes of the *same* schema — so comparing raw
+    /// encoded strings makes any two schemas "differ" and the control passes
+    /// vacuously. It did, until `canonical(_:)` was introduced.
+    @available(iOS 26, macOS 26, *)
+    @Test func guidedSchemaChangesWhenAFieldIsAdded() throws {
+      let oneField = OutputSchema(fields: [.init(name: "statement", kind: .string)])
+      let twoFields = OutputSchema(fields: [
+        .init(name: "statement", kind: .string),
+        .init(name: "inner_thought", kind: .string)
+      ])
+
+      #expect(try canonical(schemaJSON(from: oneField)) != canonical(schemaJSON(from: twoFields)))
+    }
+
+    /// The guided path deliberately has NO fallback: a schema-build failure
+    /// throws instead of quietly running the turn unguided. That choice is what
+    /// prevents #1156's failure shape — a build failure is deterministic per
+    /// `OutputSchema` shape, so a silent fallback would run an ENTIRE battery
+    /// unguided while the run log still claimed guided. This pins both the throw
+    /// and the grep-classifiable prefix the harness digest keys on.
+    ///
+    /// Duplicate field names are the reachable failing shape: the SDK rejects
+    /// them with `duplicateProperty`. An EMPTY field list and an empty field
+    /// name were both probed and build fine — which is why the callsite guards
+    /// `!schema.fields.isEmpty` itself rather than relying on a throw.
+    @available(iOS 26, macOS 26, *)
+    @Test func guidedSchemaBuildFailureThrowsWithClassifiablePrefix() {
+      let duplicated = OutputSchema(fields: [
+        .init(name: "statement", kind: .string),
+        .init(name: "statement", kind: .string)
+      ])
+
+      #expect(throws: LLMError.self) {
+        try FoundationModelsService.generationSchema(from: duplicated)
+      }
+      do {
+        _ = try FoundationModelsService.generationSchema(from: duplicated)
+        Issue.record("expected a schema-build failure")
+      } catch {
+        #expect(
+          description(of: error as? LLMError ?? .notLoaded)
+            .hasPrefix("Foundation Models guided schema build failed — "))
+      }
+    }
+
+    /// Builds the schema and decodes its `Codable` form into inspectable JSON.
+    ///
+    /// `GenerationSchema` exposes no property accessors, so its encoded form is
+    /// the only reachable surface to assert against — `debugDescription` is an
+    /// undocumented, unstable format and would make a far weaker gate.
+    @available(iOS 26, macOS 26, *)
+    private func schemaJSON(from schema: OutputSchema) throws -> [String: Any] {
+      let generationSchema = try FoundationModelsService.generationSchema(from: schema)
+      let data = try JSONEncoder().encode(generationSchema)
+      return try JSONSerialization.jsonObject(with: data) as? [String: Any] ?? [:]
+    }
+
+    /// Key-sorted rendering, so two schemas compare on CONTENT rather than on
+    /// dictionary iteration order (see `guidedSchemaChangesWhenAFieldIsAdded`).
+    private func canonical(_ object: [String: Any]) throws -> String {
+      let data = try JSONSerialization.data(withJSONObject: object, options: [.sortedKeys])
+      return String(bytes: data, encoding: .utf8) ?? ""
     }
 
     /// Unwraps the description `map` builds — the whole point is the string,

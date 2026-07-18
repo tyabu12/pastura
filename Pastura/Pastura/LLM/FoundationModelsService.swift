@@ -1,10 +1,16 @@
 // The whole file is gated on `canImport(FoundationModels)` — the framework
-// ships only in the iOS 26 / macOS 26 SDK. On an older toolchain (a CI runner
-// on Xcode < 26) this compiles out entirely, keeping the app + harness builds
-// green without an FM SDK, exactly as llama.cpp real inference is absent from
-// CI. NOTE (#1072 spike): because `canImport` is an SDK check, standard CI /
-// pre-commit that lack the FM SDK never type-check this code — verify a real
-// build on the Xcode-26 SDK (`canImport` true) before trusting the API shape.
+// ships only in the iOS 26 / macOS 26 SDK, so on an older toolchain this
+// compiles out entirely and the app + harness builds stay green without an FM
+// SDK, exactly as llama.cpp real inference is absent from CI.
+//
+// CI DOES type-check this file: every Swift job in `.github/workflows/ci.yml`
+// pins `DEVELOPER_DIR` to Xcode 26.4, which ships the FM SDK, so `canImport` is
+// true there and a break here reddens CI like any other code. (An earlier
+// version of this comment claimed the opposite; the #1072 spike predated the
+// toolchain pin.) What CI still cannot do is RUN any of it — Apple Intelligence
+// needs an eligible device — so inference-dependent behaviour remains
+// device-verified, and only the pure-logic parts (error mapping, the guided
+// schema builder) are machine-gated.
 #if canImport(FoundationModels)
 
   import Foundation
@@ -28,8 +34,20 @@
     // @unchecked Sendable: the only mutable state is `loadedState`, protected by
     // OSAllocatedUnfairLock. `model` is an immutable Sendable value.
 
-    private let model: SystemLanguageModel
+    // `model` / `maximumResponseTokens` are internal rather than private so the
+    // sibling-file extensions can read them — `private` is file-scoped, and the
+    // token-budget instrumentation lives in `+TokenBudget.swift`.
+    let model: SystemLanguageModel
+    let maximumResponseTokens: Int?
+    private let guidedGeneration: Bool
     private let loadedState: OSAllocatedUnfairLock<Bool>
+
+    /// Monotonic turn counter, used solely as a join key across the three
+    /// diagnostic lines one ``generate(system:user:schema:antiRepetitionSeeds:)``
+    /// call can emit (input / response / overflow). An overflowing turn emits no
+    /// response line, so without a key an analyst cannot pair the overflow with
+    /// the input measurements that produced it.
+    private let turnSeq: OSAllocatedUnfairLock<Int>
 
     /// Creates a service over a system language model.
     ///
@@ -46,12 +64,32 @@
     /// was wrong precisely because no caller ever passed anything else. The
     /// harness selects the mode via `--guardrails`.
     ///
-    /// - Parameter model: The system model to drive. Defaults to
-    ///   ``SystemLanguageModel/default`` (the general-purpose base model with
-    ///   default guardrails).
-    public init(model: SystemLanguageModel = .default) {
+    /// - Parameters:
+    ///   - model: The system model to drive. Defaults to
+    ///     ``SystemLanguageModel/default`` (the general-purpose base model with
+    ///     default guardrails).
+    ///   - maximumResponseTokens: Upper bound on generated tokens, forwarded as
+    ///     `GenerationOptions.maximumResponseTokens`. `nil` (the default) leaves
+    ///     generation unconstrained, i.e. the behaviour every prior #1072
+    ///     battery measured. Spike #1154 wires this to test whether capping
+    ///     output relieves the 4k-context blocker — the expected outcome is
+    ///     *not* a clean win: a cap truncates the JSON object mid-object, which
+    ///     converts a context-exceeded failure into a parse failure rather than
+    ///     removing it. That conversion is itself the measurement.
+    ///   - guidedGeneration: When `true`, a turn that carries an
+    ///     ``OutputSchema`` runs schema-constrained via
+    ///     ``respondGuided(session:user:schema:options:)`` instead of free-form.
+    ///     Defaults to `false` — see `FoundationModelsService+GuidedGeneration`
+    ///     for what this measures and why it is off by default.
+    public init(
+      model: SystemLanguageModel = .default, maximumResponseTokens: Int? = nil,
+      guidedGeneration: Bool = false
+    ) {
       self.model = model
+      self.maximumResponseTokens = maximumResponseTokens
+      self.guidedGeneration = guidedGeneration
       self.loadedState = OSAllocatedUnfairLock(initialState: false)
+      self.turnSeq = OSAllocatedUnfairLock(initialState: 0)
     }
 
     /// Marks the service ready after confirming the system model is available.
@@ -99,21 +137,26 @@
     /// output) — structurally avoiding the cumulative-transcript overflow a
     /// long-lived session would hit.
     ///
-    /// `schema` is intentionally **ignored** in this spike: the model runs
-    /// schema-unconstrained (no `@Generable` guided generation). The prompt
-    /// already instructs JSON and ``JSONResponseParser`` carries the field
-    /// contract. Consequence for the #1072 evaluation phase: FM parse-failure
-    /// rates are **not** apples-to-apples with the GBNF-grammar-constrained
-    /// ``LlamaCppService``.
+    /// `schema` is honoured only when the service was built with
+    /// `guidedGeneration: true` (default `false`). Unconstrained, the model runs
+    /// free-form: the prompt instructs JSON and ``JSONResponseParser`` carries
+    /// the field contract, so FM parse-failure rates are **not** apples-to-apples
+    /// with the GBNF-grammar-constrained ``LlamaCppService``. Constrained, the
+    /// turn decodes against a runtime `GenerationSchema` — see
+    /// `FoundationModelsService+GuidedGeneration`.
     ///
-    /// - Warning: **Adopting `@Generable` guided generation would silently
-    ///   re-enable the default guardrails**, undoing the permissive mode this
-    ///   backend is being re-evaluated under. Per Apple, permissive guardrails
-    ///   "only work for generating a string value. When you use guided
-    ///   generation, the framework runs the default guardrails against model
-    ///   input and output as usual." This service returns `response.content`
-    ///   (a plain `String`), which is the only shape permissive mode covers.
-    ///   So guided generation is not the free win #1072's first digest called
+    /// - Warning: **Guided generation is documented to re-enable the default
+    ///   guardrails**, which would undo the permissive mode this backend was
+    ///   re-evaluated under. Per Apple, permissive guardrails "only work for
+    ///   generating a string value. When you use guided generation, the
+    ///   framework runs the default guardrails against model input and output
+    ///   as usual." The unconstrained path returns `response.content` (a plain
+    ///   `String`), the only shape permissive mode covers; the guided path
+    ///   returns schema-decoded content and so is expected to lose that cover.
+    ///   That expectation is precisely what `guidedGeneration` exists to
+    ///   **measure** (#1072 reversal condition 1) — it is not yet an observed
+    ///   fact, which is why the flag defaults off. Guided generation is
+    ///   therefore not the free win #1072's first digest called
     ///   it — it trades JSON-validity assurance (already measured as a
     ///   non-problem) for the return of the failure that killed the spike.
     ///   Re-measure guardrails before adopting it.
@@ -154,10 +197,56 @@
       // permissive run that still throws `guardrailViolation` means this
       // argument went missing.
       let session = LanguageModelSession(model: self.model, instructions: system)
+      // Built ONCE here, ahead of any branch on generation path, and threaded to
+      // every `respond` overload. `respond`'s `options:` carries a compiler
+      // default, so a callsite that omits it silently generates unconstrained —
+      // structurally the same silent-default trap as the `model:` argument
+      // above, whose omission invalidated an entire 6-cell battery (#1156).
+      // One value, one construction site, so no two paths can disagree.
+      let options = GenerationOptions(maximumResponseTokens: maximumResponseTokens)
+      let seq = turnSeq.withLock { seq in
+        seq += 1
+        return seq
+      }
+      // Emitted BEFORE the `do` on purpose: a turn that overflows the context
+      // window throws out of `respond`, and the input-side numbers are exactly
+      // what blocker 2 needs on that turn. Measuring after the call would
+      // condition the whole sample on success and drop the failing population.
+      // Built here — ahead of the input-budget emission and OUTSIDE the `do` —
+      // for two reasons: `schemaTokens` needs a schema to report, and a
+      // schema-build failure is not a `GenerationError`, so it must not land in
+      // the catch arm below that maps generation errors.
+      var generationSchema: GenerationSchema?
+      if guidedGeneration, let schema, !schema.fields.isEmpty {
+        generationSchema = try Self.generationSchema(from: schema)
+      }
+      let inputTokens = await logInputTokenBudget(
+        seq: seq, system: system, user: user, schema: generationSchema)
       do {
-        let response = try await session.respond(to: user)
-        return response.content
+        let result: (text: String, entries: ArraySlice<Transcript.Entry>)
+        if let generationSchema {
+          result = try await respondGuided(
+            session: session, user: user, schema: generationSchema, options: options)
+        } else {
+          let response = try await session.respond(to: user, options: options)
+          result = (response.content, response.transcriptEntries)
+        }
+        await logResponseTokenBudget(
+          seq: seq, inputTokens: inputTokens, entries: result.entries)
+        return result.text
       } catch let error as LanguageModelSession.GenerationError {
+        if case .exceededContextWindowSize = error {
+          // No response exists, so no response-side line is emitted. Without
+          // this marker the event blocker 2 is ABOUT would be the one event
+          // absent from the data. Carries `input` directly (not only the `seq`
+          // join) because this line is the primary evidence: the #1154 smoke run
+          // saw overflow at input=403 against contextSize=4096 — under 10% of
+          // the window — while a turn with input=575 succeeded. Whatever
+          // exhausts the window, it is not the size of the input.
+          Self.emitTokenBudget(
+            "fmTokenBudget seq=\(seq) phase=overflow contextSize=\(model.contextSize) "
+              + "input=\(inputTokens)")
+        }
         throw Self.map(error)
       } catch {
         throw LLMError.generationFailed(description: String(describing: error))
