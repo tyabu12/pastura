@@ -63,19 +63,20 @@ jobs:
     #
     #   9m06s   scheduled baseline (measured, pre-#501-PR-C)
     # +   31s   gate-spike build+test step (measured x1.25; UNCAPPED by design)
-    # +    1s   SuspendController drift guard (measured; UNCAPPED)
     # +  15m    Stage-5 probe, at its cap        (workflow_dispatch only)
     # +   2m    gate measurements, at its cap    (workflow_dispatch only)
-    # = 26m38s  worst-case dispatch path, against the 30-minute cap
+    # = 26m37s  worst-case dispatch path, against the 30-minute cap
     #
-    # ~3m22s of margin. The earlier version of this note omitted the new steps
+    # ~3m23s of margin. The earlier version of this note omitted the new steps
     # and still concluded "9m06s + 15 = ~24 min", which at the measurement
     # step's original 5-minute cap actually composed to 29m37s — 23s of margin,
     # i.e. the cap was effectively already breached and the note said otherwise.
-    # Adding ANY step means REDOING this sum, not appending to the prose. The
-    # sum's term list must match the job's step list — that is the property
-    # that makes an omission detectable, which is why the ~1s drift guard gets
-    # a term rather than a "negligible, skipped" judgement.
+    # Adding OR REMOVING any step means REDOING this sum, not appending to (or
+    # striking from) the prose. The sum's term list must match the job's step
+    # list — that is the property that makes an omission detectable. The ~1s
+    # SuspendController drift guard once held a term here for exactly that
+    # reason; it moved to ci.yml as a per-PR job (#1171), so its term is gone
+    # from the sum rather than kept as a harmless rounding error.
     #
     # Note only the `+ 15` and `+ 2` are BOUNDS — the 9m06s and 31s terms are
     # measurements, and the konan clause below is the one known way the first
@@ -252,13 +253,6 @@ jobs:
           tools/kmp-gate-spike/scripts/stage-framework.sh
           swift build --package-path tools/kmp-gate-spike
           swift test --package-path tools/kmp-gate-spike --no-parallel
-
-      # #501 PR-C item 2. A drifted copy means the boundary suite is exercising
-      # a different object than the app ships — which would silently invalidate
-      # the evidence for §5.2 invariant 3, since that invariant is defended by
-      # the copy being byte-identical rather than by a test.
-      - name: SuspendController verbatim-copy drift guard
-        run: tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh
 
       # Stage-5 sizing probe (#1135) — NOT a regression check.
       #

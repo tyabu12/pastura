@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Six concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, and rename/namespace-sweep completion gates.
+Seven concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, and gate scripts' annotation paths and tracked-only scope.
 
 ## Shell scripting gotchas (macOS GHA runners)
 
@@ -186,6 +186,35 @@ git grep -nF 'com\.tyabu12'          # backslash-escaped on-disk literal
 `git grep` is tracked-only (fast, never descends into ignored/huge files) and
 repo-wide by default. Pairs with the "grep ALL instances before scoping"
 discipline.
+
+## Gate scripts: `::error file=` is repo-relative, and scope must be tracked-only
+
+Two traps that hit a gate script's *reporting* and *scope* rather than its logic,
+so tests of the verdict pass while both are broken.
+
+**Annotation paths.** GitHub resolves an annotation's `file=` **relative to the
+repository root**. A script that builds paths from a `REPO_ROOT="$(cd … && pwd)"`
+emits absolute ones, which match no tracked file — the annotation degrades to a
+job-level message with no line linkage in the Files-changed view, *while still
+rendering as a normal annotation in the log*. That is why it ships unnoticed.
+Strip the prefix at emission, and pass `line=` whenever a `grep -n` already has
+the number. Reference: `tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh`
+(`annotate_path`).
+
+**Scope.** A gate asserting a **repository** invariant must read tracked files
+(`git ls-files` / `git grep`), never walk the worktree. Build output is the
+counterexample that bites: `Pastura/DerivedData/` and `.build/artifacts/` both
+hold a vendored `llama.xcframework` after any local build, so a `find`-based
+check is **green on a fresh CI checkout and red on every developer machine** —
+the split least likely to be noticed, since CI never shows it. (§ "Rename /
+namespace-sweep completion gate" reaches the same tracked-only call from the
+other direction: escaped-form blind spots and `rg` hanging on DerivedData.)
+
+**Testing both.** Neither is observable from a passing run, so a perturbation
+test must force each: an annotation assertion needs a fixture **inside** the repo
+(under a gitignored path, e.g. `Pastura/DerivedData/`, removed immediately) —
+one built in `mktemp -d` never takes the relativizing branch and the assertion
+silently exempts every case it sees. See #1171 for both incidents.
 
 ## Related
 

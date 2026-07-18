@@ -1062,9 +1062,15 @@ jobs:
 
   # ADR-023 §6 decision B′: "No per-PR lane acquires an XCFramework dependency
   # — not the iOS xcodebuild, not the root Package.swift harness build, not a
-  # dev `swift build`." The root manifest is the one that would leak it, since
+  # dev `swift build`." The root manifest is the commonest leak, since
   # `harness-build` runs a bare `swift build` and that builds every target the
   # root declares. The gate spike therefore lives in its own nested manifest.
+  #
+  # The guard covers the iOS lane too — the pbxproj, and a tracked
+  # `.xcframework` under `Pastura/` that the project's synchronized root groups
+  # would sweep in without any pbxproj entry. Its header states the one lane it
+  # cannot see and what B′ is really protecting; read it before widening or
+  # trusting the scope.
   #
   # Ungated (ubuntu, seconds): a gated guard would skip on exactly the PRs that
   # only touch the manifest.
@@ -1076,28 +1082,41 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
-      # Comment lines are stripped first: a comment EXPLAINING that the root
-      # deliberately has no binary target would otherwise fail this gate — a
-      # false positive found by perturbing the guard with exactly that shape.
-      - name: Root manifest declares no binary target
-        run: |
-          set -euo pipefail
-          if grep -vE '^[[:space:]]*(//|\*|/\*)' Package.swift | grep -n 'binaryTarget'; then
-            echo "::error file=Package.swift::ADR-023 decision B' violated: the root" \
-                 "manifest declares a .binaryTarget, so every per-PR 'swift build'" \
-                 "now requires an assembled XCFramework. Keep the gate consumer in" \
-                 "tools/kmp-gate-spike/Package.swift."
-            exit 1
-          fi
+      # Guard logic lives in the script, not inline here, so that
+      # scripts/tests/kmp-gate-isolation-test.sh can perturb it against
+      # synthetic fixtures — the guard's own success case proves nothing about
+      # whether it would fire. The script's header states what it covers and
+      # the one lane it cannot (an SPM remote package declaring a
+      # .binaryTarget leaves no greppable trace).
+      - name: Run B′ isolation guard
+        run: tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh
 
-      - name: Gate spike is not reachable from the root package graph
-        run: |
-          set -euo pipefail
-          if grep -vE '^[[:space:]]*(//|\*|/\*)' Package.swift | grep -n 'kmp-gate-spike'; then
-            echo "::error file=Package.swift::ADR-023 decision B' violated: the root" \
-                 "manifest references tools/kmp-gate-spike."
-            exit 1
-          fi
+  # Job-only guard like the drift siblings above, and per-PR rather than
+  # nightly on purpose. The check is pure bash/awk/diff over two tracked
+  # files (~1s, no build dependency), so it never needed the nightly's
+  # XCFramework rung. Leaving it there had a cost beyond latency: the
+  # nightly's `failure()` issue-filer reports a red run as "a native-path
+  # regression the per-PR job could not catch", which a verbatim-copy
+  # drift is not — a one-sided edit went green on the PR and then
+  # mis-attributed itself overnight.
+  #
+  # Coverage does not regress in the move: ci.yml's triggers (push→main /
+  # pull_request / schedule / workflow_dispatch) are a superset of the
+  # nightly's (schedule / workflow_dispatch).
+  suspendcontroller-drift:
+    name: SuspendController verbatim-copy drift guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # A drifted copy means the gate spike's boundary suite exercises a
+      # different object than the app ships — which silently invalidates the
+      # evidence for ADR-023 §5.2 invariant 3, since that invariant is
+      # defended by the copy being byte-identical rather than by a test.
+      - name: Run SuspendController drift guard
+        run: tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh
 
   # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
   # CSS mirror consumed by the claude.ai Design System project) faithful to

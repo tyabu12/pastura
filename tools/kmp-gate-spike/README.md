@@ -38,13 +38,39 @@ into it. Both directions are asserted per-PR by the `kmp-gate-isolation` job in
 `.github/workflows/ci.yml` — ungated, because a gated guard would skip on
 exactly the PRs that only touch the manifest.
 
-**What that job does not cover**, stated so the guarantee is not read wider than
-it is: it greps the root `Package.swift`, which is the common cause for two of
-B′'s three lanes (the harness build and a dev `swift build`). The **iOS
-xcodebuild** lane is not checked by it — an XCFramework added to
-`Pastura.xcodeproj` would violate B′ without touching any manifest. The grep
-also strips whole-line comments only, so a trailing `// … .binaryTarget …`
-still trips it. Both gaps are tracked in #1171.
+The guard logic is `scripts/check-b-prime-isolation.sh`, exercised against
+synthetic perturbation fixtures by `scripts/tests/kmp-gate-isolation-test.sh`
+(the CI "Shell gate tests" job). It covers all three of B′'s lanes: the root
+manifest declares no `.binaryTarget` and does not reach into this package (the
+harness build and a dev `swift build`), the pbxproj references no
+`.xcframework`, and no **tracked** `*.xcframework` sits under `Pastura/` — the
+last because the project uses `PBXFileSystemSynchronizedRootGroup`, so a
+framework committed inside a synchronized directory joins the iOS target with no
+pbxproj entry to grep. Comment stripping on the manifest is quote-aware, so
+neither a comment mentioning the forbidden token nor a `//`-bearing URL string
+changes the verdict. Check (4) reads `git ls-files`, not the worktree: build
+output (`Pastura/DerivedData/`, `.build/artifacts/`) holds a vendored
+`llama.xcframework` on any machine that has built, and a worktree walk would go
+red locally while staying green on a fresh CI checkout.
+
+The stripper models **single-line** string literals only. A manifest shape it
+cannot follow — a `"""` or raw literal, or an unterminated block comment —
+**fails the gate (exit 3) rather than passing it**, because a scanner that has
+lost its place cannot tell a clean manifest from a leaking one. If you add such
+a literal to the root `Package.swift` and this job goes red with "could not
+parse", that is the guard declining to vouch, not a detected violation.
+
+**What B′ is protecting**, since the invariant as worded reads wider than it is:
+the cost is *assembling* the KMP XCFramework (~6m32s cold), not depending on any
+binary artifact. `llama.swift` already vendors a prebuilt `llama.xcframework`
+into the iOS lane and does not violate B′ — it is downloaded, not built.
+
+**The one lane the guard cannot cover**: an SPM **remote** package that itself
+declares a `.binaryTarget` pointing at a KMP-assembled framework. Resolving one
+leaves no `.xcframework` text anywhere in the project — only an
+`XCSwiftPackageProductDependency` and an entry in `Package.resolved` — so no
+grep can see it. Check that by hand if a future dependency is ever sourced that
+way.
 
 **Do not consolidate this into the root manifest.** If a future change makes
 that look attractive, the constraint above is the reason it is not.
@@ -101,7 +127,10 @@ relative to the package root and rejects one that escapes it, so
 
 `Sources/KMPGateSpike/SuspendController.swift` is a **verbatim copy** of
 `Pastura/Pastura/LLM/SuspendController.swift`, not a re-implementation, and the
-nightly workflow fails if the two diverge.
+`suspendcontroller-drift` job in `.github/workflows/ci.yml` fails **per-PR** if
+the two diverge. It is a plain bash/awk/diff comparison of two tracked files, so
+it needs neither the XCFramework nor a macOS runner — which is why it does not
+live with the rest of this package's checks in `kmp-nightly.yml` (#1171).
 
 The same SwiftPM path-escape rule that forces the staged framework also forbids
 referencing the real file from this package. A hand-written stand-in was

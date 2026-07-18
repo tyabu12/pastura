@@ -104,9 +104,7 @@ class SimulationEngineTests {
         }
 
         val isTerminal: Boolean
-            get() = ref.load().lastOrNull().let {
-                it is SimulationEvent.SimulationCompleted || it is SimulationEvent.ErrorEvent
-            }
+            get() = ref.load().lastOrNull()?.isTerminal == true
 
         fun snapshot(): List<SimulationEvent> = ref.load()
     }

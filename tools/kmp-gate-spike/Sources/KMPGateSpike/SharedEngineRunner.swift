@@ -89,18 +89,18 @@ nonisolated public final class SharedEngineRunner: Sendable {
 
       let handle = engine.run(scenario: scenario, backend: relayingBackend) { event in
         continuation.yield(event)
-        if Self.isTerminal(event) {
+        // Terminality is declared on the Kotlin `SimulationEvent` itself, via
+        // an exhaustive `when` the compiler rejects when a subclass is added.
+        // This used to be a local `is SimulationCompleted || is ErrorEvent`
+        // chain, which no gate could see: ADR-022's no-default check reaches
+        // `when` / `switch` projections, not `is` / `==` predicates. A new
+        // terminal case would have left this stream never finishing, silently.
+        if event.isTerminal {
           continuation.finish()
         }
       }
       handleBox.store(handle)
     }
-  }
-
-  /// The two events after which no further event arrives, per
-  /// `SimulationEngine.run`'s contract.
-  private static func isTerminal(_ event: SimulationEvent) -> Bool {
-    event is SimulationEvent.SimulationCompleted || event is SimulationEvent.ErrorEvent
   }
 }
 

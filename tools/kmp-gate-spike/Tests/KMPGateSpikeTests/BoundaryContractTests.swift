@@ -203,9 +203,7 @@ struct BoundaryContractTests {
     // The `for await` returning at all is the assertion that matters: an
     // adapter that forwarded events but never called `finish()` would hang
     // here rather than fail.
-    let terminals = events.filter {
-      $0 is SimulationEvent.SimulationCompleted || $0 is SimulationEvent.ErrorEvent
-    }
+    let terminals = events.filter(\.isTerminal)
     #expect(terminals.count == 1)
     #expect(events.last is SimulationEvent.SimulationCompleted)
     // One round × two agents.
