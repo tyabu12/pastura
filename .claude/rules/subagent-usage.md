@@ -2,12 +2,13 @@
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Everything numeric — the
-> cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical.
-> The thresholds are *derived* from the cap table (smallest practical budget, prose-dense report),
-> so they are recomputed upstream, never retuned here. The one genuinely local input is report
-> density per changed line: it licenses bounding a call **tighter at the call site, never looser**
-> — a caller wanting less scope splits smaller instead of editing §2's numbers or the copies in
-> `.claude/agents/code-reviewer.md`. Pastura-specific content lives only in this copy.
+> cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical:
+> the thresholds are *derived* from the cap table (smallest practical budget, prose-dense report),
+> so they are recomputed upstream, never retuned here. The one lever a caller controls is report
+> density per changed line — generated fixtures report far shorter than dense source — and it
+> licenses bounding a call **tighter at the call site, never looser**: split smaller rather than
+> edit §2's numbers or any agent copy of them (today `.claude/agents/code-reviewer.md`).
+> Pastura-specific content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
 loading-mode rationale. Subagent calls can originate from any layer
@@ -89,8 +90,9 @@ exceeded. The kit-provided `claude-kit:critic` self-defends differently
 first, explicit deferrals instead of a bail-out). Defense in depth: subagent
 budget exhaustion is silent (intermediate text returned, final report
 missing), so the duplication with §2 is intentional. Concretely, that
-looks like the mandated terminal section (`code-reviewer`'s Verdict
-block, `critic`'s Summary Table / Top Actions) missing *while*
+looks like a mandated section missing (`code-reviewer` ends with
+Dependency Check, not the Verdict; `critic` emits its tail first, so
+there it is the per-axis bodies that go) *while*
 intermediate tool output is present and no `SCOPE_TOO_LARGE` fired — a
 merely short report is not the signal.
 
