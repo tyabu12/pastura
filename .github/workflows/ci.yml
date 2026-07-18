@@ -75,6 +75,13 @@ jobs:
       # gallery) changed, so the harness `lint` gate runs even on a
       # gallery-only PR (which classifies ios=false). See the classify step.
       scenarios: ${{ steps.classify.outputs.scenarios }}
+      # True when the changeset can affect the KMP build — either its Kotlin /
+      # Gradle inputs, or the workflow YAML that declares its toolchain. The
+      # second half is why this is NOT just `ios`: `.github/` is SAFE, so a
+      # workflow-only PR classifies ios=false while editing the very JDK /
+      # Xcode / cache-key / Gradle-task-token declarations the KMP job runs on.
+      # See the classify step and the `kmp-build-test` gate.
+      kmp: ${{ steps.classify.outputs.kmp }}
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -95,6 +102,9 @@ jobs:
             # is never left un-triggered by an unset output if the ios arm is
             # ever narrowed. On non-PR events ios=true already runs harness-build.
             echo "scenarios=true" >> "$GITHUB_OUTPUT"
+            # ios=true already runs kmp-build-test; emitted anyway so the gate
+            # never depends on an unset output if the ios arm is narrowed.
+            echo "kmp=true" >> "$GITHUB_OUTPUT"
             echo "Non-PR event → always run the full iOS suite (main stability)."
             exit 0
           fi
@@ -115,6 +125,7 @@ jobs:
           if [ -z "$FILES" ]; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
             echo "scenarios=true" >> "$GITHUB_OUTPUT"
+            echo "kmp=true" >> "$GITHUB_OUTPUT"
             echo "No file list resolved → defaulting to the full iOS suite."
             exit 0
           fi
@@ -130,6 +141,7 @@ jobs:
           if ! TOKENS=$(printf '%s\n' "$FILES" | bash scripts/precommit-gate-classify.sh); then
             echo "ios=true" >> "$GITHUB_OUTPUT"
             echo "scenarios=true" >> "$GITHUB_OUTPUT"
+            echo "kmp=true" >> "$GITHUB_OUTPUT"
             echo "Classifier failed → defaulting to the full iOS suite."
             exit 0
           fi
@@ -152,6 +164,21 @@ jobs:
             echo "scenarios=true" >> "$GITHUB_OUTPUT"
           else
             echo "scenarios=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          # Independent of the ios classification, flag whether the KMP build
+          # could be affected. The Kotlin/Gradle inputs all classify `build`
+          # (⇒ ios=true) on their own — they are listed for honesty, not
+          # reach. The load-bearing token is the workflow pair: `.github/` is
+          # SAFE, so WITHOUT this a PR editing the KMP job's own toolchain
+          # (JDK / DEVELOPER_DIR / cache keys / Gradle task tokens, all
+          # declared in YAML) would skip the job that validates it — leaving
+          # kmp-nightly.yml as the only backstop, ≤24h later and post-merge.
+          # `\.gradle\.kts$` covers both root and per-module build scripts.
+          if printf '%s\n' "$FILES" | grep -qE '^(shared/|gradle/|gradlew|gradle\.properties$)|\.gradle\.kts$|^\.github/workflows/(ci|kmp-nightly)\.yml$'; then
+            echo "kmp=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "kmp=false" >> "$GITHUB_OUTPUT"
           fi
 
   lint-and-test:
@@ -601,13 +628,41 @@ jobs:
   # KMP Models layer build & test (#501 Stage 1, ADR-023). Validates that the
   # `shared/models` Kotlin Multiplatform module lands green and stays green.
   #
-  # NO job-level `if:` — the workflow `on:` triggers already restrict CI to
-  # main-targeted events (push→main / PR base=main / daily `schedule` /
-  # `workflow_dispatch`), so a gate-free job runs on ALL of them, including the
-  # daily green-main canary. This is the discharge of the #501 §9.7 landmine
-  # (a): the retired spike gate skipped on `base_ref == main`; a job with no
-  # gate cannot fail to fire. (The T11 spike-branch `on:` triggers are NOT
-  # carried — landmine (c).)
+  # Job-level `if:` gated on the `changes` classifier, so a SAFE-only PR
+  # (docs / web / `.claude/` / `*.md`) skips it — measured at 16 of the last 40
+  # merges. Those runs skip every iOS job too, leaving this as the sole macOS
+  # job and the run's long pole; on an iOS-touching PR it finishes well inside
+  # lint-and-test and the gate saves nothing there.
+  #
+  # This does NOT reintroduce #501 §9.7 landmine (a) (a gate that fails to
+  # fire). The form is conservative by inversion per ci-workflows.md invariant
+  # 1 — it runs UNLESS explicitly classified out, so every ambiguous branch
+  # runs: non-PR events (push→main / daily `schedule` / `workflow_dispatch`)
+  # short-circuit to `ios=true` in the classifier, an empty or API-errored
+  # PR-files list and a classifier crash both fall back to `ios=true`, and an
+  # outright `changes`-job failure leaves the output empty — which `!= 'false'`
+  # treats as run, with `!cancelled()` dropping the implicit needs-success gate
+  # that would otherwise false-skip a required check. (The T11 spike-branch
+  # `on:` triggers are still NOT carried — landmine (c).)
+  #
+  # The `|| kmp == 'true'` arm is load-bearing, not belt-and-braces: `.github/`
+  # is in the classifier's SAFE set, so a workflow-only PR classifies
+  # `ios=false` — and this job's entire build environment (JDK, DEVELOPER_DIR,
+  # cache-key expressions, action pins, the literal Gradle task-token lists
+  # below) is declared in this very file. On `ios` alone, such a PR would skip
+  # the job that validates it. Same shape as `harness-build`'s `scenarios` arm.
+  #
+  # Safety rests on the classifier being default-deny: only the SAFE regex
+  # yields an empty token set, so every KMP input outside
+  # `docs/` / `web/` / `.github/` / `.claude/` / `*.md` classifies `build`
+  # ⇒ `ios=true`. All five step-level `full_native` promotion paths were run
+  # through `scripts/precommit-gate-classify.sh` and classify `build`, so this
+  # job-level gate is a strict SUPERSET of the step-level promotion set and
+  # cannot pre-empt it. (Edge case, harmless: a `shared/**/*.md` is SAFE — it
+  # is caught by the `^shared/` token in the `kmp` predicate anyway.)
+  #
+  # Cost of the gate: the job now queues behind the ubuntu `changes` job
+  # instead of starting at t=0. Negligible against a 1–3 min job.
   #
   # Runs as a parallel job to the iOS xcodebuild jobs. The default path (JVM
   # tests + a single-target native klib COMPILE-ONLY) stays shorter than the
@@ -617,6 +672,8 @@ jobs:
   # the classify step).
   kmp-build-test:
     name: KMP build & test (#501)
+    needs: changes
+    if: ${{ !cancelled() && (needs.changes.outputs.ios != 'false' || needs.changes.outputs.kmp == 'true') }}
     runs-on: macos-26
     # Headroom for the rare cold full-native PROMOTION path (build-config PRs).
     # The compile-only DEFAULT is tripwired far tighter at the step level below
