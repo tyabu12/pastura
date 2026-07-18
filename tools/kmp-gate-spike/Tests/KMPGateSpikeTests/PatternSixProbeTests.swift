@@ -49,7 +49,10 @@ import Testing
 /// whose sibling `loadModelInternal` already carries `@concurrent` for exactly
 /// this reason (#822). An adapter refactor that makes either entry point `async`
 /// re-opens the trap silently; test 3 is the regression guard for that.
-@Suite("Pattern 6 — executor inheritance", .timeLimit(.minutes(1)))
+/// `.serialized`: the liveness test asserts a MainActor tick floor, so it must
+/// not share the machine with this suite's own blocking probes. Overlap with
+/// *other* suites is excluded by running the package with `--no-parallel`.
+@Suite("Pattern 6 — executor inheritance", .timeLimit(.minutes(1)), .serialized)
 struct PatternSixProbeTests {
 
   // MARK: - The regime, and the detector's two directions

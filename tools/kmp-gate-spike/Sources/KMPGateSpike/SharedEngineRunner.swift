@@ -55,15 +55,32 @@ nonisolated public final class SharedEngineRunner: Sendable {
 
       // The engine needs the backend before it can hand back a handle, but the
       // relay needs the handle to call `notifyLLMResumed()`. The box closes
-      // that cycle: the wrapper reads it lazily, and a `.suspended` terminal
-      // cannot arrive before `run` has returned and filled it, because the
-      // engine only starts issuing inference calls after that point.
+      // that cycle.
+      //
+      // It must also *latch*, because the handle genuinely can arrive late:
+      // `SimulationEngine.run` does a non-lazy `scope.launch { RunLoop(...)
+      // .execute() }` on `Dispatchers.Default` and only then returns the
+      // handle, so the run loop can issue an inference call, take a
+      // `.suspended` terminal, and drive the relay while `store` has not yet
+      // run on this thread. Reading the handle optionally in that window would
+      // drop the wakeup and park the run forever — see `RunHandleBox`.
       let relayingBackend = SuspensionRelayingBackend(
         wrapping: backend,
         suspendController: suspendController,
         handleBox: handleBox,
         relayBox: relayBox
       )
+
+      // Installed before `engine.run` for the same reason the box latches: the
+      // run is already live once `run` is called, so a consumer that breaks out
+      // immediately would otherwise find no cancel wiring installed yet.
+      continuation.onTermination = { _ in
+        // Fires on normal finish AND on early consumer termination. `cancel()`
+        // is idempotent, so the normal path costs a no-op rather than needing
+        // a "did it already finish?" flag.
+        handleBox.cancel()
+        relayBox.cancelPending()
+      }
 
       let handle = engine.run(scenario: scenario, backend: relayingBackend) { event in
         continuation.yield(event)
@@ -72,14 +89,6 @@ nonisolated public final class SharedEngineRunner: Sendable {
         }
       }
       handleBox.store(handle)
-
-      continuation.onTermination = { _ in
-        // Fires on normal finish AND on early consumer termination. `cancel()`
-        // is idempotent, so the normal path costs a no-op rather than needing
-        // a "did it already finish?" flag.
-        handleBox.handle?.cancel()
-        relayBox.cancelPending()
-      }
     }
   }
 
@@ -91,11 +100,21 @@ nonisolated public final class SharedEngineRunner: Sendable {
 }
 
 /// Holds the `RunHandle` the engine returns, so the relay and the termination
-/// handler can reach it from other threads.
+/// handler can reach it from other threads — **and latches signals that arrive
+/// before it exists.**
 ///
-/// `@unchecked Sendable`: the stored handle is guarded by the mutex, and the
-/// Kotlin handle's own methods are documented idempotent and thread-safe.
-nonisolated private final class RunHandleBox: @unchecked Sendable {
+/// The latch is not defensive padding. `SimulationEngine.run` launches the run
+/// loop on `Dispatchers.Default` *before* returning the handle, so there is a
+/// real window in which the engine is running while this box is still empty. A
+/// resume dropped in that window parks the run forever, and a cancel dropped in
+/// it leaks the Kotlin coroutine. Both are replayed on `store`.
+///
+/// `@unchecked Sendable`: all state is guarded by the mutex, and the Kotlin
+/// handle's own methods are documented idempotent and thread-safe.
+// Internal rather than private so the latch can be tested directly: the window
+// it closes is a genuine thread race that a black-box test cannot force
+// deterministically, and an untested latch is indistinguishable from a comment.
+nonisolated final class RunHandleBox: @unchecked Sendable {
   // Boxed rather than stored bare: `Mutex.withLock` takes an `inout sending`
   // parameter, and `any RunHandle` is a Kotlin/Native protocol with no Swift
   // `Sendable` conformance — so a bare store fails with "'inout sending'
@@ -105,13 +124,47 @@ nonisolated private final class RunHandleBox: @unchecked Sendable {
     let value: any RunHandle
   }
 
-  private let storage = Mutex<Boxed?>(nil)
+  private struct State: @unchecked Sendable {
+    var handle: Boxed?
+    var pendingResume = false
+    var pendingCancel = false
+  }
 
-  var handle: (any RunHandle)? { storage.withLock { $0 }?.value }
+  private let storage = Mutex(State())
 
+  /// Stores the handle and replays anything that arrived before it.
+  ///
+  /// Cancel is replayed after resume so a run cancelled while parked is first
+  /// released and then torn down, matching the order the live path produces.
   func store(_ handle: any RunHandle) {
     let boxed = Boxed(value: handle)
-    storage.withLock { $0 = boxed }
+    let pending: (resume: Bool, cancel: Bool) = storage.withLock { state in
+      state.handle = boxed
+      let carried = (state.pendingResume, state.pendingCancel)
+      state.pendingResume = false
+      state.pendingCancel = false
+      return carried
+    }
+    if pending.resume { handle.notifyLLMResumed() }
+    if pending.cancel { handle.cancel() }
+  }
+
+  /// Releases a parked inference, latching if the handle has not arrived yet.
+  func notifyResumed() {
+    let handle: Boxed? = storage.withLock { state in
+      if state.handle == nil { state.pendingResume = true }
+      return state.handle
+    }
+    handle?.value.notifyLLMResumed()
+  }
+
+  /// Cancels the run, latching if the handle has not arrived yet.
+  func cancel() {
+    let handle: Boxed? = storage.withLock { state in
+      if state.handle == nil { state.pendingCancel = true }
+      return state.handle
+    }
+    handle?.value.cancel()
   }
 }
 
@@ -178,7 +231,7 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
             // cancellation, so this check is the one that distinguishes the
             // two exits.
             guard !Task.isCancelled else { return }
-            handleBox.handle?.notifyLLMResumed()
+            handleBox.notifyResumed()
           })
       })
     return wrapped.generateStream(request: request, callbacks: observing)
@@ -188,10 +241,15 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
 /// Forwards every callback through untouched, notifying the relay when the
 /// stream ends in `.suspended`.
 ///
-/// Forwarding order is load-bearing: the terminal reaches Kotlin **before** the
-/// relay is armed. Arming first would open a window where a resume that lands
-/// immediately calls `notifyLLMResumed()` on a park the engine has not created
-/// yet — the lost-wakeup shape §5.2 invariant 3 exists to rule out.
+/// **Forwarding order here is not load-bearing**, and an earlier version of
+/// this comment claimed the opposite. §5.2 invariant 3 is satisfied on the
+/// *Kotlin* side, not by this ordering: `LLMCaller` calls `SuspensionRelay
+/// .arm()` before it issues the stream, so the `CompletableDeferred` already
+/// exists across this whole window, and its completion is sticky — a
+/// `notifyLLMResumed()` that lands before Kotlin parks is recorded, not
+/// dropped. Forwarding the terminal first is simply the natural order; it is
+/// not closing a race, and no future reader should preserve it as though it
+/// were. See `SuspensionRelay`'s KDoc, which is the authority on the invariant.
 nonisolated private final class RelayObservingCallbacks: StreamCallbacks, @unchecked Sendable {
   private let wrapped: any StreamCallbacks
   private let onSuspended: @Sendable () -> Void

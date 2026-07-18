@@ -12,18 +12,32 @@ import Testing
 /// witness: it holds because `SuspendController` latches `.resumed` with no
 /// awaiter and Kotlin's `CompletableDeferred` completes sticky. A test can
 /// only sample orderings it happens to schedule, so passing would prove
-/// nothing about the constraint. What is pinned instead is the arming order
-/// that makes the constraint reachable (``relayArmsAfterTerminalReachesKotlin``)
-/// and the round trip that depends on it. Invariant 3 itself is defended by
-/// the verbatim-copy drift guard on `SuspendController` — the object under
-/// test is byte-identical to the shipping one, so its latch semantics are not
-/// a stand-in.
+/// nothing about the constraint in general. Two things are pinned instead:
+/// the tightest race the suite *can* schedule still completes
+/// (``resumeInTheTightestWindowStillCompletes``), and the Swift-side latch
+/// that makes the window survivable is unit-tested directly
+/// (``RunHandleBoxLatchTests``). Invariant 3 itself is defended by the
+/// verbatim-copy drift guard on `SuspendController` — the object under test is
+/// byte-identical to the shipping one, so its latch semantics are not a
+/// stand-in.
+///
+/// Note that the *forwarding order* inside `RelayObservingCallbacks` is *not*
+/// what makes this work, though an earlier revision of this suite said so.
+/// Kotlin's `LLMCaller` arms the relay before issuing the stream, so the
+/// deferred spans the entire window regardless of the order used here.
 /// The time limit is load-bearing, not hygiene. A broken suspension relay does
 /// not make these tests *fail* — it makes them **hang**, because the engine
 /// stays parked and the consumer task never returns. Verified by deleting the
 /// `notifyLLMResumed()` call: without this trait the run wedges until CI's own
 /// job timeout, reporting nothing useful.
-@Suite("§5 boundary contracts", .timeLimit(.minutes(1)))
+///
+/// `.serialized` because several tests here drain paced scripts with a real
+/// sleep per callback, and the Pattern 6 probe next door asserts MainActor
+/// liveness against a tick floor. Letting these overlap each other starves that
+/// probe; the suite is sub-second, so serialising costs nothing. Cross-*suite*
+/// overlap is not covered by this trait — that is why the package is run with
+/// `--no-parallel` (see the README and `kmp-nightly.yml`).
+@Suite("§5 boundary contracts", .timeLimit(.minutes(1)), .serialized)
 struct BoundaryContractTests {
 
   // MARK: - §5.2 clause 1/2 — chunk-then-terminal shape
@@ -261,11 +275,15 @@ struct BoundaryContractTests {
     #expect(backend.callCount == 3)
   }
 
-  @Test("the relay arms only after the terminal has reached Kotlin")
-  func relayArmsAfterTerminalReachesKotlin() async throws {
-    // The ordering `SharedEngineRunner`'s `RelayObservingCallbacks` documents:
-    // forward the terminal first, arm the relay second. Arming first opens the
-    // lost-wakeup window a resume landing immediately would fall into.
+  @Test("a resume landing in the tightest window still completes the run")
+  func resumeInTheTightestWindowStillCompletes() async throws {
+    // Invariant 3's observable half. This previously asserted an *ordering*
+    // inside `RelayObservingCallbacks` and carried no `#expect` at all, so
+    // swapping the two forwarding statements still passed — while the ordering
+    // it named turned out not to be load-bearing anyway (Kotlin arms first).
+    // What is worth pinning is the outcome: resume as early as the suite can
+    // schedule it, and the run must still reach SimulationCompleted rather
+    // than parking forever.
     let controller = SuspendController()
     let runner = SharedEngineRunner(suspendController: controller)
     let backend = ScriptedStreamingBackend(responses: [
@@ -290,7 +308,90 @@ struct BoundaryContractTests {
     // Polled, not awaited — same reason as the round-trip test above.
     try await pollUntil { collected.withLock { $0.last } is SimulationEvent.SimulationCompleted }
     consumer.cancel()
+
+    // The assertions the previous version lacked. `pollUntil` throwing on
+    // timeout already covers the park-forever case, but these pin that the
+    // suspended call was genuinely re-issued rather than skipped: one
+    // suspended call plus two agent turns.
+    #expect(backend.callCount == 3)
+    #expect(collected.withLock { $0.last } is SimulationEvent.SimulationCompleted)
   }
+
+  /// The Swift half of §5.2 invariant 3, tested where it is deterministic.
+  ///
+  /// `SimulationEngine.run` launches the run loop before returning the handle, so
+  /// a `.suspended` terminal can drive the relay while `SharedEngineRunner` has
+  /// not stored the handle yet. The end-to-end tests cannot force that interleave
+  /// — they can only sample whatever the scheduler gives them — but the box that
+  /// closes it is a plain object, so the window can be reproduced exactly by
+  /// signalling before `store`.
+  @Suite("run-handle latch", .timeLimit(.minutes(1)))
+  struct RunHandleBoxLatchTests {
+
+    @Test("a resume arriving before the handle is replayed, not dropped")
+    func resumeBeforeStoreIsReplayed() {
+      let box = RunHandleBox()
+      let handle = RecordingRunHandle()
+
+      box.notifyResumed()
+      #expect(handle.resumeSignals == 0, "nothing to deliver to yet")
+
+      box.store(handle)
+      #expect(handle.resumeSignals == 1, "the latched resume must fire on store")
+    }
+
+    @Test("a cancel arriving before the handle is replayed, not dropped")
+    func cancelBeforeStoreIsReplayed() {
+      let box = RunHandleBox()
+      let handle = RecordingRunHandle()
+
+      box.cancel()
+      box.store(handle)
+
+      #expect(handle.cancels == 1, "an early consumer break must still tear the run down")
+    }
+
+    @Test("signals arriving after the handle go straight through")
+    func signalsAfterStorePassThrough() {
+      let box = RunHandleBox()
+      let handle = RecordingRunHandle()
+
+      box.store(handle)
+      box.notifyResumed()
+      box.cancel()
+
+      #expect(handle.resumeSignals == 1)
+      #expect(handle.cancels == 1)
+    }
+
+    @Test("a latched signal fires once, not on every later store")
+    func latchIsClearedOnReplay() {
+      let box = RunHandleBox()
+      let first = RecordingRunHandle()
+      let second = RecordingRunHandle()
+
+      box.notifyResumed()
+      box.store(first)
+      box.store(second)
+
+      #expect(first.resumeSignals == 1)
+      #expect(second.resumeSignals == 0, "the latch must not re-fire")
+    }
+  }
+}
+
+/// Counts what the latch delivers. `RunHandle` is a Kotlin/Native protocol, so
+/// this is also one more instance of the shim class measurement (iii) counts.
+nonisolated private final class RecordingRunHandle: RunHandle, @unchecked Sendable {
+  private let state = Mutex((resumes: 0, cancels: 0))
+
+  var resumeSignals: Int { state.withLock { $0.resumes } }
+  var cancels: Int { state.withLock { $0.cancels } }
+
+  func pause() {}
+  func resume() {}
+  func cancel() { state.withLock { $0.cancels += 1 } }
+  func notifyLLMResumed() { state.withLock { $0.resumes += 1 } }
 }
 
 // MARK: - Helpers
