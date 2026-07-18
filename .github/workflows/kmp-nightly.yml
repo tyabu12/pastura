@@ -202,6 +202,43 @@ jobs:
           :shared:engine:assemblePasturaSharedEngineXCFramework
           --no-daemon --stacktrace
 
+      # ADR-023 §6 Stage-2 gate consumer (#501 PR-C).
+      #
+      # UNGUARDED, deliberately unlike the probe below — this is a REGRESSION
+      # check, not a measurement. If the boundary adapters stop compiling or
+      # their contract tests fail, that IS "a native-path regression the per-PR
+      # job could not catch", which is exactly the claim the failure-issue step
+      # makes. The per-PR lanes cannot catch it because decision B′ keeps the
+      # XCFramework out of them, which is what leaves this job as the only
+      # place it can surface.
+      #
+      # Ordering is load-bearing: this sits BEFORE the probe so a probe that
+      # degrades to its 15-minute cap cannot starve the regression check of the
+      # job's remaining budget.
+      #
+      # `stage-framework.sh` re-runs the Gradle assemble (incremental, and the
+      # step above already built it) and copies the result inside the package —
+      # SwiftPM rejects a `.binaryTarget` path that escapes the package root,
+      # so staging is not avoidable.
+      #
+      # Sizing, by the step-to-step method the job-level note above insists on:
+      # local clean build 13s + tests 12s, x1.25 => ~31s. Immaterial against the
+      # 9m06s scheduled term, so `timeout-minutes: 30` is unchanged — the
+      # composition it rests on (9m06s + the probe's 15-minute cap) still holds.
+      - name: Gate spike — stage XCFramework, build, test
+        run: |
+          set -euo pipefail
+          tools/kmp-gate-spike/scripts/stage-framework.sh
+          swift build --package-path tools/kmp-gate-spike
+          swift test --package-path tools/kmp-gate-spike
+
+      # #501 PR-C item 2. A drifted copy means the boundary suite is exercising
+      # a different object than the app ships — which would silently invalidate
+      # the evidence for §5.2 invariant 3, since that invariant is defended by
+      # the copy being byte-identical rather than by a test.
+      - name: SuspendController verbatim-copy drift guard
+        run: tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh
+
       # Stage-5 sizing probe (#1135) — NOT a regression check.
       #
       # ADR-023 §6 Stage 5 must decide whether the iOS app's per-PR CI can
@@ -268,6 +305,36 @@ jobs:
             printf '  the same job just did.\n\n'
             printf 'Compare against the repo CI budget (target <=10 min) only after adding\n'
             printf 'restore time and a key-miss margin.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ADR-023 §6 gate measurements (i)/(ii)/(iii) — a MEASUREMENT, so it
+      # carries the SAME three guards as the sizing probe above, for the same
+      # reason: the failure-issue step below claims a red run means a native
+      # regression, and a measurement must never be able to make that claim.
+      #   - workflow_dispatch only: the gate figures are wanted when someone is
+      #     deciding GO/NO-GO, not nightly. (ii) is a timing measurement, so on
+      #     a contended runner a nightly re-run would mostly produce noise.
+      #   - continue-on-error: a slow or failed measurement is not a regression
+      #     signal. The regression half already ran, unguarded, above.
+      #   - step timeout: continue-on-error does not cover a job timeout.
+      # ⚠️ Same `if:` caveat as the probe — do NOT add always()/failure(); the
+      # implicit success() is what keeps this off a already-failed run.
+      #
+      # Sizing: ~2s locally (7 iterations x 3 measurements), so 5 minutes is
+      # slack for a contended runner rather than a considered bound. Depends on
+      # the staged framework + build from the gate-spike step above.
+      - name: Gate measurements (i)/(ii)/(iii)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        timeout-minutes: 5
+        run: |
+          set -euo pipefail
+          {
+            printf '## ADR-023 §6 Stage-2 gate measurements (#501)\n\n'
+            printf 'macOS host — per §6, only (ii) absolutes are host-sensitive.\n\n'
+            printf '```\n'
+            swift run --package-path tools/kmp-gate-spike kmp-gate-bench
+            printf '```\n'
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Backstop alarm: a silently-red nightly rots. On failure, open (or, if
