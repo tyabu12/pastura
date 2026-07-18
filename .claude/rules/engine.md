@@ -457,13 +457,10 @@ terminal tier is no-default exhaustive (ADR-022 PR-A) — so a new
 `SimulationEvent` case compile-breaks in `handleOutputEvent`, not silently
 no-ops.
 
-**Not compiler-caught — the demo-replay converter (CI-only).** If the new case
-also gets an `EventLineMapper` line (harness transcript), classify its
-snake-case event name in `scripts/jsonl_to_demo_replay.py`'s `HANDLED_EVENTS`
-or `IGNORED_EVENTS` — a live-only degradation signal (like `turn_skipped` /
-`action_rejected`) goes in `IGNORED_EVENTS`. Miss it and the CI **"Shell gate
-tests"** `demo-replay-event-coverage` gate reddens (ADR-022 §D4); the pre-commit
-hook does **not** run it (#1164).
+**Not compiler-caught (CI-only):** a new case that also gets an `EventLineMapper`
+line must be classified in `scripts/jsonl_to_demo_replay.py` (`HANDLED_EVENTS` /
+`IGNORED_EVENTS`; live-only signals → `IGNORED_EVENTS`), or the
+`demo-replay-event-coverage` Shell-gate job reddens (ADR-022 §D4).
 
 ## llama.cpp Backend Traps
 
@@ -558,11 +555,9 @@ no model-agnostic "safe enumeration" predicate (one — `isSafeEnumerationOption
 — was tried and removed in #597).
 
 Constrain closed-set values at **runtime** instead: `choose` (round-robin) →
-`ChooseHandler.validateAction` normalizes (trim + lowercase) then canonicalizes
-against `options`, returning `nil` for a genuinely off-menu action so the caller
-**drops the whole pairing** and emits `.actionRejected` (ADR-021 § Amendment
-2026-07-17 / #1151 — this replaced the old `options[0]` fallback, which
-fabricated a cooperate for any off-menu answer); `vote` → tally drop in
+`ChooseHandler.validateAction` **drops the pairing** (+ emits `.actionRejected`)
+on a genuinely off-menu action, replacing the old fabricating `options[0]`
+fallback (ADR-021 §Amendment 2026-07-17); `vote` → tally drop in
 `VoteHandler`. `OutputSchema.Kind.choice` is a payload-free marker so
 option strings never reach a grammar literal. Vote dropped grammar
 enumeration in #597; choose in #599 (ADR-002 §Amendment 2026-06-14).
