@@ -224,6 +224,10 @@ shared/                          # KMP shared modules (#501 / ADR-023). Gradle/K
 └── models/                      #   `shared/models` — landed Stage 1 as INFRA (not production-wired; mirrors Swift Models/, depends on nothing). `shared/engine` port + iOS consumption are Phase 3.0.
 ```
 
+## Agent Tooling Dependency
+
+`.claude/settings.json` enables the `claude-kit@claude-kit` plugin, which supplies `claude-kit:critic` (mandatory `/orchestrate` Step 1b gate — it **stops** without it), the `implementer` agent, and `/claude-kit:write-adr` (the only ADR path). The installed plugin can lag the kit repo, so confirm the **namespaced** name resolves before depending on one — a bare name may resolve via a maintainer-local symlink and proves nothing (`ls ~/.claude/plugins/cache/claude-kit/claude-kit/*/skills/`; update with `/plugin`). Install steps: CONTRIBUTING.md § "If you use Claude Code".
+
 ## Context-Specific Rules
 
 `.claude/rules/` contains detailed rules with two loading modes:
