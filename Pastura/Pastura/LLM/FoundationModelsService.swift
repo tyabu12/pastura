@@ -32,6 +32,16 @@
     private let maximumResponseTokens: Int?
     private let loadedState: OSAllocatedUnfairLock<Bool>
 
+    /// Monotonic turn counter, used solely as a join key across the three
+    /// diagnostic lines one ``generate(system:user:schema:antiRepetitionSeeds:)``
+    /// call can emit (input / response / overflow). An overflowing turn emits no
+    /// response line, so without a key an analyst cannot pair the overflow with
+    /// the input measurements that produced it.
+    private let turnSeq: OSAllocatedUnfairLock<Int>
+
+    static let tokenBudgetLogger = Logger(
+      subsystem: "app.pastura.Pastura", category: "FMTokenBudget")
+
     /// Creates a service over a system language model.
     ///
     /// Guardrail mode is injected through this parameter rather than being a
@@ -63,6 +73,7 @@
       self.model = model
       self.maximumResponseTokens = maximumResponseTokens
       self.loadedState = OSAllocatedUnfairLock(initialState: false)
+      self.turnSeq = OSAllocatedUnfairLock(initialState: 0)
     }
 
     /// Marks the service ready after confirming the system model is available.
@@ -172,14 +183,122 @@
       // above, whose omission invalidated an entire 6-cell battery (#1156).
       // One value, one construction site, so no two paths can disagree.
       let options = GenerationOptions(maximumResponseTokens: maximumResponseTokens)
+      let seq = turnSeq.withLock { seq in
+        seq += 1
+        return seq
+      }
+      // Emitted BEFORE the `do` on purpose: a turn that overflows the context
+      // window throws out of `respond`, and the input-side numbers are exactly
+      // what blocker 2 needs on that turn. Measuring after the call would
+      // condition the whole sample on success and drop the failing population.
+      await logInputTokenBudget(seq: seq, system: system, user: user, schema: nil)
       do {
         let response = try await session.respond(to: user, options: options)
+        await logResponseTokenBudget(seq: seq, entries: response.transcriptEntries)
         return response.content
       } catch let error as LanguageModelSession.GenerationError {
+        if case .exceededContextWindowSize = error {
+          // No response exists, so no response-side line is emitted. Without
+          // this marker the event blocker 2 is ABOUT would be the one event
+          // absent from the data. `seq` joins it back to the input line.
+          Self.emitTokenBudget("fmTokenBudget seq=\(seq) phase=overflow")
+        }
         throw Self.map(error)
       } catch {
         throw LLMError.generationFailed(description: String(describing: error))
       }
+    }
+
+    /// Emits one diagnostic line to OSLog and mirrors it to stderr.
+    ///
+    /// The stderr mirror is what the macOS harness (ADR-013) actually reads —
+    /// CLI `os.Logger` output is not reliably queryable via `log show`, and
+    /// `run_scenario.sh` captures stderr to `<out>.stderr.log`. That file is
+    /// already mixed-content and every consumer parses it with
+    /// `jq -Rc 'fromjson? | select(...)'`, which silently drops non-JSON lines,
+    /// so a plain-text line here cannot corrupt the `DiagLine` JSONL channel.
+    ///
+    /// Every value on these lines is a token count or a fixed marker — never
+    /// scenario text or model output — so `privacy: .public` is correct here
+    /// (CLAUDE.md "Logger privacy").
+    private static func emitTokenBudget(_ line: String) {
+      tokenBudgetLogger.info("\(line, privacy: .public)")
+      fputs("\(line)\n", stderr)
+    }
+
+    /// Measures what the turn's INPUT costs against the context window, before
+    /// generation runs (#1154 blocker 2).
+    ///
+    /// `contextSize` is the denominator and is emitted unconditionally: it is
+    /// available at 26.0, and blocker 2's headline "4k" figure is itself a claim
+    /// worth measuring rather than inheriting. The SDK back-deploys a constant
+    /// below 26.4, so a ≥26.4 runtime may legitimately report a different size.
+    ///
+    /// - Note: `Instructions(system)` is load-bearing. `String` conforms to BOTH
+    ///   `PromptRepresentable` and `InstructionsRepresentable`, so passing the
+    ///   bare `String` silently binds the `some PromptRepresentable` overload
+    ///   and measures the system prompt under *prompt* framing — the emitted
+    ///   `instructions=` value would be quietly mislabelled.
+    private func logInputTokenBudget(
+      seq: Int, system: String, user: String, schema: GenerationSchema?
+    ) async {
+      let contextSize = model.contextSize
+      guard #available(iOS 26.4, macOS 26.4, *) else {
+        // Explicit rather than a silent skip: for an instrument, "no output" and
+        // "nothing to report" are otherwise indistinguishable.
+        Self.emitTokenBudget(
+          "fmTokenBudget seq=\(seq) phase=input contextSize=\(contextSize) "
+            + "note=instrumentation-unavailable-runtime-below-26.4")
+        return
+      }
+      // Every count is `try?` with a -1 sentinel. `tokenCount` is `async throws`,
+      // and a propagating instrumentation error would leave `generate` as a
+      // generation failure, reach `LLMCaller`, and be counted as a turn skip
+      // against ADR-021's 3-consecutive-skip breaker — instrumentation
+      // manufacturing the very failures it exists to measure.
+      let instructions = (try? await model.tokenCount(for: Instructions(system))) ?? -1
+      let prompt = (try? await model.tokenCount(for: user)) ?? -1
+      var schemaTokens = -1
+      if let schema {
+        schemaTokens = (try? await model.tokenCount(for: schema)) ?? -1
+      }
+      Self.emitTokenBudget(
+        "fmTokenBudget seq=\(seq) phase=input contextSize=\(contextSize) "
+          + "instructions=\(instructions) prompt=\(prompt) schema=\(schemaTokens)")
+    }
+
+    /// Measures what the completed turn OCCUPIES in the context window.
+    ///
+    /// Takes the transcript slice rather than the `Response` so both the plain
+    /// and the guided path (whose `Content` differs) can call it unchanged.
+    private func logResponseTokenBudget(seq: Int, entries: ArraySlice<Transcript.Entry>) async {
+      guard #available(iOS 26.4, macOS 26.4, *) else { return }
+      let contextSize = model.contextSize
+      // Filtered to `.response`: the full slice also carries the prompt entry,
+      // so counting it as "output" would double-count the prompt against the 4k
+      // budget and make the input terms look artificially cheap.
+      let responseEntries = entries.filter {
+        if case .response = $0 { return true } else { return false }
+      }
+      let responseTokens = (try? await model.tokenCount(for: responseEntries)) ?? -1
+      // UNFILTERED, and the authoritative occupancy figure. The three separately
+      // tokenized fragments (instructions / prompt / response) each exclude the
+      // session's own role and turn framing, so their sum is a LOWER BOUND; this
+      // term is the only one directly comparable to `contextSize`. Their
+      // difference is therefore the framing overhead — measurable, not assumed.
+      let transcriptTokens = (try? await model.tokenCount(for: entries)) ?? -1
+      let headroom = transcriptTokens >= 0 ? contextSize - transcriptTokens : -1
+      // ADVISORY, not exact. `responseTokens` counts a `Transcript.Entry`, which
+      // carries role/segment framing, while `maximumResponseTokens` bounds the
+      // generator's raw output — so near the cap this biases toward FALSE
+      // POSITIVES by the framing delta. Read it as "probably truncated" and
+      // confirm against the raw `responseTokens` / `cap` on the same line.
+      let cap = maximumResponseTokens
+      let hitCap = cap.map { responseTokens >= $0 } ?? false
+      Self.emitTokenBudget(
+        "fmTokenBudget seq=\(seq) phase=response contextSize=\(contextSize) "
+          + "response=\(responseTokens) transcript=\(transcriptTokens) "
+          + "headroom=\(headroom) cap=\(cap.map(String.init) ?? "none") hitCap=\(hitCap)")
     }
 
     /// Maps a model-unavailable reason to a human-readable, distinct message so
