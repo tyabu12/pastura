@@ -46,15 +46,75 @@ struct ShimInventoryTests {
     #expect(retroactive.hits.allSatisfy { $0.file == "SharedEngineRunner.swift" })
   }
 
-  @Test("categories never double-count a declaration")
-  func categoriesAreMutuallyExclusive() throws {
-    let inventory = try ShimInventory.scan(roots: Self.roots)
-    let locations = inventory.categories.flatMap { category in
-      category.hits.map { "\($0.file):\($0.line)" }
-    }
+  /// Pins `classify`'s "most specific first" precedence on the lines that
+  /// actually overlap.
+  ///
+  /// This replaces a mutual-exclusivity assertion that held by construction:
+  /// `classify` returns `String?` — at most one bucket — and hits are keyed
+  /// `file:line`, so no arrangement of the rules could have made it fail. It
+  /// read as coverage it did not provide.
+  ///
+  /// Precedence, by contrast, is load-bearing and only half-covered. Both
+  /// overlaps occur on real production lines in `SharedEngineRunner.swift`:
+  /// `@retroactive @unchecked Sendable` matches rules 1 and 2, and
+  /// `nonisolated final class … : @unchecked Sendable` matches rules 2 and 3.
+  /// A 1↔2 swap already fails `scanIsNotVacuous` via `retroactive.count == 2`,
+  /// but **a 2↔3 swap fails nothing today** — it silently moves four types out
+  /// of "hand-asserted Sendable conformance" while `total`, the retroactive
+  /// count, and the old exclusivity assertion all stay green.
+  /// Fixture lines for the two precedence tests, assembled from fragments.
+  ///
+  /// They must not appear verbatim anywhere in this file's *code*. `roots`
+  /// includes the Tests directory, so a literal `@retroactive @unchecked
+  /// Sendable` written as a string here is counted by `scan` as a real vouch —
+  /// indistinguishable from the two in `SharedEngineRunner.swift`, inflating
+  /// the measured budget. That is the scanner's original defect (counting its
+  /// own predicate strings) in a new costume; `scanIsNotVacuous`'s
+  /// `count == 2` catches it, which is how this was found. Doc comments are
+  /// exempt — `scan` skips lines whose trimmed form starts with `//` — so the
+  /// prose above may name the patterns freely.
+  private static let retroactiveLine =
+    "extension SimulationEvent: @" + "retroactive @" + "unchecked Sendable {}"
+  private static let uncheckedLine =
+    "nonisolated" + " final class RunHandleBox: @" + "unchecked Sendable {"
+  private static let nonisolatedLine =
+    "nonisolated" + " public enum ShimInventoryError: Error {"
 
-    #expect(locations.count == Set(locations).count)
-    #expect(locations.count == inventory.total)
+  @Test("classification precedence is most-specific-first")
+  func classifyPrefersTheMoreSpecificRule() throws {
+    let cases: [(line: String, expected: String?)] = [
+      // Rules 1 and 2 both match — 1 must win.
+      (Self.retroactiveLine, "retroactive Sendable vouch"),
+      // Rules 2 and 3 both match — 2 must win. The uncovered pair.
+      (Self.uncheckedLine, "hand-asserted Sendable conformance"),
+      // Rule 3 alone.
+      (Self.nonisolatedLine, "type-level nonisolated only"),
+      // No rule. A plain line must not be counted into the shim budget.
+      ("let relayCount = 1", nil)
+    ]
+
+    for (line, expected) in cases {
+      #expect(ShimInventory.classify(line) == expected, "misclassified: \(line)")
+    }
+  }
+
+  /// Ties `classify`'s hardcoded bucket strings to the reported category names.
+  ///
+  /// `rationales` documents its order as "also the classification priority",
+  /// but nothing enforces that — the two are independent literals, so a rename
+  /// on one side would produce a category that can never receive a hit and a
+  /// bucket that is never reported. Either way the budget under-reports, which
+  /// is the failure direction this suite exists to catch.
+  @Test("every bucket classify can return is a reported category")
+  func classifyBucketsAreReportedCategories() throws {
+    let reported = Set(try ShimInventory.scan(roots: Self.roots).categories.map(\.name))
+    let produced = [Self.retroactiveLine, Self.uncheckedLine, Self.nonisolatedLine]
+      .compactMap(ShimInventory.classify)
+
+    #expect(produced.count == 3, "a fixture stopped matching its rule")
+    for bucket in produced {
+      #expect(reported.contains(bucket), "classify returns an unreported bucket: \(bucket)")
+    }
   }
 
   @Test("the scanner does not count its own source")
