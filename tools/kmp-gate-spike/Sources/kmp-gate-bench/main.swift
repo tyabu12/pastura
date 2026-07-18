@@ -69,12 +69,16 @@ do {
     "  run with \(result.chunksPerLongRun) chunks: "
       + "best \(format(result.longScriptRun.best)), "
       + "median \(format(result.longScriptRun.median))")
-  print("  → per-chunk crossing overhead: \(format(result.perChunkOverhead))")
-  print(
-    String(
-      format: "  → implied ceiling if crossing were the only cost: %.0f tok/s",
-      result.impliedCeilingTokensPerSecond))
-  print("    (real generation runs at 10–50 tok/s — ADR-023 §5.2)")
+  if let perChunk = result.perChunkOverhead, let ceiling = result.impliedCeilingTokensPerSecond {
+    print("  → per-chunk crossing overhead: \(format(perChunk))")
+    print(
+      String(
+        format: "  → implied ceiling if crossing were the only cost: %.0f tok/s", ceiling))
+    print("    (real generation runs at 10–50 tok/s — ADR-023 §5.2)")
+  } else {
+    print("  → per-chunk crossing overhead: unresolved — the two runs did not separate")
+    print("    (host too noisy at this sample count; re-run before quoting a figure)")
+  }
   print("")
   print(
     "  suspension relay round trip: "

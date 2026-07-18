@@ -140,6 +140,15 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
   /// really did re-issue.
   public var callCount: Int { counters.callCount }
 
+  /// When each `generateStream` call arrived, in call order.
+  ///
+  /// Measurement (ii)'s suspension round-trip reads its endpoint from here
+  /// instead of from the poll loop that waits for it: polling bounds *how long
+  /// the benchmark waits*, but if it also supplied the timestamp, the reported
+  /// latency could never fall below the poll interval — the instrument would
+  /// be the floor.
+  public var callInstants: [ContinuousClock.Instant] { counters.callInstants }
+
   /// Number of calls whose drain task exited because it was cancelled.
   ///
   /// This is the observable end of the §5.2 cancellation-composition clause:
@@ -336,14 +345,21 @@ nonisolated private final class TaskStreamHandle: StreamHandle, @unchecked Senda
 
 /// Call/cancellation tallies, shared between the backend and its drain tasks.
 nonisolated private final class Counters: Sendable {
-  private let calls = Mutex(0)
+  /// Arrival instants, one per call. The count is *derived* from this rather
+  /// than tracked beside it, so an observer can never see a count that has
+  /// advanced past the instants it is about to read.
+  private let callTimes = Mutex<[ContinuousClock.Instant]>([])
   private let cancels = Mutex(0)
 
-  var callCount: Int { calls.withLock { $0 } }
+  var callCount: Int { callTimes.withLock { $0.count } }
+  var callInstants: [ContinuousClock.Instant] { callTimes.withLock { $0 } }
   var cancellations: Int { cancels.withLock { $0 } }
 
   func recordCall() {
-    calls.withLock { $0 += 1 }
+    // Sampled before taking the lock: the instant should carry when the call
+    // arrived, not when it won the mutex.
+    let arrival = ContinuousClock.now
+    callTimes.withLock { $0.append(arrival) }
   }
 
   func recordCancellation() {

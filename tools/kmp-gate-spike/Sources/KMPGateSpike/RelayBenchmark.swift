@@ -41,21 +41,29 @@ public enum RelayBenchmark {
 
     /// Slope between the two script lengths — the marginal cost of one chunk
     /// crossing Swift → Kotlin.
-    public var perChunkOverhead: Duration {
+    /// `nil` when the two runs did not separate — a noisy host can time the
+    /// long script faster than the short one, and a negative slope is not a
+    /// small per-chunk cost, it is a sample that failed to resolve one.
+    /// Reporting `nil` says so; clamping to zero would print an infinite
+    /// implied ceiling as though it were the measurement.
+    public var perChunkOverhead: Duration? {
       let extra = chunksPerLongRun - chunksPerShortRun
-      guard extra > 0 else { return .zero }
-      return (longScriptRun.best - shortScriptRun.best) / extra
+      guard extra > 0 else { return nil }
+      let delta = longScriptRun.best - shortScriptRun.best
+      guard delta > .zero else { return nil }
+      return delta / extra
     }
 
     /// Token rate the per-chunk figure implies if crossing were the only cost.
     ///
     /// Context for §5.2's "orders of magnitude below concern": real generation
     /// runs at 10–50 tok/s, so this number should be enormous by comparison.
-    public var impliedCeilingTokensPerSecond: Double {
+    public var impliedCeilingTokensPerSecond: Double? {
+      guard let perChunk = perChunkOverhead else { return nil }
       let seconds =
-        Double(perChunkOverhead.components.attoseconds) / 1e18
-        + Double(perChunkOverhead.components.seconds)
-      guard seconds > 0 else { return .infinity }
+        Double(perChunk.components.attoseconds) / 1e18
+        + Double(perChunk.components.seconds)
+      guard seconds > 0 else { return nil }
       return 1 / seconds
     }
   }
@@ -96,10 +104,27 @@ public enum RelayBenchmark {
     let runner = SharedEngineRunner()
     let backend = ScriptedStreamingBackend(responses: script)
 
-    let clock = ContinuousClock()
-    let start = clock.now
-    for await _ in runner.run(scenario: .benchSpeakAll, backend: backend) {}
-    return clock.now - start
+    // Drained on its own task with the end instant stamped inside it, rather
+    // than awaited inline. Two reasons, and only the first is about timing:
+    // the poll below bounds a wedged run instead of hanging CI forever, and
+    // stamping inside the task keeps the poll interval out of the figure. The
+    // task spawn adds a fixed cost to both script lengths, which the
+    // differential cancels.
+    let end = Mutex<ContinuousClock.Instant?>(nil)
+    let start = ContinuousClock.now
+    let stream = runner.run(scenario: .benchSpeakAll, backend: backend)
+    let drain = Task {
+      for await _ in stream {}
+      let finished = ContinuousClock.now
+      end.withLock { $0 = finished }
+    }
+    defer { drain.cancel() }
+
+    try await poll("the benchmarked run to finish") { end.withLock { $0 != nil } }
+    guard let finished = end.withLock({ $0 }) else {
+      throw RelayBenchmarkError.timedOut("the benchmarked run to finish")
+    }
+    return finished - start
   }
 
   /// Times `resume()` → the re-issued call landing at the backend.
@@ -118,15 +143,10 @@ public enum RelayBenchmark {
     }
     defer { consumer.cancel() }
 
-    // Wait for the suspended call to have reached the backend before starting
-    // the clock. This is a lower bound by construction: if `resume()` lands
-    // before Kotlin has finished parking, `SuspendController` latches and the
-    // relay fires on arrival, so the figure can under-report the park/unpark
-    // half. It never over-reports.
+    // Wait for the suspended call to have reached the backend before resuming.
     try await poll("the first call to reach the backend") { backend.callCount >= 1 }
 
-    let clock = ContinuousClock()
-    let start = clock.now
+    let resumedAt = ContinuousClock.now
     controller.resume()
     // `>=`, not `==`. The re-issued call and the second agent's call both land
     // unpaced, so an exact-equality wait can step straight over 2 between polls
@@ -134,7 +154,22 @@ public enum RelayBenchmark {
     // completes normally behind it. Measured: instrumenting the event stream
     // showed a full SimulationCompleted while this poll was still waiting.
     try await poll("the re-issued call") { backend.callCount >= 2 }
-    return clock.now - start
+
+    // The figure is stamped at both ends — here and inside `recordCall()` —
+    // not read off the poll loop. Polling only *detects* the arrival, and a
+    // 1 ms poll cannot detect it any sooner than 1 ms, so a poll-derived
+    // duration would report the sampling interval as the relay's latency
+    // however fast the relay actually is.
+    //
+    // Residual bias, one-directional: if `resume()` lands before Kotlin has
+    // finished parking, `SuspendController` latches and the relay fires on
+    // arrival, so the park/unpark half can be under-counted. Nothing here
+    // inflates the figure.
+    let instants = backend.callInstants
+    guard instants.count >= 2 else {
+      throw RelayBenchmarkError.timedOut("the re-issued call")
+    }
+    return instants[1] - resumedAt
   }
 
   private static func time(
