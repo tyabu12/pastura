@@ -5,9 +5,12 @@
 # - Example utterances rewritten as natural EN equivalents in each
 #   archetype's register (logical / optimistic / aggressive /
 #   persuasive / playful), NOT literal translations.
-# - "cooperate" / "betray" action labels stay English-as-source (same
-#   as the ja preset's parenthetical English in 「協力(cooperate)」)
-#   — the JSON action vocabulary is locale-independent.
+# - "cooperate" / "betray" are this en variant's own option tokens,
+#   matched positionally by its `payoff:` table (ADR-027 pairwise_payoff —
+#   the payoff matrix is authored per-locale in YAML, not a shared Swift
+#   matrix). Option vocabulary is now locale-specific: the ja sibling uses
+#   「協力」/「裏切り」 with its own table (ADR-027 reverses the earlier
+#   English-as-source decision for ja).
 
 id: prisoners_dilemma_en
 language: en
@@ -127,7 +130,16 @@ phases:
     pairing: round_robin
 
   - type: score_calc
-    logic: prisoners_dilemma
+    logic: pairwise_payoff
+    payoff:
+      - when: [cooperate, cooperate]
+        points: [3, 3]
+      - when: [cooperate, betray]
+        points: [0, 5]
+      - when: [betray, cooperate]
+        points: [5, 0]
+      - when: [betray, betray]
+        points: [1, 1]
 
   - type: summarize
     template: >

@@ -17,9 +17,11 @@ import Foundation
 ///   cooperated with the other) is opponent-conditioned strategy, not a
 ///   provable lie — no badge.
 /// - Raw parsed actions are compared, not `ChooseHandler.validateAction`
-///   output: validation coerces any unparseable action to `options[0]`,
-///   which could manufacture a phantom contradiction. A dirty raw action
-///   therefore disqualifies the whole round instead.
+///   output: validation now drops any off-menu action (returns `nil`;
+///   ADR-021 § Amendment 2026-07-17, formerly coerced to `options[0]`), so a
+///   validated set would silently omit a dirty action instead of letting it
+///   disqualify the round. A dirty raw action therefore disqualifies the
+///   whole round instead.
 nonisolated enum ContradictionDetectionLogic {
 
   /// The reserved speak-phase output field carrying an agent's public stance
