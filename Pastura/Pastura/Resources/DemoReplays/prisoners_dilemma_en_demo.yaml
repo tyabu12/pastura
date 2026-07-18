@@ -19,7 +19,7 @@ schema_version: 1
 preset_ref:
   id: prisoners_dilemma_en
   version: '1.0'
-  yaml_sha256: '2f07437090cce61c1e2ed6a45978f439917785c9321cad65d638e2e7a4ecfddc'
+  yaml_sha256: '6f5332e7f4dc52845b50219dc1b94e52caee84648b72b46a4412d699bfb58a1e'
 metadata:
   title: Prisoner's Dilemma
   description: Five players choose "cooperate" or "betray" in a strategic game. Round-robin pairwise matches with score accumulation. Bluff in the open, and scheme alliances or betrayals in private whispers.

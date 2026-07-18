@@ -12,7 +12,7 @@ agents: 5
 rounds: 2
 context: >
   あなたはゲーム番組「囚人のジレンマ」の出場者です。
-  対戦相手と「協力(cooperate)」か「裏切り(betray)」を選びます。
+  対戦相手と「協力」か「裏切り」を選びます。
   両方協力=各3点 / 自分だけ裏切り=5点(相手は0点) / 両方裏切り=各1点。
   対戦前に全員に向けて宣言できます（嘘やハッタリもOK）。
   ゲームは全2ラウンド。得点は最終ラウンド終了時に確定します。
@@ -59,7 +59,7 @@ phases:
       全員に向けて宣言してください。協力を呼びかけても、ブラフをかけてもOKです。
 
       declared_intent には、いま全員に見せた宣言の表向きの立場を
-      cooperate / betray / unclear のいずれか1語で示してください。
+      協力 / 裏切り / 不明 のいずれか1語で示してください。
       これは宣言のラベルであり、本心と一致していなくてもかまいません。
     output:
       statement: string
@@ -98,17 +98,26 @@ phases:
       密談での相手とのやり取り:
       {my_whispers}
 
-      「cooperate（協力）」か「betray（裏切り）」を選んでください。
+      「協力」か「裏切り」を選んでください。
     output:
       action: string
       inner_thought: string
     options:
-      - cooperate
-      - betray
+      - 協力
+      - 裏切り
     pairing: round_robin
 
   - type: score_calc
-    logic: prisoners_dilemma
+    logic: pairwise_payoff
+    payoff:
+      - when: [協力, 協力]
+        points: [3, 3]
+      - when: [協力, 裏切り]
+        points: [0, 5]
+      - when: [裏切り, 協力]
+        points: [5, 0]
+      - when: [裏切り, 裏切り]
+        points: [1, 1]
 
   - type: summarize
     template: >
