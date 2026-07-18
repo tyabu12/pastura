@@ -4,22 +4,34 @@ import Foundation
 ///
 /// Supports two modes: round-robin pairing (adjacent pairs, each agent calls LLM
 /// with opponent context) or individual choice (each agent chooses independently).
-/// Invalid actions fall back to `options[0]` via `validateAction`.
+/// In round-robin, an action that can't be mapped to the option set drops the
+/// whole pairing via `validateAction` (see below).
 ///
-/// `validateAction` is the **sole** value constraint: the `action` field is a
-/// `.choice` in the grammar (structure-only — no value enumeration; see
-/// ``OutputSchema/Kind/choice`` and ADR-002 §Amendment 2026-06-14, #599), so
-/// the runtime check is what keeps the result within the option set. The model
-/// is steered toward valid options by ``PromptBuilder``, which lists them in
-/// the prompt, so the fallback is rare in practice.
+/// `validateAction` is the **sole** value constraint on round-robin actions: the
+/// `action` field is a `.choice` in the grammar (structure-only — no value
+/// enumeration; see ``OutputSchema/Kind/choice`` and ADR-002 §Amendment
+/// 2026-06-14, #599), so the runtime check is what keeps the result within the
+/// option set. The model is steered toward valid options by ``PromptBuilder``,
+/// which lists them in the prompt, so a rejection is rare in practice.
+///
+/// It **normalizes then canonicalizes** (ADR-021 § Amendment 2026-07-17 /
+/// #1151): a case/whitespace variant like `"Betray"` folds onto the canonical
+/// `betray` and scores; a genuinely off-menu action (`裏切る`, `betray!`) maps
+/// to `nil` and the caller drops the pairing. This replaces the pre-Amendment
+/// `options[0]` fallback, which silently **fabricated** a cooperate for any
+/// off-menu answer. Individual mode does not canonicalize — it writes the raw
+/// action to `lastOutputs` for consumers that normalize on read
+/// (`EventReactivePayoffLogic`), inventing nothing.
 ///
 /// A turn-degradable LLM failure is routed through `context.turnGate`
 /// (ADR-021 D1/D2). In **round-robin**, a skipped call drops the *whole
-/// pairing* — a pairing with one real and one absent action would flow into
-/// `PrisonersDilemmaLogic`'s `?? "cooperate"` default, i.e. fabrication — while
-/// the partner's already-emitted `.agentOutput` and `lastOutputs` still stand
-/// (consumed by `EventReactivePayoffLogic`). In **individual** mode a skipped
-/// turn writes nothing and clears the agent's stale `lastOutputs`.
+/// pairing* — a half-real pairing (one action absent) would fabricate the
+/// missing action downstream — while the partner's already-emitted
+/// `.agentOutput` and `lastOutputs` still stand (consumed by
+/// `EventReactivePayoffLogic`). A **delivered-but-off-menu** action drops the
+/// pairing the same way but emits ``SimulationEvent/actionRejected(agent:phaseType:raw:)``
+/// so the drop is observable, since the call itself succeeded. In **individual**
+/// mode a skipped turn writes nothing and clears the agent's stale `lastOutputs`.
 nonisolated struct ChooseHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
 
@@ -85,8 +97,32 @@ nonisolated struct ChooseHandler: PhaseHandler {
       // half-real pairing would fabricate the missing action downstream.
       guard let out1 = output1, let out2 = output2 else { continue }
 
-      let action1 = validateAction(out1.action ?? "", options: options)
-      let action2 = validateAction(out2.action ?? "", options: options)
+      // A second drop gate (ADR-021 § Amendment 2026-07-17): the call
+      // succeeded but the *action* may be off-menu. `validateAction` returns
+      // `nil` for a genuinely unmappable action; dropping the pairing here is
+      // honest omission, where the old `options[0]` fallback fabricated a
+      // cooperate. The `:86` guard above runs before these calls, so a `nil`
+      // action cannot reach it — this gate is required, not redundant.
+      let rawAction1 = out1.action ?? ""
+      let rawAction2 = out2.action ?? ""
+      let canonical1 = validateAction(rawAction1, options: options)
+      let canonical2 = validateAction(rawAction2, options: options)
+      guard let action1 = canonical1, let action2 = canonical2 else {
+        // Emit which agent(s) were off-menu, carrying the raw value so the run
+        // log shows what the model said. `.agentOutput` already rendered for
+        // both, so this is a distinct signal, not a `.turnSkipped`.
+        if canonical1 == nil {
+          context.emitter(
+            .actionRejected(
+              agent: persona1.name, phaseType: context.phase.type, raw: rawAction1))
+        }
+        if canonical2 == nil {
+          context.emitter(
+            .actionRejected(
+              agent: persona2.name, phaseType: context.phase.type, raw: rawAction2))
+        }
+        continue
+      }
       state.pairings.append(
         Pairing(agent1: persona1.name, agent2: persona2.name, action1: action1, action2: action2)
       )
@@ -213,8 +249,27 @@ nonisolated struct ChooseHandler: PhaseHandler {
 
   // MARK: - Helpers
 
-  private func validateAction(_ action: String, options: [String]) -> String {
+  /// Maps a raw model action onto the canonical option set, or `nil` when it is
+  /// genuinely off-menu (ADR-021 § Amendment 2026-07-17 / #1151).
+  ///
+  /// Normalize-then-canonicalize:
+  /// 1. Fold both sides — trim + lowercase, matching `EventReactivePayoffLogic.normalize`
+  ///    — so `"Betray"` / `" betray"` match `betray` instead of dropping.
+  /// 2. On a match return the **canonical option string**, not the raw input:
+  ///    the return is load-bearing as a *token*, not just a verdict —
+  ///    `RelationshipUpdateHandler` looks up `action_deltas[action]` and
+  ///    `PairwisePayoffLogic` matches `payoff.when` rows by exact string.
+  /// 3. `nil` only on genuine non-membership; the caller drops the pairing.
+  ///
+  /// `options.isEmpty → return action` is preserved: an options-less
+  /// round-robin `choose` has nothing to canonicalize against, and returning
+  /// `nil` there would drop every pairing rather than pass the raw value
+  /// through unchanged (the pre-Amendment behavior for that path).
+  private func validateAction(_ action: String, options: [String]) -> String? {
     if options.isEmpty { return action }
-    return options.contains(action) ? action : options[0]
+    let normalizedAction = action.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return options.first {
+      $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedAction
+    }
   }
 }

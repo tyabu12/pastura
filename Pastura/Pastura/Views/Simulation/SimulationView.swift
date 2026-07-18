@@ -1250,6 +1250,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       contradictionRevealedEntry(agent: agent)
     case .turnSkipped(let agent, let phaseType):
       turnSkippedEntry(agent: agent, phaseType: phaseType)
+    case .actionRejected(let agent, _, let raw):
+      // phaseType is always `.choose` (the only emitter), so it is not shown.
+      actionRejectedEntry(agent: agent, raw: raw)
     default:
       EmptyView()
     }

@@ -457,6 +457,11 @@ terminal tier is no-default exhaustive (ADR-022 PR-A) — so a new
 `SimulationEvent` case compile-breaks in `handleOutputEvent`, not silently
 no-ops.
 
+**Not compiler-caught (CI-only):** a new case that also gets an `EventLineMapper`
+line must be classified in `scripts/jsonl_to_demo_replay.py` (`HANDLED_EVENTS` /
+`IGNORED_EVENTS`; live-only signals → `IGNORED_EVENTS`), or the
+`demo-replay-event-coverage` Shell-gate job reddens (ADR-022 §D4).
+
 ## llama.cpp Backend Traps
 
 llama.cpp is the active TestFlight backend; the LiteRT-LM migration
@@ -549,8 +554,10 @@ unverified for any other runtime-selectable model or LiteRT-LM. There is
 no model-agnostic "safe enumeration" predicate (one — `isSafeEnumerationOption`
 — was tried and removed in #597).
 
-Constrain closed-set values at **runtime** instead: `choose` → `options[0]`
-fallback in `ChooseHandler.validateAction`; `vote` → tally drop in
+Constrain closed-set values at **runtime** instead: `choose` (round-robin) →
+`ChooseHandler.validateAction` **drops the pairing** (+ emits `.actionRejected`)
+on a genuinely off-menu action, replacing the old fabricating `options[0]`
+fallback (ADR-021 §Amendment 2026-07-17); `vote` → tally drop in
 `VoteHandler`. `OutputSchema.Kind.choice` is a payload-free marker so
 option strings never reach a grammar literal. Vote dropped grammar
 enumeration in #597; choose in #599 (ADR-002 §Amendment 2026-06-14).

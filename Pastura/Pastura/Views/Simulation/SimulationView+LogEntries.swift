@@ -148,6 +148,27 @@ extension SimulationView {
     }
   }
 
+  /// Live narration for a rejected off-menu `choose` action (ADR-021 § Amendment
+  /// 2026-07-17). The model's action could not be mapped to the option set, so
+  /// the pairing was dropped rather than fabricating a cooperate. `raw` is the
+  /// model's own text — **already `ContentFilter`-rewritten** at `LogEntry`
+  /// construction (ADR-005; see `SimulationViewModel.handleEvent`'s
+  /// `.actionRejected` arm) — so it is rendered as-is here. Live-only; folds
+  /// into the same degraded-turn badge as `turnSkippedEntry`.
+  func actionRejectedEntry(agent: String, raw: String) -> some View {
+    HStack(spacing: 4) {
+      Image(systemName: "exclamationmark.triangle")
+        .foregroundStyle(Color.muted)
+      Text(
+        String(
+          format: String(localized: "%@'s choice \"%@\" wasn't an option"),
+          agent, raw)
+      )
+      .textStyle(Typography.metaValue)
+      .foregroundStyle(Color.muted)
+    }
+  }
+
   /// Full-width phase-boundary separator for LLM phases (speak / vote /
   /// choose). Mirrors `roundSeparator`'s rule + centered-content + rule
   /// structure so the transcript reads as phase "chapters" (#882), but

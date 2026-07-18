@@ -49,6 +49,13 @@ struct LogEntry: Identifiable {
     /// NOT carried here — the App renders its own localized narration
     /// from `agent` + `phaseType`.
     case turnSkipped(agent: String, phaseType: PhaseType)
+    /// A `choose` action that could not be mapped to the option set, so its
+    /// pairing was dropped (ADR-021 § Amendment 2026-07-17). One live-log line
+    /// per rejection. Unlike `.turnSkipped`, `raw` **is** carried — it is the
+    /// model's own text and the whole point is to show *what* it said — so it
+    /// is stored **already `ContentFilter`-rewritten** at construction (ADR-005;
+    /// see the `.actionRejected` arm in `handleEvent`), never raw.
+    case actionRejected(agent: String, phaseType: PhaseType, raw: String)
     case error(String)
   }
 }
@@ -1658,6 +1665,24 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
         "turn skipped in \(phaseType.rawValue) — \(cause)")
       logEntries.append(
         LogEntry(kind: .turnSkipped(agent: agent, phaseType: phaseType)))
+    case .actionRejected(let agent, let phaseType, let raw):
+      // ADR-021 § Amendment 2026-07-17 — a `choose` action that could not be
+      // mapped to the option set; the pairing was dropped (honest omission,
+      // not the old fabricated cooperate). Fold into the same `degradedTurnCount`
+      // aggregate/badge as `.turnSkipped` (D6 — "completed with quality loss");
+      // the D4 breaker is intentionally NOT fed (a rejection is model
+      // menu-discipline, not infrastructure failure).
+      //
+      // `raw` is model-emitted content, so it MUST be `ContentFilter`-rewritten
+      // before it reaches the UI (ADR-005) — done here at the VM boundary,
+      // mirroring the `.narration` arm below. It is deliberately NOT
+      // Logger-interpolated (the "don't Logger-interpolate agent outputs" rule);
+      // the harness transcript is the diagnostic surface for the raw value.
+      degradedTurnCount += 1
+      logEntries.append(
+        LogEntry(
+          kind: .actionRejected(
+            agent: agent, phaseType: phaseType, raw: contentFilter.filter(raw))))
     case .agentOutput(let agent, let output, let phaseType):
       handleAgentOutput(agent: agent, output: output, phaseType: phaseType)
     case .agentOutputStream(let agent, let primary, let thought):
@@ -1789,7 +1814,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       .agentOutput, .agentOutputStream, .relationshipUpdate,
       .conditionalEvaluated, .simulationCompleted, .roundCheckpoint,
       .simulationPaused, .error, .inferenceStarted, .inferenceCompleted,
-      .languageMismatch, .turnSkipped:
+      .languageMismatch, .turnSkipped, .actionRejected:
       break
     }
     persistCodePhaseEventIfNeeded(event)
