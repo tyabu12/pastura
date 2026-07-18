@@ -70,10 +70,9 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
 - **Not acceptable**: orchestrate Opus-required paths — project tooling
   (`.claude/{skills,agents,rules}/**`), AppRouter / navigation,
   dependency-rule boundaries, ADR/spec edits, etc.
-- **`critic` non-recommendation** (`critic` in this file's prose = the
-  `claude-kit:critic` plugin agent — always invoke it by that namespaced
-  name; bare `critic` resolves only via an out-of-repo global agent, absent
-  on other machines): `critic` makes judgement calls
+- **`critic` non-recommendation** (`critic` in prose = the
+  `claude-kit:critic` plugin agent — invoke it by that namespaced name):
+  `critic` makes judgement calls
   (pre-mortem axis generation, bias rebuttal). For plan critique on
   architectural decisions, prefer **Opus + scope-split** over Sonnet
   override. Sonnet's reasoning depth is acceptable for routine

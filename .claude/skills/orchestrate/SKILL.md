@@ -129,7 +129,7 @@ After the user approves the plan (G1), launch a `claude-kit:critic` subagent via
 Agent(subagent_type: "claude-kit:critic", model: "opus", description: "...", prompt: "...")
 ```
 
-The explicit `model: "opus"` is load-bearing, not decorative: the plugin critic has no frontmatter pin (unlike the retired local `critic.md`), so an omitted `model` silently inherits the session model — which the all-🎵 cost lever (Step 1) may set to Sonnet, quietly downgrading this mandatory bias-resistant gate. Keeping it a literal block (mirroring Step 4) makes the Opus pin mechanical rather than recalled from prose.
+The literal block (mirroring Step 4) makes the Opus pin mechanical rather than prose-recalled — an omitted `model` would silently inherit a Sonnet session (the all-🎵 lever, Step 1) and downgrade this mandatory gate.
 
 > **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths.
 >
