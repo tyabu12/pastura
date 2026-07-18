@@ -56,10 +56,29 @@ budget (derived — tighten at the call site, don't edit; see the header):
 - **Soft budget** (split if over): ~800 changed lines OR ~8 changed
   files OR ~5 review axes per invocation, whichever is tighter.
 - **Hard split** (always split): >1500 changed lines, >12 files, or
-  >7 axes — these reliably truncate before the final report.
+  >7 axes — at this size the report reliably loses its substance
+  before the run completes.
 
 When numbers fall between soft and hard, prefer splitting. If splitting
 is impractical, see **§3. Sonnet override**.
+
+**What exhaustion looks like.** *Not* a missing summary: review agents
+are built to emit their verdict/summary **first** under cap pressure, so
+it survives exactly when the run is truncated. Look instead for **detail
+missing behind a present summary**, which is mechanically checkable as a
+**count mismatch** — the summary claims more issues, axes, or findings
+than the body actually writes out, or names them with no evidence
+attached. Corroborate with intermediate tool output present and no
+`SCOPE_TOO_LARGE`. That combination is the signal to **split and
+re-run** — a report that is short *and internally consistent* is just
+short, and needs nothing. In Pastura the check is arithmetic rather than
+a prose judgement: `code-reviewer`'s summary emits per-severity counts
+(`- **Critical**: N issues`) to compare the body against.
+
+**Blind spot**: a summary claiming nothing cannot mismatch, so a
+zero-issue report truncated right after it reads as consistent. Closing
+that needs a structural check against a pinned Output Format — see
+`queue-consumer` hard rule 6, which carries one for the unattended path.
 
 ## 3. Sonnet override (escape valve)
 
@@ -87,14 +106,11 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
 with `SCOPE_TOO_LARGE` before any tool_use when the soft budget is
 exceeded. The kit-provided `claude-kit:critic` self-defends differently
 (its `Output Discipline & Scope` section triages: highest-risk axes
-first, explicit deferrals instead of a bail-out). Defense in depth: subagent
-budget exhaustion is silent (intermediate text returned, final report
-missing), so the duplication with §2 is intentional. Concretely, that
-looks like a mandated section missing (`code-reviewer` ends with
-Dependency Check, not the Verdict; `critic` emits its tail first, so
-there it is the per-axis bodies that go) *while*
-intermediate tool output is present and no `SCOPE_TOO_LARGE` fired — a
-merely short report is not the signal.
+first, explicit deferrals instead of a bail-out). Defense in depth:
+budget exhaustion is silent, so duplicating §2's budget in the agents'
+own bail-out is intentional.
+For what exhaustion actually looks like, see §2 — the detector lives
+there, with the caller-side heuristics it corroborates.
 
 ## 5. Official `/code-review` vs the custom agents
 

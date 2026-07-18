@@ -60,8 +60,22 @@ Non-goals:
    satisfies them. `### Out of scope` is binding. No "while at it"
    changes, even obvious ones — note them in the PR body instead.
 6. **No unreviewed PR.** If the code-reviewer pass is missing, returns
-   `SCOPE_TOO_LARGE`, or looks truncated (no final verdict), do NOT open
-   the PR — treat the issue as blocked with that reason.
+   `SCOPE_TOO_LARGE`, or is **incomplete**, do NOT open the PR — treat
+   the issue as blocked with that reason. Incomplete means either:
+   - **Count mismatch** — the summary's per-severity counts claim more
+     issues than the body writes out, or name them with no evidence
+     (see `.claude/rules/subagent-usage.md` §2).
+   - **Missing terminal section** — the report contains no
+     `## Dependency Check` section, or that section has no verdict line
+     under it. Test containment, not "ends with": `code-reviewer` may
+     append an unpinned footgun proposal after it, and a bare heading
+     with nothing beneath it is exactly the truncation being caught.
+     Naming a section is safe *here* and nowhere else: this gate binds
+     one agent whose Output Format is pinned in this repo, which
+     mandates "Always include the Review Summary and Dependency Check
+     sections". It is also the only check that catches a `PASS (0
+     issues)` report truncated right after its summary — that shape is
+     count-consistent, so the first bullet cannot see it.
 
 ## Step 0 — Preflight (abort the run on any failure)
 
@@ -192,8 +206,9 @@ Agent(subagent_type: "code-reviewer", model: "opus",
 - **PASS** → Step 5.
 - **FAIL** → fix the confirmed findings, re-run the reviewer once. A
   second FAIL = failed attempt (hard rule 4: retry or block).
-- **SCOPE_TOO_LARGE / truncated** → hard rule 6: block, no PR. Do not
-  shrink the review's scope to force a pass.
+- **SCOPE_TOO_LARGE / incomplete** (count mismatch, or no populated
+  `## Dependency Check`) → hard rule 6: block, no PR. Do not shrink the
+  review's scope to force a pass.
 
 ## Step 5 — Draft PR + label release (completes the issue)
 
