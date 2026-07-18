@@ -1,10 +1,16 @@
 // The whole file is gated on `canImport(FoundationModels)` — the framework
-// ships only in the iOS 26 / macOS 26 SDK. On an older toolchain (a CI runner
-// on Xcode < 26) this compiles out entirely, keeping the app + harness builds
-// green without an FM SDK, exactly as llama.cpp real inference is absent from
-// CI. NOTE (#1072 spike): because `canImport` is an SDK check, standard CI /
-// pre-commit that lack the FM SDK never type-check this code — verify a real
-// build on the Xcode-26 SDK (`canImport` true) before trusting the API shape.
+// ships only in the iOS 26 / macOS 26 SDK, so on an older toolchain this
+// compiles out entirely and the app + harness builds stay green without an FM
+// SDK, exactly as llama.cpp real inference is absent from CI.
+//
+// CI DOES type-check this file: every Swift job in `.github/workflows/ci.yml`
+// pins `DEVELOPER_DIR` to Xcode 26.4, which ships the FM SDK, so `canImport` is
+// true there and a break here reddens CI like any other code. (An earlier
+// version of this comment claimed the opposite; the #1072 spike predated the
+// toolchain pin.) What CI still cannot do is RUN any of it — Apple Intelligence
+// needs an eligible device — so inference-dependent behaviour remains
+// device-verified, and only the pure-logic parts (error mapping, the guided
+// schema builder) are machine-gated.
 #if canImport(FoundationModels)
 
   import Foundation
