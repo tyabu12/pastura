@@ -24,7 +24,9 @@ but **the reviewer's attention**. This contract is what keeps a generator from b
 The skills bound by this contract are the ones that say so in their own body — today
 `consistency-audit` (auto-fix Draft PRs + issues), `queue-consumer` (feature-implementation Draft
 PRs), and the digest-only `triage-guardian` / `code-health-audit` / `ui-refine`. A new generator
-joins by adding the imperative pointer described above, not by being listed here.
+joins by adding the imperative pointer described above, not by being listed here. Family membership
+alone does not bind: `scenario-factory` / `scenario-refine` write only gitignored local digests, so
+nothing of theirs reaches the review queue this contract rations.
 
 ## The contract
 
