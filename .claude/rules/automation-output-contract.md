@@ -51,7 +51,7 @@ joins by adding the imperative pointer described above, not by being listed here
    **aggregate ceiling** across generators. Both values are project-owned: each generator's own cap
    is canonical in that generator's own skill (e.g. `consistency-audit`'s "at most one open
    `audit/*` Draft"), and the ceiling is canonical in
-   `.claude/skills/triage-guardian/SKILL.md` § Backpressure. See § Backpressure.
+   `.claude/skills/triage-guardian/SKILL.md` § "Backpressure — canonical definition (single source of truth)". See § Backpressure.
 5. **Manual-first.** Detectors run dry-run by default. Trust the output only after a human has
    eyeballed it for a given repo state — and never let a skill self-register its own schedule;
    scheduling is a separate, deliberate human act.
@@ -87,7 +87,7 @@ race.
 
 **The ceiling value (`AUTOMATION_WIP_CEILING`) and the branch predicate that identifies
 automation-origin PRs are project-owned and canonical in
-`.claude/skills/triage-guardian/SKILL.md` § Backpressure** — not here, and not in the kit. Every
+`.claude/skills/triage-guardian/SKILL.md` § "Backpressure — canonical definition (single source of truth)"** — not here, and not in the kit. Every
 file that mirrors either must be changed together with that section.
 
 ## `gh` read-surface traps (Draft-triage automation)

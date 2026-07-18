@@ -230,7 +230,8 @@ shared/                          # KMP shared modules (#501 / ADR-023). Gradle/K
 
 **Path-scoped** (loaded only when editing matching files):
 
-- `adr-writing.md` — ADR drafting concepts: fact-claim verification at write time, mechanism contract over pinned model thresholds (`docs/decisions/**`)
+- `adr-writing.md` — ADR drafting concepts: fact-claim verification at write time, mechanism contract over pinned model thresholds, inter-citation consistency, and the numbering facts `/claude-kit:write-adr` cannot derive (`docs/decisions/**`)
+- `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure, conservative detection) + `gh` read-surface traps. Mirrored from claude-kit, one-way. **`paths:` fires on a skill edit, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
 - `ci-workflows.md` — CI workflow / script editing: bash 3.2 gotchas on macOS GHA runners (no `mapfile` etc.), long-lived integration-branch gating shape (`.github/workflows/**`, `scripts/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
 - `i18n.md` — Localization workflow: `String(format: String(localized:))` format-string pattern, `xcstringstool` sync output (multi-arg en blocks, state=new + en-only), catalog editing traps (don't `json.dumps` round-trip) (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)

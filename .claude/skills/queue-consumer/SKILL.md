@@ -12,6 +12,15 @@ skill is designed to run inside the routine-provided worktree and never
 calls EnterWorktree (nested worktree creation is rejected); per-issue
 isolation comes from plain branches created off `origin/main`.
 
+This skill is bound by the brush-up family's shared **Output Contract**.
+**Canonical text: `.claude/rules/automation-output-contract.md` — read it in
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
+skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+run. Because this generator writes **arbitrary code**, it is the one explicitly
+excluded from the contract's "auto-fix PRs may skip a code-review pass"
+exemption — the mandatory `code-reviewer` gate below is that exclusion in
+operational form.
+
 Non-goals:
 
 - **No scheduled execution.** Invocation is manual or via the nightly

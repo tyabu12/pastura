@@ -80,34 +80,20 @@ Two recurring variants beyond plain arithmetic:
   term into two axes needing separate replacement vocab — full-doc grep the old
   plan's vocabulary, not just the section you renamed.
 
-## 4. Numbering, structure, and phase context (`ADR_RULES_PATH` facts)
+## 4. Numbering facts this repo carries
 
-Project facts the kit skill's runtime discovery cannot re-derive on its own.
-Folded here when Pastura's local `write-adr` skill was retired in favour of
-`/claude-kit:write-adr`.
+Kept deliberately short: `/claude-kit:write-adr` already handles sentinel ids,
+reservation lookup, the conditional Options table, and the roadmap phase read.
+Restating those here would duplicate kit-canonical text with no reconcile
+header — the drift surface `subagent-usage.md` et al. exist to prevent. Only
+what the skill cannot derive belongs here.
 
-**Numbering.** The next number is the highest ADR in the **main sequence** plus
-one, in `ADR-NNN.md` three-digit form. Two things a naive `max + 1` gets wrong:
-
-- **Four-digit sentinels are outside the main sequence.** A parked entry such as
-  `ADR-9999` records a deliberately-unnumbered decision; folding it into the
-  arithmetic yields `ADR-10000` and corrupts the sequence permanently. Exclude
-  any four-digit id.
-- **A file listing is not the repo.** An ADR draft can sit **untracked** in a
-  local checkout — visible to `ls`, absent for every other contributor and in
-  CI. Check `git status` / `git ls-files` before treating a high-numbered file
-  as evidence about the sequence, and before claiming a number: a concurrent
-  session or an open PR may already hold the next one.
-- **`ADR-006` is reserved but unwritten** (Cloud API implementation details —
-  see `CLAUDE.md` and `docs/decisions/INDEX.md`). It is a gap in the file
-  listing, not a free slot. Do not reclaim it.
-
-**Options table — conditional, by design.** Include an Options table when real
-alternatives were genuinely considered, stating why each was rejected; **omit it
-entirely** for a decision with no meaningful alternative. This is a *conditional*
-rule, so reading one template ADR cannot reproduce it — whichever ADR the skill
-picks as template shows only one of the two shapes. A table padded with strawmen
-is worse than no table.
-
-**Phase context.** When the decision is phase-scoped, read the relevant section
-of `docs/ROADMAP.md` — and only that section — before drafting.
+- **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
+  recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
+  with no file on disk. It is a gap in the listing, not a free slot.
+- **A file listing can also *over*-report.** The skill's reservation check
+  covers a listing that under-reports; the inverse also happens here — an ADR
+  draft sitting **untracked** in one checkout is visible to `ls` but absent for
+  every other contributor and in CI. Confirm with `git ls-files` before treating
+  a high-numbered file as evidence about the sequence, and check open PRs and
+  concurrent sessions before claiming a number.
