@@ -60,10 +60,17 @@ package struct HarnessConfig: Sendable, Equatable {
   /// ``Backend/llamaCpp`` backend, which has no guardrail concept.
   package var guardrails: Guardrails = .default
 
+  /// Foundation Models `maximumResponseTokens` cap. `nil` keeps the SDK
+  /// default. Ignored for the ``Backend/llamaCpp`` backend.
+  package var maxResponseTokens: Int?
+  /// Foundation Models guided-generation mode. Ignored for the
+  /// ``Backend/llamaCpp`` backend.
+  package var guidedGeneration = false
+
   package static let usage = """
     usage: pastura-harness --scenario <path.yaml> [--model <path.gguf>] \
     [--backend <id>] [--out <path.jsonl>] [--timeout <seconds>] [--quiet] [--profile <id>] \
-    [--guardrails <id>]
+    [--guardrails <id>] [--max-response-tokens <n>] [--guided-generation]
     --backend selects the inference backend (default: \(Backend.llamaCpp.rawValue); \
     also: \(Backend.foundationModels.rawValue)). --model is required for \
     \(Backend.llamaCpp.rawValue) and ignored for \(Backend.foundationModels.rawValue).
@@ -72,6 +79,10 @@ package struct HarnessConfig: Sendable, Equatable {
     --guardrails selects the Foundation Models guardrail mode (default: \
     \(Guardrails.default.rawValue); also: \(Guardrails.permissive.rawValue)). \
     Ignored for the \(Backend.llamaCpp.rawValue) backend.
+    --max-response-tokens caps the Foundation Models response length \
+    (default: unset, uses the SDK default). Ignored for the \(Backend.llamaCpp.rawValue) backend.
+    --guided-generation enables Foundation Models guided generation. Ignored for the \
+    \(Backend.llamaCpp.rawValue) backend.
     """
 
   /// Mutable accumulator for ``parse(_:)``'s argument loop.
@@ -90,12 +101,15 @@ package struct HarnessConfig: Sendable, Equatable {
     var profile = ModelProfile.gemma4E2B
     var backend = Backend.llamaCpp
     var guardrails = Guardrails.default
+    var maxResponseTokens: Int?
+    var guidedGeneration = false
 
     mutating func apply(
       _ arg: String, from iterator: inout IndexingIterator<[String]>
     ) throws {
       if try applyPathFlag(arg, from: &iterator) { return }
       if try applyOptionFlag(arg, from: &iterator) { return }
+      if try applyFoundationModelsFlag(arg, from: &iterator) { return }
       throw HarnessConfigError("unknown argument '\(arg)'\n\(usage)")
     }
 
@@ -131,6 +145,22 @@ package struct HarnessConfig: Sendable, Equatable {
       }
       return true
     }
+
+    /// - Returns: `true` when `arg` was a Foundation Models tuning flag this
+    ///   consumed. Split out from `applyOptionFlag` to stay under the
+    ///   cyclomatic-complexity limit (see the note above `apply`).
+    private mutating func applyFoundationModelsFlag(
+      _ arg: String, from iterator: inout IndexingIterator<[String]>
+    ) throws -> Bool {
+      switch arg {
+      case "--max-response-tokens":
+        maxResponseTokens = try HarnessConfig.parseMaxResponseTokens(
+          HarnessConfig.value(for: arg, from: &iterator))
+      case "--guided-generation": guidedGeneration = true
+      default: return false
+      }
+      return true
+    }
   }
 
   /// Parses CLI arguments (excluding argv[0]).
@@ -149,7 +179,25 @@ package struct HarnessConfig: Sendable, Equatable {
       scenarioPath: scenario, modelPath: modelPath, outPath: accumulator.out,
       timeoutSeconds: accumulator.timeout, quiet: accumulator.quiet,
       profile: accumulator.profile, backend: accumulator.backend,
-      guardrails: accumulator.guardrails)
+      guardrails: accumulator.guardrails, maxResponseTokens: accumulator.maxResponseTokens,
+      guidedGeneration: accumulator.guidedGeneration)
+  }
+
+  /// Run-log label for the Foundation Models backend, derived from the same
+  /// guardrails/guided-generation/max-tokens values used to construct the
+  /// `FoundationModelsService` — so a run's log line and its actual request
+  /// shape cannot independently drift (#1156 taught that a hand-written label
+  /// can silently stop matching the request it describes).
+  package var foundationModelsRunLabel: String {
+    var label = "Apple Foundation Model (\(guardrails.rawValue)"
+    if guidedGeneration {
+      label += ", guided"
+    }
+    if let maxResponseTokens {
+      label += ", maxtok=\(maxResponseTokens)"
+    }
+    label += ")"
+    return label
   }
 
   /// The effective model path: `--model` is required for the GGUF-backed
@@ -208,5 +256,13 @@ package struct HarnessConfig: Sendable, Equatable {
         "unknown --guardrails '\(raw)' — known guardrails: \(knownIDs)\n\(usage)")
     }
     return resolved
+  }
+
+  private static func parseMaxResponseTokens(_ raw: String) throws -> Int {
+    guard let parsed = Int(raw), parsed > 0 else {
+      throw HarnessConfigError(
+        "--max-response-tokens must be a positive integer, got '\(raw)'\n\(usage)")
+    }
+    return parsed
   }
 }

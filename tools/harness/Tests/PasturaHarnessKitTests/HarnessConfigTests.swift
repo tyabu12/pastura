@@ -178,4 +178,100 @@ struct HarnessConfigTests {
       ])
     }
   }
+
+  @Test func defaultsMaxResponseTokensAndGuidedGenerationToUnset() throws {
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--model", "m.gguf"
+    ])
+    #expect(config.maxResponseTokens == nil)
+    #expect(config.guidedGeneration == false)
+  }
+
+  @Test func parsesMaxResponseTokens() throws {
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models",
+      "--max-response-tokens", "512"
+    ])
+    #expect(config.maxResponseTokens == 512)
+  }
+
+  @Test func parsesGuidedGeneration() throws {
+    let config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models",
+      "--guided-generation"
+    ])
+    #expect(config.guidedGeneration == true)
+  }
+
+  @Test func nonNumericMaxResponseTokensThrows() {
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--model", "m.gguf",
+        "--max-response-tokens", "soon"
+      ])
+    }
+  }
+
+  @Test func zeroMaxResponseTokensThrows() {
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--model", "m.gguf",
+        "--max-response-tokens", "0"
+      ])
+    }
+  }
+
+  @Test func negativeMaxResponseTokensThrows() {
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--model", "m.gguf",
+        "--max-response-tokens", "-1"
+      ])
+    }
+  }
+
+  @Test func missingMaxResponseTokensValueThrows() {
+    #expect(throws: HarnessConfigError.self) {
+      try HarnessConfig.parse([
+        "--scenario", "s.yaml", "--model", "m.gguf", "--max-response-tokens"
+      ])
+    }
+  }
+
+  @Test func foundationModelsRunLabelDefaultGuardrailsOnly() throws {
+    var config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models"
+    ])
+    config.guardrails = .default
+    #expect(config.foundationModelsRunLabel == "Apple Foundation Model (default)")
+  }
+
+  @Test func foundationModelsRunLabelPermissiveOnly() throws {
+    var config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models"
+    ])
+    config.guardrails = .permissive
+    #expect(config.foundationModelsRunLabel == "Apple Foundation Model (permissive)")
+  }
+
+  @Test func foundationModelsRunLabelPermissiveGuided() throws {
+    var config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models"
+    ])
+    config.guardrails = .permissive
+    config.guidedGeneration = true
+    #expect(config.foundationModelsRunLabel == "Apple Foundation Model (permissive, guided)")
+  }
+
+  @Test func foundationModelsRunLabelPermissiveGuidedMaxTok() throws {
+    var config = try HarnessConfig.parse([
+      "--scenario", "s.yaml", "--backend", "foundation-models"
+    ])
+    config.guardrails = .permissive
+    config.guidedGeneration = true
+    config.maxResponseTokens = 512
+    #expect(
+      config.foundationModelsRunLabel
+        == "Apple Foundation Model (permissive, guided, maxtok=512)")
+  }
 }

@@ -166,8 +166,18 @@ enum Main {
           case .permissive: guardrails = .permissiveContentTransformations
           }
           let model = SystemLanguageModel(guardrails: guardrails)
-          let factory: HarnessRunner.LLMFactory = { FoundationModelsService(model: model) }
-          return (factory, "Apple Foundation Model (\(config.guardrails.rawValue))")
+          let maxResponseTokens = config.maxResponseTokens
+          let guidedGeneration = config.guidedGeneration
+          let factory: HarnessRunner.LLMFactory = {
+            FoundationModelsService(
+              model: model, maximumResponseTokens: maxResponseTokens,
+              guidedGeneration: guidedGeneration)
+          }
+          // Label derives from the same `config` values passed into the
+          // factory above (`foundationModelsRunLabel`) — see the #1156 note
+          // just above for why hand-writing a parallel literal here would
+          // reopen the drift it describes, now across two more dimensions.
+          return (factory, config.foundationModelsRunLabel)
         } else {
           throw HarnessConfigError(
             "--backend \(HarnessConfig.Backend.foundationModels.rawValue) requires macOS 26 or later"
