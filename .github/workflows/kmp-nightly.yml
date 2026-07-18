@@ -58,14 +58,30 @@ jobs:
     #   = dispatch path ... 14m36s  (876s, observed)
     #   of which "Full native build + test + XCFramework" .. 7m59s (479s)
     #
-    # 30 holds by COMPOSITION rather than a headroom ratio: the probe below
-    # carries its own `timeout-minutes: 15`, so the dispatch path sits at
-    # 9m06s + 15 = ~24 min even if the probe degrades to its cap. Note only the
-    # `+ 15` is a BOUND — the 9m06s term is a measurement, and the konan clause
-    # below is the one known way it moves. That composition is also why 30 is
-    # not over-sized. If the cap ever needs raising, relocating the probe to its
-    # own workflow is the first lever — the only term the scheduled path does
-    # not pay.
+    # 30 holds by COMPOSITION rather than a headroom ratio. Every capped step
+    # must appear as its cap, and every uncapped one as its measurement:
+    #
+    #   9m06s   scheduled baseline (measured, pre-#501-PR-C)
+    # +   31s   gate-spike build+test step (measured x1.25; UNCAPPED by design)
+    # +    1s   SuspendController drift guard (measured; UNCAPPED)
+    # +  15m    Stage-5 probe, at its cap        (workflow_dispatch only)
+    # +   2m    gate measurements, at its cap    (workflow_dispatch only)
+    # = 26m38s  worst-case dispatch path, against the 30-minute cap
+    #
+    # ~3m22s of margin. The earlier version of this note omitted the new steps
+    # and still concluded "9m06s + 15 = ~24 min", which at the measurement
+    # step's original 5-minute cap actually composed to 29m37s — 23s of margin,
+    # i.e. the cap was effectively already breached and the note said otherwise.
+    # Adding ANY step means REDOING this sum, not appending to the prose. The
+    # sum's term list must match the job's step list — that is the property
+    # that makes an omission detectable, which is why the ~1s drift guard gets
+    # a term rather than a "negligible, skipped" judgement.
+    #
+    # Note only the `+ 15` and `+ 2` are BOUNDS — the 9m06s and 31s terms are
+    # measurements, and the konan clause below is the one known way the first
+    # moves. If the cap ever needs raising, relocating the probe to its own
+    # workflow is the first lever — the only term the scheduled path does not
+    # pay.
     #
     # NOT covered: a cache MISS. That run had a konan exact-key hit; `ci.yml`'s
     # sibling job records the `gradle-caches` restore-key fallback these two
@@ -202,6 +218,48 @@ jobs:
           :shared:engine:assemblePasturaSharedEngineXCFramework
           --no-daemon --stacktrace
 
+      # ADR-023 §6 Stage-2 gate consumer (#501 PR-C).
+      #
+      # UNGUARDED, deliberately unlike the probe below — this is a REGRESSION
+      # check, not a measurement. If the boundary adapters stop compiling or
+      # their contract tests fail, that IS "a native-path regression the per-PR
+      # job could not catch", which is exactly the claim the failure-issue step
+      # makes. The per-PR lanes cannot catch it because decision B′ keeps the
+      # XCFramework out of them, which is what leaves this job as the only
+      # place it can surface.
+      #
+      # Ordering is load-bearing: this sits BEFORE the probe so a probe that
+      # degrades to its 15-minute cap cannot starve the regression check of the
+      # job's remaining budget.
+      #
+      # `stage-framework.sh` re-runs the Gradle assemble (incremental, and the
+      # step above already built it) and copies the result inside the package —
+      # SwiftPM rejects a `.binaryTarget` path that escapes the package root,
+      # so staging is not avoidable.
+      #
+      # Sizing, by the step-to-step method the job-level note above insists on:
+      # local clean build 13s + tests 12s, x1.25 => ~31s. Uncapped by design
+      # (see above), so this ~31s is a term the job-level composition must
+      # carry on BOTH paths — it is folded into the arithmetic at the top of
+      # the job rather than waved off as immaterial.
+      #
+      # `--no-parallel`: the Pattern 6 probe asserts a MainActor tick floor,
+      # which a sibling suite draining paced scripts on the same machine can
+      # starve. `.serialized` fixes that within a suite but not across them.
+      - name: Gate spike — stage XCFramework, build, test
+        run: |
+          set -euo pipefail
+          tools/kmp-gate-spike/scripts/stage-framework.sh
+          swift build --package-path tools/kmp-gate-spike
+          swift test --package-path tools/kmp-gate-spike --no-parallel
+
+      # #501 PR-C item 2. A drifted copy means the boundary suite is exercising
+      # a different object than the app ships — which would silently invalidate
+      # the evidence for §5.2 invariant 3, since that invariant is defended by
+      # the copy being byte-identical rather than by a test.
+      - name: SuspendController verbatim-copy drift guard
+        run: tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh
+
       # Stage-5 sizing probe (#1135) — NOT a regression check.
       #
       # ADR-023 §6 Stage 5 must decide whether the iOS app's per-PR CI can
@@ -268,6 +326,38 @@ jobs:
             printf '  the same job just did.\n\n'
             printf 'Compare against the repo CI budget (target <=10 min) only after adding\n'
             printf 'restore time and a key-miss margin.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # ADR-023 §6 gate measurements (i)/(ii)/(iii) — a MEASUREMENT, so it
+      # carries the SAME three guards as the sizing probe above, for the same
+      # reason: the failure-issue step below claims a red run means a native
+      # regression, and a measurement must never be able to make that claim.
+      #   - workflow_dispatch only: the gate figures are wanted when someone is
+      #     deciding GO/NO-GO, not nightly. (ii) is a timing measurement, so on
+      #     a contended runner a nightly re-run would mostly produce noise.
+      #   - continue-on-error: a slow or failed measurement is not a regression
+      #     signal. The regression half already ran, unguarded, above.
+      #   - step timeout: continue-on-error does not cover a job timeout.
+      # ⚠️ Same `if:` caveat as the probe — do NOT add always()/failure(); the
+      # implicit success() is what keeps this off a already-failed run.
+      #
+      # Sizing: 2.1s locally (7 iterations x 3 measurements). 2 minutes is ~57x
+      # that — ample for a contended runner, and unlike the previous 5 it is a
+      # figure the job-level composition can actually absorb (see the note at
+      # the top of the job). Depends on the staged framework + build from the
+      # gate-spike step above.
+      - name: Gate measurements (i)/(ii)/(iii)
+        if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
+        timeout-minutes: 2
+        run: |
+          set -euo pipefail
+          {
+            printf '## ADR-023 §6 Stage-2 gate measurements (#501)\n\n'
+            printf 'macOS host — per §6, only (ii) absolutes are host-sensitive.\n\n'
+            printf '```\n'
+            swift run --package-path tools/kmp-gate-spike kmp-gate-bench
+            printf '```\n'
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Backstop alarm: a silently-red nightly rots. On failure, open (or, if

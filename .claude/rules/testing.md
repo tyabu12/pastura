@@ -7,13 +7,9 @@ paths:
 
 ## Swift Testing Parallelism
 
-Tests that create `SimulationRunner` (or any type that spawns `Task` + `AsyncStream`
-internally) **must** use `@Suite(.serialized)` to avoid test-process crashes from
-concurrent Task/AsyncStream cleanup. This applies to integration tests that consume
-`AsyncStream<SimulationEvent>` via `for await`.
-
-Individual unit tests (e.g., handler tests with `MockLLMService`) are safe to run
-in parallel because they await the handler directly without AsyncStream.
+Moved to `swift-testing-parallelism.md` — same rule plus the cross-suite limit
+(`.serialized` does not isolate a suite from its neighbours), scoped so `tools/**`
+loads it too.
 
 ## Splitting a Suite Across Files (file_length 400-line cap)
 

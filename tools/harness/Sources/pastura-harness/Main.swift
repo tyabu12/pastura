@@ -20,6 +20,12 @@ enum Main {
     if args.first == "lint" {
       runLint(paths: Array(args.dropFirst()))
     }
+    // `emit-golden` is likewise inference-free (ADR-023 measurement (v)) — it
+    // only encodes Models types, so it branches before the run-mode parse for
+    // the same reason `lint` does.
+    if args.first == "emit-golden" {
+      runEmitGolden(args: Array(args.dropFirst()))
+    }
 
     let config: HarnessConfig
     do {
@@ -54,6 +60,84 @@ enum Main {
     let report = LintBatchRunner.run(paths: paths)
     print(report.humanReadable())
     exit(report.hasFailure ? 1 : 0)
+  }
+
+  /// Compares the committed goldens against a fresh generation and exits.
+  ///
+  /// Exit codes: 0 = up to date, 1 = missing or stale.
+  private static func checkGoldenDrift(expected: String, at path: String) -> Never {
+    // Read failure is drift, not a crash: an absent generated file is exactly
+    // one of the two states the gate exists to catch.
+    let committed = try? String(contentsOfFile: path, encoding: .utf8)
+    if committed == expected {
+      print("\(path) is up to date")
+      exit(0)
+    }
+    let diagnosis =
+      committed == nil
+      ? "\(path) is missing — it has never been generated in this checkout."
+      : """
+      \(path) is stale.
+      A Swift Models type changed without the goldens being regenerated.
+      """
+    FileHandle.standardError.write(
+      Data(
+        """
+        \(diagnosis)
+        Regenerate from the repository root: \(GoldenFixtureEmitter.regenerateCommand)
+
+        """.utf8))
+    exit(1)
+  }
+
+  /// Runs the inference-free `emit-golden` subcommand (ADR-023 measurement (v))
+  /// and exits.
+  ///
+  /// Exit codes: 0 = printed / written / no drift, 1 = drift found or a
+  /// fixture could not be encoded, 2 = usage error.
+  ///
+  /// Paths are resolved against the current directory, so every mode must run
+  /// from the repository root — the same contract `scripts/` gates already use.
+  private static func runEmitGolden(args: [String]) -> Never {
+    let usage = """
+      usage: pastura-harness emit-golden [--write | --check]
+
+        (no flag)  print the generated Kotlin source to stdout
+        --write    write it to \(GoldenFixtureEmitter.generatedPath)
+        --check    fail if the committed file differs from a fresh generation
+      """
+
+    let generated: String
+    do {
+      generated = try GoldenFixtureEmitter.kotlinSource()
+    } catch {
+      FileHandle.standardError.write(Data("\(error)\n".utf8))
+      exit(1)
+    }
+
+    let path = GoldenFixtureEmitter.generatedPath
+    switch args.first {
+    case nil:
+      print(generated)
+      exit(0)
+
+    case "--write":
+      do {
+        try generated.write(toFile: path, atomically: true, encoding: .utf8)
+        print("wrote \(path)")
+        exit(0)
+      } catch {
+        FileHandle.standardError.write(Data("could not write \(path): \(error)\n".utf8))
+        exit(1)
+      }
+
+    case "--check":
+      checkGoldenDrift(expected: generated, at: path)
+
+    default:
+      FileHandle.standardError.write(Data((usage + "\n").utf8))
+      exit(2)
+    }
   }
 
   private static func run(config: HarnessConfig) async throws -> RunSummary {

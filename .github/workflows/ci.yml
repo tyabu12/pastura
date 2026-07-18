@@ -643,6 +643,20 @@ jobs:
       - name: Lint shipped scenarios (ADR-024)
         run: swift run pastura-harness lint Pastura/Pastura/Resources/Presets docs/gallery
 
+      # ADR-023 §6 measurement (v): the Kotlin parity fixture is Swift-authored
+      # bytes frozen into a generated source file, so a Models change that is
+      # not accompanied by a regeneration silently invalidates the measurement.
+      # Rides this job because it is the only per-PR lane that already builds
+      # the Swift Models — and it acquires NO XCFramework dependency, so
+      # decision B′ still holds.
+      #
+      # Coverage gap, stated rather than papered over: this job is gated on
+      # `ios != false`, so a PR that hand-edits ONLY the generated Kotlin file
+      # skips it. Swift is the source of truth and that direction is covered;
+      # the generated file carries a DO-NOT-EDIT header for the other.
+      - name: Golden JSON drift guard (ADR-023 measurement (v))
+        run: swift run pastura-harness emit-golden --check
+
   # ---------------------------------------------------------------------------
   # KMP Models layer build & test (#501 Stage 1, ADR-023). Validates that the
   # `shared/models` Kotlin Multiplatform module lands green and stays green.
@@ -1045,6 +1059,45 @@ jobs:
 
       - name: Run ScenarioEditor funnel drift guard
         run: bash scripts/scenario-editor-funnel-gate.sh --check
+
+  # ADR-023 §6 decision B′: "No per-PR lane acquires an XCFramework dependency
+  # — not the iOS xcodebuild, not the root Package.swift harness build, not a
+  # dev `swift build`." The root manifest is the one that would leak it, since
+  # `harness-build` runs a bare `swift build` and that builds every target the
+  # root declares. The gate spike therefore lives in its own nested manifest.
+  #
+  # Ungated (ubuntu, seconds): a gated guard would skip on exactly the PRs that
+  # only touch the manifest.
+  kmp-gate-isolation:
+    name: KMP gate-spike isolation guard (B′)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      # Comment lines are stripped first: a comment EXPLAINING that the root
+      # deliberately has no binary target would otherwise fail this gate — a
+      # false positive found by perturbing the guard with exactly that shape.
+      - name: Root manifest declares no binary target
+        run: |
+          set -euo pipefail
+          if grep -vE '^[[:space:]]*(//|\*|/\*)' Package.swift | grep -n 'binaryTarget'; then
+            echo "::error file=Package.swift::ADR-023 decision B' violated: the root" \
+                 "manifest declares a .binaryTarget, so every per-PR 'swift build'" \
+                 "now requires an assembled XCFramework. Keep the gate consumer in" \
+                 "tools/kmp-gate-spike/Package.swift."
+            exit 1
+          fi
+
+      - name: Gate spike is not reachable from the root package graph
+        run: |
+          set -euo pipefail
+          if grep -vE '^[[:space:]]*(//|\*|/\*)' Package.swift | grep -n 'kmp-gate-spike'; then
+            echo "::error file=Package.swift::ADR-023 decision B' violated: the root" \
+                 "manifest references tools/kmp-gate-spike."
+            exit 1
+          fi
 
   # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
   # CSS mirror consumed by the claude.ai Design System project) faithful to
