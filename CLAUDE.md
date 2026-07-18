@@ -205,8 +205,10 @@ Pastura/
 ├── Utilities/
 └── Resources/
     ├── Presets/              # Bundled YAML scenarios
+    ├── DemoPresets/          # Demo-backing scenarios; the bundle flattens these with Presets/
     ├── DemoReplays/          # DL-time demo playback (ADR-007)
-    └── ContentBlocklist.json # ADR-005 content safety
+    ├── ContentBlocklist.json # ADR-005 content safety
+    └── *.xcstrings           # Localizable / InfoPlist string catalogs
 
 web/                             # The pastura.app site (Astro SSG, deployed via .github/workflows/deploy-pages.yml; #475)
 ├── astro.config.mjs             # i18n (en root / ja prefix), sitemap, trailingSlash
@@ -221,7 +223,14 @@ web/                             # The pastura.app site (Astro SSG, deployed via
 
 ```
 shared/                          # KMP shared modules (#501 / ADR-023). Gradle/Kotlin Multiplatform.
-└── models/                      #   `shared/models` — landed Stage 1 as INFRA (not production-wired; mirrors Swift Models/, depends on nothing). `shared/engine` port + iOS consumption are Phase 3.0.
+├── models/                      #   Mirrors Swift Models/; landed as infra, not production-wired.
+└── engine/                      #   Stage-2 gate slice landed; the bulk port and iOS consumption stay gated — read ADR-023 §6/§12 before editing.
+```
+
+```
+tools/                           # Dev tooling, outside the iOS app build
+├── harness/                     #   pastura-harness — headless macOS simulation runner (ADR-013). Built by `swift build` via the root Package.swift, not by the pre-commit hook.
+└── kmp-gate-spike/              #   ADR-023 Stage-2 gate spike consumer. The package builds on the nightly lane only — no per-PR lane takes an XCFramework dep — but its bash guards under scripts/ do run per-PR in ci.yml.
 ```
 
 ## Agent Tooling Dependency
