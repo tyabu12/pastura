@@ -1,10 +1,13 @@
 # Subagent Usage Rules
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). In particular the
-> volatile facts (the cap table, the 800/8/5 and 1500/12/7 split thresholds, the #24055 status)
-> are kit-canonical: when they change upstream, update this copy from the kit, never the reverse.
-> Pastura-specific content lives only in this copy.
+> the generic core is canonical there; reconcile one-way (kit → Pastura). Everything numeric — the
+> cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical.
+> The thresholds are *derived* from the cap table (smallest practical budget, prose-dense report),
+> so they are recomputed upstream, never retuned here. The one genuinely local input is report
+> density per changed line: it licenses bounding a call **tighter at the call site, never looser**
+> — a caller wanting less scope splits smaller instead of editing §2's numbers or the copies in
+> `.claude/agents/code-reviewer.md`. Pastura-specific content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
 loading-mode rationale. Subagent calls can originate from any layer
@@ -47,16 +50,15 @@ Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
 ## 2. Caller-side scope discipline
 
 When invoking a subagent, bound the work so the final report fits the
-budget:
+budget (derived — tighten at the call site, don't edit; see the header):
 
 - **Soft budget** (split if over): ~800 changed lines OR ~8 changed
   files OR ~5 review axes per invocation, whichever is tighter.
 - **Hard split** (always split): >1500 changed lines, >12 files, or
   >7 axes — these reliably truncate before the final report.
 
-Actual usage depends on file size and output verbosity — when numbers
-fall between soft and hard, prefer splitting. If splitting is
-impractical, see **§3. Sonnet override**.
+When numbers fall between soft and hard, prefer splitting. If splitting
+is impractical, see **§3. Sonnet override**.
 
 ## 3. Sonnet override (escape valve)
 
@@ -86,7 +88,11 @@ exceeded. The kit-provided `claude-kit:critic` self-defends differently
 (its `Output Discipline & Scope` section triages: highest-risk axes
 first, explicit deferrals instead of a bail-out). Defense in depth: subagent
 budget exhaustion is silent (intermediate text returned, final report
-missing), so the duplication with §2 is intentional.
+missing), so the duplication with §2 is intentional. Concretely, that
+looks like the mandated terminal section (`code-reviewer`'s Verdict
+block, `critic`'s Summary Table / Top Actions) missing *while*
+intermediate tool output is present and no `SCOPE_TOO_LARGE` fired — a
+merely short report is not the signal.
 
 ## 5. Official `/code-review` vs the custom agents
 
