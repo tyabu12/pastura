@@ -29,6 +29,7 @@
     // OSAllocatedUnfairLock. `model` is an immutable Sendable value.
 
     private let model: SystemLanguageModel
+    private let maximumResponseTokens: Int?
     private let loadedState: OSAllocatedUnfairLock<Bool>
 
     /// Creates a service over a system language model.
@@ -46,11 +47,21 @@
     /// was wrong precisely because no caller ever passed anything else. The
     /// harness selects the mode via `--guardrails`.
     ///
-    /// - Parameter model: The system model to drive. Defaults to
-    ///   ``SystemLanguageModel/default`` (the general-purpose base model with
-    ///   default guardrails).
-    public init(model: SystemLanguageModel = .default) {
+    /// - Parameters:
+    ///   - model: The system model to drive. Defaults to
+    ///     ``SystemLanguageModel/default`` (the general-purpose base model with
+    ///     default guardrails).
+    ///   - maximumResponseTokens: Upper bound on generated tokens, forwarded as
+    ///     `GenerationOptions.maximumResponseTokens`. `nil` (the default) leaves
+    ///     generation unconstrained, i.e. the behaviour every prior #1072
+    ///     battery measured. Spike #1154 wires this to test whether capping
+    ///     output relieves the 4k-context blocker — the expected outcome is
+    ///     *not* a clean win: a cap truncates the JSON object mid-object, which
+    ///     converts a context-exceeded failure into a parse failure rather than
+    ///     removing it. That conversion is itself the measurement.
+    public init(model: SystemLanguageModel = .default, maximumResponseTokens: Int? = nil) {
       self.model = model
+      self.maximumResponseTokens = maximumResponseTokens
       self.loadedState = OSAllocatedUnfairLock(initialState: false)
     }
 
@@ -154,8 +165,15 @@
       // permissive run that still throws `guardrailViolation` means this
       // argument went missing.
       let session = LanguageModelSession(model: self.model, instructions: system)
+      // Built ONCE here, ahead of any branch on generation path, and threaded to
+      // every `respond` overload. `respond`'s `options:` carries a compiler
+      // default, so a callsite that omits it silently generates unconstrained —
+      // structurally the same silent-default trap as the `model:` argument
+      // above, whose omission invalidated an entire 6-cell battery (#1156).
+      // One value, one construction site, so no two paths can disagree.
+      let options = GenerationOptions(maximumResponseTokens: maximumResponseTokens)
       do {
-        let response = try await session.respond(to: user)
+        let response = try await session.respond(to: user, options: options)
         return response.content
       } catch let error as LanguageModelSession.GenerationError {
         throw Self.map(error)
