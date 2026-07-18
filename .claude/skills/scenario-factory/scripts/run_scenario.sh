@@ -4,6 +4,7 @@
 # usage:
 #   run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] \
 #                   [profile_id] [--backend <id>] [--guardrails <id>]
+#                   [--max-response-tokens <n>] [--guided-generation]
 #   run_scenario.sh --classify <out.jsonl> <exit_code>
 #
 # [profile_id], when non-empty, is passed through to the harness as
@@ -11,7 +12,8 @@
 # "gemma"). Positional args, so passing a profile requires also passing
 # timeout_sec explicitly.
 #
-# --backend / --guardrails are TRAILING FLAGS, not further positionals: making
+# --backend / --guardrails / --max-response-tokens / --guided-generation are
+# TRAILING FLAGS, not further positionals: making
 # them positional #6/#7 would force every foundation-models caller to also
 # supply a timeout and a meaningless profile_id just to reach them.
 #
@@ -60,6 +62,7 @@ usage() {
   cat >&2 <<'EOF'
 usage: run_scenario.sh <scenario.yaml> <model.gguf> <out.jsonl> [timeout_sec=600] [profile_id]
                        [--backend <id>] [--guardrails <id>]
+                       [--max-response-tokens <n>] [--guided-generation]
        run_scenario.sh --classify <out.jsonl> <exit_code>
 
 <model.gguf> may be `-` for a backend with no GGUF file (e.g. foundation-models).
@@ -148,6 +151,8 @@ if [ $# -gt 0 ] && [ "${1#--}" = "$1" ]; then PROFILE="$1"; shift; fi
 
 BACKEND=""
 GUARDRAILS=""
+MAX_RESPONSE_TOKENS=""
+GUIDED_GENERATION=""
 # An explicitly-empty value is a caller bug, not an intent: `-`/empty carries a
 # deliberate sentinel meaning for <model.gguf> above, so silently dropping an
 # empty flag here would be the one inconsistent reading.
@@ -155,6 +160,10 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --backend) [ $# -ge 2 ] && [ -n "$2" ] || usage; BACKEND=$2; shift 2 ;;
     --guardrails) [ $# -ge 2 ] && [ -n "$2" ] || usage; GUARDRAILS=$2; shift 2 ;;
+    --max-response-tokens)
+      [ $# -ge 2 ] && [ -n "$2" ] || usage; MAX_RESPONSE_TOKENS=$2; shift 2 ;;
+    # Boolean flag — consumes no value, mirroring the harness's own shape.
+    --guided-generation) GUIDED_GENERATION=1; shift ;;
     *) usage ;;
   esac
 done
@@ -195,6 +204,8 @@ esac
 if [ -n "$PROFILE" ]; then ARGS+=(--profile "$PROFILE"); fi
 if [ -n "$BACKEND" ]; then ARGS+=(--backend "$BACKEND"); fi
 if [ -n "$GUARDRAILS" ]; then ARGS+=(--guardrails "$GUARDRAILS"); fi
+if [ -n "$MAX_RESPONSE_TOKENS" ]; then ARGS+=(--max-response-tokens "$MAX_RESPONSE_TOKENS"); fi
+if [ -n "$GUIDED_GENERATION" ]; then ARGS+=(--guided-generation); fi
 "$BIN" "${ARGS[@]}" 2>"$STDERR_LOG" &
 PID=$!
 
