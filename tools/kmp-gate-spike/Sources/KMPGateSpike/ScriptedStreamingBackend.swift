@@ -110,8 +110,11 @@ nonisolated public struct ScriptedChunk: Sendable, Equatable {
 ///    that task is the only thing that ever touches `callbacks`. There is no
 ///    producer task — the stream is built with `unfolding`, so elements are
 ///    produced on the draining task itself. That keeps "1 call = 1 task"
-///    literally true and mechanically auditable (`grep "Task {"` in this file
-///    returns one hit), rather than true-modulo-a-helper-task.
+///    literally true and mechanically auditable — this returns exactly 1:
+///    `grep -vE '^\s*(//|\*)' <this file> | grep -c 'Task {'`
+///    — rather than true-modulo-a-helper-task. (The comment strip is not
+///    incidental: the unstripped grep returns 2, because this line matches
+///    itself.)
 ///
 /// **Threading.** Nothing here assumes `MainActor`; the type is `nonisolated`
 /// so it keeps the semantics it will have inside `LLM/` post-port, under the

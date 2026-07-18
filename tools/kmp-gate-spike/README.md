@@ -38,6 +38,14 @@ into it. Both directions are asserted per-PR by the `kmp-gate-isolation` job in
 `.github/workflows/ci.yml` — ungated, because a gated guard would skip on
 exactly the PRs that only touch the manifest.
 
+**What that job does not cover**, stated so the guarantee is not read wider than
+it is: it greps the root `Package.swift`, which is the common cause for two of
+B′'s three lanes (the harness build and a dev `swift build`). The **iOS
+xcodebuild** lane is not checked by it — an XCFramework added to
+`Pastura.xcodeproj` would violate B′ without touching any manifest. The grep
+also strips whole-line comments only, so a trailing `// … .binaryTarget …`
+still trips it. Both gaps are tracked as follow-ups on #501.
+
 **Do not consolidate this into the root manifest.** If a future change makes
 that look attractive, the constraint above is the reason it is not.
 
@@ -67,9 +75,16 @@ Then, from the repository root:
 
 ```bash
 swift build --package-path tools/kmp-gate-spike
-swift test  --package-path tools/kmp-gate-spike
+swift test  --package-path tools/kmp-gate-spike --no-parallel
 swift run   --package-path tools/kmp-gate-spike kmp-gate-bench
 ```
+
+`--no-parallel` is not optional hygiene. The Pattern 6 probe asserts a floor on
+MainActor ticks during a paced run, and a sibling suite draining its own paced
+scripts on the same machine starves it — observed directly: adding one suite
+took the probe from passing to `ticks → 3` against a floor of 10. The suites
+carry `.serialized`, but that trait orders tests *within* a suite and does not
+stop two suites from overlapping. `kmp-nightly.yml` passes the same flag.
 
 **Failure mode to expect on an unstaged checkout.** A local-path binary target
 is resolved when the package *graph* loads, not when the manifest is
@@ -118,8 +133,8 @@ swift run --package-path tools/kmp-gate-spike kmp-gate-bench
 | Measurement | Status |
 |---|---|
 | (i) event-boundary ergonomics, incl. the threading clause | measured here — counted from source; threading clause via the Pattern 6 probe |
-| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — 19.9 µs/chunk, 2.08 ms round trip (macOS host) |
-| (iii) K/N shim-budget on the Engine-consuming surface | measured here — 21 declarations |
+| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — ≈20 µs/chunk, ≈50 µs round trip (macOS host) |
+| (iii) K/N shim-budget on the Engine-consuming surface | measured here — 24 declarations |
 | (iv) SKIE-vs-vanilla | **documented evaluation only** — no SKIE integration |
 | (v) kotlinx.serialization round-trip parity on `TurnOutput`/`OutputSchema` | **one-sided**, via checked-in golden JSON (see below) |
 
