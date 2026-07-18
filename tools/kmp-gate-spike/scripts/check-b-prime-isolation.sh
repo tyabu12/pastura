@@ -25,19 +25,24 @@
 #                 lanes, via a path dependency rather than a binary one.
 #   COVERED (3) pbxproj declares no `.xcframework`          — the iOS xcodebuild
 #                 lane, for a framework added the way Xcode's UI adds one.
-#   COVERED (4) no `*.xcframework` exists under the app directory — the iOS lane
-#                 again, for the path (3) structurally cannot see: the project
-#                 uses `PBXFileSystemSynchronizedRootGroup`, so a framework
-#                 dropped inside a synchronized directory is swept into the
-#                 target with NO pbxproj diff at all.
+#   COVERED (4) no TRACKED `*.xcframework` under the app directory — the iOS
+#                 lane again, for the path (3) structurally cannot see: the
+#                 project uses `PBXFileSystemSynchronizedRootGroup`, so a
+#                 framework committed inside a synchronized directory is swept
+#                 into the target with NO pbxproj diff at all.
 #
 #   NOT COVERED  an SPM *remote* package that itself declares a `.binaryTarget`.
 #                 Resolving one leaves no `.xcframework` text in the pbxproj —
 #                 only an `XCSwiftPackageProductDependency` plus an entry in
-#                 `Package.resolved` — so no grep here can see it. The project
-#                 currently resolves Yams, GRDB.swift and llama.swift; adding a
-#                 binary-target-bearing package would violate B′ silently. That
-#                 is a known hole, not an oversight.
+#                 `Package.resolved` — so no grep here can see it. A known
+#                 hole, not an oversight.
+#
+# What B′ is actually about, since the invariant reads wider than it is: the
+# cost it protects against is ASSEMBLING the KMP XCFramework (~6m32s cold), not
+# depending on any binary artifact. `llama.swift` already vendors a prebuilt
+# `llama.xcframework` into the iOS lane and does not violate B′ — it is
+# downloaded, not built. Read every check here as "no lane acquires a
+# dependency on the KMP-assembled framework".
 #
 # Checks (1) and (2) strip comments from the manifest first: a comment
 # EXPLAINING that the root deliberately has no binary target must not trip the
@@ -162,13 +167,27 @@ fi
 #
 # The check (3) cannot make. `Pastura.xcodeproj` declares three
 # `PBXFileSystemSynchronizedRootGroup`s (Pastura / PasturaTests / PasturaUITests),
-# and a framework dropped under one of those directories joins the target with
-# no pbxproj entry to grep. Cheap `find`, so it runs unconditionally.
-FOUND_XCF="$(find "$APP_DIR" -name '*.xcframework' -print -quit 2>/dev/null || true)"
-if [ -n "$FOUND_XCF" ]; then
-  fail "$FOUND_XCF" "an .xcframework is present under $APP_DIR. The project uses \
-PBXFileSystemSynchronizedRootGroup, so this is swept into the target without any \
-pbxproj reference."
+# and a framework COMMITTED under one of those directories joins the target with
+# no pbxproj entry to grep.
+#
+# TRACKED files only, via `git ls-files` — not `find` over the worktree. A
+# worktree walk also sweeps up build output: `Pastura/DerivedData/` holds
+# `llama.xcframework` after any local build, and `.build/artifacts/` holds it
+# after any `swift build`. Neither is in the repository, so a `find` here is
+# green on a fresh CI checkout and red on every developer machine — the worst
+# split, since CI would never show it. `.claude/rules/ci-workflows.md`
+# § "Rename / namespace-sweep completion gate" makes the same call for the
+# same reason.
+if git -C "$APP_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  TRACKED_XCF="$(git -C "$APP_DIR" ls-files -- '*.xcframework' '*.xcframework/*' | head -1)"
+  if [ -n "$TRACKED_XCF" ]; then
+    fail "$APP_DIR/$TRACKED_XCF" "a tracked .xcframework is present under $APP_DIR. \
+The project uses PBXFileSystemSynchronizedRootGroup, so this is swept into the \
+target without any pbxproj reference."
+  fi
+else
+  echo "warning: $APP_DIR is not inside a git work tree — skipping the" \
+       "tracked-framework check (4)." >&2
 fi
 
 echo "B' isolation holds: no XCFramework dependency on any per-PR lane."

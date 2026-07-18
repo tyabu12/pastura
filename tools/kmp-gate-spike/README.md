@@ -43,20 +43,27 @@ synthetic perturbation fixtures by `scripts/tests/kmp-gate-isolation-test.sh`
 (the CI "Shell gate tests" job). It covers all three of B′'s lanes: the root
 manifest declares no `.binaryTarget` and does not reach into this package (the
 harness build and a dev `swift build`), the pbxproj references no
-`.xcframework`, and no `*.xcframework` is present under `Pastura/` — the last
-because the project uses `PBXFileSystemSynchronizedRootGroup`, so a framework
-dropped inside a synchronized directory joins the iOS target with no pbxproj
-entry to grep. Comment stripping on the manifest is quote-aware, so neither a
-comment mentioning the forbidden token nor a `//`-bearing URL string changes the
-verdict.
+`.xcframework`, and no **tracked** `*.xcframework` sits under `Pastura/` — the
+last because the project uses `PBXFileSystemSynchronizedRootGroup`, so a
+framework committed inside a synchronized directory joins the iOS target with no
+pbxproj entry to grep. Comment stripping on the manifest is quote-aware, so
+neither a comment mentioning the forbidden token nor a `//`-bearing URL string
+changes the verdict. Check (4) reads `git ls-files`, not the worktree: build
+output (`Pastura/DerivedData/`, `.build/artifacts/`) holds a vendored
+`llama.xcframework` on any machine that has built, and a worktree walk would go
+red locally while staying green on a fresh CI checkout.
 
-**The one lane it cannot cover**, stated so the guarantee is not read wider than
-it is: an SPM **remote** package that itself declares a `.binaryTarget`.
-Resolving one leaves no `.xcframework` text anywhere in the project — only an
+**What B′ is protecting**, since the invariant as worded reads wider than it is:
+the cost is *assembling* the KMP XCFramework (~6m32s cold), not depending on any
+binary artifact. `llama.swift` already vendors a prebuilt `llama.xcframework`
+into the iOS lane and does not violate B′ — it is downloaded, not built.
+
+**The one lane the guard cannot cover**: an SPM **remote** package that itself
+declares a `.binaryTarget` pointing at a KMP-assembled framework. Resolving one
+leaves no `.xcframework` text anywhere in the project — only an
 `XCSwiftPackageProductDependency` and an entry in `Package.resolved` — so no
-grep can see it. The project currently resolves Yams, GRDB.swift and
-llama.swift; adding a binary-target-bearing dependency would violate B′
-silently. Check that by hand when adding an SPM dependency.
+grep can see it. Check that by hand if a future dependency is ever sourced that
+way.
 
 **Do not consolidate this into the root manifest.** If a future change makes
 that look attractive, the constraint above is the reason it is not.

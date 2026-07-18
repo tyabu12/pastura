@@ -153,9 +153,32 @@ run_case yes "pbxproj references an .xcframework" "$CLEAN_MANIFEST" "$p" "$CLEAN
 
 # iOS xcodebuild lane, synchronized-group form — the path the pbxproj grep
 # structurally cannot see, because the sweep leaves no project-file entry.
+#
+# A real git repo, because check (4) asks `git ls-files`: an UNtracked
+# framework is build output on one machine, not a repository state, and must
+# not fire. The negative case below pins that distinction — it is the bug this
+# test caught, where a `find` walk flagged `Pastura/DerivedData`'s
+# `llama.xcframework` and went red locally while staying green on a fresh CI
+# checkout.
 a="$TMP/p-appdir-sweep"
-mkdir -p "$a/Pastura/PasturaShared.xcframework"
-run_case yes "framework swept in via PBXFileSystemSynchronizedRootGroup" "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$a"
+mkdir -p "$a/Pastura/PasturaShared.xcframework/ios-arm64"
+git -C "$a" init -q
+git -C "$a" config user.email t@example.com
+git -C "$a" config user.name t
+echo "binary" >"$a/Pastura/PasturaShared.xcframework/ios-arm64/stub"
+git -C "$a" add -A
+git -C "$a" commit -qm "tracked framework"
+run_case yes "tracked framework swept in via PBXFileSystemSynchronizedRootGroup" \
+  "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$a"
+
+# The same tree with the framework UNtracked — build output, not a violation.
+u="$TMP/n-appdir-untracked"
+mkdir -p "$u/Pastura/DerivedData/artifacts/llama.xcframework/ios-arm64"
+git -C "$u" init -q
+git -C "$u" config user.email t@example.com
+git -C "$u" config user.name t
+echo "build output" >"$u/Pastura/DerivedData/artifacts/llama.xcframework/ios-arm64/stub"
+run_case no "untracked .xcframework in build output" "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$u"
 
 # ------------------------------------------------------------- the real repo --
 # The guard must be green on the real files as they stand. Placed last so a
