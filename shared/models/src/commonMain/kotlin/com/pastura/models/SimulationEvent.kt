@@ -308,6 +308,51 @@ public sealed class SimulationEvent {
         public val detected: String? = null,
         public val expected: String,
     ) : SimulationEvent()
+
+    /**
+     * Whether no further event follows this one, per `SimulationEngine.run`'s
+     * contract.
+     *
+     * Declared here — once, on the type — rather than as a predicate at each
+     * consumer. A consumer-side `is SimulationCompleted || is ErrorEvent`
+     * chain is invisible to ADR-022's no-default gate, which reaches `when` /
+     * `switch` projections but not `is` / `==` predicates (ADR-027 records the
+     * same carve-out for `==`). The gate spike's `SharedEngineRunner` had
+     * exactly that shape: a new terminal case would have left its
+     * reconstructed `AsyncStream` never finishing, with nothing red.
+     *
+     * The `when` below is an expression over a sealed class with no `else`, so
+     * the compiler rejects it the moment a subclass is added — and
+     * `:shared:models:jvmTest` runs on every PR, so that rejection is a
+     * per-PR gate rather than a nightly one.
+     *
+     * Enumerated exhaustively on purpose: an `else -> false` would restore the
+     * silent-default this exists to remove.
+     */
+    public val isTerminal: Boolean
+        get() = when (this) {
+            is SimulationCompleted -> true
+            is ErrorEvent -> true
+            is RoundStarted -> false
+            is RoundCompleted -> false
+            is PhaseStarted -> false
+            is PhaseCompleted -> false
+            is AgentOutput -> false
+            is AgentOutputStream -> false
+            is ScoreUpdate -> false
+            is Elimination -> false
+            is Assignment -> false
+            is Summary -> false
+            is VoteResults -> false
+            is PairingResult -> false
+            is ConditionalEvaluated -> false
+            is EventInjected -> false
+            is RoundCheckpoint -> false
+            is SimulationPaused -> false
+            is InferenceStarted -> false
+            is InferenceCompleted -> false
+            is LanguageMismatch -> false
+        }
 }
 
 /**

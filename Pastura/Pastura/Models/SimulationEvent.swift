@@ -249,6 +249,37 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   ///     before display (ADR-005), unlike `.turnSkipped`'s engine-generated
   ///     `cause`. The offline harness transcript records it verbatim (no UI).
   case actionRejected(agent: String, phaseType: PhaseType, raw: String)
+
+  /// Whether no further event follows this one.
+  ///
+  /// Declared on the type — once — rather than as a predicate at each
+  /// consumer. A consumer-side `== .simulationCompleted || … ` chain is
+  /// invisible to ADR-022's no-default gate, which reaches `switch`
+  /// projections but not `==` / `is` predicates (ADR-027 records the same
+  /// carve-out). Mirrors `isTerminal` on the Kotlin `SimulationEvent`.
+  ///
+  /// The `switch` is exhaustive with no `default:` on purpose, per ADR-022: a
+  /// `default: false` would restore the silent fallthrough this exists to
+  /// remove, and a newly added terminal case would go unnoticed.
+  ///
+  /// **No Swift consumer today** — stated rather than left to be inferred. The
+  /// live consumer is the Kotlin side (`SharedEngineRunner` in the ADR-023 gate
+  /// spike); this exists so the two Models mirrors declare terminality the same
+  /// way, and so the Stage-5 Swift consumer that replaces `SimulationRunner`
+  /// finds a declaration to use instead of writing a fresh predicate chain.
+  public var isTerminal: Bool {
+    switch self {
+    case .simulationCompleted, .error:
+      return true
+    case .roundStarted, .roundCompleted, .phaseStarted, .phaseCompleted,
+      .agentOutput, .agentOutputStream, .scoreUpdate, .elimination,
+      .assignment, .sharedAssignment, .summary, .narration,
+      .relationshipUpdate, .voteResults, .pairingResult, .conditionalEvaluated,
+      .eventInjected, .roundCheckpoint, .simulationPaused, .inferenceStarted,
+      .inferenceCompleted, .languageMismatch, .turnSkipped, .actionRejected:
+      return false
+    }
+  }
 }
 
 /// Errors that can occur during simulation execution.
