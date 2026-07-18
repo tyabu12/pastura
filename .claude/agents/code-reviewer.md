@@ -39,8 +39,14 @@ You have Bash access for **read-only commands only**:
 
 1. Run `git diff HEAD` (or `git diff` for unstaged changes) to see what changed
 2. Read the changed files for full context
-3. Evaluate against the checklist below
-4. Report findings in the output format specified at the end
+3. **Read the path-scoped rules that apply to the changed files.** A review *reads* files rather than
+   editing them, so `paths:`-scoped `.claude/rules/*.md` do NOT auto-load — read them explicitly:
+   app Swift (`Pastura/Pastura/**/*.swift`) → `swiftui-traps.md`, `navigation.md`, `i18n.md`;
+   tests (`Pastura/PasturaTests/**`) → `testing.md`; Engine/LLM/Models/Data → `engine.md` /
+   `models-and-data.md`. Always-loaded rules (no `paths:`, e.g. `swift-isolation.md`) and `CLAUDE.md`
+   are already in context. The Trap Index below points into these for depth.
+4. Evaluate against the checklist below
+5. Report findings in the output format specified at the end
 
 ## Review Checklist
 
@@ -79,23 +85,25 @@ Utilities/ -> depends on nothing
 - Test coverage for new public types/functions
 - No exposed secrets or API keys
 
-### Pastura-specific Trap Cheat Sheet (Warning)
+### Pastura-specific Trap Index (Warning)
 
-Footguns documented from prior incidents. Check each change against these **in addition** to the general rules above — none of these are caught by `swiftlint` or `swift build` alone.
+Footguns from prior incidents — none caught by `swiftlint` / `swift build` alone. The full pattern
+is **canonical in the rule files**; check each change against the trigger, and read the pointed-to
+rule (loaded per Review Process step 3) for depth. Flag a Warning when a change trips a trigger.
 
-- **ShapeStyle vs Color tokens** — `.foregroundStyle(.muted)` fails to compile when `.muted` is a project `Color` extension. Use `.foregroundStyle(Color.muted)` (explicit `Color.` prefix). Applies to any `Color` extension consumed via `ShapeStyle`-expecting modifiers.
-- **`nonisolated` annotation traps** — Under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, five patterns trip MainActor inference: protocol-extension default impls building escaping closures, value types with custom Hashable/Equatable/Codable witnesses, sibling-file extensions on a `nonisolated` type, reference types adding sync methods alongside `Sendable`-protocol async, and auto-synthesized Equatable/Hashable conformance lookup on a default-MainActor type used from a nonisolated caller (fix: `@MainActor` on the test suite first; `nonisolated` on the type only with ≥2 unrelated nonisolated call sites). Diagnostics fire at use site, not declaration. See `.claude/rules/swift-isolation.md`.
-- **Test suite `.timeLimit` trait** — Every `@Suite` in `PasturaTests/` must carry `.timeLimit(.minutes(1))`. Load-bearing CI-hang diagnostic (PR #134) — do not remove even when a suite "looks fine". New suites without the trait are a Warning.
-- **Test suite serialization** — Suites touching `SimulationRunner` or other global-state consumers must use `@Suite(.serialized)`. Missing serialization causes race-flake between parallel test cases.
-- **Error i18n prep** — Error types' `errorDescription` literals must be wrapped in `String(localized:)` for future translation readiness. Test assertions should use `.contains(localizedSubstring)` rather than equality on the rendered string. Check `LLMError`, `DataError`, `SimulationError`, and any new `LocalizedError` addition.
-- **i18n leak detection — Tier 1 blind spots** — `.swiftlint.yml`'s `unwrapped_user_facing_string` catches only 10 hardcoded VM property names. Flag (a) new VM properties — request regex extension; (b) helper-returned or computed `String` displayed via `Text(_:)` — recommend `python3 scripts/check_i18n_potential_keys.py` (Tier 2). See `docs/i18n/leak-detection.md`.
-- **Navigation root-stack scope** — `navigationDestination(item:|isPresented:)` MUST NOT appear inside any view that gets pushed onto the root `NavigationStack`. Sheet-owned NavigationStacks are exempt. See `.claude/rules/navigation.md`. Also: `router.path` must not be mutated outside `AppRouter` itself — grep check: `rg 'router\.path\s*(=[^=]|\.append|\.removeLast|\.removeAll|\.insert|\.remove\b)' Pastura --glob '!**/AppRouter*'` should return nothing.
-- **SwiftUI `.sheet(item:)` source type** — the binding must be `Optional<SomeIdentifiableModel>`. Never use `Int: Identifiable` or other primitive wrappers — use a real model type.
-- **ViewModel ownership** — do not instantiate `@Observable` ViewModels inside factory functions that get re-invoked per body evaluation. Host them with `@State` (or equivalent) in the owning view.
-- **Wall-clock test bounds need CI headroom** — CI with code coverage runs ~20× slower than local. Upper bounds in wall-clock timing assertions must be ≥ 30s, or (preferred) inject an observable and assert on it instead of polling.
-- **PlistBuddy output ambiguity** — Bool `false` and string `"NO"` render identically via PlistBuddy `Print`. Use `plutil -extract <key> xml1 - -- <plist>` when the type distinction matters (App Store Connect flags, CFBundle keys, entitlements).
+- **ShapeStyle vs `Color` tokens** — `.foregroundStyle(.muted)` where `.muted` is a `Color` extension (use `Color.muted`). → `swiftui-traps.md` §"Custom `Color` tokens don't work with `.foregroundStyle`"
+- **`nonisolated` MainActor-inference traps** — 6 patterns under default-MainActor isolation; diagnostics fire at the use site, not the declaration. → `swift-isolation.md` (always-loaded)
+- **`@Suite` `.timeLimit(.minutes(1))`** — required on every suite under `PasturaTests/`; load-bearing CI-hang diagnostic, do not remove. → `testing.md` §"`.timeLimit` Trait on Every Suite"
+- **`@Suite(.serialized)`** — required for suites creating `SimulationRunner` / other global-state consumers. → `testing.md` §"Swift Testing Parallelism"
+- **Error i18n prep** — `errorDescription` literals wrapped in `String(localized:)`; tests assert via `.contains(...)`, not equality. → `CLAUDE.md` (always-loaded)
+- **i18n leak — Tier 1/2 blind spots** — new VM properties; helper-returned / computed `String` shown via `Text(_:)`. → `i18n.md` §"Why Tier 1 / Tier 2 don't catch this" + `docs/i18n/leak-detection.md`
+- **Navigation root-stack scope** — no `navigationDestination(item:|isPresented:)` in a view pushed onto a tab stack (sheets exempt); no `router.path` mutation outside `AppRouter` (grep in the rule). → `navigation.md` §"Forbidden inside a tab's stack" / §"PR review checklist"
+- **`.sheet(item:)` source type** — bind `Optional<SomeIdentifiableModel>`, never `Int: Identifiable`. → `swiftui-traps.md` §"`.sheet(item:)`"
+- **ViewModel ownership** — never instantiate an `@Observable` VM in a factory func / computed property; host with `@State`. → `swiftui-traps.md` §"Never instantiate a ViewModel in a factory func"
+- **Wall-clock test bounds** — CI+coverage runs ~20× slower; upper bounds ≥30s, or (preferred) assert on an injected observable. → `testing.md` §"Wall-clock test bounds need CI headroom"
+- **PlistBuddy output ambiguity** — Bool `false` and string `"NO"` print identically via PlistBuddy `Print`; use `plutil -extract <key> xml1 - -- <plist>` when the type matters (App Store Connect flags, CFBundle keys, entitlements). *(No rule home — see `docs/security/release-checklist.md`.)*
 
-Sources: `.claude/rules/{engine,navigation,swift-isolation,testing}.md`. If a reviewer encounters a new footgun that generalizes, propose adding it here as part of the review output.
+If you hit a new footgun that generalizes, propose adding it to the **canonical rule file** (not here) as part of the review output.
 
 ## Output Format
 
