@@ -74,6 +74,17 @@ struct ShimInventoryTests {
     }
   }
 
+  @Test("one moved root is an error even when the others still resolve")
+  func partiallyMissingRootsThrow() {
+    // The negative control the all-roots-empty test above cannot provide. The
+    // scanner previously asked "did *any* root yield files?", which a surviving
+    // root answers yes to — so a renamed root dropped its hits and the budget
+    // still printed a plausible total. Only a mixed root set catches that.
+    #expect(throws: ShimInventoryError.self) {
+      _ = try ShimInventory.scan(roots: Self.roots + ["./definitely-not-a-source-dir"])
+    }
+  }
+
   @Test("an exclusion naming a file that no longer exists is an error")
   func staleExclusionThrows() {
     // The exclusion list is matched by file name, so a rename would silently

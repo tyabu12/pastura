@@ -57,11 +57,12 @@ public struct ShimInventory: Sendable {
   /// boundary forced, not two — summing overlapping categories was the first
   /// draft's other defect, and it inflated the headline figure by ~2x.
   ///
-  /// - Throws: ``ShimInventoryError/noSourcesFound`` when a root yields no
+  /// - Throws: ``ShimInventoryError/emptyRoot(_:)`` when **any** root yields no
   ///   Swift files, and ``ShimInventoryError/staleExclusion(_:)`` when an
-  ///   entry in ``excluded`` matches no file. A silent zero would understate
-  ///   the budget — the most misleading way this measurement could fail — and
-  ///   a rename that quietly disables an exclusion is the same hazard.
+  ///   entry in ``excluded`` matches no file. Per-root, not "every root came
+  ///   up empty": a partial under-report is the most misleading way this
+  ///   measurement could fail, because it still prints a plausible number.
+  ///   A rename that quietly disables an exclusion is the same hazard.
   public static func scan(roots: [String]) throws -> ShimInventory {
     var files: [(path: String, lines: [String])] = []
     var seenNames: Set<String> = []
@@ -74,7 +75,6 @@ public struct ShimInventory: Sendable {
         files.append((path, contents.components(separatedBy: "\n")))
       }
     }
-    guard !files.isEmpty else { throw ShimInventoryError.noSourcesFound(roots) }
     if let stale = excluded.keys.sorted().first(where: { !seenNames.contains($0) }) {
       throw ShimInventoryError.staleExclusion(stale)
     }
@@ -142,32 +142,43 @@ public struct ShimInventory: Sendable {
     return nil
   }
 
+  /// - Throws: ``ShimInventoryError/emptyRoot(_:)`` when this root contributes
+  ///   nothing. Returning `[]` — as this did — makes a moved or renamed root
+  ///   indistinguishable from one that legitimately holds no Swift files, and
+  ///   the caller's "did *any* root yield files?" check then passes on the
+  ///   surviving roots while the budget silently loses the moved one's hits.
+  ///   Under-reporting is the one failure this measurement must not have.
   private static func swiftFiles(under root: String) throws -> [String] {
     let manager = FileManager.default
-    guard let enumerator = manager.enumerator(atPath: root) else { return [] }
-    return
+    guard let enumerator = manager.enumerator(atPath: root) else {
+      throw ShimInventoryError.emptyRoot(root)
+    }
+    let files =
       enumerator
       .compactMap { $0 as? String }
       .filter { $0.hasSuffix(".swift") }
       .map { (root as NSString).appendingPathComponent($0) }
       .sorted()
+    guard !files.isEmpty else { throw ShimInventoryError.emptyRoot(root) }
+    return files
   }
 }
 
 /// Why the shim inventory could not be produced.
 public enum ShimInventoryError: Error, CustomStringConvertible {
-  /// No Swift sources were found — almost certainly a wrong working directory.
-  case noSourcesFound([String])
+  /// A scan root contributed no Swift files — a wrong working directory, or a
+  /// root that moved. Raised per root, not once for the whole set.
+  case emptyRoot(String)
   /// An entry in ``ShimInventory/excluded`` matched no file — a rename would
   /// otherwise silently re-enable counting the scanner's own source.
   case staleExclusion(String)
 
   public var description: String {
     switch self {
-    case .noSourcesFound(let roots):
+    case .emptyRoot(let root):
       return """
-        no Swift sources under \(roots.joined(separator: ", ")) — \
-        run kmp-gate-bench from the repository root
+        no Swift sources under '\(root)' — run kmp-gate-bench from the \
+        repository root, or update the root if it moved
         """
     case .staleExclusion(let name):
       return "ShimInventory.excluded names '\(name)', which no longer exists — update the list"
