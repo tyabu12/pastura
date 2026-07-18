@@ -146,6 +146,7 @@ pastura/
 │   └── engine/              # Engine port — Stage-2 gate slice landed, bulk port gated
 ├── docs/
 │   ├── ROADMAP.md           # Phase scope and Go / No-Go criteria
+│   ├── release-setup.md     # One-time TestFlight release bootstrap (maintainers)
 │   ├── decisions/           # Architecture Decision Records
 │   ├── specs/               # Feature specifications
 │   ├── design/              # Design system, reference assets
@@ -166,12 +167,14 @@ pastura/
 ├── scripts/                 # Build, lint, release, content-blocklist helpers
 ├── fastlane/                # TestFlight release lanes (ADR-014); Gemfile / Gemfile.lock pin it
 ├── .github/                 # CI workflows and issue templates
+├── .claude/                 # Agent rules, skills, and hooks (see CLAUDE.md)
 ├── Package.swift            # SwiftPM manifest for tools/harness (Package.resolved pins it)
-└── build.gradle.kts         # Gradle root for shared/ (with settings.gradle.kts, gradlew*)
+└── build.gradle.kts         # Gradle root for shared/ (settings.gradle.kts, gradle/, gradlew*)
 ```
 
-Config dotfiles (`.swiftlint.yml`, `.swift-format`, `.gitignore`) are omitted
-above; everything else tracked at the repository root is listed.
+Root-level docs (this file, `CLAUDE.md`, `CONTRIBUTING.md`, `LICENSE`) and
+config dotfiles (`.swiftlint.yml`, `.swift-format`, `.gitignore`) are omitted
+above; every other tracked root entry is listed.
 
 ## Documentation
 

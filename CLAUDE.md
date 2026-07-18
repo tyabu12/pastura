@@ -224,13 +224,13 @@ web/                             # The pastura.app site (Astro SSG, deployed via
 ```
 shared/                          # KMP shared modules (#501 / ADR-023). Gradle/Kotlin Multiplatform.
 ├── models/                      #   Mirrors Swift Models/; landed as infra, not production-wired.
-└── engine/                      #   Stage-2 gate slice landed; the bulk port and iOS consumption stay gated — read ADR-023 §6/§12 before editing.
+└── engine/                      #   Stage-2 gate slice landed; the bulk port and iOS consumption stay gated (Phase 3.0) — read ADR-023 §6/§12 before editing.
 ```
 
 ```
 tools/                           # Dev tooling, outside the iOS app build
 ├── harness/                     #   pastura-harness — headless macOS simulation runner (ADR-013). Built by `swift build` via the root Package.swift, not by the pre-commit hook.
-└── kmp-gate-spike/              #   ADR-023 Stage-2 gate spike consumer. The package builds on the nightly lane only — no per-PR lane takes an XCFramework dep — but its bash guards under scripts/ do run per-PR in ci.yml.
+└── kmp-gate-spike/              #   ADR-023 Stage-2 gate spike consumer. No per-PR lane may take an XCFramework dep (ADR-023 §6, decision B′); nightly builds the package, ci.yml runs its own scripts/ guards.
 ```
 
 ## Agent Tooling Dependency
