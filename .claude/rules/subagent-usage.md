@@ -1,5 +1,11 @@
 # Subagent Usage Rules
 
+> Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
+> the generic core is canonical there; reconcile one-way (kit → Pastura). In particular the
+> volatile facts (the cap table, the 800/8/5 and 1500/12/7 split thresholds, the #24055 status)
+> are kit-canonical: when they change upstream, update this copy from the kit, never the reverse.
+> Pastura-specific content lives only in this copy.
+
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
 loading-mode rationale. Subagent calls can originate from any layer
 (slash commands, `/orchestrate`, manual `Agent` tool invocations), so
@@ -8,7 +14,7 @@ this rule must stay visible regardless of which file is being edited.
 ## 1. Background
 
 Claude Code subagents (anything launched via the `Agent` tool, including
-custom `code-reviewer` / `critic` / `Explore` / `Plan`) run under a hard
+custom `code-reviewer` / `claude-kit:critic` / `Explore` / `Plan`) run under a hard
 **output-token cap**. The cap is NOT configurable via frontmatter
 (`maxOutputTokens` does not exist) nor via `CLAUDE_CODE_MAX_OUTPUT_TOKENS`
 (env var applies only to the main session, not subagent API calls).
@@ -29,8 +35,10 @@ Raising frontmatter `maxTurns` does not help — the cap is on output tokens, no
 **Fable 5 note**: `fable` is a valid `Agent(model:)` / frontmatter
 alias, but its subagent cap is undocumented (2026-06-11) — treat a
 `fable` override as a quality lever; Sonnet 64K stays the only known
-**budget** escape valve (§3). `code-reviewer.md` / `critic.md` keep
-`model: opus` deliberately (§2 / §4 are 32K-calibrated); skills omit
+**budget** escape valve (§3). `code-reviewer.md` keeps `model: opus`
+deliberately (§2 / §4 are 32K-calibrated); the kit-provided
+`claude-kit:critic` carries no pin, so callers pass `model: opus`
+explicitly (as `/orchestrate` Step 1b does). Skills omit
 `model:` and inherit the session model (a pin would downgrade the main
 loop; re-pin only if the session model ever drops below Opus-class).
 Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
@@ -62,7 +70,9 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
 - **Not acceptable**: orchestrate Opus-required paths — project tooling
   (`.claude/{skills,agents,rules}/**`), AppRouter / navigation,
   dependency-rule boundaries, ADR/spec edits, etc.
-- **`critic` non-recommendation**: `critic` makes judgement calls
+- **`critic` non-recommendation** (`critic` in prose = the
+  `claude-kit:critic` plugin agent — invoke it by that namespaced name):
+  `critic` makes judgement calls
   (pre-mortem axis generation, bias rebuttal). For plan critique on
   architectural decisions, prefer **Opus + scope-split** over Sonnet
   override. Sonnet's reasoning depth is acceptable for routine
@@ -70,9 +80,11 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
 
 ## 4. Agent self-defense
 
-`code-reviewer.md` and `critic.md` carry inline `Scope Guidance` /
-`Output Discipline` sections that bail with `SCOPE_TOO_LARGE` before any
-tool_use when the soft budget is exceeded. Defense in depth: subagent
+`code-reviewer.md` carries an inline `Scope Guidance` section that bails
+with `SCOPE_TOO_LARGE` before any tool_use when the soft budget is
+exceeded. The kit-provided `claude-kit:critic` self-defends differently
+(its `Output Discipline & Scope` section triages: highest-risk axes
+first, explicit deferrals instead of a bail-out). Defense in depth: subagent
 budget exhaustion is silent (intermediate text returned, final report
 missing), so the duplication with §2 is intentional.
 
@@ -88,7 +100,7 @@ axis.)
 |------|---------|---------|-------------------|
 | `/code-review` (official) | working-tree diff: bugs + reuse/simplify cleanups | **foreground, manual** (effort dial up to `ultra` = cloud, billed; `--comment` / `--fix`) | `CLAUDE.md` only |
 | `code-reviewer` | feature-branch diff vs conventions | **subagent gate** — `/orchestrate` Step 4, `/queue-consumer` "No unreviewed PR" | `CLAUDE.md` **+** `.claude/rules/` traps |
-| `critic` | plans / ADRs / design — **not a diff** | subagent — `/orchestrate` Step 1b | — |
+| `claude-kit:critic` (plugin) | plans / ADRs / design — **not a diff** | subagent — `/orchestrate` Step 1b | — |
 
 **Load-bearing: do NOT slim `code-reviewer`'s general-quality /
 Swift-6-concurrency / secrets sections to "defer to `/code-review`".**

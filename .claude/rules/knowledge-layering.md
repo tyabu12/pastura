@@ -1,5 +1,9 @@
 # Knowledge Layering & Promotion
 
+> Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/knowledge-layering.md` —
+> the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific
+> content lives only in this copy.
+
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
 ## Where knowledge belongs
@@ -30,7 +34,7 @@ Three triggers for a triage pass (promotion **and** retirement), ordered by fire
 2. **During `/orchestrate`** (rule-aware bundling) — if the current session created new feedback memories and the active PR is already touching `.claude/rules/`, bundle the rule addition in. Cheaper than a separate cleanup PR.
 3. **At memory-save time** (best-effort nudge, expect drift) — for new `feedback_*` saves, apply the quick test above. If it routes to rules, prefer creating a `.claude/rules/` PR alongside (and optionally instead of) the memory entry. The memory is the rapid-capture form; the rule is the durable form.
 
-**Retire, don't only promote.** A triage pass also *removes* memory. A `project_*` tracker whose work has fully SHIPPED — no open follow-ups, outcome now derivable from code/git/docs — is **DELETED**; one with a shipped bulk plus a few live items is **TRIMMED** to the open-tracking stub. Promotion and retirement compose: run the quick test **first** to promote any durable lesson, then delete/trim the residue — a memory can be promoted *and* deleted the same round. **Prefer deletion**: when promoting, or when tracked work completes, actively check whether the memory can go rather than keeping it. (Operational classification: `promote-memories` § "Step 1: Triage".)
+**Retire, don't only promote.** A triage pass also *removes* memory. A `project_*` tracker whose work has fully SHIPPED — no open follow-ups, outcome now derivable from code/git/docs — is **DELETED**; one with a shipped bulk plus a few live items is **TRIMMED** to the open-tracking stub. Promotion and retirement compose: run the quick test **first** to promote any durable lesson, then delete/trim the residue — a memory can be promoted *and* deleted the same round. **Prefer deletion**: when promoting, or when tracked work completes, actively check whether the memory can go rather than keeping it. (Operational classification: `/claude-kit:promote-memories` § "Step 1: Triage" — the plugin-provided skill; Pastura keeps no local copy.)
 
 ## Procedure
 
@@ -78,7 +82,7 @@ When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an
 
 Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
 
-The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b critic)**. `critic`'s axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
+The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b `claude-kit:critic`)**. The critic's axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
 
 | Claim a plan leans on | Verify by |
 |---|---|
