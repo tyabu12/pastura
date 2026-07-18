@@ -84,6 +84,9 @@ file to triage-guardian's "keep in sync" set.
    (`brew install ffmpeg`): L4 captures motion via `scripts/motion-capture.sh`
    instead of `ui-tour.sh` (Step 1). Full anchor resolution still happens in
    Step 2; this is only the id needed to pick the capture path.
+5. **Read `.claude/rules/automation-output-contract.md` in full.** It does not
+   auto-load during a run (its `paths:` glob fires on a skill edit), so this is
+   the only step that puts the contract in context.
 
 If any check fails, **abort the cycle** — do not proceed against a partial setup.
 
@@ -232,7 +235,7 @@ proposals this run" and append nothing.
      automatically a defect).
    - **Design proposals** (judgment) — each carries the design-system anchor,
      a concrete before → after, **confidence**, and a **counter-evidence** line
-     (Output Contract rule 2).
+     (Output Contract rule 2 — judgment output carries confidence + counter-evidence).
    Omit a section that is empty; if there are no survivors at all, record that
    explicitly.
 2. **Ledger** — append one row per survivor to `ledger.md` with the next

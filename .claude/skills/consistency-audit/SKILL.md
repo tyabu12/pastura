@@ -74,7 +74,7 @@ This skill's auto-fix path writes *only* a version string computed from an
 authoritative source, the PR is always **Draft**, and a human merges it — so
 the human merge IS the review gate, and there is nothing for a reviewer to
 assess on a one-token version swap. The safety rests on the Draft + human-merge
-invariant and Contract rule 3, NOT on the diff being small. If rule 3 is ever
+invariant and Contract rule 3 — authoritative values only, spliced at the exact offset — NOT on the diff being small. If rule 3 is ever
 relaxed, restore the `code-reviewer` pass.
 
 ## Constants
@@ -91,8 +91,14 @@ relaxed, restore the `code-reviewer` pass.
 Rules 1–3 restate Output Contract **rule 0** (never actuate) and rule 4 restates
 **rule 6** (conservative detection), deliberately duplicated here as the
 operational form: these are the hard-stop invariants an unattended run must not
-have to follow a pointer to find. `.claude/rules/automation-output-contract.md`
-is canonical — change it first, then this restatement.
+have to follow a pointer to find.
+
+Canonicality is a three-hop chain, and edits flow down it in order: claude-kit's
+`docs/automation-output-contract.md` owns the generic core → this repo's
+`.claude/rules/automation-output-contract.md` mirrors it one-way → this
+restatement. So a change to the contract itself starts **upstream in the kit**,
+never in the mirror (its reconcile header forbids becoming a source). Only a
+Pastura-specific operational detail starts here.
 
 1. **Never push to main. Never force push.** All pushes are
    `git push -u origin audit/...`. A PreToolUse guard hook also blocks
@@ -114,6 +120,9 @@ is canonical — change it first, then this restatement.
    `audit/*` branch), so any dirty path means a prior run died mid-way;
    abort and report rather than mixing changes. (Sibling generators no
    longer dirty the tree — the nightly digests are gitignored local logs.)
+6. **Read `.claude/rules/automation-output-contract.md` in full.** Abort if
+   missing. It does not auto-load during a run (its `paths:` glob fires on a
+   skill edit), so this is the only step that puts the contract in context.
 
 ## Step 0.5 — WIP backpressure (skip when the review queue is saturated)
 

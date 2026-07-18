@@ -77,6 +77,11 @@ Non-goals:
 5. Working tree is clean (`git status --porcelain` empty) — a dirty
    routine worktree means a previous run died mid-issue; abort and
    report rather than contaminating a new branch.
+6. **Read `.claude/rules/automation-output-contract.md` in full.** Abort if
+   missing. It does not auto-load during a run (its `paths:` glob fires on
+   a skill edit), so this is the only step that puts the contract in
+   context — and this generator writes arbitrary code, so it is the one
+   the contract binds hardest.
 
 ## Step 0.5 — WIP backpressure (skip when the review queue is saturated)
 
