@@ -177,11 +177,23 @@ jobs:
           # `\.gradle\.kts$` covers both root and per-module build scripts.
           #
           # `kmp-nightly.yml` is in the token deliberately though it is NOT an
-          # input to kmp-build-test: the nightly runs a superset of the same
-          # Gradle tasks, so a PR editing its task tokens gets a PR-time smoke
-          # of the shared ones instead of waiting a full nightly cycle.
-          # Over-inclusive in the safe direction — it costs one compile-only
-          # run (#1148 is the one real instance in the last 40 merges).
+          # input to kmp-build-test: every Gradle task this job runs is inside
+          # the nightly's task graph, so a PR editing the nightly's task
+          # tokens gets a PR-time smoke of the shared ones instead of waiting
+          # a full nightly cycle.
+          #
+          # That containment is TRANSITIVE and non-obvious, so it was verified
+          # by `./gradlew <nightly task list> --dry-run`, not inferred: the
+          # nightly names no models-side metadata task, and
+          # `:shared:models:{jvmTest,iosSimulatorArm64Test,macosArm64Test}` do
+          # NOT pull one. `:shared:models:compileCommonMainKotlinMetadata` —
+          # the #1157 common-stdlib-leak gate — is reached only because
+          # `:shared:engine:build` compiles engine's commonMain against the
+          # models metadata klib. Re-run that dry-run before trusting this if
+          # the engine→models dependency is ever severed.
+          #
+          # Over-inclusive in the safe direction either way — it costs one
+          # compile-only run (#1148 is the one real instance in 40 merges).
           if printf '%s\n' "$FILES" | grep -qE '^(shared/|gradle/|gradlew|gradle\.properties$)|\.gradle\.kts$|^\.github/workflows/(ci|kmp-nightly)\.yml$'; then
             echo "kmp=true" >> "$GITHUB_OUTPUT"
           else
@@ -672,7 +684,10 @@ jobs:
   # through `scripts/precommit-gate-classify.sh` and classify `build`, so this
   # job-level gate is a strict SUPERSET of the step-level promotion set and
   # cannot pre-empt it. (Edge case, harmless: a `shared/**/*.md` is SAFE — it
-  # is caught by the `^shared/` token in the `kmp` predicate anyway.)
+  # is caught by the `^shared/` token in the `kmp` predicate anyway. The
+  # step-level `\.def$` token is unanchored, so a `.def` parked outside
+  # `shared/` under a SAFE dir would promote at step level while classifying
+  # out here; no `.def` exists yet, but anchor it to `^shared/` if one lands.)
   #
   # Cost of the gate: the job now queues behind the ubuntu `changes` job
   # instead of starting at t=0. Negligible against the compile-only default
