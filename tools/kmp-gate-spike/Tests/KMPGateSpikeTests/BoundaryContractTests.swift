@@ -12,11 +12,17 @@ import Testing
 /// witness: it holds because `SuspendController` latches `.resumed` with no
 /// awaiter and Kotlin's `CompletableDeferred` completes sticky. A test can
 /// only sample orderings it happens to schedule, so passing would prove
-/// nothing about the constraint in general. Two things are pinned instead:
-/// the tightest race the suite *can* schedule still completes
-/// (``resumeInTheTightestWindowStillCompletes``), and the Swift-side latch
-/// that makes the window survivable is unit-tested directly
-/// (``RunHandleBoxLatchTests``). Invariant 3 itself is defended by the
+/// nothing about the constraint in general — and MEASURED, no e2e test here
+/// reaches it: `store(handle)` runs a few instructions after `engine.run`
+/// returns, while a `.suspended` terminal costs several async hops, so the
+/// empty-box window never opens from this direction. Deleting `RunHandleBox`'s
+/// `pendingResume` latch leaves every end-to-end test in this suite green.
+///
+/// So the split is deliberate. The end-to-end tests pin the *relay paths*
+/// (``suspensionRelayRoundTrip`` resuming mid-run,
+/// ``resumeLatchedBeforeTheRunStartsStillCompletes`` resuming before it). The
+/// lost-wakeup window itself is pinned in ``RunHandleBoxLatchTests``, which
+/// signals the box directly and does fail under that deletion. Invariant 3 itself is defended by the
 /// verbatim-copy drift guard on `SuspendController` — the object under test is
 /// byte-identical to the shipping one, so its latch semantics are not a
 /// stand-in.
@@ -275,15 +281,22 @@ struct BoundaryContractTests {
     #expect(backend.callCount == 3)
   }
 
-  @Test("a resume landing in the tightest window still completes the run")
-  func resumeInTheTightestWindowStillCompletes() async throws {
-    // Invariant 3's observable half. This previously asserted an *ordering*
-    // inside `RelayObservingCallbacks` and carried no `#expect` at all, so
-    // swapping the two forwarding statements still passed — while the ordering
-    // it named turned out not to be load-bearing anyway (Kotlin arms first).
-    // What is worth pinning is the outcome: resume as early as the suite can
-    // schedule it, and the run must still reach SimulationCompleted rather
-    // than parking forever.
+  @Test("a resume latched before the run starts still completes it")
+  func resumeLatchedBeforeTheRunStartsStillCompletes() async throws {
+    // What this pins, precisely: `resume()` landing before `run` is even
+    // called. `SuspendController` latches `.resumed`, the first call still
+    // ends `.suspended`, and the relay's `awaitResume()` returns immediately —
+    // a different path through the relay than `suspensionRelayRoundTrip`,
+    // which resumes mid-run.
+    //
+    // What it does NOT pin, stated because two earlier revisions claimed
+    // otherwise: it does not exercise `RunHandleBox`'s resume latch. MEASURED
+    // — deleting `pendingResume` leaves this test passing and fails only
+    // `RunHandleBoxLatchTests`. `store(handle)` runs a few instructions after
+    // `engine.run` returns, while reaching a `.suspended` terminal costs
+    // several async hops, so the empty-box window is not reachable from here
+    // at any schedule this suite can express. The unit tests are where that
+    // window is pinned; this is a relay-path test, not a race test.
     let controller = SuspendController()
     let runner = SharedEngineRunner(suspendController: controller)
     let backend = ScriptedStreamingBackend(responses: [
@@ -293,17 +306,17 @@ struct BoundaryContractTests {
     ])
 
     controller.requestSuspend()
+    // Resume BEFORE the run exists. `SuspendController` latches `.resumed`, so
+    // the first call still ends `.suspended` and the relay still fires — but
+    // now with no guarantee that the handle has been stored.
+    controller.resume()
+
     let collected = Mutex<[SimulationEvent]>([])
     let consumer = Task {
       for await event in runner.run(scenario: .oneSpeakAllTurn, backend: backend) {
         collected.withLock { $0.append(event) }
       }
     }
-
-    // Resume the instant the suspension is observable — the tightest race the
-    // arming order has to survive.
-    try await pollUntil { backend.callCount == 1 }
-    controller.resume()
 
     // Polled, not awaited — same reason as the round-trip test above.
     try await pollUntil { collected.withLock { $0.last } is SimulationEvent.SimulationCompleted }
@@ -377,21 +390,46 @@ struct BoundaryContractTests {
       #expect(first.resumeSignals == 1)
       #expect(second.resumeSignals == 0, "the latch must not re-fire")
     }
+
+    @Test("both signals latched together are replayed resume-then-cancel")
+    func bothLatchedReplayInOrder() {
+      // `store(_:)` documents this ordering, and a doc-stated ordering with no
+      // test is exactly the assertion class this review round was convened to
+      // clean up: swapping the two replay lines passes every other test here.
+      let box = RunHandleBox()
+      let handle = RecordingRunHandle()
+
+      box.notifyResumed()
+      box.cancel()
+      box.store(handle)
+
+      #expect(handle.log == ["resume", "cancel"])
+    }
   }
 }
 
-/// Counts what the latch delivers. `RunHandle` is a Kotlin/Native protocol, so
-/// this is also one more instance of the shim class measurement (iii) counts.
-nonisolated private final class RecordingRunHandle: RunHandle, @unchecked Sendable {
-  private let state = Mutex((resumes: 0, cancels: 0))
+/// Records what the latch delivers, **in order** — counts alone cannot express
+/// `store(_:)`'s resume-before-cancel replay claim.
+///
+/// `RunHandle` is a Kotlin/Native protocol, so this is also one more instance
+/// of the shim class measurement (iii) counts.
+///
+/// Plain `Sendable`, not `@unchecked`: the only stored property is a `let
+/// Mutex`, so the compiler can check it. `@unchecked` here would silently
+/// exempt any property a later edit adds.
+nonisolated private final class RecordingRunHandle: RunHandle, Sendable {
+  private let calls = Mutex<[String]>([])
 
-  var resumeSignals: Int { state.withLock { $0.resumes } }
-  var cancels: Int { state.withLock { $0.cancels } }
+  /// Delivery order, e.g. `["resume", "cancel"]`.
+  var log: [String] { calls.withLock { $0 } }
+
+  var resumeSignals: Int { log.filter { $0 == "resume" }.count }
+  var cancels: Int { log.filter { $0 == "cancel" }.count }
 
   func pause() {}
   func resume() {}
-  func cancel() { state.withLock { $0.cancels += 1 } }
-  func notifyLLMResumed() { state.withLock { $0.resumes += 1 } }
+  func cancel() { calls.withLock { $0.append("cancel") } }
+  func notifyLLMResumed() { calls.withLock { $0.append("resume") } }
 }
 
 // MARK: - Helpers

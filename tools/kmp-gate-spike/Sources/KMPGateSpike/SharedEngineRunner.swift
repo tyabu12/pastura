@@ -71,13 +71,17 @@ nonisolated public final class SharedEngineRunner: Sendable {
         relayBox: relayBox
       )
 
-      // Installed before `engine.run` for the same reason the box latches: the
-      // run is already live once `run` is called, so a consumer that breaks out
-      // immediately would otherwise find no cancel wiring installed yet.
+      // Installed before `engine.run` for the same reason both boxes latch.
+      // The reachable early path is not a consumer breaking out — `run` has not
+      // returned yet, so no consumer holds the stream — it is `onEvent` firing
+      // from the Kotlin run loop concurrently with the lines below and hitting
+      // `continuation.finish()` on an immediate terminal. That reaches this
+      // handler while both boxes are still empty.
       continuation.onTermination = { _ in
         // Fires on normal finish AND on early consumer termination. `cancel()`
         // is idempotent, so the normal path costs a no-op rather than needing
-        // a "did it already finish?" flag.
+        // a "did it already finish?" flag. Both calls latch when they land
+        // before the thing they cancel exists.
         handleBox.cancel()
         relayBox.cancelPending()
       }
@@ -134,8 +138,11 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
 
   /// Stores the handle and replays anything that arrived before it.
   ///
-  /// Cancel is replayed after resume so a run cancelled while parked is first
-  /// released and then torn down, matching the order the live path produces.
+  /// When both were latched, cancel is replayed after resume so a run cancelled
+  /// while parked is first released and then torn down. This orders the *replay*
+  /// only — a live `cancel()` racing this method can still land before the
+  /// replayed `notifyLLMResumed()`. That is harmless (a resume on a cancelled
+  /// `Job` is a no-op), and no stronger guarantee is claimed.
   func store(_ handle: any RunHandle) {
     let boxed = Boxed(value: handle)
     let pending: (resume: Bool, cancel: Bool) = storage.withLock { state in
@@ -170,23 +177,47 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
 
 /// Tracks the in-flight relay task so stream termination can cancel a parked
 /// one instead of leaking it.
+/// Tracks the in-flight relay task so stream termination can cancel a parked
+/// one instead of leaking it — and **remembers that termination already
+/// happened**, for the same reason `RunHandleBox` latches.
+///
+/// Without the flag this box has the identical pre-`store` window: the run loop
+/// can emit a terminal (firing `cancelPending()` on an empty box) and only
+/// afterwards take a `.suspended`, which installs a relay task that nothing is
+/// left to cancel. That task then awaits a resume that will never come — a
+/// permanently parked `Task`, one box over from the bug the handle latch fixes.
 nonisolated private final class RelayTaskBox: @unchecked Sendable {
-  private let storage = Mutex<Task<Void, Never>?>(nil)
+  private struct State {
+    var task: Task<Void, Never>?
+    var terminated = false
+  }
+
+  private let storage = Mutex(State())
 
   func replace(with task: Task<Void, Never>) {
-    let previous: Task<Void, Never>? = storage.withLock {
-      let old = $0
-      $0 = task
-      return old
+    let outcome: (previous: Task<Void, Never>?, alreadyTerminated: Bool) = storage.withLock {
+      state in
+      let previous = state.task
+      // Do not retain a task that is about to be cancelled — otherwise a
+      // terminated box holds a dead task forever.
+      state.task = state.terminated ? nil : task
+      return (previous, state.terminated)
     }
     // Defensive: a well-behaved run has at most one suspension in flight, so
     // this should always be nil. Cancelling rather than asserting keeps a
     // contract violation from leaking a task.
-    previous?.cancel()
+    outcome.previous?.cancel()
+    if outcome.alreadyTerminated { task.cancel() }
   }
 
   func cancelPending() {
-    storage.withLock { $0 }?.cancel()
+    let pending: Task<Void, Never>? = storage.withLock { state in
+      state.terminated = true
+      let existing = state.task
+      state.task = nil
+      return existing
+    }
+    pending?.cancel()
   }
 }
 

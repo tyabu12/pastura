@@ -105,7 +105,7 @@ public enum RelayBenchmark {
     let backend = ScriptedStreamingBackend(responses: script)
 
     // Drained on its own task with the end instant stamped inside it, rather
-    // than awaited inline. Two reasons, and only the first is about timing:
+    // than awaited inline. Two reasons, and only the second is about timing:
     // the poll below bounds a wedged run instead of hanging CI forever, and
     // stamping inside the task keeps the poll interval out of the figure. The
     // task spawn adds a fixed cost to both script lengths, which the
@@ -217,21 +217,26 @@ public enum RelayBenchmarkError: Error, CustomStringConvertible {
 }
 
 extension ScriptedResponse {
-  /// A completed turn carrying `deltas` non-final chunks before its final one.
+  /// A completed turn emitting **exactly** `deltas` non-final chunks, then its
+  /// final one.
   ///
   /// Unpaced on purpose: `chunkDelay` would measure the sleep, not the
   /// crossing. The JSON is split so the deltas are real accumulation work for
   /// Kotlin's `LLMCaller` rather than discardable noise.
-  /// Emits **exactly** `deltas` non-final chunks. The earlier version built
-  /// `1 + max(0, deltas - 2) + 1` pieces, so `deltas: 1` produced two — and the
-  /// caller, which recomputed the count from `deltas` instead of reading it
-  /// off the script, divided the slope by a denominator two chunks too large.
-  /// The count is now derived (`emittedChunkCount`) *and* the construction
-  /// honours its parameter: either alone would have prevented that, but the
-  /// name being false is what made the arithmetic look right.
+  ///
+  /// The exactness is load-bearing — a previous version built
+  /// `1 + max(0, deltas - 2) + 1` pieces while the caller recomputed the count
+  /// from `deltas`, and the slope was divided by the wrong denominator. The
+  /// count is now derived from the script (`emittedChunkCount`) *and* the
+  /// construction honours its parameter; the precondition is what stops the
+  /// second half from silently degrading into a clamp again.
+  ///
+  /// - Precondition: `deltas >= 1`. Zero would emit no JSON at all, so the
+  ///   turn could not parse — there is no meaningful clamp to pick.
   static func benchTurn(deltas: Int) -> ScriptedResponse {
+    precondition(deltas >= 1, "benchTurn needs at least one delta, got \(deltas)")
     let pieces: [String]
-    switch max(1, deltas) {
+    switch deltas {
     case 1:
       pieces = ["{\"statement\": \"done\"}"]
     case let n:

@@ -49,9 +49,14 @@ import Testing
 /// whose sibling `loadModelInternal` already carries `@concurrent` for exactly
 /// this reason (#822). An adapter refactor that makes either entry point `async`
 /// re-opens the trap silently; test 3 is the regression guard for that.
-/// `.serialized`: the liveness test asserts a MainActor tick floor, so it must
-/// not share the machine with this suite's own blocking probes. Overlap with
-/// *other* suites is excluded by running the package with `--no-parallel`.
+///
+/// **`.serialized`.** Both liveness tests compare a measurement against a
+/// control taken on the same machine, so they must not overlap this suite's own
+/// blocking probes. The controls make them robust to *background* contention —
+/// which is what an absolute tick floor was not, and why one failed at
+/// `ticks -> 3` as soon as a fifth suite began running alongside it — but a
+/// probe that deliberately pins the MainActor is not background noise. Overlap
+/// with *other* suites is excluded separately by `--no-parallel`.
 @Suite("Pattern 6 — executor inheritance", .timeLimit(.minutes(1)), .serialized)
 struct PatternSixProbeTests {
 
@@ -121,13 +126,28 @@ struct PatternSixProbeTests {
         repeating: .saysStreamed("turn", chunkDelay: .milliseconds(10)), count: 4))
     let backend = ThreadObservingBackend(wrapping: scripted, recordingInto: observations)
 
+    // Control first: how fast does the heartbeat tick on THIS machine, right
+    // now, with nothing competing? An absolute floor cannot answer that — it
+    // encodes one machine's speed and one runner's contention level, which is
+    // why the previous `ticks >= 10` failed at `ticks -> 3` the moment a
+    // fifth suite started overlapping. A rate ratio is scale-free, and it is
+    // the same technique test 1 above already uses to calibrate this detector.
+    let control = Heartbeat()
+    control.start()
+    let controlStart = ContinuousClock.now
+    try await Task.sleep(for: .milliseconds(100))
+    let controlRate = Double(control.stop()) / (ContinuousClock.now - controlStart).seconds
+
     let heartbeat = Heartbeat()
     heartbeat.start()
+    let runStart = ContinuousClock.now
     var events: [SimulationEvent] = []
     for await event in runner.run(scenario: .twoSpeakAllTurns, backend: backend) {
       events.append(event)
     }
+    let runElapsed = ContinuousClock.now - runStart
     let ticks = heartbeat.stop()
+    let runRate = Double(ticks) / runElapsed.seconds
 
     #expect(events.last is SimulationEvent.SimulationCompleted)
 
@@ -138,10 +158,17 @@ struct PatternSixProbeTests {
       observations.onMainThread == 0,
       "\(observations.onMainThread)/\(observations.total) backend callbacks ran on the MainActor")
 
-    // Liveness. The floor is deliberately far below what the run's own duration
-    // (4 calls × 3 paced deltas) affords — test 1 is what establishes that a
-    // real freeze drives this near zero, so this only has to exclude that.
-    #expect(ticks >= 10, "MainActor was starved during the run (\(ticks) ticks)")
+    // Liveness, as a fraction of this machine's own idle rate. A real Pattern 6
+    // freeze drives the ratio to ~0 (test 1 establishes that direction), so a
+    // tenth of the control rate is far below any healthy run yet far above a
+    // frozen one. Contention scales both measurements, which is exactly the
+    // property an absolute floor lacked.
+    #expect(
+      runRate > controlRate / 10,
+      """
+      MainActor was starved during the run: \(ticks) ticks over \(runElapsed) \
+      (\(runRate)/s) against an idle control of \(controlRate)/s
+      """)
   }
 }
 
@@ -298,5 +325,16 @@ extension ScriptedResponse {
       ending: .completed(completionTokens: nil),
       chunkDelay: chunkDelay
     )
+  }
+}
+
+extension Duration {
+  /// Wall-clock seconds as a `Double`, for rate arithmetic.
+  ///
+  /// `Duration` exposes only integer `components`, and the liveness assertion
+  /// compares two rates rather than two raw counts — so it needs a real
+  /// quotient, not a truncated one.
+  fileprivate var seconds: Double {
+    Double(components.seconds) + Double(components.attoseconds) / 1e18
   }
 }

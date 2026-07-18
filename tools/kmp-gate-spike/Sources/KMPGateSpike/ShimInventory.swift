@@ -165,7 +165,9 @@ public struct ShimInventory: Sendable {
 }
 
 /// Why the shim inventory could not be produced.
-public enum ShimInventoryError: Error, CustomStringConvertible {
+/// `Equatable` so tests can pin the specific case rather than settling for
+/// `ShimInventoryError.self`, which any of these would satisfy.
+nonisolated public enum ShimInventoryError: Error, Equatable, CustomStringConvertible {
   /// A scan root contributed no Swift files — a wrong working directory, or a
   /// root that moved. Raised per root, not once for the whole set.
   case emptyRoot(String)

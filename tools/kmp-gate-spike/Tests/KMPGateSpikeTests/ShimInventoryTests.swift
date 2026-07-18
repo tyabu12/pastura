@@ -80,7 +80,10 @@ struct ShimInventoryTests {
     // scanner previously asked "did *any* root yield files?", which a surviving
     // root answers yes to — so a renamed root dropped its hits and the budget
     // still printed a plausible total. Only a mixed root set catches that.
-    #expect(throws: ShimInventoryError.self) {
+    // Pinned to `.emptyRoot` specifically: `ShimInventoryError.self` would also
+    // be satisfied by a `staleExclusion` thrown for an unrelated reason, which
+    // would make this pass without exercising the per-root check at all.
+    #expect(throws: ShimInventoryError.emptyRoot("./definitely-not-a-source-dir")) {
       _ = try ShimInventory.scan(roots: Self.roots + ["./definitely-not-a-source-dir"])
     }
   }

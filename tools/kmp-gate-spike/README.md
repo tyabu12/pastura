@@ -44,7 +44,7 @@ B′'s three lanes (the harness build and a dev `swift build`). The **iOS
 xcodebuild** lane is not checked by it — an XCFramework added to
 `Pastura.xcodeproj` would violate B′ without touching any manifest. The grep
 also strips whole-line comments only, so a trailing `// … .binaryTarget …`
-still trips it. Both gaps are tracked as follow-ups on #501.
+still trips it. Both gaps are tracked in #1171.
 
 **Do not consolidate this into the root manifest.** If a future change makes
 that look attractive, the constraint above is the reason it is not.
@@ -133,8 +133,8 @@ swift run --package-path tools/kmp-gate-spike kmp-gate-bench
 | Measurement | Status |
 |---|---|
 | (i) event-boundary ergonomics, incl. the threading clause | measured here — counted from source; threading clause via the Pattern 6 probe |
-| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — ≈20 µs/chunk, ≈50 µs round trip (macOS host) |
-| (iii) K/N shim-budget on the Engine-consuming surface | measured here — 24 declarations |
+| (ii) inference-boundary chunk-relay overhead + suspension-relay round-trip | measured here — ≈20 µs/chunk (17.8–25.4), ≈50 µs round trip (47.8–63.1); one macOS host, spreads not bounds |
+| (iii) K/N shim-budget on the Engine-consuming surface | measured here — 24 declarations, test-side shims included |
 | (iv) SKIE-vs-vanilla | **documented evaluation only** — no SKIE integration |
 | (v) kotlinx.serialization round-trip parity on `TurnOutput`/`OutputSchema` | **one-sided**, via checked-in golden JSON (see below) |
 
