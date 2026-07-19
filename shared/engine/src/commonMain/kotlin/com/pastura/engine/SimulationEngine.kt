@@ -42,9 +42,9 @@ import kotlinx.coroutines.launch
  *
  * | Absent | Why |
  * |---|---|
- * | `ScenarioValidator` preflight + `ScenarioSemanticLinter` (ADR-024) | Stage-3 ports (§4). Nothing gates a scenario on this side yet, which is why the ported code must not assume validator floors — see `PromptBuilder`. |
+ * | `ScenarioValidator` preflight + `ScenarioSemanticLinter` (ADR-024) | Stage-3 ports — §4's `Load + validate` row, which the linter joined on 2026-07-19 (before that, §4 did not mention it and this row's `(§4)` citation pointed at nothing). Nothing gates a scenario on this side yet, which is why the ported code must not assume validator floors — see `PromptBuilder`. |
  * | Resume (`resumingFrom` seed / `startRound`) | needs the Data layer's persisted state; D2 keeps Data in Swift |
- * | `LanguageDetector` / `EngineLogger` injection | Stage-3 freight; absent from `PhaseContext` |
+ * | `LanguageDetector` / `EngineLogger` injection | Stage-3 freight; absent from `PhaseContext`. §4 ports the `EngineLogger` **seam only** — `OSLogEngineLogger` stays at `Pastura/Pastura/App/OSLogEngineLogger.swift` |
  *
  * Swift original: `Pastura/Pastura/Engine/SimulationRunner.swift`.
  */
