@@ -41,9 +41,19 @@ public data class OutputSchema(
          * Known primary-output field names, in the order they should appear in
          * generated output. Matches the canonical fields advertised by
          * `ScenarioConventions.primaryField` (one canonical field per LLM phase:
-         * speak → `statement`, choose → `action`, vote → `vote`).
+         * speak → `statement`, choose → `action`, vote → `vote`, reflect →
+         * `note`).
+         *
+         * `note` is present ahead of its phase: `PhaseType` does not yet carry
+         * `REFLECT` (it lands with the mechanical mirrors). The ordering policy
+         * is keyed on field names rather than phase types, so listing it early
+         * is inert until a reflect schema appears — and omitting it would leave
+         * this list diverged from Swift in the one type this PR exists to align.
+         * Note that a mismatch here would NOT be caught by golden parity: the
+         * fixtures pin encoded schemas, not [orderKeys]' policy.
          */
-        public val knownPrimaryKeys: List<String> = listOf("statement", "action", "vote")
+        public val knownPrimaryKeys: List<String> =
+            listOf("statement", "action", "vote", "note")
 
         /**
          * Known secondary-output field names (reasoning / justification). Emitted
