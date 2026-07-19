@@ -19,7 +19,7 @@ import kotlinx.serialization.Serializable
  * ordering would) the streaming row would stay empty for most of the stream.
  * See ADR-002 §12 and the PR #194 plan for the critic-driven rationale.
  *
- * **Vocabulary is intentionally minimal** ([Kind.StringKind] + [Kind.Enumeration])
+ * **Vocabulary is intentionally minimal** ([Kind.StringKind] + [Kind.Choice])
  * — matches Pastura's actual scenario shape. Future backends needing richer
  * JSON Schema features (integers, booleans, regex formats) should add an
  * adapter, not extend [Kind].
@@ -59,8 +59,10 @@ public data class OutputSchema(
          *         decoding" and skip grammar injection.
          *
          * For [PhaseType.CHOOSE] phases with non-empty [Phase.options], the `action`
-         * field (if present in the schema) becomes [Kind.Enumeration] carrying those
-         * options — stronger than the runtime `validateAction` fallback.
+         * field (if present in the schema) becomes [Kind.Choice] — a payload-free
+         * marker. The option values themselves are deliberately not carried; see
+         * [Kind.Choice] for why, and `ScenarioConventions` for where the model
+         * actually learns them.
          */
         public fun from(phase: Phase): OutputSchema? {
             val raw = phase.outputSchema?.takeIf { it.isNotEmpty() } ?: return null
@@ -69,10 +71,7 @@ public data class OutputSchema(
                 phase.type == PhaseType.CHOOSE && !phase.options.isNullOrEmpty()
             val fields = orderedNames.map { name ->
                 if (isChooseWithOptions && name == "action") {
-                    // phase.options is guaranteed non-null here: isChooseWithOptions implies
-                    // !phase.options.isNullOrEmpty(), so the smart-cast below is safe.
-                    val options = checkNotNull(phase.options) { "options must be non-null when isChooseWithOptions" }
-                    Field(name = name, kind = Kind.Enumeration(options))
+                    Field(name = name, kind = Kind.Choice)
                 } else {
                     Field(name = name, kind = Kind.StringKind)
                 }
@@ -124,35 +123,35 @@ public data class OutputSchema(
      * "one of these literal string options". Future scenario shapes should prefer
      * an adapter to JSON Schema over extending this sealed class.
      *
-     * **Divergence from Swift — SEMANTIC, not merely a wire shape.**
-     * Swift's `OutputSchema.Kind` (`Pastura/Pastura/Models/OutputSchema.swift`)
-     * has exactly two cases, and the second carries **no payload**:
-     * - `case string`
-     * - `case choice` — a marker only
+     * **Aligned to Swift 2026-07-19** (ADR-023 §12 condition 1). Swift's
+     * `OutputSchema.Kind` (`Pastura/Pastura/Models/OutputSchema.swift`) has exactly
+     * two cases and the second carries **no payload** — `case string`, `case choice`.
+     * This sealed class now matches: [Choice] replaced an `Enumeration(options:
+     * List<String>)` that modelled a concept Swift had already retired.
      *
-     * The absence of the payload is deliberate and documented at that
+     * The absence of the payload is deliberate and documented at the Swift
      * declaration: enumerating choice options into the GBNF grammar crashed
      * llama.cpp's sampler on CJK / dynamic option values (#597, #599), so the
      * grammar constrains JSON *structure* only and the options are enforced at
      * runtime by `ChooseHandler` instead.
      *
-     * The Kotlin port's [Enumeration] therefore carries a `List<String>` that
-     * has no counterpart on the Swift side. An earlier version of this KDoc
-     * described a Swift `.enumeration(["a","b"])` case that does not exist and
-     * concluded "only the JSON tagging differs" — it does not.
+     * **One difference remains by decision, not by omission: the tag form.**
+     * kotlinx.serialization emits an internal discriminator (`{"type":"choice"}`)
+     * where Swift's synthesized `Codable` emits an outer wrap (`{"choice":{}}`).
+     * That is *not* closed here, because [OutputSchema] is never JSON-crossed in
+     * production: it is built in memory by [from] and consumed directly by the
+     * backends behind the §5.2 `LLMBackend` interface, which read the [Kind] cases
+     * natively. Swift's `Codable` conformance exists for testability and
+     * `Sendable`/`Equatable` consistency, not as a wire contract.
      *
-     * **This divergence is intentional and safe for the spike:** [OutputSchema] is
-     * NOT JSON-roundtripped in production Pastura flows — it is constructed in-memory
-     * by `OutputSchema.from(phase:)` and consumed directly by `LLMService` backends
-     * (GBNF / Ollama-format / Mock) which translate the [Kind] cases natively, never
-     * via JSON cross-language transfer. The `Codable` conformance in Swift exists for
-     * testability + `Sendable`+`Equatable` consistency, NOT as a wire-shape contract.
-     *
-     * If PR-B's canonicalizer ever needs cross-language equivalence here, a
-     * custom `KSerializer` is NOT sufficient on its own — aligning the wire
-     * shape would still leave [Enumeration]'s options with nothing to map to.
-     * Either Kotlin drops the payload to match `case choice`, or Swift gains
-     * one and the #597 sampler constraint is revisited first.
+     * Adding a hand-written `KSerializer` to close it would put a mechanism in
+     * production whose stated reason — matching a wire contract — has no wire. The
+     * parity test absorbs the difference instead, via `Canonicalizer` (Stage 3 lifts
+     * the discriminator form into the outer-wrap form). `SwiftGoldenParityTests`
+     * pins this class's *native* emission so the difference cannot drift unnoticed,
+     * and `scripts/check-outputschema-no-serialization.py` fails the build if a
+     * production serialization site ever appears — at which point this decision is
+     * the thing to revisit, not the gate.
      */
     @Serializable
     public sealed class Kind {
@@ -165,10 +164,12 @@ public data class OutputSchema(
          * One of a fixed set of string literals — used for [Phase.options] on
          * [PhaseType.CHOOSE] phases.
          *
-         * @property options The accepted string literals.
+         * A **marker only**: the accepted literals are deliberately not carried
+         * here (see the class KDoc above for the sampler-crash reason). The model
+         * learns them from the prompt, and `ChooseHandler` enforces them at runtime.
          */
         @Serializable
-        @SerialName("enumeration")
-        public data class Enumeration(public val options: List<String>) : Kind()
+        @SerialName("choice")
+        public object Choice : Kind()
     }
 }
