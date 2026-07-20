@@ -159,7 +159,7 @@ public data class OutputSchema(
      * parity test absorbs the difference instead, via `Canonicalizer` (Stage 3 lifts
      * the discriminator form into the outer-wrap form). `SwiftGoldenParityTests`
      * pins this class's *native* emission so the difference cannot drift unnoticed,
-     * and `scripts/check-outputschema-no-serialization.py` fails the build if a
+     * and `scripts/check-outputschema-serialization-gate.py` fails the build if a
      * production serialization site ever appears — at which point this decision is
      * the thing to revisit, not the gate.
      */

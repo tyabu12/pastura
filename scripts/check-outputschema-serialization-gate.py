@@ -225,6 +225,13 @@ def check() -> int:
     swift_named = sum(1 for p, t in files if lang_of(p) == "swift" and TYPE_RE.search(t))
     kotlin_named = sum(1 for p, t in files if lang_of(p) == "kotlin" and TYPE_RE.search(t))
     scanned = {p for p, _ in files}
+    # Floors are well below today's counts (23 Swift / 5 Kotlin). The Kotlin
+    # margin is thin by design: OutputSchema is a small mirror (the type + its
+    # Kind/Field split + a couple of engine consumers), so the floor is 3, not a
+    # generous fraction. If the mirror ever consolidates below 3 files, the
+    # defining-file check below is the real backstop — this bound only catches a
+    # scope that collapsed to near-empty (a broken glob or a moved root), where
+    # both floors trip together.
     if swift_named < 10 or kotlin_named < 3:
         print(
             f"serialization gate: only {swift_named} Swift / {kotlin_named} Kotlin files "

@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
  *   difference is left standing on purpose — [OutputSchema] is never JSON-
  *   crossed in production, so closing it would mean adding a production
  *   serializer whose stated reason is a wire contract that has no wire. See
- *   [OutputSchema.Kind]'s KDoc, and `check-outputschema-no-serialization.py`
+ *   [OutputSchema.Kind]'s KDoc, and `check-outputschema-serialization-gate.py`
  *   for the gate that keeps the premise true.
  *
  * **Do not "strengthen" the OutputSchema comparisons to byte equality.** It
@@ -156,6 +156,9 @@ class SwiftGoldenParityTests {
 
     @Test
     fun outputSchemaChoiceKindMatchesSwiftUnderNormalization() {
+        // Hand-built in the Swift golden's field order rather than via
+        // OutputSchema.from(phase): this test targets the tag form and payload,
+        // and from()'s ordering policy is exercised in OutputSchemaSerializationTests.
         val schema = OutputSchema(
             fields = listOf(
                 OutputSchema.Field("action", OutputSchema.Kind.Choice),
@@ -193,14 +196,16 @@ class SwiftGoldenParityTests {
     }
 
     /**
-     * The normalization is not vacuous: the two trees genuinely differ before it
-     * runs.
+     * The normalization is not vacuous *from already-equal inputs*: the two
+     * trees genuinely differ before it runs.
      *
-     * A canonicalize-both-sides comparison would pass just as well if
-     * [Canonicalizer] collapsed everything to a constant, or if the two inputs
-     * were already identical and the normalization did nothing. Asserting the
-     * pre-normalization inequality is the negative control for the instrument
-     * itself.
+     * A canonicalize-both-sides comparison would pass just as well if the two
+     * inputs were already identical and the normalization did nothing — this
+     * asserts the pre-normalization inequality to rule that out. It does NOT
+     * cover the other vacuity mode (a `Canonicalizer` that collapsed everything
+     * to a constant would still leave this green); that is the job of the
+     * dedicated `CanonicalizerStage1/2/3Tests`, which pin the transform's actual
+     * output shape rather than trusting it here.
      */
     @Test
     fun theTwoShapesDifferBeforeNormalization() {

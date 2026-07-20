@@ -65,11 +65,11 @@ class CanonicalizerStage3Tests {
         // codePhaseDiscriminators, which is exactly what keeps it safe.
         val input = buildJsonObject {
             put("type", JsonPrimitive("choose"))
-            put("rounds", JsonPrimitive(3))
+            put("subRounds", JsonPrimitive(1))
         }
         val output = Canonicalizer.canonicalize(input, codePhaseDiscriminators) as JsonObject
         // "choose" is not a CodePhaseEventPayload discriminator → no lift.
-        assertEquals(setOf("rounds", "type"), output.keys.toSet())
+        assertEquals(setOf("subRounds", "type"), output.keys.toSet())
         assertEquals(JsonPrimitive("choose"), output["type"])
     }
 
