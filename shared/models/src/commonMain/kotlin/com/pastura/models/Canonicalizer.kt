@@ -37,9 +37,16 @@ import kotlinx.serialization.json.JsonPrimitive
  * caller passes the set of valid discriminator-string values to opt in.
  * Why opt-in: the canonicalizer has no schema knowledge, so an
  * unconditional `type` key lift would corrupt non-polymorphic objects
- * that legitimately have a `type` field (e.g., `OutputSchema.Field`'s
- * `type: "text"` value, where `"text"` is a field type — not a
- * discriminator).
+ * that legitimately have a `type` field. The real instance is [Phase],
+ * whose `type` carries a [PhaseType] value (`"choose"`, `"speak_all"`, …)
+ * that is a field value, not a discriminator — lifting it would rewrite a
+ * phase into a bogus outer-wrap shape. Passing only the intended
+ * discriminator set is what protects it. (Note for a future porter: the
+ * lift fires on discriminator *value* membership, so if a discriminator
+ * set ever contains a string that collides with a [PhaseType] rawValue,
+ * an embedded `Phase` would be mis-lifted. No collision exists today;
+ * re-check when [CodePhaseEventPayload] / [SimulationEvent] mirror into
+ * this module in PR0-b.)
  *
  * **Test-side transform only.** No production sealed class carries a
  * `@Serializable(with = ...)` custom serializer because of this work;

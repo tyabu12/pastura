@@ -25,8 +25,9 @@ import kotlin.test.assertNotNull
  *
  * Stage 3 is opt-in: an empty discriminator set means the canonicalizer
  * runs Stages 1+2 only and the tree's `"type"` keys are left intact
- * (necessary for non-polymorphic types like `OutputSchema.Field` whose
- * `type` field carries field-type values like `"text"`).
+ * (necessary for non-polymorphic types like `Phase`, whose `type` field
+ * carries a `PhaseType` value like `"choose"` — a field value, not a
+ * discriminator).
  */
 class CanonicalizerStage3Tests {
 
@@ -57,19 +58,19 @@ class CanonicalizerStage3Tests {
 
     @Test
     fun nonDiscriminatorTypeFieldIsLeftAlone() {
-        // Models `OutputSchema.Field` JSON literally has a `type` field
-        // carrying field-kind values like "text" — these must NOT be
+        // `Phase` JSON has a `type` field carrying a PhaseType value like
+        // "choose" — a field value, not a discriminator. It must NOT be
         // lifted into outer-wrap form even when Stage 3 is on for some
-        // other namespace.
+        // other (CodePhaseEventPayload) namespace. "choose" is absent from
+        // codePhaseDiscriminators, which is exactly what keeps it safe.
         val input = buildJsonObject {
-            put("type", JsonPrimitive("text"))
-            put("name", JsonPrimitive("statement"))
-            put("required", JsonPrimitive(true))
+            put("type", JsonPrimitive("choose"))
+            put("rounds", JsonPrimitive(3))
         }
         val output = Canonicalizer.canonicalize(input, codePhaseDiscriminators) as JsonObject
-        // "text" is not a CodePhaseEventPayload discriminator → no lift.
-        assertEquals(setOf("name", "required", "type"), output.keys.toSet())
-        assertEquals(JsonPrimitive("text"), output["type"])
+        // "choose" is not a CodePhaseEventPayload discriminator → no lift.
+        assertEquals(setOf("rounds", "type"), output.keys.toSet())
+        assertEquals(JsonPrimitive("choose"), output["type"])
     }
 
     @Test
