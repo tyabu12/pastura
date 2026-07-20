@@ -1,11 +1,10 @@
 package com.pastura.models
 
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -15,19 +14,40 @@ import kotlin.test.assertTrue
  *
  * This closes the gap [OutputSchemaSerializationTests] declares in its own KDoc
  * ("Does NOT validate Swift↔Kotlin H2 wire-shape equivalence"). That suite pins
- * what Kotlin *emits*; this one pins what Kotlin can *accept* from Swift.
+ * what Kotlin *emits*; this one compares it against what Swift produced.
  *
- * **One-sided by construction.** The goldens prove Kotlin decodes what Swift
- * produces. They do not prove the reverse — no build in this repo can link the
+ * **Two different claims, and they must not be confused** (ADR-023 §12
+ * condition 1, 2026-07-19):
+ *
+ * - [TurnOutput] — **decode parity**. Kotlin decodes Swift's bytes directly,
+ *   strictly, with no normalization. The strongest available claim.
+ * - [OutputSchema] — **shape equivalence under normalization**, and nothing
+ *   more. Kotlin does *not* decode Swift's bytes here and is not expected to:
+ *   kotlinx.serialization tags sealed classes with a `type` discriminator where
+ *   Swift's synthesized `Codable` wraps the case name as the key. That
+ *   difference is left standing on purpose — [OutputSchema] is never JSON-
+ *   crossed in production, so closing it would mean adding a production
+ *   serializer whose stated reason is a wire contract that has no wire. See
+ *   [OutputSchema.Kind]'s KDoc, and `check-outputschema-serialization-gate.py`
+ *   for the gate that keeps the premise true.
+ *
+ * **Do not "strengthen" the OutputSchema comparisons to byte equality.** It
+ * would fail for reasons unrelated to parity: Swift's encoder sorts keys and
+ * pretty-prints, Kotlin emits declaration order compactly, and every constant
+ * in [SwiftGoldenJson] is `"\n" + <what Swift emitted> + "\n"` — the raw-string
+ * padding `GoldenFixtureEmitter` documents in its own header.
+ *
+ * **One-sided by construction.** The goldens prove things about Swift-produced
+ * bytes. They do not prove the reverse — no build in this repo can link the
  * Swift `Codable` types and Kotlin in one process (SwiftPM forbids a target's
  * sources from escaping its package root, and the conformances live in
  * `Pastura/Pastura/Models/`). Swift-decodes-Kotlin stays unmeasured; Stage 3's
  * parity harness is where it belongs.
  *
- * **Strict decoding on purpose.** These use a default [Json] rather than the
- * `ignoreUnknownKeys = true` instance the sibling suites use. Leniency would
- * silently absorb a field Swift adds and Kotlin does not model — which is
- * precisely the drift this measurement exists to detect.
+ * **Strict decoding on purpose.** The [TurnOutput] cases use a default [Json]
+ * rather than the `ignoreUnknownKeys = true` instance the sibling suites use.
+ * Leniency would silently absorb a field Swift adds and Kotlin does not model —
+ * which is precisely the drift this measurement exists to detect.
  */
 class SwiftGoldenParityTests {
 
@@ -86,86 +106,115 @@ class SwiftGoldenParityTests {
         assertEquals(mapOf("statement" to "provenance"), decoded.fields)
     }
 
-    // ── OutputSchema: parity does NOT hold ──────────────────────────────────
+    // ── OutputSchema: shape equivalence under normalization ─────────────────
 
     /**
-     * Kotlin cannot decode Swift's `OutputSchema` bytes. This is the measurement's
-     * finding, pinned as an executable fact rather than left as prose.
+     * The discriminator values [Canonicalizer]'s Stage 3 lifts.
      *
-     * Three independent divergences, only the first of which is a serialization
-     * detail:
-     *
-     * 1. **Tagging.** Swift's synthesized enum `Codable` wraps the case name as
-     *    the key (`{"string":{}}`); Kotlin's sealed class uses a `type`
-     *    discriminator (`{"type":"string"}`).
-     * 2. **Case name.** Swift's second case is `choice`; Kotlin's is
-     *    `enumeration`. There is no `choice` for Kotlin to resolve.
-     * 3. **Payload.** Kotlin's `Enumeration` *requires* `options: List<String>`.
-     *    Swift deliberately carries none — enumerating options into the GBNF
-     *    grammar crashed llama.cpp's sampler on multi-byte values (#597/#599),
-     *    so the payload was removed to make the mistake unrepresentable.
-     *
-     * (3) is the one that matters beyond wire format: Kotlin still models a
-     * concept Swift retired for a runtime-safety reason. Nothing in Kotlin reads
-     * `options` today — `PromptBuilder.formatOutputSchema` ignores every [Kind]
-     * and emits `"string"`, carrying a comment warning against "improving" it —
-     * but that guard is prose, where Swift's is the type system.
-     *
-     * Asserting the failure rather than skipping the type keeps the finding from
-     * decaying: if a future change aligns the two shapes, this test fails and
-     * forces the ADR record to be updated rather than silently going stale.
+     * **Deliberately a literal, not derived from the sealed class's serial
+     * descriptors.** Deriving it would move the set in lockstep with a
+     * `@SerialName` rename, so the condition-4 rename perturbation would still
+     * redden — but by tree inequality against the Swift golden, never by
+     * reaching the lift-misfire path. The lift fires on discriminator *value*
+     * membership, so "the lift silently stops firing" is a distinct failure
+     * mode, and only a hardcoded set can expose it.
      */
-    @Test
-    fun outputSchemaStringKindIsRejected() {
-        assertSwiftShapeRejected(SwiftGoldenJson.outputSchemaStringKind)
-    }
+    private val discriminatorValues = setOf("string", "choice")
 
-    @Test
-    fun outputSchemaChoiceKindIsRejected() {
-        assertSwiftShapeRejected(SwiftGoldenJson.outputSchemaChoiceKind)
-    }
+    private fun canonical(jsonText: String) =
+        Canonicalizer.canonicalize(Json.parseToJsonElement(jsonText), discriminatorValues)
 
     /**
-     * Asserts the rejection is about the *schema*, not about broken bytes or a
-     * broken decoder.
+     * Kotlin's encoding of the same schema matches Swift's, once both trees are
+     * canonicalized.
      *
-     * A bare `assertFailsWith` would pass just as well against an empty or
-     * corrupted constant, which is the failure mode a generated fixture is most
-     * exposed to. Two bracketing checks remove that:
+     * What normalization absorbs, and why each is legitimate rather than a
+     * defect being papered over:
      *
-     * - the golden must parse as well-formed JSON, so the failure is not lexical;
-     * - the same decoder must accept Kotlin's own tagging, so the failure is not
-     *   the decoder being broken outright.
-     */
-    private fun assertSwiftShapeRejected(golden: String) {
-        Json.parseToJsonElement(golden)
-
-        assertFailsWith<SerializationException> {
-            json.decodeFromString<OutputSchema>(golden)
-        }
-
-        val kotlinShaped = """{"fields":[{"name":"statement","kind":{"type":"string"}}]}"""
-        assertEquals(
-            OutputSchema(listOf(OutputSchema.Field("statement", OutputSchema.Kind.StringKind))),
-            json.decodeFromString<OutputSchema>(kotlinShaped),
-        )
-    }
-
-    /**
-     * Records what Kotlin emits for the same schema, so the delta against the
-     * Swift golden is readable in one place instead of requiring a reader to
-     * hold two files in their head.
+     * - **Tag form** (Stage 3). `{"type":"string"}` → `{"string":{}}`. Left
+     *   diverged in production by decision — see the class KDoc.
+     * - **Key order** (Stage 1). Swift's encoder emits `.sortedKeys`
+     *   (`kind` before `name`); Kotlin emits declaration order (`name` before
+     *   `kind`). A property-order difference is not a schema difference.
+     *
+     * What it does **not** absorb, which is what gives the test teeth: field
+     * names, the order of the `fields` array itself (Stage 1 preserves array
+     * order, and that order is the primary-first streaming policy), the case
+     * name (`choice` vs anything else), and any added or removed property —
+     * including a reintroduced `options` payload.
      */
     @Test
-    fun kotlinEmitsADifferentShapeForTheSameSchema() {
+    fun outputSchemaStringKindMatchesSwiftUnderNormalization() {
         val schema = OutputSchema(
             fields = listOf(OutputSchema.Field("statement", OutputSchema.Kind.StringKind)),
         )
         assertEquals(
-            """{"fields":[{"name":"statement","kind":{"type":"string"}}]}""",
+            canonical(SwiftGoldenJson.outputSchemaStringKind),
+            canonical(json.encodeToString(schema)),
+        )
+    }
+
+    @Test
+    fun outputSchemaChoiceKindMatchesSwiftUnderNormalization() {
+        // Hand-built in the Swift golden's field order rather than via
+        // OutputSchema.from(phase): this test targets the tag form and payload,
+        // and from()'s ordering policy is exercised in OutputSchemaSerializationTests.
+        val schema = OutputSchema(
+            fields = listOf(
+                OutputSchema.Field("action", OutputSchema.Kind.Choice),
+                OutputSchema.Field("reason", OutputSchema.Kind.StringKind),
+            ),
+        )
+        assertEquals(
+            canonical(SwiftGoldenJson.outputSchemaChoiceKind),
+            canonical(json.encodeToString(schema)),
+        )
+    }
+
+    /**
+     * Pins Kotlin's **native** emission, un-normalized.
+     *
+     * Without this the tag-form difference would be invisible: the tests above
+     * canonicalize it away by design, so a future change that happened to align
+     * the wire shapes — or to break Kotlin's own — would pass them silently.
+     * This is the tripwire that makes the divergence a recorded decision rather
+     * than an unexamined state, and it is the assertion to update (together
+     * with [OutputSchema.Kind]'s KDoc and ADR-023 §12 condition 1) if the
+     * production shape is ever changed.
+     */
+    @Test
+    fun kotlinEmitsItsOwnTagFormNatively() {
+        val schema = OutputSchema(
+            fields = listOf(OutputSchema.Field("action", OutputSchema.Kind.Choice)),
+        )
+        assertEquals(
+            """{"fields":[{"name":"action","kind":{"type":"choice"}}]}""",
             json.encodeToString(schema),
         )
-        // The Swift golden for the same value, for contrast.
-        assertTrue(SwiftGoldenJson.outputSchemaStringKind.contains("\"string\" : {"))
+        // The Swift golden for the same case, for contrast — outer-wrapped.
+        assertTrue(SwiftGoldenJson.outputSchemaChoiceKind.contains("\"choice\" : {"))
+    }
+
+    /**
+     * The normalization is not vacuous *from already-equal inputs*: the two
+     * trees genuinely differ before it runs.
+     *
+     * A canonicalize-both-sides comparison would pass just as well if the two
+     * inputs were already identical and the normalization did nothing — this
+     * asserts the pre-normalization inequality to rule that out. It does NOT
+     * cover the other vacuity mode (a `Canonicalizer` that collapsed everything
+     * to a constant would still leave this green); that is the job of the
+     * dedicated `CanonicalizerStage1/2/3Tests`, which pin the transform's actual
+     * output shape rather than trusting it here.
+     */
+    @Test
+    fun theTwoShapesDifferBeforeNormalization() {
+        val schema = OutputSchema(
+            fields = listOf(OutputSchema.Field("statement", OutputSchema.Kind.StringKind)),
+        )
+        assertNotEquals(
+            Json.parseToJsonElement(SwiftGoldenJson.outputSchemaStringKind),
+            Json.parseToJsonElement(json.encodeToString(schema)),
+        )
     }
 }

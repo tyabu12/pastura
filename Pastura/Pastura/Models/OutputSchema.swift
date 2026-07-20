@@ -145,9 +145,18 @@ nonisolated public struct OutputSchema: Codable, Sendable, Equatable {
     /// #599). The grammar now constrains JSON **structure** only; this
     /// case is grammar-equivalent to ``string`` (emits the shared
     /// `string` production). The value is constrained at runtime by
-    /// ``ChooseHandler`` `validateAction` (invalid → `options[0]`), and
-    /// the model still learns the valid options from the prompt
-    /// (``PromptBuilder``).
+    /// ``ChooseHandler`` `validateAction`, which normalizes then
+    /// canonicalizes and returns `String?` — an off-menu answer is
+    /// **dropped** (emitting `.actionRejected`), never coerced to a
+    /// menu entry. The model still learns the valid options from the
+    /// prompt (``PromptBuilder``).
+    ///
+    /// This comment previously cited an `options[0]` fallback as the
+    /// runtime constraint. ADR-021 § "Amendment 2026-07-17" removed that
+    /// fallback as a fabrication — it scored an agent that emitted
+    /// `betray!` or `裏切る` as having cooperated — and also supersedes
+    /// ADR-002 § "Amendment 2026-06-14", which had called `options[0]`
+    /// "the correctness floor".
     ///
     /// The marker is retained (rather than collapsing to ``string``) so
     /// the language-adherence detector can exclude author-fixed tokens

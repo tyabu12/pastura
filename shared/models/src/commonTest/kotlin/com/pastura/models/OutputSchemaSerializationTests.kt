@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertNotNull
 
@@ -31,16 +32,21 @@ class OutputSchemaSerializationTests {
     }
 
     @Test
-    fun enumerationKindFieldRoundtrip() {
+    fun choiceKindFieldRoundtrip() {
         val field = OutputSchema.Field(
             name = "action",
-            kind = OutputSchema.Kind.Enumeration(listOf("cooperate", "betray")),
+            kind = OutputSchema.Kind.Choice,
         )
         val encoded = json.encodeToString(field)
         val decoded = json.decodeFromString<OutputSchema.Field>(encoded)
         assertEquals(field, decoded)
-        val enumKind = decoded.kind as OutputSchema.Kind.Enumeration
-        assertEquals(listOf("cooperate", "betray"), enumKind.options)
+        assertEquals(OutputSchema.Kind.Choice, decoded.kind)
+        // The marker carries no payload — see OutputSchema.Kind's KDoc for why
+        // (#597/#599 sampler crash). Pinned on the encoded form rather than the
+        // decoded value: an object with no properties round-trips to an equal
+        // value whether or not the type gained one, so only the bytes can show
+        // the payload's absence.
+        assertEquals("""{"type":"choice"}""", json.encodeToString(field.kind))
     }
 
     @Test
@@ -59,8 +65,13 @@ class OutputSchemaSerializationTests {
     // ── OutputSchema.from(phase) factory ───────────────────────────────────
 
     @Test
-    fun fromPhaseChooseWithOptionsProducesEnumerationKind() {
-        // For choose phases with options, the "action" field becomes Enumeration.
+    fun fromPhaseChooseWithOptionsProducesPayloadFreeChoiceKind() {
+        // For choose phases with options, the "action" field becomes Choice —
+        // a marker that does NOT carry the options. The option values are
+        // deliberately absent from the schema: enumerating them into the GBNF
+        // grammar crashed llama.cpp's sampler on CJK / dynamic values
+        // (#597/#599). The model learns them from the prompt instead, and
+        // ChooseHandler enforces them at runtime.
         val phase = Phase(
             type = PhaseType.CHOOSE,
             outputSchema = mapOf("action" to "string"),
@@ -71,9 +82,12 @@ class OutputSchemaSerializationTests {
         assertEquals(1, schema.fields.size)
         val field = schema.fields.first()
         assertEquals("action", field.name)
-        val enumKind = field.kind as? OutputSchema.Kind.Enumeration
-        assertNotNull(enumKind)
-        assertEquals(listOf("cooperate", "betray"), enumKind.options)
+        assertEquals(OutputSchema.Kind.Choice, field.kind)
+        // The absence is the point, and it is only observable on the wire:
+        // neither option token may appear anywhere in the encoded schema.
+        val encoded = json.encodeToString(schema)
+        assertFalse(encoded.contains("cooperate"))
+        assertFalse(encoded.contains("betray"))
     }
 
     @Test

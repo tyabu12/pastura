@@ -1,0 +1,59 @@
+# Production-serialization gate for OutputSchema (ADR-023 §12 condition 1).
+#
+# Condition 1 leaves the Swift<->Kotlin OutputSchema JSON tag-form difference
+# standing in production and reconciles it only in a parity test
+# (SwiftGoldenParityTests). That is safe ONLY while no production code in either
+# language JSON-encodes or JSON-decodes an OutputSchema value. This job keeps
+# that premise executable: three stacked detectors (file co-occurrence, line
+# argument heuristic, containment tripwire) over comment-stripped, tracked-only
+# production source. See scripts/check-outputschema-serialization-gate.py.
+#
+# Trigger scope is DELIBERATELY WIDE: a new serialization site can appear in ANY
+# production Swift/Kotlin file, so the paths filter is the whole scanned tree
+# (Pastura/Pastura/**/*.swift + shared/**/*.kt) plus the checker itself. Runs on
+# ubuntu (pure python3, no Xcode, no npm; ~seconds). The git pre-commit hook runs
+# the same check locally via
+# scripts/outputschema-serialization-precommit-gate.sh (defense in depth).
+#
+# Trigger-level `paths:` is safe here ONLY because this workflow does not own a
+# required status check (per .claude/rules/ci-workflows.md § "Required-check-safe
+# path gating"): a filtered-out run stays "pending", which would block merge
+# forever if the check were required, but is harmless when it is not. It is also
+# a cheap ubuntu drift guard (invariant 3), so no job-level gating is warranted.
+# ⚠️ If this gate is ever promoted to a required check, the trigger-level `paths:`
+# filter MUST move to job-level classification, or the pending-forever trap arms.
+
+name: OutputSchema Serialization Gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Pastura/Pastura/**/*.swift'
+      - 'shared/**/*.kt'
+      - 'scripts/check-outputschema-serialization-gate.py'
+      - '.github/workflows/outputschema-serialization.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Pastura/Pastura/**/*.swift'
+      - 'shared/**/*.kt'
+      - 'scripts/check-outputschema-serialization-gate.py'
+      - '.github/workflows/outputschema-serialization.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: outputschema-serialization-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Self-test the checker (per-detector positive + negative controls)
+        run: python3 scripts/check-outputschema-serialization-gate.py --self-test
+      - name: Gate the production tree
+        run: python3 scripts/check-outputschema-serialization-gate.py --check
