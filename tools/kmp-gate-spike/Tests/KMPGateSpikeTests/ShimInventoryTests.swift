@@ -196,4 +196,112 @@ struct ShimInventoryTests {
       _ = try ShimInventory.scan(roots: [Self.packageRoot + "/Tests/KMPGateSpikeTests"])
     }
   }
+
+  /// One pinned sibling-test shim hit, anchored on `(file, bucket, type)`.
+  ///
+  /// Not on `Hit`'s raw line number: an unrelated edit *above* a hit shifts its
+  /// line and would churn the expectation for no real change. The declared type
+  /// name is the stable identity — a hit only moves buckets or files, or gains a
+  /// sibling, when something the budget cares about actually changed. Residual
+  /// blind spot: two hits sharing a file, bucket, and type name would collapse
+  /// into one member (none do today — all seven types are distinct); accepted
+  /// over the line-number churn the anchor exists to avoid.
+  private struct SiblingHit: Hashable, CustomStringConvertible {
+    let file: String
+    let bucket: String
+    let type: String
+    var description: String { "\(file):[\(bucket)] \(type)" }
+  }
+
+  /// The complete set of shim hits `scan` finds in the sibling **test** files.
+  ///
+  /// `fixturesAreNotCountedAsShims` holds `ShimInventoryTests.swift` itself to
+  /// zero, but `scan`'s roots cover the whole `Tests/KMPGateSpikeTests`
+  /// directory — so a fixture-shaped line written into any *sibling* test file
+  /// is counted by `scan` as a real boundary shim and silently inflates the
+  /// measured budget, which is ADR-023 §6 measurement (i)/(iii) evidence. That
+  /// is the "under-report in reverse" this suite exists to catch, one file over.
+  ///
+  /// This set cannot be a blanket "every line under `Tests/` classifies as nil":
+  /// the seven hits below are **legitimate**. Each is a `@unchecked Sendable`
+  /// conformer or a type-level `nonisolated` declaration that a boundary test
+  /// genuinely needs — recording backends, callbacks, and probes built to
+  /// exercise the K/N boundary from the Swift side. Do **not** "fix" a failure
+  /// here by deleting a conformance; that would break the test that declares it.
+  ///
+  /// Compared as a **set**, not a count, so the guard fails on an *added* hit
+  /// (a superset) AND on an add+remove swap that leaves the total unchanged (a
+  /// changed member) — the swap is exactly the drift a count would cancel out.
+  /// A new legitimate hit must be acknowledged by adding it here, on purpose.
+  private static let expectedSiblingTestShimHits: Set<SiblingHit> = [
+    SiblingHit(
+      file: "BoundaryContractTests.swift", bucket: "type-level nonisolated only",
+      type: "RecordingRunHandle"),
+    SiblingHit(
+      file: "BoundaryContractTests.swift", bucket: "hand-asserted Sendable conformance",
+      type: "RecordingCallbacks"),
+    SiblingHit(
+      file: "BoundaryContractTests.swift", bucket: "hand-asserted Sendable conformance",
+      type: "TerminalBox"),
+    SiblingHit(
+      file: "PatternSixProbeTests.swift", bucket: "type-level nonisolated only",
+      type: "BlockingProbe"),
+    SiblingHit(
+      file: "PatternSixProbeTests.swift", bucket: "type-level nonisolated only",
+      type: "ThreadObservations"),
+    SiblingHit(
+      file: "PatternSixProbeTests.swift", bucket: "hand-asserted Sendable conformance",
+      type: "ThreadObservingBackend"),
+    SiblingHit(
+      file: "PatternSixProbeTests.swift", bucket: "hand-asserted Sendable conformance",
+      type: "ThreadObservingCallbacks")
+  ]
+
+  /// The declared type name from a classified declaration line — the identifier
+  /// after the `class` / `struct` / `enum` / `actor` / `extension` keyword.
+  private static func declaredTypeName(in text: String) -> String {
+    let keywords: Set<String> = ["class", "struct", "enum", "actor", "protocol", "extension"]
+    let tokens = text.split(whereSeparator: { $0 == " " || $0 == "\t" }).map(String.init)
+    guard let keywordIndex = tokens.firstIndex(where: { keywords.contains($0) }),
+      keywordIndex + 1 < tokens.count
+    else { return "" }
+    let raw = tokens[keywordIndex + 1]
+    return String(raw.prefix(while: { $0.isLetter || $0.isNumber || $0 == "_" }))
+  }
+
+  @Test("the sibling-test shim-hit set is pinned so a new hit can't join silently")
+  func siblingTestShimHitsMatchThePinnedSet() throws {
+    let inventory = try ShimInventory.scan(roots: Self.roots)
+
+    // Restrict to the actual test-directory files by basename. `Hit.file` is a
+    // basename, so this holds only while Sources/ and Tests/ share no filename —
+    // true today (distinct dir conventions); a future collision would need this
+    // widened to a path match.
+    let testDir = Self.packageRoot + "/Tests/KMPGateSpikeTests"
+    let testFileNames = Set(
+      try FileManager.default.contentsOfDirectory(atPath: testDir)
+        .filter { $0.hasSuffix(".swift") })
+
+    var actual: Set<SiblingHit> = []
+    for category in inventory.categories {
+      for hit in category.hits where testFileNames.contains(hit.file) {
+        actual.insert(
+          SiblingHit(
+            file: hit.file, bucket: category.name,
+            type: Self.declaredTypeName(in: hit.text)))
+      }
+    }
+
+    let added = actual.subtracting(Self.expectedSiblingTestShimHits)
+    let removed = Self.expectedSiblingTestShimHits.subtracting(actual)
+    #expect(
+      actual == Self.expectedSiblingTestShimHits,
+      """
+      sibling-test shim-hit set drifted. \
+      unexpected (add to expectedSiblingTestShimHits only if legitimate): \
+      \(added.sorted { $0.description < $1.description }); \
+      missing (a pinned hit vanished or moved): \
+      \(removed.sorted { $0.description < $1.description })
+      """)
+  }
 }
