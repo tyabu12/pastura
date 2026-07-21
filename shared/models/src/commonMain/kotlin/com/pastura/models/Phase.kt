@@ -120,9 +120,17 @@ public data class Phase(
     public val elsePhases: List<Phase>? = null,
     public val probability: Double? = null,
     public val eventVariable: String? = null,
-    // The five fields below are appended at the tail so existing positional
-    // constructor calls stay valid; Swift interleaves `maxSentences` among them
-    // but JSON parity is by key name, not position (ADR-023 PR0-a2).
+    // The five fields below are appended at the tail so existing *Kotlin*
+    // positional constructor calls stay valid; the hand-written Swift original
+    // (`Pastura/Pastura/Models/Phase.swift`) interleaves `maxSentences` among
+    // them but JSON parity is by key name, not position (ADR-023 PR0-a2).
+    // ⚠️ Tail-appending does NOT keep Swift consumers valid: the K/N-generated
+    // Swift memberwise init carries no default-arg values (kmp-interop.md
+    // Pattern 3 "Default args don't cross"), so every Swift `Phase(...)` site
+    // — today only the nightly-built gate-spike (`tools/kmp-gate-spike`, the
+    // sole K/N↔Swift consumer, ADR-023 §6) — must pass the new args explicitly.
+    // Adding a field here therefore requires updating those sites in the same
+    // change, or the KMP nightly (not per-PR CI) goes red (#1204).
     public val voteAgainst: Int? = null,
     public val actionDeltas: Map<String, Int>? = null,
     public val noRepeat: Boolean? = null,
