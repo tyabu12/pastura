@@ -1,0 +1,61 @@
+# ADR-023 §4 port-disposition coverage gate (#1191).
+#
+# ADR-023 §4 requires every Swift file under Pastura/Pastura/Engine/** and
+# Pastura/Pastura/LLM/** to carry exactly one disposition (PORT/STAY/REPLACED/
+# FOLDED, exclusions as EXEMPT), tracked in shared/adr-023-port-ledger.tsv. This
+# job cross-checks the ledger against the tracked tree in both directions (no
+# unclassified file, no dangling entry) — the enforcement §4 lacked, which is how
+# it went stale within hours of being written. The git pre-commit hook runs the
+# same check locally via scripts/adr023-port-coverage-precommit-gate.sh (defense
+# in depth). Runs on ubuntu (pure python3, no Xcode, no npm; ~seconds).
+#
+# The checker enumerates via `git ls-files` (tracked-only, per
+# .claude/rules/ci-workflows.md), so actions/checkout's default shallow fetch is
+# sufficient — it needs the index, not history.
+#
+# Trigger-level `paths:` is safe here: this workflow does not (yet) own a
+# required status check, so the "pending required check" trap in
+# .claude/rules/ci-workflows.md does not apply. If it is ever made required, the
+# path filter must move to a job-level guard or the check will hang Pending on
+# unrelated PRs.
+
+name: ADR-023 Port Coverage
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Pastura/Pastura/Engine/**'
+      - 'Pastura/Pastura/LLM/**'
+      - 'shared/adr-023-port-ledger.tsv'
+      - 'scripts/check-adr023-port-coverage.py'
+      - '.github/workflows/adr023-port-coverage.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'Pastura/Pastura/Engine/**'
+      - 'Pastura/Pastura/LLM/**'
+      - 'shared/adr-023-port-ledger.tsv'
+      - 'scripts/check-adr023-port-coverage.py'
+      - '.github/workflows/adr023-port-coverage.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: adr023-port-coverage-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Validate the checker (self-test)
+        run: python3 scripts/check-adr023-port-coverage.py --self-test
+
+      - name: Assert every Engine/LLM Swift file carries a §4 disposition
+        run: python3 scripts/check-adr023-port-coverage.py --check
