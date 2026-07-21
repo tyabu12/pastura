@@ -6,11 +6,11 @@ import kotlinx.serialization.Serializable
 /**
  * The type of a simulation phase, determining how it is processed.
  *
- * LLM phases ([SPEAK_ALL], [SPEAK_EACH], [VOTE], [CHOOSE]) require LLM inference.
- * Code phases ([SCORE_CALC], [ASSIGN], [ELIMINATE], [SUMMARIZE], [EVENT_INJECT])
- * are processed deterministically by the engine. [CONDITIONAL] is a
- * control-flow phase: the handler itself does no inference, but its
- * sub-phases may be of any type.
+ * LLM phases ([SPEAK_ALL], [SPEAK_EACH], [VOTE], [CHOOSE], [REFLECT], [WHISPER])
+ * require LLM inference. Code phases ([SCORE_CALC], [ASSIGN], [ELIMINATE],
+ * [SUMMARIZE], [EVENT_INJECT], [RELATIONSHIP_UPDATE]) are processed
+ * deterministically by the engine. [CONDITIONAL] is a control-flow phase: the
+ * handler itself does no inference, but its sub-phases may be of any type.
  *
  * Kotlin port of `Pastura/Pastura/Models/PhaseType.swift`.
  */
@@ -31,6 +31,20 @@ public enum class PhaseType {
     /** Agent chooses an action from a constrained set. */
     @SerialName("choose")
     CHOOSE,
+
+    /**
+     * Each agent privately updates a short note about the situation via LLM
+     * inference (canonical `note` output field).
+     */
+    @SerialName("reflect")
+    REFLECT,
+
+    /**
+     * Pairs of active agents privately exchange statements, hidden from other
+     * agents' prompts — each utterance is one LLM inference.
+     */
+    @SerialName("whisper")
+    WHISPER,
 
     /** Runs a built-in scoring logic against simulation state. */
     @SerialName("score_calc")
@@ -64,7 +78,22 @@ public enum class PhaseType {
      * variables — no LLM call.
      */
     @SerialName("event_inject")
-    EVENT_INJECT;
+    EVENT_INJECT,
+
+    /**
+     * Deterministically updates a per-agent affinity matrix from vote / choose
+     * history and injects a natural-language summary — no LLM call (#910).
+     */
+    @SerialName("relationship_update")
+    RELATIONSHIP_UPDATE,
+
+    /**
+     * A commentator persona narrates the round's highlight via a single LLM
+     * inference per round (canonical `commentary` output) — not a participant,
+     * so cost is one inference per round regardless of agent count (#909).
+     */
+    @SerialName("narrate")
+    NARRATE;
 
     /**
      * Whether this phase type requires LLM inference.
@@ -80,10 +109,29 @@ public enum class PhaseType {
      * scenario `extraData` and writes it into `state.variables` — no LLM
      * call. Subsequent prompt phases reference the injected value via the
      * `as:` variable name (default `current_event`).
+     *
+     * [REFLECT] returns `true`: each agent runs an LLM inference to privately
+     * update a short note about the situation (canonical `note` output field),
+     * so it costs one inference per agent per round like [SPEAK_ALL] / [VOTE].
+     *
+     * [WHISPER] returns `true`: pairs of active agents privately exchange
+     * statements (hidden from other agents' prompts), each utterance costing
+     * one LLM inference.
+     *
+     * [RELATIONSHIP_UPDATE] returns `false`: the handler deterministically
+     * updates a per-agent affinity matrix from vote / choose history and
+     * injects a natural-language summary — no LLM call (#910).
+     *
+     * [NARRATE] returns `true`: a single LLM inference per round makes a
+     * commentator persona narrate the round's highlight (canonical `commentary`
+     * output). Unlike the per-agent LLM phases it costs exactly one inference
+     * per round regardless of agent count — the narrator is not a participant
+     * (#909).
      */
     public val requiresLLM: Boolean
         get() = when (this) {
-            SPEAK_ALL, SPEAK_EACH, VOTE, CHOOSE -> true
-            SCORE_CALC, ASSIGN, ELIMINATE, SUMMARIZE, CONDITIONAL, EVENT_INJECT -> false
+            SPEAK_ALL, SPEAK_EACH, VOTE, CHOOSE, REFLECT, WHISPER, NARRATE -> true
+            SCORE_CALC, ASSIGN, ELIMINATE, SUMMARIZE, CONDITIONAL, EVENT_INJECT,
+            RELATIONSHIP_UPDATE -> false
         }
 }
