@@ -44,11 +44,12 @@ public data class OutputSchema(
          * speak → `statement`, choose → `action`, vote → `vote`, reflect →
          * `note`).
          *
-         * `note` is present ahead of its phase: `PhaseType` does not yet carry
-         * `REFLECT` (it lands with the mechanical mirrors). The ordering policy
-         * is keyed on field names rather than phase types, so listing it early
-         * is inert until a reflect schema appears — and omitting it would leave
-         * this list diverged from Swift in the one type this PR exists to align.
+         * `note` is present ahead of a *running* reflect phase. It was added in
+         * PR0-a1; PR0-a2 then added `PhaseType.REFLECT`, so the case now exists —
+         * but no reflect schema is emitted until the reflect handler ports (a
+         * later Stage-3 step). The ordering policy is keyed on field names rather
+         * than phase types, so listing `note` stays inert until a reflect schema
+         * appears — and omitting it would leave this list diverged from Swift.
          * Note that a mismatch here would NOT be caught by golden parity: the
          * fixtures pin encoded schemas, not [orderKeys]' policy.
          */
