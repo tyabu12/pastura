@@ -53,5 +53,15 @@
     "eventInjected" : {
       "event" : "earthquake"
     }
+  },
+  {
+    "narration" : {
+      "text" : "And with that, ada pulls ahead."
+    }
+  },
+  {
+    "sharedAssignment" : {
+      "value" : "topic: animals"
+    }
   }
 ]

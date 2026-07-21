@@ -101,4 +101,22 @@ class CodePhaseEventPayloadSerializationTests {
             "eventInjected",
         )
     }
+
+    // ── narration + sharedAssignment (PR0-b) ────────────────────────────
+
+    @Test
+    fun narrationRoundtrip() {
+        assertRoundtripAndDiscriminator(
+            CodePhaseEventPayload.Narration(text = "And with that, Alice pulls ahead."),
+            "narration",
+        )
+    }
+
+    @Test
+    fun sharedAssignmentRoundtrip() {
+        assertRoundtripAndDiscriminator(
+            CodePhaseEventPayload.SharedAssignment(value = "お題: 動物"),
+            "sharedAssignment",
+        )
+    }
 }

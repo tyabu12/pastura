@@ -54,6 +54,16 @@ public sealed class CodePhaseEventPayload {
     public data class Summary(public val text: String) : CodePhaseEventPayload()
 
     /**
+     * Live commentary produced by a `narrate` phase (#909). Additive case —
+     * old rows keep decoding (see the type-level wire-format note). Kept
+     * distinct from [Summary] so consumers can style it as commentator teletop
+     * and filter it as LLM prose.
+     */
+    @Serializable
+    @SerialName("narration")
+    public data class Narration(public val text: String) : CodePhaseEventPayload()
+
+    /**
      * Voting concluded.
      *
      * @property votes   voter → target
@@ -86,6 +96,17 @@ public sealed class CodePhaseEventPayload {
         public val agent: String,
         public val value: String,
     ) : CodePhaseEventPayload()
+
+    /**
+     * A shared value assigned to *all* agents by an `assign` phase with
+     * `target: all` (e.g. the round's お題). Rendered as one topic line with no
+     * agent attribution, distinct from the per-agent [Assignment] (word wolf).
+     * Additive case — old `.assignment` rows keep decoding (see the type-level
+     * wire-format note). See #939.
+     */
+    @Serializable
+    @SerialName("sharedAssignment")
+    public data class SharedAssignment(public val value: String) : CodePhaseEventPayload()
 
     /**
      * An `event_inject` phase rolled its probability and either selected a

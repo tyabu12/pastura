@@ -74,9 +74,11 @@ class CanonicalEquivalenceTests {
         "elimination",
         "scoreUpdate",
         "summary",
+        "narration",
         "voteResults",
         "pairingResult",
         "assignment",
+        "sharedAssignment",
         "eventInjected",
     )
 
@@ -173,6 +175,10 @@ class CanonicalEquivalenceTests {
             CodePhaseEventPayload.Assignment(agent = "ada", value = "wolf"),
             CodePhaseEventPayload.EventInjected(event = null),
             CodePhaseEventPayload.EventInjected(event = "earthquake"),
+            // PR0-b: order-aligned to the baseline array tail (the condition-2
+            // correctness hinge — element N here ↔ element N in the baseline).
+            CodePhaseEventPayload.Narration(text = "And with that, ada pulls ahead."),
+            CodePhaseEventPayload.SharedAssignment(value = "topic: animals"),
         )
         val kotlinEncoded: JsonElement = json.encodeToJsonElement(
             ListSerializer(CodePhaseEventPayload.serializer()),
