@@ -215,9 +215,9 @@ Handle the critic's output:
    git branch -m "$(git branch --show-current)" "{TASK_TYPE}/{SLUG}"
    ```
 5. Verify: `git branch --show-current`.
-6. **Worktree path hygiene** (holds for the rest of the session): the main checkout at `/Users/tyabu12/Work/pastura` stays on another branch, so any tool that silently resolves to it instead of this worktree acts on the wrong tree with no diff warning.
-   - Every absolute Edit/Write path must contain `/worktrees/<name>/` — invalidate any path carried over from a *pre-worktree* tool result before reusing it.
-   - In subagent prompts (Step 3 `implementer`, Step 4 reviewer), embed the **resolved literal** worktree path — `git -C "$WORKTREE" …`, Read at `$WORKTREE/…` — never a `$(git rev-parse …)` the subagent re-runs against its own cwd. A reviewer whose `git diff` resolves to the main checkout instead sees an **empty phantom diff** — a "no changes" review quieter than a wrong-file read.
+6. **Worktree path hygiene** (holds for the rest of the session): the main checkout at `/Users/tyabu12/Work/pastura` stays on another branch, so a tool that resolves to it instead of this worktree acts on the wrong tree silently.
+   - Every absolute Edit/Write path must contain `/worktrees/<name>/` — invalidate any carried over from a *pre-worktree* tool result before reusing it.
+   - Non-isolation subagents (Step 3 `implementer`, Step 4 reviewer) inherit this worktree's cwd, so their git normally resolves here — but embed **already-resolved** absolute paths in their prompts (capture the root once with `git rev-parse --show-toplevel`), never a `$(…)` the subagent re-runs against its own cwd, and never a reused pre-worktree path. A subagent whose git resolved to the main checkout instead would see an **empty phantom diff**.
 
 ## Step 3: Implementation (TDD)
 
@@ -315,7 +315,7 @@ After all implementation, run full verification directly from the main session:
 
 ## Step 4: Review — Gate G3
 
-**Before launching the reviewer,** `git fetch origin {DEFAULT_BRANCH}` and check `git rev-list --count HEAD..origin/{DEFAULT_BRANCH}` — a long session (research → critic → multi-commit implementation) can span hours during which `{DEFAULT_BRANCH}` advances. If the count is non-zero, offer a rebase before review; **mandatory** when the diff touches large generated / data files (xcstrings, lockfiles) where a naive 3-way merge silently reverts upstream work.
+**Before launching the reviewer,** `git fetch origin {DEFAULT_BRANCH}` and check `git rev-list --count HEAD..origin/{DEFAULT_BRANCH}` — a long session (research → critic → multi-commit implementation) can span hours during which `{DEFAULT_BRANCH}` advances. If the count is non-zero, offer a rebase before review; **mandatory** when the diff touches large generated / data files (xcstrings, lockfiles), where a rebase or non-conflicting auto-merge can drop upstream entries without surfacing a conflict.
 
 Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist carries a Pastura-specific trap cheat sheet to keep the Sonnet-reviewer path safe.
 
@@ -408,4 +408,4 @@ After creation:
 1. `ExitWorktree` with action `"remove"`
 2. `git switch <default-branch> && git pull`
 
-> **Squash / rebase merge caveat:** those merge styles give the merged commit a **new SHA**, so `ExitWorktree(action: "remove")` refuses — it counts the local commits as unmerged by ancestry — even though the work landed. Once the user confirms the merge, re-invoke with `discard_changes: true`, briefly noting why. Merge-commit style keeps the local SHAs reachable and needs no discard — verify the style first if the user used a non-default flow. (Pastura defaults to squash, so this fires by default.)
+> **Post-merge `remove` may refuse:** squash / rebase merge gives the merged commit a **new SHA**, so the worktree's local commits read as unmerged by ancestry and `ExitWorktree(action: "remove")` refuses — as it also can *before* the post-merge `pull`, when local `main` doesn't yet contain the merge. Once the user confirms the merge landed, re-invoke with `discard_changes: true`. (Pastura defaults to squash, so a post-merge `remove` refuses by default.)
