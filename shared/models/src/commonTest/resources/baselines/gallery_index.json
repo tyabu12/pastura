@@ -1,30 +1,66 @@
 {
   "scenarios" : [
     {
-      "added_at" : "2026-05-01",
-      "author" : "Pastura Curators",
-      "category" : "social_psychology",
-      "description" : "Group pressure on individual judgment.",
-      "estimated_inferences" : 42,
       "id" : "asch_conformity_v1",
-      "recommended_model" : "gemma_4_e2b",
-      "title" : "Asch Conformity Experiment",
-      "yaml_sha256" : "abc123def456",
-      "yaml_url" : "https://example.com/gallery/asch_conformity_v1.yaml"
+      "title" : "アッシュの同調実験",
+      "category" : "social_psychology",
+      "description" : "4人のサクラと1人の被験者で構成される古典的同調実験の再現。",
+      "author" : "tyabu12",
+      "recommended_model" : "gemma-4-e2b-q4-k-m",
+      "estimated_inferences" : 10,
+      "agent_count" : 5,
+      "rounds" : 2,
+      "phases" : [
+        "speak_each",
+        "summarize"
+      ],
+      "language" : "ja",
+      "yaml_url" : "asch_conformity_v1.yaml",
+      "yaml_sha256" : "c4dc793962bfa5309efb8a00930958070f875e271aab8cda2fc0c662c0648947",
+      "added_at" : "2026-04-15"
     },
     {
-      "added_at" : "2026-05-15",
+      "id" : "trolley_dilemma_v1",
+      "title" : "トロッコ問題",
+      "category" : "ethics",
+      "description" : "4人の異なる倫理観を持つ傍観者が議論の末に行動を選ぶ。",
+      "author" : "tyabu12",
+      "recommended_model" : "gemma-4-e2b-q4-k-m",
+      "estimated_inferences" : 12,
+      "agent_count" : 4,
+      "rounds" : 2,
+      "phases" : [
+        "speak_all",
+        "choose"
+      ],
+      "language" : "ja",
+      "yaml_url" : "trolley_dilemma_v1.yaml",
+      "yaml_sha256" : "59a0427f44375d1f56b96ae25c9498da19e936faa93764ae6ae47bdbb560f81f",
+      "added_at" : "2026-04-15"
+    },
+    {
+      "id" : "pr0b_all_optionals_v1",
+      "title" : "PR0-b All Optional Fields",
+      "category" : "experimental",
+      "description" : "Synthetic baseline entry exercising every optional GalleryScenario field, including min_engine_version and featured, which no live feed entry carries yet.",
       "author" : "Pastura Curators",
-      "category" : "game_theory",
-      "description" : "Multi-round cooperate/defect dynamics.",
-      "estimated_inferences" : 28,
-      "id" : "prisoners_dilemma_v2",
-      "recommended_model" : "qwen_3_4b",
-      "title" : "Iterated Prisoner's Dilemma",
-      "yaml_sha256" : "def789abc012",
-      "yaml_url" : "https://example.com/gallery/prisoners_dilemma_v2.yaml"
+      "recommended_model" : "gemma_4_e2b",
+      "estimated_inferences" : 8,
+      "agent_count" : 3,
+      "rounds" : 1,
+      "phases" : [
+        "speak_all",
+        "vote",
+        "eliminate"
+      ],
+      "language" : "en",
+      "min_engine_version" : 2,
+      "featured" : 1,
+      "yaml_url" : "https://example.com/gallery/pr0b_all_optionals_v1.yaml",
+      "yaml_sha256" : "0000000000000000000000000000000000000000000000000000000000000000",
+      "added_at" : "2026-07-21"
     }
   ],
-  "updated_at" : "2026-05-19T00:00:00Z",
+  "updated_at" : "2026-07-21T00:00:00Z",
   "version" : 1
 }

@@ -79,6 +79,28 @@ public enum class GalleryCategory {
  * @property addedAt              ISO 8601 date-only string (e.g. `"2026-04-14"`).
  *                                Kept as String so no date formatter config is
  *                                required at the call site.
+ * @property agentCount           Number of agents (personas), Browse-tab row meta.
+ * @property rounds               Number of rounds, Browse-tab row meta.
+ * @property phases               Ordered phase-type raw values (e.g.
+ *                                `["assign", "speak_all", "vote"]`), for the art
+ *                                tile's signature-phase glyph. Decoded as
+ *                                `List<String>` — **not** `List<PhaseType>` — on
+ *                                purpose: a throwing typed decode would fail the
+ *                                whole index the moment a newer feed adds a phase
+ *                                kind this build doesn't know (Swift forbids this).
+ * @property language             ISO 639-1 content language (`"ja"` / `"en"`),
+ *                                denormalized so Browse can filter before download.
+ * @property minEngineVersion     Minimum `ENGINE_SCHEMA_VERSION` the backing YAML
+ *                                requires (ADR-020 D3 escape hatch); `null` =
+ *                                unconstrained.
+ * @property featured             Curator pin rank (ADR-025); lower = higher
+ *                                priority, `null` = not pinned.
+ *
+ * The six trailing properties are all optional with `= null` defaults so an
+ * older feed / cached index predating any of these keys still decodes
+ * (forward-compat — Swift makes each one lenient-optional for the same reason;
+ * making any required would break older installs). Wire keys via `@SerialName`
+ * mirror Swift's explicit `CodingKeys`.
  */
 @Serializable
 public data class GalleryScenario(
@@ -97,6 +119,14 @@ public data class GalleryScenario(
     public val yamlSHA256: String,
     @SerialName("added_at")
     public val addedAt: String,
+    @SerialName("agent_count")
+    public val agentCount: Int? = null,
+    public val rounds: Int? = null,
+    public val phases: List<String>? = null,
+    public val language: String? = null,
+    @SerialName("min_engine_version")
+    public val minEngineVersion: Int? = null,
+    public val featured: Int? = null,
 )
 
 /**
