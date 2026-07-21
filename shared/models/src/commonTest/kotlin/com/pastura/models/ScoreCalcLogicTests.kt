@@ -10,6 +10,9 @@ import kotlin.test.assertEquals
  *
  * Wire shapes must match Swift's `Codable` default for `enum ScoreCalcLogic: String`
  * — each case encodes to its raw value string (`"prisoners_dilemma"`, etc.).
+ *
+ * Swift↔Kotlin parity gate for the enum (ADR-023 §12 condition 2): a new Kotlin
+ * case without its Swift-matching `@SerialName` reddens the completeness check.
  */
 class ScoreCalcLogicTests {
 
@@ -19,7 +22,10 @@ class ScoreCalcLogicTests {
             ScoreCalcLogic.PRISONERS_DILEMMA to "\"prisoners_dilemma\"",
             ScoreCalcLogic.VOTE_TALLY to "\"vote_tally\"",
             ScoreCalcLogic.WORDWOLF_JUDGE to "\"wordwolf_judge\"",
+            ScoreCalcLogic.EVENT_REACTIVE to "\"event_reactive\"",
+            ScoreCalcLogic.PAIRWISE_PAYOFF to "\"pairwise_payoff\"",
         )
+        assertEquals(ScoreCalcLogic.entries.size, expectations.size, "Expectation map missing a case")
         expectations.forEach { (case, expectedJson) ->
             assertEquals(expectedJson, Json.encodeToString(case), "Wire mismatch for $case")
         }

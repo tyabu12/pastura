@@ -122,4 +122,122 @@ internal object SwiftGoldenJson {
   ]
 }
 """
+
+    /**
+     * relationship_update — exercises `voteAgainst` and `actionDeltas` (#910).
+     */
+    public const val phaseRelationshipUpdate: String = """
+{
+  "actionDeltas" : {
+    "betray" : -2,
+    "cooperate" : 1
+  },
+  "type" : "relationship_update",
+  "voteAgainst" : -1
+}
+"""
+
+    /**
+     * narrate — exercises `narrator`, a CJK voice descriptor (#909).
+     */
+    public const val phaseNarrate: String = """
+{
+  "narrator" : "熱血なスポーツ実況",
+  "type" : "narrate"
+}
+"""
+
+    /**
+     * event_inject — exercises `noRepeat` draw-without-replacement (#1006).
+     */
+    public const val phaseEventInjectNoRepeat: String = """
+{
+  "eventVariable" : "current_event",
+  "noRepeat" : true,
+  "type" : "event_inject"
+}
+"""
+
+    /**
+     * score_calc/pairwise_payoff — exercises `payoff`, nesting PayoffRule (ADR-027).
+     */
+    public const val phasePairwisePayoff: String = """
+{
+  "logic" : "pairwise_payoff",
+  "payoff" : [
+    {
+      "points" : [
+        3,
+        3
+      ],
+      "when" : [
+        "cooperate",
+        "cooperate"
+      ]
+    },
+    {
+      "points" : [
+        0,
+        5
+      ],
+      "when" : [
+        "cooperate",
+        "betray"
+      ]
+    }
+  ],
+  "type" : "score_calc"
+}
+"""
+
+    /**
+     * A single ADR-027 payoff row; asymmetric points make a when/points swap detectable.
+     */
+    public const val payoffRuleBasic: String = """
+{
+  "points" : [
+    0,
+    5
+  ],
+  "when" : [
+    "cooperate",
+    "betray"
+  ]
+}
+"""
+
+    /**
+     * drawnEvents (#1006). SINGLE-element sets on purpose: Swift encodes Set<String> as a JSON array in per-process hash-seed order, and .sortedKeys does not sort array *elements*, so a multi-element set would make `emit-golden --write` and `--check` disagree across processes and redden the drift guard intermittently. Every other collection is left empty so the fixture does not depend on ConversationEntry / Pairing / TurnOutput parity.
+     */
+    public const val simulationStateDrawnEvents: String = """
+{
+  "conversationLog" : [
+
+  ],
+  "currentRound" : 0,
+  "drawnEvents" : {
+    "current_event" : [
+      "storm"
+    ]
+  },
+  "eliminated" : {
+
+  },
+  "lastOutputs" : {
+
+  },
+  "pairings" : [
+
+  ],
+  "scores" : {
+
+  },
+  "variables" : {
+
+  },
+  "voteResults" : {
+
+  }
+}
+"""
 }
