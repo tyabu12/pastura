@@ -197,6 +197,17 @@ class PartialOutputExtractorTests {
         assertEquals("a", snap.primary)
     }
 
+    @Test
+    fun surrogateUnicodeEscapeHoldsBack() {
+        // A lone surrogate code point (0xD800..0xDFFF) has no scalar value: Swift's
+        // Unicode.Scalar(code) returns nil there, so the Swift original holds back.
+        // GUARD 2 reproduces that — without it, code.toChar() would append a lone
+        // surrogate Char and break parity. (Not in the Swift suite; added to pin the
+        // ported guard under ADR-023 §12 condition-4 perturbation.)
+        val snap = extractor.extract("""{"statement":"a\uD800"}""")
+        assertEquals("a", snap.primary)
+    }
+
     // MARK: - Thinking-tag handling
 
     @Test
