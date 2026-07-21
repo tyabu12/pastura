@@ -348,6 +348,21 @@ recurse. Data-layer `SimulationRecord.currentPhaseIndex: Int` remains the
 top-level resume marker for now; distinguishing sub-phase turns in the
 persistence layer is tracked as a follow-up issue.
 
+### Consumer-scoped resolver naming
+
+When a `Scenario` (or shared-state) value is resolved differently by multiple
+consumers — Engine / Editor / Picker / UI shell each apply their own priority —
+name the consumer-bound resolver after **its consumer**: `engineLanguage`, not a
+generic `effectiveLanguage` / `resolved…`. A generic name invites a future
+"consolidation" to route other consumers' reads through it, silently bypassing
+their priority rules; the encoded name signals that other consumers keep their
+own resolvers. Pair the property with a doc-comment listing every consumer row +
+its resolver — a CI grep-guard defends *current* call sites, the name defends
+*future* additions.
+
+Reference: `Scenario.engineLanguage` (`Models/Scenario.swift`, with its consumer
+table); rationale + the four-consumer table in ADR-010 §D5–D6.
+
 ## JSON Response Parser
 
 Port directly from Python prototype `parse_json_response()`. Must handle:
