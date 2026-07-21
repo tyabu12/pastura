@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -134,5 +135,64 @@ class GalleryScenarioSerializationTests {
         val modelId: ModelID = "gemma_4_e2b"
         val raw: String = modelId
         assertEquals("gemma_4_e2b", raw)
+    }
+
+    // ── PR0-b: the six new optionals ────────────────────────────────────
+
+    @Test
+    fun galleryScenarioRoundtripWithAllOptionalFields() {
+        val original = GalleryScenario(
+            id = "full_v1",
+            title = "Full",
+            category = GalleryCategory.EXPERIMENTAL,
+            description = "d",
+            author = "a",
+            recommendedModel = "gemma_4_e2b",
+            estimatedInferences = 8,
+            yamlURL = "https://example.com/full.yaml",
+            yamlSHA256 = "0".repeat(64),
+            addedAt = "2026-07-21",
+            agentCount = 3,
+            rounds = 1,
+            phases = listOf("speak_all", "vote", "eliminate"),
+            language = "en",
+            minEngineVersion = 2,
+            featured = 1,
+        )
+        val encoded = json.encodeToString(original)
+        assertEquals(original, json.decodeFromString<GalleryScenario>(encoded))
+        // The two multi-word new keys use the snake_case wire form (Swift
+        // CodingKeys parity); the others are single-word (camelCase == snake).
+        assertTrue(encoded.contains("\"agent_count\""), "Expected snake_case: $encoded")
+        assertTrue(encoded.contains("\"min_engine_version\""), "Expected snake_case: $encoded")
+    }
+
+    @Test
+    fun absentOptionalKeysDecodeToNull() {
+        // The load-bearing forward-compat guard: an older feed / cached index
+        // predating any of the six new keys must still decode, with those fields
+        // null (Swift makes each lenient-optional for exactly this reason). Only
+        // the ten required keys are present below.
+        val legacyJson = """
+            {
+              "id": "legacy_v1",
+              "title": "Legacy",
+              "category": "ethics",
+              "description": "d",
+              "author": "a",
+              "recommended_model": "gemma_4_e2b",
+              "estimated_inferences": 5,
+              "yaml_url": "https://example.com/legacy.yaml",
+              "yaml_sha256": "${"0".repeat(64)}",
+              "added_at": "2026-04-14"
+            }
+        """.trimIndent()
+        val decoded = json.decodeFromString<GalleryScenario>(legacyJson)
+        assertNull(decoded.agentCount)
+        assertNull(decoded.rounds)
+        assertNull(decoded.phases)
+        assertNull(decoded.language)
+        assertNull(decoded.minEngineVersion)
+        assertNull(decoded.featured)
     }
 }

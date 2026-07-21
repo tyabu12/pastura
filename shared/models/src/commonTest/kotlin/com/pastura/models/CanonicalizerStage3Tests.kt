@@ -35,9 +35,11 @@ class CanonicalizerStage3Tests {
         "elimination",
         "scoreUpdate",
         "summary",
+        "narration",
         "voteResults",
         "pairingResult",
         "assignment",
+        "sharedAssignment",
         "eventInjected",
     )
 
@@ -262,37 +264,78 @@ class CanonicalizerStage3Tests {
 
     @Test
     fun codePhaseDiscriminatorSetMatchesAllSealedCases() {
-        // Drift guard: if someone adds a new CodePhaseEventPayload case
-        // without updating the harness discriminator set, this test fires.
-        // The set is the canonical source of truth — caller-side opt-in
-        // via the canonicalizer's `polymorphicDiscriminatorValues` param.
+        // Drift guard: adding a new CodePhaseEventPayload case without updating
+        // the harness discriminator set fires this test. The set is the
+        // canonical source of truth — caller-side opt-in via the canonicalizer's
+        // `polymorphicDiscriminatorValues` param.
         val expected = setOf(
             "elimination",
             "scoreUpdate",
             "summary",
+            "narration",
             "voteResults",
             "pairingResult",
             "assignment",
+            "sharedAssignment",
             "eventInjected",
         )
         assertEquals(expected, codePhaseDiscriminators)
-        // And verify we can emit one of each from kotlinx and the
-        // discriminator string appears in the encoded text.
+        // One sample per sealed case. [assertCovered] is an exhaustive `when`
+        // (no `else`), so a newly-added subclass fails to compile until handled
+        // there — the substitute for the `sealedSubclasses` reflection
+        // commonMain lacks. The sample discriminators (read from real encoded
+        // JSON, so a swapped @SerialName reddens) must EQUAL the discriminator
+        // set, which closes the silent-omission hole a bare hand-list left open.
         val samples: List<CodePhaseEventPayload> = listOf(
             CodePhaseEventPayload.Elimination("a", 1),
             CodePhaseEventPayload.ScoreUpdate(mapOf("a" to 1)),
             CodePhaseEventPayload.Summary("text"),
+            CodePhaseEventPayload.Narration("live"),
             CodePhaseEventPayload.VoteResults(mapOf("a" to "b"), mapOf("b" to 1)),
             CodePhaseEventPayload.PairingResult("a", "x", "b", "y"),
             CodePhaseEventPayload.Assignment("a", "v"),
+            CodePhaseEventPayload.SharedAssignment("topic"),
             CodePhaseEventPayload.EventInjected("ev"),
         )
-        for (s in samples) {
-            val txt = Json.encodeToString<CodePhaseEventPayload>(s)
-            val tree = Json.parseToJsonElement(txt) as JsonObject
-            val typeStr = (tree["type"] as JsonPrimitive).content
-            assertNotNull(typeStr)
-            assertEquals(true, typeStr in codePhaseDiscriminators, "discriminator $typeStr missing from set")
+        samples.forEach(::assertCovered)
+        val sampleDiscriminators = samples.map { s ->
+            val tree = Json.parseToJsonElement(Json.encodeToString<CodePhaseEventPayload>(s)) as JsonObject
+            (tree["type"] as JsonPrimitive).content
+        }.toSet()
+        assertEquals(codePhaseDiscriminators, sampleDiscriminators)
+    }
+
+    private fun assertCovered(payload: CodePhaseEventPayload) {
+        when (payload) {
+            is CodePhaseEventPayload.Elimination -> Unit
+            is CodePhaseEventPayload.ScoreUpdate -> Unit
+            is CodePhaseEventPayload.Summary -> Unit
+            is CodePhaseEventPayload.Narration -> Unit
+            is CodePhaseEventPayload.VoteResults -> Unit
+            is CodePhaseEventPayload.PairingResult -> Unit
+            is CodePhaseEventPayload.Assignment -> Unit
+            is CodePhaseEventPayload.SharedAssignment -> Unit
+            is CodePhaseEventPayload.EventInjected -> Unit
         }
+    }
+
+    @Test
+    fun codePhaseDiscriminatorsDoNotCollideWithPhaseTypeWire() {
+        // Discharges the Canonicalizer.kt PR0-b re-check note: if a
+        // CodePhaseEventPayload discriminator equaled a PhaseType wire value, the
+        // Stage-3 lift (which fires on discriminator-value membership) would
+        // mis-lift an embedded Phase's `type` field. PR0-b adds `narration` /
+        // `sharedAssignment`; assert the intersection stays empty, deriving the
+        // PhaseType wire set from the serializer rather than hardcoding it.
+        // Derive the PhaseType wire set by encoding each entry (stable API) —
+        // avoids the @ExperimentalSerializationApi descriptor-introspection path.
+        val phaseTypeWire = PhaseType.entries
+            .map { Json.encodeToString(PhaseType.serializer(), it).removeSurrounding("\"") }
+            .toSet()
+        assertEquals(
+            emptySet(),
+            codePhaseDiscriminators intersect phaseTypeWire,
+            "CodePhaseEventPayload discriminators must not collide with PhaseType wire values",
+        )
     }
 }
