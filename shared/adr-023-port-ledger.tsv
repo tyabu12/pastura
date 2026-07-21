@@ -1,0 +1,108 @@
+# ADR-023 §4 port-disposition ledger — the enforced form of the coverage invariant (#1191).
+#
+# Every Swift file under Pastura/Pastura/Engine/** and Pastura/Pastura/LLM/**
+# carries exactly one disposition. This file is the manifest; the enforcement is
+# scripts/check-adr023-port-coverage.py, which cross-checks it against the tracked
+# tree in both directions (no unclassified file, no dangling entry). It doubles as
+# ADR-023 §12 condition-3's port-ledger surface: a REPLACED/FOLDED row names the
+# Kotlin symbol a change to the Swift file must also update.
+#
+# Disposition vocabulary (ADR-023 §4):
+#   PORT     — moves to shared/engine commonMain (kotlin_target blank: not yet written pre-Stage-3)
+#   STAY     — remains Swift for Phase 3.0 (kotlin_target blank)
+#   REPLACED — a different Kotlin design supersedes it; kotlin_target names it
+#   FOLDED   — ports as part of a consumer's Kotlin file; kotlin_target names it
+# There is deliberately no catch-all and no UNDECIDED row: a file no §4 row/rule
+# reaches is a violation the checker reports, not a default. EXEMPT (a declared
+# exclusion) is valid but unused today — the only non-Swift files under the two
+# dirs (LLM/SafeSampler/{.h,.mm}) are out of scope because the ledger is Swift-only.
+#
+# Format: <swift_path>\t<disposition>\t<kotlin_target>   ('#' lines and blanks skipped)
+swift_path	disposition	kotlin_target
+Pastura/Pastura/Engine/ConditionEvaluator.swift	PORT
+Pastura/Pastura/Engine/ConditionEvaluator+Parser.swift	PORT
+Pastura/Pastura/Engine/EngineLogger.swift	PORT
+Pastura/Pastura/Engine/EngineSchemaVersion.swift	PORT
+Pastura/Pastura/Engine/ErrorReadability.swift	PORT
+Pastura/Pastura/Engine/LanguageDispatch.swift	PORT
+Pastura/Pastura/Engine/LLMCaller.swift	PORT
+Pastura/Pastura/Engine/LLMCaller+Logging.swift	PORT
+Pastura/Pastura/Engine/LLMCaller+StreamFailure.swift	PORT
+Pastura/Pastura/Engine/PhaseDispatcher.swift	PORT
+Pastura/Pastura/Engine/PhaseHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/AssignHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/ChooseHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/ConditionalHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/EliminateHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/EventInjectHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/NarrateHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/ReflectHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/RelationshipUpdateHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/ScoreCalcHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/SpeakAllHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/SpeakEachHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/SummarizeHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/VoteHandler.swift	PORT
+Pastura/Pastura/Engine/Phases/WhisperHandler.swift	PORT
+Pastura/Pastura/Engine/PlaceholderAvailability.swift	PORT
+Pastura/Pastura/Engine/PromptBuilder.swift	PORT
+Pastura/Pastura/Engine/PromptBuilder+Injection.swift	PORT
+Pastura/Pastura/Engine/PromptBuilder+PrivateSections.swift	PORT
+Pastura/Pastura/Engine/PromptPlaceholders.swift	PORT
+Pastura/Pastura/Engine/RelationshipVerbalizer.swift	PORT
+Pastura/Pastura/Engine/ScenarioLoader.swift	PORT
+Pastura/Pastura/Engine/ScenarioSemanticLinter.swift	PORT
+Pastura/Pastura/Engine/ScenarioSemanticLinter+Conditions.swift	PORT
+Pastura/Pastura/Engine/ScenarioSemanticLinter+Config.swift	PORT
+Pastura/Pastura/Engine/ScenarioSemanticLinter+Ordering.swift	PORT
+Pastura/Pastura/Engine/ScenarioSemanticLinter+Placeholders.swift	PORT
+Pastura/Pastura/Engine/ScenarioSerializer.swift	STAY
+Pastura/Pastura/Engine/ScenarioValidator.swift	PORT
+Pastura/Pastura/Engine/ScenarioValidator+CanonicalFields.swift	PORT
+Pastura/Pastura/Engine/ScenarioValidator+EventInject.swift	PORT
+Pastura/Pastura/Engine/ScenarioValidator+OutputFieldNames.swift	PORT
+Pastura/Pastura/Engine/ScenarioYAMLPatcher.swift	STAY
+Pastura/Pastura/Engine/ScoringLogic/EventReactivePayoffLogic.swift	PORT
+Pastura/Pastura/Engine/ScoringLogic/PairwisePayoffLogic.swift	PORT
+Pastura/Pastura/Engine/ScoringLogic/PrisonersDilemmaLogic.swift	PORT
+Pastura/Pastura/Engine/ScoringLogic/VoteTallyLogic.swift	PORT
+Pastura/Pastura/Engine/ScoringLogic/WordwolfJudgeLogic.swift	PORT
+Pastura/Pastura/Engine/SimulationRunner.swift	PORT
+Pastura/Pastura/Engine/SimulationRunner+PauseState.swift	PORT
+Pastura/Pastura/Engine/SimulationRunner+SemanticLint.swift	PORT
+Pastura/Pastura/Engine/TurnFailureGate.swift	PORT
+Pastura/Pastura/Engine/VoteTally.swift	PORT
+Pastura/Pastura/Engine/YAMLScalarFormatter.swift	STAY
+Pastura/Pastura/LLM/FoundationModelsService.swift	STAY
+Pastura/Pastura/LLM/FoundationModelsService+GuidedGeneration.swift	STAY
+Pastura/Pastura/LLM/FoundationModelsService+TokenBudget.swift	STAY
+Pastura/Pastura/LLM/GBNFGrammarBuilder.swift	STAY
+Pastura/Pastura/LLM/GenerationResult.swift	REPLACED	LLMBackend.kt streaming design (ADR-023 §5.2)
+Pastura/Pastura/LLM/GPUAcceleration.swift	STAY
+Pastura/Pastura/LLM/JSONResponseParser.swift	PORT
+Pastura/Pastura/LLM/JSONResponseParser+Normalize.swift	PORT
+Pastura/Pastura/LLM/LanguageDetector.swift	PORT
+Pastura/Pastura/LLM/LlamaCppService.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+ChatTemplate.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+DrySampler.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+GrammarSample.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+Lifecycle.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+Prefill.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+PrepareGeneration.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+Sampler.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+SamplerDiagnostics.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+Thermal.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+Tokenization.swift	STAY
+Pastura/Pastura/LLM/LlamaCppService+Trace.swift	STAY
+Pastura/Pastura/LLM/LlamaCppTraceFixture.swift	STAY
+Pastura/Pastura/LLM/LLMError.swift	REPLACED	SimulationException.kt (shared/engine)
+Pastura/Pastura/LLM/LLMService.swift	REPLACED	LLMBackend interface — LLMBackend.kt (ADR-023 §5.2)
+Pastura/Pastura/LLM/LLMStreamChunk.swift	REPLACED	LLMBackend.kt streaming design (ADR-023 §5.2)
+Pastura/Pastura/LLM/MockLLMService.swift	STAY
+Pastura/Pastura/LLM/MockLLMService+BlockGate.swift	STAY
+Pastura/Pastura/LLM/OllamaService.swift	STAY
+Pastura/Pastura/LLM/PartialOutputExtractor.swift	PORT
+Pastura/Pastura/LLM/SafeSampler.swift	STAY
+Pastura/Pastura/LLM/String+LlamaBuffer.swift	STAY
+Pastura/Pastura/LLM/StringStateMachine.swift	FOLDED	JSONResponseParser.kt (scan inlined)
+Pastura/Pastura/LLM/SuspendController.swift	STAY

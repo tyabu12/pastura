@@ -92,3 +92,8 @@ bash ./scripts/scenario-format-coverage-precommit-gate.sh
 # production tree), fails-fast inside. Mirrors the CI outputschema-serialization
 # job locally.
 bash ./scripts/outputschema-serialization-precommit-gate.sh
+
+# 10. ADR-023 §4 port-disposition coverage gate (#1191) — self-gates on any
+# Engine/** or LLM/** Swift file, the ledger, or the checker; fails-fast inside.
+# Mirrors the CI adr023-port-coverage job locally.
+bash ./scripts/adr023-port-coverage-precommit-gate.sh
