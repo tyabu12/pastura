@@ -60,7 +60,7 @@ package enum GoldenFixtureEmitter {
 
   /// Every frozen sample, in emission order.
   package static func fixtures() throws -> [Fixture] {
-    try turnOutputFixtures() + outputSchemaFixtures()
+    try turnOutputFixtures() + outputSchemaFixtures() + phaseFixtures() + payoffRuleFixtures()
   }
 
   /// The type measurement (v) finds in parity.
@@ -114,6 +114,56 @@ package enum GoldenFixtureEmitter {
         ]),
         "outputSchemaChoiceKind",
         "The choose schema — `.choice` carries no option payload by design."
+      )
+    ]
+  }
+
+  /// `Phase` — **decode parity** (ADR-023 PR0-a2). `Phase` is not
+  /// polymorphic-tagged (its `type` is a `PhaseType` value, not a discriminator),
+  /// so its wire shape matches Swift's directly and Kotlin decodes these bytes
+  /// as-is, the stronger claim `TurnOutput` also makes — no `Canonicalizer`
+  /// needed. Each fixture exercises exactly one of the five fields the PR0-a2
+  /// mirror appended, so a dropped or mistyped Kotlin field reddens the sibling.
+  private static func phaseFixtures() throws -> [Fixture] {
+    [
+      try encode(
+        Phase(
+          type: .relationshipUpdate, voteAgainst: -1,
+          actionDeltas: ["cooperate": 1, "betray": -2]),
+        "phaseRelationshipUpdate",
+        "relationship_update — exercises `voteAgainst` and `actionDeltas` (#910)."
+      ),
+      try encode(
+        Phase(type: .narrate, narrator: "熱血なスポーツ実況"),
+        "phaseNarrate",
+        "narrate — exercises `narrator`, a CJK voice descriptor (#909)."
+      ),
+      try encode(
+        Phase(type: .eventInject, eventVariable: "current_event", noRepeat: true),
+        "phaseEventInjectNoRepeat",
+        "event_inject — exercises `noRepeat` draw-without-replacement (#1006)."
+      ),
+      try encode(
+        Phase(
+          type: .scoreCalc, logic: .pairwisePayoff,
+          payoff: [
+            PayoffRule(when: ["cooperate", "cooperate"], points: [3, 3]),
+            PayoffRule(when: ["cooperate", "betray"], points: [0, 5])
+          ]),
+        "phasePairwisePayoff",
+        "score_calc/pairwise_payoff — exercises `payoff`, nesting PayoffRule (ADR-027)."
+      )
+    ]
+  }
+
+  /// `PayoffRule` — decode parity for the standalone type (ADR-027). Asymmetric
+  /// `points` so a `when` <-> `points` swap perturbation is detectable.
+  private static func payoffRuleFixtures() throws -> [Fixture] {
+    [
+      try encode(
+        PayoffRule(when: ["cooperate", "betray"], points: [0, 5]),
+        "payoffRuleBasic",
+        "A single ADR-027 payoff row; asymmetric points make a when/points swap detectable."
       )
     ]
   }

@@ -58,6 +58,25 @@ import kotlinx.serialization.Serializable
  *                         `null` defaults to `"current_event"`. The handler writes the chosen
  *                         event string to `state.variables[eventVariable ?: "current_event"]` so
  *                         subsequent prompt phases can reference it via `{current_event}`.
+ * @property voteAgainst   Affinity delta applied by `relationship_update` phases (the YAML
+ *                         `vote_against:` key) when another agent voted for the perceiver.
+ *                         `null` means votes are not scored by this phase; typically negative
+ *                         (e.g. `-1`). Read from `state.lastOutputs[voter].vote` (#910).
+ * @property actionDeltas  Per-action affinity deltas for `relationship_update` phases (the YAML
+ *                         `action_deltas:` map, e.g. `{cooperate: 1, betray: -2}`). `null` means
+ *                         choose actions are not scored by this phase. Read from
+ *                         `Pairing.action1/action2` (#910).
+ * @property noRepeat      Whether `event_inject` draws **without replacement** across a run (the
+ *                         YAML `no_repeat:` key). `null` / `false` keeps the default
+ *                         with-replacement behavior; `true` tracks already-drawn events per
+ *                         event variable in [SimulationState.drawnEvents] (#1006).
+ * @property narrator      Short voice/persona descriptor for a `narrate` phase's commentator (the
+ *                         YAML `narrator:` key). `null` uses the Engine-owned default voice; this
+ *                         shapes only the narrator's *voice*, not the fixed factuality/brevity
+ *                         guardrails an author cannot override through it (#909).
+ * @property payoff        Payoff table for a `score_calc` phase whose [logic] is
+ *                         [ScoreCalcLogic.PAIRWISE_PAYOFF] (the YAML `payoff:` key, a list of
+ *                         [PayoffRule] rows). `null` for every other logic. See ADR-027.
  */
 @Serializable
 public data class Phase(
@@ -101,6 +120,14 @@ public data class Phase(
     public val elsePhases: List<Phase>? = null,
     public val probability: Double? = null,
     public val eventVariable: String? = null,
+    // The five fields below are appended at the tail so existing positional
+    // constructor calls stay valid; Swift interleaves `maxSentences` among them
+    // but JSON parity is by key name, not position (ADR-023 PR0-a2).
+    public val voteAgainst: Int? = null,
+    public val actionDeltas: Map<String, Int>? = null,
+    public val noRepeat: Boolean? = null,
+    public val narrator: String? = null,
+    public val payoff: List<PayoffRule>? = null,
 ) {
     /**
      * The schema's required keys as a [Set], or an empty set when the phase has no

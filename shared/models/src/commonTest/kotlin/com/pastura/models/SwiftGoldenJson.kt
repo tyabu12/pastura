@@ -122,4 +122,87 @@ internal object SwiftGoldenJson {
   ]
 }
 """
+
+    /**
+     * relationship_update — exercises `voteAgainst` and `actionDeltas` (#910).
+     */
+    public const val phaseRelationshipUpdate: String = """
+{
+  "actionDeltas" : {
+    "betray" : -2,
+    "cooperate" : 1
+  },
+  "type" : "relationship_update",
+  "voteAgainst" : -1
+}
+"""
+
+    /**
+     * narrate — exercises `narrator`, a CJK voice descriptor (#909).
+     */
+    public const val phaseNarrate: String = """
+{
+  "narrator" : "熱血なスポーツ実況",
+  "type" : "narrate"
+}
+"""
+
+    /**
+     * event_inject — exercises `noRepeat` draw-without-replacement (#1006).
+     */
+    public const val phaseEventInjectNoRepeat: String = """
+{
+  "eventVariable" : "current_event",
+  "noRepeat" : true,
+  "type" : "event_inject"
+}
+"""
+
+    /**
+     * score_calc/pairwise_payoff — exercises `payoff`, nesting PayoffRule (ADR-027).
+     */
+    public const val phasePairwisePayoff: String = """
+{
+  "logic" : "pairwise_payoff",
+  "payoff" : [
+    {
+      "points" : [
+        3,
+        3
+      ],
+      "when" : [
+        "cooperate",
+        "cooperate"
+      ]
+    },
+    {
+      "points" : [
+        0,
+        5
+      ],
+      "when" : [
+        "cooperate",
+        "betray"
+      ]
+    }
+  ],
+  "type" : "score_calc"
+}
+"""
+
+    /**
+     * A single ADR-027 payoff row; asymmetric points make a when/points swap detectable.
+     */
+    public const val payoffRuleBasic: String = """
+{
+  "points" : [
+    0,
+    5
+  ],
+  "when" : [
+    "cooperate",
+    "betray"
+  ]
+}
+"""
 }

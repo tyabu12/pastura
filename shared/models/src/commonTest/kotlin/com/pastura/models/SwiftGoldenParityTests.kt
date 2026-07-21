@@ -217,4 +217,73 @@ class SwiftGoldenParityTests {
             Json.parseToJsonElement(json.encodeToString(schema)),
         )
     }
+
+    // ── Phase / PayoffRule: decode parity (ADR-023 PR0-a2) ──────────────────
+
+    /*
+     * `Phase` and `PayoffRule` are **decode parity**, like `TurnOutput` and
+     * unlike `OutputSchema`: neither is polymorphic-tagged (`Phase.type` is a
+     * `PhaseType` value, not a discriminator), so Swift's synthesized `Codable`
+     * and kotlinx emit the same camelCase key shape and Kotlin decodes Swift's
+     * bytes directly — the stronger claim. No `Canonicalizer` is involved, so the
+     * Stage-3 lift cannot mis-fire on `Phase.type`. Swift omits nil optionals
+     * (`encodeIfPresent`), so each golden carries only the fields set; strict
+     * [json] then makes a Kotlin field Swift emits but Kotlin lacks a hard
+     * decode error rather than a silent drop. Each fixture isolates one of the
+     * five fields the PR0-a2 mirror appended.
+     */
+
+    @Test
+    fun phaseRelationshipUpdateDecodesFromSwiftBytes() {
+        val decoded = json.decodeFromString<Phase>(SwiftGoldenJson.phaseRelationshipUpdate)
+        assertEquals(
+            Phase(
+                type = PhaseType.RELATIONSHIP_UPDATE,
+                voteAgainst = -1,
+                actionDeltas = mapOf("cooperate" to 1, "betray" to -2),
+            ),
+            decoded,
+        )
+    }
+
+    @Test
+    fun phaseNarrateDecodesFromSwiftBytes() {
+        val decoded = json.decodeFromString<Phase>(SwiftGoldenJson.phaseNarrate)
+        assertEquals(Phase(type = PhaseType.NARRATE, narrator = "熱血なスポーツ実況"), decoded)
+    }
+
+    @Test
+    fun phaseEventInjectNoRepeatDecodesFromSwiftBytes() {
+        val decoded = json.decodeFromString<Phase>(SwiftGoldenJson.phaseEventInjectNoRepeat)
+        assertEquals(
+            Phase(type = PhaseType.EVENT_INJECT, eventVariable = "current_event", noRepeat = true),
+            decoded,
+        )
+    }
+
+    @Test
+    fun phasePairwisePayoffDecodesFromSwiftBytesNestingPayoffRule() {
+        val decoded = json.decodeFromString<Phase>(SwiftGoldenJson.phasePairwisePayoff)
+        assertEquals(
+            Phase(
+                type = PhaseType.SCORE_CALC,
+                logic = ScoreCalcLogic.PAIRWISE_PAYOFF,
+                payoff = listOf(
+                    PayoffRule(`when` = listOf("cooperate", "cooperate"), points = listOf(3, 3)),
+                    PayoffRule(`when` = listOf("cooperate", "betray"), points = listOf(0, 5)),
+                ),
+            ),
+            decoded,
+        )
+    }
+
+    @Test
+    fun payoffRuleDecodesFromSwiftBytes() {
+        val decoded = json.decodeFromString<PayoffRule>(SwiftGoldenJson.payoffRuleBasic)
+        // Asymmetric so a when <-> points swap in the Kotlin type would redden.
+        assertEquals(
+            PayoffRule(`when` = listOf("cooperate", "betray"), points = listOf(0, 5)),
+            decoded,
+        )
+    }
 }
