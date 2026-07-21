@@ -42,7 +42,7 @@ This procedure is for **PROMOTE**; retirement (DELETE / TRIM) is memory-direct a
 
 File a rolling tracking issue collecting candidate sections, then `/orchestrate` a PR that:
 
-1. Lands additions to `.claude/rules/` (or `CLAUDE.md` for project-wide rules).
+1. Lands additions to `.claude/rules/` (or `CLAUDE.md` for project-wide rules), drafted at **concept level** — WHY + the invariant + a durable pointer, not the exhaustive HOW (grep blocks, enumerations, step lists). This holds for **path-scoped** targets too, where `context-budget.md`'s always-loaded discipline stops; expand a section only when a reviewer shows the omitted detail is load-bearing for the rule to fire.
 2. Strips `Source memory: feedback_*` provenance lines from drafts before commit — repo-tracked files referring to per-user memory by name are dead links for other contributors.
 3. If the promoted content is mirrored elsewhere — the code-reviewer trap cheat sheet (`.claude/agents/code-reviewer.md`), a CLAUDE.md summary parenthetical — update every mirror in the same PR. Mirrors drift silently otherwise (e.g., swift-isolation gained Pattern 5 while two "4 traps" enumerations stayed behind).
 4. After PR merges, locally `command rm ~/.claude/projects/.../memory/<source>.md` — the PR can't enforce memory deletion (it's per-user / per-machine); track via the rolling issue checklist.

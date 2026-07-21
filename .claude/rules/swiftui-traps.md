@@ -165,6 +165,27 @@ if taken, pick a distinct name (rename the type too if it also clashes). Case
 study: #759 renamed a new `ScenarioSummary.swift` (Views) that collided with the
 Data-layer `ScenarioSummary` → `ScenarioSummaryStrip`.
 
+## SwiftLint directive placement around a `///` doc comment (lint trap, not SwiftUI)
+
+A `swiftlint:disable[:next] X` directive can't cleanly suppress a rule on a
+declaration that also carries a `///` doc comment — **both** placements fail:
+
+- **Between the doc comment and the declaration** (a `// swiftlint:disable:next X`
+  line separating `/// …` from the `func`): detaches the doc comment, firing
+  `orphaned_doc_comment`.
+- **Inside the `///` block** (`/// swiftlint:disable:next X`): a **no-op** under
+  `swiftlint --strict` — the comment-command parser recognizes `//`-form only, so
+  the warning upgrades to an error unsuppressed. It looks load-bearing but is
+  untested until the body later crosses the threshold.
+
+**Apply** — don't relocate the directive; remove the need for it:
+
+- `function_body_length` → **extract a helper** so each body stays under the
+  threshold. Ref: `BundledDemoReplaySource.loadOne` → `buildSourceOrSkip`.
+- `identifier_name` (short domain identifiers like `ja` / `en`) → add a
+  **`.swiftlint.yml` `identifier_name.excluded`** entry (ref: the `ja` / `en`
+  exclusions consumed by `pickLanguage(_:ja:en:)`), or rename to 3+ chars.
+
 ## iOS 26 `.confirmationDialog` renders as a mis-anchored popover
 
 On iOS 26 a SwiftUI `.confirmationDialog` **anchored to a specific control** — a
