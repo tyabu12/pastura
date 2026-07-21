@@ -279,7 +279,8 @@ extension Scenario {
           type: PhaseType.speakAll, prompt: "Speak.", outputSchema: ["statement": "string"],
           options: nil, pairing: nil, logic: nil, template: nil, source: nil, target: nil,
           excludeSelf: nil, subRounds: nil, maxSentences: nil, condition: nil, thenPhases: nil,
-          elsePhases: nil, probability: nil, eventVariable: nil)
+          elsePhases: nil, probability: nil, eventVariable: nil,
+          voteAgainst: nil, actionDeltas: nil, noRepeat: nil, narrator: nil, payoff: nil)
       ],
       extraData: [:]
     )
