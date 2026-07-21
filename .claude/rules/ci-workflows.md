@@ -6,7 +6,11 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Seven concern families when editing CI workflow YAML or supporting scripts on this repo: shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, and gate scripts' annotation paths and tracked-only scope.
+Nine concern families when editing CI workflow YAML or supporting scripts on this repo: the CI wall-clock budget per PR, shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, grep's line-boundedness in call-shape guards, and gate scripts' annotation paths and tracked-only scope.
+
+## CI wall-clock budget per PR
+
+Target **≤10 min**, up to ~12 min acceptable, **20 min is a blocker** — at 20 min the feedback loop on UI-test-affected PRs is unusable. When adding CI steps (new test targets, matrix builds, coverage passes), estimate wall-clock impact **before** proposing; if a change pushes above ~12 min, surface the trade-off explicitly (drop a redundant test, build-sharing, move to a nightly schedule) rather than shipping a slow suite and fixing later. UI tests especially run several times slower on CI simulators than locally — budget them aggressively.
 
 ## Shell scripting gotchas (macOS GHA runners)
 
@@ -186,6 +190,23 @@ git grep -nF 'com\.tyabu12'          # backslash-escaped on-disk literal
 `git grep` is tracked-only (fast, never descends into ignored/huge files) and
 repo-wide by default. Pairs with the "grep ALL instances before scoping"
 discipline.
+
+## `grep` is line-bound — call-shape CI guards miss multi-line calls
+
+A CI guard matching a Swift call *shape* (`grep -E 'foo\([^)]*\bbar\b'`) silently
+passes when SwiftFormatter splits the call across lines — the two tokens land on
+different lines, so the pattern never matches and a regression sails through.
+`rg -U` multiline mode works but ripgrep is **not** pre-installed on
+`ubuntu-latest` (adds an `apt-get install ripgrep` step). Portable fix: match the
+bare token anywhere, then post-filter comment lines (`grep -vE ':[[:space:]]*//'`),
+plus a per-file allow-list (`--exclude=`) for legitimate authoring sites.
+**Self-test before commit**: inject a regression in the *multi-line* shape
+SwiftFormatter would produce and confirm the script exits 1 — a single-line
+self-test passes a guard that misses the real wrapped form. Reference:
+`scripts/check_engine_language_axis.sh`. The same line-bound blindness hits prose
+sweeps (a markdown link wrapped across two lines is invisible to a one-line
+pattern) — grep the shortest stable token (a bare filename), not a phrase. Sibling
+grep-completeness trap: § "Rename / namespace-sweep completion gate".
 
 ## Gate scripts: `::error file=` is repo-relative, and scope must be tracked-only
 
