@@ -327,8 +327,10 @@ class CanonicalizerStage3Tests {
         // mis-lift an embedded Phase's `type` field. PR0-b adds `narration` /
         // `sharedAssignment`; assert the intersection stays empty, deriving the
         // PhaseType wire set from the serializer rather than hardcoding it.
-        val phaseTypeWire = (0 until PhaseType.serializer().descriptor.elementsCount)
-            .map { PhaseType.serializer().descriptor.getElementName(it) }
+        // Derive the PhaseType wire set by encoding each entry (stable API) —
+        // avoids the @ExperimentalSerializationApi descriptor-introspection path.
+        val phaseTypeWire = PhaseType.entries
+            .map { Json.encodeToString(PhaseType.serializer(), it).removeSurrounding("\"") }
             .toSet()
         assertEquals(
             emptySet(),

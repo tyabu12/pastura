@@ -41,6 +41,9 @@ public class SimulationException(
                 SimulationError.RetriesExhausted -> "LLM retries exhausted"
                 SimulationError.ModelNotLoaded -> "LLM model not loaded"
                 SimulationError.Cancelled -> "Simulation cancelled"
+                is SimulationError.TurnFailureLimitReached ->
+                    "Simulation stopped: ${error.consecutiveCount} consecutive turns " +
+                        "failed to get a response from the model"
             }
     }
 }
