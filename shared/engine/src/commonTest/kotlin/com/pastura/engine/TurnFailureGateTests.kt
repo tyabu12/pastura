@@ -176,5 +176,17 @@ class TurnFailureGateTests {
         }
         assertIs<SimulationError.ModelNotLoaded>(thrown.error)
         assertTrue(events.isEmpty())
+
+        // Prove the throw happened BEFORE the counter incremented: two subsequent
+        // degradable failures now produce exactly two skips (not a breaker trip).
+        // Had ModelNotLoaded counted as skip 1, the second RetriesExhausted would
+        // reach count 3 and throw turnFailureLimitReached instead of skipping.
+        repeat(2) {
+            val value: String? = gate.attempt(
+                agent = "Alice", phaseType = PhaseType.SPEAK_ALL, emitter = { events.add(it) },
+            ) { throw SimulationException(SimulationError.RetriesExhausted) }
+            assertNull(value)
+        }
+        assertEquals(2, events.skipped().size)
     }
 }
