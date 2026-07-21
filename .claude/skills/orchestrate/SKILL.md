@@ -215,12 +215,17 @@ Handle the critic's output:
    git branch -m "$(git branch --show-current)" "{TASK_TYPE}/{SLUG}"
    ```
 5. Verify: `git branch --show-current`.
+6. **Worktree path hygiene** (holds for the rest of the session): the main checkout at `/Users/tyabu12/Work/pastura` stays on another branch, so any tool that silently resolves to it instead of this worktree acts on the wrong tree with no diff warning.
+   - Every absolute Edit/Write path must contain `/worktrees/<name>/` — invalidate any path carried over from a *pre-worktree* tool result before reusing it.
+   - In subagent prompts (Step 3 `implementer`, Step 4 reviewer), embed the **resolved literal** worktree path — `git -C "$WORKTREE" …`, Read at `$WORKTREE/…` — never a `$(git rev-parse …)` the subagent re-runs against its own cwd. A reviewer whose `git diff` resolves to the main checkout instead sees an **empty phantom diff** — a "no changes" review quieter than a wrong-file read.
 
 ## Step 3: Implementation (TDD)
 
 Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING=true`**, start from item `NEXT_ITEM` — skip already-checked items.
 
 For each unit of work (let `K` = the current plan item number), check the item's complexity label:
+
+> **Per-item commit hazard:** the pre-commit `swiftlint --strict` lints the **whole worktree**, not just the staged set — so an unstaged edit to a *later* item's file (e.g. one that trips a length cap) fails the *current* item's commit. Don't pre-edit a later item while committing the current one; if unavoidable, `git stash push -- <later-item-files>` before the focused commit, then pop.
 
 ### 🎭 Complex items — Orchestrator implements directly
 
@@ -309,6 +314,8 @@ After all implementation, run full verification directly from the main session:
    - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
 ## Step 4: Review — Gate G3
+
+**Before launching the reviewer,** `git fetch origin {DEFAULT_BRANCH}` and check `git rev-list --count HEAD..origin/{DEFAULT_BRANCH}` — a long session (research → critic → multi-commit implementation) can span hours during which `{DEFAULT_BRANCH}` advances. If the count is non-zero, offer a rebase before review; **mandatory** when the diff touches large generated / data files (xcstrings, lockfiles) where a naive 3-way merge silently reverts upstream work.
 
 Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist carries a Pastura-specific trap cheat sheet to keep the Sonnet-reviewer path safe.
 
@@ -400,3 +407,5 @@ After creation:
 **After merge** (guidance only — do NOT auto-execute):
 1. `ExitWorktree` with action `"remove"`
 2. `git switch <default-branch> && git pull`
+
+> **Squash / rebase merge caveat:** those merge styles give the merged commit a **new SHA**, so `ExitWorktree(action: "remove")` refuses — it counts the local commits as unmerged by ancestry — even though the work landed. Once the user confirms the merge, re-invoke with `discard_changes: true`, briefly noting why. Merge-commit style keeps the local SHAs reachable and needs no discard — verify the style first if the user used a non-default flow. (Pastura defaults to squash, so this fires by default.)
