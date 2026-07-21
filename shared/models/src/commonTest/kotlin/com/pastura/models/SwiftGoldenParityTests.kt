@@ -286,4 +286,32 @@ class SwiftGoldenParityTests {
             decoded,
         )
     }
+
+    @Test
+    fun simulationStateDrawnEventsDecodesFromSwiftBytes() {
+        val decoded =
+            json.decodeFromString<SimulationState>(SwiftGoldenJson.simulationStateDrawnEvents)
+        assertEquals(
+            SimulationState(drawnEvents = mapOf("current_event" to setOf("storm"))),
+            decoded,
+        )
+    }
+
+    /**
+     * A pre-#1006 `stateJSON` blob (no `drawnEvents` key) still resumes: kotlinx
+     * falls back to the `emptyMap()` default for the absent key, the Kotlin
+     * equivalent of Swift's lenient `decodeIfPresent(...) ?? [:]` decoder. Pins
+     * the resume claim [SimulationState]'s KDoc makes so it is executable, not
+     * asserted. (A hand-written legacy blob rather than a golden — the harness
+     * only emits current-shape bytes.)
+     */
+    @Test
+    fun simulationStatePre1006BlobResumesWithEmptyDrawnEvents() {
+        val legacy =
+            """{"scores":{},"eliminated":{},"conversationLog":[],"lastOutputs":{},""" +
+                """"voteResults":{},"pairings":[],"variables":{},"currentRound":2}"""
+        val decoded = json.decodeFromString<SimulationState>(legacy)
+        assertTrue(decoded.drawnEvents.isEmpty())
+        assertEquals(2, decoded.currentRound)
+    }
 }

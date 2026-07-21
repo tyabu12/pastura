@@ -205,4 +205,39 @@ internal object SwiftGoldenJson {
   ]
 }
 """
+
+    /**
+     * drawnEvents (#1006). SINGLE-element sets on purpose: Swift encodes Set<String> as a JSON array in per-process hash-seed order, and .sortedKeys does not sort array *elements*, so a multi-element set would make `emit-golden --write` and `--check` disagree across processes and redden the drift guard intermittently. Every other collection is left empty so the fixture does not depend on ConversationEntry / Pairing / TurnOutput parity.
+     */
+    public const val simulationStateDrawnEvents: String = """
+{
+  "conversationLog" : [
+
+  ],
+  "currentRound" : 0,
+  "drawnEvents" : {
+    "current_event" : [
+      "storm"
+    ]
+  },
+  "eliminated" : {
+
+  },
+  "lastOutputs" : {
+
+  },
+  "pairings" : [
+
+  ],
+  "scores" : {
+
+  },
+  "variables" : {
+
+  },
+  "voteResults" : {
+
+  }
+}
+"""
 }

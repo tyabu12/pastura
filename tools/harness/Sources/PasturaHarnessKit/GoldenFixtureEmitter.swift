@@ -61,6 +61,7 @@ package enum GoldenFixtureEmitter {
   /// Every frozen sample, in emission order.
   package static func fixtures() throws -> [Fixture] {
     try turnOutputFixtures() + outputSchemaFixtures() + phaseFixtures() + payoffRuleFixtures()
+      + simulationStateFixtures()
   }
 
   /// The type measurement (v) finds in parity.
@@ -164,6 +165,26 @@ package enum GoldenFixtureEmitter {
         PayoffRule(when: ["cooperate", "betray"], points: [0, 5]),
         "payoffRuleBasic",
         "A single ADR-027 payoff row; asymmetric points make a when/points swap detectable."
+      )
+    ]
+  }
+
+  /// `SimulationState` — decode parity for the #1006 `drawnEvents` field, the
+  /// only one beyond the pre-existing eight.
+  private static func simulationStateFixtures() throws -> [Fixture] {
+    [
+      try encode(
+        SimulationState(drawnEvents: ["current_event": ["storm"]]),
+        "simulationStateDrawnEvents",
+        """
+        drawnEvents (#1006). SINGLE-element sets on purpose: Swift encodes \
+        Set<String> as a JSON array in per-process hash-seed order, and \
+        .sortedKeys does not sort array *elements*, so a multi-element set would \
+        make `emit-golden --write` and `--check` disagree across processes and \
+        redden the drift guard intermittently. Every other collection is left \
+        empty so the fixture does not depend on ConversationEntry / Pairing / \
+        TurnOutput parity.
+        """
       )
     ]
   }
