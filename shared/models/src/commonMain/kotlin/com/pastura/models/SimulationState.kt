@@ -38,6 +38,16 @@ import kotlinx.serialization.Serializable
  *                           phases).
  * @property currentRound    The current round number (1-based). Updated
  *                           by the simulation runner.
+ * @property drawnEvents     Per-event-variable set of already-drawn event
+ *                           strings, tracked only for `event_inject` phases
+ *                           opted into `no_repeat` (draw-without-replacement,
+ *                           #1006). Keyed by the event variable name; the value
+ *                           is the set of chosen `text` values drawn so far.
+ *                           Empty for every other scenario. The `emptyMap()`
+ *                           default is the Kotlin equivalent of Swift's lenient
+ *                           `decodeIfPresent(...) ?? [:]` decoder: a pre-#1006
+ *                           `stateJSON` blob with no `drawnEvents` key resumes
+ *                           to empty rather than failing to decode.
  */
 @Serializable
 public data class SimulationState(
@@ -49,6 +59,7 @@ public data class SimulationState(
     public val pairings: List<Pairing> = emptyList(),
     public val variables: Map<String, String> = emptyMap(),
     public val currentRound: Int = 0,
+    public val drawnEvents: Map<String, Set<String>> = emptyMap(),
 ) {
     public companion object {
         /**
