@@ -189,3 +189,19 @@ live `Data(contentsOf:)` callsites all live in `App/**`, outside this file's
 documented here. When reviewing, any `Data(contentsOf:)` on an unbounded-size file
 is suspect — small config/metadata is fine; model files / download chunks need
 streaming.
+
+## Required-arg additions to a core model init cascade to the test target
+
+Adding a required named argument to a widely-used `init` (`Scenario.init`,
+`Phase.init`, …) must land the whole scaffolding cohort in **one commit**: the
+model signature, every production callsite (loader, editor view-model, previews,
+stubs), the test fixture helper (`ScenarioFixture.make`), and every test
+callsite. The `git commit` pre-commit hook and CI's commit gate run `xcodebuild
+build` against the **App scheme only** — the test target is not compiled — so a
+commit that updates only production callsites passes the hook yet leaves the test
+target broken until `xcodebuild test`. Measure the blast radius at plan time
+(`rg -c '\bScenario\s*\(' --type swift Pastura/PasturaTests`); the test-callsite
+sweep is mechanical and easily batched/delegated. If an ADR mandates "no
+default", do **not** stage a temporary `= "…"` default to green intermediate
+commits — the final-commit removal is a forget-risk and violates the ADR's
+intent.

@@ -90,6 +90,7 @@ The same "verify before you lock it" discipline extends past rule assertions to 
 | A `§"Heading"` cross-doc reference | grep the target for the exact heading **and read under it** to confirm the content matches; add a named heading if absent |
 | "band-aid / hack / dead code" framing of a change | grep ALL producers + consumers across layers (esp. Engine/runtime), not just the layer the issue scopes — the target may be load-bearing |
 | A documented defect framed as **live** ("X `would` flow into Y — i.e. fabrication") | grep every **writer** of the value, not just the reader — an upstream guard may already make it unreachable, in which case the comment is that guard's rationale, not a bug report. Subjunctive mood is the tell (#1151) |
+| Two UI surfaces asserted to show "the same metric" | grep both value sources before claiming equivalence — layout/label similarity ≠ value identity; a static estimate and a measured count can read as "matching" yet diverge silently |
 | An external standard (SEO, RFC, sitemap/robots, OAuth, HTTP semantics) | WebSearch + WebFetch the authority (Google Search Central, the RFC, MDN); verbatim-cite before critic |
 | Vendor feature availability (free/paid/plan tier) | WebFetch the canonical docs; verbatim-quote the "Who can use this feature" box — never infer from search snippets |
 
