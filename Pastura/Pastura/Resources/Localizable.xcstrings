@@ -7393,6 +7393,16 @@
         }
       }
     },
+    "Turning point" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "場が動いた"
+          }
+        }
+      }
+    },
     "Turns skipped ×%lld" : {
       "localizations" : {
         "ja" : {

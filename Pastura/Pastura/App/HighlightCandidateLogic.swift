@@ -18,6 +18,12 @@ nonisolated enum HighlightReason: Equatable, Sendable {
   /// (🎯, #915). Surfaced whether or not the viewer guessed correctly: the
   /// reveal itself is the shareable moment.
   case revealed
+  /// The agent's first speak-phase utterance right after the game situation
+  /// shifted — an `event_inject` firing or a `vote` reveal (💥, #1109). A
+  /// positional zero-inference signal: the first to speak once "the room
+  /// moved". Weaker than `.contradiction` / `.revealed` (positional, not a
+  /// verified fact), so it is de-dup-superseded by either (see `candidates`).
+  case reaction
 }
 
 /// Pure selection logic for automatic share-highlight candidates (#1070
