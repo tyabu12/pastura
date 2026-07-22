@@ -31,17 +31,17 @@ import com.pastura.models.SimulationState
  *   so [PhaseHandler.execute] returns the next state rather than mutating in
  *   place (the #1063 Stage-2-pre precedent).
  *
- * ## Knowingly absent from this gate slice
+ * ## Knowingly absent — remaining named deferrals
  *
- * Each is a *named* deferral, tracked on #501 — not a silent field drop:
+ * Each is a *named* deferral, tracked on #501 — not a silent field drop. (The
+ * ADR-021 `turnGate` was one of these on the Stage-2 slice; B0a restored it, so
+ * it is now a field below rather than an absence.)
  *
- * - **`turnGate`** (ADR-021 `TurnFailureGate`) — a turn-degradable LLM failure
- *   aborts the run here instead of skipping the agent's turn. Pulling it in would
- *   also pull `turnSkipped` + `turnFailureLimitReached` onto the slice path.
  * - **`detector`** (`LanguageDetector`) — ADR-010 Step E language-adherence retry
- *   is named Stage-3 freight in ADR-023 §6.
- * - **`logger`** (`EngineLogger`, the #501 S0.2 seam) — nothing in the slice logs;
- *   the Kotlin engine has no OSLog to keep out.
+ *   is named Stage-3 freight in ADR-023 §6; lands in B0b with its `LLMCaller`
+ *   consumer.
+ * - **`logger`** (`EngineLogger`, the #501 S0.2 seam) — nothing consumes it until
+ *   `LLMCaller` logging lands in B0b (the Kotlin engine has no OSLog to keep out).
  *
  * Swift original: `Pastura/Pastura/Engine/PhaseHandler.swift`.
  * Ported for the ADR-023 §6 Stage-2 gate slice (#501).
@@ -89,6 +89,20 @@ internal class PhaseContext(
      */
     val pauseCheck: suspend (phasePath: List<Int>) -> Unit,
     val phasePath: List<Int>,
+    /**
+     * Run-scoped ADR-021 turn-failure containment. LLM phase handlers route each
+     * agent turn's `LLMCaller.call` through [TurnFailureGate.attempt] so a
+     * turn-degradable failure *skips* that agent's turn (degrade by omission, D2)
+     * while systemic errors, cancellation, and the D4 breaker abort the run.
+     *
+     * **No default — mirrors Swift `PhaseContext`'s `turnGate`, for the same
+     * reason.** The gate carries a run-scoped consecutive-skip counter, so exactly
+     * ONE instance is created per run and shared by every phase's context (the
+     * runner's `RunLoop` does this); a per-context default would silently reset the
+     * counter each phase. Code phases never touch it — the same shape as Swift,
+     * where the code phases ignore it too.
+     */
+    val turnGate: TurnFailureGate,
 )
 
 /**
