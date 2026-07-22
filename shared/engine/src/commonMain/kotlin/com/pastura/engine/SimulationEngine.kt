@@ -205,6 +205,12 @@ private class RunLoop(
 
     private val dispatcher = PhaseDispatcher()
 
+    // One gate per run: this RunLoop is constructed once per `run()`, so a plain
+    // property makes the gate run-scoped and shared by every phase's PhaseContext,
+    // keeping its ADR-021 D4 consecutive-skip counter run-scoped. See
+    // TurnFailureGate's doc — a fresh gate per phase would silently reset it.
+    private val turnGate = TurnFailureGate()
+
     suspend fun execute() {
         var state = SimulationState.initial(scenario)
 
@@ -267,6 +273,7 @@ private class RunLoop(
                         emitter = onEvent,
                         pauseCheck = { nested -> checkPaused(round, nested) },
                         phasePath = phasePath,
+                        turnGate = turnGate,
                     ),
                     state = state,
                 )

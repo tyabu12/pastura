@@ -40,6 +40,7 @@ class PhaseHandlerTests {
         emitter = emitter,
         pauseCheck = pauseCheck,
         phasePath = listOf(0),
+        turnGate = TurnFailureGate(),
     )
 
     /**
@@ -141,6 +142,7 @@ class PhaseHandlerTests {
                 emitter = {},
                 pauseCheck = { },
                 phasePath = listOf(0),
+                turnGate = TurnFailureGate(),
             )
             assertTrue(ctx.suspensionRelay === relay)
         }

@@ -56,6 +56,7 @@ class SpeakAllHandlerTests {
         emitter = { events += it },
         pauseCheck = { },
         phasePath = listOf(0),
+        turnGate = TurnFailureGate(),
     )
 
     private fun says(text: String) =
