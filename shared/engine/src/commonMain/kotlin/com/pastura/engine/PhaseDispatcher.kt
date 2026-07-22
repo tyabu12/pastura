@@ -9,9 +9,9 @@ import kotlinx.serialization.serializer
  *
  * ## Scope: the ADR-023 Stage-3 port, in progress
  *
- * **`SPEAK_ALL` and `ELIMINATE` are registered.** Swift registers all 14; the
- * remaining 12 are the mechanical bulk of Stage 3 ("mechanical after the Stage-2
- * slice", §4), ported handler-by-handler.
+ * **`SPEAK_ALL`, `ELIMINATE` and `SUMMARIZE` are registered.** Swift registers
+ * all 14; the remaining 11 are the mechanical bulk of Stage 3 ("mechanical after
+ * the Stage-2 slice", §4), ported handler-by-handler.
  *
  * Unlike Swift's `PhaseDispatcher`, this is **not** exhaustive over [PhaseType] —
  * so an unregistered phase fails at dispatch with a clear error rather than at
@@ -27,6 +27,7 @@ internal class PhaseDispatcher {
     private val handlers: Map<PhaseType, PhaseHandler> = mapOf(
         PhaseType.SPEAK_ALL to SpeakAllHandler(),
         PhaseType.ELIMINATE to EliminateHandler(),
+        PhaseType.SUMMARIZE to SummarizeHandler(),
     )
 
     /**
