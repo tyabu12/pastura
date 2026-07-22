@@ -26,9 +26,9 @@ Optional args:
 - **Writes ONLY under `docs/code-health/`** — a new digest under `digests/` and
   appended rows on `ledger.md`. Any write elsewhere (especially into
   `Pastura/` source) is a skill bug: abort and report.
-- **Makes no `git` commit / push and no `gh` call.** A run leaves the ledger
-  append as an uncommitted working-tree change; a **human** commits it during
-  promotion (README § Ledger lifecycle).
+- **Makes no `git` commit / push and no `gh` call.** The ledger is gitignored
+  local-only dedup memory — a run appends to it on disk and nothing commits it,
+  ever (README § Ledger lifecycle).
 - **Runs in the persistent main checkout, never a throwaway worktree.** The
   ledger is the cross-run dedup memory; a worktree-local ledger loses it on
   removal, silently defeating the linchpin.
@@ -177,9 +177,10 @@ If everything dedups away, that is a healthy outcome — write a digest that say
    today's date, category, a stable **concept fingerprint** (location-independent —
    this is the dedup key), the `file:line` anchor, status `proposed`, and the
    rationale in `note`. Also append rejected findings as `rejected` with the
-   reason, so Step 4 suppresses them next run. **Do not commit or push** — leave
-   the change in the working tree for the human (Safety boundary).
+   reason, so Step 4 suppresses them next run. The ledger is gitignored
+   local-only dedup memory — **do not commit or push**; the append just persists
+   on disk (Safety boundary).
 3. **Report** to the user: the digest path, categories run / capped / skipped,
    how many candidates were found / Vetted / deduped / surfaced, and a reminder
-   that promotion (digest → agent-ready issue + committing the ledger) is a manual
-   step.
+   that promotion (digest → agent-ready issue) is a manual step. The ledger
+   append needs no commit — it is gitignored local dedup memory.
