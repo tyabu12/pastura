@@ -90,20 +90,32 @@ The binding rules for a digest-only generator are **rule 2**
 
 ## Ledger lifecycle (read before scheduling)
 
-The ledger is **git-tracked** — it is the cross-run dedup memory, so it must
-persist across runs and machines. But, exactly like every other family skill,
-**the code-health-audit skill never commits or pushes.** A run only *appends*
-rows to the working-tree `ledger.md`; the change sits as an uncommitted
-working-tree mutation. A **human commits the ledger append** — naturally bundled
-into the same step that promotes a digest finding to an issue (see *Promotion*).
-This keeps the skill's "files nothing, pushes nothing" posture intact.
+The ledger is **gitignored, local-only dedup memory** — treated exactly like the
+`digests/` it sits beside. A run *appends* rows to the on-disk `ledger.md`, and
+that is where they stay: **the code-health-audit skill never commits or pushes**,
+and — unlike the earlier git-tracked design — no human commits the append either.
+It is bookkeeping that stops the next run re-flooding, not a shared record. The
+**durable record is the filed issues** promotion creates (see *Promotion*); the
+ledger only has to persist locally between runs on this one machine.
 
-**Persistence constraint for the deferred scheduling phase:** because the ledger
-must persist to do its job, this skill must run in the **persistent main
-checkout, never a throwaway `/orchestrate` worktree** — a worktree-local ledger
-would lose its dedup memory the moment the worktree is removed, silently
-defeating mechanism 1 (same carve-out ui-refine / scenario-refine make). Pin this
-before any Routine is wired up.
+Because it is untracked, a fresh clone starts with no ledger and a
+`git clean -fdx` wipes it. Either way the file goes missing, and the Step 0
+existence check then **aborts the next run** — by design: a run without dedup
+memory would re-flood, so the skill refuses rather than degrade. Recovery means
+hand-recreating the empty ledger scaffold (header + column format + empty table);
+the first run afterward starts with empty memory and re-proposes findings that
+were already `filed` / `rejected`. That is the accepted cost of keeping the
+working tree clean under scheduled runs — and it only bites after an explicit
+wipe or on a second machine, since the persistent main checkout keeps the file
+put across runs.
+
+**Persistence constraint (holds under scheduling):** because the ledger must
+persist to do its job, this skill must run in the **persistent main checkout,
+never a throwaway `/orchestrate` worktree** — a worktree-local ledger would lose
+its dedup memory the moment the worktree is removed, silently defeating
+mechanism 1 (same carve-out ui-refine / scenario-refine make). The Step 0
+existence check still passes despite the gitignore: `git rm --cached` left the
+file on disk in the main checkout, so it is present for every scheduled run.
 
 ## Promotion (digest → issue, by hand)
 
@@ -114,8 +126,9 @@ before any Routine is wired up.
 3. For a finding you decide against, set its row to `rejected` with a one-line
    reason — this is what stops it resurfacing next run (e.g. the pilot's
    concurrency non-findings belong here so the category isn't re-swept blind).
-4. Commit the `ledger.md` change (and only that) alongside whatever issue work the
-   promotion triggered.
+4. These `ledger.md` status edits are local-only — the file is gitignored, so
+   there is nothing to commit or push. They persist on disk as this machine's
+   dedup memory; the issue you opened in step 2 is the durable record.
 
 ## Deferred next phases (NOT in this prototype)
 
@@ -141,6 +154,6 @@ in order — and each gated behind the one before it:
 | Path | Tracked? | What |
 |------|----------|------|
 | `README.md` | ✅ | This file |
-| `ledger.md` | ✅ | Finding dedup memory — all statuses + concept fingerprint (skill appends, human commits) |
+| `ledger.md` | ❌ gitignored | Finding dedup memory — all statuses + concept fingerprint; local-only, skill appends, never committed |
 | `digests/README.md` | ✅ | Explains the digests directory |
 | `digests/*.md` | ❌ gitignored | Per-run digest artifacts (ephemeral local logs) |
