@@ -256,26 +256,20 @@ System hierarchy styles (`.secondary`, `.tertiary`, `.quaternary`, `.clear`) *do
 dot-syntax because they're `ShapeStyle` conformances — which is why pre-token code compiled.
 When token-izing `.foregroundStyle(.secondary)`, always switch to `Color.tokenName`.
 
-## Adding a new `Color` design token = 5 places (workflow trap, not SwiftUI)
+## Adding a `Color` design token = 5 files; the 5th fails silently (workflow trap, not SwiftUI)
 
-Adding one design color token means editing **five** files, and skipping the 5th fails **only**
-the standalone `Design tokens drift guard` CI job (`scripts/check_design_tokens_css.py --check`,
-`.github/workflows/ci.yml`) — the macOS build / unit / lint jobs all stay green, so the miss is
-invisible locally and in every other check. See PR #953 for the concrete miss.
+A new color token needs five edits — miss the **5th** (the CSS mirror) and *only* the standalone
+`Design tokens drift guard` CI job reddens; build / unit / lint stay green, so it's invisible
+locally (first hit PR #953):
 
-1. `Pastura/Pastura/Views/DesignTokens+ExtendedPalette.swift` — the raw `PasturaColorValue(hex:)` token.
-2. `Pastura/Pastura/Views/DesignTokens+SwiftUI.swift` — the SwiftUI `Color` alias (the `Color.tokenName` above).
-3. `Pastura/PasturaTests/Views/DesignTokensTests.swift` — assert the new token.
-4. `docs/design/design-system.md` § "2. カラートークン" — document it.
-5. `docs/design/ds/tokens.css` — the CSS mirror. The token's CSS form must appear there:
-   `#RRGGBB` for a plain `hex:` token, or `rgba(R, G, B, a)` when it carries `opacity:`. Tokens in
-   the script's `EXCEPTIONS` set (currently empty) are exempt (then it's 4 places). The exact mapping and its
-   exemptions are defined by `scripts/check_design_tokens_css.py` — treat that script as the source
-   of truth, not this list.
+1. `DesignTokens+ExtendedPalette.swift` — raw `PasturaColorValue(hex:)` token
+2. `DesignTokens+SwiftUI.swift` — SwiftUI `Color` alias
+3. `PasturaTests/Views/DesignTokensTests.swift` — assert it
+4. `docs/design/design-system.md` § "2. カラートークン" — document it
+5. `docs/design/ds/tokens.css` — CSS mirror; the token's CSS form must appear here
 
-If a second token-workflow trap ever lands, split this out into a rule narrowly scoped to
-`DesignTokens*` + `docs/design/ds/tokens.css` so it also fires when the CSS mirror or design-system
-doc is edited from that side (this file only fires on app Swift edits).
+`scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
+form, `EXCEPTIONS` exemptions).
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
