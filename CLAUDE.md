@@ -64,6 +64,11 @@ Utilities/ → depends on nothing
 - Major changes to public protocol signatures require user approval
 - Significant design changes beyond the current scope: stop and report first
 
+## Scope & Completeness Discipline
+
+- **Enumerate every instance before scoping a cross-cutting change** (a bug *class* — a mechanism, not one site; or a strip / rename / add across files). List all sites (`grep` / `jq` / `find`) and scope against that list, not the one file you opened — silent siblings resurface later with misleading framing. Watch the sibling `+Feature.swift` extension: cross-check `grep` against `find <dir> -name '*.swift'`.
+- **Grep the OLD shape after any bulk substitution.** A byte-exact multi-site substitution (`Edit(replace_all)`, `sed`, editor find-replace) silently skips occurrences that differ only in leading whitespace or nesting depth, and typically still reports success — grep for the old shape afterward to confirm zero residuals.
+
 ## Access Modifiers
 
 - All protocol definitions: `public`
@@ -174,6 +179,8 @@ Implementation order: `Models → LLM → Engine → Data → Views → App → 
   `✨ feat:`, `🐛 fix:`, `♻️ refactor:` — add body when "why" isn't obvious.
 - **Small and focused** — one logical change per commit.
 - **Re-stage after a pre-commit hook rejection.** When the pre-commit hook (`swiftlint --strict`, `xcodebuild build`, …) rejects a commit, do not assume the previously-staged files survived — they can silently drop to "Changes not staged". Run `git status` and re-stage (`git add -u` or explicit paths) **before** retrying, or the retry commits a partial changeset and splits one logical change across two commits.
+- **Rename PRs — verify staged *content*, not just the `R` status.** `git mv` + an `Edit` on the renamed path can leave the edit in the working tree only, staging a rename-only entry (`--stat` shows `… | 0`, `similarity index 100%`). Run `git diff --cached <path>` for real `+` / `-` lines before committing; for a delegated rename, `git add -A` from the main session rather than trusting a subagent's "staged" report.
+- **Compose multi-line PR / issue / commit bodies in a file, not an inline heredoc** — write it with the Write tool, then `gh … --body-file FILE` / `git commit -F FILE`. An inline heredoc trips the quote-blind body scan of `scripts/hooks/block-force-push-and-pr-ready.sh` on any `git push --force`-shaped line, and a single-quoted one (`<<'TAG'`) also keeps `\$` / `` \` `` escapes literal.
 - **Closing issues in multi-PR splits:** GitHub auto-closes on any `Closes #N` / `Fixes #N` match in the PR body, ignoring qualifiers like "partially" or "PR1 of 3". In non-final PRs of a split, reference without a close-directive keyword (`See #N`, `Part of #N`, `Relates to #N`). Only the final PR should carry `Closes #N`. If auto-close fires by accident on a non-final PR, recover immediately: `gh issue reopen <N> --comment "still tracking remaining scope: ..."`.
 
 ### Test Execution
@@ -279,6 +286,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 - Source: PascalCase matching primary type (e.g., `SpeakAllHandler.swift`)
 - Tests: `<SourceFileName>Tests.swift`
 - YAML presets: snake_case (e.g., `prisoners_dilemma.yaml`)
+- New files under `Pastura/Pastura/` and `Pastura/PasturaTests/` are auto-included via Xcode synchronized folder groups (`PBXFileSystemSynchronizedRootGroup`) — do **not** hand-edit `Pastura.xcodeproj/project.pbxproj` to register them.
 
 ## Decision Records
 
