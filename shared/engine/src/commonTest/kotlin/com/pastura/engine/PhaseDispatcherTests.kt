@@ -25,6 +25,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheEliminateHandler() {
+        assertIs<EliminateHandler>(dispatcher.handler(PhaseType.ELIMINATE))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -50,8 +55,8 @@ class PhaseDispatcherTests {
     fun everyUnportedPhaseTypeFailsCleanlyRatherThanCrashing() {
         // A Stage-3 gap must read as a gap. Iterating allCases also means a NEW
         // PhaseType added to Models cannot silently reach dispatch unhandled.
-        val unported = PhaseType.entries.filter { it != PhaseType.SPEAK_ALL }
-        assertEquals(13, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        val unported = PhaseType.entries.filter { it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE }
+        assertEquals(12, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
