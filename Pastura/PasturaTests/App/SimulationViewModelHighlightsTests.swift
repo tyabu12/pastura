@@ -73,6 +73,13 @@ struct SimulationViewModelHighlightsTests {
   private let choosePhaseCompleted = SimulationEvent.phaseCompleted(
     phaseType: .choose, phasePath: [1])
 
+  private func speak(_ agent: String, _ text: String) -> SimulationEvent {
+    .agentOutput(
+      agent: agent,
+      output: TurnOutput(fields: ["statement": text]),
+      phaseType: .speakAll)
+  }
+
   /// Drives Alice into a full declaration/action contradiction; Bob stays
   /// consistent. `statement` lets a caller blank Alice's public statement.
   private func runAliceContradiction(
@@ -127,5 +134,73 @@ struct SimulationViewModelHighlightsTests {
     sut.handleEvent(choosePhaseCompleted, scenario: scenario)
 
     #expect(sut.highlightCandidates.isEmpty)
+  }
+
+  // MARK: Reaction signal (#1109)
+
+  @Test func eventInjectReactionSurfacesFirstSpeakerAfter() throws {
+    let sut = try makeSut()
+    let scenario = makeScenario()
+    sut.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: scenario)
+    sut.handleEvent(.eventInjected(event: "A storm hits the camp."), scenario: scenario)
+    sut.handleEvent(speak("Alice", "We must regroup now!"), scenario: scenario)
+    sut.handleEvent(speak("Bob", "Everyone stay calm."), scenario: scenario)
+
+    let candidates = sut.highlightCandidates
+    #expect(candidates.count == 1)
+    let candidate = try #require(candidates.first)
+    #expect(candidate.agent == "Alice")  // only the FIRST post-event speaker
+    #expect(candidate.reason == .reaction)
+    #expect(candidate.previewText == "We must regroup now!")
+  }
+
+  @Test func eventInjectMissDoesNotSurfaceReaction() throws {
+    // `.eventInjected(nil)` = probability roll missed: logged but not a turning
+    // point, so the following speak is an ordinary utterance, not a reaction.
+    let sut = try makeSut()
+    let scenario = makeScenario()
+    sut.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: scenario)
+    sut.handleEvent(.eventInjected(event: nil), scenario: scenario)
+    sut.handleEvent(speak("Alice", "Just another quiet turn."), scenario: scenario)
+
+    #expect(sut.highlightCandidates.isEmpty)
+  }
+
+  @Test func voteResultsReactionSurfacesSameRoundSpeaker() throws {
+    // A same-round speak after a vote reveal (a defense / parting line) reacts.
+    let sut = try makeSut()
+    let scenario = makeScenario()
+    sut.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: scenario)
+    sut.handleEvent(
+      .voteResults(votes: ["Alice": "Bob"], tallies: ["Bob": 1]), scenario: scenario)
+    sut.handleEvent(speak("Bob", "You'll regret voting me out."), scenario: scenario)
+
+    let candidates = sut.highlightCandidates
+    #expect(candidates.count == 1)
+    #expect(candidates.first?.agent == "Bob")
+    #expect(candidates.first?.reason == .reaction)
+  }
+
+  @Test func contradictionOutranksReactionOnTheSameEntry() throws {
+    // Alice's declaration is BOTH the first post-event speaker (reaction) and a
+    // contradiction; the stronger signal wins and the entry surfaces once.
+    let sut = try makeSut()
+    let scenario = makeScenario()
+    sut.handleEvent(.roundStarted(round: 1, totalRounds: 1), scenario: scenario)
+    sut.handleEvent(.eventInjected(event: "A storm hits the camp."), scenario: scenario)
+    sut.handleEvent(
+      declaration("Alice", "cooperate", statement: "Trust me, I'm loyal."),
+      scenario: scenario)
+    sut.handleEvent(declaration("Bob", "cooperate"), scenario: scenario)
+    sut.handleEvent(chooseAction("Alice", "betray"), scenario: scenario)
+    sut.handleEvent(chooseAction("Bob", "cooperate"), scenario: scenario)
+    sut.handleEvent(chooseAction("Alice", "betray"), scenario: scenario)
+    sut.handleEvent(chooseAction("Bob", "cooperate"), scenario: scenario)
+    sut.handleEvent(choosePhaseCompleted, scenario: scenario)
+
+    let candidates = sut.highlightCandidates
+    #expect(candidates.count == 1)
+    #expect(candidates.first?.agent == "Alice")
+    #expect(candidates.first?.reason == .contradiction)
   }
 }
