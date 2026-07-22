@@ -4,8 +4,10 @@ import com.pastura.models.Persona
 import com.pastura.models.Phase
 import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
+import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import com.pastura.models.SimulationState
+import com.pastura.models.TurnOutput
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,12 +17,15 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
- * Kotlin sibling of Swift's `SpeakAllHandlerTests`, scoped to the ported subset.
+ * Kotlin sibling of Swift's `SpeakAllHandlerTests` (+ its `…+TurnDegradation`
+ * split), scoped to the ported subset.
  *
- * ADR-021 turn-gate cases are absent because the gate itself is a named deferral
- * (see [SpeakAllHandler]'s doc) — not because they were forgotten.
+ * The ADR-021 turn-gate integration is exercised here (transient-skip and the D4
+ * circuit breaker). The D3 systemic-error case stays deferred — see the note
+ * above those tests — pending the Stage-3 `StreamFailure` taxonomy.
  *
- * Ported for the ADR-023 §6 Stage-2 gate slice (#501).
+ * Ported for the ADR-023 KMP Engine migration (#501); the turn gate is restored
+ * in Wave B (B0a).
  */
 class SpeakAllHandlerTests {
 
@@ -243,21 +248,76 @@ class SpeakAllHandlerTests {
         assertEquals("a", outputs[0].output.fields["statement"])
     }
 
-    // MARK: - Failure propagates (ADR-021 turn gate is a named deferral)
+    // MARK: - Turn degradation (ADR-021 D1/D2/D4)
+
+    // Parity with `SpeakAllHandlerTests+TurnDegradation.swift`. Gate internals
+    // (failure classification, consecutive-count bookkeeping, and the D3
+    // non-degradable rethrow) are covered by [TurnFailureGateTests]; these pin the
+    // HANDLER's integration with the gate.
+    //
+    // D3 (`systemicErrorPropagatesTypedWithoutSkip` in the Swift sibling) is
+    // deliberately NOT ported here: the systemic-vs-transient `StreamFailure`
+    // taxonomy is Stage-3 freight (see [LLMCaller]'s absence table), so every
+    // failure a [ScriptedLLMBackend] can produce maps to the degradable
+    // `LlmGenerationFailed` — there is no non-degradable LLM failure to script yet.
+    // The gate-level non-degradable rethrow is already covered by
+    // [TurnFailureGateTests], and this handler adds no catch, so nothing here could
+    // swallow a systemic error into a skip. Restore this case when the taxonomy
+    // lands (#501).
 
     @Test
-    fun anLlmFailureAbortsTheRunRatherThanSkippingTheTurn() = runTest {
-        // Pins the DEFERRAL, so its restoration in Stage 3 is a deliberate,
-        // test-visible change rather than a silent behaviour shift. Swift routes
-        // this through TurnFailureGate and skips only the failing agent's turn.
-        val s = scenario()
+    fun aTransientFailureSkipsTheTurnAndOtherAgentsStillSpeak() = runTest {
+        // Alice's call fails transiently (turn-degradable); Bob and Charlie speak.
+        val s = scenario(agents = listOf("Alice", "Bob", "Charlie"))
         val backend = ScriptedLLMBackend(
-            listOf(ScriptedLLMBackend.Script(terminal = TerminalStatus.Failed(errorCode = "boom"))),
+            listOf(
+                ScriptedLLMBackend.Script(terminal = TerminalStatus.Failed(errorCode = "transient blip")),
+                says("from Bob"),
+                says("from Charlie"),
+            ),
         )
-        assertFailsWith<SimulationException> {
-            handler.execute(context(s, backend), SimulationState.initial(s))
+        val events = mutableListOf<SimulationEvent>()
+        // Stale prior-round output — must be cleared on skip (ADR-021 D2), not left
+        // readable by later phases.
+        val before = SimulationState.initial(s).copy(
+            currentRound = 1,
+            lastOutputs = mapOf("Alice" to TurnOutput(fields = mapOf("statement" to "stale"))),
+        )
+        val next = handler.execute(context(s, backend, events), before)
+
+        val outputs = events.filterIsInstance<SimulationEvent.AgentOutput>().map { it.agent }
+        assertEquals(listOf("Bob", "Charlie"), outputs, "the failing agent emits no AgentOutput")
+        assertEquals(listOf("Bob", "Charlie"), next.conversationLog.map { it.agentName })
+
+        val skipped = events.filterIsInstance<SimulationEvent.TurnSkipped>()
+        assertEquals(1, skipped.size)
+        assertEquals("Alice", skipped.single().agent)
+        assertEquals(PhaseType.SPEAK_ALL, skipped.single().phaseType)
+
+        // The stale entry is cleared, not left readable by later phases.
+        assertNull(next.lastOutputs["Alice"], "a skipped turn clears the agent's stale lastOutputs")
+        assertEquals("from Bob", next.lastOutputs["Bob"]?.fields?.get("statement"))
+        assertEquals("from Charlie", next.lastOutputs["Charlie"]?.fields?.get("statement"))
+    }
+
+    @Test
+    fun theThirdConsecutiveFailureTripsTheBreakerAndAbortsThePhase() = runTest {
+        // ADR-021 D4: all three personas fail transiently on the shared per-run
+        // gate — skips 1 and 2 emit TurnSkipped, the 3rd trips the breaker instead.
+        val s = scenario(agents = listOf("Alice", "Bob", "Charlie"))
+        val backend = ScriptedLLMBackend(
+            List(3) { ScriptedLLMBackend.Script(terminal = TerminalStatus.Failed(errorCode = "dead backend")) },
+        )
+        val events = mutableListOf<SimulationEvent>()
+
+        val error = assertFailsWith<SimulationException> {
+            handler.execute(context(s, backend, events), SimulationState.initial(s).copy(currentRound = 1))
         }
-        assertEquals(1, backend.callCount, "Bob never speaks — Swift would have let him")
+        assertEquals(SimulationError.TurnFailureLimitReached(consecutiveCount = 3), error.error)
+
+        // The tripping (3rd) failure throws instead of emitting — only 2 skips.
+        val skipped = events.filterIsInstance<SimulationEvent.TurnSkipped>()
+        assertEquals(2, skipped.size)
     }
 
     @Test
