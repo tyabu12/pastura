@@ -35,7 +35,7 @@ import com.pastura.models.SimulationState
  * | `addressRule` (#911, speak_each) | speak_each is Stage 3 |
  * | `reflectBrevityRule` / `whisperRule` | reflect / whisper are Stage 3 |
  * | choose-options rule / `voteCandidateRule` | choose / vote are Stage 3 |
- * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | no slice consumer |
+ * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to Wave B) |
  *
  * A Stage-3 port completes these against the Swift test files, which ADR-023 §6
  * names as the executable spec.
