@@ -22,9 +22,10 @@ import kotlin.test.assertTrue
  * simple single expansion — are pinned here, along with the ADR-010 Step E
  * `simulation_language` override on the default template.
  *
- * Because [SummarizeHandler] never touches state, the tests read only the emitted
- * summaries; the "no mutation" contract is implicit in there being nothing to
- * assert on the returned state.
+ * Because [SummarizeHandler] never touches state, most tests read only the emitted
+ * summaries; the "no mutation" contract is pinned explicitly by
+ * [theHandlerReturnsStateUnchanged] so a future accidental `.copy(...)` can't
+ * silently diverge (the immutable-`data class` port's load-bearing trap).
  *
  * Ported for the ADR-023 Stage-3 code-phase port (#501).
  */
@@ -77,6 +78,23 @@ class SummarizeHandlerTests {
         val summaries = events.summaries()
         assertEquals(1, summaries.size)
         assertEquals("Round 3 done", summaries[0])
+    }
+
+    @Test
+    fun theHandlerReturnsStateUnchanged() = runTest {
+        // Emit-only contract, made executable: summarize formats text and emits a
+        // Summary but must never mutate state. A future accidental `.copy(...)`
+        // would compile cleanly and silently diverge — this pins full-state
+        // identity so that trap is caught (the immutable-`data class` port's
+        // load-bearing failure mode; #501).
+        val s = scenario(template = "Round {current_round}: {scoreboard}")
+        val state = SimulationState.initial(s).copy(
+            currentRound = 2,
+            scores = mapOf("Alice" to 3, "Bob" to 1),
+            variables = mapOf("k" to "v"),
+        )
+        val result = handler.execute(context(s), state)
+        assertEquals(state, result)
     }
 
     @Test
