@@ -658,23 +658,50 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// highlight" section — derived, not stored. Projects the live transcript
   /// to `HighlightCandidateLogic` descriptors (only entries whose primary
   /// text is non-empty, so a shown card can never dead-tap the failable
-  /// `HighlightShareCard.Model` init), applies the two zero-inference signals
-  /// (contradiction badges, prediction reveal), and rehydrates the selected
-  /// ids back into full candidates carrying the filtered `TurnOutput`. Reads
-  /// only `@Observable` state (`logEntries`, `contradictionBadgedEntryIDs`,
-  /// `predictionOutcome`), so the View re-renders when the run completes.
+  /// `HighlightShareCard.Model` init), applies the three zero-inference
+  /// signals (contradiction badges, prediction reveal, post-event reaction),
+  /// and rehydrates the selected ids back into full candidates carrying the
+  /// filtered `TurnOutput`. Reads only `@Observable` state (`logEntries`,
+  /// `contradictionBadgedEntryIDs`, `predictionOutcome`), so the View
+  /// re-renders when the run completes.
+  ///
+  /// The reaction signal (#1109) needs the event/round *boundaries*
+  /// interleaved with the outputs, so the same single walk also builds a
+  /// `[ReactionItem]` stream. Both projections gate an output on the **same**
+  /// non-empty-primary predicate, so a reaction id can never point at an entry
+  /// the descriptor list filtered out.
   var highlightCandidates: [HighlightCandidate] {
-    var descriptors: [HighlightCandidateLogic.Entry] = []
+    var outputEntries: [LogEntry] = []
+    var reactionItems: [HighlightCandidateLogic.ReactionItem] = []
     var entryByID: [UUID: LogEntry] = [:]
     for entry in logEntries {
-      guard case .agentOutput(let agent, let output, let phaseType) = entry.kind,
-        let primary = output.primaryText(for: phaseType), !primary.isEmpty
-      else { continue }
-      descriptors.append(
-        HighlightCandidateLogic.Entry(
-          id: entry.id, agent: agent, phaseType: phaseType,
-          isContradiction: contradictionBadgedEntryIDs.contains(entry.id)))
-      entryByID[entry.id] = entry
+      switch entry.kind {
+      case .agentOutput(_, let output, let phaseType):
+        guard let primary = output.primaryText(for: phaseType), !primary.isEmpty
+        else { continue }
+        outputEntries.append(entry)
+        reactionItems.append(.output(id: entry.id, phaseType: phaseType))
+        entryByID[entry.id] = entry
+      case .eventInjected(let event):
+        // Only a *fired* event moves the room. `.eventInjected(nil)` is the
+        // probability roll missing — still logged (a muted "no event" line),
+        // but nothing turned, so it must not arm a reaction (#1109).
+        if event != nil { reactionItems.append(.eventBoundary) }
+      case .voteResults:
+        reactionItems.append(.eventBoundary)
+      case .roundStarted:
+        reactionItems.append(.roundBoundary)
+      default:
+        break
+      }
+    }
+    let reactionIDs = HighlightCandidateLogic.reactionEntryIDs(reactionItems)
+    let descriptors: [HighlightCandidateLogic.Entry] = outputEntries.compactMap { entry in
+      guard case .agentOutput(let agent, _, let phaseType) = entry.kind else { return nil }
+      return HighlightCandidateLogic.Entry(
+        id: entry.id, agent: agent, phaseType: phaseType,
+        isContradiction: contradictionBadgedEntryIDs.contains(entry.id),
+        isReaction: reactionIDs.contains(entry.id))
     }
     let selections = HighlightCandidateLogic.candidates(
       entries: descriptors, actualAgent: predictionOutcome?.actualAgent)

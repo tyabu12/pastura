@@ -103,6 +103,11 @@ struct HighlightCandidatesSection: View {
         word = String(localized: "Revealed")
         background = Color.mossSoft
         textColor = Color.mossDark
+      case .reaction:
+        emoji = "💥"
+        word = String(localized: "Turning point")
+        background = Color.infoSoft
+        textColor = Color.infoInk
       }
     }
   }
@@ -126,7 +131,15 @@ struct HighlightCandidatesSection: View {
           "statement": "Everyone calm down. I think Alice is the suspicious one here."
         ]),
         phaseType: .speakAll,
-        reason: .revealed)
+        reason: .revealed),
+      HighlightCandidate(
+        id: UUID(),
+        agent: "Alice",
+        output: TurnOutput(fields: [
+          "statement": "Wait — if the storm just hit, we should regroup now."
+        ]),
+        phaseType: .speakAll,
+        reason: .reaction)
     ],
     onShare: { _ in }
   )
