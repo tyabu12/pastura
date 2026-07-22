@@ -20,10 +20,10 @@ import com.pastura.models.SimulationState
  * ## Still absent — later Wave-B / Stage-3 freight
  *
  * Per [PromptBuilder]'s absence table the `inject*` family (assigned / notes /
- * whispers / relationships / mood) and `captureMood` are not called here yet, and
- * [LLMCaller] is still constructed without the `detector` / `logger` seams. Those
+ * whispers / relationships / mood) and `captureMood` are not called here yet. Those
  * land with their consumers in later Wave-B PRs and are orthogonal to the
- * turn-gate behavior restored here.
+ * turn-gate behavior restored here. The `detector` / `logger` seams ARE wired now
+ * (B0b) — the handler threads them from [PhaseContext] into [LLMCaller].
  *
  * Swift original: `Pastura/Pastura/Engine/Phases/SpeakAllHandler.swift`.
  */
@@ -66,8 +66,10 @@ internal class SpeakAllHandler : PhaseHandler {
         promptTemplate: String,
         state: SimulationState,
     ): SimulationState {
-        // Constructed per turn, matching Swift — a stateless value, cheap.
-        val llmCaller = LLMCaller()
+        // Constructed per turn, matching Swift — a stateless value, cheap. The
+        // logger seam is threaded from the context (Noop by default in the current
+        // run path — see PhaseContext § "Knowingly absent").
+        val llmCaller = LLMCaller(logger = context.logger)
 
         val systemPrompt = promptBuilder.buildSystemPrompt(
             scenario = context.scenario,
@@ -96,6 +98,8 @@ internal class SpeakAllHandler : PhaseHandler {
                 user = userPrompt,
                 agentName = persona.name,
                 schema = OutputSchema.from(context.phase),
+                detector = context.detector,
+                expectedLanguage = context.scenario.engineLanguage,
                 relay = context.suspensionRelay,
                 emitter = context.emitter,
             )
