@@ -260,4 +260,28 @@ class LLMCallerLanguageAdherenceTests {
         assertEquals("cooperate", result.fields["action"])
         assertEquals(1, backend.callCount, "choice-only schema → no natural-language input → skip")
     }
+
+    @Test
+    fun choiceFieldIsExcludedFromDetectionEvenAboveMinLength() = runTest {
+        // Isolates the Choice-filter from the min-length gate. The token above
+        // ("cooperate", 9 scalars) is below MIN_DETECTION_LENGTH, so `too_short`
+        // masks the filter: that test passes even if the filter is broken. This
+        // one uses a >=12-scalar English action token on a `ja` scenario, so the
+        // ONLY thing keeping the detector from being consulted is the Choice
+        // exclusion. If the filter did NOT exclude Choice fields, the joined input
+        // would clear the gate, the detector would return "en" != "ja", and the
+        // call would retry into an exhausted (1-script) backend → throw. Filter
+        // working → joined input empty → skip → exactly one call. (Surfaced by the
+        // B0b condition-4 perturbation, #501.)
+        val longAction = "betray absolutely everyone here"
+        val backend = ScriptedLLMBackend(listOf(says("""{"action": "$longAction"}""")))
+        val result = call(
+            backend,
+            detector = StubLanguageDetector(listOf("en")),
+            expectedLanguage = "ja",
+            schema = chooseSchemaWithChoiceField(),
+        )
+        assertEquals(longAction, result.fields["action"])
+        assertEquals(1, backend.callCount, "Choice field excluded → no natural-language input → skip, no retry")
+    }
 }
