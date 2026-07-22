@@ -31,9 +31,10 @@ nonisolated enum HighlightReason: Equatable, Sendable {
 ///
 /// The ViewModel owns transcript assembly and card construction; this enum
 /// owns the single decision: given the run's ordered agent-output entries
-/// plus the two zero-inference signals (contradiction badges, prediction
-/// reveal), which entries — in what order, capped — become share candidates
-/// and why. Kept `nonisolated` and dependency-free (Foundation + the Models
+/// plus the three zero-inference signals (contradiction badges, prediction
+/// reveal, post-event reaction), which entries — in what order, capped —
+/// become share candidates and why. Kept `nonisolated` and dependency-free
+/// (Foundation + the Models
 /// `PhaseType` only, never the App-layer `LogEntry`) so it unit-tests off
 /// the MainActor without rendering a View (ADR-009 /
 /// `.claude/rules/view-testing.md`).
@@ -166,7 +167,11 @@ nonisolated enum HighlightCandidateLogic {
     }
 
     // Restore transcript order across both tiers so the section reads
-    // chronologically regardless of which tier surfaced each pick.
+    // chronologically regardless of which tier surfaced each pick. The
+    // `uniquingKeysWith` and `?? 0` are belt-and-suspenders: every selection
+    // id originates from a distinct `entries` element (entry ids are unique
+    // `LogEntry` ids), so no key collides and no lookup misses — the fallbacks
+    // just keep the sort total rather than trapping on a degenerate input.
     let position = Dictionary(
       entries.enumerated().map { ($1.id, $0) }, uniquingKeysWith: { first, _ in first })
     return result.sorted { (position[$0.id] ?? 0) < (position[$1.id] ?? 0) }
