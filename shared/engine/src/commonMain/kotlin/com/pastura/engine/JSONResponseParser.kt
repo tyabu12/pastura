@@ -30,7 +30,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * |---|---|
  * | The two-step repair pipeline (`unclosed_string` -> `unclosed_brace`, #194) | hardening, not a boundary concern; the gate never scripts a truncated stream |
  * | Schema-guarded multi-object salvage (#907) | same |
- * | `PartialOutputExtractor` | named Stage-3 freight in ADR-023 §6 |
+ * | `PartialOutputExtractor` | landed as a sibling commonMain type in PR-3 (#501 Stage 3); this parser still does not consume it — the two share only the duplicated thinking-tag regexes by parity |
  * | `TurnOutput.rawText` passthrough | Kotlin `TurnOutput` has no `rawText`; its only consumer is Data-layer `TurnRecord.rawOutput` audit, outside the Engine port |
  *
  * `expectedKeys` is therefore accepted and **only** used for the post-parse guard,

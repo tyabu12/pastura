@@ -33,8 +33,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  *
  * | Absent | Why |
  * |---|---|
- * | `PartialOutputExtractor` | named Stage-3 freight; snapshots carry raw accumulated text instead — see [AgentOutputStream emission][emitSnapshot] |
- * | Language-adherence retry (ADR-010 Step E) | named Stage-3 freight; no `detector` reaches this slice |
+ * | `PartialOutputExtractor` | the type landed in PR-3 (#501 Stage 3), but this slice does not consume it yet — snapshots still carry raw accumulated text; wiring is deferred to Wave B (see [emitSnapshot]) |
+ * | Language-adherence retry (ADR-010 Step E) | the `LanguageDetector` seam landed in PR-3, but its retry consumer is Wave-B freight — no detector reaches this slice yet |
  * | `StreamFailure` taxonomy + ADR-021 D3 classification | named Stage-3 freight; [TerminalStatus.Failed] maps straight to [SimulationError.LlmGenerationFailed] |
  * | The `StreamingDiag` log channel | the `EngineLogger` seam is not in this slice's [PhaseContext] |
  *
@@ -225,8 +225,9 @@ internal class LLMCaller(
      * Emit a live progress snapshot.
      *
      * **Carries RAW accumulated text, not an extracted primary/thought split.**
-     * `PartialOutputExtractor` — which computes that split — is named Stage-3
-     * freight (ADR-023 §6). The event is still emitted per chunk on purpose: it is
+     * `PartialOutputExtractor` — which computes that split — landed in PR-3
+     * (ADR-023 §6 Stage 3) but is not consumed here yet. The event is still
+     * emitted per chunk on purpose: it is
      * the highest-frequency Kotlin->Swift crossing, and §6 measurement (i)/(ii)
      * measure exactly that boundary at realistic token rates. Dropping it would
      * leave the gate measuring the event boundary at ~3 crossings per turn instead
