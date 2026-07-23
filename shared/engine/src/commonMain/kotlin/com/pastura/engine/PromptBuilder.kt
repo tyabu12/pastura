@@ -7,6 +7,7 @@ import com.pastura.models.Phase
 import com.pastura.models.Scenario
 import com.pastura.models.ScenarioConventions
 import com.pastura.models.SimulationState
+import com.pastura.models.TurnOutput
 
 /**
  * Builds LLM prompts for simulation phases.
@@ -14,31 +15,34 @@ import com.pastura.models.SimulationState
  * Handles template variable expansion, system-prompt construction with persona
  * and scenario context, and conversation-log formatting for prompt injection.
  *
- * ## Scope: the ADR-023 §6 Stage-2 gate slice's *minimal* subset
+ * ## Scope: Stage-3 Wave B — injection family landed, handler rules pending
  *
- * ADR-023 §6 lists `PromptBuilder` as a "hard build-dep — in the slice, or
- * stubbed", i.e. prompt-content fidelity is explicitly **not** what the gate
- * measures; the boundary crossings are. This port is therefore deliberately
- * behaviour-incomplete against Swift, and **must not be read as parity**.
+ * ADR-023 §6 originally listed `PromptBuilder` as a Stage-2 "hard build-dep — in
+ * the slice, or stubbed"; the gate measured boundary crossings, not prompt-content
+ * fidelity. Wave B now closes that gap consumer-by-consumer, so this is **partial
+ * parity**, not full: the reserved-namespace injection family is landed (its first
+ * consumer, `SpeakAllHandler`, calls all of it), but the handler-specific answer
+ * rules and the unwired helper types below are not.
  *
  * What is ported: [expandTemplate], [formatScoreboard], [formatConversationLog],
- * [getMainField], and a [buildSystemPrompt] covering the speak_all path (header,
- * scenario context, persona, secret, base answer rules, output format).
+ * [getMainField]; [buildSystemPrompt] (header, scenario context, persona, secret,
+ * private self-knowledge sections, base answer rules + mood rule, output format);
+ * the injection family ([injectAssigned] / [injectNotes] / [injectWhispers] /
+ * [injectRelationships] / [injectMood]), [captureMood] + `moodRule`, and
+ * `appendPrivateSections`.
  *
- * What is **knowingly absent** — each a *named* unit, tracked on #501 for Stage
- * 3, never a silent drop:
+ * What is **knowingly absent** — each a *named* unit, tracked on #501 for its
+ * Wave-B handler PR, never a silent drop:
  *
  * | Absent | Why |
  * |---|---|
- * | `injectAssigned` / `injectNotes` / `injectWhispers` / `injectRelationships` / `injectMood` | their producer phases (assign / reflect / whisper / relationship_update) are Stage-3 freight |
- * | `captureMood` (#913) + `moodRule` | ditto — no slice phase declares `mood` |
- * | `addressRule` (#911, speak_each) | speak_each is Stage 3 |
- * | `reflectBrevityRule` / `whisperRule` | reflect / whisper are Stage 3 |
- * | choose-options rule / `voteCandidateRule` | choose / vote are Stage 3 |
- * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to Wave B) |
+ * | `addressRule` (#911, speak_each) | speak_each is a later Wave-B handler |
+ * | `reflectBrevityRule` / `whisperRule` | reflect / whisper are later Wave-B handlers |
+ * | choose-options rule / `voteCandidateRule` | choose / vote are later Wave-B handlers |
+ * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to their Wave-B handlers) |
  *
- * A Stage-3 port completes these against the Swift test files, which ADR-023 §6
- * names as the executable spec.
+ * Each remaining unit lands with its handler against the Swift test files, which
+ * ADR-023 §6 names as the executable spec.
  *
  * Swift original: `Pastura/Pastura/Engine/PromptBuilder.swift` (+`Injection`,
  * +`PrivateSections`).
@@ -186,11 +190,8 @@ internal class PromptBuilder {
         scenario: Scenario,
         persona: Persona,
         phase: Phase,
-        @Suppress("UNUSED_PARAMETER") state: SimulationState,
+        state: SimulationState,
     ): String {
-        // `state` is unused HERE but kept for signature parity: Swift threads it
-        // into appendPrivateSections and voteCandidateRule, both Stage-3 units in
-        // the absence table. Do not delete — Stage 3 needs it back.
         val language = scenario.engineLanguage
         val sections = mutableListOf<String>()
 
@@ -208,6 +209,7 @@ internal class PromptBuilder {
         sections += "$personaHeader\n$nameLabel: ${persona.name}\n${persona.description}"
 
         appendSecretSection(sections, persona, language)
+        appendPrivateSections(sections, persona, state, language)
         sections += buildAnswerRules(language, phase)
         formatOutputSchema(OutputSchema.from(phase), language)?.let { sections += it }
 
@@ -263,7 +265,7 @@ internal class PromptBuilder {
         val maxSentences =
             (phase.maxSentences ?: DEFAULT_STATEMENT_MAX_SENTENCES).coerceIn(1, 6)
         val sentenceNoun = if (maxSentences == 1) "sentence" else "sentences"
-        return pickLanguage(
+        var rules = pickLanguage(
             language,
             ja = """
                 ## 回答ルール（厳守）
@@ -286,7 +288,33 @@ internal class PromptBuilder {
                 - Output exactly one object starting with { and ending with }, with no surrounding text.
             """.trimIndent(),
         )
+
+        // Mood-opting phases (#913) get the mood-writing guidance. Gated on the
+        // schema, not the phase type — any LLM phase can declare `mood`.
+        if (phase.outputSchemaKeys.contains("mood")) {
+            rules += moodRule(language)
+        }
+        return rules
     }
+
+    /**
+     * The #913 mood-writing guidance, appended only for phases that opt into a
+     * `mood` output field ([buildAnswerRules] gates on the schema). A short-word
+     * cap plus an explicit "change naturally, don't force-maintain or abruptly
+     * reset" instruction is the primary lever against echo-fixation (the same
+     * mood every turn) and unmotivated slashing (flips unrelated to events). Keep
+     * ja/en scope-parallel; wording is harness-A/B-tunable. The reserved-namespace
+     * inject/capture side lives in [captureMood] / [injectMood].
+     */
+    private fun moodRule(language: String): String =
+        pickLanguage(
+            language,
+            ja = "\n- moodには今の気分を短い言葉で書くこと（例: わくわく、苛立ち、不安）。" +
+                "気分は出来事に応じて自然に変化してよく、無理に維持も急変もしないこと",
+            en = "\n- Write your current mood in the mood field as a short phrase " +
+                "(e.g. excited, irritated, uneasy). Let it shift naturally with what happens — " +
+                "neither forced to stay the same nor snapped to something unrelated.",
+        )
 
     /**
      * The `## 出力フォーマット（JSON）/ ## Output Format (JSON)` block, or `null` for a
@@ -316,5 +344,154 @@ internal class PromptBuilder {
         )
         val examplePrefix = pickLanguage(language, ja = "例", en = "Example")
         return "$header\n{$spec}\n$examplePrefix: {$example}"
+    }
+
+    // MARK: - Reserved-namespace injection (#890 / #907 / #908 / #910 / #913)
+
+    // Each `inject*` reads a per-persona `<prefix>_<name>` key from the caller's
+    // local prompt-variable map and surfaces it to only the current speaker under
+    // a public `{token}`. They mutate [variables] IN PLACE (the local prompt map,
+    // seeded from `state.variables` and discarded after the prompt is built) — NOT
+    // persisted state; this mirrors Swift's `inout [String: String]`. The matching
+    // system-prompt *sections* live in [appendPrivateSections]; the mood answer-rule
+    // in [moodRule]. A missing key resolves to empty string, never a literal
+    // placeholder — the shared miss posture.
+
+    /**
+     * Injects the current speaker's `assign`-phase value under the canonical
+     * `{assigned}` key and its backward-compat alias `{assigned_word}`.
+     *
+     * `AssignHandler` stores each agent's value under `assigned_<name>`; this reads
+     * it back for the speaker so per-persona prompt templates resolve (#890 —
+     * before this `{assigned_word}` leaked literally and Word Wolf's secret-word
+     * mechanic never worked).
+     *
+     * Note: a persona literally named `word` would produce key `assigned_word`,
+     * colliding with this alias — the alias then reflects the current speaker's
+     * value, not that persona's assignment. Contrived and absent from all bundled
+     * presets; the `assigned_` prefix is effectively a reserved namespace.
+     */
+    fun injectAssigned(variables: MutableMap<String, String>, personaName: String) {
+        val mine = variables["assigned_$personaName"] ?: ""
+        variables["assigned"] = mine
+        variables["assigned_word"] = mine
+    }
+
+    /**
+     * Injects the current speaker's `reflect`-phase memo under `{my_notes}`.
+     * `ReflectHandler` stores each agent's private note under `notes_<name>` (#907).
+     */
+    fun injectNotes(variables: MutableMap<String, String>, personaName: String) {
+        variables["my_notes"] = variables["notes_$personaName"] ?: ""
+    }
+
+    /**
+     * Injects the current speaker's `whisper` channel under `{my_whispers}`.
+     * `WhisperHandler` stores each participant's private view of their pair's
+     * exchange under `whispers_<name>` (#908).
+     */
+    fun injectWhispers(variables: MutableMap<String, String>, personaName: String) {
+        variables["my_whispers"] = variables["whispers_$personaName"] ?: ""
+    }
+
+    /**
+     * Injects the current speaker's `relationship_update` affinity summary under
+     * `{relationships}`. `RelationshipUpdateHandler` stores each agent's prose read
+     * on the others under `relationships_<name>` (#910).
+     */
+    fun injectRelationships(variables: MutableMap<String, String>, personaName: String) {
+        variables["relationships"] = variables["relationships_$personaName"] ?: ""
+    }
+
+    /**
+     * Injects the current speaker's carried-over `mood` under `{my_mood}`.
+     *
+     * [captureMood] persists the value under `mood_<name>` (#913); a miss (scenario
+     * never opts in, or round 1 before any mood is set) renders no mood text.
+     * Unlike notes/whispers, an agent never sees another's mood — it is
+     * self-referential emotional inertia, so there is no cross-agent leak surface.
+     */
+    fun injectMood(variables: MutableMap<String, String>, personaName: String) {
+        variables["my_mood"] = variables["mood_$personaName"] ?: ""
+    }
+
+    /**
+     * Persists a turn's `mood` output field under the reserved per-persona key
+     * `mood_<name>` so it carries into the same agent's next prompt (#913).
+     *
+     * Writes only a **non-empty** mood: a failed/empty inference must not erase the
+     * prior turn's mood (the same non-empty guard `ReflectHandler` applies to its
+     * note); last-write-wins. A phase whose schema does not declare `mood` never
+     * produces the key, so this is a no-op there — called from every LLM handler
+     * for symmetry.
+     *
+     * Mutates [variables] IN PLACE. The handler threads the **persisted**
+     * `state.variables` here (via a copy folded into its success-path
+     * `state.copy`), NOT the local prompt map used by the `inject*` family — that
+     * map is discarded after the prompt is built, so a capture into it would be
+     * lost. Mirrors Swift's `inout &state.variables`.
+     */
+    fun captureMood(output: TurnOutput, variables: MutableMap<String, String>, personaName: String) {
+        val mood = output.fields["mood"] ?: ""
+        if (mood.isNotEmpty()) {
+            variables["mood_$personaName"] = mood
+        }
+    }
+
+    /**
+     * Appends each agent's private self-knowledge sections to [sections]: the
+     * reflect note (`notes_<name>`, #907), the whisper channel (`whispers_<name>`,
+     * #908), the relationship read (`relationships_<name>`, #910), and — placed
+     * LAST for recency and surfaced in EVERY phase so the inertia survives an
+     * intervening vote/choose — the carried-over mood (`mood_<name>`, #913).
+     *
+     * Each is derived only for that agent and never enters the conversation log,
+     * so every header stresses its privacy. An absent or empty value renders no
+     * section (no empty header). Reads the **persisted** `state.variables`
+     * directly — independent of the `inject*` local prompt map.
+     */
+    private fun appendPrivateSections(
+        sections: MutableList<String>,
+        persona: Persona,
+        state: SimulationState,
+        language: String,
+    ) {
+        state.variables["notes_${persona.name}"]?.takeIf { it.isNotEmpty() }?.let { note ->
+            val header = pickLanguage(
+                language,
+                ja = "## あなたの内心メモ（他の参加者には見えません）",
+                en = "## Your Private Notes (invisible to other participants)",
+            )
+            sections += "$header\n$note"
+        }
+
+        state.variables["whispers_${persona.name}"]?.takeIf { it.isNotEmpty() }?.let { whispers ->
+            val header = pickLanguage(
+                language,
+                ja = "## あなたの密談（密談相手以外には見えません）",
+                en = "## Your Private Whispers (invisible to everyone except your whisper partner)",
+            )
+            sections += "$header\n$whispers"
+        }
+
+        state.variables["relationships_${persona.name}"]?.takeIf { it.isNotEmpty() }?.let { relationships ->
+            val header = pickLanguage(
+                language,
+                ja = "## あなたの人間関係（他の参加者には見えません）",
+                en = "## Your Read on the Others (invisible to other participants)",
+            )
+            sections += "$header\n$relationships"
+        }
+
+        // Mood placed LAST (#913): nearest the answer rules for recency, and shown
+        // in EVERY phase (not just declaring ones) so the inertia survives.
+        state.variables["mood_${persona.name}"]?.takeIf { it.isNotEmpty() }?.let { mood ->
+            val header = pickLanguage(
+                language,
+                ja = "## あなたの今の気分",
+                en = "## Your Current Mood",
+            )
+            sections += "$header\n$mood"
+        }
     }
 }

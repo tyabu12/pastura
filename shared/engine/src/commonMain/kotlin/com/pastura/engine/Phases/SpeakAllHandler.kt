@@ -17,13 +17,16 @@ import com.pastura.models.SimulationState
  * cleared — while the remaining agents still speak. Systemic errors, cancellation,
  * and the D4 circuit breaker propagate and abort the run (see [TurnFailureGate]).
  *
- * ## Still absent — later Wave-B / Stage-3 freight
+ * ## Prompt-injection parity (Wave B)
  *
- * Per [PromptBuilder]'s absence table the `inject*` family (assigned / notes /
- * whispers / relationships / mood) and `captureMood` are not called here yet. Those
- * land with their consumers in later Wave-B PRs and are orthogonal to the
- * turn-gate behavior restored here. The `detector` / `logger` seams ARE wired now
- * (B0b) — the handler threads them from [PhaseContext] into [LLMCaller].
+ * The reserved-namespace `inject*` family (assigned / notes / whispers /
+ * relationships / mood) and [PromptBuilder.captureMood] ARE now wired here — this
+ * handler is the first consumer of the Wave-B injection infrastructure. It calls
+ * all five injectors on the local prompt map (a miss resolves to `""`, so a scenario
+ * whose producer phases never ran is unaffected) and folds `captureMood` into its
+ * success-path state, a no-op unless the phase declares a `mood` output field. The
+ * `detector` / `logger` seams were wired earlier (B0b) — the handler threads them
+ * from [PhaseContext] into [LLMCaller].
  *
  * Swift original: `Pastura/Pastura/Engine/Phases/SpeakAllHandler.swift`.
  */
@@ -78,6 +81,9 @@ internal class SpeakAllHandler : PhaseHandler {
             state = state,
         )
 
+        // Local prompt-variable map (thrown away after the prompt is built). The
+        // `inject*` family mutates it in place to surface each reserved-namespace
+        // `{token}` to only this speaker; none of this touches persisted state.
         val variables = state.variables.toMutableMap()
         variables["scoreboard"] = promptBuilder.formatScoreboard(state.scores)
         variables["conversation_log"] = promptBuilder.formatConversationLog(
@@ -85,6 +91,11 @@ internal class SpeakAllHandler : PhaseHandler {
             language = context.scenario.engineLanguage,
             window = context.scenario.logWindow,
         )
+        promptBuilder.injectAssigned(variables, persona.name)
+        promptBuilder.injectNotes(variables, persona.name)
+        promptBuilder.injectWhispers(variables, persona.name)
+        promptBuilder.injectRelationships(variables, persona.name)
+        promptBuilder.injectMood(variables, persona.name)
         val userPrompt = promptBuilder.expandTemplate(promptTemplate, variables)
 
         val output = context.turnGate.attempt(
@@ -121,7 +132,15 @@ internal class SpeakAllHandler : PhaseHandler {
 
         val mainField = promptBuilder.getMainField(context.phase)
         val content = output.fields[mainField] ?: ""
+        // captureMood (#913) folds into the PERSISTED `state.variables` (a fresh
+        // copy), NOT the local prompt map above — and only here on the success
+        // path, never on the skip-path copy. Mirrors Swift's
+        // `captureMood(from: output, into: &state.variables, ...)` after the
+        // conversation-log / lastOutputs writes.
+        val nextVariables = state.variables.toMutableMap()
+        promptBuilder.captureMood(output, nextVariables, persona.name)
         return state.copy(
+            variables = nextVariables,
             conversationLog = state.conversationLog + ConversationEntry(
                 agentName = persona.name,
                 content = content,
