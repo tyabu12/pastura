@@ -60,6 +60,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheVoteHandler() {
+        assertIs<VoteHandler>(dispatcher.handler(PhaseType.VOTE))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -67,20 +72,20 @@ class PhaseDispatcherTests {
 
     @Test
     fun throwsForAPhaseTypeThisSliceHasNotPorted() {
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.VOTE) }
+        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.WHISPER) }
         assertIs<SimulationError.ScenarioValidationFailed>(error.error)
     }
 
     @Test
     fun theErrorNamesThePhaseUsingItsWireNameNotItsKotlinCaseName() {
-        // `vote`, not `VOTE` — Swift interpolates `phaseType.rawValue`, and a
+        // `whisper`, not `WHISPER` — Swift interpolates `phaseType.rawValue`, and a
         // reader comparing the two engines' errors should see the same token. Uses
-        // an unported type (VOTE stays a B1–B6 LLM handler through CP2) so this
-        // still exercises the throw path now that SCORE_CALC resolves.
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.VOTE) }
+        // a still-unported type (WHISPER is a later Wave-B handler) so this still
+        // exercises the throw path now that VOTE resolves.
+        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.WHISPER) }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
-        assertTrue(message.contains("vote"), "expected the wire name, got: $message")
-        assertTrue(!message.contains("VOTE"), "the Kotlin case name must not leak: $message")
+        assertTrue(message.contains("whisper"), "expected the wire name, got: $message")
+        assertTrue(!message.contains("WHISPER"), "the Kotlin case name must not leak: $message")
     }
 
     @Test
@@ -91,9 +96,10 @@ class PhaseDispatcherTests {
             it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE &&
                 it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
                 it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
-                it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT
+                it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT &&
+                it != PhaseType.VOTE
         }
-        assertEquals(6, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(5, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
