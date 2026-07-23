@@ -22,11 +22,13 @@ nonisolated enum PresetLoader {
     "word_wolf",
     "target_score_race",
     "last_fable",
+    "souzoku_kaigi",
     "prisoners_dilemma_en",
     "bokete_en",
     "word_wolf_en",
     "target_score_race_en",
-    "last_fable_en"
+    "last_fable_en",
+    "souzoku_kaigi_en"
   ]
 
   /// Loads all bundled presets into the repository if they don't already exist.

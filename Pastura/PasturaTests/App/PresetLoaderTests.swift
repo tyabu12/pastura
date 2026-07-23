@@ -15,10 +15,10 @@ struct PresetLoaderTests {
     )
 
     let all = try repo.fetchAllSummaries()
-    #expect(all.count == 10)
+    #expect(all.count == 12)
 
     let presets = try repo.fetchPresets()
-    #expect(presets.count == 10)
+    #expect(presets.count == 12)
 
     let ids = Set(presets.map(\.id))
     // JA siblings (Phase 1 baseline, retained)
@@ -27,12 +27,14 @@ struct PresetLoaderTests {
     #expect(ids.contains("word_wolf"))
     #expect(ids.contains("target_score_race"))
     #expect(ids.contains("last_fable"))
+    #expect(ids.contains("souzoku_kaigi"))
     // EN siblings (Step D, ADR-010 D3 sibling-files layout)
     #expect(ids.contains("prisoners_dilemma_en"))
     #expect(ids.contains("bokete_en"))
     #expect(ids.contains("word_wolf_en"))
     #expect(ids.contains("target_score_race_en"))
     #expect(ids.contains("last_fable_en"))
+    #expect(ids.contains("souzoku_kaigi_en"))
   }
 
   @Test func loadPresetsSkipsExistingRecords() throws {
@@ -55,7 +57,7 @@ struct PresetLoaderTests {
     let second = try repo.fetchById("prisoners_dilemma")
 
     #expect(second?.createdAt == firstDate)
-    #expect(try repo.fetchAllSummaries().count == 10)
+    #expect(try repo.fetchAllSummaries().count == 12)
   }
 
   /// ADR-010 D4: per-language sibling presets share a canonical
@@ -78,6 +80,7 @@ struct PresetLoaderTests {
     #expect(try repo.fetchById("prisoners_dilemma")?.sourceId == "prisoners_dilemma")
     #expect(try repo.fetchById("target_score_race")?.sourceId == "target_score_race")
     #expect(try repo.fetchById("last_fable")?.sourceId == "last_fable")
+    #expect(try repo.fetchById("souzoku_kaigi")?.sourceId == "souzoku_kaigi")
 
     // EN siblings: `_en` suffix stripped to match the JA canonical id.
     #expect(try repo.fetchById("word_wolf_en")?.sourceId == "word_wolf")
@@ -85,6 +88,7 @@ struct PresetLoaderTests {
     #expect(try repo.fetchById("prisoners_dilemma_en")?.sourceId == "prisoners_dilemma")
     #expect(try repo.fetchById("target_score_race_en")?.sourceId == "target_score_race")
     #expect(try repo.fetchById("last_fable_en")?.sourceId == "last_fable")
+    #expect(try repo.fetchById("souzoku_kaigi_en")?.sourceId == "souzoku_kaigi")
   }
 
   /// ADR-010 D6 denormalization: `PresetLoader` writes each preset's
@@ -102,9 +106,11 @@ struct PresetLoaderTests {
     #expect(try repo.fetchById("word_wolf")?.language == "ja")
     #expect(try repo.fetchById("prisoners_dilemma")?.language == "ja")
     #expect(try repo.fetchById("last_fable")?.language == "ja")
+    #expect(try repo.fetchById("souzoku_kaigi")?.language == "ja")
     #expect(try repo.fetchById("word_wolf_en")?.language == "en")
     #expect(try repo.fetchById("prisoners_dilemma_en")?.language == "en")
     #expect(try repo.fetchById("last_fable_en")?.language == "en")
+    #expect(try repo.fetchById("souzoku_kaigi_en")?.language == "en")
     // Every bundled preset carries a non-nil language column.
     #expect(try repo.fetchAllSummaries().allSatisfy { $0.language != nil })
   }
@@ -124,7 +130,8 @@ struct PresetLoaderTests {
     )
 
     for canonical in [
-      "word_wolf", "bokete", "prisoners_dilemma", "target_score_race", "last_fable"
+      "word_wolf", "bokete", "prisoners_dilemma", "target_score_race", "last_fable",
+      "souzoku_kaigi"
     ] {
       let ja = try repo.fetchById(canonical)
       let en = try repo.fetchById("\(canonical)_en")
@@ -293,5 +300,38 @@ struct PresetLoaderTests {
         "\(fileName).yaml speak_all max_sentences drifted from 6 (got \(speakAll.maxSentences.map(String.init) ?? "nil")) — see #881 Stage 3"
       )
     }
+  }
+
+  /// `souzoku_kaigi` is the first bundled preset to use the `Persona.secret`
+  /// field (#1149 / PR #1141). ja/en parity for `secret:` presence is
+  /// otherwise only code-review-gated — `presets.md` § "ja/en parity" mandates
+  /// structural sync, but the fixture suites key on ids / schema shape /
+  /// placeholder tokens, not `secret:` presence — so a future edit dropping a
+  /// secret from one sibling would slip past every automated gate. A failure
+  /// here is NOT a bug: confirm the change was intended, then update.
+  /// (`view-testing.md` § change-detector tripwire.)
+  @Test func souzokuKaigiSiblingsPinSecretParity() throws {
+    let loader = ScenarioLoader()
+    let bundle = Bundle(for: DatabaseManager.self)
+
+    var personaCounts: [String: Int] = [:]
+    for fileName in ["souzoku_kaigi", "souzoku_kaigi_en"] {
+      guard let url = bundle.url(forResource: fileName, withExtension: "yaml") else {
+        Issue.record("Missing preset: \(fileName).yaml")
+        continue
+      }
+      let yaml = try String(contentsOf: url, encoding: .utf8)
+      let scenario = try loader.load(yaml: yaml)
+      personaCounts[fileName] = scenario.personas.count
+      #expect(scenario.personas.count == 5, "\(fileName).yaml expected 5 personas")
+      for persona in scenario.personas {
+        #expect(
+          persona.secret?.isEmpty == false,
+          "\(fileName).yaml persona \(persona.name) missing secret — ja/en secret parity (#1149)"
+        )
+      }
+    }
+    // Structural parity: both siblings carry the same persona count.
+    #expect(personaCounts["souzoku_kaigi"] == personaCounts["souzoku_kaigi_en"])
   }
 }
