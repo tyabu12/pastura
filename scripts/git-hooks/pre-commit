@@ -97,3 +97,8 @@ bash ./scripts/outputschema-serialization-precommit-gate.sh
 # Engine/** or LLM/** Swift file, the ledger, or the checker; fails-fast inside.
 # Mirrors the CI adr023-port-coverage job locally.
 bash ./scripts/adr023-port-coverage-precommit-gate.sh
+
+# 11. KMP status-board drift gate (#1231) — self-gates on the status board, the
+# ADR-023 port ledger, a ported handler .kt, or the checker; fails-fast inside.
+# Mirrors the CI shell-tests "KMP status board drift check" step locally.
+bash ./scripts/kmp-status-precommit-gate.sh
