@@ -100,6 +100,11 @@ docs/design/screenshots/*.png
 # Never committed (large binaries; regenerated per submission).
 docs/store/screenshots/
 
+# Zenn-article inference screenshots — generated on demand by
+# scripts/marketing-shots.sh (see docs/marketing/launch-transcripts.md).
+# Never committed (derived binaries; the verbatim transcripts are the record).
+docs/marketing/screenshots/
+
 # Design-review motion captures — generated on demand by
 # scripts/motion-capture.sh (see docs/design/motion/README.md). Only the
 # README is tracked.
