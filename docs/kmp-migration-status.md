@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-07-23._
+_Last updated: 2026-07-24._
 
 ## Stages
 
@@ -43,7 +43,7 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 |---|:--:|---|
 | Models mirror | ✅ done | #1193 #1196 #1202 |
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
-| Wave B — 14 phase handlers | 🔄 10/14 | checklist ↓ |
+| Wave B — 14 phase handlers | 🔄 11/14 | checklist ↓ |
 | code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
 
 ### Wave B handler checklist
@@ -57,7 +57,7 @@ machine-checked — see the maintenance invariant above.
 - [x] EliminateHandler — #1226
 - [x] SpeakAllHandler — #1222
 - [x] SummarizeHandler — #1226
-- [ ] ChooseHandler
+- [x] ChooseHandler — #1262
 - [ ] ConditionalHandler
 - [x] EventInjectHandler — #1230
 - [ ] NarrateHandler
