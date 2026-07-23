@@ -34,8 +34,7 @@ const t = isJa
       titleSuffix: '｜Pastura',
       intro: 'このシナリオは Pastura の「みんなのシナリオ」の一つです。',
       openInApp: 'Pastura で開く',
-      badgeAria: 'Pastura を App Store で、近日公開',
-      badgeStatus: '近日公開',
+      badgeAria: 'Pastura を App Store で',
       badgeImg: '/img/app-store-badge-ja.svg',
       meta: `${scenario.agent_count}エージェント · ${scenario.rounds}ラウンド`,
       skip: '本文へスキップ',
@@ -53,8 +52,7 @@ const t = isJa
       titleSuffix: ' · Pastura',
       intro: 'This scenario is one of Pastura’s Shared Scenarios.',
       openInApp: 'Open in Pastura',
-      badgeAria: 'Pastura on the App Store — coming soon',
-      badgeStatus: 'Coming soon',
+      badgeAria: 'Pastura on the App Store',
       badgeImg: '/img/app-store-badge-en.svg',
       meta: `${scenario.agent_count} agents · ${scenario.rounds} rounds`,
       skip: 'Skip to content',
@@ -106,10 +104,9 @@ const t = isJa
         </p>
 
         <div class="badges">
-          <button type="button" aria-disabled="true" class="appstore-cta" aria-label={t.badgeAria}>
+          <a href="https://apps.apple.com/app/pastura-local-llms-simulator/id6788409688" target="_blank" rel="noopener" class="appstore-cta" aria-label={t.badgeAria}>
             <img class="appstore-img" src={t.badgeImg} alt="" aria-hidden="true" width="120" height="40" />
-            <span class="appstore-status">{t.badgeStatus}</span>
-          </button>
+          </a>
         </div>
       </div>
     </main>
