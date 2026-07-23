@@ -44,6 +44,7 @@ struct ShareCaptionItemSourceTests {
   @Test("The X variant differs from the base by the hashtag suffix and nothing else")
   func xVariantOnlyAppends() {
     let source = ShareCaptionItemSource(baseCaption: Self.base)
+    #expect(ShareCaptionItemSource.xActivityTypes.isEmpty == false)
     for rawValue in ShareCaptionItemSource.xActivityTypes {
       let caption = source.caption(for: UIActivity.ActivityType(rawValue))
       // Guards the #1082 invariant on the new branch: the caption carries the

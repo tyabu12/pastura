@@ -33,6 +33,7 @@ struct HighlightShareItemTests {
     // duplicated in the text, and the X branch must not reintroduce it.
     let source = try #require(item.activityItems[1] as? ShareCaptionItemSource)
     #expect(source.caption(for: nil).contains("pastura.app") == false)
+    #expect(ShareCaptionItemSource.xActivityTypes.isEmpty == false)
     for rawValue in ShareCaptionItemSource.xActivityTypes {
       #expect(
         source.caption(for: UIActivity.ActivityType(rawValue)).contains("pastura.app") == false)

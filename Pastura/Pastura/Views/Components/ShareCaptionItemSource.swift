@@ -34,8 +34,10 @@ import UIKit
 /// the executor precondition the first time UIKit called it off-main, with no
 /// diagnostic — the silent shape `.claude/rules/swift-isolation.md` Pattern 6
 /// describes. Nothing is given up by dropping the isolation: every stored
-/// member is an immutable `Sendable` constant.
-nonisolated final class ShareCaptionItemSource: NSObject, UIActivityItemSource {
+/// member is an immutable `Sendable` constant. The `Sendable` conformance
+/// makes that last sentence compiler-checked rather than a promise in prose —
+/// adding a `var` breaks the build instead of quietly re-opening the race.
+nonisolated final class ShareCaptionItemSource: NSObject, UIActivityItemSource, Sendable {
 
   private static let logger = Logger(
     subsystem: "app.pastura.Pastura", category: "ShareCaption")
