@@ -40,6 +40,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheRelationshipUpdateHandler() {
+        assertIs<RelationshipUpdateHandler>(dispatcher.handler(PhaseType.RELATIONSHIP_UPDATE))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -67,9 +72,10 @@ class PhaseDispatcherTests {
         // PhaseType added to Models cannot silently reach dispatch unhandled.
         val unported = PhaseType.entries.filter {
             it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE &&
-                it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN
+                it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
+                it != PhaseType.RELATIONSHIP_UPDATE
         }
-        assertEquals(10, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(9, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
