@@ -130,9 +130,13 @@ character earns no slot even with decent numbers. Each model also costs
 ## Recording outcomes
 
 - **Pass (through Gate 2)** → the registration PR above.
-- **No-go / reject (either gate)** → record the candidate and its failure mode
-  following ADR-011 § "Alternatives considered" (the Candidate A–F table
-  pattern). Comment on the intake queue, **issue #979**
-  ("model candidates — rolling intake for the validation pipeline"), and — if the
-  candidate is a 6 GB-tier one ADR-011 already tracks — amend its candidate
-  table in the same `/orchestrate` PR.
+- **No-go / reject (either gate)** → record the verdict + failure mode. Three
+  committed surfaces, by role:
+  - **[`eval-log.md`](eval-log.md)** — the durable verdict ledger; the home for
+    every candidate **except** the 6 GB-tier/1B-class ones ADR-011 tracks
+    (e.g. a full-tier 3B like Sarashina). Judgment only — raw scores stay in the
+    gitignored `data/models/eval-digest.md`.
+  - **ADR-011 § "Alternatives considered"** (Candidate A–F table) — the home for
+    the **6 GB-tier/1B-class** candidates it tracks; amend its table in the same
+    `/orchestrate` PR when the candidate is one of those.
+  - **issue #979** — the rolling intake queue; drop a comment there either way.
