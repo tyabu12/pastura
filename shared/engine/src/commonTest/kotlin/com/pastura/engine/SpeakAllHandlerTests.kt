@@ -169,6 +169,45 @@ class SpeakAllHandlerTests {
         }
     }
 
+    // MARK: - Prompt injection parity (Wave B — captureMood round-trip)
+
+    @Test
+    fun capturedMoodSurfacesInTheNextTurnsPrompt() = runTest {
+        // THE Kotlin-divergent path. Swift threads mood forward via
+        // `inout &state.variables`; Kotlin must fold captureMood into the
+        // success-path `state.copy`, else turn N's mood never reaches turn N+1.
+        // Neither Swift's nor the base Kotlin handler suite asserted this
+        // round-trip, so it is pinned here (critic action, #501). Revert the
+        // `captureMood` fold in SpeakAllHandler and this goes red.
+        val moodPhase = Phase(
+            type = PhaseType.SPEAK_ALL,
+            prompt = "Speak.",
+            outputSchema = mapOf("statement" to "string", "mood" to "string"),
+        )
+        val s = scenario(agents = listOf("Alice")).copy(phases = listOf(moodPhase))
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script.completing("""{"statement": "hi", "mood": "わくわく"}"""),
+                ScriptedLLMBackend.Script.completing("""{"statement": "again", "mood": "落ち着き"}"""),
+            ),
+        )
+        val ctx = context(s, backend)
+
+        val afterTurn1 = handler.execute(ctx, SimulationState.initial(s))
+        assertEquals(
+            "わくわく",
+            afterTurn1.variables["mood_Alice"],
+            "captureMood must fold the non-empty mood into the returned state",
+        )
+
+        handler.execute(ctx, afterTurn1)
+        assertTrue(
+            backend.requests[1].system.contains("わくわく"),
+            "turn N's captured mood must surface in turn N+1's system prompt",
+        )
+        assertTrue(backend.requests[1].system.contains("Your Current Mood"))
+    }
+
     // MARK: - Prompt wiring
 
     @Test
