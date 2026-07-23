@@ -21,11 +21,11 @@ import kotlin.test.assertTrue
  * Unlike [PromptBuilderTests] (which disclaims parity for the still-incomplete
  * base slice), these DO assert parity: their landed units are the full Swift
  * behaviour. Deliberately **out of scope** here — deferred to their own Wave-B
- * handler PRs, so their guidance is not yet ported: `whisperRule`, `addressRule`,
- * and the choose-options rule. The `mood`, `reflect`-brevity, and vote-candidate
- * answer-rules ARE asserted, because `moodRule`, `reflectBrevityRule`, and
- * `voteCandidateRule` land with this infrastructure / the ReflectHandler /
- * VoteHandler PRs.
+ * handler PRs, so their guidance is not yet ported: `addressRule` and the
+ * choose-options rule. The `mood`, `reflect`-brevity, vote-candidate, and
+ * `whisper` answer-rules ARE asserted, because `moodRule`, `reflectBrevityRule`,
+ * `voteCandidateRule`, and `whisperRule` land with this infrastructure / the
+ * ReflectHandler / VoteHandler / WhisperHandler PRs.
  *
  * Split into its own file per the commonTest concern-per-file convention
  * (cf. [PromptBuilderParityTests]); these are pure, stateless `PromptBuilder`
@@ -237,6 +237,33 @@ class PromptBuilderInjectionTests {
         val prompt = builder.buildSystemPrompt(s, alice, whisperPhase, state)
         assertTrue(prompt.contains("Your Private Whispers"))
         assertTrue(prompt.contains("SENTINEL_AB"))
+    }
+
+    // MARK: - Whisper privacy answer-rule (whisper phases only, #908)
+
+    @Test
+    fun whisperRuleAppendedForWhisperPhaseJa() {
+        val s = scenario()
+        val prompt = builder.buildSystemPrompt(s, alice, whisperPhase, stateOf(s))
+        assertTrue(prompt.contains("これは密談相手ひとりだけへの秘密の耳打ち"))
+    }
+
+    @Test
+    fun whisperRuleAppendedForWhisperPhaseEn() {
+        val s = scenario(language = "en")
+        val prompt = builder.buildSystemPrompt(s, alice, whisperPhase, stateOf(s))
+        assertTrue(prompt.contains("This is a private whisper to your one partner only"))
+    }
+
+    @Test
+    fun whisperRuleOmittedForNonWhisperPhase() {
+        // A non-whisper phase (speak_all) never gets the whisper privacy rule, even
+        // though it shares the same base answer-rule block.
+        val s = scenario()
+        assertFalse(
+            builder.buildSystemPrompt(s, alice, speakAll, stateOf(s))
+                .contains("これは密談相手ひとりだけへの秘密の耳打ち"),
+        )
     }
 
     // MARK: - System-prompt private-relationships section (#910)

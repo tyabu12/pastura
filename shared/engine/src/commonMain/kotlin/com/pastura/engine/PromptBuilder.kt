@@ -30,7 +30,7 @@ import com.pastura.models.TurnOutput
  * private self-knowledge sections, base answer rules + mood rule + vote-candidate
  * rule, output format); the injection family ([injectAssigned] / [injectNotes] /
  * [injectWhispers] / [injectRelationships] / [injectMood]), [captureMood] +
- * `moodRule` + `reflectBrevityRule` + `voteCandidateRule`, and
+ * `moodRule` + `reflectBrevityRule` + `voteCandidateRule` + `whisperRule`, and
  * `appendPrivateSections`.
  *
  * What is **knowingly absent** — each a *named* unit, tracked on #501 for its
@@ -39,7 +39,6 @@ import com.pastura.models.TurnOutput
  * | Absent | Why |
  * |---|---|
  * | `addressRule` (#911, speak_each) | speak_each is a later Wave-B handler |
- * | `whisperRule` | whisper is a later Wave-B handler |
  * | choose-options rule | choose is a later Wave-B handler |
  * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to their Wave-B handlers) |
  *
@@ -308,6 +307,13 @@ internal class PromptBuilder {
             rules += reflectBrevityRule(language)
         }
 
+        // Whisper turns get partner-directed privacy guidance (see [whisperRule]).
+        // Type-gated like reflect. Placed here to match Swift's rule order
+        // (PromptBuilder.swift: whisper precedes the choose/vote slots).
+        if (phase.type == PhaseType.WHISPER) {
+            rules += whisperRule(language)
+        }
+
         // Vote phases get the candidate-list constraint (see [voteCandidateRule]).
         // Placed BEFORE the mood gate to match Swift's rule order
         // (PromptBuilder.swift:220 precedes :226): the injection tests assert rule
@@ -369,6 +375,22 @@ internal class PromptBuilder {
             language,
             ja = "\n- メモ（note）は2文以内で簡潔に書くこと（長文・箇条書きの羅列は禁止）",
             en = "\n- Keep your note to at most 2 sentences (no long paragraphs or bullet lists).",
+        )
+
+    /**
+     * The #908 privacy guidance appended for `whisper` phases only ([buildAnswerRules]
+     * gates on `phase.type == WHISPER`). A whisper is a secret one-to-one exchange:
+     * nobody except the partner can hear it, so the agent should address the partner
+     * directly, stay candid/strategic, and keep it conversational. Keep ja/en
+     * scope-parallel when editing.
+     */
+    private fun whisperRule(language: String): String =
+        pickLanguage(
+            language,
+            ja = "\n- これは密談相手ひとりだけへの秘密の耳打ちです（他の参加者には聞こえません）。" +
+                "相手に直接呼びかけ、本音で戦略的に、短い会話として話すこと",
+            en = "\n- This is a private whisper to your one partner only (no one else can hear). " +
+                "Address them directly, be candid and strategic, and keep it conversational.",
         )
 
     /**

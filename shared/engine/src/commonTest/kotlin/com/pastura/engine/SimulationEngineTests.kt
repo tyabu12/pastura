@@ -249,15 +249,15 @@ class SimulationEngineTests {
     @Test
     fun anUnportedPhaseTypeSurfacesAsAValidationError() = runBlockingTest {
         // A Stage-3 gap must read as a gap at runtime, not as a crash. Uses a
-        // still-unported type (WHISPER is a later Wave-B handler) — VOTE now resolves.
-        val s = scenario().copy(phases = listOf(Phase(type = PhaseType.WHISPER, prompt = "Whisper.")))
+        // still-unported type (CHOOSE is a later Wave-B handler) — WHISPER now resolves.
+        val s = scenario().copy(phases = listOf(Phase(type = PhaseType.CHOOSE, prompt = "Choose.")))
         val c = Collector()
         SimulationEngine().run(s, ScriptedLLMBackend(emptyList())) { c.record(it) }
         awaitTerminal(c)
 
         val error = assertIs<SimulationEvent.ErrorEvent>(c.snapshot().last())
         val failed = assertIs<SimulationError.ScenarioValidationFailed>(error.error)
-        assertTrue(failed.message.contains("whisper"))
+        assertTrue(failed.message.contains("choose"))
     }
 
     // MARK: - §5.1 pause / resume
