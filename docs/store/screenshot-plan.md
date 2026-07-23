@@ -51,6 +51,31 @@ per locale with `-AppleLanguages`/`-AppleLocale`, and switches tabs by
 walk resolves. Attachments are named `{locale}-NN-screen`; the script routes by
 the `{locale}-` prefix.
 
+### Seeded content is per-locale
+
+Localized UI chrome is not enough — the *seeded data* has to match the locale,
+or a ja capture shows Japanese chrome around English content. Two independent
+seams carry this, and both must be checked when adding a shot:
+
+| Surface | Seam | ja | en |
+|---|---|---|---|
+| Shot 01 transcript | `StoreScreenshotTests.StoreLocale.resultSeedArgument` → `PasturaApp.resultSeedFixture()` | `--ui-test-seed-results-wordwolf` (verbatim Japanese run) | `--ui-test-seed-results` (Alice / Bob) |
+| Shots 02 / 05 row copy | `StubScenarioSeeder` + `StubScenarioSeeder+Localized.swift`, selected by `LocaleResolver.deviceDefault()` | Japanese names + descriptions | English |
+
+The row-copy seam deliberately reads the **device locale** rather than taking a
+launch argument of its own: the capture already passes `-AppleLanguages`, and a
+second switch that has to agree with it silently produces mismatched captures
+when it doesn't. Ids, `agents`, `rounds`, and phase shape are identical across
+languages, so accessibility anchors and round-count invariants are
+language-independent.
+
+The ja transcript is **Word Wolf**, not the prisoners fixture: its statement →
+two votes → tally → verdict fills the 6.9″ frame, where prisoners leaves the
+lower ~40% blank. Its vote turns carry `reason` rather than `inner_thought`, and
+`ScenarioConventions.thoughtField(for: .vote)` maps `reason` to the ▸ THINKING
+section — so the shot-01 inner-voice caption holds for both locales, by
+different fields.
+
 ### Why not `scripts/ui-tour.sh`
 
 `ui-tour.sh` is the **design-review** tour, reused conceptually but not directly:
@@ -96,8 +121,14 @@ matched to a scenario's phases — brittle and out of scope for 1.0.
 
 ## Harness additions this pipeline relies on (all DEBUG-only)
 
-- `StubResultSeeder` seeds `inner_thought` on the fixture turns → the transcript
-  renders speech **and** inner-voice bubbles.
+- `StubResultSeeder` seeds a **thought field** on the fixture turns → the
+  transcript renders speech **and** inner-voice bubbles. Which field is the
+  thought depends on the phase (`ScenarioConventions.thoughtField(for:)`):
+  `inner_thought` for `speak_all` / `speak_each` / `choose` / `whisper` (the en
+  Alice/Bob fixture), `reason` for `vote` (the ja Word Wolf fixture). Do **not**
+  add `inner_thought` to the marketing fixtures to "fix" this — they are
+  verbatim transcripts of real runs, and inventing a field would be fabrication
+  (see the same note in `StubResultSeeder.makePrisonersFixture`).
 - `--ui-test-open-scoreboard` (in `PasturaApp.swift`, entirely `#if DEBUG`)
   presents `ScoreboardSheet` with fixed sample data so the scoreboard —
   otherwise reachable only from a completed live run — is capturable.
