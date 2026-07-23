@@ -419,8 +419,9 @@ jobs:
           # ScreenshotTourTests is a review-only capture tour (scripts/
           # ui-tour.sh), not a gate — skipped here so it never burns CI
           # minutes or inherits UI-test infra flakes. StoreScreenshotTests
-          # (scripts/store-shots.sh) is the same class of local-only,
-          # 6.9"-pinned capture and is skipped for the same reason.
+          # (scripts/store-shots.sh) and MarketingShotTests
+          # (scripts/marketing-shots.sh) are the same class of local-only,
+          # 6.9"-pinned capture and are skipped for the same reason.
           # -parallel-testing-enabled NO serializes onto the single pre-booted
           # simulator instead of spawning per-suite clones. lint-and-test
           # already does this (#189 OOM mitigation); the UI job kept clones
@@ -446,6 +447,7 @@ jobs:
             -only-testing PasturaUITests \
             -skip-testing PasturaUITests/ScreenshotTourTests \
             -skip-testing PasturaUITests/StoreScreenshotTests \
+            -skip-testing PasturaUITests/MarketingShotTests \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure \
             -test-iterations 2 \
