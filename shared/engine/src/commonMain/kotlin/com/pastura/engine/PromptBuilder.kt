@@ -27,10 +27,11 @@ import com.pastura.models.TurnOutput
  *
  * What is ported: [expandTemplate], [formatScoreboard], [formatConversationLog],
  * [getMainField]; [buildSystemPrompt] (header, scenario context, persona, secret,
- * private self-knowledge sections, base answer rules + mood rule, output format);
- * the injection family ([injectAssigned] / [injectNotes] / [injectWhispers] /
- * [injectRelationships] / [injectMood]), [captureMood] + `moodRule` +
- * `reflectBrevityRule`, and `appendPrivateSections`.
+ * private self-knowledge sections, base answer rules + mood rule + vote-candidate
+ * rule, output format); the injection family ([injectAssigned] / [injectNotes] /
+ * [injectWhispers] / [injectRelationships] / [injectMood]), [captureMood] +
+ * `moodRule` + `reflectBrevityRule` + `voteCandidateRule`, and
+ * `appendPrivateSections`.
  *
  * What is **knowingly absent** — each a *named* unit, tracked on #501 for its
  * Wave-B handler PR, never a silent drop:
@@ -39,7 +40,7 @@ import com.pastura.models.TurnOutput
  * |---|---|
  * | `addressRule` (#911, speak_each) | speak_each is a later Wave-B handler |
  * | `whisperRule` | whisper is a later Wave-B handler |
- * | choose-options rule / `voteCandidateRule` | choose / vote are later Wave-B handlers |
+ * | choose-options rule | choose is a later Wave-B handler |
  * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to their Wave-B handlers) |
  *
  * Each remaining unit lands with its handler against the Swift test files, which
@@ -211,7 +212,7 @@ internal class PromptBuilder {
 
         appendSecretSection(sections, persona, language)
         appendPrivateSections(sections, persona, state, language)
-        sections += buildAnswerRules(language, phase)
+        sections += buildAnswerRules(scenario, persona, phase, state)
         formatOutputSchema(OutputSchema.from(phase), language)?.let { sections += it }
 
         return sections.joinToString(separator = "\n\n")
@@ -251,12 +252,23 @@ internal class PromptBuilder {
 
     /**
      * The `## 回答ルール / ## Response Rules` block: the base rules, plus the
-     * mood-writing rule ([moodRule], schema-gated) and the reflect-note brevity
-     * rule ([reflectBrevityRule], `REFLECT`-gated). The remaining phase-specific
-     * appendices (speak_each address, whisper privacy, choose options, vote
-     * candidates) are still Stage-3 units; see the class doc.
+     * mood-writing rule ([moodRule], schema-gated), the reflect-note brevity rule
+     * ([reflectBrevityRule], `REFLECT`-gated), and the vote-candidate rule
+     * ([voteCandidateRule], `VOTE`-gated). The remaining phase-specific appendices
+     * (speak_each address, whisper privacy, choose options) are still Stage-3
+     * units; see the class doc.
+     *
+     * Takes the full `(scenario, persona, state)` — not just `language` — because
+     * [voteCandidateRule] enumerates candidates from the persona + elimination
+     * state. Matches Swift's already-wide `buildAnswerRules(scenario:persona:phase:state:)`.
      */
-    private fun buildAnswerRules(language: String, phase: Phase): String {
+    private fun buildAnswerRules(
+        scenario: Scenario,
+        persona: Persona,
+        phase: Phase,
+        state: SimulationState,
+    ): String {
+        val language = scenario.engineLanguage
         // coerceIn: the THIRD site inheriting a Swift validator guarantee that does
         // not exist on this side yet. `ScenarioValidator.swift:136-145` enforces
         // `max_sentences` in 1..6; that validator is a Stage-3 port, so nothing
@@ -296,12 +308,54 @@ internal class PromptBuilder {
             rules += reflectBrevityRule(language)
         }
 
+        // Vote phases get the candidate-list constraint (see [voteCandidateRule]).
+        // Placed BEFORE the mood gate to match Swift's rule order
+        // (PromptBuilder.swift:220 precedes :226): the injection tests assert rule
+        // *membership* via `.contains`, not order, so a vote+mood ordering
+        // divergence would be silent — this placement pins it.
+        if (phase.type == PhaseType.VOTE) {
+            rules += voteCandidateRule(scenario, persona, phase, state)
+        }
+
         // Mood-opting phases (#913) get the mood-writing guidance. Gated on the
         // schema, not the phase type — any LLM phase can declare `mood`.
         if (phase.outputSchemaKeys.contains("mood")) {
             rules += moodRule(language)
         }
         return rules
+    }
+
+    /**
+     * The `vote` candidate-list constraint appended for vote phases only
+     * ([buildAnswerRules] gates on `phase.type == VOTE`). Lists the valid vote
+     * targets — all personas minus self (under `exclude_self`, default true) and
+     * any eliminated agent.
+     *
+     * The candidate set is derived the same way `VoteHandler` derives it for the
+     * `{candidates}` template variable and its tally filter, so the prompt's "valid
+     * names" and the handler's accepted votes stay in lockstep. Keep ja/en
+     * scope-parallel when editing.
+     */
+    private fun voteCandidateRule(
+        scenario: Scenario,
+        persona: Persona,
+        phase: Phase,
+        state: SimulationState,
+    ): String {
+        val excludeSelf = phase.excludeSelf ?: true
+        val candidates = scenario.personas
+            .map { it.name }
+            .filter { name ->
+                if (excludeSelf && name == persona.name) return@filter false
+                if (state.eliminated[name] == true) return@filter false
+                true
+            }
+        val candidatesList = candidates.joinToString(separator = ", ")
+        return pickLanguage(
+            scenario.engineLanguage,
+            ja = "\n- voteフィールドは必ず次の名前のいずれかを正確に書くこと: $candidatesList",
+            en = "\n- The vote field must be exactly one of these names: $candidatesList",
+        )
     }
 
     /**
