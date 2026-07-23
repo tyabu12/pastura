@@ -764,18 +764,7 @@ private struct RootView: View {
         // UI-test runs on the same simulator.
         FeatureFlags.setKeepRunningOnLeave(
           CommandLine.arguments.contains("--ui-test-keep-running"))
-        // Gallery sad-path captures for the ui-refine L5/L6 lenses (#811).
-        // --ui-test-seed-gallery-offline → `.empty` ("Gallery Unavailable");
-        // --ui-test-seed-empty-gallery → `.loaded` with a galleryEmpty card
-        // ("No scenarios available yet"). Plain --ui-test keeps the canary.
-        let gallery: StubGalleryService
-        if CommandLine.arguments.contains("--ui-test-seed-gallery-offline") {
-          gallery = StubGalleryService.uiTestOfflineGallery()
-        } else if CommandLine.arguments.contains("--ui-test-seed-empty-gallery") {
-          gallery = StubGalleryService.uiTestEmptyGallery()
-        } else {
-          gallery = StubGalleryService.uiTestPreset()
-        }
+        let gallery = Self.uiTestGalleryService()
         let editorSeedYAML =
           CommandLine.arguments.contains("--ui-test-editor-seed-yaml")
           ? StubScenarioSeeder.editorSeedYAML : nil
@@ -809,11 +798,15 @@ private struct RootView: View {
             simulationRepository: deps.simulationRepository)
         }
         // Past Results fixtures are opt-in so plain --ui-test runs keep
-        // exercising the empty state (ScreenshotTourTests opts in).
-        if CommandLine.arguments.contains("--ui-test-seed-results") {
+        // exercising the empty state (ScreenshotTourTests opts in). Exactly one
+        // fixture is seeded per launch (see `resultSeedFixture`) — the two
+        // marketing transcripts drive the Zenn-article inference screenshots.
+        if let fixture = Self.resultSeedFixture() {
           try await StubResultSeeder.seed(
             simulationRepository: deps.simulationRepository,
-            turnRepository: deps.turnRepository)
+            turnRepository: deps.turnRepository,
+            codePhaseEventRepository: deps.codePhaseEventRepository,
+            fixture: fixture)
         }
         // Deep-link injection for UI tests: queue a `pastura://` URL before
         // `.ready` so the existing gate drains it via the `appStateKind`
@@ -829,6 +822,34 @@ private struct RootView: View {
       } catch {
         appState = .error("UI test setup failed: \(error.localizedDescription)")
       }
+    }
+
+    /// Selects the UI-test gallery service from launch args. Gallery sad-path
+    /// captures for the ui-refine L5/L6 lenses (#811):
+    /// `--ui-test-seed-gallery-offline` → `.empty` ("Gallery Unavailable");
+    /// `--ui-test-seed-empty-gallery` → `.loaded` with a galleryEmpty card
+    /// ("No scenarios available yet"). Plain `--ui-test` keeps the canary.
+    private static func uiTestGalleryService() -> StubGalleryService {
+      let args = CommandLine.arguments
+      if args.contains("--ui-test-seed-gallery-offline") {
+        return StubGalleryService.uiTestOfflineGallery()
+      }
+      if args.contains("--ui-test-seed-empty-gallery") {
+        return StubGalleryService.uiTestEmptyGallery()
+      }
+      return StubGalleryService.uiTestPreset()
+    }
+
+    /// Selects the Past-Results seed fixture from launch args, or `nil` when
+    /// none is requested. Exactly one fixture is seeded per launch; the two
+    /// marketing transcripts (wordwolf / prisoners) drive the Zenn-article
+    /// inference screenshots.
+    private static func resultSeedFixture() -> StubResultSeeder.MarketingFixture? {
+      let args = CommandLine.arguments
+      if args.contains("--ui-test-seed-results-wordwolf") { return .wordWolf }
+      if args.contains("--ui-test-seed-results-prisoners") { return .prisoners }
+      if args.contains("--ui-test-seed-results") { return .defaultAliceBob }
+      return nil
     }
 
     /// Dispatches DEBUG-only launch overrides. Returns `true` when an override
