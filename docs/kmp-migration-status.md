@@ -43,8 +43,8 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 |---|:--:|---|
 | Models mirror | ✅ done | #1193 #1196 #1202 |
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
-| Wave B — 14 phase handlers | 🔄 6/14 | checklist ↓ |
-| code-phase track | 🔄 | CP1 #1226 · CP2 #1230 · CP3 RelationshipUpdate pending |
+| Wave B — 14 phase handlers | 🔄 7/14 | checklist ↓ |
+| code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
 
 ### Wave B handler checklist
 
@@ -62,7 +62,7 @@ machine-checked — see the maintenance invariant above.
 - [x] EventInjectHandler — #1230
 - [ ] NarrateHandler
 - [ ] ReflectHandler
-- [ ] RelationshipUpdateHandler
+- [x] RelationshipUpdateHandler — #1232
 - [x] ScoreCalcHandler — #1230
 - [ ] SpeakEachHandler
 - [ ] VoteHandler
