@@ -173,8 +173,11 @@ internal class RelationshipUpdateHandler : PhaseHandler {
         // `JSONEncoder.outputFormatting = .sortedKeys`. `Map.toSortedMap()` is
         // JVM-only (absent from commonMain), so sort the entries by hand; `toMap()`
         // yields a LinkedHashMap preserving that sorted insertion order, which the
-        // default compact `Json` then emits as `{"Alice":-1,"Bob":2}` — byte-for-byte
-        // the same shape Swift's `.sortedKeys` produces.
+        // default compact `Json` then emits as `{"Alice":-1,"Bob":2}`. For the
+        // ASCII/BMP agent names in practice this matches Swift's `.sortedKeys`
+        // byte-for-byte; the orderings can diverge only for non-BMP keys (Kotlin
+        // sorts by UTF-16 code unit, Foundation by Unicode scalar), and cross-engine
+        // byte-parity is not exercised yet (Data stays Swift/GRDB, ADR-023).
         val sorted = row.toList().sortedBy { it.first }.toMap()
         return runCatching { json.encodeToString(rowSerializer, sorted) }.getOrDefault("{}")
     }
