@@ -4,6 +4,7 @@ import com.pastura.models.ConversationEntry
 import com.pastura.models.OutputSchema
 import com.pastura.models.Persona
 import com.pastura.models.Phase
+import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
 import com.pastura.models.ScenarioConventions
 import com.pastura.models.SimulationState
@@ -28,8 +29,8 @@ import com.pastura.models.TurnOutput
  * [getMainField]; [buildSystemPrompt] (header, scenario context, persona, secret,
  * private self-knowledge sections, base answer rules + mood rule, output format);
  * the injection family ([injectAssigned] / [injectNotes] / [injectWhispers] /
- * [injectRelationships] / [injectMood]), [captureMood] + `moodRule`, and
- * `appendPrivateSections`.
+ * [injectRelationships] / [injectMood]), [captureMood] + `moodRule` +
+ * `reflectBrevityRule`, and `appendPrivateSections`.
  *
  * What is **knowingly absent** — each a *named* unit, tracked on #501 for its
  * Wave-B handler PR, never a silent drop:
@@ -37,7 +38,7 @@ import com.pastura.models.TurnOutput
  * | Absent | Why |
  * |---|---|
  * | `addressRule` (#911, speak_each) | speak_each is a later Wave-B handler |
- * | `reflectBrevityRule` / `whisperRule` | reflect / whisper are later Wave-B handlers |
+ * | `whisperRule` | whisper is a later Wave-B handler |
  * | choose-options rule / `voteCandidateRule` | choose / vote are later Wave-B handlers |
  * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to their Wave-B handlers) |
  *
@@ -249,11 +250,11 @@ internal class PromptBuilder {
     }
 
     /**
-     * The base `## 回答ルール / ## Response Rules` block.
-     *
-     * Only the base rules — the phase-specific appendices (speak_each address,
-     * reflect brevity, whisper privacy, choose options, vote candidates, mood) are
-     * Stage-3 units; see the class doc.
+     * The `## 回答ルール / ## Response Rules` block: the base rules, plus the
+     * mood-writing rule ([moodRule], schema-gated) and the reflect-note brevity
+     * rule ([reflectBrevityRule], `REFLECT`-gated). The remaining phase-specific
+     * appendices (speak_each address, whisper privacy, choose options, vote
+     * candidates) are still Stage-3 units; see the class doc.
      */
     private fun buildAnswerRules(language: String, phase: Phase): String {
         // coerceIn: the THIRD site inheriting a Swift validator guarantee that does
@@ -289,6 +290,12 @@ internal class PromptBuilder {
             """.trimIndent(),
         )
 
+        // Reflect notes get a tighter 2-sentence cap (see [reflectBrevityRule]).
+        // Type-gated, unlike the schema-gated mood rule below.
+        if (phase.type == PhaseType.REFLECT) {
+            rules += reflectBrevityRule(language)
+        }
+
         // Mood-opting phases (#913) get the mood-writing guidance. Gated on the
         // schema, not the phase type — any LLM phase can declare `mood`.
         if (phase.outputSchemaKeys.contains("mood")) {
@@ -296,6 +303,19 @@ internal class PromptBuilder {
         }
         return rules
     }
+
+    /**
+     * The #907 brevity rule appended for `reflect` phases only ([buildAnswerRules]
+     * gates on `phase.type == REFLECT`). Caps the private note at 2 sentences — the
+     * same constraint family as the #877 statement brevity rule. Keep ja/en
+     * scope-parallel when editing.
+     */
+    private fun reflectBrevityRule(language: String): String =
+        pickLanguage(
+            language,
+            ja = "\n- メモ（note）は2文以内で簡潔に書くこと（長文・箇条書きの羅列は禁止）",
+            en = "\n- Keep your note to at most 2 sentences (no long paragraphs or bullet lists).",
+        )
 
     /**
      * The #913 mood-writing guidance, appended only for phases that opt into a
