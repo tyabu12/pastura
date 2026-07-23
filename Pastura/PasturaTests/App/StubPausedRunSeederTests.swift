@@ -21,9 +21,12 @@
       let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
 
       // Same pairing setupUITestState enforces: rich seed (carries the
-      // referenced scenario) before the paused run.
-      try await StubScenarioSeeder.seedRichHome(into: scenarioRepo)
-      try await StubPausedRunSeeder.seed(simulationRepository: simRepo)
+      // referenced scenario) before the paused run. The language is pinned
+      // rather than defaulted so the name assertion below can compare against a
+      // literal — a `LocaleResolver`-derived expectation would pass on any
+      // runner locale without proving the copy reached the record.
+      try await StubScenarioSeeder.seedRichHome(into: scenarioRepo, language: "ja")
+      try await StubPausedRunSeeder.seed(simulationRepository: simRepo, language: "ja")
 
       let paused = try simRepo.fetchByStatus(.paused)
       #expect(paused.count == 1, "expected exactly one seeded paused run")
@@ -41,7 +44,7 @@
       let summary = try #require(
         viewModel.pausedSummary, "pausedSummary should be non-nil after seeding a paused run")
       #expect(summary.runId == StubPausedRunSeeder.simulationId)
-      #expect(summary.name == StubScenarioSeeder.richWordWolfScenarioName)
+      #expect(summary.name == "ワードウルフ")
       #expect(summary.rounds == StubScenarioSeeder.richWordWolfRounds)
       #expect(summary.currentRound == StubPausedRunSeeder.currentRound)
     }

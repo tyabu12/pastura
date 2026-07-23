@@ -34,7 +34,15 @@
     /// in-test app relaunch. A debug-build assertion keeps `currentRound` below
     /// the referenced scenario's round count so a future edit can't silently
     /// hide the progress line (also test-covered in `StubPausedRunSeederTests`).
-    public static func seed(simulationRepository: any SimulationRepository) async throws {
+    /// - Parameter language: must match the language passed to
+    ///   ``StubScenarioSeeder/seedRichHome(into:language:)``, or the snapshot
+    ///   fallback below would name the scenario in the other language. Both
+    ///   default to `LocaleResolver.deviceDefault()`, so the production pairing
+    ///   in `setupUITestState` agrees by construction.
+    public static func seed(
+      simulationRepository: any SimulationRepository,
+      language: String = LocaleResolver.deviceDefault()
+    ) async throws {
       assert(
         currentRound < StubScenarioSeeder.richWordWolfRounds,
         "Paused currentRound must stay below the scenario's rounds for a visible progress line.")
@@ -53,7 +61,7 @@
         llmBackend: "llamacpp",
         // Fallback name if the scenario were ever orphaned; the live name from
         // the seeded scenario normally wins in makePausedSummary.
-        scenarioNameSnapshot: StubScenarioSeeder.richWordWolfScenarioName
+        scenarioNameSnapshot: StubScenarioSeeder.richWordWolf(language: language).name
       )
       try await offMain {
         try simulationRepository.save(record)
