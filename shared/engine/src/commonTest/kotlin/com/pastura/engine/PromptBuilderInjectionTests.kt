@@ -21,10 +21,10 @@ import kotlin.test.assertTrue
  * Unlike [PromptBuilderTests] (which disclaims parity for the still-incomplete
  * base slice), these DO assert parity: their landed units are the full Swift
  * behaviour. Deliberately **out of scope** here — deferred to their own Wave-B
- * handler PRs, so their guidance is not yet ported: `whisperRule`,
- * `reflectBrevityRule`, `addressRule`, `voteCandidateRule`, and the choose-options
- * rule. Only the `mood` answer-rule is asserted, because `moodRule` lands with
- * this infrastructure.
+ * handler PRs, so their guidance is not yet ported: `whisperRule`, `addressRule`,
+ * `voteCandidateRule`, and the choose-options rule. The `mood` and
+ * `reflect`-brevity answer-rules ARE asserted, because `moodRule` and
+ * `reflectBrevityRule` land with this infrastructure / the ReflectHandler PR.
  *
  * Split into its own file per the commonTest concern-per-file convention
  * (cf. [PromptBuilderParityTests]); these are pure, stateless `PromptBuilder`
@@ -398,5 +398,35 @@ class PromptBuilderInjectionTests {
         builder.injectWhispers(variables, alice.name)
         val user = builder.expandTemplate(standardUserTemplate, variables)
         assertTrue(user.contains("SENTINEL_AB"))
+    }
+
+    // MARK: - Reflect-note brevity answer-rule (reflect phases only, #907)
+
+    private val reflectPhase = Phase(
+        type = PhaseType.REFLECT,
+        prompt = "Reflect!",
+        outputSchema = mapOf("note" to "string"),
+    )
+
+    @Test
+    fun reflectBrevityRuleAppendedForReflectPhaseJa() {
+        val s = scenario()
+        val prompt = builder.buildSystemPrompt(s, alice, reflectPhase, stateOf(s))
+        assertTrue(prompt.contains("メモ（note）は2文以内"))
+    }
+
+    @Test
+    fun reflectBrevityRuleAppendedForReflectPhaseEn() {
+        val s = scenario(language = "en")
+        val prompt = builder.buildSystemPrompt(s, alice, reflectPhase, stateOf(s))
+        assertTrue(prompt.contains("Keep your note to at most 2 sentences"))
+    }
+
+    @Test
+    fun reflectBrevityRuleOmittedForNonReflectPhase() {
+        // A non-reflect phase (speak_all) never gets the note-brevity rule, even
+        // though it shares the same base answer-rule block.
+        val s = scenario()
+        assertFalse(builder.buildSystemPrompt(s, alice, speakAll, stateOf(s)).contains("メモ（note）は2文以内"))
     }
 }
