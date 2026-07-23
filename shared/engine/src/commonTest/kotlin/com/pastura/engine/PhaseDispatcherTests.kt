@@ -40,6 +40,16 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheEventInjectHandler() {
+        assertIs<EventInjectHandler>(dispatcher.handler(PhaseType.EVENT_INJECT))
+    }
+
+    @Test
+    fun resolvesTheScoreCalcHandler() {
+        assertIs<ScoreCalcHandler>(dispatcher.handler(PhaseType.SCORE_CALC))
+    }
+
+    @Test
     fun resolvesTheRelationshipUpdateHandler() {
         assertIs<RelationshipUpdateHandler>(dispatcher.handler(PhaseType.RELATIONSHIP_UPDATE))
     }
@@ -58,12 +68,14 @@ class PhaseDispatcherTests {
 
     @Test
     fun theErrorNamesThePhaseUsingItsWireNameNotItsKotlinCaseName() {
-        // `speak_all`, not `SPEAK_ALL` — Swift interpolates `phaseType.rawValue`,
-        // and a reader comparing the two engines' errors should see the same token.
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.SCORE_CALC) }
+        // `vote`, not `VOTE` — Swift interpolates `phaseType.rawValue`, and a
+        // reader comparing the two engines' errors should see the same token. Uses
+        // an unported type (VOTE stays a B1–B6 LLM handler through CP2) so this
+        // still exercises the throw path now that SCORE_CALC resolves.
+        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.VOTE) }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
-        assertTrue(message.contains("score_calc"), "expected the wire name, got: $message")
-        assertTrue(!message.contains("SCORE_CALC"), "the Kotlin case name must not leak: $message")
+        assertTrue(message.contains("vote"), "expected the wire name, got: $message")
+        assertTrue(!message.contains("VOTE"), "the Kotlin case name must not leak: $message")
     }
 
     @Test
@@ -73,9 +85,10 @@ class PhaseDispatcherTests {
         val unported = PhaseType.entries.filter {
             it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE &&
                 it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
+                it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
                 it != PhaseType.RELATIONSHIP_UPDATE
         }
-        assertEquals(9, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(7, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
