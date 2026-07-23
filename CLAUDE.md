@@ -6,12 +6,12 @@
 
 ## Current Phase
 
-**Phase 2: Expansion** — See `docs/ROADMAP.md` for scope.
-Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13).
+**Phase 2: Expansion — ✅ Complete (2026-07-23).** Phase 3 (Community) not yet entered — its prerequisite (an active user base) is unmet at launch, so Phase 3 features stay deferred. See `docs/ROADMAP.md` for scope.
+Phase 1 MVP shipped via TestFlight (conditional Go, 2026-04-13); v1.0 released to the App Store 2026-07-23.
 If a requested feature is listed under Phase 3, do not implement it — reference the roadmap and defer.
 
 Phase 2 progress:
-- **Localization (i18n: ja/en)** — *implementation complete* (ADR-010 Steps A–E merged, umbrella #276 closed). English App Store launch is the remaining Phase 2 → Phase 3 gate. Step table + PR history: `docs/ROADMAP.md` § "Localization Plan".
+- **Localization (i18n: ja/en)** — *implementation complete* (ADR-010 Steps A–E merged, umbrella #276 closed). English App Store launch — the Phase 2 → Phase 3 gate — **achieved 2026-07-23** (v1.0 approved & released). Step table + PR history: `docs/ROADMAP.md` § "Localization Plan".
 
 Phase 2 increments: see `docs/ROADMAP.md` § "Phase 2 increments (detail)".
 

@@ -5,6 +5,8 @@
 *AIgazing. Like stargazing, but for local LLMs.*  
 Running local LLM multi-agent simulations on-device.
 
+[<img src="web/public/img/app-store-badge-en.svg" height="40" alt="Download Pastura on the App Store" />](https://apps.apple.com/app/pastura-local-llms-simulator/id6788409688)
+
 [![CI](https://github.com/tyabu12/pastura/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
 [![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/tyabu12/2e86dcd3eddf5d5294d75870c9ad62e7/raw/pastura-coverage.json)](https://github.com/tyabu12/pastura/actions/workflows/ci.yml)
 [![License MIT](https://img.shields.io/badge/License-MIT-006400.svg)](LICENSE)
