@@ -21,6 +21,12 @@ Traps at the Kotlin/Native (K/N) ↔ Swift boundary of the ADR-023 KMP Engine mi
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
   in-scope for `shared/**` edits.
 
+> **When a `shared/**` port PR lands** (a `Phases/*.kt` added, or a stage advances), refresh
+> [`docs/kmp-migration-status.md`](../../docs/kmp-migration-status.md). Its Wave B checklist is
+> gate-enforced (`scripts/check-kmp-status.py`); the stage table + pointers are hand-maintained.
+> This reminder is **inert for Stage 5's `Pastura/**` edits** (they don't load this file) — there
+> the mechanical gate is the only guarantee.
+
 ## Pattern 1 — K/N exports carry no Swift `Sendable` conformance
 
 K/N exports Kotlin classes through Obj-C interop. The generated
