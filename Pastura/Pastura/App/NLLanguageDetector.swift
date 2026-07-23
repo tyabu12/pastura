@@ -30,7 +30,10 @@ import NaturalLanguage
 ///   would skew confidence on cross-language drift cases (the very cases
 ///   the adherence check exists to catch).
 nonisolated public final class NLLanguageDetector: LanguageDetector {
-  private static let confidenceThreshold: Double = 0.5
+  // Sourced from the shared LLM/ default so this concrete and the harness
+  // concrete (`HarnessLanguageDetector`) never drift apart — see
+  // ``LanguageDetectionDefaults``.
+  private static let confidenceThreshold = LanguageDetectionDefaults.confidenceThreshold
 
   /// Creates a detector with the default confidence threshold (0.5).
   public init() {}

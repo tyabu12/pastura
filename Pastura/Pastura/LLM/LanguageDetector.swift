@@ -30,3 +30,26 @@ nonisolated public protocol LanguageDetector: Sendable {
   ///   "skip the adherence check" rather than "mismatch".
   func detect(text: String) -> String?
 }
+
+/// Shared tuning defaults for ``LanguageDetector`` implementations.
+///
+/// This is a cross-implementation **parity** constant: both the production
+/// concrete (``NLLanguageDetector`` in App/) and the headless harness concrete
+/// (`HarnessLanguageDetector` in `tools/harness/`) read the confidence
+/// threshold from here, so the `language_mismatch` metric a harness run reports
+/// stays a faithful proxy for production behaviour when this value is revisited
+/// (rather than drifting between two separate literals).
+///
+/// It carries **no** `NaturalLanguage` dependency — a plain `Double` — so it is
+/// legal in the LLM/ layer under ADR-010 D8 (the guarded layers stay free of
+/// `import NaturalLanguage`; only the abstraction crosses the boundary). It
+/// ports to `commonMain` alongside the protocol per ADR-023 §4.
+nonisolated public enum LanguageDetectionDefaults {
+  /// Minimum top-hypothesis confidence for a detection result to be trusted.
+  ///
+  /// Below this, a detector returns `nil` so ``LLMCaller`` skips the adherence
+  /// check rather than misclassifying a short / ambiguous output as a language
+  /// mismatch. Initial value (Step E PR2); the benchmark harness records
+  /// skip-rate to revisit in a follow-up if needed.
+  public static let confidenceThreshold: Double = 0.5
+}
