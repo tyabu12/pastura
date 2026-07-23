@@ -20,12 +20,12 @@ import kotlin.test.assertTrue
  *
  * Unlike [PromptBuilderTests] (which disclaims parity for the still-incomplete
  * base slice), these DO assert parity: their landed units are the full Swift
- * behaviour. Deliberately **out of scope** here — deferred to their own Wave-B
- * handler PRs, so their guidance is not yet ported: `addressRule` and the
- * choose-options rule. The `mood`, `reflect`-brevity, vote-candidate, and
- * `whisper` answer-rules ARE asserted, because `moodRule`, `reflectBrevityRule`,
- * `voteCandidateRule`, and `whisperRule` land with this infrastructure / the
- * ReflectHandler / VoteHandler / WhisperHandler PRs.
+ * behaviour. Deliberately **out of scope** here — deferred to its own Wave-B
+ * handler PR, so its guidance is not yet ported: `addressRule`. The `mood`,
+ * `reflect`-brevity, vote-candidate, `whisper`, and choose-options answer-rules
+ * ARE asserted, because `moodRule`, `reflectBrevityRule`, `voteCandidateRule`,
+ * `whisperRule`, and `chooseOptionsRule` land with this infrastructure / the
+ * ReflectHandler / VoteHandler / WhisperHandler / ChooseHandler PRs.
  *
  * Split into its own file per the commonTest concern-per-file convention
  * (cf. [PromptBuilderParityTests]); these are pure, stateless `PromptBuilder`
@@ -215,6 +215,13 @@ class PromptBuilderInjectionTests {
         outputSchema = mapOf("statement" to "string"),
     )
 
+    private val choosePhaseWithOptions = Phase(
+        type = PhaseType.CHOOSE,
+        prompt = "Choose!",
+        outputSchema = mapOf("action" to "string"),
+        options = listOf("cooperate", "betray"),
+    )
+
     @Test
     fun systemPromptContainsPrivateWhispersSectionWhenSet() {
         val s = scenario()
@@ -264,6 +271,74 @@ class PromptBuilderInjectionTests {
             builder.buildSystemPrompt(s, alice, speakAll, stateOf(s))
                 .contains("これは密談相手ひとりだけへの秘密の耳打ち"),
         )
+    }
+
+    // MARK: - Choose options answer-rule (choose phases declaring options)
+
+    @Test
+    fun chooseOptionsRuleAppendedForChoosePhaseJa() {
+        val s = scenario()
+        val prompt = builder.buildSystemPrompt(s, alice, choosePhaseWithOptions, stateOf(s))
+        assertTrue(prompt.contains("actionフィールドは必ず次のいずれかを書くこと: cooperate, betray"))
+    }
+
+    @Test
+    fun chooseOptionsRuleAppendedForChoosePhaseEn() {
+        val s = scenario(language = "en")
+        val prompt = builder.buildSystemPrompt(s, alice, choosePhaseWithOptions, stateOf(s))
+        assertTrue(prompt.contains("The action field must be one of: cooperate, betray"))
+    }
+
+    @Test
+    fun chooseOptionsRuleOmittedForNonChoosePhase() {
+        // A non-choose phase never gets the option-list rule, even though it shares
+        // the same base answer-rule block.
+        val s = scenario()
+        assertFalse(
+            builder.buildSystemPrompt(s, alice, speakAll, stateOf(s))
+                .contains("actionフィールドは必ず次のいずれかを書くこと"),
+        )
+    }
+
+    @Test
+    fun chooseOptionsRuleOmittedWhenTheChoosePhaseDeclaresNoOptions() {
+        // The gate is `options != null`, not the phase type alone: an options-less
+        // choose has nothing to enumerate, and `ChooseHandler.validateAction` treats
+        // it as unconstrained. Reverting the gate to a type-only check renders a
+        // dangling "must be one of:" with no list — this test goes red then.
+        val s = scenario()
+        val optionless = Phase(
+            type = PhaseType.CHOOSE,
+            prompt = "Choose!",
+            outputSchema = mapOf("action" to "string"),
+        )
+        assertFalse(
+            builder.buildSystemPrompt(s, alice, optionless, stateOf(s))
+                .contains("actionフィールドは必ず次のいずれかを書くこと"),
+        )
+    }
+
+    @Test
+    fun chooseOptionsRulePrecedesTheVoteRuleSlotMatchingSwiftRuleOrder() {
+        // Swift's rule order is speakEach -> reflect -> whisper -> CHOOSE -> vote ->
+        // mood (PromptBuilder.swift:212 sits between :208 and :220). The other
+        // rule-membership tests assert via `contains`, which is order-blind, so a
+        // silent ordering divergence would survive them all. Pin it with a phase
+        // that triggers BOTH the choose rule and the mood rule (schema-gated, and
+        // last in Swift's order) and compare indices.
+        val s = scenario()
+        val choosePlusMood = Phase(
+            type = PhaseType.CHOOSE,
+            prompt = "Choose!",
+            outputSchema = mapOf("action" to "string", "mood" to "string"),
+            options = listOf("cooperate", "betray"),
+        )
+        val prompt = builder.buildSystemPrompt(s, alice, choosePlusMood, stateOf(s))
+        val chooseAt = prompt.indexOf("actionフィールドは必ず次のいずれかを書くこと")
+        val moodAt = prompt.indexOf("moodには今の気分を短い言葉で書くこと")
+        assertTrue(chooseAt >= 0, "choose rule missing")
+        assertTrue(moodAt >= 0, "mood rule missing")
+        assertTrue(chooseAt < moodAt, "choose rule must precede the mood rule")
     }
 
     // MARK: - System-prompt private-relationships section (#910)

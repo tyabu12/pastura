@@ -30,8 +30,8 @@ import com.pastura.models.TurnOutput
  * private self-knowledge sections, base answer rules + mood rule + vote-candidate
  * rule, output format); the injection family ([injectAssigned] / [injectNotes] /
  * [injectWhispers] / [injectRelationships] / [injectMood]), [captureMood] +
- * `moodRule` + `reflectBrevityRule` + `voteCandidateRule` + `whisperRule`, and
- * `appendPrivateSections`.
+ * `moodRule` + `reflectBrevityRule` + `voteCandidateRule` + `whisperRule` +
+ * `chooseOptionsRule`, and `appendPrivateSections`.
  *
  * What is **knowingly absent** — each a *named* unit, tracked on #501 for its
  * Wave-B handler PR, never a silent drop:
@@ -39,7 +39,6 @@ import com.pastura.models.TurnOutput
  * | Absent | Why |
  * |---|---|
  * | `addressRule` (#911, speak_each) | speak_each is a later Wave-B handler |
- * | choose-options rule | choose is a later Wave-B handler |
  * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to their Wave-B handlers) |
  *
  * Each remaining unit lands with its handler against the Swift test files, which
@@ -252,10 +251,11 @@ internal class PromptBuilder {
     /**
      * The `## 回答ルール / ## Response Rules` block: the base rules, plus the
      * mood-writing rule ([moodRule], schema-gated), the reflect-note brevity rule
-     * ([reflectBrevityRule], `REFLECT`-gated), and the vote-candidate rule
-     * ([voteCandidateRule], `VOTE`-gated). The remaining phase-specific appendices
-     * (speak_each address, whisper privacy, choose options) are still Stage-3
-     * units; see the class doc.
+     * ([reflectBrevityRule], `REFLECT`-gated), the whisper privacy rule
+     * ([whisperRule], `WHISPER`-gated), the choose-options rule
+     * ([chooseOptionsRule], `CHOOSE`-gated), and the vote-candidate rule
+     * ([voteCandidateRule], `VOTE`-gated). One phase-specific appendix remains a
+     * Stage-3 unit — the speak_each address rule; see the class doc.
      *
      * Takes the full `(scenario, persona, state)` — not just `language` — because
      * [voteCandidateRule] enumerates candidates from the persona + elimination
@@ -312,6 +312,17 @@ internal class PromptBuilder {
         // (PromptBuilder.swift: whisper precedes the choose/vote slots).
         if (phase.type == PhaseType.WHISPER) {
             rules += whisperRule(language)
+        }
+
+        // Choose phases that declare options get the option-list constraint (see
+        // [chooseOptionsRule]). Placed between whisper and vote to match Swift's
+        // rule order (PromptBuilder.swift:212 sits between :208 and :220).
+        // `options` is bound to a local first — `phase.options` is a public property
+        // of another module (shared/models), which Kotlin refuses to smart-cast to
+        // non-null, so passing `phase.options` inside the guard does not compile.
+        val chooseOptions = phase.options
+        if (phase.type == PhaseType.CHOOSE && chooseOptions != null) {
+            rules += chooseOptionsRule(chooseOptions, language)
         }
 
         // Vote phases get the candidate-list constraint (see [voteCandidateRule]).
@@ -392,6 +403,36 @@ internal class PromptBuilder {
             en = "\n- This is a private whisper to your one partner only (no one else can hear). " +
                 "Address them directly, be candid and strategic, and keep it conversational.",
         )
+
+    /**
+     * The `choose` option-list constraint appended for choose phases that declare
+     * `options` ([buildAnswerRules] gates on `phase.type == CHOOSE && options != null`).
+     *
+     * This rule is the *only* steer toward the option set on the prompt side: the
+     * `action` field is a payload-free `.choice` in the grammar (structure-only, no
+     * value enumeration — the CJK sampler-crash trap, ADR-002 §Amendment 2026-06-14),
+     * so the runtime check in `ChooseHandler.validateAction` is the sole hard
+     * constraint and this list is what keeps rejections rare.
+     *
+     * **`options != null` here vs `options.isEmpty()` in the handler — a deliberate
+     * asymmetry carried over from Swift, not an oversight.** An `options: []` phase
+     * passes this gate and renders a rule with an empty list, while `validateAction`
+     * treats the same phase as *unconstrained* and passes the raw action through.
+     * The shape is reachable: neither `ScenarioLoader` nor `ScenarioValidator`
+     * rejects an empty `options`, and ADR-024's R7 lint rule is warning-only. It is
+     * preserved rather than "fixed" so the two engines stay byte-comparable; a fix
+     * belongs on the Swift side first, in both engines at once.
+     *
+     * Keep ja/en scope-parallel when editing.
+     */
+    private fun chooseOptionsRule(options: List<String>, language: String): String {
+        val optionsList = options.joinToString(separator = ", ")
+        return pickLanguage(
+            language,
+            ja = "\n- actionフィールドは必ず次のいずれかを書くこと: $optionsList",
+            en = "\n- The action field must be one of: $optionsList",
+        )
+    }
 
     /**
      * The #913 mood-writing guidance, appended only for phases that opt into a
