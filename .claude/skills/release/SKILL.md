@@ -1,6 +1,6 @@
 ---
 name: release
-description: Cut a Pastura TestFlight release — guide the semver bump, synthesize and review the "What to Test" notes, run the preflight dry-run, then drive scripts/release.sh through a confirmation gate to archive, upload, and tag. Use when the user asks to cut/ship a release, upload a build to TestFlight, or run the release pipeline.
+description: Cut a Pastura release — version bump, TestFlight and App Store release notes, then a gated scripts/release.sh archive/upload/tag. Use when asked to cut or ship a release, upload a build to TestFlight, or run the release pipeline.
 allowed-tools: Read, Grep, Glob, Bash
 argument-hint: "[X.Y.Z]"
 ---
