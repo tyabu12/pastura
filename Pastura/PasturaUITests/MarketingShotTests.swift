@@ -59,6 +59,7 @@ final class MarketingShotTests: XCTestCase {
   /// fall back to the stable localized tab label when the identifier misses.
   private func openHistoryTab(_ app: XCUIApplication) {
     let byId = app.tabBars.buttons["rootTab.history"]
+    // Keep in sync with the History tab's ja label (Localizable.xcstrings).
     let byLabel = app.tabBars.buttons["観察履歴"]
     XCTAssertTrue(
       byId.waitForExistence(timeout: 20) || byLabel.waitForExistence(timeout: 10),

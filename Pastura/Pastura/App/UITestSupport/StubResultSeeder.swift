@@ -76,6 +76,9 @@
       let base = Date()
       switch fixture {
       case .defaultAliceBob:
+        // Default fixture has no code-phase events by design (speak_all only),
+        // so it saves inline rather than through the `save(_:…)` helper the
+        // marketing fixtures use for their turns + events.
         let record = defaultRecord(base: base)
         let turns = makeTurns(base: base)
         try await offMain {
