@@ -102,7 +102,9 @@ struct ScenarioShareSheet: View {
   }
 
   private func postToX() {
-    XPostSharer.share(text: caption, link: context.link)
+    // Destination is known up front here, so the tag rides X's own `hashtags=`
+    // param. The system-share path can't do that — see ``ShareCaptionItemSource``.
+    XPostSharer.share(text: caption, link: context.link, hashtags: ShareHashtag.name)
     dismiss()
   }
 
