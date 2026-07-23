@@ -66,7 +66,12 @@ package final class HarnessRunner: Sendable {
       let logger = diagLogger ?? StderrEngineLogger()
       self.diagLogger = logger
       self.streamFactory = { scenario, llm, controller in
-        SimulationRunner(logger: logger).run(
+        // Inject a real detector so the ADR-010 Step E language-adherence
+        // check is live (production wires `NLLanguageDetector` at the View
+        // boundary; App/ is out of the harness sources, so the harness owns
+        // its own `HarnessLanguageDetector`). Without it `language_mismatch`
+        // is 0 by construction in every harness run (#1234).
+        SimulationRunner(detector: HarnessLanguageDetector(), logger: logger).run(
           scenario: scenario, llm: llm, suspendController: controller)
       }
     }
