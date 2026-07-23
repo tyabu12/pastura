@@ -9,9 +9,9 @@ import kotlinx.serialization.serializer
  *
  * ## Scope: the ADR-023 Stage-3 port, in progress
  *
- * **`SPEAK_ALL`, `ELIMINATE`, `SUMMARIZE`, `ASSIGN` and `EVENT_INJECT` are
- * registered.** Swift registers all 14; the remaining 9 are the mechanical bulk
- * of Stage 3 ("mechanical after the Stage-2 slice", §4), ported
+ * **`SPEAK_ALL`, `ELIMINATE`, `SUMMARIZE`, `ASSIGN`, `EVENT_INJECT` and
+ * `SCORE_CALC` are registered.** Swift registers all 14; the remaining 8 are the
+ * mechanical bulk of Stage 3 ("mechanical after the Stage-2 slice", §4), ported
  * handler-by-handler.
  *
  * Unlike Swift's `PhaseDispatcher`, this is **not** exhaustive over [PhaseType] —
@@ -31,6 +31,7 @@ internal class PhaseDispatcher {
         PhaseType.SUMMARIZE to SummarizeHandler(),
         PhaseType.ASSIGN to AssignHandler(),
         PhaseType.EVENT_INJECT to EventInjectHandler(),
+        PhaseType.SCORE_CALC to ScoreCalcHandler(),
     )
 
     /**
