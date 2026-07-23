@@ -43,9 +43,11 @@ import com.pastura.models.TurnOutput
  *
  * ## Sole producer of `pairings` and `PairingResult`
  *
- * This handler is the **only** writer of [SimulationState.pairings] in the engine
- * (the run loop's per-round reset aside) and the only emitter of
- * [SimulationEvent.PairingResult]. Three already-ported consumers read the former —
+ * `pairings` has exactly three writers in the engine, and this is the only one that
+ * ever **adds** an entry: `SimulationEngine`'s per-round reset and
+ * `PairwisePayoffLogic`'s post-scoring clear both only empty it. This handler is
+ * likewise the only emitter of [SimulationEvent.PairingResult].
+ * Three already-ported consumers read the former —
  * `PairwisePayoffLogic` (exact `payoff.when` list match), `RelationshipUpdateHandler`
  * (`action_deltas[action]` map lookup), and `SummarizeHandler` (`{agent1}` template
  * expansion) — and all three hand-inject `pairings` in their own tests, so dropping

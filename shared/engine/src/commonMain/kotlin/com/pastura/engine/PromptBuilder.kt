@@ -315,8 +315,10 @@ internal class PromptBuilder {
         }
 
         // Choose phases that declare options get the option-list constraint (see
-        // [chooseOptionsRule]). Placed between whisper and vote to match Swift's
-        // rule order (PromptBuilder.swift:212 sits between :208 and :220).
+        // [chooseOptionsRule]). Placed between the whisper and vote rules to match
+        // Swift's rule order — anchored on the SYMBOLS (`whisperRule` then the choose
+        // block then `voteCandidateRule` in PromptBuilder.swift, around :208-:220),
+        // because nothing gates a cross-language line reference against drift.
         // `options` is bound to a local first — `phase.options` is a public property
         // of another module (shared/models), which Kotlin refuses to smart-cast to
         // non-null, so passing `phase.options` inside the guard does not compile.

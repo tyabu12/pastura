@@ -140,14 +140,17 @@ class ChooseHandlerTests {
 
     @Test
     fun greenPathWritesCanonicalPairingsAndEmitsOnePairingResultEach() = runTest {
-        // The producer->consumer path. ChooseHandler is the engine's SOLE writer of
-        // `pairings` and sole emitter of PairingResult; all three downstream
-        // consumers hand-inject `pairings` in their own tests, so dropping either
-        // here stays green everywhere else. Feeds a CASE VARIANT ("Betray") on the
-        // green path so this also pins the canonical-token contract (axis 5) —
-        // storing the raw input would break the exact-string match that
-        // PairwisePayoffLogic (`payoff.when`) and RelationshipUpdateHandler
-        // (`action_deltas[action]`) depend on.
+        // The producer->consumer path. ChooseHandler is the engine's only APPENDER to
+        // `pairings` (the run loop's reset and PairwisePayoffLogic's post-scoring
+        // clear are the other two writers, both emptying) and the sole emitter of
+        // PairingResult; all three downstream consumers hand-inject `pairings` in
+        // their own tests, so dropping either here stays green everywhere else.
+        //
+        // Deliberately shares its script with `caseVariantActionScores…` below: the
+        // CASE VARIANT ("Betray") makes this test ALSO fail if canonicalization is
+        // reverted, so the production and canonicalization contracts are wired to one
+        // green path rather than two independently-satisfiable ones. The sibling test
+        // keeps the narrower, single-purpose framing of the Swift original.
         val s = scenario(agents = listOf("Alice", "Bob"))
         val events = mutableListOf<SimulationEvent>()
         val backend = ScriptedLLMBackend(
@@ -305,8 +308,16 @@ class ChooseHandlerTests {
     fun roundRobinSkipDropsWholePairingAndSparesTheOtherPairingsOutput() = runTest {
         // 3 agents -> pairs (Alice,Bob) (Bob,Charlie) (Charlie,Alice); call order
         // Alice,Bob,Bob,Charlie,Charlie,Alice. Failing call #1 (Alice as member 1 of
-        // pair 0) drops that pairing. Alice's LATER call (#6, in pair 2) succeeds, so
-        // she keeps a valid lastOutputs — that is the `succeeded` set at work.
+        // pair 0) drops that pairing, and her LATER call (#6, in pair 2) succeeds, so
+        // she still ends the phase with a valid lastOutputs.
+        //
+        // That last assertion does NOT exercise the `succeeded` guard, despite
+        // looking like it: at call #1 `succeeded` is still empty, so the guard takes
+        // its clearing branch anyway (a no-op on an empty map) and call #6 writes
+        // unconditionally. Deleting the guard leaves this test green. The guard's
+        // protective arm — success THEN skip — is pinned by the next test,
+        // `aSkipAfterASuccessDoesNotEraseTheEarlierValidOutput`; this one covers the
+        // skip-then-success direction and the pairing drop.
         val s = scenario()
         val events = mutableListOf<SimulationEvent>()
         val backend = ScriptedLLMBackend(
@@ -406,10 +417,12 @@ class ChooseHandlerTests {
         )
         handler.execute(context(s, backend), initial(s))
 
-        // Call #1 is Alice facing Bob; #2 is Bob facing Alice.
+        // Exact equality, not `contains`: it pins BOTH halves at once — the opponent's
+        // name is substituted AND no unresolved `{opponent_name}` literal survives.
+        // Call #1 is Alice facing Bob; #2 is Bob facing Alice (so this also catches a
+        // port that sets the variable once instead of per turn).
         assertEquals("You face Bob.", backend.requests[0].user)
         assertEquals("You face Alice.", backend.requests[1].user)
-        assertFalse(backend.requests[0].user.contains("{opponent_name}"))
     }
 
     @Test
@@ -533,7 +546,9 @@ class ChooseHandlerTests {
         val next = handler.execute(context(s, backend), state)
 
         assertEquals(2, backend.callCount)
-        assertNull(next.lastOutputs["Bob"])
+        // Identity, not just the count: a port that skipped the WRONG agent would
+        // still make two calls. Bob is absent; the other two ran.
+        assertEquals(setOf("Alice", "Charlie"), next.lastOutputs.keys)
     }
 
     // MARK: - Empty action is a SKIP, not an off-menu rejection

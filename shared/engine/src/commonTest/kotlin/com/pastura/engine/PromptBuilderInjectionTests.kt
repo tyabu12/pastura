@@ -16,7 +16,10 @@ import kotlin.test.assertTrue
  * Parity tests for the Wave-B reserved-namespace injection family
  * (`inject*` / [PromptBuilder.captureMood] / `appendPrivateSections` / `moodRule`),
  * ported from the Swift executable spec (ADR-023 §6): `PromptBuilderTests+Mood`,
- * `+Whispers`, `+Relationships`, and the notes cases in `+Hardening`.
+ * `+Whispers`, `+Relationships`, and the notes cases in `+Hardening`. The
+ * choose-options block has **no** Swift sibling — that rule is an inline block in
+ * `PromptBuilder.swift` with no dedicated test — so those cases are authored here
+ * against the Swift source directly, not ported from a Swift test.
  *
  * Unlike [PromptBuilderTests] (which disclaims parity for the still-incomplete
  * base slice), these DO assert parity: their landed units are the full Swift
@@ -319,13 +322,37 @@ class PromptBuilderInjectionTests {
     }
 
     @Test
-    fun chooseOptionsRulePrecedesTheVoteRuleSlotMatchingSwiftRuleOrder() {
+    fun anEmptyOptionsListStillRendersTheRuleWithNoOptions() {
+        // Pins the documented `options != null` (rule) vs `options.isEmpty()`
+        // (ChooseHandler.validateAction) asymmetry: an `options: []` phase passes the
+        // rule's gate and renders a dangling list, while the handler treats the same
+        // phase as unconstrained. It is Swift-faithful — `PromptBuilder.swift` binds
+        // with `let options = phase.options`, the same null-only check — and reachable
+        // (no loader/validator rejection; ADR-024 R7 is warning-only). Pinned rather
+        // than fixed so the two engines stay byte-comparable; a fix belongs on the
+        // Swift side first, in both engines at once.
+        val s = scenario()
+        val emptyOptions = Phase(
+            type = PhaseType.CHOOSE,
+            prompt = "Choose!",
+            outputSchema = mapOf("action" to "string"),
+            options = emptyList(),
+        )
+        val prompt = builder.buildSystemPrompt(s, alice, emptyOptions, stateOf(s))
+        assertTrue(prompt.contains("actionフィールドは必ず次のいずれかを書くこと: \n"))
+    }
+
+    @Test
+    fun chooseOptionsRulePrecedesTheMoodRuleMatchingSwiftRuleOrder() {
         // Swift's rule order is speakEach -> reflect -> whisper -> CHOOSE -> vote ->
-        // mood (PromptBuilder.swift:212 sits between :208 and :220). The other
-        // rule-membership tests assert via `contains`, which is order-blind, so a
-        // silent ordering divergence would survive them all. Pin it with a phase
-        // that triggers BOTH the choose rule and the mood rule (schema-gated, and
-        // last in Swift's order) and compare indices.
+        // mood. The other rule-membership tests assert via `contains`, which is
+        // order-blind, so a silent ordering divergence would survive them all.
+        //
+        // The choose/VOTE boundary is structurally untestable — a phase cannot be
+        // both CHOOSE and VOTE — so this pins the nearest reachable boundary instead:
+        // the mood rule is schema-gated (any LLM phase can declare `mood`) and sits
+        // LAST in Swift's order, so choose-before-mood transitively pins choose out
+        // of the two trailing slots.
         val s = scenario()
         val choosePlusMood = Phase(
             type = PhaseType.CHOOSE,
