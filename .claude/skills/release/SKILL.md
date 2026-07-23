@@ -2,7 +2,7 @@
 name: release
 description: Cut a Pastura release — version bump, TestFlight and App Store release notes, then a gated scripts/release.sh archive/upload/tag. Use when asked to cut or ship a release, upload a build to TestFlight, or run the release pipeline.
 allowed-tools: Read, Grep, Glob, Bash
-argument-hint: "[X.Y.Z]"
+argument-hint: "[X.Y]"
 ---
 
 # /release
@@ -11,7 +11,7 @@ Drive one TestFlight release of Pastura. This skill is the **interactive
 judgment layer** over the deterministic mechanism in
 `scripts/release.sh` (ADR-014). The script owns preflight → archive →
 symbol check → export → upload → tag; this skill owns the human
-decisions around it: the semver bump, the release notes, and the
+decisions around it: the version bump, the release notes, and the
 **mandatory confirmation before the irreversible upload**.
 
 > **Not an `/orchestrate` task.** `/release` drives an *external*
@@ -53,17 +53,29 @@ action needed.
 
 ## Step 1 — Decide the version
 
-Read the commits since the last release tag and propose a semver bump:
+Read the commits since the last release tag and propose a version bump:
 
 ```bash
 LAST_TAG="$(git describe --tags --abbrev=0 2>/dev/null || echo '(none)')"
 git log --pretty='- %s' "${LAST_TAG}..HEAD" 2>/dev/null || git log --pretty='- %s' -n 20
 ```
 
-Propose **major / minor / patch** from the change content (breaking →
-major, new feature → minor, fixes only → patch) and **ask the operator
-to confirm** the target `X.Y.Z`. If `$ARGUMENTS` already carries a
-version, treat it as the proposal and still confirm.
+Propose **major / minor** from the change content (breaking → major,
+anything else → minor) and **ask the operator to confirm** the target
+`X.Y`. If `$ARGUMENTS` already carries a version, treat it as the
+proposal and still confirm, then **substitute it literally into the
+Steps 4 and 6 commands** — shell state does not persist across tool
+calls, so a variable bound here would expand empty there. The `X.Y` those
+commands carry is a placeholder `release.sh` rejects (it does not start
+with a digit), so an unsubstituted run dies at argument validation
+instead of binding a plausible wrong version and surfacing it only after
+the archive, past the Step 5 gate.
+
+**Two components is the shape** (`ADR-014` § Decision, item 4). Pastura
+ships `1.0`, `1.1`, … so a **fixes-only release is still a minor bump**
+(`1.1` → `1.2`), not a third component. Reserve `X.Y.Z` for a hotfix on a
+version already published to the App Store: `release.sh` accepts either
+shape, but a normal release never carries a third component.
 
 ## Step 2 — Ensure the version is on a green `main` (sequencing)
 
@@ -200,7 +212,7 @@ hard error, so the fallback never fires silently mid-release.
 ## Step 4 — Dry-run the preflight
 
 ```bash
-scripts/release.sh --version X.Y.Z --notes-file "$NOTES_FILE" --dry-run
+scripts/release.sh --version X.Y --notes-file "$NOTES_FILE" --dry-run
 ```
 
 This runs the full preflight (HEAD == origin/main, every required check
@@ -232,13 +244,13 @@ upload that follows cannot be undone.
 ## Step 6 — Release
 
 ```bash
-scripts/release.sh --version X.Y.Z --notes-file "$NOTES_FILE"
+scripts/release.sh --version X.Y --notes-file "$NOTES_FILE"
 ```
 
 The script archives, re-checks the ADR-005 §8.5 Ollama-symbol guard on
 the signed binary, exports an `app-store` `.ipa`, uploads via fastlane
 (waiting for ASC processing), and — only on a successful upload —
-creates and pushes the annotated tag `vX.Y.Z+<build>`. Report the result
+creates and pushes the annotated tag `v<version>+<build>`. Report the result
 and that the build is processing on TestFlight.
 
 ## Step 7 — Promote to a public GitHub Release (at App Store publish)
@@ -256,9 +268,9 @@ and that the build is processing on TestFlight.
 
 **Trigger:** a build has been **approved and released on the App Store** (an
 App Store Connect–side event this repo does not observe). Each `/release`
-run already tagged its build `vX.Y.Z+<build>`; this step attaches a *public*
+run already tagged its build `v<version>+<build>`; this step attaches a *public*
 GitHub Release to the tag of the build that went live — titled `Pastura
-X.Y.Z` (the public marketing version, no build suffix), marked `--latest`,
+<version>` (the public marketing version, no build suffix), marked `--latest`,
 never a pre-release.
 
 **Changelog source.** The GitHub Release carries the developer-facing
@@ -278,7 +290,7 @@ confirmation-gate discipline (Step 5): never flip `--draft=false` on an
 unreviewed auto-changelog.
 
 ```bash
-TAG="vX.Y.Z+<build>"                       # the approved build's tag
+TAG="v<version>+<build>"                   # the approved build's tag
 PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
 
 # 1. Create as a DRAFT with the auto-generated changelog. Build the
@@ -287,7 +299,7 @@ PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagNam
 #    collapse into one bad argument that gh rejects.
 notes_args=()
 [ -n "$PREV" ] && notes_args=(--notes-start-tag "$PREV")
-gh release create "$TAG" --title "Pastura X.Y.Z" --latest --draft \
+gh release create "$TAG" --title "Pastura <version>" --latest --draft \
   --generate-notes "${notes_args[@]}"
 
 # 2. Prepend a hand-written 2–3 line intro (the release headline) above
@@ -325,9 +337,9 @@ so the right move differs by *where* it failed:
 | Failure point | State | Recovery |
 |---|---|---|
 | preflight / archive / export / **upload before ASC ingest** | nothing ingested, no tag (tag is last) | fix the cause and re-run `/release` — the build number is unchanged and that is fine |
-| **upload fails after ASC has ingested the build** | the build number now collides with an ingested build; a naive re-run is **correctly blocked** by release.sh's strict-exceeds guard | land a **new commit on `main`** (a no-op commit or a `MARKETING_VERSION` patch bump) via `/orchestrate`, wait for green, then re-`/release`. This is a new green-main cycle, not an in-place retry — the build number must advance |
-| **tag pushed but the release must be retracted** | tag exists locally + remotely | `git tag -d vX.Y.Z+<build>` and `git push origin :refs/tags/vX.Y.Z+<build>` |
-| **public GitHub Release (Step 7) published then must be retracted** | Release is public; git tag is fine | `gh release delete vX.Y.Z+<build> --yes` (no `--cleanup-tag` — keep the tag). Re-cutting can re-promote it |
+| **upload fails after ASC has ingested the build** | the build number now collides with an ingested build; a naive re-run is **correctly blocked** by release.sh's strict-exceeds guard | land a **new commit on `main`** (a no-op commit or a `MARKETING_VERSION` bump) via `/orchestrate`, wait for green, then re-`/release`. This is a new green-main cycle, not an in-place retry — the build number must advance |
+| **tag pushed but the release must be retracted** | tag exists locally + remotely | `git tag -d v<version>+<build>` and `git push origin :refs/tags/v<version>+<build>` |
+| **public GitHub Release (Step 7) published then must be retracted** | Release is public; git tag is fine | `gh release delete v<version>+<build> --yes` (no `--cleanup-tag` — keep the tag). Re-cutting can re-promote it |
 
 ## ASC API key revocation (leak response)
 

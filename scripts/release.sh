@@ -30,7 +30,7 @@
 #   ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_PATH  (see fastlane/Fastfile)
 #
 # Usage:
-#   scripts/release.sh --version X.Y.Z [--notes-file PATH] [--dry-run]
+#   scripts/release.sh --version X.Y[.Z] [--notes-file PATH] [--dry-run]
 #
 #   --notes-file PATH  Use PATH's contents as the TestFlight "What to Test"
 #               changelog — the channel by which the /release skill ships its
@@ -78,10 +78,10 @@ while [ "$#" -gt 0 ]; do
     *) die "unknown argument: $1 (see --help)" ;;
   esac
 done
-[ -n "$VERSION" ] || die "--version X.Y.Z is required (the marketing/semver version)."
+[ -n "$VERSION" ] || die "--version X.Y is required (the marketing version; X.Y.Z only for a hotfix)."
 case "$VERSION" in
   [0-9]*.[0-9]*.[0-9]*|[0-9]*.[0-9]*) : ;;
-  *) die "--version must look like X.Y.Z (got '$VERSION')." ;;
+  *) die "--version must look like X.Y or X.Y.Z (got '$VERSION')." ;;
 esac
 
 # ── preflight ───────────────────────────────────────────────────────────
