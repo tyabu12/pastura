@@ -14,7 +14,8 @@ counts, the `summarize` phase, and the `language:` field. Read the actual file
 instead.
 
 Current inventory (each has an `_en` sibling — see i18n below):
-`prisoners_dilemma`, `bokete`, `target_score_race`, `word_wolf`, `last_fable`.
+`prisoners_dilemma`, `bokete`, `target_score_race`, `word_wolf`, `last_fable`,
+`souzoku_kaigi` (first to use `Persona.secret` — hidden agenda, #1149 / PR #1141).
 
 ## Conventions
 
