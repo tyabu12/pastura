@@ -70,6 +70,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheChooseHandler() {
+        assertIs<ChooseHandler>(dispatcher.handler(PhaseType.CHOOSE))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -77,20 +82,21 @@ class PhaseDispatcherTests {
 
     @Test
     fun throwsForAPhaseTypeThisSliceHasNotPorted() {
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CHOOSE) }
+        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
         assertIs<SimulationError.ScenarioValidationFailed>(error.error)
     }
 
     @Test
     fun theErrorNamesThePhaseUsingItsWireNameNotItsKotlinCaseName() {
-        // `choose`, not `CHOOSE` — Swift interpolates `phaseType.rawValue`, and a
-        // reader comparing the two engines' errors should see the same token. Uses
-        // a still-unported type (CHOOSE is a later Wave-B handler) so this still
-        // exercises the throw path now that WHISPER resolves.
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CHOOSE) }
+        // `conditional`, not `CONDITIONAL` — Swift interpolates `phaseType.rawValue`,
+        // and a reader comparing the two engines' errors should see the same token.
+        // The exemplar is CONDITIONAL rather than the next handler in the port queue:
+        // it is LAST in the remaining Wave-B order (SpeakEach -> Narrate ->
+        // Conditional), so this repoint survives the longest.
+        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
-        assertTrue(message.contains("choose"), "expected the wire name, got: $message")
-        assertTrue(!message.contains("CHOOSE"), "the Kotlin case name must not leak: $message")
+        assertTrue(message.contains("conditional"), "expected the wire name, got: $message")
+        assertTrue(!message.contains("CONDITIONAL"), "the Kotlin case name must not leak: $message")
     }
 
     @Test
@@ -102,9 +108,10 @@ class PhaseDispatcherTests {
                 it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
                 it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
                 it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT &&
-                it != PhaseType.VOTE && it != PhaseType.WHISPER
+                it != PhaseType.VOTE && it != PhaseType.WHISPER &&
+                it != PhaseType.CHOOSE
         }
-        assertEquals(4, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(3, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
