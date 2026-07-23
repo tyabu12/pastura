@@ -15,19 +15,38 @@ import XCTest
 /// The live `SimulationView` is not reachable under `--ui-test`
 /// (`MockLLMService(responses: [])` throws on any generate), so the
 /// deterministic replay is captured instead — see `StubResultSeeder`.
+///
+/// **The transcript fixture is per-locale.** Both locales used to seed the
+/// English Alice/Bob fixture, so the ja shot rendered Japanese UI chrome around
+/// an English conversation. ja now seeds the Word Wolf marketing transcript (a
+/// verbatim Japanese run). Home / Past-Results row copy is localized separately,
+/// inside `StubScenarioSeeder` — the launch argument only picks the transcript.
 @MainActor
 final class StoreScreenshotTests: XCTestCase {
-  /// One captured locale (struct, not a 3-tuple — SwiftLint `large_tuple`
-  /// caps tuples at 2 members). `store-shots.sh` routes by `prefix`.
+  /// One captured locale (a struct, not a tuple — SwiftLint `large_tuple` caps
+  /// tuples at 2 members). `store-shots.sh` routes by `prefix`.
   private struct StoreLocale {
     let prefix: String
     let language: String  // `-AppleLanguages` code
     let locale: String  // `-AppleLocale`
+    /// Which `StubResultSeeder.MarketingFixture` to seed for shot 01.
+    let resultSeedArgument: String
   }
 
   private static let locales: [StoreLocale] = [
-    StoreLocale(prefix: "en", language: "en", locale: "en_US"),
-    StoreLocale(prefix: "ja", language: "ja", locale: "ja_JP")
+    StoreLocale(
+      prefix: "en", language: "en", locale: "en_US",
+      // Alice / Bob, two `speak_all` rounds with `inner_thought`.
+      resultSeedArgument: "--ui-test-seed-results"),
+    StoreLocale(
+      prefix: "ja", language: "ja", locale: "ja_JP",
+      // Word Wolf over `prisoners`: its statement → two votes → tally →
+      // verdict fills the 6.9" frame, where the prisoners transcript leaves the
+      // lower ~40% blank. The vote turns carry `reason`, which
+      // `ScenarioConventions.thoughtField(for: .vote)` renders as the ▸ THINKING
+      // section — so the shot-01 caption ("発言と、その裏にある心の声まで")
+      // still holds even though this fixture has no `inner_thought` field.
+      resultSeedArgument: "--ui-test-seed-results-wordwolf")
   ]
 
   override func setUpWithError() throws {
@@ -54,7 +73,7 @@ final class StoreScreenshotTests: XCTestCase {
 
     let app = XCUIApplication()
     app.launchArguments =
-      ["--ui-test", "--ui-test-seed-home-rich", "--ui-test-seed-results"] + localeArgs
+      ["--ui-test", "--ui-test-seed-home-rich", locale.resultSeedArgument] + localeArgs
     app.launch()
 
     // 02 Home — the seeded row appears once HomeViewModel finishes loading.
