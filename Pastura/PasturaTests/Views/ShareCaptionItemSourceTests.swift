@@ -19,29 +19,38 @@ import UIKit
 /// framework's post-pick callback) is not tested — that is UIKit integration,
 /// out of scope per ADR-009, the same line ``XPostSharerTests`` draws around
 /// `UIApplication.open`.
-@MainActor
+///
+/// The suite is deliberately **not** `@MainActor`: UIKit hands this type its
+/// callbacks with no main-thread guarantee, so being reachable from a
+/// nonisolated context is part of the contract, and a `@MainActor` suite would
+/// stop compiling the moment that isolation regressed.
 @Suite(.timeLimit(.minutes(1)))
 struct ShareCaptionItemSourceTests {
 
   private static let base = "Watching AI agents play out a scenario in Pastura 🐑"
 
-  @Test("An X destination receives the base caption plus the brand hashtag")
-  func xDestinationAppendsHashtag() throws {
+  // Every pinned identifier is exercised, not just an arbitrary one: `Set` has
+  // no order, so `.first` would silently cover only one of them once a second
+  // identifier is pinned — which the type's doc-comment anticipates.
+  @Test("Every X destination receives the base caption plus the brand hashtag")
+  func xDestinationAppendsHashtag() {
     let source = ShareCaptionItemSource(baseCaption: Self.base)
-    let rawValue = try #require(ShareCaptionItemSource.xActivityTypes.first)
-    let caption = source.caption(for: UIActivity.ActivityType(rawValue))
-    #expect(caption == "\(Self.base) #Pastura")
+    #expect(ShareCaptionItemSource.xActivityTypes.isEmpty == false)
+    for rawValue in ShareCaptionItemSource.xActivityTypes {
+      #expect(source.caption(for: UIActivity.ActivityType(rawValue)) == "\(Self.base) #Pastura")
+    }
   }
 
   @Test("The X variant differs from the base by the hashtag suffix and nothing else")
-  func xVariantOnlyAppends() throws {
+  func xVariantOnlyAppends() {
     let source = ShareCaptionItemSource(baseCaption: Self.base)
-    let rawValue = try #require(ShareCaptionItemSource.xActivityTypes.first)
-    let caption = source.caption(for: UIActivity.ActivityType(rawValue))
-    // Guards the #1082 invariant on the new branch: the caption carries the
-    // caller's text plus a tag, and never grows a link or any other payload.
-    #expect(caption.hasPrefix(Self.base))
-    #expect(caption.dropFirst(Self.base.count) == " #Pastura")
+    for rawValue in ShareCaptionItemSource.xActivityTypes {
+      let caption = source.caption(for: UIActivity.ActivityType(rawValue))
+      // Guards the #1082 invariant on the new branch: the caption carries the
+      // caller's text plus a tag, and never grows a link or any other payload.
+      #expect(caption.hasPrefix(Self.base))
+      #expect(caption.dropFirst(Self.base.count) == " #Pastura")
+    }
   }
 
   // Negative control — without this the suite would pass even if the

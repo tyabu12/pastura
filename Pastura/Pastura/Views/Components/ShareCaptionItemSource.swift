@@ -22,7 +22,20 @@ import UIKit
 /// installed X app reports, every destination simply receives `baseCaption` —
 /// the current behaviour, no breakage, but also no hashtag. See
 /// ``xActivityTypes`` for how the identifier is (re-)pinned.
-final class ShareCaptionItemSource: NSObject, UIActivityItemSource {
+///
+/// `nonisolated` is load-bearing, and is the exception to the CLAUDE.md rule
+/// that `Views/` takes the default MainActor isolation. `UIActivityItemSource`
+/// is imported **unannotated** — the protocol carries no `UI_ACTOR` in
+/// `UIActivityItemProvider.h` and no `SwiftMainActor` in `UIKit.apinotes` — so
+/// UIKit makes no main-thread promise about the callbacks, and the sibling
+/// declaration in that same header says so outright: `UIActivityItemProvider`'s
+/// `item` is documented "called on secondary thread when user selects an
+/// activity". A MainActor-isolated witness would compile clean and then trap on
+/// the executor precondition the first time UIKit called it off-main, with no
+/// diagnostic — the silent shape `.claude/rules/swift-isolation.md` Pattern 6
+/// describes. Nothing is given up by dropping the isolation: every stored
+/// member is an immutable `Sendable` constant.
+nonisolated final class ShareCaptionItemSource: NSObject, UIActivityItemSource {
 
   private static let logger = Logger(
     subsystem: "app.pastura.Pastura", category: "ShareCaption")

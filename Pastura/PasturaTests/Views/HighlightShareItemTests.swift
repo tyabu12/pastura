@@ -32,10 +32,11 @@ struct HighlightShareItemTests {
     // in — #1082 requires the URL to stay a separate activity item, never
     // duplicated in the text, and the X branch must not reintroduce it.
     let source = try #require(item.activityItems[1] as? ShareCaptionItemSource)
-    let xRawValue = try #require(ShareCaptionItemSource.xActivityTypes.first)
     #expect(source.caption(for: nil).contains("pastura.app") == false)
-    #expect(
-      source.caption(for: UIActivity.ActivityType(xRawValue)).contains("pastura.app") == false)
+    for rawValue in ShareCaptionItemSource.xActivityTypes {
+      #expect(
+        source.caption(for: UIActivity.ActivityType(rawValue)).contains("pastura.app") == false)
+    }
   }
 
   @Test("Image and caption are shared when the link is nil")
