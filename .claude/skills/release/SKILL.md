@@ -102,6 +102,77 @@ Test"** prose. These notes are published to TestFlight testers, so:
   State what changed and what to check, like a short developer note to a
   peer.
 
+### Three cuts before writing
+
+Apply in order. Each carries a mechanical check — **run it**; do not reason
+from the commit log alone. Every cut below exists because a plausible-sounding
+claim failed its check.
+
+**Cut 1 — by what the update delivers, not by where the file lives.** The
+question is "can the user do something now that they could not before?", not
+"is the file in the app bundle". Gallery scenarios (`docs/gallery/`) are
+fetched at runtime by `URLSessionGalleryService`, so any that already ran on
+the previous version reached users *without* this update — leave them out.
+
+The exception is gallery content the previous version **gated** (ADR-020
+`EngineSchemaVersion.isCompatible`: D2 rejects an unknown phase kind, D3
+rejects `min_engine_version > current`). That does arrive with the update, so
+name the scenarios. **Compute the set — never assume it is non-empty:**
+
+```bash
+LAST_TAG="$(git describe --tags --abbrev=0)"; [ -n "$LAST_TAG" ] || exit 1
+OLD="$(git show "$LAST_TAG":Pastura/Pastura/Models/PhaseType.swift)"
+jq -r '[.. |objects|select(has("phases")).phases[]]|unique[]' docs/gallery/gallery.json |
+  while read -r p; do
+    printf '%s' "$OLD" | grep -qE "\"${p}\"|case ${p}$" || echo "D2 gated: $p"
+  done
+jq '[.. |objects|select(has("min_engine_version")).min_engine_version]' docs/gallery/gallery.json
+```
+
+Both details are load-bearing and both fail silently toward "nothing gated":
+re-derive `LAST_TAG` here (Bash calls share no shell state, and an empty one
+makes `git show :path` read the *index* and exit 0), and match **raw values**,
+not case identifiers (`case speakAll = "speak_all"`).
+
+No `D2 gated:` line **and** an empty array ⇒ nothing was gated ⇒ **write no
+unlock line at all**; a raised `ENGINE_SCHEMA_VERSION` alone gates nothing.
+When one *is* earned, name the scenarios, keep mechanism words out, and echo
+what the app showed:
+「このシナリオの実行にはより新しいバージョンの Pastura が必要です。アプリを更新してください。」
+
+**Cut 2 — advertise only capabilities a shipped scenario exercises.** A new
+engine capability no bundled preset uses is an *authoring* feature; a player
+cannot encounter it, so listing it as a headline feature promises nothing.
+Substitute a real key before reading the result — an unsubstituted run returns
+zero hits, i.e. the suppressing answer:
+
+```bash
+CAP='secret:'   # ← replace per capability; a placeholder yields a false "not shipped"
+grep -l "$CAP" Pastura/Pastura/Resources/Presets/*.yaml
+```
+
+No hits ⇒ it belongs on an editor/author line, or nowhere.
+
+**Cut 3 — by likelihood of encounter.** Itemize fixes a tester could plausibly
+hit or should re-check; fold the rest — unusual configuration, malformed input,
+internal-consistency repairs — into a single "other minor fixes" line.
+
+**Use the app's own wording.** Feature and phase names must match the ja values
+in `Localizable.xcstrings`, not internal identifiers: `whisper` is 密談,
+`narrate` is 実況. "ラン" is developer vocabulary — the UI says 実行 /
+シミュレーション.
+
+### Two surfaces, two texts
+
+`--notes-file` reaches **TestFlight only** (see the `--notes-file` paragraph
+below). The App Store "What's New" is a separate App Store Connect field,
+entered by hand **per locale** — Pastura ships **ja + en-US** — at submission
+time (Step 7); `release.sh` never touches it. Write both from one shared body:
+TestFlight adds internal-behaviour detail and a "確認してほしいこと" list covering
+every new feature group; the App Store text drops both, since to a general user
+they read as instructions, or as defect reports. **Both texts go to the Step 5
+gate** — the App Store one is the copy that reaches the public.
+
 The **first** build is the exception: with no prior release to diff, write
 a brief app intro + what to test rather than a changelog.
 
@@ -149,6 +220,9 @@ Before the real run, present to the operator and get explicit approval:
 
 - target **version** and computed **build number** and **tag**
 - the final **"What to Test" notes** (Step 3) for sign-off
+- the final **App Store "What's New" text, per locale** (Step 3), if this
+  version is headed for submission — it is the only public-facing copy the
+  skill produces, and no later step gates it
 - confirmation that the one-time bootstrap holds (env vars set, key in
   place)
 
