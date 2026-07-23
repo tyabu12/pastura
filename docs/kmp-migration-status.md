@@ -71,7 +71,7 @@ machine-checked — see the maintenance invariant above.
 
 ## Stages 4–5 — remaining integration
 
-- **Stage 4** (parity harness): the `macosArm64` parity rung and the nightly native run are live;
-  the per-PR JVM rung and full Stage-4 harness land on schedule. Pointer: ADR-023 §6 Stage 4.
-- **Stage 5** (iOS switch + code-merge): not started — the app's XCFramework consumption, the
-  two-umbrella exclusivity landmine, and the Pattern-6 re-audit. Pointer: ADR-023 §6 Stage 5.
+- **Stage 4** (parity harness): 🟡 partial — `macosArm64` rung + nightly native run live; per-PR JVM
+  rung + full harness pending. See [ADR-023](decisions/ADR-023.md) §6 Stage 4.
+- **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
+  [ADR-023](decisions/ADR-023.md) §6 Stage 5.

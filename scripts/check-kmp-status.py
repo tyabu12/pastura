@@ -72,7 +72,9 @@ def ledger_handlers(text: str) -> set[str]:
 
 
 def ported_handlers() -> set[str]:
-    """Handler names with a tracked `.kt` under the commonMain Phases dir."""
+    """Handler names with a tracked `<Name>Handler.kt` under the commonMain Phases
+    dir. Only `*Handler.kt` files count — a non-handler helper (`PhaseHelpers.kt`)
+    placed in the dir is out of scope, not a stray-file failure (check 4)."""
     result = subprocess.run(
         ["git", "ls-files", "-z", "--", KT_PHASES_DIR],
         cwd=REPO,
@@ -82,8 +84,9 @@ def ported_handlers() -> set[str]:
     )
     names: set[str] = set()
     for path in result.stdout.split("\0"):
-        if path.endswith(".kt"):
-            names.add(path.rsplit("/", 1)[-1][: -len(".kt")])
+        base = path.rsplit("/", 1)[-1]
+        if base.endswith("Handler.kt"):
+            names.add(base[: -len(".kt")])
     return names
 
 

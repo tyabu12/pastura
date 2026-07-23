@@ -123,6 +123,46 @@ expect "stray ported .kt fails" "$(build_repo stray "$TMP/stray.md" "H01Handler 
 printf '# board\n- [x] H01Handler\n' > "$TMP/nofence.md"
 expect "missing fence fails" "$(build_repo nofence "$TMP/nofence.md" "H01Handler H02Handler")" 1
 
+# Floor guard negative control: a ledger below MIN_HANDLERS must fail on the floor
+# regardless of the board. The board here lists exactly the 5-handler ledger (fully
+# consistent), so the floor is the ONLY thing that can fail it — isolating the guard.
+floor_case() {
+  repo="$TMP/floor"
+  mkdir -p "$repo/scripts" "$repo/docs" "$repo/shared" "$repo/$KT_DIR"
+  cp "$CHECKER" "$repo/scripts/check-kmp-status.py"
+  {
+    printf 'swift_path\tdisposition\tkotlin_target\n'
+    for i in 01 02 03 04 05; do
+      printf 'Pastura/Pastura/Engine/Phases/H%sHandler.swift\tPORT\n' "$i"
+    done
+  } > "$repo/shared/adr-023-port-ledger.tsv"
+  {
+    printf '<!-- kmp-status:wave-b:start -->\n'
+    printf -- '- [x] H01Handler\n- [x] H02Handler\n'
+    printf -- '- [ ] H03Handler\n- [ ] H04Handler\n- [ ] H05Handler\n'
+    printf '<!-- kmp-status:wave-b:end -->\n'
+  } > "$repo/docs/kmp-migration-status.md"
+  printf 'class H01Handler\n' > "$repo/$KT_DIR/H01Handler.kt"
+  printf 'class H02Handler\n' > "$repo/$KT_DIR/H02Handler.kt"
+  (
+    cd "$repo"
+    git init -q
+    git config user.email test@example.com
+    git config user.name test
+    git add -A
+    git commit -qm fixture
+    err="$(python3 scripts/check-kmp-status.py --check 2>&1 >/dev/null)"
+    code=$?
+    printf '%s|%s' "$code" "$err"
+  )
+}
+floor_res="$(floor_case)"
+expect "sub-floor ledger exits 1" "${floor_res%%|*}" 1
+case "${floor_res#*|}" in
+  *"handler(s) parsed from the ledger"*) : ;;
+  *) echo "FAIL: sub-floor did not emit the floor diagnostic — got: ${floor_res#*|}" >&2; fail=1 ;;
+esac
+
 # --- Part B: wrapper trigger decision (python3 stub) ---
 
 STUB_BIN="$TMP/bin"
