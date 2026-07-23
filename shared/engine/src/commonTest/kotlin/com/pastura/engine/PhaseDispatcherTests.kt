@@ -10,8 +10,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Kotlin sibling of Swift's `PhaseDispatcherTests`, scoped to the one handler this
- * slice registers.
+ * Kotlin sibling of Swift's `PhaseDispatcherTests`, scoped to the handlers this
+ * port has registered so far.
  *
  * Ported for the ADR-023 §6 Stage-2 gate slice (#501).
  */
@@ -55,6 +55,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheReflectHandler() {
+        assertIs<ReflectHandler>(dispatcher.handler(PhaseType.REFLECT))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -86,9 +91,9 @@ class PhaseDispatcherTests {
             it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE &&
                 it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
                 it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
-                it != PhaseType.RELATIONSHIP_UPDATE
+                it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT
         }
-        assertEquals(7, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(6, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
