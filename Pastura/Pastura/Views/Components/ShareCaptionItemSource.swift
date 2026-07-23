@@ -49,7 +49,12 @@ final class ShareCaptionItemSource: NSObject, UIActivityItemSource {
   /// Matching is **exact**, not by prefix, so a rename ships a missing hashtag
   /// rather than tagging some unrelated extension that happens to share a
   /// vendor prefix. Re-pin from the log when X renames.
-  static let xActivityTypes: Set<String> = ["com.atebits.Tweetie2.Share"]
+  ///
+  /// The current value was read off a real device on 2026-07-24. Do not
+  /// "correct" it to `…Tweetie2.Share`, which is what Apple's usual
+  /// `<app-bundle-id>.<suffix>` convention predicts — that guess was tried
+  /// first and observed to be wrong. Only the log is authoritative here.
+  static let xActivityTypes: Set<String> = ["com.atebits.Tweetie2.ShareExtension"]
 
   init(baseCaption: String) {
     self.baseCaption = baseCaption
