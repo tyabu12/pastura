@@ -42,45 +42,38 @@
 
     // MARK: - Selection
 
-    /// Picks the language variant.
-    ///
-    /// **Not `pickLanguage(_:ja:en:)`**: that helper's `default:` arm returns
-    /// **ja** (correct for Engine scenario-language dispatch, where the value is
-    /// validator-gated to `{ja, en}` and ja is the authoring baseline). Here the
-    /// input is a *device* locale and the base locale is **en** — the App Store
-    /// launch target — so an unrecognized code must fall back to English, the
-    /// same arm `LocaleResolver.deviceDefault()` takes.
-    fileprivate static func localized(_ language: String, ja: String, en: String) -> String {
-      language == "ja" ? ja : en
-    }
-
     /// The Home-list base row (always seeded under `--ui-test`).
+    ///
+    /// Selection goes through ``pickCaptureLanguage(_:ja:en:)`` — shared with
+    /// ``StoreScoreboardSample`` so the unknown-code fallback (en, the App Store
+    /// base locale) can't drift between the two capture fixtures. That file also
+    /// carries why it is not `pickLanguage(_:ja:en:)`.
     static func homeSeed(language: String = LocaleResolver.deviceDefault()) -> SeedFixture {
       SeedFixture(
-        name: localized(language, ja: "はじめての牧場", en: "Hello, Pasture"),
-        yaml: localized(language, ja: homeSeedYAMLJa, en: homeSeedYAMLEn))
+        name: pickCaptureLanguage(language, ja: "はじめての牧場", en: "Hello, Pasture"),
+        yaml: pickCaptureLanguage(language, ja: homeSeedYAMLJa, en: homeSeedYAMLEn))
     }
 
     /// Rich-seed preset row 1.
     static func richDilemma(language: String = LocaleResolver.deviceDefault()) -> SeedFixture {
       SeedFixture(
-        name: localized(language, ja: "囚人のジレンマ", en: "Prisoner's Dilemma"),
-        yaml: localized(language, ja: richDilemmaYAMLJa, en: richDilemmaYAMLEn))
+        name: pickCaptureLanguage(language, ja: "囚人のジレンマ", en: "Prisoner's Dilemma"),
+        yaml: pickCaptureLanguage(language, ja: richDilemmaYAMLJa, en: richDilemmaYAMLEn))
     }
 
     /// Rich-seed preset row 2.
     static func richDesert(language: String = LocaleResolver.deviceDefault()) -> SeedFixture {
       SeedFixture(
-        name: localized(language, ja: "砂漠のサバイバル", en: "Desert Survival"),
-        yaml: localized(language, ja: richDesertYAMLJa, en: richDesertYAMLEn))
+        name: pickCaptureLanguage(language, ja: "砂漠のサバイバル", en: "Desert Survival"),
+        yaml: pickCaptureLanguage(language, ja: richDesertYAMLJa, en: richDesertYAMLEn))
     }
 
     /// Rich-seed gallery-sourced ("shared") row. ``StubPausedRunSeeder`` reads
     /// its `name` for the resume card's snapshot fallback.
     static func richWordWolf(language: String = LocaleResolver.deviceDefault()) -> SeedFixture {
       SeedFixture(
-        name: localized(language, ja: "ワードウルフ", en: "Word Wolf"),
-        yaml: localized(language, ja: richWordWolfYAMLJa, en: richWordWolfYAMLEn))
+        name: pickCaptureLanguage(language, ja: "ワードウルフ", en: "Word Wolf"),
+        yaml: pickCaptureLanguage(language, ja: richWordWolfYAMLJa, en: richWordWolfYAMLEn))
     }
 
     /// Every seeded Home row for `language`, in Home-list order.
