@@ -71,11 +71,13 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 
 ---
 
-## Phase 2: Expansion 🔧 In Progress
+## Phase 2: Expansion ✅ Complete
 
 **Goal:** Lower barriers, expand capabilities, reach broader audience.
 
 **Prerequisite:** Phase 1 Go decision from TestFlight feedback. ✅ Conditional Go (2026-04-13)
+
+**Completed 2026-07-23** — the Phase 2 → Phase 3 Go gate is met: v1.0 was approved and released to the App Store (see § "Phase 2 → Phase 3 Go Criteria"). Phase 3 (Community) is **not yet entered** — its prerequisite (an active user base) is unmet at launch. The `Custom score_calc logic` row below (now `Deferred → P3`) was never a Go-gate item.
 
 ### Planned Features
 
@@ -87,8 +89,8 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 | `conditional` phase type                 | Medium   | Done        | Nested-branch phase + Visual Editor support; includes `target_score_race` preset and conditional endings in `word_wolf` / `detective_scene` (#126/#141). |
 | `event_inject` phase type                | Medium   | Done        | Random extraData-string injection into `state.variables` (default key `current_event`); Models→Engine→App→Views→Preset full-stack incl. word_wolf mid-flow showcase + demo replay re-record + bundled-demo phase_index alignment CI test (#256) |
 | `reflect` phase type                     | Medium   | Done        | Agent private memos + opt-in log window (#907/#937); adopted in `word_wolf` presets (#949) |
-| Custom score_calc logic                  | Medium   | Planned     | User-defined scoring expressions         |
-| Localization (i18n: ja / en)             | High     | Done (impl) | ja/en implementation complete — ADR-010 Steps A–E all merged (umbrella #276 closed); `localization-coverage` CI gate live. English App Store launch is the remaining Phase 2 → Phase 3 gate. Promoted from Phase 3 on 2026-04-29. See § Localization Plan below. |
+| Custom score_calc logic                  | Medium   | Deferred → P3 | User-defined scoring expressions. Never a Phase 2 Go-gate item (see § "Phase 2 → Phase 3 Go Criteria"); deferred to Phase 3. |
+| Localization (i18n: ja / en)             | High     | Done (impl) | ja/en implementation complete — ADR-010 Steps A–E all merged (umbrella #276 closed); `localization-coverage` CI gate live. English App Store launch (the Phase 2 → Phase 3 gate) achieved 2026-07-23 — v1.0 approved & released. Promoted from Phase 3 on 2026-04-29. See § Localization Plan below. |
 | Scenario sharing (Shared Scenarios)      | Medium   | Done (read-only) | Read-only curated gallery shipped (#87/#93). User submissions / ratings deferred to Phase 3 marketplace. |
 | Scenario deep link (`pastura://` scheme) | Medium   | Done        | 1-tap install from external contexts (SNS, QR, blog). IDs resolved through the curated gallery index only — no arbitrary URL fetch, no auto-execute. Preview via `GalleryScenarioDetailView` with external-link origin banner (#88). Universal Links / QR code generation deferred. |
 | Simulation result export (Markdown)      | Medium   | Done        | Share Sheet export including code-phase results (#91/#98) |
@@ -205,12 +207,14 @@ The stub PR also renames CLAUDE.md "Completed in Phase 2 so far" → "Phase 2 pr
 
 ### Phase 2 → Phase 3 Go Criteria
 
-Phase 2 is complete when:
+Phase 2 is complete when: **✅ met 2026-07-23 (v1.0 approved & released to the App Store).**
 
-- Localization Plan Steps A / B-1a / B-1b / C-1 / C-2 / D are all merged.
-- The English App Store submission has reached Approve. Quantitative signals (DL count, review count and content) are tracked separately as post-release polish indicators rather than Go gates.
-- Phase 2 features already shipped (Visual Editor, BG execution, Multi-model, Shared Scenarios, DL Demo Replay, ...) have no critical regressions.
+- [x] Localization Plan Steps A / B-1a / B-1b / C-1 / C-2 / D are all merged.
+- [x] The English App Store submission has reached Approve — approved & released 2026-07-23. Quantitative signals (DL count, review count and content) are tracked separately as post-release polish indicators rather than Go gates.
+- [x] Phase 2 features already shipped (Visual Editor, BG execution, Multi-model, Shared Scenarios, DL Demo Replay, ...) have no critical regressions.
 - Step E (Cross-language simulation) may run in parallel within Phase 2 but is **not** a completion gate.
+
+Entering Phase 3 is a separate step, gated on the Phase 3 prerequisite (an active user base) — unmet at launch.
 
 ---
 

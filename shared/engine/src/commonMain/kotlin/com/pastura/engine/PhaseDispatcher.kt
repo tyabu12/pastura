@@ -10,9 +10,9 @@ import kotlinx.serialization.serializer
  * ## Scope: the ADR-023 Stage-3 port, in progress
  *
  * **`SPEAK_ALL`, `ELIMINATE`, `SUMMARIZE`, `ASSIGN`, `EVENT_INJECT`, `SCORE_CALC`,
- * `RELATIONSHIP_UPDATE` and `REFLECT` are registered.** Swift registers all 14; the
- * remaining 6 are the mechanical bulk of Stage 3 ("mechanical after the Stage-2
- * slice", §4), ported handler-by-handler.
+ * `RELATIONSHIP_UPDATE`, `REFLECT`, `VOTE` and `WHISPER` are registered.** Swift
+ * registers all 14; the remaining 4 are the mechanical bulk of Stage 3 ("mechanical
+ * after the Stage-2 slice", §4), ported handler-by-handler.
  *
  * Unlike Swift's `PhaseDispatcher`, this is **not** exhaustive over [PhaseType] —
  * so an unregistered phase fails at dispatch with a clear error rather than at
@@ -34,6 +34,8 @@ internal class PhaseDispatcher {
         PhaseType.SCORE_CALC to ScoreCalcHandler(),
         PhaseType.RELATIONSHIP_UPDATE to RelationshipUpdateHandler(),
         PhaseType.REFLECT to ReflectHandler(),
+        PhaseType.VOTE to VoteHandler(),
+        PhaseType.WHISPER to WhisperHandler(),
     )
 
     /**

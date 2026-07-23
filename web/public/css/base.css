@@ -460,8 +460,8 @@ body {
   text-decoration: none;
   transition: all 0.25s ease-out;
 }
-/* When .badge is rendered as a <button> (e.g., disabled "Coming soon" CTA),
-   strip browser-default button chrome so it matches the <a> path visually. */
+/* When .badge is rendered as a <button>, strip browser-default button
+   chrome so it matches the <a> path visually. */
 button.badge {
   appearance: none;
   -webkit-appearance: none;
@@ -469,14 +469,10 @@ button.badge {
   cursor: pointer;
   text-align: left;
 }
-button.badge:disabled {
-  cursor: not-allowed;
-}
 
-/* Apple's official "Download on the App Store" badge — used for the
-   pre-launch CTA. The badge itself is unmodified per Apple's brand
-   guidelines; visual disabled state is conveyed via opacity + a
-   "Coming soon" caption below. */
+/* Apple's official "Download on the App Store" badge — the live link to
+   Pastura's App Store listing. The badge itself is unmodified per Apple's
+   brand guidelines. */
 .appstore-cta {
   appearance: none;
   -webkit-appearance: none;
@@ -489,21 +485,17 @@ button.badge:disabled {
   align-items: flex-start;
   gap: 6px;
   text-decoration: none;
-  cursor: not-allowed;
+  cursor: pointer;
 }
 .appstore-cta .appstore-img {
   display: block;
   width: 144px;
   height: auto;
-  opacity: 0.55;
+  opacity: 1;
   transition: opacity 0.2s ease-out;
 }
-.appstore-cta .appstore-status {
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--muted);
+.appstore-cta:hover .appstore-img {
+  opacity: 0.85;
 }
 .badge .b-eyebrow {
   font-family: "JetBrains Mono", ui-monospace, monospace;

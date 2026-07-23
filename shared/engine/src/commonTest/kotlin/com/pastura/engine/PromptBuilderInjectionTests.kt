@@ -21,10 +21,11 @@ import kotlin.test.assertTrue
  * Unlike [PromptBuilderTests] (which disclaims parity for the still-incomplete
  * base slice), these DO assert parity: their landed units are the full Swift
  * behaviour. Deliberately **out of scope** here — deferred to their own Wave-B
- * handler PRs, so their guidance is not yet ported: `whisperRule`, `addressRule`,
- * `voteCandidateRule`, and the choose-options rule. The `mood` and
- * `reflect`-brevity answer-rules ARE asserted, because `moodRule` and
- * `reflectBrevityRule` land with this infrastructure / the ReflectHandler PR.
+ * handler PRs, so their guidance is not yet ported: `addressRule` and the
+ * choose-options rule. The `mood`, `reflect`-brevity, vote-candidate, and
+ * `whisper` answer-rules ARE asserted, because `moodRule`, `reflectBrevityRule`,
+ * `voteCandidateRule`, and `whisperRule` land with this infrastructure / the
+ * ReflectHandler / VoteHandler / WhisperHandler PRs.
  *
  * Split into its own file per the commonTest concern-per-file convention
  * (cf. [PromptBuilderParityTests]); these are pure, stateless `PromptBuilder`
@@ -238,6 +239,33 @@ class PromptBuilderInjectionTests {
         assertTrue(prompt.contains("SENTINEL_AB"))
     }
 
+    // MARK: - Whisper privacy answer-rule (whisper phases only, #908)
+
+    @Test
+    fun whisperRuleAppendedForWhisperPhaseJa() {
+        val s = scenario()
+        val prompt = builder.buildSystemPrompt(s, alice, whisperPhase, stateOf(s))
+        assertTrue(prompt.contains("これは密談相手ひとりだけへの秘密の耳打ち"))
+    }
+
+    @Test
+    fun whisperRuleAppendedForWhisperPhaseEn() {
+        val s = scenario(language = "en")
+        val prompt = builder.buildSystemPrompt(s, alice, whisperPhase, stateOf(s))
+        assertTrue(prompt.contains("This is a private whisper to your one partner only"))
+    }
+
+    @Test
+    fun whisperRuleOmittedForNonWhisperPhase() {
+        // A non-whisper phase (speak_all) never gets the whisper privacy rule, even
+        // though it shares the same base answer-rule block.
+        val s = scenario()
+        assertFalse(
+            builder.buildSystemPrompt(s, alice, speakAll, stateOf(s))
+                .contains("これは密談相手ひとりだけへの秘密の耳打ち"),
+        )
+    }
+
     // MARK: - System-prompt private-relationships section (#910)
 
     @Test
@@ -428,5 +456,60 @@ class PromptBuilderInjectionTests {
         // though it shares the same base answer-rule block.
         val s = scenario()
         assertFalse(builder.buildSystemPrompt(s, alice, speakAll, stateOf(s)).contains("メモ（note）は2文以内"))
+    }
+
+    // MARK: - Vote candidate answer-rule (vote phases only)
+
+    private val votePhase = Phase(
+        type = PhaseType.VOTE,
+        prompt = "Vote!",
+        outputSchema = mapOf("vote" to "string"),
+    )
+
+    @Test
+    fun voteCandidateRuleListsOthersExcludingSelfJa() {
+        // exclude_self defaults to true, so Alice's candidate list is the other two
+        // in persona order — never herself.
+        val s = scenario()
+        val prompt = builder.buildSystemPrompt(s, alice, votePhase, stateOf(s))
+        assertTrue(prompt.contains("voteフィールドは必ず次の名前のいずれかを正確に書くこと: Bob, Charlie"))
+    }
+
+    @Test
+    fun voteCandidateRuleListsOthersExcludingSelfEn() {
+        val s = scenario(language = "en")
+        val prompt = builder.buildSystemPrompt(s, alice, votePhase, stateOf(s))
+        assertTrue(prompt.contains("The vote field must be exactly one of these names: Bob, Charlie"))
+    }
+
+    @Test
+    fun voteCandidateRuleExcludesEliminatedAgents() {
+        // Bob eliminated + Alice self-excluded → only Charlie remains a candidate.
+        val s = scenario()
+        val state = SimulationState.initial(s).copy(eliminated = mapOf("Bob" to true))
+        val prompt = builder.buildSystemPrompt(s, alice, votePhase, state)
+        assertTrue(prompt.contains("voteフィールドは必ず次の名前のいずれかを正確に書くこと: Charlie"))
+    }
+
+    @Test
+    fun voteCandidateRuleIncludesSelfWhenExcludeSelfFalse() {
+        // exclude_self = false → the voter may vote for herself, so Alice appears in
+        // her own candidate list.
+        val s = scenario()
+        val includeSelf = Phase(
+            type = PhaseType.VOTE,
+            prompt = "Vote!",
+            outputSchema = mapOf("vote" to "string"),
+            excludeSelf = false,
+        )
+        val prompt = builder.buildSystemPrompt(s, alice, includeSelf, stateOf(s))
+        assertTrue(prompt.contains("voteフィールドは必ず次の名前のいずれかを正確に書くこと: Alice, Bob, Charlie"))
+    }
+
+    @Test
+    fun voteCandidateRuleOmittedForNonVotePhase() {
+        // A non-vote phase (speak_all) never gets the candidate-list rule.
+        val s = scenario()
+        assertFalse(builder.buildSystemPrompt(s, alice, speakAll, stateOf(s)).contains("voteフィールドは必ず"))
     }
 }
