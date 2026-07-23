@@ -35,12 +35,33 @@ extension XCTestCase {
   }
 
   /// Switches to the tab whose bar button carries `identifier` (a `rootTab.*`
-  /// id from `RootTabView`), waiting for it first so the accessibility tree
-  /// has settled — a bare `.tap()` can hit XCUITest's intermittent
-  /// "Automation type mismatch" on the structural `Tab` API.
-  func tapTab(_ app: XCUIApplication, _ identifier: String) {
-    let tab = app.tabBars.buttons[identifier]
-    XCTAssertTrue(tab.waitForExistence(timeout: 10), "Tab '\(identifier)' did not appear.")
+  /// id from `RootTabView`), falling back to its localized `labelFallback`.
+  ///
+  /// **Why the fallback exists.** On some launches SwiftUI's structural `Tab`
+  /// API never bridges the tab items' custom accessibility overlay into the
+  /// XCUITest tree: the `rootTab.*` identifiers are absent *and* so are the
+  /// `.accessibilityLabel`s `RootTabView.tabIcon` attaches (the icon `Image`
+  /// exposes its raw SF Symbol name instead). The bar and its buttons exist and
+  /// are hittable throughout — only the overlay is missing. Verified by
+  /// exporting the "App UI hierarchy" attachment from a failed run's xcresult:
+  /// `Button, label: 'History'` present, zero occurrences of `rootTab`.
+  ///
+  /// **Waiting does not fix it** — it is decided once per launch, not a race
+  /// this call can outlast (observed failing at both a 10s and a 20s bound).
+  /// That is why the two are one predicate rather than sequential waits: on a
+  /// broken launch, waiting on the identifier first would burn its whole
+  /// timeout every time before the label ever gets a turn.
+  ///
+  /// `labelFallback` must track the tab's `Localizable.xcstrings` value for the
+  /// locale under test (e.g. `History` / `観察履歴`); a stale one fails loudly
+  /// here rather than selecting a different tab.
+  func tapTab(_ app: XCUIApplication, _ identifier: String, labelFallback: String) {
+    let tab = app.tabBars.buttons.matching(
+      NSPredicate(format: "identifier == %@ OR label == %@", identifier, labelFallback)
+    ).firstMatch
+    XCTAssertTrue(
+      tab.waitForExistence(timeout: 10),
+      "Tab '\(identifier)' (label '\(labelFallback)') did not appear.")
     tab.tap()
   }
 }

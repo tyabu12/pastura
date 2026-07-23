@@ -31,13 +31,18 @@ final class StoreScreenshotTests: XCTestCase {
     let locale: String  // `-AppleLocale`
     /// Which `StubResultSeeder.MarketingFixture` to seed for shot 01.
     let resultSeedArgument: String
+    /// History tab's localized label, used when the `rootTab.*` identifier
+    /// fails to bridge — see `tapTab`. **Keep in sync with the `History` key in
+    /// `Localizable.xcstrings`.**
+    let historyTabLabel: String
   }
 
   private static let locales: [StoreLocale] = [
     StoreLocale(
       prefix: "en", language: "en", locale: "en_US",
       // Alice / Bob, two `speak_all` rounds with `inner_thought`.
-      resultSeedArgument: "--ui-test-seed-results"),
+      resultSeedArgument: "--ui-test-seed-results",
+      historyTabLabel: "History"),
     StoreLocale(
       prefix: "ja", language: "ja", locale: "ja_JP",
       // Word Wolf over `prisoners`: its statement → two votes → tally →
@@ -46,7 +51,8 @@ final class StoreScreenshotTests: XCTestCase {
       // `ScenarioConventions.thoughtField(for: .vote)` renders as the ▸ THINKING
       // section — so the shot-01 caption ("発言と、その裏にある心の声まで")
       // still holds even though this fixture has no `inner_thought` field.
-      resultSeedArgument: "--ui-test-seed-results-wordwolf")
+      resultSeedArgument: "--ui-test-seed-results-wordwolf",
+      historyTabLabel: "観察履歴")
   ]
 
   override func setUpWithError() throws {
@@ -88,7 +94,7 @@ final class StoreScreenshotTests: XCTestCase {
 
     // 05 Past Results list — the History tab root (id-based switch is
     // locale-independent).
-    tapTab(app, "rootTab.history")
+    tapTab(app, "rootTab.history", labelFallback: locale.historyTabLabel)
     captureScreenshot(app, name: "\(prefix)-05-results", anchorId: "results.list")
 
     // 01 Observation transcript — speech + inner-voice bubbles (the seed
