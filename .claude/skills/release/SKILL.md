@@ -63,12 +63,13 @@ git log --pretty='- %s' "${LAST_TAG}..HEAD" 2>/dev/null || git log --pretty='- %
 Propose **major / minor** from the change content (breaking → major,
 anything else → minor) and **ask the operator to confirm** the target
 `X.Y`. If `$ARGUMENTS` already carries a version, treat it as the
-proposal and still confirm. Bind the confirmed value — Steps 4 and 6
-pass it as `"$VERSION"`:
-
-```bash
-VERSION=1.2   # ← the version the operator just confirmed
-```
+proposal and still confirm, then **substitute it literally into the
+Steps 4 and 6 commands** — shell state does not persist across tool
+calls, so a variable bound here would expand empty there. The `X.Y` those
+commands carry is a placeholder `release.sh` rejects (it does not start
+with a digit), so an unsubstituted run dies at argument validation
+instead of binding a plausible wrong version and surfacing it only after
+the archive, past the Step 5 gate.
 
 **Two components is the shape** (`ADR-014` § Decision, item 4). Pastura
 ships `1.0`, `1.1`, … so a **fixes-only release is still a minor bump**
@@ -211,7 +212,7 @@ hard error, so the fallback never fires silently mid-release.
 ## Step 4 — Dry-run the preflight
 
 ```bash
-scripts/release.sh --version "$VERSION" --notes-file "$NOTES_FILE" --dry-run
+scripts/release.sh --version X.Y --notes-file "$NOTES_FILE" --dry-run
 ```
 
 This runs the full preflight (HEAD == origin/main, every required check
@@ -243,7 +244,7 @@ upload that follows cannot be undone.
 ## Step 6 — Release
 
 ```bash
-scripts/release.sh --version "$VERSION" --notes-file "$NOTES_FILE"
+scripts/release.sh --version X.Y --notes-file "$NOTES_FILE"
 ```
 
 The script archives, re-checks the ADR-005 §8.5 Ollama-symbol guard on
@@ -336,7 +337,7 @@ so the right move differs by *where* it failed:
 | Failure point | State | Recovery |
 |---|---|---|
 | preflight / archive / export / **upload before ASC ingest** | nothing ingested, no tag (tag is last) | fix the cause and re-run `/release` — the build number is unchanged and that is fine |
-| **upload fails after ASC has ingested the build** | the build number now collides with an ingested build; a naive re-run is **correctly blocked** by release.sh's strict-exceeds guard | land a **new commit on `main`** (a no-op commit or a `MARKETING_VERSION` version bump) via `/orchestrate`, wait for green, then re-`/release`. This is a new green-main cycle, not an in-place retry — the build number must advance |
+| **upload fails after ASC has ingested the build** | the build number now collides with an ingested build; a naive re-run is **correctly blocked** by release.sh's strict-exceeds guard | land a **new commit on `main`** (a no-op commit or a `MARKETING_VERSION` bump) via `/orchestrate`, wait for green, then re-`/release`. This is a new green-main cycle, not an in-place retry — the build number must advance |
 | **tag pushed but the release must be retracted** | tag exists locally + remotely | `git tag -d v<version>+<build>` and `git push origin :refs/tags/v<version>+<build>` |
 | **public GitHub Release (Step 7) published then must be retracted** | Release is public; git tag is fine | `gh release delete v<version>+<build> --yes` (no `--cleanup-tag` — keep the tag). Re-cutting can re-promote it |
 
