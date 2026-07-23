@@ -275,7 +275,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
-- `swift-isolation.md` — `nonisolated` annotation traps (protocol-ext default impls, custom witnesses, sibling-file extensions, reference-type sync methods, auto-synth conformance lookup) under default-MainActor isolation. Diagnostic fires at use site, not declaration — always-loaded so it's visible regardless of which file is being edited.
+- `swift-isolation.md` — `nonisolated` annotation traps (protocol-ext default impls, custom witnesses, sibling-file extensions, reference-type sync methods, auto-synth conformance lookup, unannotated-ObjC-protocol conformance) under default-MainActor isolation. Diagnostic fires at use site, not declaration — and the two runtime traps fire none at all — so it's always-loaded regardless of which file is being edited.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery for agent sessions). Always-loaded because xcodebuild gotchas surface during worktree switches and CI debugging, not only when editing test files.
 - `subagent-usage.md` — Subagent invocation discipline (32K output-token cap, scope budget heuristics, Sonnet override). Always-loaded because subagent calls can originate from `/orchestrate`, slash commands, or any direct `Agent` invocation.
 - `context-budget.md` — Always-loaded budget discipline: each addition must support the agent's next decision, not serve as human reference. Self-applying — additions to CLAUDE.md / agent docs / any no-`paths:` rules file route through this classifier first.

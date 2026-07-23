@@ -25,18 +25,21 @@ import UIKit
 ///
 /// `nonisolated` is load-bearing, and is the exception to the CLAUDE.md rule
 /// that `Views/` takes the default MainActor isolation. `UIActivityItemSource`
-/// is imported **unannotated** — the protocol carries no `UI_ACTOR` in
-/// `UIActivityItemProvider.h` and no `SwiftMainActor` in `UIKit.apinotes` — so
-/// UIKit makes no main-thread promise about the callbacks, and the sibling
-/// declaration in that same header says so outright: `UIActivityItemProvider`'s
+/// is imported **unannotated**: asked to print the requirement's type, the
+/// compiler gives `(UIActivityViewController) -> Any` with no `@MainActor`,
+/// where a genuinely isolated requirement prints one (`UIScrollViewDelegate`'s
+/// `scrollViewDidScroll` → `(@MainActor (UIScrollView) -> Void)?`). So UIKit
+/// makes no main-thread promise about these callbacks, and the sibling
+/// declaration in the same header says as much: `UIActivityItemProvider`'s
 /// `item` is documented "called on secondary thread when user selects an
 /// activity". A MainActor-isolated witness would compile clean and then trap on
 /// the executor precondition the first time UIKit called it off-main, with no
-/// diagnostic — the silent shape `.claude/rules/swift-isolation.md` Pattern 6
-/// describes. Nothing is given up by dropping the isolation: every stored
-/// member is an immutable `Sendable` constant. The `Sendable` conformance
-/// makes that last sentence compiler-checked rather than a promise in prose —
-/// adding a `var` breaks the build instead of quietly re-opening the race.
+/// diagnostic — see `.claude/rules/swift-isolation.md` Pattern 7 for the probe
+/// (and for why the obvious header/apinotes grep cannot answer this).
+/// Nothing is given up by dropping the isolation: every stored member is an
+/// immutable `Sendable` constant. The `Sendable` conformance makes that last
+/// sentence compiler-checked rather than a promise in prose — adding a `var`
+/// breaks the build instead of quietly re-opening the race.
 nonisolated final class ShareCaptionItemSource: NSObject, UIActivityItemSource, Sendable {
 
   private static let logger = Logger(
