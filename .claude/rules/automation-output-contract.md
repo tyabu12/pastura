@@ -9,9 +9,10 @@ paths:
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific content
 > lives only in this copy. A consumer copy must never become the source.
 
-**Path-scoped, and that scoping has a sharp edge.** `paths:` fires on a matching **edit**, so this
-file auto-loads while a human is *authoring* a skill under `.claude/skills/**` — **not** when a
-generator *runs*. A generator run edits `docs/**` and `Pastura/**`, never its own skill file. So
+**Path-scoped, and that scoping has a sharp edge.** `paths:` fires when a matching path is **read**
+(a human authoring a skill under `.claude/skills/**` reads it; an edit reads it first) — **not** when
+a generator *runs*. A generator run reads and writes `docs/**` and `Pastura/**`, never its own skill
+file, and drives its own scripts through Bash rather than reading them. So
 every skill governed by this contract carries an imperative "read this file before Step 0" pointer;
 that pointer, not the frontmatter, is what puts the contract in context at runtime. It is not
 always-loaded because an always-loaded file must earn its per-turn cost by supporting the *next*
