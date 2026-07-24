@@ -23,7 +23,7 @@ SCOPE_TOO_LARGE: <X lines / Y files> exceeds soft budget. Please split into <sug
 
 Do NOT begin the Read / Grep cycle after this point — every subsequent tool_use consumes the budget the report body needs. Your Verdict is cheap and comes first; what runs out is the room to substantiate it.
 
-- **The step-3 rule derivation is bounded, so this soft budget is unchanged**: one frontmatter sweep plus at most one read per *matching* rule (typically ≤4, ≤15 worst case), and it runs *after* this bail-out has already capped the diff. Don't count those reads against the ~20-`tool_use` heuristic below — that guards unbounded investigation, not a finite rule set.
+- **Step-3 rule derivation is bounded** — a frontmatter sweep + at most one read per *matching* rule (≤15), *after* this bail-out has capped the diff — so it leaves this budget unchanged and doesn't count toward the ~20-`tool_use` heuristic below.
 
 ## Output Discipline
 
@@ -47,16 +47,11 @@ You have Bash access for **read-only commands only**:
    ```bash
    head -14 .claude/rules/*.md   # widen if a paths: block isn't closed by its `---`
    ```
-   The set is not Swift-only and it grows as rules are added — the frontmatter is the only authority,
-   so never work from a memorized list. When unsure whether a glob matches, read the rule. `CLAUDE.md`
-   and rules with no `paths:` are already in context. The Trap Index below points into these for depth.
-
-   **Why derive rather than lean on auto-injection.** A matching rule *is* injected — but only from a
-   `Read` on that path, and only *after* the read, whereas conventions must be loaded *before* you
-   judge the diff. This review runs off `git diff` (Bash), which injects nothing; `Grep`/`Glob` don't
-   either. So a changed file you never `Read` contributes no rule. Derive and read explicitly.
-   (Mechanism measured 2026-07-24, Claude Code 2.1.218; single-session — see #1269. Volatile:
-   re-check on a Claude Code upgrade.)
+   When unsure whether a glob matches, read the rule. `CLAUDE.md` and rules with no `paths:` are
+   already in context. The Trap Index below points into these for depth.
+   Don't trust auto-injection instead: a matching rule loads only from a `Read` on its path, and this
+   review runs off `git diff`, so a changed file you never `Read` brings no rule. (Measured mechanism
+   + caveats: #1269.)
 4. Evaluate against the checklist below
 5. Report findings in the output format specified at the end
 
