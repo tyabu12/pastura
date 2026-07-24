@@ -49,7 +49,7 @@ contract in context.
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
 full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
 skill file is *read*, not on this skill's *execution* — a run drives its scripts
-through Bash without reading it, so nothing auto-loads it during a
+through Bash without reading a skill file, so nothing auto-loads it during a
 run.
 
 How this skill binds itself to each rule:

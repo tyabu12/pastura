@@ -16,7 +16,7 @@ This skill is bound by the brush-up family's shared **Output Contract**.
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
 full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
 skill file is *read*, not on this skill's *execution* — a run drives its scripts
-through Bash without reading it, so nothing auto-loads it during a
+through Bash without reading a skill file, so nothing auto-loads it during a
 run. Because this generator writes **arbitrary code**, it is the one explicitly
 excluded from the contract's "auto-fix PRs may skip a code-review pass"
 exemption — the mandatory `code-reviewer` gate below is that exclusion in

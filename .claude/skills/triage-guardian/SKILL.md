@@ -48,7 +48,7 @@ of the generators, and the reason O is the lightest family member to run.
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
 full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
 skill file is *read*, not on this skill's *execution* — a run drives its scripts
-through Bash without reading it, so nothing auto-loads it during a
+through Bash without reading a skill file, so nothing auto-loads it during a
 run. The rule that binds O hardest is
 **rule 2: any judgment output must carry a confidence score + a
 counter-evidence ("why this might be wrong") section.** The "Discard candidate"
