@@ -43,8 +43,11 @@ final class MarketingShotTests: XCTestCase {
     app.launch()
 
     // ja-locked, so the label fallback is the ja one. See `tapTab` for why the
-    // `rootTab.*` identifier alone is not enough.
-    tapTab(app, "rootTab.history", labelFallback: "観察履歴")
+    // `rootTab.*` identifier alone is not enough. The 20s bound is NOT about
+    // that bridging failure: the second fixture's capture reaches this after a
+    // cold relaunch mid-test, which the default 10s has been observed to
+    // out-run (see this class's doc-comment).
+    tapTab(app, "rootTab.history", labelFallback: "観察履歴", timeout: 20)
     let row = app.buttons["results.row.ui_test_result_seed"]
     XCTAssertTrue(row.waitForExistence(timeout: 10), "Seeded result row did not appear.")
     row.tap()

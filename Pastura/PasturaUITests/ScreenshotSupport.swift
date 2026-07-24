@@ -46,22 +46,30 @@ extension XCTestCase {
   /// exporting the "App UI hierarchy" attachment from a failed run's xcresult:
   /// `Button, label: 'History'` present, zero occurrences of `rootTab`.
   ///
-  /// **Waiting does not fix it** — it is decided once per launch, not a race
-  /// this call can outlast (observed failing at both a 10s and a 20s bound).
-  /// That is why the two are one predicate rather than sequential waits: on a
-  /// broken launch, waiting on the identifier first would burn its whole
-  /// timeout every time before the label ever gets a turn.
+  /// **Waiting does not fix it.** It is decided once per launch, not a race
+  /// this call can outlast — observed here failing at a 10s bound, and the
+  /// workaround this replaced had already widened its own identifier wait to
+  /// 20s without success. That is why the two are ONE predicate rather than
+  /// sequential waits: on a broken launch, waiting on the identifier first
+  /// burns its whole timeout every time before the label gets a turn.
+  ///
+  /// `timeout` covers how long the tab bar itself may take to exist, which is
+  /// a *separate* concern from the bridging failure above — a cold relaunch
+  /// mid-test needs more of it than a first launch does.
   ///
   /// `labelFallback` must track the tab's `Localizable.xcstrings` value for the
   /// locale under test (e.g. `History` / `観察履歴`); a stale one fails loudly
   /// here rather than selecting a different tab.
-  func tapTab(_ app: XCUIApplication, _ identifier: String, labelFallback: String) {
+  func tapTab(
+    _ app: XCUIApplication, _ identifier: String, labelFallback: String,
+    timeout: TimeInterval = 10
+  ) {
     let tab = app.tabBars.buttons.matching(
       NSPredicate(format: "identifier == %@ OR label == %@", identifier, labelFallback)
     ).firstMatch
     XCTAssertTrue(
-      tab.waitForExistence(timeout: 10),
-      "Tab '\(identifier)' (label '\(labelFallback)') did not appear.")
+      tab.waitForExistence(timeout: timeout),
+      "Tab '\(identifier)' (label '\(labelFallback)') did not appear within \(timeout)s.")
     tab.tap()
   }
 }

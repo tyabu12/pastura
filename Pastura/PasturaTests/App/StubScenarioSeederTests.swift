@@ -89,6 +89,67 @@
       }
     }
 
+    /// The language variants must differ **only** in human-readable text.
+    ///
+    /// `StubScenarioSeeder`, `StubScenarioSeeder+Localized`, and
+    /// `screenshot-plan.md` all assert this as the reason accessibility anchors
+    /// and `richWordWolfRounds` stay language-independent — but nothing checked
+    /// it, so a ja variant could have drifted on `id` / `agentCount` / `rounds`
+    /// / phase shape and only surfaced as a broken ja capture.
+    ///
+    /// The `id` check is the sharpest of these: `seed(into:language:)` and
+    /// `seedRichHome(into:language:)` build each `ScenarioRecord` with a
+    /// **hardcoded** id, independent of the YAML's own `id:` field, so a
+    /// mismatch there is invisible at seed time and only bites whatever
+    /// re-parses the stored YAML.
+    @Test func testLanguageVariantsDifferOnlyInText() throws {
+      let loader = ScenarioLoader()
+      let english = try StubScenarioSeeder.allHomeFixtures(language: "en")
+        .map { try loader.load(yaml: $0.yaml) }
+      let japanese = try StubScenarioSeeder.allHomeFixtures(language: "ja")
+        .map { try loader.load(yaml: $0.yaml) }
+
+      #expect(english.count == japanese.count)
+      for (en, ja) in zip(english, japanese) {
+        #expect(en.id == ja.id, "id drifted: '\(en.id)' vs '\(ja.id)'")
+        #expect(en.agentCount == ja.agentCount, "\(en.id): agentCount drifted")
+        #expect(en.rounds == ja.rounds, "\(en.id): rounds drifted")
+        #expect(en.personas.count == ja.personas.count, "\(en.id): persona count drifted")
+        #expect(
+          en.phases.map(\.type) == ja.phases.map(\.type),
+          "\(en.id): phase shape drifted")
+        // The text is what SHOULD differ — if it doesn't, one variant was
+        // never translated and this whole suite would otherwise pass.
+        #expect(en.name != ja.name, "\(en.id): name is identical across languages")
+      }
+    }
+
+    /// Each seeded record's hardcoded id must equal the id inside the YAML it
+    /// stores, in both languages — see the note on `testLanguageVariantsDifferOnlyInText`.
+    @Test func testSeededRecordIdsMatchTheirStoredYAML() async throws {
+      let loader = ScenarioLoader()
+      for language in Self.languages {
+        let db = try DatabaseManager.inMemory()
+        let repository = GRDBScenarioRepository(dbWriter: db.dbWriter)
+        try await StubScenarioSeeder.seed(into: repository, language: language)
+        try await StubScenarioSeeder.seedRichHome(into: repository, language: language)
+
+        for id in [
+          StubScenarioSeeder.homeSeedScenarioId, "ui_test_preset_dilemma",
+          "ui_test_preset_desert", StubScenarioSeeder.richWordWolfScenarioId
+        ] {
+          let record = try #require(try repository.fetchById(id), "\(language): \(id) not seeded")
+          let scenario = try loader.load(yaml: record.yamlDefinition)
+          #expect(
+            scenario.id == id,
+            "\(language): record id '\(id)' != YAML id '\(scenario.id)'")
+          #expect(
+            record.name == scenario.name,
+            "\(language): record name '\(record.name)' != YAML name '\(scenario.name)'")
+        }
+      }
+    }
+
     /// The language selector must actually switch. Literal expectations (not
     /// `LocaleResolver`-derived ones) so a selector that ignored its argument
     /// and always returned one language would fail here.
