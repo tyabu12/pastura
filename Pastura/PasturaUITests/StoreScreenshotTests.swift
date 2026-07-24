@@ -97,8 +97,10 @@ final class StoreScreenshotTests: XCTestCase {
     tapTab(app, "rootTab.history", labelFallback: locale.historyTabLabel)
     captureScreenshot(app, name: "\(prefix)-05-results", anchorId: "results.list")
 
-    // 01 Observation transcript — speech + inner-voice bubbles (the seed
-    // carries inner_thought; showAllThoughts defaults true).
+    // 01 Observation transcript — speech + inner-voice bubbles. Which field
+    // carries the thought is per-phase (`ScenarioConventions.thoughtField(for:)`):
+    // `inner_thought` for en's speak_all turns, `reason` for ja's vote turns.
+    // `showAllThoughts` defaults true.
     app.buttons["results.row.ui_test_result_seed"].tap()
     captureScreenshot(app, name: "\(prefix)-01-observation", anchorId: "resultDetail.timeline")
 

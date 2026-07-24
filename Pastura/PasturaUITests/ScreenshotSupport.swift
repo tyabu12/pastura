@@ -38,13 +38,19 @@ extension XCTestCase {
   /// id from `RootTabView`), falling back to its localized `labelFallback`.
   ///
   /// **Why the fallback exists.** On some launches SwiftUI's structural `Tab`
-  /// API never bridges the tab items' custom accessibility overlay into the
-  /// XCUITest tree: the `rootTab.*` identifiers are absent *and* so are the
-  /// `.accessibilityLabel`s `RootTabView.tabIcon` attaches (the icon `Image`
-  /// exposes its raw SF Symbol name instead). The bar and its buttons exist and
-  /// are hittable throughout — only the overlay is missing. Verified by
-  /// exporting the "App UI hierarchy" attachment from a failed run's xcresult:
-  /// `Button, label: 'History'` present, zero occurrences of `rootTab`.
+  /// API never bridges the custom accessibility overlay `RootTabView.tabIcon`
+  /// puts on the icon `Image` — *both* its `.accessibilityIdentifier` and its
+  /// `.accessibilityLabel` — so the `Image` surfaces the raw SF Symbol name for
+  /// each instead. Which element loses what is the load-bearing detail: the
+  /// **tab button** keeps its localized title, which is why keying on that
+  /// works while keying on the identifier does not. From the "App UI hierarchy"
+  /// attachment of a failed run's xcresult:
+  ///
+  ///     Button, label: 'History'
+  ///       Image identifier: 'clock', label: 'clock'
+  ///
+  /// — with zero occurrences of `rootTab` anywhere in the tree. The bar and its
+  /// buttons exist and are hittable throughout; only the icon overlay is gone.
   ///
   /// **Waiting does not fix it.** It is decided once per launch, not a race
   /// this call can outlast — observed here failing at a 10s bound, and the
@@ -59,7 +65,10 @@ extension XCTestCase {
   ///
   /// `labelFallback` must track the tab's `Localizable.xcstrings` value for the
   /// locale under test (e.g. `History` / `観察履歴`); a stale one fails loudly
-  /// here rather than selecting a different tab.
+  /// here rather than selecting a different tab. `firstMatch` over the two-term
+  /// OR is unambiguous only because tab-bar labels are unique — a future tab
+  /// whose localized label collides with another's would make it pick by
+  /// document order while still reporting `identifier` in the failure message.
   func tapTab(
     _ app: XCUIApplication, _ identifier: String, labelFallback: String,
     timeout: TimeInterval = 10

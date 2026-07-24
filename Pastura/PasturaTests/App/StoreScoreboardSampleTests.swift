@@ -50,6 +50,13 @@
           #expect(
             sample.scores[name] != nil,
             "\(language): eliminated agent '\(name)' is absent from scores")
+          // The type doc-comment promises the "0 点" row is part of the shot.
+          // `testLanguagesShareTheSameScoreShape` compares the two languages
+          // against each other, so an edit applied to BOTH would drop the
+          // zero-score row while every other assertion still passed.
+          #expect(
+            sample.scores[name] == 0,
+            "\(language): eliminated agent '\(name)' should score 0 for the struck-through row")
         }
       }
     }

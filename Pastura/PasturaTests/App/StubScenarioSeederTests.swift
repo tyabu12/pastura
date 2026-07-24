@@ -85,6 +85,14 @@
           #expect(
             scenario.name == fixture.name,
             "\(scenario.id) (\(language)): record '\(fixture.name)' != YAML '\(scenario.name)'")
+          // The YAML's own `language:` is the one field that changes *runtime*
+          // behaviour — `engineLanguage` drives Engine prompt language (ADR-010
+          // D5) — and it is deliberately excluded from the structural drift
+          // check below, since it is supposed to differ. Without its own
+          // assertion, a ja variant left at `language: en` passes everything.
+          #expect(
+            scenario.engineLanguage == language,
+            "\(scenario.id): engineLanguage '\(scenario.engineLanguage)' != '\(language)'")
         }
       }
     }
@@ -120,7 +128,63 @@
           "\(en.id): phase shape drifted")
         // The text is what SHOULD differ — if it doesn't, one variant was
         // never translated and this whole suite would otherwise pass.
+        // `description` matters as much as `name`: both render on the Home row
+        // (and on the resume card), so a translated name over an untranslated
+        // description reproduces exactly the App Store defect this fixes.
         #expect(en.name != ja.name, "\(en.id): name is identical across languages")
+        #expect(
+          en.description != ja.description,
+          "\(en.id): description is identical across languages")
+      }
+    }
+
+    /// The seeders' `LocaleResolver.deviceDefault()` default arguments must
+    /// actually resolve the fixtures — and must agree with each other.
+    ///
+    /// Every other assertion here pins `language:` for determinism, which
+    /// leaves the production path (the default argument) verified by nobody: a
+    /// default regressed to a literal, or the two seeders' defaults drifting
+    /// apart, would ship green. That second case is what
+    /// `StubPausedRunSeeder.seed`'s doc-comment asserts cannot happen ("Both
+    /// default to `LocaleResolver.deviceDefault()`, so the production pairing
+    /// in `setupUITestState` agrees by construction") — a claim with no
+    /// mechanical backing until now.
+    ///
+    /// Locale-independent by construction: both sides resolve through the same
+    /// seam, so this passes on any runner locale and still fails if either side
+    /// stops consulting it.
+    @Test func testDefaultArgumentsResolveThroughLocaleResolver() async throws {
+      let resolved = LocaleResolver.deviceDefault()
+      #expect(
+        StubScenarioSeeder.homeSeed().name == StubScenarioSeeder.homeSeed(language: resolved).name)
+      #expect(
+        StubScenarioSeeder.richWordWolf().name
+          == StubScenarioSeeder.richWordWolf(language: resolved).name)
+
+      let db = try DatabaseManager.inMemory()
+      let scenarioRepo = GRDBScenarioRepository(dbWriter: db.dbWriter)
+      let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
+      // Both on the default path, in the order `setupUITestState` uses — the
+      // paused run carries an FK to the rich seed's scenario, so this pairing
+      // is also what the doc-comment's "agrees by construction" is about.
+      try await StubScenarioSeeder.seedRichHome(into: scenarioRepo)
+      try await StubPausedRunSeeder.seed(simulationRepository: simRepo)
+      let paused = try #require(try simRepo.fetchByStatus(.paused).first)
+      #expect(
+        paused.scenarioNameSnapshot == StubScenarioSeeder.richWordWolf().name,
+        "paused-run snapshot and rich-home seed resolved different languages")
+    }
+
+    /// `pickCaptureLanguage`'s fallback and `LocaleResolver.deviceDefault()`'s
+    /// must stay the same arm. They agree today, but one is a ternary and the
+    /// other a `switch`, so the agreement rests on prose in a doc-comment —
+    /// this ties them mechanically across the interesting inputs.
+    @Test func testCaptureLanguagePickerAgreesWithLocaleResolver() {
+      for preferred in [["ja"], ["en"], ["fr"], [], ["ja-JP"]] {
+        let resolved = LocaleResolver.deviceDefault(preferredLocalizations: preferred)
+        #expect(
+          pickCaptureLanguage(resolved, ja: "ja", en: "en") == resolved,
+          "picker and resolver disagree for \(preferred)")
       }
     }
 

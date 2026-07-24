@@ -46,8 +46,10 @@ final class MarketingShotTests: XCTestCase {
     // `rootTab.*` identifier alone is not enough. The 20s bound is NOT about
     // that bridging failure: the second fixture's capture reaches this after a
     // cold relaunch mid-test, which the default 10s has been observed to
-    // out-run (see this class's doc-comment).
-    tapTab(app, "rootTab.history", labelFallback: "観察履歴", timeout: 20)
+    // out-run (see this class's doc-comment). 30s, not 20s — the sequential
+    // form this replaced gave the label query a t=20s→30s window, so anything
+    // less would shrink the budget for exactly that slow-relaunch case.
+    tapTab(app, "rootTab.history", labelFallback: "観察履歴", timeout: 30)
     let row = app.buttons["results.row.ui_test_result_seed"]
     XCTAssertTrue(row.waitForExistence(timeout: 10), "Seeded result row did not appear.")
     row.tap()

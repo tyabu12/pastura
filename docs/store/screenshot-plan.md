@@ -74,7 +74,9 @@ two votes → tally → verdict fills the 6.9″ frame, where prisoners leaves t
 lower ~40% blank. Its vote turns carry `reason` rather than `inner_thought`, and
 `ScenarioConventions.thoughtField(for: .vote)` maps `reason` to the ▸ THINKING
 section — so the shot-01 inner-voice caption holds for both locales, by
-different fields.
+different fields. Note the ja fixture's **first** row is the `speak_each` turn
+(`statement` + `clue`), which has no thought field: a missing chevron on the
+topmost row of the ja shot is expected, not a regression.
 
 ### Why not `scripts/ui-tour.sh`
 
@@ -126,9 +128,10 @@ matched to a scenario's phases — brittle and out of scope for 1.0.
   thought depends on the phase (`ScenarioConventions.thoughtField(for:)`):
   `inner_thought` for `speak_all` / `speak_each` / `choose` / `whisper` (the en
   Alice/Bob fixture), `reason` for `vote` (the ja Word Wolf fixture). Do **not**
-  add `inner_thought` to the marketing fixtures to "fix" this — they are
-  verbatim transcripts of real runs, and inventing a field would be fabrication
-  (see the same note in `StubResultSeeder.makePrisonersFixture`).
+  add `inner_thought` to a marketing fixture to "fix" a missing bubble — they
+  are verbatim transcripts of real runs, so a thought field appears only where
+  the real run produced one. (`makePrisonersFixture` does carry `inner_thought`,
+  on its whisper turn — the fixtures differ because the runs did.)
 - `--ui-test-open-scoreboard` (in `PasturaApp.swift`, entirely `#if DEBUG`)
   presents `ScoreboardSheet` with fixed sample data so the scoreboard —
   otherwise reachable only from a completed live run — is capturable.
