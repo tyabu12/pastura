@@ -42,7 +42,14 @@ final class MarketingShotTests: XCTestCase {
     app.launchArguments = ["--ui-test", seedArg] + Self.jaArgs
     app.launch()
 
-    openHistoryTab(app)
+    // ja-locked, so the label fallback is the ja one. See `tapTab` for why the
+    // `rootTab.*` identifier alone is not enough. The 20s bound is NOT about
+    // that bridging failure: the second fixture's capture reaches this after a
+    // cold relaunch mid-test, which the default 10s has been observed to
+    // out-run (see this class's doc-comment). 30s, not 20s — the sequential
+    // form this replaced gave the label query a t=20s→30s window, so anything
+    // less would shrink the budget for exactly that slow-relaunch case.
+    tapTab(app, "rootTab.history", labelFallback: "観察履歴", timeout: 30)
     let row = app.buttons["results.row.ui_test_result_seed"]
     XCTAssertTrue(row.waitForExistence(timeout: 10), "Seeded result row did not appear.")
     row.tap()
@@ -52,18 +59,4 @@ final class MarketingShotTests: XCTestCase {
     app.terminate()
   }
 
-  /// Opens the 観察履歴 (History) tab. The structural `TabView` button
-  /// intermittently fails to expose its `rootTab.history` identifier to
-  /// XCUITest (the "Automation type mismatch" flake `ScreenshotSupport.tapTab`
-  /// documents — it bit both marketing fixtures). This test is ja-locked, so
-  /// fall back to the stable localized tab label when the identifier misses.
-  private func openHistoryTab(_ app: XCUIApplication) {
-    let byId = app.tabBars.buttons["rootTab.history"]
-    // Keep in sync with the History tab's ja label (Localizable.xcstrings).
-    let byLabel = app.tabBars.buttons["観察履歴"]
-    XCTAssertTrue(
-      byId.waitForExistence(timeout: 20) || byLabel.waitForExistence(timeout: 10),
-      "History tab did not appear (launch stalled).")
-    (byId.exists ? byId : byLabel).tap()
-  }
 }

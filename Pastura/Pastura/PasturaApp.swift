@@ -228,10 +228,8 @@ private struct RootView: View {
       // Deliberately NOT `.deepLinkGated()`: the store capture queues no deep
       // link, so this sheet stays invisible to `DeepLinkGate` (critic axis 7).
       .sheet(isPresented: $isStoreScoreboardPresented) {
-        ScoreboardSheet(
-          scores: ["Alice": 5, "Bob": 3, "Carol": 2, "Dave": 0],
-          eliminated: ["Dave": true]
-        )
+        let sample = StoreScoreboardSample.current()
+        ScoreboardSheet(scores: sample.scores, eliminated: sample.eliminated)
         .presentationDetents([.large])
       }
     #endif
