@@ -57,5 +57,17 @@
 	<array>
 		<string>iphone-performance-gaming-tier</string>
 	</array>
+	<!-- Defensive light-mode lock (#1273). The app is built entirely with
+	     fixed light-mode design tokens, while the §2.9 dark-mode tokens are
+	     defined but not yet wired to a trait-based skeleton. Without this,
+	     system dark mode flips only the token-less default SwiftUI chrome
+	     (List/Form/sheet backgrounds, .primary labels, nav bars), leaving
+	     unreadable mixed-appearance screens. Locking to Light is the interim
+	     fix; full dark-mode support (and removing this key) is tracked in
+	     #1274. Info.plist over `.preferredColorScheme(.light)` so the lock
+	     also covers UIKit-presented surfaces (share sheets) and the launch
+	     screen, not just the SwiftUI hierarchy. -->
+	<key>UIUserInterfaceStyle</key>
+	<string>Light</string>
 </dict>
 </plist>
