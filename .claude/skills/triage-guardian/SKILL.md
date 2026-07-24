@@ -46,8 +46,9 @@ of the generators, and the reason O is the lightest family member to run.
 ## Output Contract (inherited from the brush-up family)
 
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
-full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
-skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
+skill file is *read*, not on this skill's *execution* — a run drives its scripts
+through Bash without reading it, so nothing auto-loads it during a
 run. The rule that binds O hardest is
 **rule 2: any judgment output must carry a confidence score + a
 counter-evidence ("why this might be wrong") section.** The "Discard candidate"
@@ -91,8 +92,8 @@ human, mirroring consistency-audit's Step 1 note.
 3. `git fetch origin main` — the `audit/*` freshness re-run compares drift
    against `origin/main`, so the base must be current.
 4. **Read `.claude/rules/automation-output-contract.md` in full.** Abort if
-   missing. It does not auto-load during a run (its `paths:` glob fires on a
-   skill edit), so this is the only step that puts the contract in context.
+   missing. It does not auto-load during a run (its `paths:` glob fires on a read the run
+   never performs), so this is the only step that puts the contract in context.
 
 No clean-tree requirement: O never branches, commits, or leaves anything in the
 working tree, so a dirty tree from a sibling task does not affect it. (It still

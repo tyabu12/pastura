@@ -48,8 +48,9 @@ Optional args:
 ## Output Contract (inherited from the brush-up family)
 
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
-full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
-skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
+skill file is *read*, not on this skill's *execution* — a run drives its scripts
+through Bash without reading it, so nothing auto-loads it during a
 run. The two rules that bind a digest-only generator:
 
 - **Rule 2 — judgment output carries confidence + counter-evidence.** Every
@@ -72,8 +73,8 @@ filing phase. Do not inline the ceiling literal here.
    missing — a run without dedup memory re-floods.
 3. Resolve `layer` (arg or default `engine-llm`) and the category set (Step 2).
 4. **Read `.claude/rules/automation-output-contract.md` in full.** It does not
-   auto-load during a run (its `paths:` glob fires on a skill edit), so this is
-   the only step that puts the contract in context.
+   auto-load during a run (its `paths:` glob fires on a read the run never
+   performs), so this is the only step that puts the contract in context.
 
 If any check fails, **abort the cycle** — do not proceed against a partial setup.
 
