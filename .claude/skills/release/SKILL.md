@@ -63,13 +63,20 @@ git log --pretty='- %s' "${LAST_TAG}..HEAD" 2>/dev/null || git log --pretty='- %
 Propose **major / minor** from the change content (breaking → major,
 anything else → minor) and **ask the operator to confirm** the target
 `X.Y`. If `$ARGUMENTS` already carries a version, treat it as the
-proposal and still confirm, then **substitute it literally into the
-Steps 4 and 6 commands** — shell state does not persist across tool
-calls, so a variable bound here would expand empty there. The `X.Y` those
-commands carry is a placeholder `release.sh` rejects (it does not start
-with a digit), so an unsubstituted run dies at argument validation
-instead of binding a plausible wrong version and surfacing it only after
-the archive, past the Step 5 gate.
+proposal and still confirm. The Steps 4 and 6 commands run in **later,
+separate Bash tool calls** that inherit no shell state from here, so every
+value they carry must be **substituted concretely — never left as a shell
+variable that would expand empty in the later call**. This covers the
+version *and* the `--notes-file` path (produced and echoed in Step 3): write
+the confirmed `X.Y`, and substitute Step 3's echoed path, in place of the
+`X.Y` and `/REPLACE-WITH-NOTES-PATH` placeholders those commands show. Both
+placeholders are values `release.sh` rejects when left unsubstituted — `X.Y`
+fails the version validator (it does not start with a digit), and
+`/REPLACE-WITH-NOTES-PATH` fails the `--notes-file` existence check — so an
+unsubstituted value dies fast — the version at argument validation, and (once
+the version is substituted) the path at the Step 4 dry-run — instead of
+binding a plausible wrong value and surfacing it only after the archive, past
+the Step 5 gate.
 
 **Two components is the shape** (`ADR-014` § Decision, item 4). Pastura
 ships `1.0`, `1.1`, … so a **fixes-only release is still a minor bump**
@@ -201,18 +208,31 @@ NOTES_FILE="$(mktemp -t pastura-release-notes)"
 cat > "$NOTES_FILE" <<'NOTES'
 <the reviewed tester-facing prose from above>
 NOTES
+echo "$NOTES_FILE"   # ← the concrete path; substitute it into Steps 4 and 6
 ```
 
-Pass `--notes-file "$NOTES_FILE"` to `release.sh` in Steps 4 and 6.
-**Without it**, the script falls back to raw commit subjects
-(`build_notes`) — exactly what this step exists to prevent — so always
-pass the file once notes are prepared. A given-but-empty/missing file is a
-hard error, so the fallback never fires silently mid-release.
+Binding and reading `$NOTES_FILE` **within this single tool call** is fine —
+the no-shell-state rule (Step 1) is about *later, separate* calls, so the
+path must be carried into Steps 4 and 6 by substituting the echoed value, not
+by reusing the variable.
+
+Pass `--notes-file` with the echoed path to `release.sh` in Steps 4 and 6 —
+substitute that concrete path in place of the `/REPLACE-WITH-NOTES-PATH`
+placeholder those commands show (per Step 1).
+**Without `--notes-file`**, the script falls back to raw commit subjects
+(`build_notes`) — exactly what this step exists to prevent — so always pass
+the file once notes are prepared. A given `--notes-file` path that is missing
+or points to an empty file is a hard error, so that fallback never fires
+silently once a real path is passed. The one gap it does **not** cover is an
+*empty path string*: `--notes-file ""` reads to `release.sh` as "flag never
+passed" and takes the silent fallback — which is exactly why Steps 4/6 carry a
+guaranteed-nonexistent literal placeholder, not a bare `$NOTES_FILE` that would
+expand empty in those later calls.
 
 ## Step 4 — Dry-run the preflight
 
 ```bash
-scripts/release.sh --version X.Y --notes-file "$NOTES_FILE" --dry-run
+scripts/release.sh --version X.Y --notes-file /REPLACE-WITH-NOTES-PATH --dry-run
 ```
 
 This runs the full preflight (HEAD == origin/main, every required check
@@ -244,7 +264,7 @@ upload that follows cannot be undone.
 ## Step 6 — Release
 
 ```bash
-scripts/release.sh --version X.Y --notes-file "$NOTES_FILE"
+scripts/release.sh --version X.Y --notes-file /REPLACE-WITH-NOTES-PATH
 ```
 
 The script archives, re-checks the ADR-005 §8.5 Ollama-symbol guard on
