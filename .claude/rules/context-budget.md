@@ -15,7 +15,7 @@ Always-loaded files (loaded into every agent session / invocation):
 - `.claude/rules/*.md` **without** `paths:` frontmatter
 - `.claude/agents/*.md`
 
-Path-scoped files (`paths:` frontmatter) load only on matching edits — budget looser there.
+Path-scoped files (`paths:` frontmatter) load only when a matching path is read — budget looser there.
 
 ## Principle
 

@@ -32,7 +32,7 @@ Em-dash (`—`) and `Feature: explanation` colon-as-prose-separator are the most
 - For new content, prefer comma / period split / parenthesis over em-dash, and period + new sentence over prose colons.
 - Hyphens (`on-device`, `non-trivial`) and colons before code blocks / bullet lists are not the same trap.
 
-The same voice rule extends to `README.md` / `CONTRIBUTING.md` additions, but this rule auto-loads on LP edits only — apply by writer judgement when editing project-root public docs.
+The same voice rule extends to `README.md` / `CONTRIBUTING.md` additions, but this rule loads only when an LP file itself is read (an edit reads it first) — apply by writer judgement when editing project-root public docs.
 
 ## 3. Source mechanics — .astro authoring traps
 

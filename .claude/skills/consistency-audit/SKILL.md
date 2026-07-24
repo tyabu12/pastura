@@ -17,8 +17,9 @@ This is the first generator of the "nightly brush-up automation" family. The
 gating that keeps every generator safe to run unattended is the shared
 **Output Contract**, canonical in `.claude/rules/automation-output-contract.md`
 — **read it in full before Step 0.** It is path-scoped to `.claude/skills/**`,
-which fires when a human *edits* a skill, not when this one *runs*, so a run
-that does not read it executes without the contract in context.
+which fires when a skill file is *read*, not when this one *runs* — a run drives
+its scripts through Bash and never reads this file, so it executes without the
+contract in context.
 
 ## Non-goals
 
@@ -46,8 +47,9 @@ that does not read it executes without the contract in context.
 ## Output Contract
 
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
-full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
-skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
+skill file is *read*, not on this skill's *execution* — a run drives its scripts
+through Bash without reading a skill file, so nothing auto-loads it during a
 run.
 
 How this skill binds itself to each rule:
@@ -121,8 +123,8 @@ Pastura-specific operational detail starts here.
    abort and report rather than mixing changes. (Sibling generators no
    longer dirty the tree — the nightly digests are gitignored local logs.)
 6. **Read `.claude/rules/automation-output-contract.md` in full.** Abort if
-   missing. It does not auto-load during a run (its `paths:` glob fires on a
-   skill edit), so this is the only step that puts the contract in context.
+   missing. It does not auto-load during a run (its `paths:` glob fires on a read the run
+   never performs), so this is the only step that puts the contract in context.
 
 ## Step 0.5 — WIP backpressure (skip when the review queue is saturated)
 

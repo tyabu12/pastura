@@ -14,8 +14,9 @@ isolation comes from plain branches created off `origin/main`.
 
 This skill is bound by the brush-up family's shared **Output Contract**.
 **Canonical text: `.claude/rules/automation-output-contract.md` — read it in
-full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires on a
-skill *edit*, not on this skill's *execution*; nothing auto-loads it during a
+full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
+skill file is *read*, not on this skill's *execution* — a run drives its scripts
+through Bash without reading a skill file, so nothing auto-loads it during a
 run. Because this generator writes **arbitrary code**, it is the one explicitly
 excluded from the contract's "auto-fix PRs may skip a code-review pass"
 exemption — the mandatory `code-reviewer` gate below is that exclusion in
@@ -93,7 +94,7 @@ Non-goals:
    report rather than contaminating a new branch.
 6. **Read `.claude/rules/automation-output-contract.md` in full.** Abort if
    missing. It does not auto-load during a run (its `paths:` glob fires on
-   a skill edit), so this is the only step that puts the contract in
+   a read the run never performs), so this is the only step that puts the contract in
    context — and this generator writes arbitrary code, so it is the one
    the contract binds hardest.
 

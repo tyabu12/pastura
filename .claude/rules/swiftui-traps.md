@@ -5,7 +5,7 @@ paths:
 
 # SwiftUI / Swift 6 Traps
 
-Aggregation point for SwiftUI footguns, Swift 6 isolation quirks, and build-graph/xcodeproj traps that surface during Pastura app development. Loaded only when editing Swift files in the app target. Cross-references to `navigation.md` (path-scoped to the same Swift glob, so loaded alongside these edits) for AppRouter / `PasturaBackButton` mechanics — this file is the trap catalog, that one is the navigation pattern.
+Aggregation point for SwiftUI footguns, Swift 6 isolation quirks, and build-graph/xcodeproj traps that surface during Pastura app development. Loaded when a Swift file in the app target is read (an edit reads it first). Cross-references to `navigation.md` (path-scoped to the same Swift glob, so loaded alongside these edits) for AppRouter / `PasturaBackButton` mechanics — this file is the trap catalog, that one is the navigation pattern.
 
 ## Toolbar-hide API matrix (iOS 17 → 26)
 
