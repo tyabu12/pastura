@@ -1,13 +1,13 @@
 # Swift Isolation Rules
 
-**Scope**: `nonisolated` annotation traps + the `nonisolated async` executor-inheritance trap under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (with `SWIFT_APPROACHABLE_CONCURRENCY = YES`). Patterns 1–5 are **compile-time annotation traps** (a diagnostic fires); Pattern 6 is a **silent runtime trap** (executor inheritance — no diagnostic, surfaces as a UI freeze). Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
+**Scope**: `nonisolated` annotation traps + the `nonisolated async` executor-inheritance trap under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (with `SWIFT_APPROACHABLE_CONCURRENCY = YES`). Patterns 1–5 are **compile-time annotation traps** (a diagnostic fires); Patterns 6–7 are **silent runtime traps** (no diagnostic — a UI freeze and an executor-precondition trap respectively). Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
 
 Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference traps in five specific patterns. The five share the same root cause (MainActor inference) but surface in two diagnostic forms:
 
 - **Conformance-site** (Pattern 1): `conformance of '<Type>' to protocol '<Protocol>' crosses into main actor-isolated code and can cause data races` — a previously-compiling type suddenly refusing to build.
 - **Use-site** (Patterns 2–5): fires at the test, generic collection, Sendable closure callsite, or conformance-lookup callsite — not the declaration. Patterns 2–4 surface as `Call to main actor-isolated <thing> in a synchronous nonisolated context`; Pattern 5 surfaces as `main actor-isolated conformance of '<Type>' to '<Protocol>' cannot be used in nonisolated context`.
 
-Easy to miss because the diagnostic doesn't point at the type definition. **Pattern 6 is the exception to this framing** — it produces *no diagnostic at all* (the code compiles and silently runs blocking work on the caller's MainActor executor). It is grouped here because it shares the root cause: a `nonisolated` member that fails to land off-main under default-MainActor isolation.
+Easy to miss because the diagnostic doesn't point at the type definition. **Patterns 6–7 are the exception to this framing** — they produce *no diagnostic at all*. They are grouped here because they share the root cause: a member that fails to land off-main under default-MainActor isolation.
 
 ## Pattern 1 — Protocol-extension default impl + escaping closure
 
@@ -141,3 +141,57 @@ requirement's signature, so sibling conformances need no annotation.
 
 Reference: `Pastura/Pastura/LLM/LlamaCppService.swift` — `loadModelInternal`
 and `unloadModel` carry `@concurrent` (#822).
+
+## Pattern 7 — Conforming to an *unannotated* ObjC protocol from a default-MainActor layer
+
+"It's UIKit" does **not** imply MainActor. Many ObjC delegate / data-source
+protocols are imported **nonisolated**, so the framework may call the witness
+from any thread. A `Views/` or `App/` type conforming to one inherits default
+MainActor isolation, which puts an executor precondition on the `@objc` thunk:
+compiles clean, then traps at runtime the first time the framework calls
+off-main. Silent like Pattern 6 — no diagnostic points at it.
+
+**Do not infer this from the framework name, and do not trust an agent's
+assertion either way** — a plan critic and a review agent reached opposite
+conclusions on `UIActivityItemSource`; the right one arrived with grep evidence
+that turned out to be vacuous (see below). **Ask the compiler**, which is the
+only authority here. Force it to print the requirement's type:
+
+```swift
+// probe.swift — typecheck only, never added to the target
+import UIKit
+nonisolated func probe(_ s: any <ProtocolUnderTest>, _ control: any UIScrollViewDelegate) {
+  let _: Int = s.<someRequirement>          // error prints the requirement's real type
+  let _: Int = control.scrollViewDidScroll  // known-MainActor control, always run it
+}
+```
+
+```bash
+SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
+xcrun swiftc -typecheck -swift-version 6 -default-isolation MainActor \
+  -target arm64-apple-ios18.0-simulator -sdk "$SDK" probe.swift 2>&1 | grep "cannot convert"
+```
+
+`@MainActor` in the printed type ⇒ isolated; its absence ⇒ **nonisolated ⇒ mark
+the conforming type `nonisolated`**. Observed 2026-07-24:
+`UIActivityItemSource.activityViewControllerPlaceholderItem` prints
+`(UIActivityViewController) -> Any` while the control prints
+`(@MainActor (UIScrollView) -> Void)?`.
+
+**The control line is load-bearing — do not drop it.** Header/apinotes greps are
+the obvious check and they are *worthless* here: `UI_ACTOR` appears on no UIKit
+protocol (it is not even defined in `UIKitDefines.h`), and the apinotes entries
+carry no `SwiftMainActor`, so both "confirm" nonisolated for *every* protocol
+including genuinely-MainActor ones. Any check that cannot redden on the control
+is measuring nothing. Note also that conformance direction does not discriminate
+either: a `nonisolated` type conforms to a `@MainActor` protocol without
+complaint, so "it compiled" proves nothing.
+
+Pair `nonisolated` with a `Sendable` conformance when every stored member is an
+immutable `Sendable` constant — legal on a `final class` whose superclass is
+`NSObject` — so a later `var` fails the build instead of quietly re-opening the
+race. Drop `@MainActor` from the type's test suite as well: the suite then stops
+compiling if the isolation ever regresses, which is a real guard rather than a
+restatement.
+
+Reference: `Pastura/Pastura/Views/Components/ShareCaptionItemSource.swift` (#1263).
