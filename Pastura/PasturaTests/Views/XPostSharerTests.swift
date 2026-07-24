@@ -54,4 +54,26 @@ struct XPostSharerTests {
     // 🐑 (U+1F411) as UTF-8 percent-encoding.
     #expect(string.contains("%F0%9F%90%91"))
   }
+
+  @Test("intentURL appends hashtags= carrying the bare tag name")
+  func intentURLWithHashtags() throws {
+    let url = XPostSharer.intentURL(text: "caption", link: nil, hashtags: ShareHashtag.name)
+    let string = try #require(url?.absoluteString)
+    #expect(string.contains("&hashtags=Pastura"))
+    // X's composer prepends the `#` itself, so a sent one would double it —
+    // assert the encoded form (%23) never reaches the query.
+    #expect(!string.contains("%23"))
+  }
+
+  @Test("intentURL omits hashtags= entirely when none is passed")
+  func intentURLNilHashtags() {
+    let url = XPostSharer.intentURL(text: "caption", link: nil)
+    #expect(url?.absoluteString.contains("hashtags=") == false)
+  }
+
+  @Test("ShareHashtag derives the display form from the bare tag name")
+  func shareHashtagForms() {
+    #expect(ShareHashtag.name == "Pastura")
+    #expect(ShareHashtag.hash == "#Pastura")
+  }
 }

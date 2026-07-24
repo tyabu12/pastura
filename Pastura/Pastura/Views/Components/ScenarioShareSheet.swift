@@ -102,7 +102,9 @@ struct ScenarioShareSheet: View {
   }
 
   private func postToX() {
-    XPostSharer.share(text: caption, link: context.link)
+    // Destination is known up front here, so the tag rides X's own `hashtags=`
+    // param. The system-share path can't do that — see ``ShareCaptionItemSource``.
+    XPostSharer.share(text: caption, link: context.link, hashtags: ShareHashtag.name)
     dismiss()
   }
 
@@ -120,7 +122,10 @@ struct ScenarioShareSheet: View {
   /// here — the modifier dismisses via `context = nil` and re-presents on
   /// `onDismiss`.
   private func requestSystemShare() {
-    var items: [Any] = [caption]
+    // Same destination-aware caption as the highlight card's system share —
+    // the target is unknown until the user picks, so the hashtag decision has
+    // to be deferred to `ShareCaptionItemSource`.
+    var items: [Any] = [ShareCaptionItemSource(baseCaption: caption)]
     if let link = context.link { items.append(link) }
     onSystemShare(items)
   }

@@ -92,7 +92,7 @@ is **canonical in the rule files**; check each change against the trigger, and r
 rule (loaded per Review Process step 3) for depth. Flag a Warning when a change trips a trigger.
 
 - **ShapeStyle vs `Color` tokens** — `.foregroundStyle(.muted)` where `.muted` is a `Color` extension (use `Color.muted`). → `swiftui-traps.md` §"Custom `Color` tokens don't work with `.foregroundStyle`"
-- **`nonisolated` MainActor-inference traps** — 6 patterns under default-MainActor isolation; diagnostics fire at the use site, not the declaration. → `swift-isolation.md` (always-loaded)
+- **`nonisolated` MainActor-inference traps** — 7 patterns under default-MainActor isolation; diagnostics fire at the use site, not the declaration, and Patterns 6–7 fire no diagnostic at all (incl. conforming to an unannotated ObjC protocol — verify `UI_ACTOR` / `SwiftMainActor` in the SDK, never infer from "it's UIKit"). → `swift-isolation.md` (always-loaded)
 - **`@Suite` `.timeLimit(.minutes(1))`** — required on every suite under `PasturaTests/`; load-bearing CI-hang diagnostic, do not remove. → `testing.md` §"`.timeLimit` Trait on Every Suite"
 - **`@Suite(.serialized)`** — required for suites creating `SimulationRunner` / other global-state consumers. → `testing.md` §"Swift Testing Parallelism"
 - **Error i18n prep** — `errorDescription` literals wrapped in `String(localized:)`; tests assert via `.contains(...)`, not equality. → `CLAUDE.md` (always-loaded)

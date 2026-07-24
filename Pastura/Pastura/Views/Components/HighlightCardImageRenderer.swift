@@ -88,8 +88,13 @@ struct HighlightShareItem: Identifiable {
   /// (issue #1082), so folding it into the caption would duplicate it. The
   /// caption is unconditional (shared even when `linkURL` is nil) so a
   /// URL-less share still carries the app pointer as context.
+  ///
+  /// The caption element is a ``ShareCaptionItemSource``, not a plain `String`,
+  /// so the text can differ by destination — X receives the brand hashtag and
+  /// nothing else does (#1263). A fresh source is minted per access; nothing
+  /// may depend on identity across two reads of this property.
   var activityItems: [Any] {
-    var items: [Any] = [image, Self.caption]
+    var items: [Any] = [image, ShareCaptionItemSource(baseCaption: Self.caption)]
     if let linkURL { items.append(linkURL) }
     return items
   }
@@ -98,10 +103,10 @@ struct HighlightShareItem: Identifiable {
   /// the image is, plus an app pointer. Model-independent and localized; kept
   /// URL-free per the ordering note on ``activityItems``.
   ///
-  /// Exposed as a single shared source (not a private instance property) so the
-  /// X web-intent post (``XPostSharer``) reuses the exact same localized string
-  /// — a duplicated literal would drift between the system-sheet caption and
-  /// the X post text across ja/en (#1096).
+  /// Deliberately model-independent: this describes the app, not the utterance
+  /// on the card, so one string serves every highlight share. `ScenarioShareSheet`
+  /// composes its own scenario-name-bearing caption instead and does not read
+  /// this one — the two surfaces say different things on purpose.
   static var caption: String {
     String(localized: "Watching AI agents play out a scenario in Pastura 🐑")
   }

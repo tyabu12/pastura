@@ -30,12 +30,17 @@ enum XPostSharer {
 
   // MARK: - Pure logic (unit-tested)
 
-  /// Builds `https://x.com/intent/tweet?text=<text>&url=<link>`, percent-
-  /// encoding both params against ``valueAllowed``. `url=` is omitted when
-  /// `link` is nil (a URL-less share still pre-fills the caption). Returns
-  /// `nil` only if encoding or the final `URL` parse fails — guarding the
-  /// no-force-unwrap invariant.
-  static func intentURL(text: String, link: URL?) -> URL? {
+  /// Builds `https://x.com/intent/tweet?text=<text>&url=<link>&hashtags=<tags>`,
+  /// percent-encoding every param against ``valueAllowed``. `url=` is omitted
+  /// when `link` is nil (a URL-less share still pre-fills the caption) and
+  /// `hashtags=` when `hashtags` is nil. Returns `nil` only if encoding or the
+  /// final `URL` parse fails — guarding the no-force-unwrap invariant.
+  ///
+  /// `hashtags` takes X's comma-separated, `#`-less form (``ShareHashtag/name``)
+  /// — the composer prepends the `#` itself, so passing one would double it.
+  /// Using the dedicated param rather than folding the tag into `text` also
+  /// keeps the tag out of the localized caption, so `ja` / `en` cannot drift.
+  static func intentURL(text: String, link: URL?, hashtags: String? = nil) -> URL? {
     guard let encodedText = text.addingPercentEncoding(withAllowedCharacters: valueAllowed)
     else { return nil }
     var query = "text=\(encodedText)"
@@ -44,18 +49,23 @@ enum XPostSharer {
         withAllowedCharacters: valueAllowed) {
       query += "&url=\(encodedLink)"
     }
+    if let hashtags,
+      let encodedHashtags = hashtags.addingPercentEncoding(
+        withAllowedCharacters: valueAllowed) {
+      query += "&hashtags=\(encodedHashtags)"
+    }
     return URL(string: "\(intentBase)?\(query)")
   }
 
   // MARK: - UIKit shell (side-effecting; not unit-tested per ADR-009)
 
-  /// Opens the X composer pre-filled with `text` (plus `link` when set).
-  /// Returns `false` as a silent no-op if the URL can't be built or opened —
-  /// the https intent falls through to Safari when the X app is absent, so a
-  /// `false` here is genuinely rare.
+  /// Opens the X composer pre-filled with `text` (plus `link` and `hashtags`
+  /// when set). Returns `false` as a silent no-op if the URL can't be built or
+  /// opened — the https intent falls through to Safari when the X app is
+  /// absent, so a `false` here is genuinely rare.
   @discardableResult
-  static func share(text: String, link: URL?) -> Bool {
-    guard let url = intentURL(text: text, link: link) else { return false }
+  static func share(text: String, link: URL?, hashtags: String? = nil) -> Bool {
+    guard let url = intentURL(text: text, link: link, hashtags: hashtags) else { return false }
     UIApplication.shared.open(url, options: [:], completionHandler: nil)
     return true
   }
