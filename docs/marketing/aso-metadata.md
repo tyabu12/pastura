@@ -13,32 +13,32 @@ land in § Proposal and are applied to ASC at release time.
 > binary but still pass through App Store review on the next version — verify current ASC
 > behavior before assuming a change is review-free.
 
-## Current — live on App Store Connect (snapshot 2026-07-23)
+## Current — live on App Store Connect (snapshot 2026-07-27)
 
 ### Subtitle (App情報 › ローカリゼーション)
 
 | Locale | Subtitle | Length |
 |--------|----------|-------:|
 | en | `Like stargazing, but for LLMs` | 29 / 30 |
-| ja | `天体観測のように、LLM観測` | 14 / 30 |
+| ja | `ローカルLLMでAIエージェントを観察` | 19 / 30 |
 
 ### Keywords (バージョン別 › キーワード)
 
 | Locale | Length |
 |--------|-------:|
-| en | 97 / 100 |
-| ja | 86 / 100 |
+| en | 100 / 100 |
+| ja | 78 / 100 |
 
 **en**
 
 ```
-AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,Word Wolf,observe
+AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,Word Wolf,simulation
 ```
 
 **ja**
 
 ```
-AIエージェント,オンデバイス,オフライン,マルチエージェント,ロールプレイ,ローカルLLM,人狼,囚人のジレンマ,シナリオ,AI観測,サンドボックス,Gemma,Qwen
+オンデバイス,オフライン,マルチエージェント,ロールプレイ,人狼,ワードウルフ,囚人のジレンマ,シナリオ,シミュレーション,サンドボックス,パーティーゲーム
 ```
 
 ### Baseline observations (input for § Proposal)
@@ -50,7 +50,12 @@ AIエージェント,オンデバイス,オフライン,マルチエージェン
 - **en/ja asymmetry** — en has `Word Wolf` / `observe`; ja has `人狼` (werewolf, *not*
   ワードウルフ=Word Wolf), `囚人のジレンマ`, `AI観測`, `サンドボックス`. Coverage differs by locale.
 
-## Proposal (task A — #1073 ASO keyword pass, drafted 2026-07-23)
+## Proposal — ✅ APPLIED to ASC 2026-07-27, submitted with 1.1 (task A — #1073 ASO keyword pass, drafted 2026-07-23)
+
+> This pass is **applied**: § Current above now reflects these values. The reasoning below is
+> retained as the rationale for the current metadata (why each token was chosen / dropped). The
+> "Baseline observations" and per-field tables describe the pre-change state that motivated it.
+> `en` subtitle was intentionally left unchanged this pass. Remaining items are under § Next actions.
 
 **Strategy** (per #1069 / #1073): the funnel's weakest stage is *discovery*. Graft onto three
 existing search circles rather than evangelizing the "AI観測 / AIgazing" category —
