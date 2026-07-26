@@ -10,6 +10,12 @@ Thank you for reviewing Pastura.
 
 Pastura is an on-device sandbox for watching AI multi-agent simulations. The user writes (or picks) a scenario in YAML; a local large language model runs it, and the user observes the agents speak, reason, vote, and score. The user does not chat with the agents — observation only.
 
+## No third-party AI service (re: Guideline 5.1.1(i) / 5.1.2(i))
+
+Pastura does not send user data to any third-party AI service, and it integrates no third-party AI service. All AI inference runs on-device via llama.cpp; user-authored scenarios and AI-generated outputs are never transmitted off the device on their own. The only automatic outbound requests are one-way downloads of public files: open-source model weights from huggingface.co, and the read-only Shared Scenarios index from raw.githubusercontent.com. Nothing is uploaded to any server or AI backend. There is no cloud or remote LLM backend in the shipped build; any development-only backend is excluded from Release builds at compile time. (New in this version: the user can explicitly share a single AI-generated line — or a highlight-card image — via the iOS share sheet to X or Instagram. That is a deliberate, user-initiated hand-off to a social app, not a transmission to an AI service or backend; see "Sharing" under Privacy.)
+
+To verify: after a model finishes downloading, turn on Airplane Mode and run a simulation. It still works, fully offline.
+
 ## Reviewing without downloading a 3 GB model
 
 The LLM runs fully on-device via llama.cpp. On first use, the app downloads a model file (~2.5–3.1 GB, Wi-Fi recommended). You do NOT need to complete that download to evaluate the app:
@@ -23,7 +29,7 @@ If the download is impractical in your environment, the demo replay demonstrates
 
 - **No account, no sign-up, no login.** The app has no account system.
 - **No data collection.** App Privacy is declared "Data Not Collected"; `PrivacyInfo.xcprivacy` has empty `NSPrivacyCollectedDataTypes` and `NSPrivacyTracking = false`. No analytics, telemetry, or crash-reporting SDKs are linked.
-- **Inference is fully on-device.** Simulations run locally via llama.cpp; running a simulation requires no network. The only network activity is (1) the one-time model download and (2) fetching the read-only Shared Scenarios index — both are simple GETs that collect nothing.
+- **Inference is fully on-device.** Simulations run locally via llama.cpp; running a simulation requires no network.
 - **Sharing is user-initiated and native.** The highlight-card image share, X (via the `x.com` web composer), and Instagram Stories all go through the iOS system share sheet or a hand-off URL the user explicitly invokes. Pastura links **no social or analytics SDK** (no Twitter/Facebook/Instagram SDK — the `FacebookAppID` key in Info.plist is a public client identifier Instagram has required for the Stories hand-off since 2023, not a linked SDK), and transmits none of the user's data — the shared content is a single AI-generated line (optionally with the agent's inner-thought line) the user selects, both already passed through `ContentFilter`. The two outbound requests Pastura itself makes are unchanged (model download, gallery index).
 - Privacy policy: https://pastura.app/legal/privacy-policy/ (also linked in-app under Settings).
 
