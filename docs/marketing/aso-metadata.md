@@ -41,7 +41,7 @@ AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,
 オンデバイス,オフライン,マルチエージェント,ロールプレイ,人狼,ワードウルフ,囚人のジレンマ,シナリオ,シミュレーション,サンドボックス,パーティーゲーム
 ```
 
-### Baseline observations (input for § Proposal)
+### Baseline observations (pre-1.1 state — superseded by the tables above; motivated the applied pass)
 
 - **en keywords 97/100** — nearly full; additions require swapping something out.
 - **ja keywords 86/100** — ~14 chars headroom.
@@ -54,8 +54,9 @@ AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,
 
 > This pass is **applied**: § Current above now reflects these values. The reasoning below is
 > retained as the rationale for the current metadata (why each token was chosen / dropped). The
-> "Baseline observations" and per-field tables describe the pre-change state that motivated it.
-> `en` subtitle was intentionally left unchanged this pass. Remaining items are under § Next actions.
+> "Baseline observations" subsection above describes the pre-change state that motivated it (its
+> numbers are the old values, not § Current). `en` subtitle was intentionally left unchanged this
+> pass. Remaining items are under § Next actions.
 
 **Strategy** (per #1069 / #1073): the funnel's weakest stage is *discovery*. Graft onto three
 existing search circles rather than evangelizing the "AI観測 / AIgazing" category —
