@@ -1,8 +1,6 @@
 import Foundation
 import Testing
 
-@testable import Pastura
-
 /// Drift gate for `SimulationView.isAnyModalPresented` (#1279).
 ///
 /// That predicate is a hand-maintained enumeration of the view's modal

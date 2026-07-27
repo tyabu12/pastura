@@ -208,7 +208,13 @@ private func runCoordinator(
 /// other requirement records an `Issue` and returns something benign rather
 /// than trapping: `fatalError` in a test fake aborts the whole test *process*,
 /// killing unrelated suites and truncating the `.xcresult`. `Issue.record`
-/// fails the offending test, names the method, and lets the run finish.
+/// names the method and lets the run finish.
+///
+/// Deliberately no claim about *which* test the issue attaches to: the
+/// coordinator reaches this fake through `offMain`, i.e. `Task.detached`, which
+/// does not inherit task-locals — and that is how swift-testing resolves the
+/// current test. Unverified either way; the surfacing, not the attribution, is
+/// what this buys.
 private final class CountingSimulationRepository: SimulationRepository, @unchecked Sendable {
   private let completedCount: Int
   // Every mutable field sits behind this lock: `completedRunCount` runs
@@ -250,7 +256,10 @@ private final class CountingSimulationRepository: SimulationRepository, @uncheck
   }
 
   func save(_ record: SimulationRecord) throws { unexpected() }
-  func fetchById(_ id: String) throws -> SimulationRecord? { unexpected(); return nil }
+  func fetchById(_ id: String) throws -> SimulationRecord? {
+    unexpected()
+    return nil
+  }
   func fetchByScenarioId(_ scenarioId: String) throws -> [SimulationRecord] {
     unexpected()
     return []

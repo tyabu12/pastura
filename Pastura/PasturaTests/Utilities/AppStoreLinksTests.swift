@@ -51,8 +51,14 @@ struct AppStoreLinksTests {
     let pattern = try Regex(#"apps\.apple\.com/[^"'\s]*?id(\d+)"#)
     var badgeCount = 0
 
-    for case let url as URL in enumerator where url.pathExtension == "astro" {
-      let source = try String(contentsOf: url, encoding: .utf8)
+    // No extension filter: `web/src` also holds `.md` content and `.ts` route
+    // files, and a badge could land in any of them. The regex is the real
+    // predicate, so widening the sweep costs nothing — but the enumerator
+    // yields directories and any binary asset too, and neither reads as UTF-8.
+    // Skipping unreadable entries is safe here precisely because `badgeCount`
+    // below fails the test if the sweep ever stops finding the known badges.
+    for case let url as URL in enumerator where !url.hasDirectoryPath {
+      guard let source = try? String(contentsOf: url, encoding: .utf8) else { continue }
       for match in source.matches(of: pattern) {
         let found = String(source[try #require(match[1].range)])
         #expect(
@@ -63,8 +69,10 @@ struct AppStoreLinksTests {
     }
 
     // Guards the scan itself — a broken path or a changed link shape would
-    // otherwise leave this test vacuously green. Four badges ship today.
-    #expect(badgeCount >= 4, "found only \(badgeCount) store badges — did the scan break?")
+    // otherwise leave this test vacuously green. Counts *occurrences*, not
+    // files: six ship today (index.astro and its ja mirror carry two each,
+    // 404.astro and ScenarioLanding.astro one each).
+    #expect(badgeCount >= 6, "found only \(badgeCount) store badges — did the scan break?")
   }
 
   /// `…/Pastura/PasturaTests/Utilities/<this file>` → four levels up.

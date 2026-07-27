@@ -838,14 +838,16 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   ///
   /// The delay keeps the dialog off the score reveal itself.
   ///
-  /// A skip here is **terminal for this run**: the `.task` id keys on
-  /// `isCompletionChromeReady`, which does not change again, so there is no
-  /// re-attempt once the guards decline. That is the intended trade — nothing
-  /// was stamped, so a later completed run still gets its chance.
+  /// A skip here is **terminal for this view instance**: the `.task` id keys on
+  /// `isCompletionChromeReady`, which does not change again for the finished
+  /// run, so there is no re-attempt once the guards decline. That is the
+  /// intended trade — nothing was stamped, so a later completed run still gets
+  /// its chance.
   ///
   /// ⚠️ ``isAnyModalPresented(viewModel:)`` is a hand-maintained enumeration.
   /// Extend it when adding a `.sheet` / `.alert` / `.fullScreenCover` to this
-  /// view; `SimulationViewModalInventoryTests` fails if you forget.
+  /// view; `SimulationViewModalInventoryTests` fails when the modal inventory
+  /// changes.
   private func requestReviewAtHappyMoment(viewModel: SimulationViewModel) async {
     guard viewModel.isCompletionChromeReady else { return }
     try? await Task.sleep(for: Self.reviewPromptDelay)
@@ -865,7 +867,9 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// Whether a modal **this view owns** is currently up. Enumerated by hand —
   /// SwiftUI exposes no "is a sheet up?" query — so it must stay in step with
   /// the `.sheet` / `.alert` bindings in `body` and `simulationContent`.
-  /// `SimulationViewModalInventoryTests` fails when that drifts.
+  /// `SimulationViewModalInventoryTests` fails when the inventory's size
+  /// changes — it detects arrival, it cannot check that a new binding was
+  /// actually folded into the predicate below.
   ///
   /// **Scope, stated honestly**: it does NOT see a modal presented by an
   /// *ancestor* (the scene-level cellular-consent dialog, DB-recovery, …).
