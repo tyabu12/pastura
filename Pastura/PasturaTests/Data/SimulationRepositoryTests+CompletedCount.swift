@@ -18,6 +18,9 @@ import Testing
 /// ``completedRunCountsByScenarioId()``.
 extension SimulationRepositoryTests {
 
+  /// Pins the empty-DB contract (0, not a throw) for the very first launch —
+  /// the state every new user is in. Weak by construction: it also passes
+  /// against a `return 0` stub, so it is a contract pin, not a guard.
   @Test func completedRunCountReturnsZeroWhenEmpty() throws {
     let env = try makeCompletedCountRepos()
     #expect(try env.sims.completedRunCount(excludingRunId: nil) == 0)

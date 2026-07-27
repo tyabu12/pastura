@@ -8,11 +8,12 @@ import Foundation
 /// rule 1. The side-effecting half mirrors ``FeatureFlags``' accessor shape
 /// (static key + read accessor + setter, read on demand with no caching).
 ///
-/// `nonisolated` because the decision is called from both a MainActor caller
-/// (``ReviewRequestCoordinator``) and nonisolated test contexts; leaving it on
-/// the `App/` layer's default MainActor isolation would make the conformance
-/// lookup MainActor-bound at nonisolated call sites
-/// (`.claude/rules/swift-isolation.md` Pattern 5).
+/// `nonisolated` because these are plain `static func`s with no actor-bound
+/// state, and under the `App/` layer's default MainActor isolation a
+/// synchronous nonisolated caller — including a non-`@MainActor` test suite —
+/// could not reach them. (This is *not* `.claude/rules/swift-isolation.md`
+/// Pattern 5: that one is about auto-synthesized `Equatable`/`Hashable`
+/// conformance lookup, and this enum declares no conformance.)
 ///
 /// Deliberately **not** a sentiment gate. Routing users to the dialog based on
 /// a "do you like the app?" pre-prompt violates App Store Guideline 5.6.3, so
@@ -70,15 +71,22 @@ nonisolated enum ReviewRequestPolicy {
   // MARK: - Version stamp
 
   /// The app version the prompt was last requested for, or `nil` if never.
-  static var lastRequestedVersion: String? {
-    UserDefaults.standard.string(forKey: lastRequestVersionKey)
+  ///
+  /// - Parameter defaults: injectable so ``ReviewRequestCoordinator``'s tests
+  ///   can drive the stamp through an isolated `UserDefaults(suiteName:)`
+  ///   store instead of the process-wide one. Production callers take the
+  ///   default.
+  static func lastRequestedVersion(defaults: UserDefaults = .standard) -> String? {
+    defaults.string(forKey: lastRequestVersionKey)
   }
 
   /// Records that the prompt was requested for `version`. Called on the
   /// request itself, not on any user response — StoreKit reports neither
   /// whether the dialog actually appeared nor what the user did with it.
-  static func markRequested(version: String) {
-    UserDefaults.standard.set(version, forKey: lastRequestVersionKey)
+  ///
+  /// - Parameter defaults: see ``lastRequestedVersion(defaults:)``.
+  static func markRequested(version: String, defaults: UserDefaults = .standard) {
+    defaults.set(version, forKey: lastRequestVersionKey)
   }
 
   /// The app's marketing version (`CFBundleShortVersionString`, i.e. the

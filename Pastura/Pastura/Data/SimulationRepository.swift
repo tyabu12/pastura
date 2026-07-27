@@ -68,6 +68,11 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// `COUNT(*)` aggregate. Orphaned runs (`scenarioId` NULL) are included —
   /// unlike ``completedRunCountsByScenarioId()``, this is not scoped per
   /// scenario, so there is no null-key row to drop.
+  ///
+  /// - Parameter excludingRunId: omits the row with this id from the count,
+  ///   whatever its status; `nil` counts every completed run. Callers reading
+  ///   the count *during* a run's teardown pass that run's id, so the total
+  ///   does not depend on whether its terminal status write has landed yet.
   func completedRunCount(excludingRunId: String?) throws -> Int
 
   /// Updates state-related fields (stateJSON, currentRound, currentPhaseIndex)

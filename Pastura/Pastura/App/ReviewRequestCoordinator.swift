@@ -39,6 +39,11 @@ enum ReviewRequestCoordinator {
   ///     `InFlightSimulationIndicator`. This is deliberately an explicit gate
   ///     rather than relying on the harness's empty mock queue incidentally
   ///     tripping the `degradedTurnCount` condition.
+  ///   - currentVersion: the marketing version to stamp on success. Injectable
+  ///     for tests; production callers take the `Bundle.main` default.
+  ///   - defaults: store backing the version stamp. Injectable so tests drive
+  ///     an isolated `UserDefaults(suiteName:)` rather than the process-wide
+  ///     store.
   ///   - requestReview: the StoreKit request to fire on success. StoreKit
   ///     reports neither whether the dialog appeared nor the user's response,
   ///     so there is nothing to return.
@@ -47,12 +52,16 @@ enum ReviewRequestCoordinator {
     currentRunId: String?,
     degradedTurnCount: Int,
     isUITestMode: Bool = UITestMode.isActive,
+    currentVersion: String? = ReviewRequestPolicy.currentVersion,
+    defaults: UserDefaults = .standard,
     requestReview: () -> Void
   ) async {
     guard !isUITestMode else { return }
-    // Structural, not a duplicate of the policy's own version check: without a
-    // readable version there is nothing to stamp on success.
-    guard let currentVersion = ReviewRequestPolicy.currentVersion else { return }
+    // Structural, not a duplicate of the policy's own version check: we need a
+    // non-nil, non-empty value to stamp on success, and unwrapping it here also
+    // avoids a pointless DB read on the path where the verdict is already
+    // determined. The policy re-checks so it stays correct for any caller.
+    guard let currentVersion, !currentVersion.isEmpty else { return }
 
     let priorCompletedRunCount: Int
     do {
@@ -60,8 +69,6 @@ enum ReviewRequestCoordinator {
         try repository.completedRunCount(excludingRunId: currentRunId)
       }
     } catch {
-      // `OSLogMessage` is not a String — the interpolation must live in a
-      // single literal, not a `+` concatenation.
       logger.error(
         "completedRunCount failed; skipping review prompt: \(String(describing: error), privacy: .public)"
       )
@@ -72,14 +79,14 @@ enum ReviewRequestCoordinator {
       ReviewRequestPolicy.isEligible(
         priorCompletedRunCount: priorCompletedRunCount,
         degradedTurnCount: degradedTurnCount,
-        lastRequestedVersion: ReviewRequestPolicy.lastRequestedVersion,
+        lastRequestedVersion: ReviewRequestPolicy.lastRequestedVersion(defaults: defaults),
         currentVersion: currentVersion)
     else { return }
 
     // Stamp before firing: StoreKit gives no completion signal, so a stamp
     // afterwards has no better moment to run and a crash in between would
     // re-arm the prompt for the same version.
-    ReviewRequestPolicy.markRequested(version: currentVersion)
+    ReviewRequestPolicy.markRequested(version: currentVersion, defaults: defaults)
     requestReview()
   }
 }

@@ -822,24 +822,58 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// settled (#1279). Eligibility itself lives in ``ReviewRequestCoordinator``.
   ///
   /// Driven by `.task(id:)` rather than `.onChange` + a free `Task`: SwiftUI
-  /// cancels a `.task` on disappear and on every id change, which covers the
-  /// back / swipe-back pop and the ADR-017 Phase B park-on-hide in one
-  /// construct. A detached task would outlive the view and present a StoreKit
-  /// modal over whatever screen the user moved to.
+  /// cancels a `.task` on disappear, which covers the back / swipe-back pop,
+  /// the tab switch, and the ADR-017 Phase B park-on-hide. A detached task
+  /// would outlive the view and present a StoreKit modal over whatever screen
+  /// the user moved to.
   ///
-  /// The delay keeps the dialog off the score reveal itself. The post-sleep
-  /// re-check is not redundant: ``SimulationViewModel/isCompletionChromeReady``
-  /// derives from `latestRowRevealCompleted`, which clears on every commit, so
-  /// a true→false→true sequence is representable within the wait.
+  /// **Disappear is not the whole story**, which is why the guards below exist:
+  /// presenting a sheet does NOT disappear the host view, and neither does
+  /// `scenePhase` going to `.background`. Firing into either case is worse than
+  /// not firing at all — the coordinator stamps the version *before* it fires
+  /// (it gets no completion signal from StoreKit), so a presentation the system
+  /// silently drops burns this version's single attempt with nothing shown.
+  /// Hence the explicit `scenePhase` + no-modal-open checks, re-read after the
+  /// sleep rather than before it.
+  ///
+  /// The delay keeps the dialog off the score reveal itself.
+  ///
+  /// ⚠️ ``isAnyModalPresented`` is a hand-maintained enumeration — extend it
+  /// when adding a `.sheet` / `.alert` / `.fullScreenCover` to this view.
   private func requestReviewAtHappyMoment(viewModel: SimulationViewModel) async {
     guard viewModel.isCompletionChromeReady else { return }
     try? await Task.sleep(for: Self.reviewPromptDelay)
-    guard !Task.isCancelled, viewModel.isCompletionChromeReady else { return }
+    guard
+      !Task.isCancelled,
+      viewModel.isCompletionChromeReady,
+      scenePhase == .active,
+      !isAnyModalPresented(viewModel: viewModel)
+    else { return }
     await ReviewRequestCoordinator.requestIfEligible(
       repository: dependencies.simulationRepository,
       currentRunId: viewModel.simulationId,
       degradedTurnCount: viewModel.degradedTurnCount,
       requestReview: { requestReview() })
+  }
+
+  /// Whether anything is currently presented over this view. Enumerated by
+  /// hand — SwiftUI exposes no "is a sheet up?" query — so it must be kept in
+  /// step with the `.sheet` / `.alert` bindings in `body` and
+  /// `simulationContent`. Grep this file for `.sheet(` / `.alert(` /
+  /// `.fullScreenCover(` when auditing it.
+  ///
+  /// Consumed only by ``requestReviewAtHappyMoment(viewModel:)``: an
+  /// obstructed screen is not a moment to ask for a rating, and a dropped
+  /// StoreKit presentation is unrecoverable (see that method's doc).
+  private func isAnyModalPresented(viewModel: SimulationViewModel) -> Bool {
+    exportPayload != nil
+      || exportError != nil
+      || highlightShareItem != nil
+      || highlightShareContext != nil
+      || selectedPersona != nil
+      || showScoreboard
+      || pendingBackLeave
+      || viewModel.predictionPrompt != nil
   }
 
   /// One-shot toast for the first `.languageMismatch` event of the

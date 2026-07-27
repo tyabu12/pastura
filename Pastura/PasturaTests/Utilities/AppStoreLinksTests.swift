@@ -28,9 +28,36 @@ struct AppStoreLinksTests {
     #expect(components.queryItems?.first(where: { $0.name == "action" })?.value == "write-review")
   }
 
-  /// Change-detector on the store item id. It is duplicated in the web LP's
-  /// store badges, so a bad edit here would be invisible to those.
-  @Test func appStoreItemIDPinned() {
-    #expect(AppStoreLinks.appStoreItemID == "6788409688")
+  /// The store item id is duplicated across the web LP's App Store badges, and
+  /// a Swift-side edit is invisible to those. This reads the actual `.astro`
+  /// sources and asserts each still carries the Swift constant — an assertion
+  /// against a literal in this file would only re-state the constant and could
+  /// never detect the divergence it claims to guard.
+  ///
+  /// Repo-relative paths are resolved from `#filePath` (same technique as
+  /// `RecordsCountPluralTests` reading the string catalog), since the test
+  /// bundle does not carry `web/`.
+  @Test func appStoreItemIDMatchesEveryWebStoreBadge() throws {
+    let mirrors = [
+      "web/src/pages/index.astro",
+      "web/src/pages/ja/index.astro",
+      "web/src/pages/404.astro",
+      "web/src/components/ScenarioLanding.astro"
+    ]
+
+    for relativePath in mirrors {
+      let url = Self.repoRoot.appending(path: relativePath)
+      let source = try String(contentsOf: url, encoding: .utf8)
+      #expect(
+        source.contains("id\(AppStoreLinks.appStoreItemID)"),
+        "\(relativePath) does not link id\(AppStoreLinks.appStoreItemID)")
+    }
   }
+
+  /// `…/Pastura/PasturaTests/Utilities/<this file>` → four levels up.
+  private static let repoRoot = URL(fileURLWithPath: #filePath)
+    .deletingLastPathComponent()  // Utilities
+    .deletingLastPathComponent()  // PasturaTests
+    .deletingLastPathComponent()  // Pastura
+    .deletingLastPathComponent()  // repo root
 }

@@ -51,6 +51,15 @@ extension SettingsView {
   /// form: `openURL` reports nothing on a URL the system cannot route, so a
   /// broken link would be indistinguishable from a tester not noticing. The
   /// log line is the only signal such a regression would leave.
+  ///
+  /// ⚠️ **`title` MUST be a `String(localized:)` value.** It renders through
+  /// `Text(_:)` as a plain `String`, invisible to both the SwiftLint tripwire
+  /// and `check_i18n_potential_keys.py` — a future caller passing a raw literal
+  /// leaks untranslated copy with no gate firing. Typing the parameter
+  /// `LocalizedStringKey` looks like the fix and is not: it makes the wrapper's
+  /// source-based `xcstringstool extract` stop seeing the literals and mark the
+  /// keys `stale`. Measured, not assumed — see `.claude/rules/i18n.md`
+  /// § "A custom func's `LocalizedStringKey` parameter is not extracted".
   func externalLinkRow(
     title: String,
     url: URL?,

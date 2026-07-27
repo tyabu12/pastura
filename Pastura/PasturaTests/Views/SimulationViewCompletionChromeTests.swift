@@ -45,6 +45,11 @@ struct SimulationViewCompletionChromeTests {
     // card settling and the App Store review prompt (#1279). The value is
     // load-bearing product behaviour, not decoration: shrink it toward zero and
     // the system dialog covers the score reveal it is meant to reward.
+    //
+    // Limit of the pattern: this pins the VALUE, not the WIRING. Deleting the
+    // `try? await Task.sleep(for: Self.reviewPromptDelay)` in
+    // `requestReviewAtHappyMoment` leaves this green while the behaviour is
+    // gone — that half stays code-review-gated (view-testing.md rule 4).
     #expect(SimulationView.reviewPromptDelay == .seconds(2))
   }
 }

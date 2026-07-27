@@ -24,7 +24,6 @@ nonisolated enum AppStoreLinks {
   /// `apps.apple.com` universal link to the App Store app either way, whereas
   /// an unregistered custom scheme makes `openURL` fail **silently** — which
   /// device QA cannot distinguish from a tester simply not noticing.
-  static var writeReview: URL? {
-    URL(string: "https://apps.apple.com/app/id\(appStoreItemID)?action=write-review")
-  }
+  static let writeReview = URL(
+    string: "https://apps.apple.com/app/id\(appStoreItemID)?action=write-review")
 }
