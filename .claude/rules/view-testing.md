@@ -72,6 +72,13 @@ Three working shapes: pin the locale the **runner already resolves to**
 (`RecordsCountPluralTests` pins `en` on an en simulator); assert other
 locales against the catalog JSON — the change-detector shape above
 (`StoreCaptureTabLabelTests`); or, for a real runtime resolution, scope the
-bundle to the table itself — `Bundle(path: try #require(appBundle
-.path(forResource: "ja", ofType: "lproj")))` returns `観察履歴` (`#require`,
-not `!` — Hard Rule 1; `path(forResource:)` is `String?`).
+bundle to the table itself. **Both** layers of that last one are optional
+(`path(forResource:)` is `String?` *and* `Bundle(path:)` is failable), so
+unwrap twice — `#require` over `!` for a located failure, not because Hard
+Rule 1 applies (test code is exempt from it):
+
+```swift
+let jaPath = try #require(appBundle.path(forResource: "ja", ofType: "lproj"))
+let jaBundle = try #require(Bundle(path: jaPath))
+#expect(String(localized: "History", bundle: jaBundle) == "観察履歴")
+```

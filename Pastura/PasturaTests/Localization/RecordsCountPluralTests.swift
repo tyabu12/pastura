@@ -94,15 +94,18 @@ struct RecordsCountPluralTests {
     // pinned `en` locale. The pin fixes the plural RULE, not the table — the
     // table follows the runner's process localization, which is `en` on every
     // simulator we run, so pinning a non-base locale here would silently keep
-    // reading `en` (`.claude/rules/view-testing.md`
-    // § "Non-base-locale expectations"). This is the actual UR-003 regression
-    // — n=1 rendering
-    // "1 records". Not a tautology (asserts hardcoded literals) and not
-    // ViewInspector (pure Foundation resolution, ADR-009-compatible). The Int
-    // interpolation here is the same plural mechanism the `Text("\(count)…")`
-    // callsite uses; `String(localized: "…\(x)…")` is fine in test code (the
-    // `form_a_localized_interpolation` SwiftLint rule scopes to app source).
+    // reading `en` (`.claude/rules/view-testing.md` § "Non-base-locale
+    // expectations"). That precondition is asserted below rather than assumed,
+    // so a ja-configured runner fails as "wrong runner locale" instead of
+    // looking like a catalog regression. This is the actual UR-003 regression
+    // — n=1 rendering "1 records". Not a tautology (asserts hardcoded literals)
+    // and not ViewInspector (pure Foundation resolution, ADR-009-compatible).
+    // The Int interpolation here is the same plural mechanism the
+    // `Text("\(count)…")` callsite uses; `String(localized: "…\(x)…")` is fine
+    // in test code (the `form_a_localized_interpolation` SwiftLint rule scopes
+    // to app source).
     let bundle = Bundle(for: DatabaseManager.self)
+    #expect(bundle.preferredLocalizations.first == "en")
     let en = Locale(identifier: "en")
     #expect(String(localized: "\(1) records", bundle: bundle, locale: en) == "1 record")
     #expect(String(localized: "\(2) records", bundle: bundle, locale: en) == "2 records")

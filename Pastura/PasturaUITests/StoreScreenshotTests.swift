@@ -71,8 +71,9 @@ final class StoreScreenshotTests: XCTestCase {
 
   /// Two launches per locale: launch A walks the seeded home/editor/results/
   /// transcript screens; launch B opens the fixed-data scoreboard. Tabs are
-  /// switched by `rootTab.*` identifier (not the localized label) so the walk
-  /// works under ja as well as en.
+  /// switched via `tapTab`, which matches the `rootTab.*` identifier OR the
+  /// locale's label, so the walk works under ja as well as en even on a launch
+  /// where the identifier never bridges.
   private func captureStoreShots(for locale: StoreLocale) {
     let localeArgs = ["-AppleLanguages", "(\(locale.language))", "-AppleLocale", locale.locale]
     let prefix = locale.prefix
@@ -92,8 +93,8 @@ final class StoreScreenshotTests: XCTestCase {
     captureScreenshot(app, name: "\(prefix)-03-editor", anchorId: "editor.titleField")
     popBack(app)
 
-    // 05 Past Results list — the History tab root (id-based switch is
-    // locale-independent).
+    // 05 Past Results list — the History tab root (identifier OR localized
+    // label, so the switch survives a launch that drops the identifier).
     tapTab(app, "rootTab.history", labelFallback: locale.historyTabLabel)
     captureScreenshot(app, name: "\(prefix)-05-results", anchorId: "results.list")
 
