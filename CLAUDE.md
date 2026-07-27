@@ -271,6 +271,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 - `swift-testing-parallelism.md` — `.serialized` is intra-suite only (cross-suite needs `swift test --no-parallel`); timing assertions compare against an in-test control, never an absolute (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `tools/**`)
 - `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog: toolbar-hide API matrix (iOS 17→26), footguns surfaced during app development; cross-references `navigation.md` for AppRouter mechanics (`Pastura/Pastura/**/*.swift`)
 - `testing.md` — Test target (`Pastura/PasturaTests/**`)
+- `uitest-traps.md` — XCUITest-only traps: structural `Tab` drops the `label:` `Image`'s a11y identifier/label per-launch (waiting never fixes it; button-label queries stay safe) (`Pastura/PasturaUITests/**`)
 - `view-testing.md` — View test strategy: extract logic to unit-tests, narrow UI integration tests, no ViewInspector / snapshot (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**ViewModel.swift`). Decision record: [ADR-009](docs/decisions/ADR-009.md).
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):

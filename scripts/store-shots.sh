@@ -12,6 +12,10 @@
 # UI-test flake class). Output PNGs are gitignored (docs/store/screenshots/);
 # this is the single regeneration path. See docs/store/screenshot-plan.md.
 #
+# A tab-switch failure here is usually NOT this script: structural `Tab` drops
+# the tab icon's a11y identifier on some launches, so a re-run is the fix, not
+# a longer wait. See .claude/rules/uitest-traps.md.
+#
 # Usage: scripts/store-shots.sh
 # Requires: jq (brew install jq); an available "iPhone 17 Pro Max" simulator.
 
