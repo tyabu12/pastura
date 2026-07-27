@@ -68,9 +68,10 @@ about ja. Probed 2026-07-27 on the simulator test runner: `locale: ja` on
 `"%lld records"` → `1 records`, i.e. ja's `other`-only rule applied to the
 **en** table (`ja.lproj` ships; it is simply not selected).
 
-Three working shapes: pin the **base** locale at runtime
-(`RecordsCountPluralTests`); assert non-base values against the catalog JSON
-— the change-detector shape above (`StoreCaptureTabLabelTests`); or, for a
-real runtime resolution, scope the bundle to the table —
-`Bundle(path: appBundle.path(forResource: "ja", ofType: "lproj"))`, which
-does return `観察履歴`.
+Three working shapes: pin the locale the **runner already resolves to**
+(`RecordsCountPluralTests` pins `en` on an en simulator); assert other
+locales against the catalog JSON — the change-detector shape above
+(`StoreCaptureTabLabelTests`); or, for a real runtime resolution, scope the
+bundle to the table itself — `Bundle(path: try #require(appBundle
+.path(forResource: "ja", ofType: "lproj")))` returns `観察履歴` (`#require`,
+not `!` — Hard Rule 1; `path(forResource:)` is `String?`).

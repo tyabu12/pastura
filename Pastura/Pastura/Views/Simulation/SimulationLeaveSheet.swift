@@ -2,7 +2,8 @@ import SwiftUI
 
 /// Semantic color tokens for ``SimulationLeaveSheet``, extracted so
 /// `SimulationControlsTokenTests` can pin them as a **change-detector
-/// tripwire** (ADR-009 § "Change-detector tripwire").
+/// tripwire** (ADR-009 / view-testing.md
+/// § "Change-detector tripwire for code-review-gated tokens").
 ///
 /// The load-bearing decision: the "keep running" action is a *caution*
 /// (design-system §2.6 `warning`, amber), **not** a *destructive* action

@@ -13,10 +13,13 @@ import Testing
 /// moment with no slack for it. This fails in CI instead.
 ///
 /// A change-detector against the catalog JSON (`.claude/rules/view-testing.md`
-/// § "Change-detector tripwire"), **not** a runtime `String(localized:)`
-/// resolution. A pinned-`ja` runtime resolve was tried first and returns the
-/// key `"History"` unchanged — the same reason `RecordsCountPluralTests` pins
-/// only `en` at runtime and asserts its ja expectations against this JSON.
+/// § "Change-detector tripwire for code-review-gated tokens"), **not** a
+/// runtime `String(localized:)` resolution. A pinned-`ja` resolve was tried
+/// first and returned `"History"`: `locale:` selects the plural/format rule,
+/// not the `.lproj` table, so it read the `en` table — where this key has no
+/// entry of its own, hence the key came back. Same reason
+/// `RecordsCountPluralTests` pins only `en`. See view-testing.md
+/// § "Non-base-locale expectations".
 ///
 /// A failure here is not necessarily a bug: it means the ja label moved, and
 /// whoever moved it must also update the `historyTabLabel` literals in

@@ -6,7 +6,8 @@ import Testing
 /// Catalog-structure assertion for the **first plural** entry in
 /// `Localizable.xcstrings` — the Past Results count line (`"%lld records"`,
 /// UR-003). A change-detector test (`.claude/rules/view-testing.md`
-/// § "Change-detector tripwire"), NOT a runtime `String(localized:)` resolution:
+/// § "Change-detector tripwire for code-review-gated tokens"), NOT a runtime
+/// `String(localized:)` resolution:
 /// the catalog compiles to a `.loctable` (no `.xcstrings` ships in the bundle),
 /// and a runtime resolve against the test-runner bundle is both
 /// bundle-ambiguous and tautological — and the SwiftUI `Text` plural path is
@@ -90,8 +91,12 @@ struct RecordsCountPluralTests {
   @Test func englishPluralFiresAtRuntime() {
     // Behavioral counterpart to the structure assertions: resolve the key
     // against the COMPILED catalog (app bundle, not the test runner's) with a
-    // pinned `en` locale, so the assertion is deterministic regardless of the
-    // CI runner's locale. This is the actual UR-003 regression — n=1 rendering
+    // pinned `en` locale. The pin fixes the plural RULE, not the table — the
+    // table follows the runner's process localization, which is `en` on every
+    // simulator we run, so pinning a non-base locale here would silently keep
+    // reading `en` (`.claude/rules/view-testing.md`
+    // § "Non-base-locale expectations"). This is the actual UR-003 regression
+    // — n=1 rendering
     // "1 records". Not a tautology (asserts hardcoded literals) and not
     // ViewInspector (pure Foundation resolution, ADR-009-compatible). The Int
     // interpolation here is the same plural mechanism the `Text("\(count)…")`
