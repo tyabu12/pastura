@@ -4,6 +4,7 @@
 // control bar, scoreboard sheet, export flow, and lifecycle hooks. Log-
 // entry rendering is already split into SimulationView+LogEntries.swift;
 // further extraction would scatter state bindings across files.
+import StoreKit
 import SwiftUI
 import UIKit
 import os
@@ -47,6 +48,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // not inherit ambient appearance), so capture the current scheme here and
   // pass it in explicitly.
   @Environment(\.colorScheme) private var colorScheme
+  // StoreKit review request, fired at the completed run's happy moment (#1279).
+  // Read here rather than inside `ReviewRequestCoordinator` so the coordinator
+  // stays SwiftUI-free; eligibility lives there, presentation lives here.
+  @Environment(\.requestReview) private var requestReview
   @State private var viewModel: SimulationViewModel?
   /// `true` while the back-button confirm-on-leave dialog is showing (#673).
   @State private var pendingBackLeave = false
@@ -806,6 +811,35 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .safeAreaInset(edge: .top, spacing: 0) {
       headerMetaInset(viewModel: viewModel)
     }
+    // App Store review prompt at the run's happy moment (#1279). Body
+    // extracted to keep `simulationContent` under `cyclomatic_complexity`.
+    .task(id: viewModel.isCompletionChromeReady) {
+      await requestReviewAtHappyMoment(viewModel: viewModel)
+    }
+  }
+
+  /// Offers the App Store review prompt once a run's closing chrome has
+  /// settled (#1279). Eligibility itself lives in ``ReviewRequestCoordinator``.
+  ///
+  /// Driven by `.task(id:)` rather than `.onChange` + a free `Task`: SwiftUI
+  /// cancels a `.task` on disappear and on every id change, which covers the
+  /// back / swipe-back pop and the ADR-017 Phase B park-on-hide in one
+  /// construct. A detached task would outlive the view and present a StoreKit
+  /// modal over whatever screen the user moved to.
+  ///
+  /// The delay keeps the dialog off the score reveal itself. The post-sleep
+  /// re-check is not redundant: ``SimulationViewModel/isCompletionChromeReady``
+  /// derives from `latestRowRevealCompleted`, which clears on every commit, so
+  /// a true→false→true sequence is representable within the wait.
+  private func requestReviewAtHappyMoment(viewModel: SimulationViewModel) async {
+    guard viewModel.isCompletionChromeReady else { return }
+    try? await Task.sleep(for: Self.reviewPromptDelay)
+    guard !Task.isCancelled, viewModel.isCompletionChromeReady else { return }
+    await ReviewRequestCoordinator.requestIfEligible(
+      repository: dependencies.simulationRepository,
+      currentRunId: viewModel.simulationId,
+      degradedTurnCount: viewModel.degradedTurnCount,
+      requestReview: { requestReview() })
   }
 
   /// One-shot toast for the first `.languageMismatch` event of the
@@ -1273,6 +1307,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// reads as one settle. Code-review-gated timing token (no automated firing
   /// signal); pinned by `SimulationViewCompletionChromeTests`.
   static let sharedFadeDuration: Double = 0.35
+
+  /// Wait between the result card settling and the App Store review prompt
+  /// (#1279), so the system dialog never covers the score reveal it is
+  /// rewarding. Code-review-gated timing token; pinned by
+  /// `SimulationViewCompletionChromeTests`.
+  static let reviewPromptDelay: Duration = .seconds(2)
 
   private func scrollToBottom(_ proxy: ScrollViewProxy) {
     withAnimation {
