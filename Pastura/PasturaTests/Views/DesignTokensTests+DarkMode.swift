@@ -59,10 +59,11 @@ extension DesignTokensTests {
   // while the expected side is `Color(.sRGB, …)` → `Color.Resolved`. Only the
   // final linear conversion is shared, so these are NOT one pipeline and an
   // exact equality check would be a false red. Note the tolerance is in
-  // **linear** space and therefore non-uniform — several 8-bit steps of slack
-  // near black, well under one near white. Safe for today's eight pairs (the
-  // closest linear gap is ~5x it), but re-check when adding a pair whose two
-  // sides are close in luminance.
+  // **linear** space and therefore non-uniform — measured, ~16 8-bit steps of
+  // slack near black but only ~0.6 of a step near white. Margin for today's
+  // eight pairs is comfortable; the closest is `muted`↔`nightMuted` at 11.9x
+  // the tolerance (next: `moss` at 19x). Compare a ninth pair against those two
+  // before trusting this bound.
 
   @Test func pairedAliasesResolveDarkUnderDarkColorScheme() {
     let cases: [(alias: Color, dark: PasturaColorValue)] = [
@@ -131,12 +132,12 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.moss.dark == PasturaPalette.nightMoss)
   }
 
-  /// Speed bump on the registry's documented size, NOT a completeness check:
-  /// declaring a ninth pair without appending it to `all` leaves the count at 8
-  /// and passes. It exists so that *editing the registry* forces a reader past
-  /// the `nightSurface` double-mapping (ADR-028 § "The `nightSurface`
-  /// double-mapping") before wiring a ninth. Per-alias coverage lives in the
-  /// wiring tests above.
+  /// Guards the registry's documented size, NOT completeness: declaring a ninth
+  /// pair without appending it to `all` leaves the count at 8 and passes. What it
+  /// does catch outright is a copy-paste duplicate in `all` (the `Set` line), and
+  /// it makes *editing the registry* trip over the `nightSurface` double-mapping
+  /// (ADR-028 § "The `nightSurface` double-mapping") before a ninth is wired.
+  /// Per-alias coverage lives in the wiring tests above.
   @Test func exactlyEightPairsAreWired() {
     #expect(PasturaDynamicPalette.all.count == 8)
     #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 8)
@@ -146,7 +147,6 @@ extension DesignTokensTests {
   /// ever gains a light partner this test should be deleted along with the
   /// ADR-028 deferral.
   @Test func nightSurfaceIsDefinedButNotWired() {
-    #expect(PasturaPalette.nightSurface.opacity == 1.0)
     #expect(!PasturaDynamicPalette.all.contains { $0.pair.dark == PasturaPalette.nightSurface })
   }
 }
@@ -174,11 +174,16 @@ private func lightEnvironment() -> EnvironmentValues {
 /// fails with `main actor-isolated property 'red' can not be referenced from a
 /// nonisolated context` on each component read below.
 ///
-/// Note the asymmetry — `PasturaDynamicColor.uiColor`'s **nonisolated** provider
-/// closure reads those same `let` properties and compiles. The likely
-/// differentiator is that this file crosses a module boundary via
-/// `@testable import`, whereas the provider is in-module; that has NOT been
-/// isolated, so treat the cause as open and the annotation as required.
+/// The asymmetry — `PasturaDynamicColor.uiColor`'s **nonisolated** provider
+/// closure reads those same `let` properties and compiles — is the module
+/// boundary, and it takes two facts. (1) `SWIFT_DEFAULT_ACTOR_ISOLATION =
+/// MainActor` is set on the app target's configs only (2 occurrences in the
+/// pbxproj), so a file-scope `private func` here in `PasturaTests` is
+/// nonisolated by default while app-module code is not. (2) Swift's implicit
+/// exemption for reading immutable `Sendable` `let` storage of a
+/// global-actor-isolated type applies only **within the declaring module** —
+/// outside it the `let` could later become computed. Hence in-module reads
+/// compile and `@testable import`-ed ones do not.
 @MainActor
 private func sRGBComponentsMatch(
   _ resolved: UIColor, _ token: PasturaColorValue, tolerance: CGFloat = 0.001

@@ -279,7 +279,8 @@ form, `EXCEPTIONS` exemptions).
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
 steps above assume a brand-new value. A dark pair adds: the `night*` raw token (step 1), its
 `Color` alias, a `PasturaDynamicColor` entry in `DesignTokens+DynamicColor.swift`'s
-`PasturaDynamicPalette` (including its `all` registry, which a count assertion guards), the
+`PasturaDynamicPalette` (including its `all` registry — its count assertion guards
+that list's documented size, not completeness: an unregistered pair still passes), the
 light alias repointed from `PasturaPalette.x.color` to `PasturaDynamicPalette.x.color`, plus
 steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so the pairing file
 itself is inert to it — only the new `night*` hex needs a `tokens.css` row. See ADR-028.
@@ -362,7 +363,8 @@ diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 `muted`/`rule`/`moss`) resolve light↔dark against the ambient interface style
 (ADR-028), so reading one inside `ImageRenderer` content means "whatever
 appearance the renderer resolved" — and an explicitly light or dark export
-becomes unexpressible. The other 59 aliases are still fixed light-only, so a
+becomes unexpressible. The other 76 aliases are still fixed (59 of them unpaired
+light tokens; the rest `night*` / time-of-day / chart), so a
 token-styled view otherwise rasterizes in one appearance regardless of device.
 
 **Apply**: pass the appearance in **explicitly** — capture
@@ -374,9 +376,11 @@ values are fixed sRGB, which is exactly the property an export needs. Also set
 subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
 simulator misleads.
 
-**Nothing mechanical catches a regression here**: the token tests assert
-`PasturaPalette` components rather than the aliases, and ADR-009 rules out
-snapshot tests, so an alias creeping back into a `Palette` would collapse light
-and dark silently. Reference consumer: `HighlightShareCard.Palette`.
+**What catches a regression here**: the token tests assert `PasturaPalette`
+components *and* the aliases' own resolution, and `HighlightShareCardPaletteTests`
+pins the reference consumer's two families to raw palette values — so an alias
+creeping back into that `Palette` reddens. ADR-009 rules out snapshots, so any
+*new* fixed-appearance consumer needs its own equivalent pin or it is unguarded.
+Reference consumer: `HighlightShareCard.Palette`.
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).

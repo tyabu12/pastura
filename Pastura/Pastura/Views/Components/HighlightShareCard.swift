@@ -25,7 +25,7 @@ import SwiftUI
 ///    depend on how `ImageRenderer` happens to resolve a dynamic `UIColor` —
 ///    which is not contractually tied to the SwiftUI environment, even though
 ///    both renderers do pin `.environment(\.colorScheme, colorScheme)`.
-///    ``Palette`` therefore reads the raw `PasturaPalette` values, which are
+///    ``HighlightCardPalette`` therefore reads the raw `PasturaPalette` values, which are
 ///    fixed sRGB, and selects the family itself.
 /// The caller captures the device's `@Environment(\.colorScheme)` at the
 /// share site and passes it in, so the shared image matches what the user sees.
@@ -126,7 +126,7 @@ struct HighlightShareCard: View {
   /// renderer's `proposedSize` agree.
   static let side: CGFloat = 360
 
-  private var palette: Palette { colorScheme == .dark ? .dark : .light }
+  private var palette: HighlightCardPalette { colorScheme == .dark ? .dark : .light }
 
   var body: some View {
     ZStack {
@@ -284,7 +284,12 @@ struct HighlightShareCard: View {
 /// appearance" and collapse `light` and `dark` into the same thing — which
 /// nothing else would catch, since `ImageRenderer` output is not asserted
 /// anywhere (ADR-009 rules out snapshot tests).
-private struct Palette {
+/// Internal, not `private`, so `HighlightShareCardPaletteTests` can pin each
+/// family to its raw palette values — the only mechanical detector that an
+/// alias has not crept back in here (ADR-009 rules out the snapshot test that
+/// would otherwise be the only one). Comparing two `Color` values is
+/// logic-extraction unit testing, which ADR-009 permits.
+struct HighlightCardPalette {
   let background: Color
   let ink: Color
   let inkSecondary: Color
@@ -292,7 +297,7 @@ private struct Palette {
   let rule: Color
   let moss: Color
 
-  static let light = Palette(
+  static let light = HighlightCardPalette(
     background: PasturaPalette.screenBackground.color,
     ink: PasturaPalette.ink.color,
     inkSecondary: PasturaPalette.inkSecondary.color,
@@ -300,7 +305,7 @@ private struct Palette {
     rule: PasturaPalette.rule.color,
     moss: PasturaPalette.moss.color)
 
-  static let dark = Palette(
+  static let dark = HighlightCardPalette(
     background: PasturaPalette.nightBackground.color,
     ink: PasturaPalette.nightInk.color,
     inkSecondary: PasturaPalette.nightInkSecondary.color,

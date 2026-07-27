@@ -28,17 +28,24 @@ import UIKit
 /// component-level assertions in `DesignTokensTests` and the `tokens.css`
 /// mirror gate, which an asset catalog would take out of reach.
 ///
-/// The type stays `nonisolated` even though `Views/` defaults to `MainActor`:
-/// UIKit may invoke the provider closure from any thread, and a MainActor
-/// closure capturing MainActor state is `.claude/rules/swift-isolation.md`
-/// Pattern 6/7 — a shape that emits no diagnostic and fails only at runtime.
+/// The type stays `nonisolated` even though `Views/` defaults to `MainActor`.
+/// This is a **runtime** guard, not a compile requirement — measured: removing it
+/// still builds clean. `UIColor(dynamicProvider:)` takes a non-`@Sendable`
+/// escaping closure, so without the annotation the closure literal is inferred
+/// `@MainActor` while UIKit may invoke it off the main actor, and nothing
+/// diagnoses that. Keep it *because* the compiler is silent. This is a third
+/// sibling of `swift-isolation.md` Patterns 6–7 — same silence, different
+/// mechanism (6 is `nonisolated async` executor inheritance, 7 is
+/// unannotated-ObjC-protocol conformance); see that file's § "Same cause, two
+/// non-test shapes" for the two build-error shapes this file also hits.
 /// Deliberately NOT `Equatable`, unlike ``PasturaColorValue``: a synthesized
 /// `==` would need `PasturaColorValue`'s own `Equatable` conformance from this
 /// `nonisolated` context, and that conformance is MainActor-isolated (the target
 /// sets `SWIFT_APPROACHABLE_CONCURRENCY = YES`, which enables
-/// `InferIsolatedConformances`) — `swift-isolation.md` Pattern 5,
-/// which fails to compile with "main actor-isolated conformance of
-/// 'PasturaColorValue' to 'Equatable' cannot be used in nonisolated context".
+/// `InferIsolatedConformances`) — `swift-isolation.md` Pattern 5. Observed, not
+/// predicted: with the conformance present the build fails with "main actor-isolated
+/// conformance of 'PasturaColorValue' to 'Equatable' cannot be used in nonisolated
+/// context".
 /// Compare `.light` / `.dark` individually from a MainActor context instead. Do
 /// not "restore" the conformance without also marking `PasturaColorValue`
 /// `nonisolated`, which Pattern 5 reserves for ≥2 nonisolated call sites.
@@ -57,8 +64,9 @@ nonisolated struct PasturaDynamicColor: Sendable {
   ///
   /// Both values are copied into locals first, which reads the intent plainly;
   /// capturing `self` would be equally safe since this is a `nonisolated`
-  /// `Sendable` struct, so the locals are style, not a safety mechanism. What IS
-  /// load-bearing is the type-level `nonisolated` — see the note on the type.
+  /// `Sendable` struct, so the locals are style, not a safety mechanism. The
+  /// annotation that matters is the type-level `nonisolated` — see the note on
+  /// the type for what it does and does not buy.
   /// Components are passed straight through
   /// to `UIColor(red:green:blue:alpha:)`, keeping the explicit-sRGB discipline
   /// that ``PasturaColorValue/color`` documents.
@@ -87,7 +95,7 @@ nonisolated struct PasturaDynamicColor: Sendable {
 /// partner and is not wired here — dark wants a background/surface/bubble
 /// three-step where light has only two, and resolving that (a new light
 /// `surface` token, or dropping `nightSurface`) is a visual-design decision.
-/// ADR-028 § "nightSurface" records it as deferred.
+/// ADR-028 § "The `nightSurface` double-mapping" records it as deferred.
 ///
 /// The remaining 59 light tokens have no dark counterpart and stay light-only;
 /// the app is pinned to light via `Info.plist`'s `UIUserInterfaceStyle` until
@@ -96,8 +104,8 @@ nonisolated struct PasturaDynamicColor: Sendable {
 /// Unlike ``PasturaDynamicColor`` this namespace is deliberately NOT
 /// `nonisolated`: its static initializers read `PasturaPalette`, which is
 /// MainActor-isolated under `Views/`'s default isolation, and a `nonisolated`
-/// namespace fails to compile with "Main actor-isolated default value in a
-/// nonisolated context". Nothing is lost — the isolation that matters is on the
+/// namespace fails to compile — observed, not predicted: "Main actor-isolated
+/// default value in a nonisolated context", once per static. Nothing is lost — the isolation that matters is on the
 /// provider closure inside ``PasturaDynamicColor/uiColor``, which UIKit may
 /// invoke off the main actor; reading these statics only ever happens from the
 /// MainActor `Color` extension.
