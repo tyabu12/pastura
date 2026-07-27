@@ -52,10 +52,17 @@ extension DesignTokensTests {
   //
   // Asserting only the pair contents would pass even if
   // `DesignTokens+SwiftUI.swift` were reverted to static aliases, so these
-  // probe `Color.*` itself. Comparison is tolerance-based and always between
-  // two resolutions from the SAME pipeline, so `Color.Resolved`'s
-  // linear-light encoding cancels out — do NOT "fix" this into an equality
-  // check against a raw sRGB component, which would be a false red.
+  // probe `Color.*` itself.
+  //
+  // The tolerance absorbs the **UIColor round trip**: the alias side goes
+  // `Color(UIColor(dynamicProvider:))` → UIKit resolve → `Color.Resolved`,
+  // while the expected side is `Color(.sRGB, …)` → `Color.Resolved`. Only the
+  // final linear conversion is shared, so these are NOT one pipeline and an
+  // exact equality check would be a false red. Note the tolerance is in
+  // **linear** space and therefore non-uniform — several 8-bit steps of slack
+  // near black, well under one near white. Safe for today's eight pairs (the
+  // closest linear gap is ~5x it), but re-check when adding a pair whose two
+  // sides are close in luminance.
 
   @Test func pairedAliasesResolveDarkUnderDarkColorScheme() {
     let cases: [(alias: Color, dark: PasturaColorValue)] = [
@@ -95,9 +102,12 @@ extension DesignTokensTests {
     }
   }
 
-  /// Negative control. An unpaired token must resolve IDENTICALLY under both
-  /// schemes — without this, a hypothetical bug that made *every* alias
-  /// dark-shifted would still satisfy the assertions above.
+  /// Smoke test that unpaired tokens stay scheme-invariant. Honest about its
+  /// strength: these five are plain `Color(.sRGB, …)` values with no trait
+  /// dependency, so invariance holds by *type*, not by wiring — and none has a
+  /// `night*` counterpart, so no plausible edit to this feature reddens it. It
+  /// documents the intended light-only boundary; it does not police it. A real
+  /// control would need an over-application mechanism to exist first.
   @Test func unpairedAliasesDoNotChangeAcrossColorSchemes() {
     let lightOnly: [Color] = [.page, .promoBackground, .warning, .danger, .mossSoft]
 
@@ -121,11 +131,12 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.moss.dark == PasturaPalette.nightMoss)
   }
 
-  /// Drift guard, not a tautology: §2.9 defines NINE `night*` tokens but only
-  /// EIGHT are pairable, because `nightSurface` and `nightBubble` both claim
-  /// `bubbleBackground` as their day partner. A future contributor wiring a
-  /// ninth pair must first resolve that double-mapping (ADR-028 §
-  /// "nightSurface"), so this count is a deliberate speed bump.
+  /// Speed bump on the registry's documented size, NOT a completeness check:
+  /// declaring a ninth pair without appending it to `all` leaves the count at 8
+  /// and passes. It exists so that *editing the registry* forces a reader past
+  /// the `nightSurface` double-mapping (ADR-028 § "The `nightSurface`
+  /// double-mapping") before wiring a ninth. Per-alias coverage lives in the
+  /// wiring tests above.
   @Test func exactlyEightPairsAreWired() {
     #expect(PasturaDynamicPalette.all.count == 8)
     #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 8)
@@ -159,9 +170,15 @@ private func lightEnvironment() -> EnvironmentValues {
 /// Compares a resolved `UIColor`'s sRGB components against a token. Exact
 /// (0.001) because this path does not go through `Color.Resolved`.
 ///
-/// `@MainActor` is required, not decorative: `PasturaColorValue`'s stored
-/// properties are MainActor-isolated under `Views/`'s default isolation, so a
-/// nonisolated file-scope helper cannot read them.
+/// `@MainActor` is load-bearing, verified by deletion: without it the build
+/// fails with `main actor-isolated property 'red' can not be referenced from a
+/// nonisolated context` on each component read below.
+///
+/// Note the asymmetry — `PasturaDynamicColor.uiColor`'s **nonisolated** provider
+/// closure reads those same `let` properties and compiles. The likely
+/// differentiator is that this file crosses a module boundary via
+/// `@testable import`, whereas the provider is in-module; that has NOT been
+/// isolated, so treat the cause as open and the annotation as required.
 @MainActor
 private func sRGBComponentsMatch(
   _ resolved: UIColor, _ token: PasturaColorValue, tolerance: CGFloat = 0.001

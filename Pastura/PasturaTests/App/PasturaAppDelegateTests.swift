@@ -26,9 +26,16 @@ struct PasturaAppDelegateTests {
 
     // `UIColor` `==` on SwiftUI-derived colors compares representation,
     // not resolved RGBA — the equality holds here because both sides go
-    // through the identical `UIColor(Color.ink)` conversion. If the
-    // production code ever builds the color a different way, revisit this
-    // pin (compare resolved cgColor components instead).
+    // through the identical `UIColor(Color.ink)` conversion.
+    //
+    // ADR-028 fired this comment's own "built a different way" trigger:
+    // `Color.ink` is now backed by a `UIColor(dynamicProvider:)` pair, not a
+    // static sRGB `Color`. The pin still holds because both sides convert the
+    // *same* `static let` instance, so representation equality survives — but
+    // it is now resting on that, so a future change that resolves the alias on
+    // either side (rather than passing the instance through) breaks it. Switch
+    // to comparing resolved `cgColor` components under a pinned trait if that
+    // happens.
     #expect(standardTitle == UIColor(Color.ink))
     #expect(standardLarge == UIColor(Color.ink))
     #expect(scrollEdgeLarge == UIColor(Color.ink))

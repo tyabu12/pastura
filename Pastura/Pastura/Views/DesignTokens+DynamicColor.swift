@@ -35,7 +35,8 @@ import UIKit
 /// Deliberately NOT `Equatable`, unlike ``PasturaColorValue``: a synthesized
 /// `==` would need `PasturaColorValue`'s own `Equatable` conformance from this
 /// `nonisolated` context, and that conformance is MainActor-isolated (the target
-/// builds with `InferIsolatedConformances`) — `swift-isolation.md` Pattern 5,
+/// sets `SWIFT_APPROACHABLE_CONCURRENCY = YES`, which enables
+/// `InferIsolatedConformances`) — `swift-isolation.md` Pattern 5,
 /// which fails to compile with "main actor-isolated conformance of
 /// 'PasturaColorValue' to 'Equatable' cannot be used in nonisolated context".
 /// Compare `.light` / `.dark` individually from a MainActor context instead. Do
@@ -54,9 +55,11 @@ nonisolated struct PasturaDynamicColor: Sendable {
 
   /// The trait-resolving `UIColor`.
   ///
-  /// Both values are copied into locals first so the escaping provider closure
-  /// captures only `Sendable` `PasturaColorValue` structs and never `self` —
-  /// see the isolation note on the type. Components are passed straight through
+  /// Both values are copied into locals first, which reads the intent plainly;
+  /// capturing `self` would be equally safe since this is a `nonisolated`
+  /// `Sendable` struct, so the locals are style, not a safety mechanism. What IS
+  /// load-bearing is the type-level `nonisolated` — see the note on the type.
+  /// Components are passed straight through
   /// to `UIColor(red:green:blue:alpha:)`, keeping the explicit-sRGB discipline
   /// that ``PasturaColorValue/color`` documents.
   var uiColor: UIColor {
@@ -129,9 +132,12 @@ enum PasturaDynamicPalette {
 
   /// Every declared pair, keyed by its light-token name.
   ///
-  /// Drift guard for `DesignTokensTests+DarkMode`: adding a pair without
-  /// registering it here (or wiring a ninth without resolving the
-  /// `nightSurface` question above) fails the count assertion.
+  /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
+  /// does and does not catch: the registry is hand-maintained, so declaring a
+  /// ninth pair and *not* appending it here leaves `all.count == 8` and passes.
+  /// The count guards this list against its own documented size, nothing more —
+  /// the real per-alias coverage is the wiring tests, which resolve each of the
+  /// eight `Color.*` aliases under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
     ("bubbleBackground", bubbleBackground),

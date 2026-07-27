@@ -18,7 +18,11 @@ extension Color {
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?
   // Read `PasturaPalette.<token>.color` directly instead of these aliases.
-  // `HighlightShareCard` is the reference consumer.
+  // `HighlightShareCard` is the reference consumer. That is the sanctioned
+  // explicit-appearance accessor — note the `Color.night*` aliases below now
+  // have ZERO consumers (this change moved their last one, that same card, to
+  // the raw palette); they remain only as defined-ahead-of-need tokens, and are
+  // not a second sanctioned route to a fixed appearance.
 
   // §2.1 Backgrounds
   static let page = PasturaPalette.page.color
