@@ -3468,6 +3468,16 @@
         }
       }
     },
+    "Feedback" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィードバック"
+          }
+        }
+      }
+    },
     "Field name" : {
       "localizations" : {
         "ja" : {
@@ -5466,6 +5476,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "プロンプトをコピーしました！"
+          }
+        }
+      }
+    },
+    "Rate Pastura" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pastura を評価"
           }
         }
       }
