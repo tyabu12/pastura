@@ -368,6 +368,9 @@ private final class GatedSimulationRepository: SimulationRepository, @unchecked 
   func completedRunCountsByScenarioId() throws -> [String: Int] {
     try base.completedRunCountsByScenarioId()
   }
+  func completedRunCount(excludingRunId: String?) throws -> Int {
+    try base.completedRunCount(excludingRunId: excludingRunId)
+  }
   func updateState(
     _ id: String, stateJSON: String, currentRound: Int, currentPhaseIndex: Int
   ) throws {

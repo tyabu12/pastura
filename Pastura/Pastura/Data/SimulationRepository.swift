@@ -64,6 +64,12 @@ nonisolated public protocol SimulationRepository: Sendable {
   /// `scenarioId` and leaves the cross-variant rollup to the consumer.
   func completedRunCountsByScenarioId() throws -> [String: Int]
 
+  /// Returns the number of **completed** runs across all scenarios, as a
+  /// `COUNT(*)` aggregate. Orphaned runs (`scenarioId` NULL) are included —
+  /// unlike ``completedRunCountsByScenarioId()``, this is not scoped per
+  /// scenario, so there is no null-key row to drop.
+  func completedRunCount(excludingRunId: String?) throws -> Int
+
   /// Updates state-related fields (stateJSON, currentRound, currentPhaseIndex)
   /// without touching other columns. Used for pause/resume.
   ///
