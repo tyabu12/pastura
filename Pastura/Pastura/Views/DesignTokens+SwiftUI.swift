@@ -9,22 +9,33 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
+  // The eight aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // against the ambient interface style (§2.9, ADR-028); every other alias
+  // below is light-only because its token has no dark counterpart yet. The app
+  // is pinned to light via `Info.plist`'s `UIUserInterfaceStyle`, so no
+  // half-dark surface can render while that is true.
+  //
+  // Need a specific appearance regardless of the device — e.g. an
+  // `ImageRenderer` export, which does not inherit the ambient environment?
+  // Read `PasturaPalette.<token>.color` directly instead of these aliases.
+  // `HighlightShareCard` is the reference consumer.
+
   // §2.1 Backgrounds
   static let page = PasturaPalette.page.color
-  static let screenBackground = PasturaPalette.screenBackground.color
-  static let bubbleBackground = PasturaPalette.bubbleBackground.color
-  static let whisperBubble = PasturaPalette.whisperBubble.color
+  static let screenBackground = PasturaDynamicPalette.screenBackground.color
+  static let bubbleBackground = PasturaDynamicPalette.bubbleBackground.color
+  static let whisperBubble = PasturaDynamicPalette.whisperBubble.color
   static let promoBackground = PasturaPalette.promoBackground.color
   static let promoBorder = PasturaPalette.promoBorder.color
 
   // §2.2 Ink
-  static let ink = PasturaPalette.ink.color
-  static let inkSecondary = PasturaPalette.inkSecondary.color
-  static let muted = PasturaPalette.muted.color
-  static let rule = PasturaPalette.rule.color
+  static let ink = PasturaDynamicPalette.ink.color
+  static let inkSecondary = PasturaDynamicPalette.inkSecondary.color
+  static let muted = PasturaDynamicPalette.muted.color
+  static let rule = PasturaDynamicPalette.rule.color
 
   // §2.3 Moss
-  static let moss = PasturaPalette.moss.color
+  static let moss = PasturaDynamicPalette.moss.color
   static let mossDark = PasturaPalette.mossDark.color
   static let mossInk = PasturaPalette.mossInk.color
   static let mossSoft = PasturaPalette.mossSoft.color

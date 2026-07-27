@@ -20,9 +20,11 @@ import SwiftUI
 /// 1. `ImageRenderer` renders its content in a *default* environment and does
 ///    NOT inherit the ambient color scheme — an unset card would always
 ///    rasterize light regardless of the device.
-/// 2. Pastura's `PasturaPalette` tokens are fixed sRGB (light-only; the app
-///    itself does not adapt to dark mode), so the card selects between the
-///    light and `night*` token families itself via ``Palette``.
+/// 2. The app's `Color.*` aliases are trait-resolving for the eight paired
+///    §2.9 tokens (ADR-028), so reading them here would silently mean "whatever
+///    appearance the device is in" and make an explicit light or dark export
+///    unexpressible. ``Palette`` therefore reads the raw `PasturaPalette`
+///    values, which are fixed sRGB, and selects the family itself.
 /// The caller captures the device's `@Environment(\.colorScheme)` at the
 /// share site and passes it in, so the shared image matches what the user sees.
 struct HighlightShareCard: View {
@@ -273,10 +275,13 @@ struct HighlightShareCard: View {
 }
 
 /// Light / night token pair the card selects between by ``HighlightShareCard/colorScheme``.
-/// Reuses the design-system token families (`DesignTokens+SwiftUI`) so the
-/// palette never drifts from the app's canonical colors — the card simply picks
-/// which family renders, since the tokens themselves are static (see the card
-/// doc-comment).
+/// Reads the raw `PasturaPalette` values rather than the `Color.*` aliases, so
+/// the palette never drifts from the app's canonical colors *and* each family
+/// stays a fixed appearance. **Load-bearing**: eight of those aliases became
+/// trait-resolving in ADR-028, so `Color.ink` here would mean "the device's
+/// appearance" and collapse `light` and `dark` into the same thing — which
+/// nothing else would catch, since `ImageRenderer` output is not asserted
+/// anywhere (ADR-009 rules out snapshot tests).
 private struct Palette {
   let background: Color
   let ink: Color
@@ -286,12 +291,20 @@ private struct Palette {
   let moss: Color
 
   static let light = Palette(
-    background: .screenBackground, ink: .ink, inkSecondary: .inkSecondary,
-    muted: .muted, rule: .rule, moss: .moss)
+    background: PasturaPalette.screenBackground.color,
+    ink: PasturaPalette.ink.color,
+    inkSecondary: PasturaPalette.inkSecondary.color,
+    muted: PasturaPalette.muted.color,
+    rule: PasturaPalette.rule.color,
+    moss: PasturaPalette.moss.color)
 
   static let dark = Palette(
-    background: .nightBackground, ink: .nightInk, inkSecondary: .nightInkSecondary,
-    muted: .nightMuted, rule: .nightRule, moss: .nightMoss)
+    background: PasturaPalette.nightBackground.color,
+    ink: PasturaPalette.nightInk.color,
+    inkSecondary: PasturaPalette.nightInkSecondary.color,
+    muted: PasturaPalette.nightMuted.color,
+    rule: PasturaPalette.nightRule.color,
+    moss: PasturaPalette.nightMoss.color)
 }
 
 /// The long-press menu content for the highlight share affordance — currently a
