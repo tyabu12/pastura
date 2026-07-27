@@ -57,3 +57,20 @@ example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests` (the
 
 Full Why + alternatives + revisit triggers:
 [ADR-009](../../docs/decisions/ADR-009.md).
+
+## Non-base-locale expectations
+
+`locale:` in `String(localized:bundle:locale:)` selects the plural / format
+**rule** only — the `.lproj` table follows the *process's* localization
+(`Bundle.preferredLocalizations`). So a `ja` pin against the app bundle
+silently returns the `en` value, and a guard built on one asserts nothing
+about ja. Probed 2026-07-27 on the simulator test runner: `locale: ja` on
+`"%lld records"` → `1 records`, i.e. ja's `other`-only rule applied to the
+**en** table (`ja.lproj` ships; it is simply not selected).
+
+Three working shapes: pin the **base** locale at runtime
+(`RecordsCountPluralTests`); assert non-base values against the catalog JSON
+— the change-detector shape above (`StoreCaptureTabLabelTests`); or, for a
+real runtime resolution, scope the bundle to the table —
+`Bundle(path: appBundle.path(forResource: "ja", ofType: "lproj"))`, which
+does return `観察履歴`.
