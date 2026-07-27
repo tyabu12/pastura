@@ -96,6 +96,27 @@ Reference: `Pastura/PasturaTests/Views/ModelRowAccessibilityTests.swift`
 carries `@MainActor` on the suite; `SheepAvatar.Character` keeps its
 default-MainActor isolation.
 
+### Same cause, two non-test shapes (production code, no test involved)
+
+A **`nonisolated` type composing a default-MainActor one** hits the same
+conformance-lookup wall, and the fix order above does not apply — there is no
+suite to annotate. Both are build errors, so neither is silent:
+
+| Shape | Error | Fix |
+|---|---|---|
+| `nonisolated` type conforms to `Equatable`/`Hashable` and a stored member's own conformance is MainActor-isolated | `main actor-isolated conformance of 'X' to 'Equatable' cannot be used in nonisolated context` | **Drop the conformance** and compare members from a MainActor context. Marking `X` `nonisolated` is fix-order 2 — reserve it for ≥2 nonisolated call sites. |
+| `nonisolated enum`/type whose `static let` initializers read MainActor-isolated statics | `Main actor-isolated default value in a nonisolated context` | **Don't mark the namespace `nonisolated`.** Put it only where it's load-bearing — typically an escaping closure handed to a framework that may invoke it off-main (Patterns 6–7). |
+
+Reference: `PasturaDynamicColor` (no `Equatable`) and `PasturaDynamicPalette`
+(no `nonisolated`) in `Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`;
+ADR-028 § Consequences.
+
+**A compile probe must replicate the dependency shape, not just the API shape.**
+A `swiftc -typecheck` probe of the pair type above passed while the real code
+failed, because the probe constructed its token values *inline* instead of
+reading them from a MainActor-isolated static. Probing the API in isolation
+measures nothing here — the isolation of what you *read* is the variable.
+
 ## Pattern 6 — `nonisolated async` runs on the caller's executor (silent UI freeze)
 
 Under `SWIFT_APPROACHABLE_CONCURRENCY = YES` (which enables the

@@ -92,7 +92,10 @@
   --link-visited: #6F6753;
   --link-hover: #4A6438;
 
-  /* §2.9 Dark Mode — night pasture (reserved) */
+  /* §2.9 Dark Mode — night pasture. 8 of these are wired trait-based in the
+     app (ADR-028); --night-surface has no light partner and is unwired. The
+     app stays pinned to light until the other 59 light tokens gain dark
+     counterparts, so dark never actually renders yet. */
   --night-bg: #1B1D17;
   --night-surface: #232620;
   --night-bubble: #2C2F28;

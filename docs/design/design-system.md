@@ -142,12 +142,22 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.9 Dark Mode（夜の牧場）
 
-未使用予約。trait-based で適用するスケルトンを後続で組む際に使う。Source: `§2.9 Dark Mode`。
+**trait-based 配線済み（8 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 8 対が `Color.*` エイリアス経由で実 UI に
+届いている（[ADR-028](../decisions/ADR-028.md)）。ただし §2.1–§2.8 / §2.12 の残り **59**
+トークンにはダーク対が無いため、アプリは `Info.plist` の `UIUserInterfaceStyle = Light`
+で固定されたままで、実際にダークが描画されることはない。固定解除の条件は ADR-028
+§ "Rollout"。Source: `§2.9 Dark Mode`。
+
+**ダーク固定色が要る場合はこの 8 対のエイリアスを読まない。** `Color.ink` 等は「端末の
+外観」を意味するようになったので、`ImageRenderer` 書き出しのように外観を固定したい
+呼び出し側は `PasturaPalette.<token>.color` を直接読む（参照実装:
+`HighlightShareCard`）。
 
 | Token | Hex | 対応する day-mode token |
 |-------|-----|------------------------|
 | `nightBackground` | `#1B1D17` | `screenBackground` |
-| `nightSurface` | `#232620` | `bubbleBackground` |
+| `nightSurface` | `#232620` | ⚠️ **未決・未配線** — `bubbleBackground` は `nightBubble` が取っており、light 側に対が無い。ダークは背景/サーフェス/バブルの 3 段を要求するが light は 2 段しかないため、解消（light `surface` 新設 / `nightSurface` 削除 / 文脈対応）は視覚判断を伴う後続課題。ADR-028 § "The `nightSurface` double-mapping" |
 | `nightBubble` | `#2C2F28` | `bubbleBackground` |
 | `nightWhisperBubble` | `#2F3626` | `whisperBubble`（密談バブルのダーク対。#908 PR2） |
 | `nightInk` | `#E8E5D8` | `ink` |

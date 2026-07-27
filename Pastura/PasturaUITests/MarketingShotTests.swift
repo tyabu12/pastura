@@ -10,9 +10,10 @@ import XCTest
 ///
 /// Capture-only (asserts nothing against a reference), **local-only**,
 /// CI-skipped via `-skip-testing PasturaUITests/MarketingShotTests` in
-/// `ci.yml` — same class as `StoreScreenshotTests`. **ja / light only**: the
-/// app uses a static `PasturaPalette` (no dark-mode adaptation), so light is
-/// the only meaningful appearance.
+/// `ci.yml` — same class as `StoreScreenshotTests`. **ja / light only**: the app
+/// is pinned to light by `Info.plist`'s `UIUserInterfaceStyle`, so light is the
+/// only appearance it can render (eight tokens are trait-paired as of ADR-028,
+/// but the lock means dark never resolves).
 @MainActor
 final class MarketingShotTests: XCTestCase {
   private static let jaArgs = ["-AppleLanguages", "(ja)", "-AppleLocale", "ja_JP"]
