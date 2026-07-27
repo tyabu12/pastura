@@ -16,7 +16,9 @@ nonisolated enum AppStoreLinks {
 
   /// Opens the product page with the write-a-review sheet pre-presented — the
   /// passive, always-available counterpart to the rate-limited system prompt
-  /// (``ReviewRequestPolicy``). User-initiated, so StoreKit's 3-per-365-days
+  /// in `App/`. (Named in prose, not DocC-linked: `Utilities/` depends on
+  /// nothing, and a symbol link is the shape that invites a real import.)
+  /// User-initiated, so StoreKit's 3-per-365-days
   /// cap does not apply, and it stays the path for users who disabled
   /// in-app rating requests entirely.
   ///

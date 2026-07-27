@@ -37,21 +37,34 @@ struct AppStoreLinksTests {
   /// Repo-relative paths are resolved from `#filePath` (same technique as
   /// `RecordsCountPluralTests` reading the string catalog), since the test
   /// bundle does not carry `web/`.
-  @Test func appStoreItemIDMatchesEveryWebStoreBadge() throws {
-    let mirrors = [
-      "web/src/pages/index.astro",
-      "web/src/pages/ja/index.astro",
-      "web/src/pages/404.astro",
-      "web/src/components/ScenarioLanding.astro"
-    ]
+  ///
+  /// The mirrors are **discovered**, not listed: a hand-list can only catch
+  /// divergence in files it already knows about, and the likelier drift is a
+  /// *new* LP page shipping a badge with a stale id.
+  @Test func everyWebStoreBadgeUsesTheSameAppStoreItemID() throws {
+    let webSource = Self.repoRoot.appending(path: "web/src")
+    let enumerator = try #require(
+      FileManager.default.enumerator(at: webSource, includingPropertiesForKeys: nil))
+    // The LP badges carry a slug (`/app/pastura-local-llms-simulator/id…`)
+    // while the in-app link does not (`/app/id…`), so the path segment between
+    // host and id is optional.
+    let pattern = try Regex(#"apps\.apple\.com/[^"'\s]*?id(\d+)"#)
+    var badgeCount = 0
 
-    for relativePath in mirrors {
-      let url = Self.repoRoot.appending(path: relativePath)
+    for case let url as URL in enumerator where url.pathExtension == "astro" {
       let source = try String(contentsOf: url, encoding: .utf8)
-      #expect(
-        source.contains("id\(AppStoreLinks.appStoreItemID)"),
-        "\(relativePath) does not link id\(AppStoreLinks.appStoreItemID)")
+      for match in source.matches(of: pattern) {
+        let found = String(source[try #require(match[1].range)])
+        #expect(
+          found == AppStoreLinks.appStoreItemID,
+          "\(url.lastPathComponent) links id\(found), expected id\(AppStoreLinks.appStoreItemID)")
+        badgeCount += 1
+      }
     }
+
+    // Guards the scan itself — a broken path or a changed link shape would
+    // otherwise leave this test vacuously green. Four badges ship today.
+    #expect(badgeCount >= 4, "found only \(badgeCount) store badges — did the scan break?")
   }
 
   /// `…/Pastura/PasturaTests/Utilities/<this file>` → four levels up.

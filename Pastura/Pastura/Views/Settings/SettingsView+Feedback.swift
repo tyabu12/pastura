@@ -56,10 +56,11 @@ extension SettingsView {
   /// `Text(_:)` as a plain `String`, invisible to both the SwiftLint tripwire
   /// and `check_i18n_potential_keys.py` — a future caller passing a raw literal
   /// leaks untranslated copy with no gate firing. Typing the parameter
-  /// `LocalizedStringKey` looks like the fix and is not: it makes the wrapper's
-  /// source-based `xcstringstool extract` stop seeing the literals and mark the
-  /// keys `stale`. Measured, not assumed — see `.claude/rules/i18n.md`
-  /// § "A custom func's `LocalizedStringKey` parameter is not extracted".
+  /// `LocalizedStringKey` is a real alternative — but it needs
+  /// `extractionState: "manual"` on every key, which trades this leak for a
+  /// silent orphan on the next copy rename. Both measured; the trade-off table
+  /// is `.claude/rules/i18n.md` § "A custom func's `LocalizedStringKey`
+  /// parameter is not extracted". Revisit if this helper gains more callers.
   func externalLinkRow(
     title: String,
     url: URL?,

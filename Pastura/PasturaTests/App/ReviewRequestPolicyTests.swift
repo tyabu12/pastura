@@ -70,6 +70,26 @@ struct ReviewRequestPolicyTests {
         lastRequestedVersion: "1.1", currentVersion: "1.2"))
   }
 
+  // MARK: - Persisted key
+
+  /// The `UserDefaults` key is a **migration contract**, not an
+  /// implementation detail: renaming it resets the stamp for every existing
+  /// user, so they get asked again on a version they were already asked on.
+  /// Nothing else in the codebase pins the literal — the coordinator's tests
+  /// read back through the same accessor and are agnostic to it.
+  ///
+  /// Uses an isolated store so the assertion never touches `.standard`.
+  @Test func versionStampPersistsUnderItsDocumentedKey() throws {
+    let suiteName = "app.pastura.tests.policy.\(UUID().uuidString)"
+    let defaults = try #require(UserDefaults(suiteName: suiteName))
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    ReviewRequestPolicy.markRequested(version: "1.1", defaults: defaults)
+
+    #expect(defaults.string(forKey: "lastReviewRequestVersion") == "1.1")
+    #expect(ReviewRequestPolicy.lastRequestedVersion(defaults: defaults) == "1.1")
+  }
+
   // MARK: - Unreadable version fails closed
 
   /// Without a readable version there is nothing to stamp, so an "eligible"

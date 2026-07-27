@@ -838,8 +838,14 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   ///
   /// The delay keeps the dialog off the score reveal itself.
   ///
-  /// ⚠️ ``isAnyModalPresented`` is a hand-maintained enumeration — extend it
-  /// when adding a `.sheet` / `.alert` / `.fullScreenCover` to this view.
+  /// A skip here is **terminal for this run**: the `.task` id keys on
+  /// `isCompletionChromeReady`, which does not change again, so there is no
+  /// re-attempt once the guards decline. That is the intended trade — nothing
+  /// was stamped, so a later completed run still gets its chance.
+  ///
+  /// ⚠️ ``isAnyModalPresented(viewModel:)`` is a hand-maintained enumeration.
+  /// Extend it when adding a `.sheet` / `.alert` / `.fullScreenCover` to this
+  /// view; `SimulationViewModalInventoryTests` fails if you forget.
   private func requestReviewAtHappyMoment(viewModel: SimulationViewModel) async {
     guard viewModel.isCompletionChromeReady else { return }
     try? await Task.sleep(for: Self.reviewPromptDelay)
@@ -856,11 +862,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       requestReview: { requestReview() })
   }
 
-  /// Whether anything is currently presented over this view. Enumerated by
-  /// hand — SwiftUI exposes no "is a sheet up?" query — so it must be kept in
-  /// step with the `.sheet` / `.alert` bindings in `body` and
-  /// `simulationContent`. Grep this file for `.sheet(` / `.alert(` /
-  /// `.fullScreenCover(` when auditing it.
+  /// Whether a modal **this view owns** is currently up. Enumerated by hand —
+  /// SwiftUI exposes no "is a sheet up?" query — so it must stay in step with
+  /// the `.sheet` / `.alert` bindings in `body` and `simulationContent`.
+  /// `SimulationViewModalInventoryTests` fails when that drifts.
+  ///
+  /// **Scope, stated honestly**: it does NOT see a modal presented by an
+  /// *ancestor* (the scene-level cellular-consent dialog, DB-recovery, …).
+  /// Those cover the same window and would still be obstructed. Accepted:
+  /// they are scene-lifecycle surfaces that do not plausibly appear during a
+  /// run's closing seconds, and the cheap alternative (a UIKit
+  /// `presentedViewController` probe) asserts a presentation-chain shape this
+  /// change has no way to verify.
   ///
   /// Consumed only by ``requestReviewAtHappyMoment(viewModel:)``: an
   /// obstructed screen is not a moment to ask for a rating, and a dropped

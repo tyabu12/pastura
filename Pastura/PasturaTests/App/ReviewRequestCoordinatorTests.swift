@@ -52,6 +52,9 @@ struct ReviewRequestCoordinatorTests {
     let fired = await runCoordinator(env)
 
     #expect(fired == false)
+    // Pins that the outcome came from the FAILURE path, not from an earlier
+    // bail-out that never reached the repository at all.
+    #expect(env.repository.completedRunCountCallCount == 1)
     // Stamping on a failed read would silently burn the version's one chance
     // without ever having shown anything.
     #expect(env.stampedVersion == nil)
@@ -142,23 +145,36 @@ struct ReviewRequestCoordinatorTests {
 
 // MARK: - Harness
 
-private struct CoordinatorEnv {
+/// A class, not a struct, so `deinit` removes the persisted preference domain.
+/// `UserDefaults(suiteName:)` is disk-backed like any other domain, so without
+/// teardown every full test run would leave one leaked domain per test in the
+/// host container.
+private final class CoordinatorEnv {
   let repository: CountingSimulationRepository
   let defaults: UserDefaults
-  let suiteName: String
+  private let suiteName: String
+
+  init(repository: CountingSimulationRepository, defaults: UserDefaults, suiteName: String) {
+    self.repository = repository
+    self.defaults = defaults
+    self.suiteName = suiteName
+  }
+
+  deinit {
+    defaults.removePersistentDomain(forName: suiteName)
+  }
 
   var stampedVersion: String? {
     ReviewRequestPolicy.lastRequestedVersion(defaults: defaults)
   }
 }
 
-/// Fresh isolated defaults per call, so no test observes another's stamp.
-/// `removePersistentDomain` clears anything a prior run of the same suite left
-/// behind — `UserDefaults(suiteName:)` persists to disk like any other domain.
+/// Fresh isolated defaults per call, so no test observes another's stamp. The
+/// name embeds a UUID, so the domain starts empty by construction — there is
+/// nothing to clear on the way in, only on the way out (see `deinit`).
 private func makeEnv(priorCompletedRuns: Int) throws -> CoordinatorEnv {
   let suiteName = "app.pastura.tests.review.\(UUID().uuidString)"
   let defaults = try #require(UserDefaults(suiteName: suiteName))
-  defaults.removePersistentDomain(forName: suiteName)
   return CoordinatorEnv(
     repository: CountingSimulationRepository(completedCount: priorCompletedRuns),
     defaults: defaults,
@@ -187,17 +203,24 @@ private func runCoordinator(
 }
 
 /// Records how the coordinator queried the count, and can fail on demand.
-/// Only `completedRunCount(excludingRunId:)` is exercised; every other
-/// requirement traps, so a future coordinator change that reaches for more
-/// surfaces loudly instead of silently passing.
+///
+/// Only `completedRunCount(excludingRunId:)` is expected to be reached. Every
+/// other requirement records an `Issue` and returns something benign rather
+/// than trapping: `fatalError` in a test fake aborts the whole test *process*,
+/// killing unrelated suites and truncating the `.xcresult`. `Issue.record`
+/// fails the offending test, names the method, and lets the run finish.
 private final class CountingSimulationRepository: SimulationRepository, @unchecked Sendable {
   private let completedCount: Int
+  // Every mutable field sits behind this lock: `completedRunCount` runs
+  // off-main (`offMain` is `Task.detached`) while the test drives the fake from
+  // the MainActor, and `@unchecked Sendable` suppresses the diagnostic that
+  // would otherwise catch an unguarded one.
   private let lock = NSLock()
   private var _callCount = 0
   // Plain optional, not `String??` — "never called" is already distinguishable
   // via `completedRunCountCallCount`.
   private var _lastExcludedRunId: String?
-  var shouldThrow = false
+  private var _shouldThrow = false
 
   init(completedCount: Int) {
     self.completedCount = completedCount
@@ -211,36 +234,66 @@ private final class CountingSimulationRepository: SimulationRepository, @uncheck
     lock.withLock { _lastExcludedRunId }
   }
 
+  var shouldThrow: Bool {
+    get { lock.withLock { _shouldThrow } }
+    set { lock.withLock { _shouldThrow = newValue } }
+  }
+
   func completedRunCount(excludingRunId: String?) throws -> Int {
-    lock.withLock {
+    let mustThrow = lock.withLock {
       _callCount += 1
       _lastExcludedRunId = excludingRunId
+      return _shouldThrow
     }
-    if shouldThrow { throw DataError.recordNotFound(type: "SimulationRecord", id: "boom") }
+    if mustThrow { throw DataError.recordNotFound(type: "SimulationRecord", id: "boom") }
     return completedCount
   }
 
-  func save(_ record: SimulationRecord) throws { unreachable() }
-  func fetchById(_ id: String) throws -> SimulationRecord? { unreachable() }
-  func fetchByScenarioId(_ scenarioId: String) throws -> [SimulationRecord] { unreachable() }
+  func save(_ record: SimulationRecord) throws { unexpected() }
+  func fetchById(_ id: String) throws -> SimulationRecord? { unexpected(); return nil }
+  func fetchByScenarioId(_ scenarioId: String) throws -> [SimulationRecord] {
+    unexpected()
+    return []
+  }
   func fetchRecentRunPage(
     nameQuery: String?, before: SimulationPageCursor?, limit: Int
-  ) throws -> [PastRunListItem] { unreachable() }
-  func fetchRunList(scenarioId: String) throws -> [PastRunListItem] { unreachable() }
-  func fetchOrphaned() throws -> [SimulationRecord] { unreachable() }
-  func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord] { unreachable() }
-  func completedRunCountsByScenarioId() throws -> [String: Int] { unreachable() }
+  ) throws -> [PastRunListItem] {
+    unexpected()
+    return []
+  }
+  func fetchRunList(scenarioId: String) throws -> [PastRunListItem] {
+    unexpected()
+    return []
+  }
+  func fetchOrphaned() throws -> [SimulationRecord] {
+    unexpected()
+    return []
+  }
+  func fetchByStatus(_ status: SimulationStatus) throws -> [SimulationRecord] {
+    unexpected()
+    return []
+  }
+  func completedRunCountsByScenarioId() throws -> [String: Int] {
+    unexpected()
+    return [:]
+  }
   func updateState(
     _ id: String, stateJSON: String, currentRound: Int, currentPhaseIndex: Int
-  ) throws { unreachable() }
-  func updateStatus(_ id: String, status: SimulationStatus) throws { unreachable() }
-  func updateDegradedTurnCount(_ id: String, count: Int) throws { unreachable() }
-  func totalRunCount(nameQuery: String?) throws -> Int { unreachable() }
-  func delete(_ id: String) throws { unreachable() }
-  func deleteAll() throws { unreachable() }
-  func pastResultsByteCount() throws -> Int64 { unreachable() }
+  ) throws { unexpected() }
+  func updateStatus(_ id: String, status: SimulationStatus) throws { unexpected() }
+  func updateDegradedTurnCount(_ id: String, count: Int) throws { unexpected() }
+  func totalRunCount(nameQuery: String?) throws -> Int {
+    unexpected()
+    return 0
+  }
+  func delete(_ id: String) throws { unexpected() }
+  func deleteAll() throws { unexpected() }
+  func pastResultsByteCount() throws -> Int64 {
+    unexpected()
+    return 0
+  }
 
-  private func unreachable() -> Never {
-    fatalError("ReviewRequestCoordinator must not reach this repository method")
+  private func unexpected(_ method: String = #function) {
+    Issue.record("ReviewRequestCoordinator must not reach \(method)")
   }
 }
