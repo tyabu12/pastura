@@ -33,7 +33,14 @@ import UIKit
 /// still builds clean. `UIColor(dynamicProvider:)` takes a non-`@Sendable`
 /// escaping closure, so without the annotation the closure literal is inferred
 /// `@MainActor` while UIKit may invoke it off the main actor, and nothing
-/// diagnoses that. Keep it *because* the compiler is silent. This is a third
+/// diagnoses that.
+///
+/// The stronger reason to keep it, also measured: **with** the annotation, a
+/// future edit that touches MainActor state inside the provider closure is
+/// diagnosed — `call to main actor-isolated global function '…' in a synchronous
+/// nonisolated context [#ActorIsolatedCall]`. **Without** it, that identical edit
+/// compiles silently. So the annotation is a compile-time tripwire for the racy
+/// edit, not merely documentation. This is a third
 /// sibling of `swift-isolation.md` Patterns 6–7 — same silence, different
 /// mechanism (6 is `nonisolated async` executor inheritance, 7 is
 /// unannotated-ObjC-protocol conformance); see that file's § "Same cause, two

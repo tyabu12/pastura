@@ -379,8 +379,8 @@ simulator misleads.
 **What catches a regression here**: the token tests assert `PasturaPalette`
 components *and* the aliases' own resolution, and `HighlightShareCardPaletteTests`
 pins the reference consumer's two families to raw palette values — so an alias
-creeping back into that `Palette` reddens. ADR-009 rules out snapshots, so any
+creeping back into that palette reddens. ADR-009 rules out snapshots, so any
 *new* fixed-appearance consumer needs its own equivalent pin or it is unguarded.
-Reference consumer: `HighlightShareCard.Palette`.
+Reference consumer: `HighlightCardPalette`.
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).

@@ -107,40 +107,10 @@ suite to annotate. Both are build errors, so neither is silent:
 | `nonisolated` type conforms to `Equatable`/`Hashable` and a stored member's own conformance is MainActor-isolated | `main actor-isolated conformance of 'X' to 'Equatable' cannot be used in nonisolated context` | Drop the conformance; compare members from MainActor. Marking `X` `nonisolated` is fix-order 2 above. |
 | `nonisolated enum`/type whose `static let` initializers read MainActor-isolated statics | `Main actor-isolated default value in a nonisolated context` | Don't mark the namespace `nonisolated`; annotate only the closure that needs it (next section). |
 
-A **cross-module** corollary, not an error to fix: reading a MainActor-isolated
-type's immutable `Sendable` `let` storage from a nonisolated context compiles
-**in-module** but not through `@testable import`, because the exemption is
-module-local. So a nonisolated test helper needs `@MainActor` where the
-equivalent production closure does not. Reference:
-`DesignTokensTests+DarkMode.swift`'s `sRGBComponentsMatch`.
-
-## Pattern 8 — MainActor-inferred closure handed to a framework callback (silent)
-
-Third sibling of Patterns 6–7 — same silence, different mechanism, covered by
-neither. A framework initializer taking a **non-`@Sendable`** escaping closure
-(`UIColor(dynamicProvider:)`, and any `@escaping` UIKit callback) accepts a
-closure literal written in a MainActor context, where it is inferred
-`@MainActor`. The framework may then invoke it off the main actor. **The build
-succeeds either way** — verified by deleting the annotation and rebuilding — so
-there is no diagnostic to react to.
-
-**Fix**: mark the *enclosing type* (or the member building the closure)
-`nonisolated`, and pass values the closure needs in as `Sendable` locals. Keep
-the annotation on the grounds that the compiler is silent here — it will look
-removable to the next reader.
-
-Reference: `PasturaDynamicColor` in
-`Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`; ADR-028 § Consequences.
-
-Reference: `PasturaDynamicColor` (no `Equatable`) and `PasturaDynamicPalette`
-(no `nonisolated`) in `Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`;
-ADR-028 § Consequences.
-
-**A compile probe must replicate the dependency shape, not just the API shape.**
-A `swiftc -typecheck` probe of the pair type above passed while the real code
-failed, because the probe constructed its token values *inline* instead of
-reading them from a MainActor-isolated static. Probing the API in isolation
-measures nothing here — the isolation of what you *read* is the variable.
+**Cross-module corollary**: that `let`-read exemption is module-local, so a
+nonisolated *test* helper needs `@MainActor` where the equivalent in-module
+production closure does not — `DesignTokensTests+DarkMode.swift`'s
+`sRGBComponentsMatch` carries the worked example.
 
 ## Pattern 6 — `nonisolated async` runs on the caller's executor (silent UI freeze)
 
@@ -241,3 +211,30 @@ compiling if the isolation ever regresses, which is a real guard rather than a
 restatement.
 
 Reference: `Pastura/Pastura/Views/Components/ShareCaptionItemSource.swift` (#1263).
+
+## Pattern 8 — MainActor-inferred closure handed to a framework callback (silent)
+
+Third sibling of Patterns 6–7 — same silence, different mechanism, covered by
+neither. A framework initializer taking a **non-`@Sendable`** escaping closure
+(`UIColor(dynamicProvider:)`, and any `@escaping` UIKit callback) accepts a
+closure literal written in a MainActor context, where it is inferred
+`@MainActor`. The framework may then invoke it off the main actor. **The build
+succeeds either way** — verified by deleting the annotation and rebuilding — so
+there is no diagnostic to react to.
+
+**Fix**: mark the *enclosing type* (or the member building the closure)
+`nonisolated`, and pass values the closure needs in as `Sendable` locals. Keep
+the annotation on the grounds that the compiler is silent here — it will look
+removable to the next reader.
+
+Reference: `PasturaDynamicColor` in
+`Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`; ADR-028 § Consequences.
+
+**A `swiftc -typecheck` probe under-approximates the real target here — build the
+target instead.** A standalone probe of the pair type above passed while the real
+build failed. The tempting explanation (the probe built its token values inline
+rather than reading a MainActor-isolated static) is **wrong** — a probe that does
+read from such a static still passes. The operative difference was not isolated;
+what is established is that a probe can be clean while the target errors, so for
+isolation questions in this family treat `swiftc -typecheck` as a existence check
+for API and `scripts/xcodebuild.sh build` as the verdict.

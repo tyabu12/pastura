@@ -39,29 +39,40 @@ struct HighlightShareCardPaletteTests {
     #expect(HighlightCardPalette.dark.moss == PasturaPalette.nightMoss.color)
   }
 
-  /// The property the card's whole appearance contract rests on: the two
-  /// families must be *different*. A collapse (both reading the same
-  /// trait-resolving alias) is exactly what this suite is here to catch, and it
-  /// would not necessarily show up as a wrong value in either test above.
+  /// Independent trigger the two tests above do NOT have. Alias creep is not it —
+  /// that reddens `lightFamilyReadsRawLightTokens` directly (verified by negative
+  /// control). What only this test catches is a **token-value** collapse: if a
+  /// future retune gave `nightInk` the same hex as `ink`, both tests above would
+  /// still pass while the card's two families became visually identical.
   @Test func theTwoFamiliesAreNotIdentical() {
     #expect(HighlightCardPalette.light.background != HighlightCardPalette.dark.background)
     #expect(HighlightCardPalette.light.ink != HighlightCardPalette.dark.ink)
     #expect(HighlightCardPalette.light.moss != HighlightCardPalette.dark.moss)
   }
 
-  /// Guards the fixed-appearance contract directly: a raw palette value must
-  /// resolve the same under both color schemes, unlike its paired alias.
+  /// Guards the fixed-appearance contract on **every** slot of both families: a
+  /// raw palette value resolves identically under either scheme, unlike its
+  /// paired alias. This is the assertion with a real trigger — alias creep
+  /// resolves differently across schemes and reddens here.
   @Test func rawPaletteValuesAreAppearanceInvariant() {
     var light = EnvironmentValues()
     light.colorScheme = .light
     var dark = EnvironmentValues()
     dark.colorScheme = .dark
 
-    let resolvedLight = HighlightCardPalette.dark.ink.resolve(in: light)
-    let resolvedDark = HighlightCardPalette.dark.ink.resolve(in: dark)
-
-    #expect(resolvedLight.red == resolvedDark.red)
-    #expect(resolvedLight.green == resolvedDark.green)
-    #expect(resolvedLight.blue == resolvedDark.blue)
+    let families = [HighlightCardPalette.light, HighlightCardPalette.dark]
+    for family in families {
+      let slots = [
+        family.background, family.ink, family.inkSecondary,
+        family.muted, family.rule, family.moss
+      ]
+      for slot in slots {
+        let underLight = slot.resolve(in: light)
+        let underDark = slot.resolve(in: dark)
+        #expect(underLight.red == underDark.red)
+        #expect(underLight.green == underDark.green)
+        #expect(underLight.blue == underDark.blue)
+      }
+    }
   }
 }

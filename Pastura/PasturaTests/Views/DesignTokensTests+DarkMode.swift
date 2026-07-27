@@ -61,9 +61,11 @@ extension DesignTokensTests {
   // exact equality check would be a false red. Note the tolerance is in
   // **linear** space and therefore non-uniform — measured, ~16 8-bit steps of
   // slack near black but only ~0.6 of a step near white. Margin for today's
-  // eight pairs is comfortable; the closest is `muted`↔`nightMuted` at 11.9x
-  // the tolerance (next: `moss` at 19x). Compare a ninth pair against those two
-  // before trusting this bound.
+  // eight pairs is comfortable. Metric: the **minimum per-channel gap** after
+  // the sRGB→linear transform (the conservative aggregation; a max-channel
+  // reading gives larger multiples). By that metric the closest is
+  // `muted`↔`nightMuted` at 11.9x the tolerance, next `moss` at 19.2x. Compare a
+  // ninth pair against those two before trusting this bound.
 
   @Test func pairedAliasesResolveDarkUnderDarkColorScheme() {
     let cases: [(alias: Color, dark: PasturaColorValue)] = [
