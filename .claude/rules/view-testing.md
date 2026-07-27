@@ -57,3 +57,28 @@ example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests` (the
 
 Full Why + alternatives + revisit triggers:
 [ADR-009](../../docs/decisions/ADR-009.md).
+
+## Non-base-locale expectations
+
+`locale:` in `String(localized:bundle:locale:)` selects the plural / format
+**rule** only — the `.lproj` table follows the *process's* localization
+(`Bundle.preferredLocalizations`). So a `ja` pin against the app bundle
+silently returns the `en` value, and a guard built on one asserts nothing
+about ja. Probed 2026-07-27 on the simulator test runner: `locale: ja` on
+`"%lld records"` → `1 records`, i.e. ja's `other`-only rule applied to the
+**en** table (`ja.lproj` ships; it is simply not selected).
+
+Three working shapes: pin the locale the **runner already resolves to**
+(`RecordsCountPluralTests` pins `en` on an en simulator); assert other
+locales against the catalog JSON — the change-detector shape above
+(`StoreCaptureTabLabelTests`); or, for a real runtime resolution, scope the
+bundle to the table itself. **Both** layers of that last one are optional
+(`path(forResource:)` is `String?` *and* `Bundle(path:)` is failable), so
+unwrap twice — `#require` over `!` for a located failure, not because Hard
+Rule 1 applies (test code is exempt from it):
+
+```swift
+let jaPath = try #require(appBundle.path(forResource: "ja", ofType: "lproj"))
+let jaBundle = try #require(Bundle(path: jaPath))
+#expect(String(localized: "History", bundle: jaBundle) == "観察履歴")
+```

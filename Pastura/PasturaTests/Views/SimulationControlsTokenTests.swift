@@ -7,7 +7,8 @@ import Testing
 /// (``SimulationPlayButtonMetrics`` + ``SimulationLeaveSheetTokens``).
 ///
 /// These assertions mirror the source-of-truth constants **by design**
-/// (ADR-009 § "Change-detector tripwire"). The rendered appearance is
+/// (ADR-009 / view-testing.md
+/// § "Change-detector tripwire for code-review-gated tokens"). The rendered appearance is
 /// code-review-gated only; a failure here does NOT mean a bug — it means a
 /// gated visual token drifted in a refactor, and the editor must confirm the
 /// change was intended before updating the expected value.

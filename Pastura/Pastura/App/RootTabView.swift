@@ -137,9 +137,12 @@ struct RootTabView: View {
     Image(systemName: Self.symbolName(for: tab, isActive: coordinator.selectedTab == tab))
       .environment(\.symbolVariants, .none)
       .accessibilityLabel(Text(label))
-      // Locale-independent handle for UI tests to switch tabs by identifier
-      // instead of the localized VoiceOver label (StoreScreenshotTests runs
-      // under en AND ja, where label-based tab queries would not resolve).
+      // Locale-independent handle for UI tests (StoreScreenshotTests runs under
+      // en AND ja). NOT a sufficient one on its own: structural `Tab` drops
+      // both a11y modifiers from the XCUITest tree on some launches, so
+      // `ScreenshotSupport.tapTab` ORs this identifier with the localized
+      // label. Adding a further identifier here does not help —
+      // `.claude/rules/uitest-traps.md`.
       .accessibilityIdentifier(Self.accessibilityID(for: tab))
   }
 }
@@ -164,9 +167,11 @@ extension RootTabView {
   }
 
   /// Stable, locale-independent accessibility identifier for `tab`'s tab-bar
-  /// button. Used by `StoreScreenshotTests` to switch tabs by identifier
-  /// (`app.tabBars.buttons["rootTab.history"]`) so navigation works under any
-  /// locale. Pure + `internal` so the mapping is unit-tested.
+  /// button, so `StoreScreenshotTests` can navigate under any locale. Query it
+  /// through `ScreenshotSupport.tapTab`, never on its own: the identifier is
+  /// absent from the XCUITest tree on some launches, and `tapTab` ORs it with
+  /// the localized label (`.claude/rules/uitest-traps.md`). Pure + `internal`
+  /// so the mapping is unit-tested.
   static func accessibilityID(for tab: AppTab) -> String {
     switch tab {
     case .home: return "rootTab.home"

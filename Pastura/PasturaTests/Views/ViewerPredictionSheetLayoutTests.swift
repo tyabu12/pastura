@@ -8,7 +8,7 @@ import Testing
 /// (typically in an unrelated refactor) and the editor must confirm the change
 /// passed review before updating the expected value. This narrows the
 /// silent-drift window without rendering the View (ADR-009 / view-testing.md
-/// § "Change-detector tripwire").
+/// § "Change-detector tripwire for code-review-gated tokens").
 @Suite(.timeLimit(.minutes(1)))
 struct ViewerPredictionSheetLayoutTests {
   @Test func countdownSecondsIsFifteen() {

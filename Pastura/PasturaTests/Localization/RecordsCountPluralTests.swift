@@ -6,7 +6,8 @@ import Testing
 /// Catalog-structure assertion for the **first plural** entry in
 /// `Localizable.xcstrings` — the Past Results count line (`"%lld records"`,
 /// UR-003). A change-detector test (`.claude/rules/view-testing.md`
-/// § "Change-detector tripwire"), NOT a runtime `String(localized:)` resolution:
+/// § "Change-detector tripwire for code-review-gated tokens"), NOT a runtime
+/// `String(localized:)` resolution:
 /// the catalog compiles to a `.loctable` (no `.xcstrings` ships in the bundle),
 /// and a runtime resolve against the test-runner bundle is both
 /// bundle-ambiguous and tautological — and the SwiftUI `Text` plural path is
@@ -87,17 +88,26 @@ struct RecordsCountPluralTests {
     #expect(state == "translated")
   }
 
-  @Test func englishPluralFiresAtRuntime() {
+  @Test func englishPluralFiresAtRuntime() throws {
     // Behavioral counterpart to the structure assertions: resolve the key
-    // against the COMPILED catalog (app bundle, not the test runner's) with a
-    // pinned `en` locale, so the assertion is deterministic regardless of the
-    // CI runner's locale. This is the actual UR-003 regression — n=1 rendering
-    // "1 records". Not a tautology (asserts hardcoded literals) and not
-    // ViewInspector (pure Foundation resolution, ADR-009-compatible). The Int
-    // interpolation here is the same plural mechanism the `Text("\(count)…")`
-    // callsite uses; `String(localized: "…\(x)…")` is fine in test code (the
-    // `form_a_localized_interpolation` SwiftLint rule scopes to app source).
+    // against the COMPILED catalog, naming the app bundle explicitly (the
+    // target is app-hosted, so `Bundle.main` is the same bundle), with a
+    // pinned `en` locale. The pin fixes the plural RULE, not the table — the
+    // table follows the runner's process localization, which is `en` on every
+    // simulator we run, so pinning a non-base locale here would silently keep
+    // reading `en` (`.claude/rules/view-testing.md` § "Non-base-locale
+    // expectations"). That precondition is REQUIRED below rather than assumed:
+    // `#require` halts the test, so a ja-configured runner reports the wrong
+    // runner locale and never emits the value mismatches that would read as a
+    // catalog regression. This is the actual UR-003 regression
+    // — n=1 rendering "1 records". Not a tautology (asserts hardcoded literals)
+    // and not ViewInspector (pure Foundation resolution, ADR-009-compatible).
+    // The Int interpolation here is the same plural mechanism the
+    // `Text("\(count)…")` callsite uses; `String(localized: "…\(x)…")` is fine
+    // in test code (the `form_a_localized_interpolation` SwiftLint rule scopes
+    // to app source).
     let bundle = Bundle(for: DatabaseManager.self)
+    try #require(bundle.preferredLocalizations.first == "en")
     let en = Locale(identifier: "en")
     #expect(String(localized: "\(1) records", bundle: bundle, locale: en) == "1 record")
     #expect(String(localized: "\(2) records", bundle: bundle, locale: en) == "2 records")

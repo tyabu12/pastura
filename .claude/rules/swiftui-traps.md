@@ -44,6 +44,11 @@ has no `.fill` variant, was the only tab where the symptom was
 diagnosable): the LOAD-BEARING comment in
 `Pastura/Pastura/App/RootTabView.swift` (`symbolName(for:isActive:)`).
 
+The a11y modifiers on that same `tabIcon` `Image` are separately unreliable
+— structural `Tab` drops them from the XCUITest tree on some launches, so
+adding another identifier there fixes nothing. See `uitest-traps.md`
+§ "structural `Tab`'s a11y overlay is a per-launch coin toss".
+
 ## NavigationStack in-place top-route replace (`AppRouter.replaceTop`)
 
 Replacing the **top route in place** in a `NavigationStack` path
