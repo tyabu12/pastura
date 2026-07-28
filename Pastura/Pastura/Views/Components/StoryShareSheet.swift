@@ -86,7 +86,7 @@ struct StoryShareSheet: View {
           label: String(localized: "Share"),
           fill: ShareDestinationFill.moss, action: requestSystemShare
         ) {
-          ShareTabSymbol(systemName: "square.and.arrow.up", tint: .white)
+          ShareTabSymbol(systemName: "square.and.arrow.up", tint: .inkOnAccent)
         }
         if InstagramStoriesSharer.isAvailableNow {
           ShareDestinationTab(

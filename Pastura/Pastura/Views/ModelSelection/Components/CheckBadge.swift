@@ -30,7 +30,7 @@ struct CheckBadge: View {
           .fill(tint)
         CheckmarkPath()
           .stroke(
-            Color.white,
+            Color.inkOnAccent,
             style: StrokeStyle(
               lineWidth: checkLineWidth,
               lineCap: .round,

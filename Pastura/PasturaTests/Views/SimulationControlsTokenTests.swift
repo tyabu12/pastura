@@ -31,7 +31,7 @@ struct SimulationControlsTokenTests {
   @Test func playButtonFillsUnchanged() {
     #expect(SimulationPlayButtonMetrics.enabledFill == .mossDark)
     #expect(SimulationPlayButtonMetrics.disabledFill == .disabledText)
-    #expect(SimulationPlayButtonMetrics.glyphColor == .white)
+    #expect(SimulationPlayButtonMetrics.glyphColor == .inkOnAccent)
   }
 
   // MARK: - Leave sheet

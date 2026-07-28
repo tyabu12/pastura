@@ -61,10 +61,10 @@ struct PasturaPrimaryButtonStyle: ButtonStyle {
   /// vs. base `moss` (#8A9A6C) ≈ 3.0:1 from `.borderedProminent`.
   static let fill: Color = .mossDark
 
-  /// Label color. White on `mossDark` is the contrast-passing pair; this
-  /// is text-on-accent, distinct from the §1 "avoid pure white surfaces"
-  /// guidance which concerns backgrounds.
-  static let foreground: Color = .white
+  /// Label color. `inkOnAccent` (white) on `mossDark` is the contrast-passing
+  /// pair; this is text-on-accent, distinct from the §1 "avoid pure white
+  /// surfaces" guidance which concerns backgrounds.
+  static let foreground: Color = .inkOnAccent
 
   /// Corner radius. Slightly tighter than the 14pt card so a CTA inside a
   /// card never visually fights the enclosing corner.
