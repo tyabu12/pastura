@@ -76,23 +76,38 @@ public interface LLMBackend {
 /**
  * One inference request crossing the §5.2 boundary.
  *
- * **Deliberately omits `antiRepetitionSeeds`** (#1105). Swift's
- * `LLMService.generateStream` carries it, but `SpeakEachHandler.swift:77` is the
- * Engine's ONLY seeder (every other reference plumbs the parameter through `LLM/`
- * or is the `= []` default), and that handler is Stage-3 freight — so a seeds field on this
- * gate slice would be dead weight the Swift adapter must map for nothing. Add it
- * with its consumer.
+ * [antiRepetitionSeeds] landed with its consumer, [SpeakEachHandler] (#1105) —
+ * the Engine's only seeder, so until that handler was ported the field would have
+ * been dead weight for the Swift adapter to map.
  *
  * @property system The system prompt defining the agent's persona and rules.
  * @property user   The user prompt with context and instructions for this turn.
  * @property schema Optional output schema. Backends translate this to their
  *   native constrained-decoding mechanism (llama.cpp: GBNF grammar). `null`
  *   means unconstrained generation.
+ * @property antiRepetitionSeeds Prior text spans seeded into the backend's DRY
+ *   sampler so a token-level repetition penalty spans the turn boundary (#1105).
+ *   Empty means no seeding — the default, and what every non-seeding caller
+ *   passes.
+ *
+ *   **Read the scope before reaching for this to fix a repetition complaint.**
+ *   It covers exactly one case — an agent's own prior turns, in `speak_each`.
+ *   Cross-*agent* template collapse and every other phase are **unreached**, and
+ *   covering one needs a new seeder rather than a bigger value here. The full
+ *   three-scope contract (including what the backend's own per-generation chain
+ *   penalties do and do not reach) lives in `.claude/rules/engine.md`
+ *   § "The chain's `penalties` cannot reach across a `generate()`" — read it
+ *   there rather than trusting this paragraph to have stayed current.
+ *
+ *   A backend that cannot seed (Ollama's HTTP API, Foundation Models) ignores it
+ *   rather than failing — mirroring the Swift services, which document the same
+ *   no-op.
  */
 public data class GenerationRequest(
     public val system: String,
     public val user: String,
     public val schema: OutputSchema? = null,
+    public val antiRepetitionSeeds: List<String> = emptyList(),
 )
 
 /**

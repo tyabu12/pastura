@@ -114,9 +114,11 @@ MIN_SWIFT_CALLSITE_FILES = 12
 
 # Cap on whole-file `unported` exemptions. Unlike the digest-keyed rows, these
 # never expire on their own, so an uncapped list is how "temporarily deferred"
-# becomes permanent. Two today (NarrateHandler, SpeakEachHandler); raising it is
-# a deliberate act with its reason recorded in the allowlist header.
-MAX_UNPORTED_ROWS = 2
+# becomes permanent. Kept AT the current count (one today: NarrateHandler) rather
+# than above it, so the budget ratchets down as the ADR-023 port lands instead of
+# leaving a free slot the next deferral can take unreviewed. Raising it is a
+# deliberate act with its reason recorded in the allowlist header.
+MAX_UNPORTED_ROWS = 1
 
 # Floor on the number of checks `--self-test` runs. The printed tally is derived,
 # so it never goes stale — but nothing stops a suite from silently shrinking, and

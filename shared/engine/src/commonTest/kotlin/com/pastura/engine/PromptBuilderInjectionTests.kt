@@ -23,12 +23,12 @@ import kotlin.test.assertTrue
  *
  * Unlike [PromptBuilderTests] (which disclaims parity for the still-incomplete
  * base slice), these DO assert parity: their landed units are the full Swift
- * behaviour. Deliberately **out of scope** here — deferred to its own Wave-B
- * handler PR, so its guidance is not yet ported: `addressRule`. The `mood`,
- * `reflect`-brevity, vote-candidate, `whisper`, and choose-options answer-rules
- * ARE asserted, because `moodRule`, `reflectBrevityRule`, `voteCandidateRule`,
- * `whisperRule`, and `chooseOptionsRule` land with this infrastructure / the
- * ReflectHandler / VoteHandler / WhisperHandler / ChooseHandler PRs.
+ * behaviour. Every phase-specific answer rule is now in scope — `mood`,
+ * `reflect`-brevity, vote-candidate, `whisper`, choose-options, and (with the
+ * SpeakEachHandler PR) the #911 `addressRule`, so `moodRule`,
+ * `reflectBrevityRule`, `voteCandidateRule`, `whisperRule`, `chooseOptionsRule`,
+ * and `addressRule` are all asserted here. Nothing in the answer-rules block is
+ * deferred any more.
  *
  * Split into its own file per the commonTest concern-per-file convention
  * (cf. [PromptBuilderParityTests]); these are pure, stateless `PromptBuilder`
@@ -274,6 +274,71 @@ class PromptBuilderInjectionTests {
             builder.buildSystemPrompt(s, alice, speakAll, stateOf(s))
                 .contains("これは密談相手ひとりだけへの秘密の耳打ち"),
         )
+    }
+
+    // MARK: - Address answer-rule (#911, speak_each phases only)
+
+    private val speakEach = Phase(
+        type = PhaseType.SPEAK_EACH,
+        prompt = "Talk.",
+        outputSchema = mapOf("statement" to "string"),
+    )
+
+    @Test
+    fun addressRuleAppendedForSpeakEachPhaseJa() {
+        val s = scenario()
+        val prompt = builder.buildSystemPrompt(s, alice, speakEach, stateOf(s))
+        assertTrue(prompt.contains("そのうち1人の発言に必ず触れてから自分の意見を述べること"))
+        // The rule's KDoc calls this clause load-bearing — it is what blocks the
+        // agreement-formulae collapse mode. Asserted here so the unit test stands
+        // on its own; the parity gate only proves the two engines AGREE.
+        assertTrue(prompt.contains("（同意でも反論でも疑問でもよい）"))
+        assertTrue(prompt.contains("まだ誰も発言していなければ自由に話してよい"))
+    }
+
+    @Test
+    fun addressRuleAppendedForSpeakEachPhaseEn() {
+        val s = scenario(language = "en")
+        val prompt = builder.buildSystemPrompt(s, alice, speakEach, stateOf(s))
+        assertTrue(prompt.contains("refer to one of their statements before giving your own opinion"))
+        assertTrue(prompt.contains("(agreement, disagreement, or a question all count)"))
+        assertTrue(prompt.contains("If no one has spoken yet, speak freely."))
+    }
+
+    @Test
+    fun addressRuleOmittedForSpeakAllPhase() {
+        // NOT a generic "non-speak_each" check — speak_all specifically. The #911
+        // harness A/B measured the rule as inert-to-harmful under simultaneous
+        // broadcast framing, so this omission is a tuned decision, not an
+        // accident of the gate's shape (`PromptBuilder.swift:197-200`).
+        val s = scenario()
+        assertFalse(
+            builder.buildSystemPrompt(s, alice, speakAll, stateOf(s))
+                .contains("そのうち1人の発言に必ず触れてから"),
+        )
+    }
+
+    @Test
+    fun addressRulePrecedesTheMoodRuleInTheAnswerRulesBlock() {
+        // The rules concatenate into one string, so append ORDER is prompt
+        // content. Every other appendix is phase-type-gated and therefore mutually
+        // exclusive with `addressRule`; the schema-gated `moodRule` is the only one
+        // that can coexist with it. So this is the only shape in which
+        // **addressRule's** relative position is observable. (Other type-gated
+        // rules pair with `moodRule` the same way — that is not unique to
+        // speak_each; what is unique is that it is addressRule's only pairing.)
+        val s = scenario()
+        val moodySpeakEach = Phase(
+            type = PhaseType.SPEAK_EACH,
+            prompt = "Talk.",
+            outputSchema = mapOf("statement" to "string", "mood" to "string"),
+        )
+        val prompt = builder.buildSystemPrompt(s, alice, moodySpeakEach, stateOf(s))
+        val addressAt = prompt.indexOf("そのうち1人の発言に必ず触れてから")
+        val moodAt = prompt.indexOf("moodには今の気分を短い言葉で書くこと")
+        assertTrue(addressAt >= 0, "address rule missing")
+        assertTrue(moodAt >= 0, "mood rule missing")
+        assertTrue(addressAt < moodAt, "address rule must precede the mood rule")
     }
 
     // MARK: - Choose options answer-rule (choose phases declaring options)
