@@ -263,7 +263,7 @@ When token-izing `.foregroundStyle(.secondary)`, always switch to `Color.tokenNa
 
 ## Adding a `Color` design token = 5 files; the 5th fails silently (workflow trap, not SwiftUI)
 
-A new color token needs five edits — miss the **5th** (the CSS mirror) and *only* the standalone
+A new color token needs five edits — miss the **5th** (the CSS mirror) and *at best only* the standalone
 `Design tokens drift guard` CI job reddens; build / unit / lint stay green, so it's invisible
 locally (first hit PR #953):
 
@@ -274,7 +274,11 @@ locally (first hit PR #953):
 5. `docs/design/ds/tokens.css` — CSS mirror; the token's CSS form must appear here
 
 `scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
-form, `EXCEPTIONS` exemptions).
+form, `EXCEPTIONS` exemptions) — but it is a **substring match on the hex** over the raw file, so a
+token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `--bubble-bg`) has
+**no automated detector for its step-5 row**: delete that row and the job still exits 0. Steps 1–3,
+*when done*, still assert the token's value — but nothing enforces that they were. Verify by diff
+(#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
 steps above assume a brand-new value. A dark pair adds: the `night*` raw token (step 1), its
