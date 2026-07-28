@@ -276,8 +276,9 @@ locally (first hit PR #953):
 `scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
 form, `EXCEPTIONS` exemptions) — but it is a **substring match on the hex** over the raw file, so a
 token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `--bubble-bg`) has
-**no automated detector for its step-5 row**: delete that row and the job still exits 0. Steps 1–3
-still guard the token itself. Verify the row by diff (#1299).
+**no automated detector for its step-5 row**: delete that row and the job still exits 0. Steps 1–3,
+*when done*, still assert the token's value — but nothing enforces that they were. Verify by diff
+(#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
 steps above assume a brand-new value. A dark pair adds: the `night*` raw token (step 1), its
