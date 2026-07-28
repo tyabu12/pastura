@@ -53,9 +53,17 @@ Restating those here would duplicate kit-canonical text with no reconcile
 header — the drift surface `subagent-usage.md` et al. exist to prevent. Only
 what the skill cannot derive belongs here.
 
+- **A new ADR must be hand-appended to two indexes**, neither of which any gate
+  checks and neither of which the skill writes: `docs/decisions/INDEX.md` (full
+  summary paragraph) and `CLAUDE.md` § "Reference Documents" → ADR roster (title
+  only, kept **byte-identical** to the INDEX `## ADR-NNN — <title>` heading).
+  Skipping them fails nothing and is caught by nobody. Gate tracked in #1309.
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
   recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
-  with no file on disk. It is a gap in the listing, not a free slot.
+  with no file on disk. It is a gap in the listing, not a free slot. Its
+  `CLAUDE.md` entry must stay a **table row with the path in cell 1** —
+  `consistency-audit`'s `load_reserved_adrs` parses that shape to suppress
+  `dangling_adr` false positives, and fails open (empty set) if it changes.
 - **A file listing can also *over*-report.** The skill's reservation check
   covers a listing that under-reports; the inverse also happens here — an ADR
   draft sitting **untracked** in one checkout is visible to `ls` but absent for

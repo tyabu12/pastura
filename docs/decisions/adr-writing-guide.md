@@ -4,9 +4,10 @@ On-demand companion to [`.claude/rules/adr-writing.md`](../../.claude/rules/adr-
 
 The rule file keeps the three things that must be in context automatically or
 must reach a subagent: §1 (verify each fact-claim at write time), §2 (mechanism
-contract over pinned model thresholds), and §4 (numbering facts). Those are
-cited by name from a dozen ADRs and are the payload the `/claude-kit:write-adr`
-skill forwards to its reviewers via `ADR_RULES_PATH` — they stay put.
+contract over pinned model thresholds), and §4 (numbering facts). Eleven
+citations across nine ADRs address §1/§2 by section number or heading; §4 is
+cited by none, but all three are the payload `/claude-kit:write-adr` forwards to
+its reviewers via `ADR_RULES_PATH` — so they stay put.
 
 This checklist is the part nothing cites and nothing routes: a mechanical pass
 you run **once, after drafting**, so it costs nothing to keep out of every

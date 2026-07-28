@@ -11,11 +11,12 @@ paths:
 
 `PasturaApp.swift` is listed **separately and is not optional**. It is the only
 top-level Swift file under `Pastura/Pastura/`, so neither directory glob reaches
-it, and it is the densest navigation site in the repo: `TabCoordinator()`
+it, and four invariants this file states live nowhere else: `TabCoordinator()`
 (`:124`, its sole construction in the app target), the "deliberately not
 `.environment(router)`" comment (`:274`) that encodes the collapse-all-tabs trap
-below, the `tryDrain` deep-link drain (`:484`), and `// D5.4: any-tab — do not
-narrow` (`:463`). `scripts/generate-navigation-map.py`'s `SCAN_DIRS` covers only
+below, the `tryDrain` deep-link drain (`:484`), and the any-tab
+`isSimulationOnTop` fold (`:460`–`:463`, ending in `// D5.4: any-tab — do not
+narrow`). `scripts/generate-navigation-map.py`'s `SCAN_DIRS` covers only
 `Views` and `App`, so the drift gate does **not** backstop it — this rule text is
 its only guard.
 
