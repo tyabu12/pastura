@@ -62,8 +62,10 @@ nonisolated struct LLMCaller: Sendable {
   ///     cause=language_mismatch`), and on exhaustion a
   ///     ``SimulationEvent/languageMismatch(agent:detected:expected:)``
   ///     is emitted and the parsed output is still returned (sim
-  ///     continues — structurally distinct from `parse_failed` /
-  ///     `empty_field` exhaustion which throws).
+  ///     continues — like `empty_field` exhaustion, which also
+  ///     returns the parsed output; structurally distinct from
+  ///     `parse_failed` exhaustion, which throws
+  ///     ``SimulationError/retriesExhausted`` (ADR-021 D7)).
   ///   - expectedLanguage: The scenario's `engineLanguage` per ADR-010
   ///     D5/D6. `nil` skips the adherence check entirely (back-compat
   ///     for callers that pre-date Step E PR2).
