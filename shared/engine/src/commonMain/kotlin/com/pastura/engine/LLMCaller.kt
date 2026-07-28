@@ -100,6 +100,12 @@ internal class LLMCaller(
      * @param expectedLanguage The scenario's `engineLanguage` (ADR-010 D5/D6).
      *   `null` skips the adherence check entirely (back-compat for callers that
      *   pre-date the seam).
+     * @param antiRepetitionSeeds Prior text spans for the backend's DRY sampler
+     *   (#1105), passed straight through onto every attempt's
+     *   [GenerationRequest] — see that property for the scope this does and does
+     *   not cover. Deliberately **not** recomputed per attempt: a retry re-issues
+     *   the same prompt, so it must re-issue the same seeds, and the caller's
+     *   `lastOutputs` read has not changed under it anyway.
      * @throws SimulationException wrapping [SimulationError.RetriesExhausted] after
      *   [MAX_RETRIES] parse failures, or [SimulationError.LlmGenerationFailed] on a
      *   backend failure.
@@ -112,11 +118,17 @@ internal class LLMCaller(
         schema: OutputSchema? = null,
         detector: LanguageDetector? = null,
         expectedLanguage: String? = null,
+        antiRepetitionSeeds: List<String> = emptyList(),
         relay: SuspensionRelay,
         emitter: (SimulationEvent) -> Unit,
     ): TurnOutput {
         val expectedKeys: Set<String> = schema?.fields?.map { it.name }?.toSet() ?: emptySet()
-        val request = GenerationRequest(system = system, user = user, schema = schema)
+        val request = GenerationRequest(
+            system = system,
+            user = user,
+            schema = schema,
+            antiRepetitionSeeds = antiRepetitionSeeds,
+        )
 
         for (attempt in 0..MAX_RETRIES) {
             emitter(SimulationEvent.InferenceStarted(agent = agentName))

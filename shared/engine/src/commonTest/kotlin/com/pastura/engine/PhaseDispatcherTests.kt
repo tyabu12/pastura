@@ -75,6 +75,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheSpeakEachHandler() {
+        assertIs<SpeakEachHandler>(dispatcher.handler(PhaseType.SPEAK_EACH))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -91,8 +96,8 @@ class PhaseDispatcherTests {
         // `conditional`, not `CONDITIONAL` — Swift interpolates `phaseType.rawValue`,
         // and a reader comparing the two engines' errors should see the same token.
         // The exemplar is CONDITIONAL rather than the next handler in the port queue:
-        // it is LAST in the remaining Wave-B order (SpeakEach -> Narrate ->
-        // Conditional), so this repoint survives the longest.
+        // it is LAST in the remaining Wave-B order (Narrate -> Conditional), so this
+        // repoint survives the longest.
         val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
         assertTrue(message.contains("conditional"), "expected the wire name, got: $message")
@@ -103,15 +108,16 @@ class PhaseDispatcherTests {
     fun everyUnportedPhaseTypeFailsCleanlyRatherThanCrashing() {
         // A Stage-3 gap must read as a gap. Iterating allCases also means a NEW
         // PhaseType added to Models cannot silently reach dispatch unhandled.
+        // DERIVED from the dispatcher, not a hand-written exclusion list. A hand
+        // list cannot disagree with itself, so it silently stops guarding
+        // registration: de-registering a ported handler just moves that case into
+        // the excluded set, leaving this test green. Deriving makes the count below
+        // fire on BOTH enum growth and an accidental de-registration.
         val unported = PhaseType.entries.filter {
-            it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE &&
-                it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
-                it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
-                it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT &&
-                it != PhaseType.VOTE && it != PhaseType.WHISPER &&
-                it != PhaseType.CHOOSE
+            runCatching { dispatcher.handler(it) }.isFailure
         }
-        assertEquals(3, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(14, PhaseType.entries.size, "the drift ledger's case count is now executable")
+        assertEquals(2, unported.size, "see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)

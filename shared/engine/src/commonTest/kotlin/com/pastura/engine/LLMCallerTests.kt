@@ -69,6 +69,59 @@ class LLMCallerTests {
         assertEquals("usr", backend.requests.single().user)
     }
 
+    // MARK: - Anti-repetition seeds (#1105)
+
+    @Test
+    fun antiRepetitionSeedsReachTheBackendAsTheRequestSeeds() = runTest {
+        val backend = ScriptedLLMBackend(listOf(script("""{"statement": "hi"}""")))
+        caller.call(
+            backend = backend,
+            system = "sys",
+            user = "usr",
+            agentName = "Alice",
+            schema = schema,
+            antiRepetitionSeeds = listOf("my prior statement"),
+            relay = SuspensionRelay(),
+            emitter = {},
+        )
+        assertEquals(listOf("my prior statement"), backend.requests.single().antiRepetitionSeeds)
+    }
+
+    @Test
+    fun callersThatDoNotSeedGetAnEmptySeedList() = runTest {
+        // Every LLM handler except `speak_each` omits the argument; the default
+        // must arrive as "no seeding", not as a stale value from another call.
+        val backend = ScriptedLLMBackend(listOf(script("""{"statement": "hi"}""")))
+        call(backend)
+        assertTrue(backend.requests.single().antiRepetitionSeeds.isEmpty())
+    }
+
+    @Test
+    fun everyRetryAttemptReIssuesTheSameSeeds() = runTest {
+        // A retry re-issues the SAME prompt, so it must re-issue the same seeds.
+        // Recomputing them per attempt would be the tempting alternative and is
+        // wrong: `lastOutputs` cannot have changed under an in-flight turn, so a
+        // per-attempt read buys nothing and invites drift.
+        val backend = ScriptedLLMBackend(
+            listOf(script("garbage"), script("still garbage"), script("""{"statement": "ok"}""")),
+        )
+        caller.call(
+            backend = backend,
+            system = "sys",
+            user = "usr",
+            agentName = "Alice",
+            schema = schema,
+            antiRepetitionSeeds = listOf("seed"),
+            relay = SuspensionRelay(),
+            emitter = {},
+        )
+        assertEquals(3, backend.callCount)
+        assertEquals(
+            List(3) { listOf("seed") },
+            backend.requests.map { it.antiRepetitionSeeds },
+        )
+    }
+
     // MARK: - Retry budget (parse / empty)
 
     @Test

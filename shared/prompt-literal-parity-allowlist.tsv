@@ -24,9 +24,10 @@
 #            exempts every literal in that file, including ones added after it was
 #            approved. It expires only when the Kotlin counterpart appears (which
 #            the checker reports as stale). Because "keep them scarce" is advice
-#            nothing executes, the checker caps them — `MAX_UNPORTED_ROWS = 2`
-#            today, matching the two below. Raising it is a deliberate act, and
-#            the reason belongs here.
+#            nothing executes, the checker caps them — `MAX_UNPORTED_ROWS` is held
+#            AT the current row count (1 today), never above it, so the budget
+#            ratchets down as the port lands instead of leaving a free slot.
+#            Raising it is a deliberate act, and the reason belongs here.
 #   excerpt  a readable, escaped prefix of the ja literal. Cosmetic; the digest is
 #            what matches. `<>` marks an erased interpolation.
 #   reason   why the divergence is intended. Required; a blank fails the gate.
@@ -35,6 +36,4 @@
 # fails on a row that no longer matches anything — a healed divergence must drop
 # its row rather than linger as a standing exemption.
 side	stem	digest	excerpt	reason
-swift-only	PromptBuilder	3754ae85aab4	\\n- これまでの会話に他の誰かの発言があれば、そのうち1人の発言に必ず触れてから自分の意見…	The #911 speak_each address rule. PromptBuilder.kt's class doc names it as the one phase-specific appendix left as a Stage-3 unit; it lands with the speak_each handler port (#501). Drop this row then.
 unported	NarrateHandler	-	-	ADR-023 Stage 3: narrate is not in the Wave B port set yet (#501).
-unported	SpeakEachHandler	-	-	ADR-023 Stage 3: speak_each is not ported yet (#501). Ports together with the swift-only PromptBuilder row above.

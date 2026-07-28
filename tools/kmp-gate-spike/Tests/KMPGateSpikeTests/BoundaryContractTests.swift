@@ -524,8 +524,14 @@ func pollUntil(
 
 extension GenerationRequest {
   /// A request whose content no assertion depends on.
+  ///
+  /// `antiRepetitionSeeds:` is passed explicitly even though Kotlin declares a
+  /// default: K/N exports carry no default-argument values, so the generated
+  /// initializer requires every parameter (`.claude/rules/kmp-interop.md`
+  /// Pattern 3). Adding a Kotlin property with a default is therefore a
+  /// **source-breaking** change on this side.
   static var probe: GenerationRequest {
-    GenerationRequest(system: "system", user: "user", schema: nil)
+    GenerationRequest(system: "system", user: "user", schema: nil, antiRepetitionSeeds: [])
   }
 }
 
