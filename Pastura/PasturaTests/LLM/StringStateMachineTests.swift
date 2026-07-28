@@ -47,9 +47,48 @@ struct StringStateMachineTests {
     #expect(machine.braceBalance == 0)
   }
 
-  @Test func unicodeEscapeIsConsumedAsSingleToken() {
-    // {"a":"é"} — 4 hex digits after \u must not toggle string state.
+  @Test func multibyteCharacterInsideStringDoesNotToggle() {
+    // {"a":"é"} — a literal multibyte UTF-8 char (one Character, no backslash)
+    // inside a string value must not affect quote counting or balance.
+    // NOTE: this input has NO `\u` escape; it exercises multibyte iteration,
+    // not the unicode-escape countdown. The `\u`-escape path is covered by
+    // unicodeEscapeConsumesStructuralHexPositions and
+    // unicodeEscapeAtObjectBoundaryKeepsBalance below.
     let machine = StringStateMachine(#"{"a":"é"}"#)
+    #expect(machine.unescapedQuoteCount == 4)
+    #expect(!machine.hasUnclosedString)
+  }
+
+  @Test func unicodeEscapeConsumesStructuralHexPositions() {
+    // {"a":"\u0{}"end"} — a (malformed) `\u` escape whose 4 consumed
+    // positions are `0`, `{`, `}`, `"`. The `.afterUnicode(remaining:)`
+    // countdown must swallow all four so the structural-looking chars do
+    // NOT toggle string state or move brace balance: the `{`/`}` are not
+    // counted, and the `"` at the 4th hex position does not close the
+    // string (the real closer is the `"` after `end`).
+    //
+    // Regression guard: a countdown that consumes too FEW positions would
+    // let the 4th-position `"` close the string early, leaving an odd
+    // quote count (hasUnclosedString == true) and braceBalance == 1.
+    let machine = StringStateMachine(#"{"a":"\u0{}"end"}"#)
+    #expect(machine.braceBalance == 0)
+    #expect(machine.unescapedQuoteCount == 4)
+    #expect(!machine.hasUnclosedString)
+  }
+
+  @Test func unicodeEscapeAtObjectBoundaryKeepsBalance() {
+    // {"a":"\u00zz"} — a `\u` escape occupying the last content positions
+    // before the closing `"`. `StringStateMachine` models `\uXXXX` as
+    // "consume 4 positions after `\u` without state change" (it does not
+    // validate the 4 chars are hex), so the countdown must swallow exactly
+    // `0`, `0`, `z`, `z` and stop — then the following `"` closes the string
+    // normally.
+    //
+    // Regression guard: a countdown that consumes too MANY positions would
+    // swallow the closing `"`, leaving the string unclosed (odd quote count)
+    // and braceBalance == 1.
+    let machine = StringStateMachine(#"{"a":"\u00zz"}"#)
+    #expect(machine.braceBalance == 0)
     #expect(machine.unescapedQuoteCount == 4)
     #expect(!machine.hasUnclosedString)
   }
