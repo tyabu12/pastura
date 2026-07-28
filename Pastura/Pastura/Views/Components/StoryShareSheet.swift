@@ -86,13 +86,16 @@ struct StoryShareSheet: View {
           label: String(localized: "Share"),
           fill: ShareDestinationFill.moss, action: requestSystemShare
         ) {
-          ShareTabSymbol(systemName: "square.and.arrow.up", tint: .white)
+          ShareTabSymbol(systemName: "square.and.arrow.up", tint: .inkOnAccent)
         }
         if InstagramStoriesSharer.isAvailableNow {
           ShareDestinationTab(
             label: String(localized: "Stories"),
             fill: ShareDestinationFill.instagram, action: shareToInstagram
           ) {
+            // Raw white, not `inkOnAccent`: this glyph sits on
+            // `ShareDestinationFill.instagram`, a deliberate Instagram brand
+            // ramp rather than a Pastura accent (ADR-028 gate-3 exemption).
             ShareTabSymbol(systemName: "camera.fill", tint: .white)
           }
         }

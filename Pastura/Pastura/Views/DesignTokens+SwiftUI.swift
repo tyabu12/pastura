@@ -37,6 +37,7 @@ extension Color {
   static let inkSecondary = PasturaDynamicPalette.inkSecondary.color
   static let muted = PasturaDynamicPalette.muted.color
   static let rule = PasturaDynamicPalette.rule.color
+  static let inkOnAccent = PasturaPalette.inkOnAccent.color
 
   // §2.3 Moss
   static let moss = PasturaDynamicPalette.moss.color

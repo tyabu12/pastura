@@ -3,7 +3,8 @@ import SwiftUI
 // Extended palette tokens that arrived after the §2.1–§2.5 base palette.
 // Lives in an extension so `DesignTokens.swift` stays under swiftlint's
 // 400-line `file_length` cap. Source of truth in
-// `docs/design/design-system.md` §2.6 onward.
+// `docs/design/design-system.md` §2.6 onward — plus one §2.2 token
+// (`inkOnAccent`) parked here for that same headroom; see the first MARK.
 //
 // Some tokens here are not consumed yet (time-of-day, chart) — they are
 // documented and defined ahead of need so future screens can pull from a single
@@ -15,6 +16,36 @@ import SwiftUI
 // `Info.plist` pins `UIUserInterfaceStyle` to Light.
 
 extension PasturaPalette {
+
+  // MARK: §2.2 Ink — on-accent foreground
+  //
+  // Documented under §2.2 rather than §2.6+, unlike everything else in this
+  // file. It is here because this extension is where `swiftui-traps.md`'s
+  // token workflow puts a new raw token, not because §2.2 was full.
+
+  /// Foreground for text / glyphs sitting **on an accent fill** (`moss`,
+  /// `mossDark`). Pure white: §2.3 sanctions white-on-accent, which is
+  /// distinct from §1's "avoid pure white surfaces" guidance — that one
+  /// concerns backgrounds.
+  ///
+  /// The **light** value is settled: white over `mossDark` is ≈4.7:1 (AA).
+  ///
+  /// The **dark** answer is not, so this alias is one of ADR-028 gate 1's
+  /// unresolved 60 — it is *not* "fixed in both appearances". Over the lighter
+  /// `nightMoss` (#A8B888) that paired `moss` resolves to under dark mode,
+  /// white measures **≈2.13:1**, below AA and below even the 3:1 non-text bar.
+  /// That is settled by arithmetic, not pending observation, so gate 4's device
+  /// QA cannot decide it; the open choice is a gate 1 dark-value one — darken
+  /// `nightMoss` so white keeps working, or pair this token. Unreachable today
+  /// because `UIUserInterfaceStyle` pins the app to light. Having a token
+  /// rather than a `Color.white` literal at each callsite is what lets that
+  /// choice land in one place instead of ten.
+  ///
+  /// Scope: `mossDark` is the only fill where the pair clears AA for **text**.
+  /// On base `moss` it is ≈3.03:1, which clears WCAG 1.4.11's 3:1 non-text bar
+  /// for glyphs and shapes (`CheckBadge`, the share-tab symbols) but not the
+  /// 4.5:1 text bar — so text on an accent belongs on `mossDark`.
+  static let inkOnAccent = PasturaColorValue(hex: 0xFFFFFF)
 
   // MARK: §2.6 Alert Family — 4-step temperature scale
   //

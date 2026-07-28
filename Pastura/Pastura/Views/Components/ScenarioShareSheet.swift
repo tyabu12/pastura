@@ -85,7 +85,7 @@ struct ScenarioShareSheet: View {
           label: String(localized: "Share"),
           fill: ShareDestinationFill.moss, action: requestSystemShare
         ) {
-          ShareTabSymbol(systemName: "ellipsis", tint: .white)
+          ShareTabSymbol(systemName: "ellipsis", tint: .inkOnAccent)
         }
       }
       .padding(.horizontal, Spacing.l)

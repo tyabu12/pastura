@@ -104,7 +104,7 @@ nonisolated struct PasturaDynamicColor: Sendable {
 /// `surface` token, or dropping `nightSurface`) is a visual-design decision.
 /// ADR-028 § "The `nightSurface` double-mapping" records it as deferred.
 ///
-/// The remaining 59 light tokens have no dark counterpart and stay light-only;
+/// The remaining 60 light tokens still owe a dark value and stay light-only;
 /// the app is pinned to light via `Info.plist`'s `UIUserInterfaceStyle` until
 /// they are designed, so no half-dark surface can render.
 ///

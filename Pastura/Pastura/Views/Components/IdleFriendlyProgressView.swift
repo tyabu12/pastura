@@ -38,7 +38,7 @@ struct IdleFriendlyProgressView: View {
         Text(title)
       } else {
         Image(systemName: "ellipsis")
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.muted)
           .accessibilityHidden(true)
       }
     } else if let title {

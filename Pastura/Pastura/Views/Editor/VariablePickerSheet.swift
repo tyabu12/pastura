@@ -50,12 +50,15 @@ struct VariablePickerSheet: View {
           } label: {
             VStack(alignment: .leading, spacing: 3) {
               Text(verbatim: "{\(token)}")
+                // §2.3 assigns `mossDark` to accent links / status labels, and
+                // this `{token}` label is tappable. The accent asset resolves
+                // to base `moss` (≈2.9:1 on `screenBackground`), too low here.
+                .foregroundStyle(Color.mossDark)
                 .font(.body.monospaced())
-                .foregroundStyle(Color.accentColor)
               if let description = PlaceholderDisplay.description(for: token) {
                 Text(description)
                   .font(.caption)
-                  .foregroundStyle(.secondary)
+                  .foregroundStyle(Color.inkSecondary)
               }
             }
           }

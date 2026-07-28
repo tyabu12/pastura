@@ -242,7 +242,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         Spacer()
         Text(verbatim: "\(viewModel.rounds)")
           .monospacedDigit()
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.inkSecondary)
       }
       HStack {
         Button {
@@ -291,11 +291,11 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
           VStack(alignment: .leading, spacing: 4) {
             Text(persona.name.isEmpty ? String(localized: "(unnamed)") : persona.name)
               .font(.body.bold())
-              .foregroundStyle(.primary)
+              .foregroundStyle(Color.ink)
             if !persona.description.isEmpty {
               Text(persona.description)
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Color.inkSecondary)
                 .lineLimit(2)
             }
           }
@@ -318,7 +318,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         Spacer()
         Text(String(format: String(localized: "%lld agents"), viewModel.personas.count))
           .font(.caption)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.muted)
       }
     }
   }
@@ -351,7 +351,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         Spacer()
         Text(String(format: String(localized: "%lld steps"), viewModel.phases.count))
           .font(.caption)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.muted)
       }
     }
   }

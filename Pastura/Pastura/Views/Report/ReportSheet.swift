@@ -98,26 +98,26 @@ struct ReportSheet: View {
         .font(.headline)
       Text(String(format: String(localized: "ID: %@"), scenario.id))
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.muted)
         .textSelection(.enabled)
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    .background(Color.rule.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
   }
 
   private func migrationErrorDetail(_ error: String) -> some View {
     VStack(alignment: .leading, spacing: 4) {
       Text(String(localized: "This error detail is attached to your report:"))
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
       Text(error)
         .font(.caption.monospaced())
         .textSelection(.enabled)
     }
     .padding(12)
     .frame(maxWidth: .infinity, alignment: .leading)
-    .background(Color.secondary.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+    .background(Color.rule.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
   }
 
   private var introCopy: some View {
@@ -128,7 +128,7 @@ struct ReportSheet: View {
       )
     )
     .font(.body)
-    .foregroundStyle(.secondary)
+    .foregroundStyle(Color.inkSecondary)
   }
 
   private var primarySection: some View {
@@ -146,7 +146,7 @@ struct ReportSheet: View {
 
       Text(String(localized: "No account required."))
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
       Text(
         String(
           localized:
@@ -154,7 +154,7 @@ struct ReportSheet: View {
         )
       )
       .font(.caption2)
-      .foregroundStyle(.secondary)
+      .foregroundStyle(Color.inkSecondary)
     }
   }
 
@@ -174,7 +174,7 @@ struct ReportSheet: View {
 
       Text(String(localized: "Requires a GitHub account. The resulting issue is public."))
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
     }
   }
 

@@ -113,11 +113,15 @@ struct ScenarioSummaryRow: View {
       .font(.caption2.bold())
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
+      // Same token pair as `PhaseTypeLabel`: § 2.3 reserves `mossDark` for
+      // accent *text* and `moss` for fills, so the tinted badge reads its
+      // wash off `moss` and its label off `mossDark`. Both branches are now
+      // `Color`, so the `AnyShapeStyle` erasure is no longer needed.
       .background(
-        isTint ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.15),
+        isTint ? Color.moss.opacity(0.2) : Color.inkSecondary.opacity(0.15),
         in: Capsule()
       )
-      .foregroundStyle(isTint ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+      .foregroundStyle(isTint ? Color.mossDark : Color.inkSecondary)
   }
 }
 

@@ -242,11 +242,14 @@ private struct ActiveBadge: View {
   var body: some View {
     Text(String(localized: "Active"))
       .textStyle(Typography.tagPhase)
-      .foregroundStyle(Color.white)
+      .foregroundStyle(Color.inkOnAccent)
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
       .background(
         RoundedRectangle(cornerRadius: Radius.button / 2)
-          .fill(Color.moss))
+          // `mossDark`, not `moss`: `tagPhase` is 9.5pt, i.e. WCAG normal
+          // text, and on-accent white is only ≈3.0:1 over `moss` vs ≈4.76:1
+          // over `mossDark` (§2.3 / `PasturaPrimaryButtonStyle`).
+          .fill(Color.mossDark))
   }
 }

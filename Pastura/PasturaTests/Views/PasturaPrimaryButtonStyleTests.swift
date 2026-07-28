@@ -18,8 +18,8 @@ struct PasturaPrimaryButtonStyleTests {
     #expect(PasturaPrimaryButtonStyle.fill == Color.mossDark)
   }
 
-  @Test func foregroundIsWhite() {
-    #expect(PasturaPrimaryButtonStyle.foreground == Color.white)
+  @Test func foregroundIsInkOnAccent() {
+    #expect(PasturaPrimaryButtonStyle.foreground == Color.inkOnAccent)
   }
 
   @Test func pressedOpacityIsLessThanOne() {

@@ -236,12 +236,13 @@ struct PromoCard: View {
       Button(action: onRetry) {
         Text(String(localized: "Retry"))
           .textStyle(Typography.metaLabel)
-          .foregroundStyle(Color.white)
+          .foregroundStyle(Color.inkOnAccent)
           .padding(.horizontal, 10)
           .padding(.vertical, 5)
           .background(
             RoundedRectangle(cornerRadius: Radius.button)
-              .fill(Color.moss))
+              // `mossDark`: `metaLabel` is 9pt text, white-on-`moss` ≈3.0:1.
+              .fill(Color.mossDark))
       }
       .buttonStyle(.plain)
     }

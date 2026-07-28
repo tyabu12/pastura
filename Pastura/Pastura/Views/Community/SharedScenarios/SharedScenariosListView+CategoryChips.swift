@@ -34,7 +34,7 @@ extension SharedScenariosListView {
         // WCAG AA (≈4.76:1) whereas white-on-moss is only ≈3.0:1
         // (PasturaPrimaryButtonStyle §2.3). White-on-accent is the
         // contrast-passing pair, distinct from §1's avoid-white-surfaces rule.
-        .foregroundStyle(isSelected ? Color.white : Color.ink)
+        .foregroundStyle(isSelected ? Color.inkOnAccent : Color.ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
         .background(isSelected ? Color.mossDark : Color.bubbleBackground, in: Capsule())

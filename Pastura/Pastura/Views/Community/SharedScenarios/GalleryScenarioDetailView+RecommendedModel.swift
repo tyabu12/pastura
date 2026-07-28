@@ -90,7 +90,7 @@ extension GalleryScenarioDetailView {
           activeDisplay, recommendedDisplay)
       )
       .font(.footnote)
-      .foregroundStyle(.secondary)
+      .foregroundStyle(Color.inkSecondary)
     } icon: {
       Image(systemName: "exclamationmark.triangle")
         .foregroundStyle(Color.warning)
