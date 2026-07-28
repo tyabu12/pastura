@@ -147,18 +147,15 @@ class LLMBackendContractTests {
     fun antiRepetitionSeedsDefaultToEmptyMeaningNoDrySeeding() {
         // The default is what every non-`speak_each` caller relies on (#1105):
         // seeding is opt-in, so a backend must be able to read "no seeds" from an
-        // empty list rather than from a null it would have to special-case.
+        // empty list rather than from a null it would have to special-case. It is
+        // also the K/N-visible half — a Swift consumer gets no default and must
+        // pass this explicitly (kmp-interop.md Pattern 3).
+        //
+        // No sibling `requestCarriesAntiRepetitionSeedsThrough` on purpose: a data
+        // class returning its own constructor argument is not behaviour, so such a
+        // test cannot redden on any revert. The real control is
+        // `LLMCallerTests.antiRepetitionSeedsReachTheBackendAsTheRequestSeeds`.
         assertTrue(request().antiRepetitionSeeds.isEmpty())
-    }
-
-    @Test
-    fun requestCarriesAntiRepetitionSeedsThrough() {
-        val backend = ScriptedLLMBackend(listOf(ScriptedLLMBackend.Script.completing("{}")))
-        backend.generateStream(
-            GenerationRequest(system = "s", user = "u", antiRepetitionSeeds = listOf("prior")),
-            RecordingStreamCallbacks(),
-        )
-        assertEquals(listOf("prior"), backend.requests.single().antiRepetitionSeeds)
     }
 
     // MARK: - StreamHandle

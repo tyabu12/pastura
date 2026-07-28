@@ -289,6 +289,10 @@ class PromptBuilderInjectionTests {
         val s = scenario()
         val prompt = builder.buildSystemPrompt(s, alice, speakEach, stateOf(s))
         assertTrue(prompt.contains("そのうち1人の発言に必ず触れてから自分の意見を述べること"))
+        // The rule's KDoc calls this clause load-bearing — it is what blocks the
+        // agreement-formulae collapse mode. Asserted here so the unit test stands
+        // on its own; the parity gate only proves the two engines AGREE.
+        assertTrue(prompt.contains("（同意でも反論でも疑問でもよい）"))
         assertTrue(prompt.contains("まだ誰も発言していなければ自由に話してよい"))
     }
 
@@ -297,6 +301,7 @@ class PromptBuilderInjectionTests {
         val s = scenario(language = "en")
         val prompt = builder.buildSystemPrompt(s, alice, speakEach, stateOf(s))
         assertTrue(prompt.contains("refer to one of their statements before giving your own opinion"))
+        assertTrue(prompt.contains("(agreement, disagreement, or a question all count)"))
         assertTrue(prompt.contains("If no one has spoken yet, speak freely."))
     }
 
@@ -316,11 +321,12 @@ class PromptBuilderInjectionTests {
     @Test
     fun addressRulePrecedesTheMoodRuleInTheAnswerRulesBlock() {
         // The rules concatenate into one string, so append ORDER is prompt
-        // content. Every other appendix is phase-type-gated and therefore
-        // mutually exclusive with this one; `moodRule` is schema-gated, so a
-        // speak_each phase declaring `mood` is the only shape where two
-        // appendices coexist — i.e. the only place the Swift order
-        // (`PromptBuilder.swift:197-228`) is observable at all.
+        // content. Every other appendix is phase-type-gated and therefore mutually
+        // exclusive with `addressRule`; the schema-gated `moodRule` is the only one
+        // that can coexist with it. So this is the only shape in which
+        // **addressRule's** relative position is observable. (Other type-gated
+        // rules pair with `moodRule` the same way — that is not unique to
+        // speak_each; what is unique is that it is addressRule's only pairing.)
         val s = scenario()
         val moodySpeakEach = Phase(
             type = PhaseType.SPEAK_EACH,

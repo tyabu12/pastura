@@ -76,10 +76,9 @@ public interface LLMBackend {
 /**
  * One inference request crossing the §5.2 boundary.
  *
- * [antiRepetitionSeeds] arrived with its consumer, as this type's earlier
- * "deliberately omits" note said it should: [SpeakEachHandler] is the Engine's
- * only seeder, so the field would have been dead weight for the Swift adapter to
- * map until that handler was ported.
+ * [antiRepetitionSeeds] landed with its consumer, [SpeakEachHandler] (#1105) —
+ * the Engine's only seeder, so until that handler was ported the field would have
+ * been dead weight for the Swift adapter to map.
  *
  * @property system The system prompt defining the agent's persona and rules.
  * @property user   The user prompt with context and instructions for this turn.
@@ -92,22 +91,17 @@ public interface LLMBackend {
  *   passes.
  *
  *   **Read the scope before reaching for this to fix a repetition complaint.**
- *   The chain's own `penalties` sampler is per-generation, so it cannot see
- *   across a `generate()` at all; this field is the only cross-turn mechanism,
- *   and its one producer covers exactly one case. Three scopes exist, and only
- *   the middle one is this:
- *
- *   1. **Within one generation** — the backend's chain penalties. Not this field.
- *   2. **An agent's own prior turns, `speak_each` only** — [SpeakEachHandler]
- *      seeds each turn with that agent's own most-recent statement. This field.
- *   3. **Everything else** — cross-*agent* template collapse, and every phase
- *      other than `speak_each`. **Unreached.** Covering one needs a new seeder,
- *      not a bigger value here.
+ *   It covers exactly one case — an agent's own prior turns, in `speak_each`.
+ *   Cross-*agent* template collapse and every other phase are **unreached**, and
+ *   covering one needs a new seeder rather than a bigger value here. The full
+ *   three-scope contract (including what the backend's own per-generation chain
+ *   penalties do and do not reach) lives in `.claude/rules/engine.md`
+ *   § "The chain's `penalties` cannot reach across a `generate()`" — read it
+ *   there rather than trusting this paragraph to have stayed current.
  *
  *   A backend that cannot seed (Ollama's HTTP API, Foundation Models) ignores it
  *   rather than failing — mirroring the Swift services, which document the same
- *   no-op. `.claude/rules/engine.md` § "The chain's `penalties` cannot reach
- *   across a `generate()`" carries the full contract.
+ *   no-op.
  */
 public data class GenerationRequest(
     public val system: String,

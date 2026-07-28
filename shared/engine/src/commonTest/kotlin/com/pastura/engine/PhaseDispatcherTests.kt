@@ -108,15 +108,16 @@ class PhaseDispatcherTests {
     fun everyUnportedPhaseTypeFailsCleanlyRatherThanCrashing() {
         // A Stage-3 gap must read as a gap. Iterating allCases also means a NEW
         // PhaseType added to Models cannot silently reach dispatch unhandled.
+        // DERIVED from the dispatcher, not a hand-written exclusion list. A hand
+        // list cannot disagree with itself, so it silently stops guarding
+        // registration: de-registering a ported handler just moves that case into
+        // the excluded set, leaving this test green. Deriving makes the count below
+        // fire on BOTH enum growth and an accidental de-registration.
         val unported = PhaseType.entries.filter {
-            it != PhaseType.SPEAK_ALL && it != PhaseType.ELIMINATE &&
-                it != PhaseType.SUMMARIZE && it != PhaseType.ASSIGN &&
-                it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
-                it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT &&
-                it != PhaseType.VOTE && it != PhaseType.WHISPER &&
-                it != PhaseType.CHOOSE && it != PhaseType.SPEAK_EACH
+            runCatching { dispatcher.handler(it) }.isFailure
         }
-        assertEquals(2, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(14, PhaseType.entries.size, "the drift ledger's case count is now executable")
+        assertEquals(2, unported.size, "see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)

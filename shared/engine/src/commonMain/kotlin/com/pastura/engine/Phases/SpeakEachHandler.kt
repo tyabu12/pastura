@@ -126,7 +126,10 @@ internal class SpeakEachHandler : PhaseHandler {
         // succeeds. Seeded into the DRY sampler (content-only, value text) so a
         // token-level penalty spans the turn boundary — the register-dominant
         // cross-round verbatim echo that prompt-side fixes could not suppress
-        // (#912 No-Go). Empty when there is no prior statement (first sub-round).
+        // (#912 No-Go). Empty only when the agent has NO prior statement under
+        // this field at all — its first such turn of the run, or right after a D2
+        // skip cleared the key. `lastOutputs` is not reset per round, so a later
+        // round's first sub-round normally still seeds.
         //
         // `isNotBlank()` mirrors Swift's whitespace-trim filter: an empty or
         // `"..."` statement is already caught upstream by the empty-field retry,

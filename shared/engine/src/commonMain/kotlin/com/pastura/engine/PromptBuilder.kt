@@ -276,9 +276,13 @@ internal class PromptBuilder {
      * now ported.
      *
      * **Append order is the prompt.** The rules concatenate into one string, so
-     * the sequence above must stay identical to Swift's
-     * `PromptBuilder.swift:197-228` — speak_each, reflect, whisper, choose, vote,
-     * mood. Reordering is not a refactor; it changes what the model reads.
+     * the sequence must stay identical to Swift's: [addressRule] ->
+     * [reflectBrevityRule] -> [whisperRule] -> the choose block ->
+     * [voteCandidateRule] -> [moodRule] (`PromptBuilder.swift`, around :197).
+     * Anchored on the SYMBOL sequence, not on a line range — nothing gates a
+     * cross-language line reference against drift, and an insertion above the
+     * Swift block would silently invalidate one. Reordering is not a refactor; it
+     * changes what the model reads.
      *
      * Takes the full `(scenario, persona, state)` — not just `language` — because
      * [voteCandidateRule] enumerates candidates from the persona + elimination

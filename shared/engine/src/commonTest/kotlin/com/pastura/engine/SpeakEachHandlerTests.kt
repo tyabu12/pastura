@@ -124,11 +124,27 @@ class SpeakEachHandlerTests {
 
     @Test
     fun skipsEliminatedAgents() = runTest {
+        // Alice's `false` entry is written explicitly. `SimulationState.initial`
+        // seeds EVERY agent to `false`, so a bare `mapOf("Bob" to true)` would
+        // *replace* that map and leave Alice absent — under which a wrong
+        // `eliminated[name] != null` guard still passes this test while skipping
+        // everyone against real state.
         val s = scenario()
         val backend = ScriptedLLMBackend(listOf(says("only Alice")))
-        val state = initial(s).copy(eliminated = mapOf("Bob" to true))
+        val state = initial(s).copy(eliminated = mapOf("Alice" to false, "Bob" to true))
         handler.execute(context(s, backend), state)
         assertEquals(1, backend.callCount)
+    }
+
+    @Test
+    fun anAgentAbsentFromTheEliminatedMapIsActive() = runTest {
+        // The other polarity the impl comment argues for: a missing key reads
+        // `null`, which is not `true`, so the agent speaks. `!= false` would skip
+        // every agent the map never mentions.
+        val s = scenario()
+        val backend = ScriptedLLMBackend(listOf(says("A"), says("B")))
+        handler.execute(context(s, backend), initial(s).copy(eliminated = emptyMap()))
+        assertEquals(2, backend.callCount)
     }
 
     // MARK: - subRounds clamp (untrusted YAML guard, #1064)
@@ -146,6 +162,9 @@ class SpeakEachHandlerTests {
         assertEquals(2, backend.callCount)
     }
 
+    // Adds no discrimination over the zero case in Kotlin (`1..0` and `1..-1`
+    // are both empty ranges); kept as the Swift-parity pair, where the two inputs
+    // were distinct trap arguments.
     @Test
     fun negativeSubRoundsRunsOncePerPersona() = runTest {
         val s = scenario(subRounds = -1)
@@ -188,6 +207,25 @@ class SpeakEachHandlerTests {
         assertContains(backend.requests[1].user, "alice speaks")
     }
 
+    @Test
+    fun logWindowTrimsTheAccumulatedLogTheNextSpeakerSees() = runTest {
+        // The window trims the SAME log the #911 address rule tells the agent to
+        // refer to (ADR-024 lint R17: keep `log_window >= agentCount` for
+        // accumulating scenarios). speak_each is where that interaction bites, so
+        // the axis belongs here and not only on the speak_all sibling.
+        val s = scenario(
+            agents = listOf("A", "B", "C"),
+            prompt = "Log: {conversation_log}",
+            logWindow = 1,
+        )
+        val backend = ScriptedLLMBackend(listOf(says("1"), says("2"), says("3")))
+        handler.execute(context(s, backend), initial(s))
+
+        val third = backend.requests[2].user
+        assertContains(third, "B: 2")
+        assertFalse(third.contains("A: 1"), "window=1 must trim the older entry")
+    }
+
     // MARK: - Anti-repetition seeding (#1105) — sole producer in the engine
 
     @Test
@@ -212,6 +250,9 @@ class SpeakEachHandlerTests {
         // An empty or "..." statement is already caught upstream by the
         // empty-field retry, but a blank-but-nonempty one reaches `lastOutputs`.
         // Dropping the `isNotBlank()` filter makes the second seed `["   "]`.
+        // Depends on `LLMCaller.hasEmptyFields` treating `"   "` as non-empty (it
+        // tests `== "..."` / `isEmpty()`, no trim). If that is ever hardened this
+        // fails as "ScriptedLLMBackend exhausted" rather than as a seed mismatch.
         val s = scenario(agents = listOf("Alice"), subRounds = 2)
         val backend = ScriptedLLMBackend(listOf(says("   "), says("alice-r2")))
         handler.execute(context(s, backend), initial(s))
@@ -246,6 +287,8 @@ class SpeakEachHandlerTests {
         // suite alone stays green with the call dropped entirely. The write also has
         // to survive the SAME `state.copy` as the log and `lastOutputs` writes; a
         // second copy off the original would silently discard one of the three.
+        // Same shape as `ChooseHandlerTests`' fold assertion — see that suite's
+        // § "State threading" reasoning.
         val s = scenario(
             agents = listOf("Alice"),
             outputSchema = mapOf("statement" to "string", "mood" to "string"),
@@ -259,6 +302,12 @@ class SpeakEachHandlerTests {
         // The other two success-path writes must have survived the same copy.
         assertEquals(1, next.conversationLog.size)
         assertEquals("hi", next.lastOutputs["Alice"]?.fields?.get("statement"))
+        // `nextVariables` is derived from the PERSISTED `state.variables`, never
+        // from the throwaway prompt map. Reusing the latter would persist every
+        // reserved-namespace token — leaking one agent's `assigned` / `my_whispers`
+        // into the next agent's `appendPrivateSections` read — and no other
+        // assertion in this suite would move.
+        assertEquals(setOf("mood_Alice"), next.variables.keys)
     }
 
     // MARK: - simulationLanguage override on the fallback prompt (ADR-010 Step E)
@@ -334,10 +383,20 @@ class SpeakEachHandlerTests {
     }
 
     @Test
-    fun systemicErrorPropagatesTypedWithoutSkip() = runTest {
-        // ADR-021 D3: a deterministic engineering bug aborts the run in one throw
-        // and is never converted into a skipped turn. `SystemicProbeError` stands
-        // in for Swift's `LLMError.invalidGrammar`, which is not ported to Kotlin.
+    fun theHandlerAddsNoCatchOfItsOwnAroundATurn() = runTest {
+        // NOT an ADR-021 D3 classification test, despite the shape. The error is
+        // thrown from the backend, i.e. outside `LLMCaller`'s mapping, so widening
+        // `TurnFailureGate.isTurnDegradable` — the actual D3 regression — leaves
+        // this green. D3 classification is `TurnFailureGateTests.systemicError
+        // RethrowsTypedWithoutSkip`, and `SpeakAllHandlerTests` records why no
+        // handler-level D3 case exists yet (every failure a ScriptedLLMBackend can
+        // produce maps to the degradable `LlmGenerationFailed` until the Stage-3
+        // `StreamFailure` taxonomy lands).
+        //
+        // What it DOES pin is narrower and still worth having: this handler wraps
+        // its turn in no `try`/`catch` of its own, so nothing here can swallow a
+        // non-degradable throw into a skip. Restore the real D3 case with the
+        // taxonomy (#501).
         val s = scenario()
         val events = mutableListOf<SimulationEvent>()
 
@@ -349,7 +408,14 @@ class SpeakEachHandlerTests {
     }
 }
 
-/** Stands in for a systemic (non-turn-degradable) engineering fault. */
+/**
+ * Stands in for a fault the gate must not degrade.
+ *
+ * Extends [Exception] deliberately, mirroring `TurnFailureGateTests`' `ProbeError`:
+ * it must stay disjoint from `CancellationException` (itself an
+ * `IllegalStateException`), or a later "simplify to IllegalStateException" edit
+ * would silently reclassify this as the cancellation path.
+ */
 private class SystemicProbeError : Exception("systemic")
 
 /** A backend whose call is a systemic fault rather than a generation failure. */
