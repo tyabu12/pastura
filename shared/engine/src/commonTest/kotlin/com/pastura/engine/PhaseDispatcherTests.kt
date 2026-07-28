@@ -75,6 +75,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheSpeakEachHandler() {
+        assertIs<SpeakEachHandler>(dispatcher.handler(PhaseType.SPEAK_EACH))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -91,8 +96,8 @@ class PhaseDispatcherTests {
         // `conditional`, not `CONDITIONAL` — Swift interpolates `phaseType.rawValue`,
         // and a reader comparing the two engines' errors should see the same token.
         // The exemplar is CONDITIONAL rather than the next handler in the port queue:
-        // it is LAST in the remaining Wave-B order (SpeakEach -> Narrate ->
-        // Conditional), so this repoint survives the longest.
+        // it is LAST in the remaining Wave-B order (Narrate -> Conditional), so this
+        // repoint survives the longest.
         val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
         assertTrue(message.contains("conditional"), "expected the wire name, got: $message")
@@ -109,9 +114,9 @@ class PhaseDispatcherTests {
                 it != PhaseType.EVENT_INJECT && it != PhaseType.SCORE_CALC &&
                 it != PhaseType.RELATIONSHIP_UPDATE && it != PhaseType.REFLECT &&
                 it != PhaseType.VOTE && it != PhaseType.WHISPER &&
-                it != PhaseType.CHOOSE
+                it != PhaseType.CHOOSE && it != PhaseType.SPEAK_EACH
         }
-        assertEquals(3, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
+        assertEquals(2, unported.size, "Kotlin PhaseType has 14 cases today; see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)

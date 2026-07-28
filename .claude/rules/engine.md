@@ -453,11 +453,13 @@ nothing if they run different prompts. The en secret-section guidance diverged o
 **Apply**: change both sides in the same commit. `scripts/check-prompt-literal-parity.py`
 enforces it (pre-commit sub-gate + the CI "Shell gate tests" job); pairing is by
 basename with any `+Extension` suffix stripped, so `PromptBuilder+PrivateSections.swift`
-pairs with `PromptBuilder.kt`. A deliberate one-sided literal — today only the
-#911 `addressRule`, whose handler is not ported, alongside two whole-file
-`unported` deferrals — needs a row in
-`shared/prompt-literal-parity-allowlist.tsv`; the checker prints the exact row to
-paste, keyed on a digest of the pair so a later reword forces re-approval.
+pairs with `PromptBuilder.kt`. A deliberate one-sided literal — today none; the
+allowlist holds a single whole-file `unported` deferral (`NarrateHandler`) —
+needs a row in `shared/prompt-literal-parity-allowlist.tsv`; the checker prints
+the exact row to paste, keyed on a digest of the pair so a later reword forces
+re-approval. Whole-file `unported` rows are capped (`MAX_UNPORTED_ROWS`, at the
+current count) so the deferral budget ratchets down as the ADR-023 port lands
+rather than staying open.
 
 **What the gate does NOT see** — it measures `pickLanguage` literal-pair parity,
 not prompt parity, so separators (the `\n` vs `\n\n` join in `appendSecretSection`)
