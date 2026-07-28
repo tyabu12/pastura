@@ -1,0 +1,33 @@
+# Deliberate exceptions to Swift <-> Kotlin `pickLanguage` literal parity (#1295).
+#
+# The invariant: the shipped Swift engine and the ADR-023 `commonMain` Kotlin
+# port render the same model-facing prompt text, so a behaviour comparison
+# between them measures the engines and not two different prompts. Enforcement is
+# scripts/check-prompt-literal-parity.py (pre-commit sub-gate + the CI
+# "Shell gate tests" job). This file is the escape hatch, and every row is a
+# claim that a divergence is intended.
+#
+# Format: <side>\t<stem>\t<digest>\t<excerpt>\t<reason>   ('#' lines and blanks skipped)
+#
+#   side     swift-only | kotlin-only | unported
+#            swift-only / kotlin-only  — this (ja, en) pair exists on one side only.
+#            unported                  — the whole Swift file has no Kotlin
+#                                        counterpart yet; digest/excerpt are `-`.
+#   stem     the Swift basename with any `+Extension` suffix stripped, i.e. the
+#            name the two sides are paired by (`PromptBuilder+PrivateSections.swift`
+#            and `PromptBuilder.kt` both reduce to `PromptBuilder`).
+#   digest   sha256(ja \0 en)[:12] of the NORMALIZED pair. Keyed on both halves on
+#            purpose: editing either one invalidates the row, so a reworded
+#            deferral gets re-approved instead of coasting. A literal is not
+#            usable as a key — a `"""` block carries real newlines and tabs.
+#   excerpt  a readable, escaped prefix of the ja literal. Cosmetic; the digest is
+#            what matches. `<>` marks an erased interpolation.
+#   reason   why the divergence is intended. Required; a blank fails the gate.
+#
+# The checker prints the exact row to paste when it finds a divergence, and it
+# fails on a row that no longer matches anything — a healed divergence must drop
+# its row rather than linger as a standing exemption.
+side	stem	digest	excerpt	reason
+swift-only	PromptBuilder	3754ae85aab4	\\n- これまでの会話に他の誰かの発言があれば、そのうち1人の発言に必ず触れてから自分の意見…	The #911 speak_each address rule. PromptBuilder.kt's class doc names it as the one phase-specific appendix left as a Stage-3 unit; it lands with the speak_each handler port (#501). Drop this row then.
+unported	NarrateHandler	-	-	ADR-023 Stage 3: narrate is not in the Wave B port set yet (#501).
+unported	SpeakEachHandler	-	-	ADR-023 Stage 3: speak_each is not ported yet (#501). Ports together with the swift-only PromptBuilder row above.
