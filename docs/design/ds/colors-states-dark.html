@@ -129,18 +129,21 @@
 <div class="card">
   <p class="card-title">Colors — Alert family &amp; interactive states（dark）</p>
   <p class="section-note" style="margin-top:-4px">
-    ADR-028 § Rollout gate 1 のスライス1（18色）。左が light、右が提案するダーク対。
+    ADR-028 § Rollout gate 1 のスライス1（18色）。左が light、右がそのダーク対。
     比率は各値がその文脈で乗る面に対する WCAG コントラスト比。
+    <strong>正典は <code>design-system.md</code> §2.9</strong>、このカードはその視覚ミラー
+    （<code>ds/README.md</code> のレイヤリング）。設計時はサインオフ面として値の確定に
+    先行したが、確定後は §2.9 が上位 — 値が食い違ったら §2.9 が正しい。
     アプリは <code>UIUserInterfaceStyle = Light</code> で固定されているため、
     この配色が実機に出るのは gate 1〜5 がすべて閉じてから。
   </p>
 
   <div class="section night">
     <p class="section-label">§2.6 Alert Family — base（アイコン・強調文字）</p>
-    <div class="pair"><span class="sq" style="background:#7B8FA8"></span><span class="sq" style="background:var(--night-info)"></span><span><span class="tok">info</span> <span class="hexes">#7B8FA8 → #97ABC4</span></span><span class="ratio">7.2:1 on --night-bg</span></div>
-    <div class="pair"><span class="sq" style="background:#7A9270"></span><span class="sq" style="background:var(--night-success)"></span><span><span class="tok">success</span> <span class="hexes">#7A9270 → #95B189</span></span><span class="ratio">7.2:1 on --night-bg</span></div>
-    <div class="pair"><span class="sq" style="background:#C7A566"></span><span class="sq" style="background:var(--night-warning)"></span><span><span class="tok">warning</span> <span class="hexes">#C7A566 → #D4B67E</span></span><span class="ratio">8.7:1 on --night-bg</span></div>
-    <div class="pair"><span class="sq" style="background:#B57870"></span><span class="sq" style="background:var(--night-danger)"></span><span><span class="tok">danger</span> <span class="hexes">#B57870 → #CE9790</span></span><span class="ratio">6.9:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:var(--info)"></span><span class="sq" style="background:var(--night-info)"></span><span><span class="tok">info</span> <span class="hexes">#7B8FA8 → #97ABC4</span></span><span class="ratio">7.2:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:var(--success)"></span><span class="sq" style="background:var(--night-success)"></span><span><span class="tok">success</span> <span class="hexes">#7A9270 → #95B189</span></span><span class="ratio">7.2:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:var(--warning)"></span><span class="sq" style="background:var(--night-warning)"></span><span><span class="tok">warning</span> <span class="hexes">#C7A566 → #D4B67E</span></span><span class="ratio">8.7:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:var(--danger)"></span><span class="sq" style="background:var(--night-danger)"></span><span><span class="tok">danger</span> <span class="hexes">#B57870 → #CE9790</span></span><span class="ratio">6.9:1 on --night-bg</span></div>
     <p class="section-note">
       warning が今も少し明るいのは、琥珀が黄系で輝度が高いため。ただし
       <strong>輝度の順位を保存すると知覚重みの順位は反転する</strong>ので、そこは追わない
@@ -154,14 +157,14 @@
 
   <div class="section night">
     <p class="section-label">§2.6 Alert Family — Soft（背景）と Ink（その上の文字）</p>
-    <div class="pair"><span class="sq" style="background:#E8EDF2"></span><span class="sq" style="background:var(--night-info-soft)"></span><span><span class="tok">infoSoft</span> <span class="hexes">#E8EDF2 → #252D37</span></span><span class="ratio">—</span></div>
-    <div class="pair"><span class="sq" style="background:#4A5A6F"></span><span class="sq" style="background:var(--night-info-ink)"></span><span><span class="tok">infoInk</span> <span class="hexes">#4A5A6F → #B3C5DB</span></span><span class="ratio">7.9:1 on Soft</span></div>
-    <div class="pair"><span class="sq" style="background:#E5ECDF"></span><span class="sq" style="background:var(--night-success-soft)"></span><span><span class="tok">successSoft</span> <span class="hexes">#E5ECDF → #2A3725</span></span><span class="ratio">—</span></div>
-    <div class="pair"><span class="sq" style="background:#4D5F44"></span><span class="sq" style="background:var(--night-success-ink)"></span><span><span class="tok">successInk</span> <span class="hexes">#4D5F44 → #BFDBB3</span></span><span class="ratio">8.4:1 on Soft</span></div>
-    <div class="pair"><span class="sq" style="background:#F2EAD3"></span><span class="sq" style="background:var(--night-warning-soft)"></span><span><span class="tok">warningSoft</span> <span class="hexes">#F2EAD3 → #383124</span></span><span class="ratio">—</span></div>
-    <div class="pair"><span class="sq" style="background:#6F5C2D"></span><span class="sq" style="background:var(--night-warning-ink)"></span><span><span class="tok">warningInk</span> <span class="hexes">#6F5C2D → #E0CEAE</span></span><span class="ratio">8.3:1 on Soft</span></div>
-    <div class="pair"><span class="sq" style="background:#EDD9D4"></span><span class="sq" style="background:var(--night-danger-soft)"></span><span><span class="tok">dangerSoft</span> <span class="hexes">#EDD9D4 → #382624</span></span><span class="ratio">—</span></div>
-    <div class="pair"><span class="sq" style="background:#6F4540"></span><span class="sq" style="background:var(--night-danger-ink)"></span><span><span class="tok">dangerInk</span> <span class="hexes">#6F4540 → #E0B4AE</span></span><span class="ratio">7.7:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:var(--info-soft)"></span><span class="sq" style="background:var(--night-info-soft)"></span><span><span class="tok">infoSoft</span> <span class="hexes">#E8EDF2 → #252D37</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:var(--info-ink)"></span><span class="sq" style="background:var(--night-info-ink)"></span><span><span class="tok">infoInk</span> <span class="hexes">#4A5A6F → #B3C5DB</span></span><span class="ratio">7.9:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:var(--success-soft)"></span><span class="sq" style="background:var(--night-success-soft)"></span><span><span class="tok">successSoft</span> <span class="hexes">#E5ECDF → #2A3725</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:var(--success-ink)"></span><span class="sq" style="background:var(--night-success-ink)"></span><span><span class="tok">successInk</span> <span class="hexes">#4D5F44 → #BFDBB3</span></span><span class="ratio">8.4:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:var(--warning-soft)"></span><span class="sq" style="background:var(--night-warning-soft)"></span><span><span class="tok">warningSoft</span> <span class="hexes">#F2EAD3 → #383124</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:var(--warning-ink)"></span><span class="sq" style="background:var(--night-warning-ink)"></span><span><span class="tok">warningInk</span> <span class="hexes">#6F5C2D → #E0CEAE</span></span><span class="ratio">8.3:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:var(--danger-soft)"></span><span class="sq" style="background:var(--night-danger-soft)"></span><span><span class="tok">dangerSoft</span> <span class="hexes">#EDD9D4 → #382624</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:var(--danger-ink)"></span><span class="sq" style="background:var(--night-danger-ink)"></span><span><span class="tok">dangerInk</span> <span class="hexes">#6F4540 → #E0B4AE</span></span><span class="ratio">7.7:1 on Soft</span></div>
     <p class="section-note">
       Soft と Ink は<strong>役割が反転</strong>する。light の「淡い地 + 濃い字」が、
       dark では「暗い地 + 淡い字」になる。delta をそのまま Soft に当てると暗面の上に

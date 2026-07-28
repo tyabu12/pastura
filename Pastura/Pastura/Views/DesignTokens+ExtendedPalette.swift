@@ -124,11 +124,12 @@ extension PasturaPalette {
 
   // MARK: §2.9 Dark Mode (night pasture)
   //
-  // Reserved for future dark-mode support. Day tones translated to a
-  // "night pasture" variant — moss brightened, cream replaced by warm
-  // dark surfaces. Application is gated on a future trait-based
-  // selector; the tokens are defined now so the migration is mechanical
-  // rather than archaeological.
+  // Day tones translated to a "night pasture" variant — moss brightened,
+  // cream replaced by warm dark surfaces. These are **wired**: every token
+  // below is the dark half of a `PasturaDynamicPalette` pair, reached through
+  // the repointed light `Color.*` alias rather than through `Color.night*`.
+  // Dark still never renders, because `Info.plist` pins the app to light
+  // until the remaining 42 light tokens have dark values (ADR-028 § Rollout).
 
   /// Outermost background under dark mode.
   static let nightBackground = PasturaColorValue(hex: 0x1B1D17)

@@ -108,6 +108,11 @@ extension DesignTokensTests {
       (.disabledBackground, PasturaPalette.nightDisabledBackground)
     ]
 
+    // The list is hand-written on purpose — it is what proves the *alias* is
+    // wired, which iterating `all` cannot show. This pins its size to the
+    // registry so a pair added to one and not the other is caught.
+    #expect(cases.count == PasturaDynamicPalette.all.count)
+
     for (alias, dark) in cases {
       let resolvedAlias = alias.resolve(in: darkEnvironment())
       let resolvedExpected = dark.color.resolve(in: darkEnvironment())
@@ -145,6 +150,8 @@ extension DesignTokensTests {
       (.disabledBackground, PasturaPalette.disabledBackground)
     ]
 
+    #expect(cases.count == PasturaDynamicPalette.all.count)
+
     for (alias, light) in cases {
       let resolvedAlias = alias.resolve(in: lightEnvironment())
       let resolvedExpected = light.color.resolve(in: lightEnvironment())
@@ -153,7 +160,7 @@ extension DesignTokensTests {
   }
 
   /// Smoke test that unpaired tokens stay scheme-invariant. Honest about its
-  /// strength: these five are plain `Color(.sRGB, …)` values with no trait
+  /// strength: these are plain `Color(.sRGB, …)` values with no trait
   /// dependency, so invariance holds by *type*, not by wiring — and none has a
   /// `night*` counterpart, so no plausible edit to this feature reddens it. It
   /// documents the intended light-only boundary; it does not police it. A real
@@ -207,7 +214,7 @@ extension DesignTokensTests {
 
   /// Guards the registry's documented size, NOT completeness: declaring a 27th
   /// pair without appending it to `all` leaves the count at 26 and passes. What it
-  /// does catch outright is a copy-paste duplicate in `all` (the `Set` line), and
+  /// does catch outright is a copy-paste duplicate in `all` (the `Set` line).
   /// Per-alias coverage lives in the wiring tests above.
   @Test func exactlyTwentySixPairsAreWired() {
     #expect(PasturaDynamicPalette.all.count == 26)
@@ -217,13 +224,17 @@ extension DesignTokensTests {
   /// The false-green guard the tolerance note above is really asking for.
   ///
   /// The wiring tests assert an alias resolves to its *dark* token. That check is
-  /// only meaningful if the pair's two sides are far enough apart to be told
-  /// apart at the comparison tolerance — otherwise an alias still wired to the
-  /// light value would pass. Rather than reason about how far apart the values
-  /// are (and about whether `Color.Resolved` premultiplies alpha, which would
-  /// shrink the three §2.7 overlays toward each other), assert the discriminating
-  /// power directly: under a dark environment, every pair's light value must NOT
-  /// match its dark value.
+  /// only meaningful if a **wrongly light-sourced alias would fail it** —
+  /// otherwise it passes either way. So this reconstructs exactly that alias: a
+  /// pair whose dark side is its light value, resolved under a dark environment,
+  /// compared against the dark token the wiring test expects.
+  ///
+  /// The two operands deliberately mirror the wiring test's own asymmetry — the
+  /// alias leg goes `Color(UIColor(dynamicProvider:))` → UIKit resolve, the
+  /// expected leg is direct — so the UIColor round-trip's error is inside the
+  /// measurement rather than outside it. Resolving both legs directly (an
+  /// earlier shape of this test) would have measured a pipeline neither wiring
+  /// test uses, and could clear the bound while the real comparison did not.
   ///
   /// This is a negative control, so it is the one test here that reddens when the
   /// palette stops being able to prove anything. If a future pair is designed too
@@ -239,10 +250,14 @@ extension DesignTokensTests {
   /// colour channels, not only on alpha.
   @Test func everyPairsTwoSidesAreDistinguishableAtTolerance() {
     for (name, pair) in PasturaDynamicPalette.all {
-      let light = pair.light.color.resolve(in: darkEnvironment())
-      let dark = pair.dark.color.resolve(in: darkEnvironment())
+      // The alias this pair would produce if its dark half had never been
+      // repointed. `darkEnvironment()` is load-bearing here, unlike in a plain
+      // static-token comparison: it is what drives the provider's branch.
+      let stillLightSourced = PasturaDynamicColor(light: pair.light, dark: pair.light)
+        .color.resolve(in: darkEnvironment())
+      let expectedDark = pair.dark.color.resolve(in: darkEnvironment())
       #expect(
-        !resolvedComponentsMatch(light, dark),
+        !resolvedComponentsMatch(stillLightSourced, expectedDark),
         Comment(
           rawValue: "pair '\(name)' has light and dark within tolerance — the wiring "
             + "tests cannot distinguish them, so they would pass even if the alias were still "
