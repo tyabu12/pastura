@@ -20,7 +20,7 @@ import SwiftUI
 /// 1. `ImageRenderer` renders its content in a *default* environment and does
 ///    NOT inherit the ambient color scheme — an unset card would always
 ///    rasterize light regardless of the device.
-/// 2. The app's `Color.*` aliases are trait-resolving for the eight paired
+/// 2. The app's `Color.*` aliases are trait-resolving for the 26 paired
 ///    §2.9 tokens (ADR-028). Reading them here would make each family's colour
 ///    depend on how `ImageRenderer` happens to resolve a dynamic `UIColor` —
 ///    which is not contractually tied to the SwiftUI environment, even though

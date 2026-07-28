@@ -93,12 +93,11 @@
   --link-visited: #6F6753;
   --link-hover: #4A6438;
 
-  /* §2.9 Dark Mode — night pasture. 8 of these are wired trait-based in the
-     app (ADR-028); --night-surface has no light partner and is unwired. The
-     app stays pinned to light until the other 60 light tokens gain dark
-     counterparts, so dark never actually renders yet. */
+  /* §2.9 Dark Mode — night pasture. All of these are wired trait-based in the
+     app (ADR-028, extended by #1282, which also deleted --night-surface: it
+     had no light partner). The app stays pinned to light until the other 42
+     light tokens gain dark counterparts, so dark never actually renders yet. */
   --night-bg: #1B1D17;
-  --night-surface: #232620;
   --night-bubble: #2C2F28;
   --night-whisper-bubble: #2F3626;
   --night-ink: #E8E5D8;
@@ -106,6 +105,36 @@
   --night-muted: #7A7768;
   --night-rule: #353830;
   --night-moss: #A8B888;
+
+  /* §2.9 dark counterparts of the §2.6 alert family. `*-soft` inverts role —
+     a pale tint in light becomes a dark tinted fill in dark — and `*-ink`
+     inverts with it, so each Ink now sits ~7.9-8.4:1 over its own Soft. */
+  --night-info: #97ABC4;
+  --night-info-soft: #252D37;
+  --night-info-ink: #B3C5DB;
+  --night-success: #95B189;
+  --night-success-soft: #2A3725;
+  --night-success-ink: #BFDBB3;
+  --night-warning: #D4B67E;
+  --night-warning-soft: #383124;
+  --night-warning-ink: #E0CEAE;
+  --night-danger: #CE9790;
+  --night-danger-soft: #382624;
+  --night-danger-ink: #E0B4AE;
+
+  /* §2.9 dark counterparts of the §2.7 interactive states. The moss tints
+     re-base onto --night-moss and raise alpha by ~1.33x: a 6% wash over
+     #1B1D17 is effectively invisible. --night-focus-ring is deliberately the
+     same hex as --night-moss, mirroring how --focus-ring re-states --moss.
+     --night-disabled-bg sinks BELOW --night-bubble rather than rising: in dark
+     "lighter" already means "raised" (that is what the state washes above do),
+     so an inert surface has to go the other way. */
+  --night-state-hover: rgba(168, 184, 136, 0.08);
+  --night-state-pressed: rgba(168, 184, 136, 0.16);
+  --night-state-selected: rgba(168, 184, 136, 0.24);
+  --night-focus-ring: #A8B888;
+  --night-disabled-text: #605F54;
+  --night-disabled-bg: #222420;
 
   /* §2.10 Time-of-Day (reserved, ambient) */
   --dawn: #F4E5CD;

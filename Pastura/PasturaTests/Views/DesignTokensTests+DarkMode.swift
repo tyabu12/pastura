@@ -6,7 +6,7 @@ import UIKit
 
 // §2.9 dark-mode token-pair tests. Protects ADR-028's mechanism decision:
 // `PasturaDynamicColor` resolves a light/dark pair through a `UIColor` dynamic
-// provider, and the eight paired `Color.*` aliases are actually wired to it.
+// provider, and the 26 paired `Color.*` aliases are actually wired to it.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -60,12 +60,23 @@ extension DesignTokensTests {
   // final linear conversion is shared, so these are NOT one pipeline and an
   // exact equality check would be a false red. Note the tolerance is in
   // **linear** space and therefore non-uniform — measured, ~16 8-bit steps of
-  // slack near black but only ~0.6 of a step near white. Margin for today's
-  // eight pairs is comfortable. Metric: the **minimum per-channel gap** after
-  // the sRGB→linear transform (the conservative aggregation; a max-channel
-  // reading gives larger multiples). By that metric the closest is
-  // `muted`↔`nightMuted` at 11.9x the tolerance, next `moss` at 19.2x. Compare a
-  // ninth pair against those two before trusting this bound.
+  // slack near black but only ~0.6 of a step near white. Metric: the **minimum
+  // per-channel gap** after the sRGB→linear transform (the conservative
+  // aggregation; a max-channel reading gives larger multiples), computed over
+  // RGB — including alpha collapses every opaque pair to 0, since both sides
+  // are 1.0.
+  //
+  // By that metric the closest opaque pair is `muted`↔`nightMuted` at 11.9x the
+  // tolerance, next `moss` and `focusRing` at 19.2x; #1282's slice adds nothing
+  // tighter than `warning` at 15.2x. The three §2.7 overlays are the exception —
+  // their RGB gap is 19.2x but their alpha gap is only 4.0x (`hover`), 8.0x
+  // (`pressed`) and 12.0x (`selected`).
+  //
+  // Do NOT extend this note for a new pair by recomputing the number. The
+  // arithmetic is no longer what guards the bound —
+  // `everyPairsTwoSidesAreDistinguishableAtTolerance` below asserts the property
+  // this paragraph used to estimate, for every pair, including the alpha
+  // channel and whatever `Color.Resolved` does to it.
 
   @Test func pairedAliasesResolveDarkUnderDarkColorScheme() {
     let cases: [(alias: Color, dark: PasturaColorValue)] = [
@@ -76,8 +87,31 @@ extension DesignTokensTests {
       (.inkSecondary, PasturaPalette.nightInkSecondary),
       (.muted, PasturaPalette.nightMuted),
       (.rule, PasturaPalette.nightRule),
-      (.moss, PasturaPalette.nightMoss)
+      (.moss, PasturaPalette.nightMoss),
+      (.info, PasturaPalette.nightInfo),
+      (.infoSoft, PasturaPalette.nightInfoSoft),
+      (.infoInk, PasturaPalette.nightInfoInk),
+      (.success, PasturaPalette.nightSuccess),
+      (.successSoft, PasturaPalette.nightSuccessSoft),
+      (.successInk, PasturaPalette.nightSuccessInk),
+      (.warning, PasturaPalette.nightWarning),
+      (.warningSoft, PasturaPalette.nightWarningSoft),
+      (.warningInk, PasturaPalette.nightWarningInk),
+      (.danger, PasturaPalette.nightDanger),
+      (.dangerSoft, PasturaPalette.nightDangerSoft),
+      (.dangerInk, PasturaPalette.nightDangerInk),
+      (.hover, PasturaPalette.nightHover),
+      (.pressed, PasturaPalette.nightPressed),
+      (.selected, PasturaPalette.nightSelected),
+      (.focusRing, PasturaPalette.nightFocusRing),
+      (.disabledText, PasturaPalette.nightDisabledText),
+      (.disabledBackground, PasturaPalette.nightDisabledBackground)
     ]
+
+    // The list is hand-written on purpose — it is what proves the *alias* is
+    // wired, which iterating `all` cannot show. This pins its size to the
+    // registry so a pair added to one and not the other is caught.
+    #expect(cases.count == PasturaDynamicPalette.all.count)
 
     for (alias, dark) in cases {
       let resolvedAlias = alias.resolve(in: darkEnvironment())
@@ -95,8 +129,28 @@ extension DesignTokensTests {
       (.inkSecondary, PasturaPalette.inkSecondary),
       (.muted, PasturaPalette.muted),
       (.rule, PasturaPalette.rule),
-      (.moss, PasturaPalette.moss)
+      (.moss, PasturaPalette.moss),
+      (.info, PasturaPalette.info),
+      (.infoSoft, PasturaPalette.infoSoft),
+      (.infoInk, PasturaPalette.infoInk),
+      (.success, PasturaPalette.success),
+      (.successSoft, PasturaPalette.successSoft),
+      (.successInk, PasturaPalette.successInk),
+      (.warning, PasturaPalette.warning),
+      (.warningSoft, PasturaPalette.warningSoft),
+      (.warningInk, PasturaPalette.warningInk),
+      (.danger, PasturaPalette.danger),
+      (.dangerSoft, PasturaPalette.dangerSoft),
+      (.dangerInk, PasturaPalette.dangerInk),
+      (.hover, PasturaPalette.hover),
+      (.pressed, PasturaPalette.pressed),
+      (.selected, PasturaPalette.selected),
+      (.focusRing, PasturaPalette.focusRing),
+      (.disabledText, PasturaPalette.disabledText),
+      (.disabledBackground, PasturaPalette.disabledBackground)
     ]
+
+    #expect(cases.count == PasturaDynamicPalette.all.count)
 
     for (alias, light) in cases {
       let resolvedAlias = alias.resolve(in: lightEnvironment())
@@ -106,13 +160,18 @@ extension DesignTokensTests {
   }
 
   /// Smoke test that unpaired tokens stay scheme-invariant. Honest about its
-  /// strength: these five are plain `Color(.sRGB, …)` values with no trait
+  /// strength: these are plain `Color(.sRGB, …)` values with no trait
   /// dependency, so invariance holds by *type*, not by wiring — and none has a
   /// `night*` counterpart, so no plausible edit to this feature reddens it. It
   /// documents the intended light-only boundary; it does not police it. A real
   /// control would need an over-application mechanism to exist first.
   @Test func unpairedAliasesDoNotChangeAcrossColorSchemes() {
-    let lightOnly: [Color] = [.page, .promoBackground, .warning, .danger, .mossSoft]
+    // `.warning` / `.danger` used to sit here and were paired by #1282's slice;
+    // refilled from the 42 that remain unpaired, spread across §2.1/§2.3/§2.4/
+    // §2.5/§2.8 so a future slice removing one leaves the rest.
+    let lightOnly: [Color] = [
+      .page, .promoBackground, .mossSoft, .inkOnAccent, .metaBaseL3, .avatarBodyAlice, .link
+    ]
 
     for alias in lightOnly {
       let underLight = alias.resolve(in: lightEnvironment())
@@ -132,25 +191,80 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.muted.dark == PasturaPalette.nightMuted)
     #expect(PasturaDynamicPalette.rule.dark == PasturaPalette.nightRule)
     #expect(PasturaDynamicPalette.moss.dark == PasturaPalette.nightMoss)
+    #expect(PasturaDynamicPalette.info.dark == PasturaPalette.nightInfo)
+    #expect(PasturaDynamicPalette.infoSoft.dark == PasturaPalette.nightInfoSoft)
+    #expect(PasturaDynamicPalette.infoInk.dark == PasturaPalette.nightInfoInk)
+    #expect(PasturaDynamicPalette.success.dark == PasturaPalette.nightSuccess)
+    #expect(PasturaDynamicPalette.successSoft.dark == PasturaPalette.nightSuccessSoft)
+    #expect(PasturaDynamicPalette.successInk.dark == PasturaPalette.nightSuccessInk)
+    #expect(PasturaDynamicPalette.warning.dark == PasturaPalette.nightWarning)
+    #expect(PasturaDynamicPalette.warningSoft.dark == PasturaPalette.nightWarningSoft)
+    #expect(PasturaDynamicPalette.warningInk.dark == PasturaPalette.nightWarningInk)
+    #expect(PasturaDynamicPalette.danger.dark == PasturaPalette.nightDanger)
+    #expect(PasturaDynamicPalette.dangerSoft.dark == PasturaPalette.nightDangerSoft)
+    #expect(PasturaDynamicPalette.dangerInk.dark == PasturaPalette.nightDangerInk)
+    #expect(PasturaDynamicPalette.hover.dark == PasturaPalette.nightHover)
+    #expect(PasturaDynamicPalette.pressed.dark == PasturaPalette.nightPressed)
+    #expect(PasturaDynamicPalette.selected.dark == PasturaPalette.nightSelected)
+    #expect(PasturaDynamicPalette.focusRing.dark == PasturaPalette.nightFocusRing)
+    #expect(PasturaDynamicPalette.disabledText.dark == PasturaPalette.nightDisabledText)
+    #expect(
+      PasturaDynamicPalette.disabledBackground.dark == PasturaPalette.nightDisabledBackground)
   }
 
-  /// Guards the registry's documented size, NOT completeness: declaring a ninth
-  /// pair without appending it to `all` leaves the count at 8 and passes. What it
-  /// does catch outright is a copy-paste duplicate in `all` (the `Set` line), and
-  /// it makes *editing the registry* trip over the `nightSurface` double-mapping
-  /// (ADR-028 § "The `nightSurface` double-mapping") before a ninth is wired.
+  /// Guards the registry's documented size, NOT completeness: declaring a 27th
+  /// pair without appending it to `all` leaves the count at 26 and passes. What it
+  /// does catch outright is a copy-paste duplicate in `all` (the `Set` line).
   /// Per-alias coverage lives in the wiring tests above.
-  @Test func exactlyEightPairsAreWired() {
-    #expect(PasturaDynamicPalette.all.count == 8)
-    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 8)
+  @Test func exactlyTwentySixPairsAreWired() {
+    #expect(PasturaDynamicPalette.all.count == 26)
+    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 26)
   }
 
-  /// `nightSurface` is defined in the palette but deliberately unwired. If it
-  /// ever gains a light partner this test should be deleted along with the
-  /// ADR-028 deferral.
-  @Test func nightSurfaceIsDefinedButNotWired() {
-    #expect(!PasturaDynamicPalette.all.contains { $0.pair.dark == PasturaPalette.nightSurface })
+  /// The false-green guard the tolerance note above is really asking for.
+  ///
+  /// The wiring tests assert an alias resolves to its *dark* token. That check is
+  /// only meaningful if a **wrongly light-sourced alias would fail it** —
+  /// otherwise it passes either way. So this reconstructs exactly that alias: a
+  /// pair whose dark side is its light value, resolved under a dark environment,
+  /// compared against the dark token the wiring test expects.
+  ///
+  /// The two operands deliberately mirror the wiring test's own asymmetry — the
+  /// alias leg goes `Color(UIColor(dynamicProvider:))` → UIKit resolve, the
+  /// expected leg is direct — so the UIColor round-trip's error is inside the
+  /// measurement rather than outside it. Resolving both legs directly (an
+  /// earlier shape of this test) would have measured a pipeline neither wiring
+  /// test uses, and could clear the bound while the real comparison did not.
+  ///
+  /// This is a negative control, so it is the one test here that reddens when the
+  /// palette stops being able to prove anything. If a future pair is designed too
+  /// close to its light sibling, this fails and the wiring assertions above are
+  /// the thing to distrust.
+  ///
+  /// Verified by mutation rather than by its own success: setting
+  /// `PasturaDynamicPalette.hover.dark` to the light value (the tightest pair —
+  /// its two sides differ by 0.02 of alpha) reddens this test. That probe also
+  /// settled the question the tolerance note above raises: the two sides resolved
+  /// to `#8A9A6C0F` and `#A8B88814`, so `Color.Resolved` does **not**
+  /// premultiply alpha into RGB — the §2.7 washes stay distinguishable on their
+  /// colour channels, not only on alpha.
+  @Test func everyPairsTwoSidesAreDistinguishableAtTolerance() {
+    for (name, pair) in PasturaDynamicPalette.all {
+      // The alias this pair would produce if its dark half had never been
+      // repointed. `darkEnvironment()` is load-bearing here, unlike in a plain
+      // static-token comparison: it is what drives the provider's branch.
+      let stillLightSourced = PasturaDynamicColor(light: pair.light, dark: pair.light)
+        .color.resolve(in: darkEnvironment())
+      let expectedDark = pair.dark.color.resolve(in: darkEnvironment())
+      #expect(
+        !resolvedComponentsMatch(stillLightSourced, expectedDark),
+        Comment(
+          rawValue: "pair '\(name)' has light and dark within tolerance — the wiring "
+            + "tests cannot distinguish them, so they would pass even if the alias were still "
+            + "sourced from PasturaPalette"))
+    }
   }
+
 }
 
 // MARK: - Helpers

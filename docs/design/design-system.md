@@ -150,14 +150,18 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（8 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 8 対が `Color.*` エイリアス経由で実 UI に
-届いている（[ADR-028](../decisions/ADR-028.md)）。ただし §2.1–§2.8 / §2.12 の残り **60**
-トークンにはダーク対が無いため、アプリは `Info.plist` の `UIUserInterfaceStyle = Light`
-で固定されたままで、実際にダークが描画されることはない。固定解除の条件は ADR-028
-§ "Rollout"。Source: `§2.9 Dark Mode`。
+**trait-based 配線済み（26 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 26 対が `Color.*` エイリアス経由で実 UI に
+届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
+18 対）。ただし §2.1 / §2.3 / §2.4 / §2.5 / §2.8 / §2.12 の残りと `inkOnAccent`（§2.x に記載が無い）の計 **42** トークンにはダーク対が無いため、
+アプリは `Info.plist` の `UIUserInterfaceStyle = Light` で固定されたままで、実際に
+ダークが描画されることはない。固定解除の条件は ADR-028 § "Rollout"（5 条件中 2 つ達成
+— `nightSurface` 解消と生 SwiftUI 色のトークン化）。Source: `§2.9 Dark Mode`。
 
-**ダーク固定色が要る場合はこの 8 対のエイリアスを読まない。** `Color.ink` 等は「端末の
+**ダーク値の視覚リファレンス**: [`ds/colors-states-dark.html`](ds/colors-states-dark.html)
+（§2.6/§2.7 の 18 対をペア表示 + トースト・設定・DL 進捗のモック）。
+
+**ダーク固定色が要る場合はこの 26 対のエイリアスを読まない。** `Color.ink` 等は「端末の
 外観」を意味するようになったので、`ImageRenderer` 書き出しのように外観を固定したい
 呼び出し側は `PasturaPalette.<token>.color` を直接読む（参照実装:
 `HighlightShareCard`）。
@@ -165,7 +169,6 @@ Pastura 唯一のブランド色。用途別に4段階。
 | Token | Hex | 対応する day-mode token |
 |-------|-----|------------------------|
 | `nightBackground` | `#1B1D17` | `screenBackground` |
-| `nightSurface` | `#232620` | ⚠️ **未決・未配線** — `bubbleBackground` は `nightBubble` が取っており、light 側に対が無い。ダークは背景/サーフェス/バブルの 3 段を要求するが light は 2 段しかないため、解消（light `surface` 新設 / `nightSurface` 削除 / 文脈対応）は視覚判断を伴う後続課題。ADR-028 § "The `nightSurface` double-mapping" |
 | `nightBubble` | `#2C2F28` | `bubbleBackground` |
 | `nightWhisperBubble` | `#2F3626` | `whisperBubble`（密談バブルのダーク対。#908 PR2） |
 | `nightInk` | `#E8E5D8` | `ink` |
@@ -173,6 +176,38 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `nightMuted` | `#7A7768` | `muted` |
 | `nightRule` | `#353830` | `rule` |
 | `nightMoss` | `#A8B888` | `moss` |
+
+§2.6 アラートファミリの対（#1282）。`*Soft` と `*Ink` は**役割が反転**する — light の
+「淡い地 + 濃い字」が dark では「暗い地 + 淡い字」になるので、base に使った変換式は
+当てない。各 Ink は変換ではなく**目標コントラストで配置**しており、自分の Soft 上で
+7.7〜8.4:1。
+
+| Token | Hex | 対応する day-mode token |
+|-------|-----|------------------------|
+| `nightInfo` | `#97ABC4` | `info`（夜地に対し 7.2:1） |
+| `nightInfoSoft` | `#252D37` | `infoSoft` |
+| `nightInfoInk` | `#B3C5DB` | `infoInk`（Soft 上 7.9:1） |
+| `nightSuccess` | `#95B189` | `success`（7.2:1） |
+| `nightSuccessSoft` | `#2A3725` | `successSoft`。`nightWhisperBubble` とほぼ同値（1.003）だが、light 側でも `successSoft` と `whisperBubble` は 1.026 でほぼ同値 — 既存関係の忠実な写像であり、**直さないこと** |
+| `nightSuccessInk` | `#BFDBB3` | `successInk`（Soft 上 8.4:1） |
+| `nightWarning` | `#D4B67E` | `warning`（8.7:1）。輝度を忠実に写した #DBBF8A（9.6:1）は採らない — light では warning が 4 色中**最も控えめ**（地に対し 2.23:1、他は 3.18〜3.42）なので、輝度順位を保存すると知覚重みの順位が反転する |
+| `nightWarningSoft` | `#383124` | `warningSoft` |
+| `nightWarningInk` | `#E0CEAE` | `warningInk`（Soft 上 8.3:1） |
+| `nightDanger` | `#CE9790` | `danger`（6.9:1）。落ち着いたサーモン — 「赤は叫ばない」は両外観で保つ |
+| `nightDangerSoft` | `#382624` | `dangerSoft` |
+| `nightDangerInk` | `#E0B4AE` | `dangerInk`（Soft 上 7.7:1） |
+
+§2.7 インタラクティブ状態の対（#1282）。moss 系の重ねは `nightMoss` に載せ替え、
+alpha を約 1.33 倍にする（明るい moss を 6% で暗面に重ねてもほぼ判別できないため）。
+
+| Token | Hex | 対応する day-mode token |
+|-------|-----|------------------------|
+| `nightHover` | `rgba(168, 184, 136, 0.08)` | `hover` |
+| `nightPressed` | `rgba(168, 184, 136, 0.16)` | `pressed` |
+| `nightSelected` | `rgba(168, 184, 136, 0.24)` | `selected` |
+| `nightFocusRing` | `#A8B888` | `focusRing`。`nightMoss` と同 hex を別トークンとして持つ — light 側で `focusRing` が `moss` と同 hex を別に持つのと同じ理由 |
+| `nightDisabledText` | `#605F54` | `disabledText`（無効地の上で 2.4:1 — light の 1.75:1 と同じく WCAG 1.4.3 の非活性除外に乗る意図的な sub-AA） |
+| `nightDisabledBackground` | `#222420` | `disabledBackground`。`nightBubble` より**沈める**（1.151）— dark では「明るい＝浮く」が既に hover/selected の意味なので、無効面を持ち上げると衝突する |
 
 ### 2.10 Time-of-Day（牧場の時間帯）
 
