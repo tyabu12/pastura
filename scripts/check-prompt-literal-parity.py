@@ -47,13 +47,30 @@ skeleton.
 
 What this cannot see
 --------------------
+The parser raises on anything it cannot read, so this list is about the
+**comparison contract**, not about parsing gaps. Nothing below is a bug to fix in
+the extractor; each is a property of comparing normalized pairs as an unordered
+multiset. Re-read it before trusting a green run for something wider.
+
+- **A pair moved between call sites inside one stem.** The comparison is an
+  order-insensitive multiset (source order is not alignable — the Swift side is
+  split across sibling files while Kotlin is one file), so swapping which rule
+  carries which text on ONE side leaves the multiset identical and exits 0, while
+  the rendered prompt differs. Not theoretical: 37 of the 43 Swift pairs sit in a
+  stem that holds more than one (PromptBuilder alone holds 21). Moving a literal
+  between `PromptBuilder.swift` and `PromptBuilder+PrivateSections.swift` is
+  invisible for the same reason.
 - **Section assembly and separators.** The `\\n` vs `\\n\\n` join in
   `appendSecretSection` (#1295) lives outside every literal.
-- **Which value is interpolated** (above).
+- **Which value is interpolated** (above) — including a positional swap
+  (`%1$@` <-> `%2$@`), since the sentinel carries no position.
 - **Any prompt-visible literal not routed through `pickLanguage`.** Live
   examples that currently agree, and would therefore drift unnoticed:
   `sentenceNoun` (`"sentence"` / `"sentences"`, interpolated straight into the en
   rules block) and the conversation-log line format (`"  <name>: <content>"`).
+- **A `pickLanguage` literal inside an `unported` file** — that row carries no
+  digest, so it exempts the whole file until its Kotlin counterpart lands
+  (`MAX_UNPORTED_ROWS` bounds how many such files there can be).
 
 Tracked-only scope (NOT a worktree walk), per `.claude/rules/ci-workflows.md`
 § "Gate scripts: `::error file=` is repo-relative, and scope must be tracked-only":
@@ -109,7 +126,7 @@ MAX_UNPORTED_ROWS = 2
 # structural rather than an omission: a control that proved it would have to
 # delete checks, including itself. Verified out of band instead — raise the floor
 # above the real count and confirm it fires. Do that when changing it.
-MIN_SELF_TEST_CHECKS = 53
+MIN_SELF_TEST_CHECKS = 56
 
 # The helper's own declaration in LanguageDispatch.{swift,kt}, whose `ja: String`
 # args are types, not literals. Excluding it is load-bearing: the literal parser
@@ -146,9 +163,17 @@ def _read_string_literal(src: str, i: int, kotlin: bool) -> tuple[str, int]:
     """Read the literal starting at `src[i]` (a `"`). Returns (content, end).
 
     `content` is the RAW source between the delimiters -- escapes are left as
-    written (`\\n` stays two characters). Both languages spell the common escapes
-    identically, so comparing at this level is consistent; it also keeps a Kotlin
-    raw string (which does not process escapes) comparable to its Swift twin.
+    written (`\\n` stays two characters). For single-quoted literals both languages
+    spell the common escapes identically, so comparing at this level is consistent.
+
+    **That does NOT extend to a Kotlin raw block.** Swift's `\"\"\"` processes
+    escapes; Kotlin's does not, so a `\\n` inside one renders as a real newline on
+    the Swift side and as backslash-plus-n on the Kotlin side while comparing
+    equal here — a runtime divergence reported as parity. (An earlier version of
+    this docstring claimed the opposite.) No `pickLanguage` raw body carries a
+    backslash today, so rather than model the asymmetry the reader refuses the
+    shape: `_read_concatenated` raises on it. Revisit if a real literal ever needs
+    one.
     """
     if src.startswith('"""', i):
         end = src.find('"""', i + 3)
@@ -243,7 +268,17 @@ def _read_concatenated(src: str, i: int, kotlin: bool) -> str:
         raise ExtractError("argument is not a string literal")
     parts = []
     while True:
+        was_raw_block = kotlin and src.startswith('"""', _skip_trivia(src, i))
         content, i = _read_string_literal(src, i, kotlin)
+        if was_raw_block and "\\" in content:
+            # Kotlin raw blocks do NOT process escapes, Swift's do — so a `\n`
+            # here renders as a real newline on one side and as two characters on
+            # the other while comparing equal. Refused rather than modelled: no
+            # live literal needs it (see `_read_string_literal`).
+            raise ExtractError(
+                "backslash inside a Kotlin raw block — escapes are not processed there, "
+                "so it cannot be compared against its Swift twin"
+            )
         parts.append(content)
         j = _skip_trivia(src, i)
         if j < len(src) and src[j] == ".":
@@ -1225,6 +1260,33 @@ def self_test() -> int:
     dup_kt = {"shared/engine/src/commonMain/kotlin/com/pastura/engine/Dup.kt": 'fun f() {}\n'}
     dup_row = _HEADER + f"swift-only\tDup\t{digest(('d', 'D'))}\td\tapproved once\n"
     expect("a duplicate of an approved one-sided literal is exempted too", evaluate(dup_swift, dup_kt, dup_row), False)
+
+    # 18i. A backslash in a Kotlin raw block must RAISE: escapes are unprocessed
+    #      there but processed in Swift's `"""`, so the two render differently
+    #      while comparing equal. Refused rather than modelled.
+    control(
+        "a backslash in a Kotlin raw block was compared as if escapes matched",
+        _try_pairs('fun f() { pickLanguage(l, ja = """\n    a\\nb\n    """.trimIndent(), en = "x") }\n', True)
+        is None,
+    )
+    # …and the Swift side, whose escapes ARE processed, stays readable.
+    control(
+        "a backslash in a Swift multi-line literal was refused",
+        _try_pairs('func f() { _ = pickLanguage(l, ja: """\n    a\\nb\n    """, en: "x") }\n', False)
+        == [("a\\nb", "x")],
+    )
+
+    # 18j. DOCUMENTED BLIND SPOT, pinned deliberately. Swapping which call site
+    #      carries which pair leaves the multiset identical, so this exits 0 while
+    #      the rendered prompt differs. Asserted so the docstring's
+    #      "What this cannot see" entry stays true — if a future change starts
+    #      catching it, this control fails and the docs get corrected rather than
+    #      quietly over-promising.
+    stem_kt = {"shared/engine/src/commonMain/kotlin/com/pastura/engine/P.kt":
+               'fun a() { pickLanguage(l, ja = "j1", en = "e1") }\nfun b() { pickLanguage(l, ja = "j2", en = "e2") }\n'}
+    stem_sw_swapped = {"Pastura/Pastura/Engine/P.swift":
+               'func a() { _ = pickLanguage(l, ja: "j2", en: "e2") }\nfunc b() { _ = pickLanguage(l, ja: "j1", en: "e1") }\n'}
+    expect("a within-stem pair swap is now caught — update the docstring", evaluate(stem_sw_swapped, stem_kt, _HEADER), True)
 
     # 19. A postfix call must not end the concatenation scan — `""" … """
     #     .trimIndent() + "tail"` once stopped at the `.` and dropped the tail,
