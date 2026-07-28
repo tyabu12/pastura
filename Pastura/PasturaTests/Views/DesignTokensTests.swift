@@ -64,6 +64,20 @@ struct DesignTokensTests {
     #expect(approxEqual(token.blue, 0x83 / 255.0))
   }
 
+  /// White-on-accent is the design-system's contrast-passing foreground pair
+  /// (§2.3), so this token is opaque pure white. Change-detector: a failure
+  /// means the on-accent foreground drifted — confirm the change passed review
+  /// before updating the expected value. The opacity assertion is load-bearing:
+  /// a translucent on-accent foreground would let the accent bleed through and
+  /// silently drop below the ≈4.76:1 the design system claims for the pair.
+  @Test func inkOnAccentIsOpaquePureWhite() {
+    let token = PasturaPalette.inkOnAccent
+    #expect(approxEqual(token.red, 1.0))
+    #expect(approxEqual(token.green, 1.0))
+    #expect(approxEqual(token.blue, 1.0))
+    #expect(approxEqual(token.opacity, 1.0))
+  }
+
   // MARK: - §2.3 Moss Accent
 
   @Test func mossPrimaryMatchesSpec() {

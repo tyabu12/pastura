@@ -54,6 +54,9 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--ink-2` | `#5A5A55` | サブテキスト・セクションラベル |
 | `--muted` | `#8A8A83` | メタ情報・脚注 |
 | `--rule` | `#E0DBCE` | 罫線 |
+| `--ink-on-accent` | `#FFFFFF` | アクセント塗り（`moss` / `moss-dark`）の上に載る文字・グリフ |
+
+`--ink-on-accent` は §2.3 が認める white-on-accent の contrast-passing pair 専用の前景。§1 の「純白の面を避ける」は**背景**の話なので抵触しない。生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断（ADR-028 gate 4）が 1 箇所で済むようにするため。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
 
 ### 2.3 Moss Accent（苔アクセント）
 

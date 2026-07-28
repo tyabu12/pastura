@@ -16,6 +16,26 @@ import SwiftUI
 
 extension PasturaPalette {
 
+  // MARK: §2.2 Ink — on-accent foreground
+  //
+  // Semantically a member of the §2.2 Ink family; it lives here because
+  // `DesignTokens.swift` sits at 396 of swiftlint's 400-line `file_length`
+  // budget — the very reason this extension exists (see the file header).
+
+  /// Foreground for text / glyphs sitting **on an accent fill** (`moss`,
+  /// `mossDark`). Pure white: §2.3 sanctions white-on-accent as the
+  /// contrast-passing pair, which is distinct from §1's "avoid pure white
+  /// surfaces" guidance — that one concerns backgrounds.
+  ///
+  /// **Fixed in both appearances** (ADR-028 gate 1). White is the correct
+  /// foreground on a *dark* accent fill (`mossDark` — ≈4.76:1, AA), and that
+  /// does not change with the interface style. Whether it stays correct on the
+  /// *lighter* `nightMoss` that paired `moss` resolves to under dark mode is
+  /// the open half of the question, tracked by ADR-028 gate 4's device dark
+  /// QA. This exists as a token rather than a `Color.white` literal at each
+  /// callsite so that answer lands in one place instead of ten.
+  static let inkOnAccent = PasturaColorValue(hex: 0xFFFFFF)
+
   // MARK: §2.6 Alert Family — 4-step temperature scale
   //
   // Each level has three variants:

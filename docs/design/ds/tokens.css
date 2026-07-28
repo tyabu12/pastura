@@ -32,6 +32,7 @@
   --ink-2: #5A5A55;
   --muted: #8A8A83;
   --rule: #E0DBCE;
+  --ink-on-accent: #FFFFFF;
 
   /* §2.3 Moss Accent — Pastura's only brand color, 4 steps */
   --moss: #8A9A6C;
@@ -94,8 +95,10 @@
 
   /* §2.9 Dark Mode — night pasture. 8 of these are wired trait-based in the
      app (ADR-028); --night-surface has no light partner and is unwired. The
-     app stays pinned to light until the other 59 light tokens gain dark
-     counterparts, so dark never actually renders yet. */
+     app stays pinned to light until the other 60 light tokens are each
+     resolved — a dark counterpart, or a recorded decision to stay fixed in
+     both appearances (--ink-on-accent is the latter). Dark never actually
+     renders yet. */
   --night-bg: #1B1D17;
   --night-surface: #232620;
   --night-bubble: #2C2F28;
