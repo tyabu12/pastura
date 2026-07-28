@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-16T00:00:00Z",
+  "updated_at": "2026-07-28T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -971,6 +971,28 @@
       "yaml_url": "share_house_v1.yaml",
       "yaml_sha256": "17cf7dd34b2cad4076e50170d77d9f159d10691899cc89307db0e577932d12e0",
       "added_at": "2026-07-15"
+    },
+    {
+      "id": "zenkaiitchi_okite_v1",
+      "title": "全会一致の掟 はみ出す者を外せ",
+      "category": "experimental",
+      "description": "村の寄合が『全会一致の掟』のもと、毎回いちばん場から外れた者を追放していく。真っ当な少数意見の持ち主が最初に消され、残った同調者の中から次の生贄が生まれる——排除の連鎖を観察する社会心理シナリオ。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 24,
+      "agent_count": 4,
+      "rounds": 3,
+      "phases": [
+        "assign",
+        "speak_each",
+        "vote",
+        "eliminate",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "zenkaiitchi_okite_v1.yaml",
+      "yaml_sha256": "d0bbe43d5ec8c3683089f3f4a56647b06a0f22ae1d3e7cc9ae3d8a9e1631d497",
+      "added_at": "2026-07-28"
     }
   ]
 }
