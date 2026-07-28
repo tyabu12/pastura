@@ -165,7 +165,6 @@ Pastura 唯一のブランド色。用途別に4段階。
 | Token | Hex | 対応する day-mode token |
 |-------|-----|------------------------|
 | `nightBackground` | `#1B1D17` | `screenBackground` |
-| `nightSurface` | `#232620` | ⚠️ **未決・未配線** — `bubbleBackground` は `nightBubble` が取っており、light 側に対が無い。ダークは背景/サーフェス/バブルの 3 段を要求するが light は 2 段しかないため、解消（light `surface` 新設 / `nightSurface` 削除 / 文脈対応）は視覚判断を伴う後続課題。ADR-028 § "The `nightSurface` double-mapping" |
 | `nightBubble` | `#2C2F28` | `bubbleBackground` |
 | `nightWhisperBubble` | `#2F3626` | `whisperBubble`（密談バブルのダーク対。#908 PR2） |
 | `nightInk` | `#E8E5D8` | `ink` |

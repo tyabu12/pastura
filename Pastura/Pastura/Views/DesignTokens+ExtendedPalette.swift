@@ -10,10 +10,10 @@ import SwiftUI
 // documented and defined ahead of need so future screens can pull from a single
 // canonical palette without inventing one-off hex literals.
 //
-// The §2.9 dark-mode tokens are the exception: eight of the nine are now wired
-// trait-based via `PasturaDynamicPalette` (ADR-028). `nightSurface` is the one
-// still unconsumed — it has no light partner. Dark never actually renders while
-// `Info.plist` pins `UIUserInterfaceStyle` to Light.
+// The §2.9 dark-mode tokens are the exception: all of them are wired
+// trait-based via `PasturaDynamicPalette` (ADR-028, extended by #1282). Dark
+// never actually renders while `Info.plist` pins `UIUserInterfaceStyle` to
+// Light.
 
 extension PasturaPalette {
 
@@ -132,8 +132,6 @@ extension PasturaPalette {
 
   /// Outermost background under dark mode.
   static let nightBackground = PasturaColorValue(hex: 0x1B1D17)
-  /// Card / surface fill under dark mode.
-  static let nightSurface = PasturaColorValue(hex: 0x232620)
   /// Speech bubble fill under dark mode.
   static let nightBubble = PasturaColorValue(hex: 0x2C2F28)
   /// Whisper (密談) speech bubble fill under dark mode — a touch mossier

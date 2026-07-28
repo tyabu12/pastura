@@ -6,7 +6,7 @@ import UIKit
 
 // §2.9 dark-mode token-pair tests. Protects ADR-028's mechanism decision:
 // `PasturaDynamicColor` resolves a light/dark pair through a `UIColor` dynamic
-// provider, and the eight paired `Color.*` aliases are actually wired to it.
+// provider, and the 26 paired `Color.*` aliases are actually wired to it.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -208,8 +208,6 @@ extension DesignTokensTests {
   /// Guards the registry's documented size, NOT completeness: declaring a 27th
   /// pair without appending it to `all` leaves the count at 26 and passes. What it
   /// does catch outright is a copy-paste duplicate in `all` (the `Set` line), and
-  /// it makes *editing the registry* trip over the `nightSurface` double-mapping
-  /// (ADR-028 § "The `nightSurface` double-mapping") before a 27th is wired.
   /// Per-alias coverage lives in the wiring tests above.
   @Test func exactlyTwentySixPairsAreWired() {
     #expect(PasturaDynamicPalette.all.count == 26)
@@ -252,12 +250,6 @@ extension DesignTokensTests {
     }
   }
 
-  /// `nightSurface` is defined in the palette but deliberately unwired. If it
-  /// ever gains a light partner this test should be deleted along with the
-  /// ADR-028 deferral.
-  @Test func nightSurfaceIsDefinedButNotWired() {
-    #expect(!PasturaDynamicPalette.all.contains { $0.pair.dark == PasturaPalette.nightSurface })
-  }
 }
 
 // MARK: - Helpers

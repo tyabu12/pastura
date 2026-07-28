@@ -99,12 +99,6 @@ nonisolated struct PasturaDynamicColor: Sendable {
 /// **26 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
 /// §2.7 interactive states designed in slice 1 of gate 1 (#1282).
 ///
-/// `nightSurface` is still not wired: `design-system.md` §2.9 maps it and
-/// `nightBubble` onto the same day token, `bubbleBackground`, so it has no
-/// light partner — dark wants a background/surface/bubble three-step where
-/// light has only two. ADR-028 § "The `nightSurface` double-mapping" records
-/// it as deferred.
-///
 /// The remaining 42 light tokens still owe a dark value and stay light-only;
 /// the app is pinned to light via `Info.plist`'s `UIUserInterfaceStyle` until
 /// they are designed, so no half-dark surface can render.

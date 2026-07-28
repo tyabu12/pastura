@@ -66,13 +66,15 @@
 	     UIKit-presented surfaces (share sheets) and the launch screen, not
 	     just the SwiftUI hierarchy.
 
-	     UPDATED (ADR-028): the §2.9 dark tokens are no longer unwired — 8 of
-	     the 9 now resolve trait-based via `PasturaDynamicPalette`. Removal
+	     UPDATED (ADR-028, #1282): the §2.9 dark tokens are no longer unwired —
+	     26 pairs now resolve trait-based via `PasturaDynamicPalette`. Removal
 	     is still blocked, starting with the remaining light-only tokens
 	     having no dark counterpart. Do NOT delete this key just because the mechanism
-	     exists; ADR-028 § "Rollout" lists all 5 gate conditions (designed
-	     values, `nightSurface` resolved, raw-SwiftUI-color sites tokenized,
-	     real-device QA, dark share-card re-verified). Tracked in #1274. -->
+	     exists; ADR-028 § "Rollout" lists all 5 gate conditions. Two are met —
+	     `nightSurface` resolved (deleted, #1282) and raw-SwiftUI-color sites
+	     tokenized (#1283); the open three are the remaining 42 designed values,
+	     real-device QA, and the dark share-card re-verification.
+	     Tracked in #1274. -->
 	<key>UIUserInterfaceStyle</key>
 	<string>Light</string>
 </dict>

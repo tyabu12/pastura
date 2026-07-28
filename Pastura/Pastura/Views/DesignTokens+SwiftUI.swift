@@ -114,7 +114,6 @@ extension Color {
 
   // §2.9 Dark mode (night pasture)
   static let nightBackground = PasturaPalette.nightBackground.color
-  static let nightSurface = PasturaPalette.nightSurface.color
   static let nightBubble = PasturaPalette.nightBubble.color
   static let nightWhisperBubble = PasturaPalette.nightWhisperBubble.color
   static let nightInk = PasturaPalette.nightInk.color
