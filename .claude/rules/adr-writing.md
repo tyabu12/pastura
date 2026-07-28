@@ -11,6 +11,8 @@ For new ADRs (NNN-numbered files), prefer the `/claude-kit:write-adr` skill (fro
 
 This file is the skill's `ADR_RULES_PATH` — it discovers `.claude/rules/adr*.md` and passes the path into both reviewer prompts, and what is written here takes precedence over anything the skill infers from a template ADR. Project facts the skill cannot re-derive therefore belong in § 4 below.
 
+**§1 and §2 must stay in this file — do not relocate them behind a pointer the way §3 was.** Two independent reasons. (a) Eleven shipped citations across nine ADRs address them by section number or heading (`ADR-002`, `-004` ×2, `-011`, `-012`, `-016`, `-021`, `-023` ×2, `-027`, `-028`), so moving either breaks all of them at once. (b) `write-adr` forwards *this path* to its reviewers and deliberately declines to carry mechanism-contract criteria itself, on the grounds that they arrive through `ADR_RULES_PATH` — a channel its own SKILL.md notes fails with no error. A reviewer handed a pointer instead of §2 would silently stop applying it. §3 has neither property: nothing cites it and nothing routes it, which is why it could move.
+
 ## 1. Verify fact-claims at write time, not at review time
 
 ADR / spec / decision-record bodies have **higher fact-claim density** than ordinary prose. Citations (`file:line`, `.claude/rules/` section names, Swift / Apple SDK behavior) are *load-bearing for the decision*. A wrong citation propagates: the next implementer copy-pastes from the ADR, and subsequent ADRs build on a false premise.
@@ -39,46 +41,9 @@ If a plan surfaces a quantitative gate, surface the trade-off to the user at pla
 
 ## 3. Inter-citation consistency — dates, SHAs, arithmetic
 
-Distinct from §1 (verify each *individual* citation). This is **cross-citation**:
-when the same fact appears in N places, all N must agree, and any arithmetic
-*derived* from a citation must match the cited dates / SHAs. Critic and
-code-reviewer subagents evaluate framing and rule-compliance, not mechanical
-cross-citation arithmetic — so the writer is the only reliable check.
+**Read [`docs/decisions/adr-writing-guide.md`](../../docs/decisions/adr-writing-guide.md) before you finish drafting or amending an ADR.** Where §1 verifies each *individual* citation, this is the **cross-citation** pass: when the same fact appears in N places all N must agree, and any arithmetic derived from a citation must match the cited dates / SHAs. Critic and code-reviewer subagents check framing and rule-compliance, not mechanical cross-citation arithmetic — the writer is the only reliable check.
 
-After drafting an ADR / spec / decision record:
-
-1. **Grep every date** (`YYYY-MM-DD`). Sort mentally; cross-check each span
-   claim ("predates by N months", "over a year", "X older than Y") against the
-   actual gap. (An ADR once shipped "predates by over a year" while its own
-   cited commit dates were ~32 days apart — passed two critic rounds + one
-   code-reviewer; caught by a third-party cross-reference.)
-2. **Grep every short SHA.** Each must resolve in `git log` and its subject
-   match the cited claim.
-3. **Grep every `file:line`.** Read each; confirm the cited content is there.
-4. **Grep period words** (`year` / `month` / `week` / `day`) and recompute the
-   span from the dates you cited.
-
-Two recurring variants beyond plain arithmetic:
-
-- **Projection vs measurement.** When a metric appears across a *series* of
-  checkpoints (weekly spikes, CI readings, perf runs), cite the **latest
-  measured** value — not a superseded earlier **projection**. The rosy early
-  estimate is the trap: an evidence-synthesis ADR written from memory reaches
-  for it. (ADR-004 §9.3 once cited a week-1 CI *projection* with ~14 min
-  headroom as the cold-pipeline evidence; the later week-3 *measurement* was
-  17m40s with ~2m20s headroom and a flagged ceiling breach.)
-- **Status-flip staleness.** When amending an ADR to record that a condition
-  flipped (a migration trigger fired, a dependency became available, something
-  got deprecated), the original present-tense rationale ("X is unavailable",
-  "no SDK", status tables) now contradicts the new section. Grep every
-  present-tense claim about the flipped condition and reframe to **dated
-  past-tense + a forward pointer** — do not delete (it's the original decision
-  rationale). A section's date header doesn't cover present-tense bullets/rows
-  below it (a reader landing mid-section misses it). The **cherry-port variant**
-  is worse: porting docs authored *before* a later decision spreads stale
-  framing far beyond the renamed heading, and one decision can fork a single
-  term into two axes needing separate replacement vocab — full-doc grep the old
-  plan's vocabulary, not just the section you renamed.
+The guide carries the four-step grep checklist (dates / short SHAs / `file:line` / period words) and two recurring variants beyond plain arithmetic — projection-vs-measurement, and status-flip staleness on amendment. It lives outside this file because it is a once-per-draft mechanical pass, not something an ADR *reader* needs in context.
 
 ## 4. Numbering facts this repo carries
 
@@ -88,9 +53,17 @@ Restating those here would duplicate kit-canonical text with no reconcile
 header — the drift surface `subagent-usage.md` et al. exist to prevent. Only
 what the skill cannot derive belongs here.
 
+- **A new ADR must be hand-appended to two indexes**, neither of which any gate
+  checks and neither of which the skill writes: `docs/decisions/INDEX.md` (full
+  summary paragraph) and `CLAUDE.md` § "Reference Documents" → ADR roster (title
+  only, kept **byte-identical** to the INDEX `## ADR-NNN — <title>` heading).
+  Skipping them fails nothing and is caught by nobody. Gate tracked in #1309.
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
   recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
-  with no file on disk. It is a gap in the listing, not a free slot.
+  with no file on disk. It is a gap in the listing, not a free slot. Its
+  `CLAUDE.md` entry must stay a **table row with the path in cell 1** —
+  `consistency-audit`'s `load_reserved_adrs` parses that shape to suppress
+  `dangling_adr` false positives, and fails open (empty set) if it changes.
 - **A file listing can also *over*-report.** The skill's reservation check
   covers a listing that under-reports; the inverse also happens here — an ADR
   draft sitting **untracked** in one checkout is visible to `ls` but absent for

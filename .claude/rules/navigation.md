@@ -1,9 +1,37 @@
 ---
 paths:
-  - "Pastura/Pastura/**/*.swift"
+  - "Pastura/Pastura/Views/**"
+  - "Pastura/Pastura/App/**"
+  - "Pastura/Pastura/PasturaApp.swift"
 ---
 
 # Navigation Rules
+
+## Scope — why the `paths:` globs are what they are
+
+`PasturaApp.swift` is listed **separately and is not optional**. It is the only
+top-level Swift file under `Pastura/Pastura/`, so neither directory glob reaches
+it, and four invariants this file states live nowhere else: `TabCoordinator()`
+(`:124`, its sole construction in the app target), the "deliberately not
+`.environment(router)`" comment (`:274`) that encodes the collapse-all-tabs trap
+below, the `tryDrain` deep-link drain (`:484`), and the any-tab
+`isSimulationOnTop` fold (`:460`–`:463`, ending in `// D5.4: any-tab — do not
+narrow`). `scripts/generate-navigation-map.py`'s `SCAN_DIRS` covers only
+`Views` and `App`, so the drift gate does **not** backstop it — this rule text is
+its only guard.
+
+The directory entries use the bare `**` form rather than `**/*.swift` because
+`App/` holds 68 direct-child `.swift` files (`AppRouter.swift` among them) and
+`Views/` holds 5: a `**/` that binds ≥1 path segment would silently drop every
+one. `App/**` reaches direct children under either globstar reading, and
+`Views/`+`App/` contain no non-Swift files, so the suffix would buy nothing.
+
+**Accepted gaps**: a session that reaches a matching file only via Bash or
+`Grep` — never a `Read` — does not load this rule; and test files fall outside,
+including `ScreenshotTourTests.swift`, which is a nav-map input. The nav-map
+pre-commit / CI drift gate backstops the latter.
+
+## The model
 
 The app's root is a **four-tab bottom bar** (`RootTabView`, inside
 `WindowGroup`; ADR-016). Each tab owns its **own** `NavigationStack`

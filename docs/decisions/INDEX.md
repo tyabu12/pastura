@@ -1,6 +1,6 @@
 # Decision Records — Index
 
-Full decision summaries for `docs/decisions/`. One-line index lives in `CLAUDE.md` § Reference Documents.
+Full decision summaries for `docs/decisions/`. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings so the two can be diffed mechanically.
 
 ## ADR-001 — Architecture Overview (Phase 1)
 
