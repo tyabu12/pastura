@@ -3042,7 +3042,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "各エージェントが状況について短い内心メモを更新"
+            "value" : "各エージェントが状況について短い非公開メモを更新"
           }
         }
       }
@@ -6923,7 +6923,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントの内心メモ（reflect 専用）。他者には見えない"
+            "value" : "エージェントの非公開メモ（reflect 専用）。他者には見えない"
           }
         }
       }
@@ -6933,7 +6933,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントの内心の思考。思考バブルで表示され、公開ログには残らない"
+            "value" : "エージェントの心の声。思考バブルで表示され、公開ログには残らない"
           }
         }
       }
@@ -7074,7 +7074,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "投票の内心の理由"
+            "value" : "投票の裏にある理由（心の声）"
           }
         }
       }
@@ -7294,7 +7294,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "内心"
+            "value" : "心の声"
           }
         }
       }
@@ -7610,7 +7610,7 @@
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "エージェントの内心メモには `note` を使います。reflect フェーズの唯一の出力フィールドです。"
+            "value" : "エージェントの非公開メモには `note` を使います。reflect フェーズの唯一の出力フィールドです。"
           }
         }
       }

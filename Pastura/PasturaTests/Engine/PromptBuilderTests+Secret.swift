@@ -58,7 +58,7 @@ extension PromptBuilderTests {
     #expect(prompt.contains(Self.aliceSecret))
     // Channel-scoped guidance: statement is off-limits, inner_thought licensed.
     #expect(prompt.contains("発言（statement）では決して明かしてはいけません"))
-    #expect(prompt.contains("内心（inner_thought）では率直に触れてかまいません"))
+    #expect(prompt.contains("心の声（inner_thought）では率直に触れてかまいません"))
   }
 
   @Test func systemPromptContainsSecretSectionWhenSetEN() {
@@ -127,7 +127,7 @@ extension PromptBuilderTests {
     let prompt = builder.buildSystemPrompt(
       scenario: scenario, persona: scenario.personas[0], phase: speakPhase(), state: state)
     let secret = try #require(prompt.range(of: "## あなたの秘密"))
-    let notes = try #require(prompt.range(of: "## あなたの内心メモ"))
+    let notes = try #require(prompt.range(of: "## あなたの非公開メモ"))
     #expect(secret.lowerBound < notes.lowerBound)
   }
 

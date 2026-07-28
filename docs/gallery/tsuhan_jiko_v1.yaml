@@ -74,7 +74,7 @@ phases:
       このトラブルに対し、あなたのキャラクターとして生放送で口にする一言を、
       2文以内で述べてください。トラブルの文をそのまま繰り返すのではなく、
       必ずあなた自身の反応・アドリブにすること。
-      発言(statement)も内心(inner_thought)も、必ず日本語で書いてください。
+      発言(statement)も心の声(inner_thought)も、必ず日本語で書いてください。
     output:
       statement: string
       inner_thought: string
