@@ -1,0 +1,78 @@
+import SwiftUI
+import Testing
+
+@testable import Pastura
+
+/// Pins ``HighlightCardPalette``'s two families to **raw** `PasturaPalette`
+/// values (ADR-028).
+///
+/// Why this suite exists: `HighlightShareCard` is the only sanctioned
+/// fixed-appearance consumer in the app, and eight `Color.*` aliases are now
+/// trait-resolving. If one creeps back into this palette, both families collapse
+/// to "whatever appearance the renderer resolved" — and nothing else would
+/// notice, because `ImageRenderer` output is asserted nowhere and ADR-009 rules
+/// out snapshot tests. Comparing two `Color` values is logic extraction, which
+/// ADR-009 permits.
+///
+/// A revert of the ADR-028 migration reddens every assertion below: `Color.ink`
+/// and `PasturaPalette.ink.color` are not equal, because the former is
+/// `Color(UIColor(dynamicProvider:))` and the latter `Color(.sRGB, …)`.
+@MainActor
+@Suite(.timeLimit(.minutes(1)))
+struct HighlightShareCardPaletteTests {
+
+  @Test func lightFamilyReadsRawLightTokens() {
+    #expect(HighlightCardPalette.light.background == PasturaPalette.screenBackground.color)
+    #expect(HighlightCardPalette.light.ink == PasturaPalette.ink.color)
+    #expect(HighlightCardPalette.light.inkSecondary == PasturaPalette.inkSecondary.color)
+    #expect(HighlightCardPalette.light.muted == PasturaPalette.muted.color)
+    #expect(HighlightCardPalette.light.rule == PasturaPalette.rule.color)
+    #expect(HighlightCardPalette.light.moss == PasturaPalette.moss.color)
+  }
+
+  @Test func darkFamilyReadsRawNightTokens() {
+    #expect(HighlightCardPalette.dark.background == PasturaPalette.nightBackground.color)
+    #expect(HighlightCardPalette.dark.ink == PasturaPalette.nightInk.color)
+    #expect(HighlightCardPalette.dark.inkSecondary == PasturaPalette.nightInkSecondary.color)
+    #expect(HighlightCardPalette.dark.muted == PasturaPalette.nightMuted.color)
+    #expect(HighlightCardPalette.dark.rule == PasturaPalette.nightRule.color)
+    #expect(HighlightCardPalette.dark.moss == PasturaPalette.nightMoss.color)
+  }
+
+  /// Independent trigger the two tests above do NOT have. Alias creep is not it —
+  /// that reddens `lightFamilyReadsRawLightTokens` directly (verified by negative
+  /// control). What only this test catches is a **token-value** collapse: if a
+  /// future retune gave `nightInk` the same hex as `ink`, both tests above would
+  /// still pass while the card's two families became visually identical.
+  @Test func theTwoFamiliesAreNotIdentical() {
+    #expect(HighlightCardPalette.light.background != HighlightCardPalette.dark.background)
+    #expect(HighlightCardPalette.light.ink != HighlightCardPalette.dark.ink)
+    #expect(HighlightCardPalette.light.moss != HighlightCardPalette.dark.moss)
+  }
+
+  /// Guards the fixed-appearance contract on **every** slot of both families: a
+  /// raw palette value resolves identically under either scheme, unlike its
+  /// paired alias. This is the assertion with a real trigger — alias creep
+  /// resolves differently across schemes and reddens here.
+  @Test func rawPaletteValuesAreAppearanceInvariant() {
+    var light = EnvironmentValues()
+    light.colorScheme = .light
+    var dark = EnvironmentValues()
+    dark.colorScheme = .dark
+
+    let families = [HighlightCardPalette.light, HighlightCardPalette.dark]
+    for family in families {
+      let slots = [
+        family.background, family.ink, family.inkSecondary,
+        family.muted, family.rule, family.moss
+      ]
+      for slot in slots {
+        let underLight = slot.resolve(in: light)
+        let underDark = slot.resolve(in: dark)
+        #expect(underLight.red == underDark.red)
+        #expect(underLight.green == underDark.green)
+        #expect(underLight.blue == underDark.blue)
+      }
+    }
+  }
+}

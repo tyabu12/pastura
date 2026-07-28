@@ -1,13 +1,13 @@
 # Swift Isolation Rules
 
-**Scope**: `nonisolated` annotation traps + the `nonisolated async` executor-inheritance trap under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (with `SWIFT_APPROACHABLE_CONCURRENCY = YES`). Patterns 1–5 are **compile-time annotation traps** (a diagnostic fires); Patterns 6–7 are **silent runtime traps** (no diagnostic — a UI freeze and an executor-precondition trap respectively). Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
+**Scope**: `nonisolated` annotation traps + the `nonisolated async` executor-inheritance trap under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` (with `SWIFT_APPROACHABLE_CONCURRENCY = YES`). Patterns 1–5 are **compile-time annotation traps** (a diagnostic fires); Patterns 6–8 are **silent runtime traps** (no diagnostic — a UI freeze, an executor-precondition trap, and an off-main framework callback respectively). Broader actor isolation topics (`@MainActor` binding, `Sendable` conformance design, actor reentrancy) are out of scope — keep those in CLAUDE.md or a separate rule.
 
 Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference traps in five specific patterns. The five share the same root cause (MainActor inference) but surface in two diagnostic forms:
 
 - **Conformance-site** (Pattern 1): `conformance of '<Type>' to protocol '<Protocol>' crosses into main actor-isolated code and can cause data races` — a previously-compiling type suddenly refusing to build.
 - **Use-site** (Patterns 2–5): fires at the test, generic collection, Sendable closure callsite, or conformance-lookup callsite — not the declaration. Patterns 2–4 surface as `Call to main actor-isolated <thing> in a synchronous nonisolated context`; Pattern 5 surfaces as `main actor-isolated conformance of '<Type>' to '<Protocol>' cannot be used in nonisolated context`.
 
-Easy to miss because the diagnostic doesn't point at the type definition. **Patterns 6–7 are the exception to this framing** — they produce *no diagnostic at all*. They are grouped here because they share the root cause: a member that fails to land off-main under default-MainActor isolation.
+Easy to miss because the diagnostic doesn't point at the type definition. **Patterns 6–8 are the exception to this framing** — they produce *no diagnostic at all*. They are grouped here because they share the root cause: a member that fails to land off-main under default-MainActor isolation.
 
 ## Pattern 1 — Protocol-extension default impl + escaping closure
 
@@ -95,6 +95,22 @@ Pattern 2 (which says "auto-synth doesn't need the annotation").
 Reference: `Pastura/PasturaTests/Views/ModelRowAccessibilityTests.swift`
 carries `@MainActor` on the suite; `SheepAvatar.Character` keeps its
 default-MainActor isolation.
+
+### Same cause, two non-test shapes (production code, no test involved)
+
+A **`nonisolated` type composing a default-MainActor one** hits the same
+conformance-lookup wall, and the fix order above does not apply — there is no
+suite to annotate. Both are build errors, so neither is silent:
+
+| Shape | Error | Fix |
+|---|---|---|
+| `nonisolated` type conforms to `Equatable`/`Hashable` and a stored member's own conformance is MainActor-isolated | `main actor-isolated conformance of 'X' to 'Equatable' cannot be used in nonisolated context` | Drop the conformance; compare members from MainActor. Marking `X` `nonisolated` is fix-order 2 above. |
+| `nonisolated enum`/type whose `static let` initializers read MainActor-isolated statics | `Main actor-isolated default value in a nonisolated context` | Don't mark the namespace `nonisolated`; annotate only the closure that needs it (next section). |
+
+**Cross-module corollary**: that `let`-read exemption is module-local, so a
+nonisolated *test* helper needs `@MainActor` where the equivalent in-module
+production closure does not — `DesignTokensTests+DarkMode.swift`'s
+`sRGBComponentsMatch` carries the worked example.
 
 ## Pattern 6 — `nonisolated async` runs on the caller's executor (silent UI freeze)
 
@@ -195,3 +211,30 @@ compiling if the isolation ever regresses, which is a real guard rather than a
 restatement.
 
 Reference: `Pastura/Pastura/Views/Components/ShareCaptionItemSource.swift` (#1263).
+
+## Pattern 8 — MainActor-inferred closure handed to a framework callback (silent)
+
+Third sibling of Patterns 6–7 — same silence, different mechanism, covered by
+neither. A framework initializer taking a **non-`@Sendable`** escaping closure
+(`UIColor(dynamicProvider:)`, and any `@escaping` UIKit callback) accepts a
+closure literal written in a MainActor context, where it is inferred
+`@MainActor`. The framework may then invoke it off the main actor. **The build
+succeeds either way** — verified by deleting the annotation and rebuilding — so
+there is no diagnostic to react to.
+
+**Fix**: mark the *enclosing type* (or the member building the closure)
+`nonisolated`, and pass values the closure needs in as `Sendable` locals. Keep
+the annotation on the grounds that the compiler is silent here — it will look
+removable to the next reader.
+
+Reference: `PasturaDynamicColor` in
+`Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`; ADR-028 § Consequences.
+
+**A `swiftc -typecheck` probe under-approximates the real target here — build the
+target instead.** A standalone probe of the pair type above passed while the real
+build failed. The tempting explanation (the probe built its token values inline
+rather than reading a MainActor-isolated static) is **wrong** — a probe that does
+read from such a static still passes. The operative difference was not isolated;
+what is established is that a probe can be clean while the target errors, so for
+isolation questions in this family treat `swiftc -typecheck` as a existence check
+for API and `scripts/xcodebuild.sh build` as the verdict.

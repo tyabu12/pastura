@@ -5,9 +5,14 @@ import SwiftUI
 // 400-line `file_length` cap. Source of truth in
 // `docs/design/design-system.md` §2.6 onward.
 //
-// Some tokens here are not consumed yet (dark mode, time-of-day, chart) —
-// they are documented and defined ahead of need so future screens can pull
-// from a single canonical palette without inventing one-off hex literals.
+// Some tokens here are not consumed yet (time-of-day, chart) — they are
+// documented and defined ahead of need so future screens can pull from a single
+// canonical palette without inventing one-off hex literals.
+//
+// The §2.9 dark-mode tokens are the exception: eight of the nine are now wired
+// trait-based via `PasturaDynamicPalette` (ADR-028). `nightSurface` is the one
+// still unconsumed — it has no light partner. Dark never actually renders while
+// `Info.plist` pins `UIUserInterfaceStyle` to Light.
 
 extension PasturaPalette {
 

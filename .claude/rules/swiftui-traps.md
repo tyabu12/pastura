@@ -276,6 +276,15 @@ locally (first hit PR #953):
 `scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
 form, `EXCEPTIONS` exemptions).
 
+**Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
+steps above assume a brand-new value. A dark pair adds: the `night*` raw token (step 1), its
+`Color` alias, a `PasturaDynamicColor` entry in `DesignTokens+DynamicColor.swift`'s
+`PasturaDynamicPalette` (including its `all` registry — its count assertion guards
+that list's documented size, not completeness: an unregistered pair still passes), the
+light alias repointed from `PasturaPalette.x.color` to `PasturaDynamicPalette.x.color`, plus
+steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so the pairing file
+itself is inert to it — only the new `night*` hex needs a `tokens.css` row. See ADR-028.
+
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
 For `.sheet(item: $binding)`, pass the **model itself** as `Optional<Model>`. Never wrap an
@@ -348,15 +357,30 @@ adopt early-return comment in `SimulationView`).
 `ImageRenderer` rasterizes its content in a **default** environment — it does
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
-Compounds with the fact that `PasturaPalette` tokens are static sRGB (light-only
-— the app does not adapt), so a token-styled view rasterizes in one fixed
-appearance regardless of the device.
+
+**The `Color.*` aliases now make this sharper, not milder.** Eight of them
+(`screenBackground`/`bubbleBackground`/`whisperBubble`/`ink`/`inkSecondary`/
+`muted`/`rule`/`moss`) resolve light↔dark against the ambient interface style
+(ADR-028), so reading one inside `ImageRenderer` content means "whatever
+appearance the renderer resolved" — and an explicitly light or dark export
+becomes unexpressible. The other 76 aliases are still fixed (59 of them unpaired
+light tokens; the rest `night*` / time-of-day / chart), so a
+token-styled view otherwise rasterizes in one appearance regardless of device.
 
 **Apply**: pass the appearance in **explicitly** — capture
-`@Environment(\.colorScheme)` at the call site, drive the view's palette from
-that value (an explicit `colorScheme` parameter, since static tokens won't
-switch on the environment alone), and also set `.environment(\.colorScheme, …)`
-on the rendered content for any system-colored subviews (SF Symbols, asset
-images). Real-device dark-mode QA required — the simulator misleads.
+`@Environment(\.colorScheme)` at the call site, and drive the view's palette
+from that value (an explicit `colorScheme` parameter) reading
+**`PasturaPalette.<token>.color`, never the `Color.*` alias** — the raw palette
+values are fixed sRGB, which is exactly the property an export needs. Also set
+`.environment(\.colorScheme, …)` on the rendered content for any system-colored
+subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
+simulator misleads.
+
+**What catches a regression here**: the token tests assert `PasturaPalette`
+components *and* the aliases' own resolution, and `HighlightShareCardPaletteTests`
+pins the reference consumer's two families to raw palette values — so an alias
+creeping back into that palette reddens. ADR-009 rules out snapshots, so any
+*new* fixed-appearance consumer needs its own equivalent pin or it is unguarded.
+Reference consumer: `HighlightCardPalette`.
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).

@@ -7,8 +7,10 @@
 # the two curated transcripts from docs/marketing/launch-transcripts.md through
 # the real ResultDetailView timeline (seeded verbatim by StubResultSeeder).
 #
-# ja / light only: the app uses a static PasturaPalette (no dark-mode
-# adaptation), so light is the only meaningful appearance. Local-run only by
+# ja / light only: the app is pinned to light by Info.plist's
+# UIUserInterfaceStyle, so light is the only appearance it can render. (Eight
+# design tokens are trait-paired as of ADR-028, but the lock means dark never
+# resolves; revisit this script when #1274 lifts it.) Local-run only by
 # design — MarketingShotTests is CI-skipped (6.9"-pinned, UI-test flake class).
 # Output PNGs are gitignored; this is the single regeneration path.
 #
