@@ -1,8 +1,8 @@
 import SwiftUI
 import os
 
-/// Settings screen hosting the Models section (device only) and a
-/// Legal section with Privacy Policy + content-report sheet.
+/// Settings screen hosting the Models section (device only), a Feedback
+/// section (rate the app + content-report sheet), and a Legal section.
 ///
 /// The Settings tab's root content, mounted in the tab's
 /// `NavigationStack` by `RootTabView` (ADR-016 D4). Per
@@ -26,18 +26,25 @@ import os
 /// `simulationActivityRegistry.isActive == false` at the UI layer so
 /// the service is never torn down mid-inference.
 ///
-/// ## Legal section
+/// ## Feedback section
 ///
-/// Two rows: an external Privacy Policy link (opens Safari via
-/// `Environment(\.openURL)`) and a "Send a content report" Button
-/// that presents `ReportSheet(context: .general)` via the
+/// Two rows: "Rate Pastura" (external App Store write-review link, #1279)
+/// and a "Send a content report" Button that presents
+/// `ReportSheet(context: .general)` via the
 /// `.reportSheet(isPresented:context:)` helper (which applies
 /// `.deepLinkGated()` internally — see navigation.md QA scenario 9).
 /// ADR-005 §6.6 substantive commitment ("Settings surface exposes
 /// report-mechanism copy per §6.4") is preserved by `ReportSheet`'s
-/// introCopy.
+/// introCopy — it binds the surface, not the section header.
+///
+/// ## Legal section
+///
+/// Two rows: an external Privacy Policy link (opens Safari via
+/// `Environment(\.openURL)`) and an in-app "Licenses" sheet.
 struct SettingsView: View {
-  @Environment(\.openURL) private var openURL
+  // Not `private` — read by the `+Feedback.swift` sibling extension's
+  // `externalLinkRow`, and `private` is file-scoped.
+  @Environment(\.openURL) var openURL
 
   /// Opt-in: keep a simulation running (parked in memory) when leaving its
   /// screen, skipping the leave dialog (ADR-017 Phase B, #682). Mirrors the
@@ -51,10 +58,11 @@ struct SettingsView: View {
   @State private var viewerPredictionEnabled = FeatureFlags.viewerPredictionEnabled
 
   /// Bound to `.reportSheet(isPresented:context:)` for the "Send a
-  /// content report" row inside the Legal section. The sheet reuses
+  /// content report" row inside the Feedback section. The sheet reuses
   /// `ReportSheet` with `context: .general` (Settings has no
   /// specific scenario context) — see ADR-005 §6.7 dual-use precedent.
-  @State private var isReportSheetPresented: Bool = false
+  /// Not `private` — written by the `+Feedback.swift` sibling extension.
+  @State var isReportSheetPresented: Bool = false
 
   /// Bound to `.sheet(isPresented:)` for the "Licenses"
   /// row inside the Legal section.
@@ -124,42 +132,22 @@ struct SettingsView: View {
           modelsSection
         #endif
         simulationSection
-        // Theme D — tappable-row language split by destination:
-        // Privacy Policy is the lone external link (opens Safari), so it
-        // keeps the green `Color.link` dialect + the external-link arrow
-        // (no chevron). The report / licenses rows open in-app sheets, so
-        // they adopt the standard in-app row vocabulary (`PasturaRowLabel`:
-        // ink text + trailing chevron) shared with Home / ScenarioDetail /
-        // Results. `Color.link` (design-system §2.8) lands its first real
-        // consumer here; the explicit `Color.link` form (not `.link`)
-        // sidesteps the ShapeStyle-vs-Color token trap.
+        // Theme D — tappable-row language split by destination: rows that
+        // leave the app (Rate Pastura, Privacy Policy) take the green
+        // `Color.link` dialect + external-link arrow and no chevron; rows
+        // opening an in-app sheet (report, licenses) take the standard in-app
+        // vocabulary (`PasturaRowLabel`: ink text + trailing chevron) shared
+        // with Home / ScenarioDetail / Results. The explicit `Color.link` form
+        // (not `.link`) sidesteps the ShapeStyle-vs-Color token trap; the
+        // shared `externalLinkRow` helper keeps the two external rows from
+        // drifting apart.
+        feedbackSection
         PasturaSection(String(localized: "Legal"), style: .grouped) {
           VStack(spacing: 0) {
-            Button {
-              guard let url = LocalizedPublicPages.privacyPolicy() else { return }
-              openURL(url)
-            } label: {
-              HStack {
-                Text(String(localized: "Privacy Policy"))
-                  .foregroundStyle(Color.link)
-                Spacer()
-                Image(systemName: "arrow.up.right.square")
-                  .foregroundStyle(Color.link)
-              }
-              .padding(.horizontal, 17)
-              .padding(.vertical, 15)
-              .contentShape(Rectangle())
-            }
-            .accessibilityIdentifier("settings.privacyPolicyLink")
-
-            PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
-            Button {
-              isReportSheetPresented = true
-            } label: {
-              PasturaRowLabel(title: String(localized: "Send a content report"))
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("settings.sendContentReportButton")
+            externalLinkRow(
+              title: String(localized: "Privacy Policy"),
+              url: LocalizedPublicPages.privacyPolicy(),
+              accessibilityIdentifier: "settings.privacyPolicyLink")
 
             PasturaRowDivider(leadingInset: PasturaCardMetrics.horizontalMargin)
             Button {

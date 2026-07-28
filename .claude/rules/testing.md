@@ -143,6 +143,13 @@ resolves zero matching tests and reports success (0 failures = `TEST SUCCEEDED`)
 This does NOT affect XCTest (`func testXxx()` in `XCTestCase`), which individual
 targeting works correctly for.
 
+**Suite-level still means the TYPE name, not a `@Suite("Display Name")`.**
+`@Suite("SimulationViewCompletionChrome") struct SimulationViewCompletionChromeTests`
+matches only the latter; the display name silently resolves to zero tests and
+still prints `TEST SUCCEEDED`. Confirm the `✔ Test` / `Test run with N tests`
+markers, per `xcodebuild-cli.md` § "\"Executed 0 tests\" in the XCTest stanza is
+cosmetic for Swift-Testing suites".
+
 **Verify:** Always check the test count in the output to confirm tests actually ran.
 
 ## Duplicate Suite Names Silently Halve `-only-testing`
