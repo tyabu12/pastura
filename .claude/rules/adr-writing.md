@@ -11,6 +11,8 @@ For new ADRs (NNN-numbered files), prefer the `/claude-kit:write-adr` skill (fro
 
 This file is the skill's `ADR_RULES_PATH` — it discovers `.claude/rules/adr*.md` and passes the path into both reviewer prompts, and what is written here takes precedence over anything the skill infers from a template ADR. Project facts the skill cannot re-derive therefore belong in § 4 below.
 
+**§1 and §2 must stay in this file — do not relocate them behind a pointer the way §3 was.** Two independent reasons. (a) Eleven shipped citations across nine ADRs address them by section number or heading (`ADR-002`, `-004` ×2, `-011`, `-012`, `-016`, `-021`, `-023` ×2, `-027`, `-028`), so moving either breaks all of them at once. (b) `write-adr` forwards *this path* to its reviewers and deliberately declines to carry mechanism-contract criteria itself, on the grounds that they arrive through `ADR_RULES_PATH` — a channel its own SKILL.md notes fails with no error. A reviewer handed a pointer instead of §2 would silently stop applying it. §3 has neither property: nothing cites it and nothing routes it, which is why it could move.
+
 ## 1. Verify fact-claims at write time, not at review time
 
 ADR / spec / decision-record bodies have **higher fact-claim density** than ordinary prose. Citations (`file:line`, `.claude/rules/` section names, Swift / Apple SDK behavior) are *load-bearing for the decision*. A wrong citation propagates: the next implementer copy-pastes from the ADR, and subsequent ADRs build on a false premise.
