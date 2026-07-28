@@ -22,6 +22,14 @@ import Foundation
 /// The `ja` / `en` parameter names match the resolved language values
 /// verbatim so callsites read as a Translation Table row
 /// (`identifier_name` rule excludes both per `.swiftlint.yml`).
+///
+/// **Every literal passed here has a twin in the ADR-023 Kotlin port**
+/// (`shared/engine/src/commonMain/**`), which renders the same prompt so
+/// the two engines stay behaviour-comparable. Editing one side only is a
+/// silent half-change; `scripts/check-prompt-literal-parity.py` gates it
+/// (pre-commit + CI). See `.claude/rules/engine.md` § "Prompt literals are
+/// paired with the Kotlin port" for the allowlist procedure and for what
+/// the gate cannot see.
 nonisolated func pickLanguage(_ language: String, ja: String, en: String) -> String {
   switch language {
   case "en":

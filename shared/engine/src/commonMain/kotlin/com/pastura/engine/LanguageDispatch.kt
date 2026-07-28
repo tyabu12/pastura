@@ -30,6 +30,13 @@ package com.pastura.engine
  * The `ja` / `en` parameter names match the resolved language values verbatim so
  * callsites read as a Translation Table row.
  *
+ * **Every literal passed here has a twin in the Swift original**, and the two must
+ * render the same prompt or a cross-engine behaviour comparison measures two
+ * different prompts rather than two engines. Editing one side only is a silent
+ * half-change; `scripts/check-prompt-literal-parity.py` gates it (pre-commit + CI).
+ * See `.claude/rules/engine.md` § "Prompt literals are paired with the Kotlin port"
+ * for the allowlist procedure and for what the gate cannot see.
+ *
  * Swift original: `Pastura/Pastura/Engine/LanguageDispatch.swift`.
  * Ported for the ADR-023 §6 Stage-2 gate slice (#501).
  */

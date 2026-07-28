@@ -442,6 +442,31 @@ Built-in scoring logics (single source of truth: `Models/ScoreCalcLogic.swift`):
 
 Custom (author-supplied) logic is Phase 2 scope.
 
+## Prompt literals are paired with the Kotlin port
+
+Editing a `pickLanguage(_:ja:en:)` literal here changes only **half** the prompt.
+ADR-023 keeps `shared/engine/src/commonMain/**` as a parallel Kotlin engine
+carrying the same ja/en text, and a behaviour comparison between the two measures
+nothing if they run different prompts. The en secret-section guidance diverged on
+`main` and survived precisely because it was small (#1295).
+
+**Apply**: change both sides in the same commit. `scripts/check-prompt-literal-parity.py`
+enforces it (pre-commit sub-gate + the CI "Shell gate tests" job); pairing is by
+basename with any `+Extension` suffix stripped, so `PromptBuilder+PrivateSections.swift`
+pairs with `PromptBuilder.kt`. A deliberate one-sided literal — today only the
+#911 `addressRule`, whose handler is not ported — needs a row in
+`shared/prompt-literal-parity-allowlist.tsv`; the checker prints the exact row to
+paste, keyed on a digest of the pair so a later reword forces re-approval.
+
+**What the gate does NOT see** — it measures `pickLanguage` literal-pair parity,
+not prompt parity. Assembly and separators (the `\n` vs `\n\n` join in
+`appendSecretSection`), *which value* is interpolated into a matching skeleton,
+and any prompt-visible literal outside `pickLanguage` are all invisible to it.
+Live examples of that last one, currently agreeing and therefore free to drift:
+`sentenceNoun` (`"sentence"` / `"sentences"`, interpolated straight into the en
+rules block) and the conversation-log line format. Wording changes are also a
+*behaviour* change — pair them with a harness A/B, not just with the other side.
+
 ## SimulationEvent & the projection contract
 
 `SimulationEvent` (and its `.error` payload `SimulationError`) is the contract

@@ -21,6 +21,13 @@ Traps at the Kotlin/Native (K/N) ↔ Swift boundary of the ADR-023 KMP Engine mi
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
   in-scope for `shared/**` edits.
 
+> **Prompt-literal parity with the Swift original** is gate-enforced
+> (`scripts/check-prompt-literal-parity.py`) and documented on the Swift side, in
+> `engine.md` § "Prompt literals are paired with the Kotlin port" — deliberately *there*
+> rather than here, because the contributor who breaks the invariant is the one editing
+> `Pastura/Pastura/Engine/**`, and this file's `paths:` never reaches them. Read that
+> section before touching a `pickLanguage` literal on either side.
+
 > **When a `shared/**` port PR lands** (a `Phases/*.kt` added, or a stage advances), refresh
 > [`docs/kmp-migration-status.md`](../../docs/kmp-migration-status.md). Its Wave B checklist is
 > gate-enforced (`scripts/check-kmp-status.py`); the stage table + pointers are hand-maintained.
