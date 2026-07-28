@@ -35,6 +35,5 @@
 # fails on a row that no longer matches anything — a healed divergence must drop
 # its row rather than linger as a standing exemption.
 side	stem	digest	excerpt	reason
-swift-only	PromptBuilder	3754ae85aab4	\\n- これまでの会話に他の誰かの発言があれば、そのうち1人の発言に必ず触れてから自分の意見…	The #911 speak_each address rule. PromptBuilder.kt's class doc names it as the one phase-specific appendix left as a Stage-3 unit; it lands with the speak_each handler port (#501). Drop this row then.
 unported	NarrateHandler	-	-	ADR-023 Stage 3: narrate is not in the Wave B port set yet (#501).
 unported	SpeakEachHandler	-	-	ADR-023 Stage 3: speak_each is not ported yet (#501). Ports together with the swift-only PromptBuilder row above.

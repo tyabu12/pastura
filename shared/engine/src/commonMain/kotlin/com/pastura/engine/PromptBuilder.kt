@@ -31,14 +31,17 @@ import com.pastura.models.TurnOutput
  * rule, output format); the injection family ([injectAssigned] / [injectNotes] /
  * [injectWhispers] / [injectRelationships] / [injectMood]), [captureMood] +
  * `moodRule` + `reflectBrevityRule` + `voteCandidateRule` + `whisperRule` +
- * `chooseOptionsRule`, and `appendPrivateSections`.
+ * `chooseOptionsRule` + `addressRule`, and `appendPrivateSections`.
+ *
+ * With `addressRule` landed alongside [SpeakEachHandler], every phase-specific
+ * answer rule Swift appends is now ported — the answer-rules block is at full
+ * parity.
  *
  * What is **knowingly absent** — each a *named* unit, tracked on #501 for its
  * Wave-B handler PR, never a silent drop:
  *
  * | Absent | Why |
  * |---|---|
- * | `addressRule` (#911, speak_each) | speak_each is a later Wave-B handler |
  * | `RelationshipVerbalizer`, `PromptPlaceholders`, `ErrorReadability` | types landed in PR-3 (#501 Stage 3); PromptBuilder still has no slice consumer for them (wiring deferred to their Wave-B handlers) |
  *
  * Each remaining unit lands with its handler against the Swift test files, which
@@ -264,12 +267,18 @@ internal class PromptBuilder {
 
     /**
      * The `## 回答ルール / ## Response Rules` block: the base rules, plus the
-     * mood-writing rule ([moodRule], schema-gated), the reflect-note brevity rule
-     * ([reflectBrevityRule], `REFLECT`-gated), the whisper privacy rule
+     * address rule ([addressRule], `SPEAK_EACH`-gated), the reflect-note brevity
+     * rule ([reflectBrevityRule], `REFLECT`-gated), the whisper privacy rule
      * ([whisperRule], `WHISPER`-gated), the choose-options rule
-     * ([chooseOptionsRule], `CHOOSE`-gated), and the vote-candidate rule
-     * ([voteCandidateRule], `VOTE`-gated). One phase-specific appendix remains a
-     * Stage-3 unit — the speak_each address rule; see the class doc.
+     * ([chooseOptionsRule], `CHOOSE`-gated), the vote-candidate rule
+     * ([voteCandidateRule], `VOTE`-gated), and the mood-writing rule
+     * ([moodRule], schema-gated). Every phase-specific appendix Swift appends is
+     * now ported.
+     *
+     * **Append order is the prompt.** The rules concatenate into one string, so
+     * the sequence above must stay identical to Swift's
+     * `PromptBuilder.swift:197-228` — speak_each, reflect, whisper, choose, vote,
+     * mood. Reordering is not a refactor; it changes what the model reads.
      *
      * Takes the full `(scenario, persona, state)` — not just `language` — because
      * [voteCandidateRule] enumerates candidates from the persona + elimination
@@ -314,6 +323,13 @@ internal class PromptBuilder {
                 - Output exactly one object starting with { and ending with }, with no surrounding text.
             """.trimIndent(),
         )
+
+        // Turn-based speak_each gets the #911 address rule (see [addressRule]).
+        // FIRST of the phase-specific appendices, matching Swift — see the
+        // append-order note in this function's KDoc.
+        if (phase.type == PhaseType.SPEAK_EACH) {
+            rules += addressRule(language)
+        }
 
         // Reflect notes get a tighter 2-sentence cap (see [reflectBrevityRule]).
         // Type-gated, unlike the schema-gated mood rule below.
@@ -390,6 +406,35 @@ internal class PromptBuilder {
             en = "\n- The vote field must be exactly one of these names: $candidatesList",
         )
     }
+
+    /**
+     * The #911 address rule appended for turn-based `speak_each` phases only
+     * ([buildAnswerRules] gates on `phase.type == SPEAK_EACH`).
+     *
+     * speak_each otherwise produces parallel monologues (0 % cross-reference at
+     * baseline); a harness A/B on Gemma 4 E2B lifted word_wolf address-rate to
+     * ~0.27 (ja) / ~0.18 (en) with no agreement-formulae collapse. It is **NOT**
+     * appended for `speak_all`: the A/B showed it inert there (simultaneous
+     * broadcast framing dominates, e.g. prisoners' 「全員に向けて宣言」) and mildly
+     * harmful (parse failures + bokete boke-copying). The 「反論でも疑問でもよい」
+     * clause blocks the agreement-formulae collapse mode. Keep ja/en
+     * scope-parallel; wording is harness-A/B-tuned.
+     *
+     * **Interacts with `log_window`.** The rule tells the agent to refer to
+     * someone who spoke earlier, and [formatConversationLog] trims that same log
+     * to the last `window` entries — so an accumulating scenario needs
+     * `log_window >= agentCount` or the same round's earlier speakers vanish from
+     * the addressee pool. Enforced as lint warning R17 (ADR-024), Swift-side.
+     */
+    private fun addressRule(language: String): String =
+        pickLanguage(
+            language,
+            ja = "\n- これまでの会話に他の誰かの発言があれば、そのうち1人の発言に必ず触れてから自分の意見を述べること" +
+                "（同意でも反論でも疑問でもよい）。まだ誰も発言していなければ自由に話してよい",
+            en = "\n- If anyone has spoken earlier in the conversation, refer to one of their statements " +
+                "before giving your own opinion (agreement, disagreement, or a question all count). " +
+                "If no one has spoken yet, speak freely.",
+        )
 
     /**
      * The #907 brevity rule appended for `reflect` phases only ([buildAnswerRules]
