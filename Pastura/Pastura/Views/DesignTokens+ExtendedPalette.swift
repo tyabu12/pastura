@@ -3,7 +3,8 @@ import SwiftUI
 // Extended palette tokens that arrived after the §2.1–§2.5 base palette.
 // Lives in an extension so `DesignTokens.swift` stays under swiftlint's
 // 400-line `file_length` cap. Source of truth in
-// `docs/design/design-system.md` §2.6 onward.
+// `docs/design/design-system.md` §2.6 onward — plus one §2.2 token
+// (`inkOnAccent`) parked here for that same headroom; see the first MARK.
 //
 // Some tokens here are not consumed yet (time-of-day, chart) — they are
 // documented and defined ahead of need so future screens can pull from a single
@@ -18,22 +19,32 @@ extension PasturaPalette {
 
   // MARK: §2.2 Ink — on-accent foreground
   //
-  // Semantically a member of the §2.2 Ink family; it lives here because
-  // `DesignTokens.swift` sits at 396 of swiftlint's 400-line `file_length`
-  // budget — the very reason this extension exists (see the file header).
+  // Documented under §2.2 rather than §2.6+, unlike everything else in this
+  // file. It is here because this extension is where `swiftui-traps.md`'s
+  // token workflow puts a new raw token, not because §2.2 was full.
 
   /// Foreground for text / glyphs sitting **on an accent fill** (`moss`,
-  /// `mossDark`). Pure white: §2.3 sanctions white-on-accent as the
-  /// contrast-passing pair, which is distinct from §1's "avoid pure white
-  /// surfaces" guidance — that one concerns backgrounds.
+  /// `mossDark`). Pure white: §2.3 sanctions white-on-accent, which is
+  /// distinct from §1's "avoid pure white surfaces" guidance — that one
+  /// concerns backgrounds.
   ///
   /// **Fixed in both appearances** (ADR-028 gate 1). White is the correct
-  /// foreground on a *dark* accent fill (`mossDark` — ≈4.76:1, AA), and that
-  /// does not change with the interface style. Whether it stays correct on the
-  /// *lighter* `nightMoss` that paired `moss` resolves to under dark mode is
-  /// the open half of the question, tracked by ADR-028 gate 4's device dark
-  /// QA. This exists as a token rather than a `Color.white` literal at each
-  /// callsite so that answer lands in one place instead of ten.
+  /// foreground on a *dark* accent fill (`mossDark` — ≈4.7:1, AA), and that
+  /// does not change with the interface style.
+  ///
+  /// Over the *lighter* `nightMoss` (#A8B888) that paired `moss` resolves to
+  /// under dark mode, white measures **≈2.13:1** — below AA and below even the
+  /// 3:1 non-text bar. That is settled by arithmetic, not pending observation,
+  /// so it is **not** something gate 4's device QA can decide: resolving it is
+  /// a gate 1 dark-value decision (darken `nightMoss`, or pair this token).
+  /// Unreachable today because `UIUserInterfaceStyle` pins the app to light.
+  /// This exists as a token rather than a `Color.white` literal at each
+  /// callsite so that decision lands in one place instead of ten.
+  ///
+  /// Scope: `mossDark` is the only fill where the pair clears AA for **text**.
+  /// On base `moss` it is ≈3.03:1, which clears WCAG 1.4.11's 3:1 non-text bar
+  /// for glyphs and shapes (`CheckBadge`, the share-tab symbols) but not the
+  /// 4.5:1 text bar — so text on an accent belongs on `mossDark`.
   static let inkOnAccent = PasturaColorValue(hex: 0xFFFFFF)
 
   // MARK: §2.6 Alert Family — 4-step temperature scale

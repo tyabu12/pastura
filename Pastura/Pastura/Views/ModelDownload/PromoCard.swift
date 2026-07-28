@@ -241,7 +241,7 @@ struct PromoCard: View {
           .padding(.vertical, 5)
           .background(
             RoundedRectangle(cornerRadius: Radius.button)
-              // `mossDark`, not `moss`: `metaLabel` is 9pt (WCAG normal text) and on-accent white is only ≈3.0:1 over `moss` vs ≈4.76:1 over `mossDark` — see `PasturaPrimaryButtonStyle.fill`.
+              // `mossDark`: `metaLabel` is 9pt text, white-on-`moss` ≈3.0:1.
               .fill(Color.mossDark))
       }
       .buttonStyle(.plain)

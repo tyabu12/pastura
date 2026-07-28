@@ -12,8 +12,9 @@ import SwiftUI
 /// to scale cleanly to any target point size.
 ///
 /// Colors follow `design-system.md` §2.3 Moss tokens:
-/// - Body fill: `Color.white` (explicit — the bubbleBackground token is also white but
-///   `DogMark` appears on varied surfaces, so plain white is the right semantic).
+/// - Body fill: `Color.white` (explicit — `bubbleBackground` is also white, but only
+///   in light: ADR-028 paired it to `nightBubble`. `DogMark` appears on varied
+///   surfaces and its body is white by design, so plain white is the right semantic).
 /// - Outline / ear / tail accent: `Color.moss` (`#8A9A6C`).
 /// - Eye / nose dots: `Color.mossInk` (`#3D4030`).
 ///
@@ -76,10 +77,9 @@ public struct DogMark: View {
       body.closeSubpath()
 
       // ADR-028 gate-3 exemption: raw white on purpose, not an un-tokenized
-      // site. Rationale in the type doc-comment above — the mark is an
-      // illustration shown over varied surfaces, so plain white is the
-      // semantic, and `inkOnAccent` does not apply (that token means
-      // "foreground on an accent fill", which this is not).
+      // site — rationale in the type doc-comment above. `inkOnAccent` does not
+      // apply either: that token means "foreground on an accent fill", and
+      // there is no accent fill here.
       ctx.fill(body, with: .color(.white))
       ctx.stroke(
         body,

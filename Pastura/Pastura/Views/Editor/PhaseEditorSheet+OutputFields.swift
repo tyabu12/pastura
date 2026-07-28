@@ -29,7 +29,7 @@ extension PhaseEditorSheet {
           if let description = FieldDisplay.description(for: key) {
             Text(description)
               .font(.caption)
-              .foregroundStyle(Color.muted)
+              .foregroundStyle(Color.inkSecondary)
           }
         }
       }

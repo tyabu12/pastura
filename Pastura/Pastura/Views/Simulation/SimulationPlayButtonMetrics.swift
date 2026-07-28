@@ -35,7 +35,11 @@ enum SimulationPlayButtonMetrics {
   /// from the contrast target, so the muted tan + white glyph is intentional.
   static let disabledFill: Color = .disabledText
 
-  /// Glyph color — `inkOnAccent` on both fills (text-on-accent; §1's "avoid
-  /// pure white" concerns backgrounds, not glyphs on an accent fill).
+  /// Glyph color. On `enabledFill` this is the sanctioned on-accent pair —
+  /// `inkOnAccent` over `mossDark` ≈ 4.7:1 (§1's "avoid pure white" concerns
+  /// backgrounds, not glyphs on an accent fill). The disabled arm reuses it for
+  /// visual continuity even though `disabledText` is **not** an accent and the
+  /// pair there is only ≈2.2:1 — §8 exempts disabled controls from the
+  /// contrast target (see `disabledFill` above).
   static let glyphColor: Color = .inkOnAccent
 }

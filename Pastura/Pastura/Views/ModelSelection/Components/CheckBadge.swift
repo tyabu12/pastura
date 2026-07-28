@@ -29,6 +29,12 @@ struct CheckBadge: View {
         Circle()
           .fill(tint)
         CheckmarkPath()
+          // Deliberately on base `moss` (the `tint` default) rather than the
+          // `mossDark` that on-accent *text* requires: a checkmark is a shape,
+          // so WCAG 1.4.11's 3:1 non-text bar applies and ≈3.03:1 clears it —
+          // by ~1%, so re-measure if `moss` ever shifts. Under dark this
+          // becomes white on `nightMoss` ≈2.13:1 and fails; that is ADR-028
+          // gate 1's dark-value decision, unreachable while the light lock holds.
           .stroke(
             Color.inkOnAccent,
             style: StrokeStyle(

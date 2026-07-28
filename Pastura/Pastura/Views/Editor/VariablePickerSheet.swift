@@ -50,12 +50,15 @@ struct VariablePickerSheet: View {
           } label: {
             VStack(alignment: .leading, spacing: 3) {
               Text(verbatim: "{\(token)}")
-                .font(.body.monospaced())
+                // §2.3 reserves `mossDark` for accent *text* and `moss` for
+                // fills; the accent asset resolves to `moss`, which is the
+                // low-contrast choice for a label.
                 .foregroundStyle(Color.mossDark)
+                .font(.body.monospaced())
               if let description = PlaceholderDisplay.description(for: token) {
                 Text(description)
                   .font(.caption)
-                  .foregroundStyle(Color.muted)
+                  .foregroundStyle(Color.inkSecondary)
               }
             }
           }
