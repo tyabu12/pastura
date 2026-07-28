@@ -59,9 +59,9 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 `--ink-on-accent` は §2.3 が認める white-on-accent の前景。§1 の「純白の面を避ける」は**背景**の話なので抵触しない。適用範囲は下地で変わる:
 
 - **テキストは `moss-dark` 上に限る**（≈4.7:1、AA 達成）。base `moss` 上は ≈3.03:1 で 4.5:1 に届かない。
-- **グリフ・図形は `moss` 上も可**。WCAG 1.4.11 の非テキスト 3:1 が適用され ≈3.03:1 は充足する（`CheckBadge` のチェック、share タブのシンボル）。ただし余裕は約 1% しかないので、`moss` の色を動かす際はこの 2 用途を確認すること。
+- **グリフ・図形は `moss` 上も可**。WCAG 1.4.11 の非テキスト 3:1 が適用され ≈3.03:1 は充足する（`CheckBadge` のチェック、share タブのシンボル — 後者は `moss`→`moss-dark` グラデ上なので最悪値が明側の `moss`）。ただし余裕は約 1% しかないので、`moss` の色を動かす際はこの 2 用途を確認すること。
 
-生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため。ダークでは `moss` が `night-moss`(#A8B888) になり白は ≈2.13:1 と 3:1 すら割るが、これは**計算で確定済み**であり実機 QA（ADR-028 gate 4）ではなく gate 1 のダーク値決定（`night-moss` を暗くするか、このトークンをペア化するか）で解く。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
+生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため。ダークでは `moss` が `night-moss`(#A8B888) になり白は ≈2.13:1 と 3:1 すら割る。これは**計算で確定済み**なので実機 QA（ADR-028 gate 4）では決められず、gate 1 のダーク値決定（`night-moss` を暗くするか、このトークンをペア化するか）で解く。**つまりこのトークンは「両外観で固定」ではなく、gate 1 の未解決 60 個の一つ**。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
 
 ### 2.3 Moss Accent（苔アクセント）
 

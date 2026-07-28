@@ -28,9 +28,10 @@ struct PhaseBlockRow: View {
     .padding(.vertical, 8)
     .padding(.horizontal, 12)
     // `bubbleBackground`, not the `.background` ShapeStyle it replaced: both
-    // are #FFFFFF in light, but the token is one of ADR-028's paired eight, so
-    // the card follows the appearance where the ShapeStyle was outside the
-    // pairing mechanism's reach.
+    // are #FFFFFF in light, so no visual delta today. The ShapeStyle already
+    // adapts — this is about *which* dark value it adapts to. The token is one
+    // of ADR-028's paired eight, so the card lands on the warm `nightBubble`
+    // (#2C2F28) rather than the ShapeStyle's system black.
     .background(Color.bubbleBackground, in: RoundedRectangle(cornerRadius: 10))
   }
 

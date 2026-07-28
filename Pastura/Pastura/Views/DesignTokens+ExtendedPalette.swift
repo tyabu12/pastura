@@ -28,18 +28,18 @@ extension PasturaPalette {
   /// distinct from §1's "avoid pure white surfaces" guidance — that one
   /// concerns backgrounds.
   ///
-  /// **Fixed in both appearances** (ADR-028 gate 1). White is the correct
-  /// foreground on a *dark* accent fill (`mossDark` — ≈4.7:1, AA), and that
-  /// does not change with the interface style.
+  /// The **light** value is settled: white over `mossDark` is ≈4.7:1 (AA).
   ///
-  /// Over the *lighter* `nightMoss` (#A8B888) that paired `moss` resolves to
-  /// under dark mode, white measures **≈2.13:1** — below AA and below even the
-  /// 3:1 non-text bar. That is settled by arithmetic, not pending observation,
-  /// so it is **not** something gate 4's device QA can decide: resolving it is
-  /// a gate 1 dark-value decision (darken `nightMoss`, or pair this token).
-  /// Unreachable today because `UIUserInterfaceStyle` pins the app to light.
-  /// This exists as a token rather than a `Color.white` literal at each
-  /// callsite so that decision lands in one place instead of ten.
+  /// The **dark** answer is not, so this alias is one of ADR-028 gate 1's
+  /// unresolved 60 — it is *not* "fixed in both appearances". Over the lighter
+  /// `nightMoss` (#A8B888) that paired `moss` resolves to under dark mode,
+  /// white measures **≈2.13:1**, below AA and below even the 3:1 non-text bar.
+  /// That is settled by arithmetic, not pending observation, so gate 4's device
+  /// QA cannot decide it; the open choice is a gate 1 dark-value one — darken
+  /// `nightMoss` so white keeps working, or pair this token. Unreachable today
+  /// because `UIUserInterfaceStyle` pins the app to light. Having a token
+  /// rather than a `Color.white` literal at each callsite is what lets that
+  /// choice land in one place instead of ten.
   ///
   /// Scope: `mossDark` is the only fill where the pair clears AA for **text**.
   /// On base `moss` it is ≈3.03:1, which clears WCAG 1.4.11's 3:1 non-text bar

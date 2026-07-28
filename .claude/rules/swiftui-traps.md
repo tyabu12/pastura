@@ -363,8 +363,8 @@ diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 `muted`/`rule`/`moss`) resolve light↔dark against the ambient interface style
 (ADR-028), so reading one inside `ImageRenderer` content means "whatever
 appearance the renderer resolved" — and an explicitly light or dark export
-becomes unexpressible. The other 77 aliases are still fixed (59 of them unpaired
-light tokens, 1 fixed by decision; the rest `night*` / time-of-day / chart), so a
+becomes unexpressible. The other 77 aliases are still fixed (60 of them unpaired
+light tokens; the rest `night*` / time-of-day / chart), so a
 token-styled view otherwise rasterizes in one appearance regardless of device.
 
 **Apply**: pass the appearance in **explicitly** — capture
