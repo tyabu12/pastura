@@ -37,7 +37,7 @@ extension SharedScenariosListView {
         .font(.subheadline.weight(isSelected ? .semibold : .regular))
         // Same contrast-passing pair as the category chips: white-on-mossDark
         // clears WCAG AA where white-on-moss does not (see +CategoryChips).
-        .foregroundStyle(isSelected ? Color.white : Color.ink)
+        .foregroundStyle(isSelected ? Color.inkOnAccent : Color.ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)
         .background(isSelected ? Color.mossDark : Color.bubbleBackground, in: Capsule())
