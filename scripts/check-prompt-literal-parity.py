@@ -19,9 +19,9 @@ Swift is the shipped source of truth and is where the drift originates, so the
 scan starts there: every tracked `.swift` under `Pastura/Pastura/{Engine,LLM}/**`
 (the ADR-023 ledger's own scope) that contains a `pickLanguage` CALL. Each is
 resolved to a Kotlin counterpart by basename under `shared/engine/src/commonMain`,
-stripping a `+Extension` suffix -- which is what pairs `PromptBuilder.swift` +
-`PromptBuilder+PrivateSections.swift` + `PromptBuilder+Injection.swift` with the
-single `PromptBuilder.kt`.
+stripping a `+Extension` suffix -- which is what pairs `PromptBuilder.swift` and
+`PromptBuilder+PrivateSections.swift` (and any sibling that later grows a call --
+`PromptBuilder+Injection.swift` has none today) with the single `PromptBuilder.kt`.
 
 The Kotlin-driven alternative was rejected: conditioning membership on "the
 Kotlin file has literals" means a port that loses its literals drops out of the
@@ -85,12 +85,20 @@ KOTLIN_SCOPE_DIR = "shared/engine/src/commonMain"
 # different substitution mechanisms compare equal. U+0001 cannot occur in source.
 SENTINEL = "\x01"
 
-# Floor guard: the tree holds 13 Swift files with pickLanguage calls. Set close
-# to that, not comfortably below it — the `<dir>/**/*.swift` pathspec bug in
-# `_tracked` dropped the four files sitting directly in `Engine/` and still left
-# 9, so a slack floor would have waved it through (mirrors
+# Floor guard: 12 Swift files yield pickLanguage pairs (13 mention the name — the
+# 13th is the declaration in LanguageDispatch.swift, which is why this counts
+# extracted pairs rather than grepping for `pickLanguage(`). Set close to that,
+# not comfortably below it — the `<dir>/**/*.swift` pathspec bug in `_tracked`
+# dropped the four files sitting directly in `Engine/` and still left 8, so a
+# slack floor would have waved it through (mirrors
 # check-adr023-port-coverage.py's MIN_TRACKED_FILES).
 MIN_SWIFT_CALLSITE_FILES = 11
+
+# Cap on whole-file `unported` exemptions. Unlike the digest-keyed rows, these
+# never expire on their own, so an uncapped list is how "temporarily deferred"
+# becomes permanent. Two today (NarrateHandler, SpeakEachHandler); raising it is
+# a deliberate act with its reason recorded in the allowlist header.
+MAX_UNPORTED_ROWS = 2
 
 # The helper's own declaration in LanguageDispatch.{swift,kt}, whose `ja: String`
 # args are types, not literals. Excluding it is load-bearing: the literal parser
@@ -136,10 +144,17 @@ def _read_string_literal(src: str, i: int, kotlin: bool) -> tuple[str, int]:
             # it unconditionally normalizes away a real divergence: a raw block
             # without `.trimIndent()` genuinely ships its source indentation into
             # the prompt, and would then compare equal to Swift's dedented twin.
-            if src.startswith(".trimMargin(", after):
+            # `_skip_trivia` first — a wrapped `\n    .trimIndent()` is the same
+            # call, and requiring same-line adjacency gave an undedented body and
+            # a false failure.
+            call = _skip_trivia(src, after)
+            if src.startswith(".trimMargin(", call):
                 raise ExtractError("`.trimMargin()` semantics are not modelled — compare by hand")
-            if not src.startswith(".trimIndent()", after):
-                return body, after
+            if src.startswith(".trimIndent()", call):
+                # Report the consumed call so the postfix scan in
+                # `_read_concatenated` resumes past it, not at the `.`.
+                return _dedent(body, src, end, kotlin), call + len(".trimIndent()")
+            return body, after
         return _dedent(body, src, end, kotlin), after
 
     j = i + 1
@@ -215,6 +230,14 @@ def _read_concatenated(src: str, i: int, kotlin: bool) -> str:
         content, i = _read_string_literal(src, i, kotlin)
         parts.append(content)
         j = _skip_trivia(src, i)
+        if j < len(src) and src[j] == ".":
+            # A postfix call the reader does not model (`.replace(...)`,
+            # `.trimmingCharacters(...)`). Silently returning here re-opened the
+            # truncation bug the `+` guard below closes: `""" … """.trimIndent()
+            # + "tail"` stopped at the `.` and dropped the tail, so a one-sided
+            # tail compared equal. `.trimIndent()` is already consumed by
+            # `_read_string_literal`, so anything reaching here is unmodelled.
+            raise ExtractError(f"unmodelled postfix call on a literal argument at offset {j}")
         if j >= len(src) or src[j] != "+":
             return "".join(parts)
         k = _skip_trivia(src, j + 1)
@@ -235,18 +258,70 @@ def extract_pairs(text: str, kotlin: bool) -> list[tuple[str, str]]:
     parser cannot read -- loudly, rather than skipping it.
     """
     pairs: list[tuple[str, str]] = []
-    for m in re.finditer(r"\bpickLanguage\b", text):
-        line_start = text.rfind("\n", 0, m.start()) + 1
-        if _DECL_RE.search(text[line_start : m.start()]):
+    for start, end in _call_positions(text, kotlin):
+        line_start = text.rfind("\n", 0, start) + 1
+        if _DECL_RE.search(text[line_start:start]):
             continue  # the helper's own declaration, not a call
-        i = _skip_trivia(text, m.end())
+        i = _skip_trivia(text, end)
+        if i < len(text) and text[i] == "<":  # a generic argument list
+            i = _skip_trivia(text, _skip_balanced(text, i, "<", ">"))
         if i >= len(text) or text[i] != "(":
-            continue
+            # `_DECL_RE` already tolerates `fun <T> pickLanguage`, so a bare
+            # mention that is neither declaration nor call is something this
+            # reader does not understand. Silently skipping it is the posture
+            # this file rejects everywhere else.
+            raise ExtractError(f"`pickLanguage` at offset {start} is neither a declaration nor a call")
         args = _scan_call_args(text, i, kotlin)
         if "ja" not in args or "en" not in args:
-            raise ExtractError(f"pickLanguage call at offset {m.start()} lacks ja/en")
+            raise ExtractError(f"pickLanguage call at offset {start} lacks ja/en")
         pairs.append((normalize(args["ja"], kotlin), normalize(args["en"], kotlin)))
     return pairs
+
+
+def _call_positions(text: str, kotlin: bool) -> list[tuple[int, int]]:
+    """`pickLanguage` occurrences reached OUTSIDE comments and string literals.
+
+    A plain `re.finditer` also matches inside `//`, `/* */` and KDoc. Both
+    directions are wrong and one is silent: a commented-out call counts as live,
+    so a Kotlin file that stopped dispatching entirely still reports parity; and
+    a doc-comment example (`/// Use pickLanguage(l, ja: …, en: …)`) injects a
+    phantom pair. This file's own module docstring is written in that shape, so
+    the first KDoc that copies it would trip the gate.
+    """
+    out: list[tuple[int, int]] = []
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':
+            try:
+                _, i = _read_string_literal(text, i, kotlin)
+            except ExtractError:
+                i += 1  # not our literal to judge — resume scanning
+            continue
+        if text.startswith("//", i):
+            nl = text.find("\n", i)
+            i = n if nl == -1 else nl + 1
+            continue
+        if text.startswith("/*", i):
+            # Kotlin block comments nest; Swift's do too.
+            depth, i = 1, i + 2
+            while i < n and depth:
+                if text.startswith("/*", i):
+                    depth, i = depth + 1, i + 2
+                elif text.startswith("*/", i):
+                    depth, i = depth - 1, i + 2
+                else:
+                    i += 1
+            continue
+        if c.isalpha() or c == "_":
+            m = _IDENT_RE.match(text, i)
+            if m:
+                if m.group(0) == "pickLanguage":
+                    out.append((m.start(), m.end()))
+                i = m.end()
+                continue
+        i += 1
+    return out
 
 
 def _scan_call_args(text: str, open_idx: int, kotlin: bool) -> dict[str, str]:
@@ -328,6 +403,11 @@ def _skip_balanced(s: str, i: int, opener: str, closer: str) -> int:
     (`\\(xs.joined(separator: ")"))` is idiomatic in this tree). Counting depth
     through it either leaks a stray `)` into the compared text or raises a false
     "unbalanced" on a legitimate literal.
+
+    Reached only for a triple-quoted body. In a SINGLE-line Swift literal the same
+    shape terminates the literal at the nested quote before this runs, so it fails
+    loudly in `_scan_call_args` instead — a wrong-looking message, but not a
+    silent pass.
     """
     depth = 0
     while i < len(s):
@@ -469,6 +549,16 @@ def evaluate(
                 f"{' / '.join(SWIFT_SCOPE_DIRS)} does — the pair is unanchored."
             )
 
+    # `unported` rows carry no digest, so each one exempts a whole file forever —
+    # including literals added after it was approved. A prose "keep them scarce"
+    # is advice nothing executes; this is the assertion.
+    if len(unported) > MAX_UNPORTED_ROWS:
+        problems.append(
+            f"{len(unported)} `unported` allowlist rows exceeds the cap of {MAX_UNPORTED_ROWS}. "
+            "Each exempts an entire file with no digest to expire it — port one, or raise the "
+            "cap deliberately with the reason in this file's header."
+        )
+
     # A stale `unported` row would silently exempt a stem that HAS been ported.
     for stem in sorted(unported):
         if stem in kotlin_paths:
@@ -576,11 +666,21 @@ def _load_real() -> tuple[dict[str, str], dict[str, str], str]:
 
 def check() -> int:
     swift, kotlin, allowlist_text = _load_real()
-    with_calls = [p for p, t in swift.items() if re.search(r"\bpickLanguage\s*\(", t)]
+    # Count files that actually YIELD pairs, not files whose text contains
+    # `pickLanguage(`: the latter also counts LanguageDispatch.swift's own
+    # declaration, overstating the real call-site set by one and eating the
+    # floor's slack.
+    swift_pairs_by_file = {}
+    for path, text in swift.items():
+        try:
+            swift_pairs_by_file[path] = extract_pairs(text, False)
+        except ExtractError:
+            swift_pairs_by_file[path] = []  # reported by `evaluate` below
+    with_calls = [p for p, pairs in swift_pairs_by_file.items() if pairs]
     if len(with_calls) < MIN_SWIFT_CALLSITE_FILES:
         print(
-            f"prompt-literal parity: only {len(with_calls)} Swift files with pickLanguage "
-            f"calls (expected >= {MIN_SWIFT_CALLSITE_FILES}) — enumeration drifted, refusing "
+            f"prompt-literal parity: only {len(with_calls)} Swift files yield pickLanguage "
+            f"pairs (expected >= {MIN_SWIFT_CALLSITE_FILES}) — enumeration drifted, refusing "
             "to pass.",
             file=sys.stderr,
         )
@@ -596,7 +696,7 @@ def check() -> int:
             file=sys.stderr,
         )
         return 1
-    swift_pairs = sum(len(extract_pairs(t, False)) for t in swift.values())
+    swift_pairs = sum(len(p) for p in swift_pairs_by_file.values())
     kotlin_pairs = sum(len(extract_pairs(t, True)) for t in kotlin.values())
     print(
         f"prompt-literal parity: clean — {swift_pairs} Swift / {kotlin_pairs} Kotlin "
@@ -706,14 +806,27 @@ _ONE_LINE_FUNC = 'func r(_ l: String) -> String { pickLanguage(l, ja: "はい", 
 _HEADER = "side\tstem\tdigest\texcerpt\treason\n"
 
 
+def _try_pairs(text: str, kotlin: bool) -> list[tuple[str, str]] | None:
+    """`extract_pairs`, or `None` when it raises.
+
+    Controls call this rather than `extract_pairs` directly: a bare call turns a
+    regression into an uncaught traceback that aborts the suite mid-run, so every
+    later control silently goes unrun and the failure does not name itself.
+    """
+    try:
+        return extract_pairs(text, kotlin)
+    except ExtractError:
+        return None
+
+
 def self_test() -> int:
     failures: list[str] = []
-    counts = {"positive": 0, "control": 0}
+    counts = {"positive": 0, "negative": 0, "control": 0}
 
     def expect(label: str, problems: list[str], want_ok: bool) -> None:
         # Counted, never hardcoded: the printed tally is an executable assertion,
         # and a stale one is exactly how a reader misses that the suite shrank.
-        counts["positive" if want_ok else "control"] += 1
+        counts["positive" if want_ok else "negative"] += 1
         ok = not problems
         if ok != want_ok:
             failures.append(
@@ -735,10 +848,15 @@ def self_test() -> int:
 
     # Negative control for the fixture itself: if the normalizer were eating the
     # bare `{...}` prose, these two would still match. Assert the prose survives.
-    ja_norm = extract_pairs(_SWIFT_RULES, False)[0][0]
+    rules_pair = _try_pairs(_SWIFT_RULES, False)
+    control(
+        "the Swift rules fixture no longer extracts",
+        rules_pair is not None and len(rules_pair) == 1,
+    )
+    ja_norm = rules_pair[0][0] if rules_pair else ""
     control("normalizer destroyed bare `{}` prose adjacent to a template", "{で始まり}で終わる" in ja_norm)
     control(f"expected exactly 1 erased template in the ja block, got {ja_norm.count(SENTINEL)}", ja_norm.count(SENTINEL) == 1)
-    en_norm = extract_pairs(_SWIFT_RULES, False)[0][1]
+    en_norm = rules_pair[0][1] if rules_pair else ""
     control(
         "normalizer lost an embedded quote or code fence",
         '(no empty "..." values)' in en_norm and "```" in en_norm,
@@ -807,13 +925,13 @@ def self_test() -> int:
     # 9. The declaration is not mistaken for a call (its `ja: String` is a type)…
     control(
         "pickLanguage declaration was parsed as a call",
-        not extract_pairs(_DECL_SWIFT, False) and not extract_pairs(_DECL_KOTLIN, True),
+        _try_pairs(_DECL_SWIFT, False) == [] and _try_pairs(_DECL_KOTLIN, True) == [],
     )
     # …and the exclusion does not overreach. A "`func` earlier on this line"
     # test drops this real call site silently; that is how it was written first.
     control(
         "a call on the same line as `func` was dropped as a declaration",
-        len(extract_pairs(_ONE_LINE_FUNC, False)) == 1,
+        (_try_pairs(_ONE_LINE_FUNC, False) or []) and len(_try_pairs(_ONE_LINE_FUNC, False)) == 1,
     )
 
     # 10. A malformed allowlist row is reported, not silently ignored.
@@ -840,7 +958,7 @@ def self_test() -> int:
     #     digest must be that of a REAL pair on the unported stem: with a made-up
     #     digest the staleness check reports it either way and the control is
     #     vacuous (measured — it was, before this).
-    real_pair = extract_pairs(_SWIFT_RULES, False)[0]
+    real_pair = rules_pair[0]
     expect(
         "dead allowlist row on an unported stem is caught",
         evaluate(
@@ -857,29 +975,26 @@ def self_test() -> int:
     #     truncate to the literal prefix — the shape that made two different
     #     tails compare equal.
     part = 'func f() { _ = pickLanguage(l, ja: "head " + jaTail, en: "head " + enTail) }\n'
-    try:
-        extract_pairs(part, False)
-        control("non-literal concatenation operand was silently truncated", False)
-    except ExtractError:
-        control("non-literal concatenation operand raises", True)
+    control("non-literal concatenation operand was silently truncated", _try_pairs(part, False) is None)
 
     # 14. A Kotlin raw block WITHOUT `.trimIndent()` really does ship its source
     #     indentation, so it must NOT be dedented into a false match with Swift.
     sw_block = 'func f() { _ = pickLanguage(l, ja: """\n    a\n    b\n    """, en: "x") }\n'
     kt_bare = 'fun f() { pickLanguage(l, ja = """\n            a\n            b\n        """, en = "x") }\n'
     kt_trimmed = kt_bare.replace('"""', '""".trimIndent()', 2).replace('""".trimIndent()\n', '"""\n', 1)
+    bare_pairs = _try_pairs(kt_bare, True)
     control(
         "Kotlin raw block without .trimIndent() was dedented into a false match",
-        extract_pairs(sw_block, False) != extract_pairs(kt_bare, True),
+        bare_pairs is not None and bare_pairs != _try_pairs(sw_block, False),
     )
     control(
         "Kotlin raw block WITH .trimIndent() failed to match its Swift twin",
-        extract_pairs(sw_block, False) == extract_pairs(kt_trimmed, True),
+        _try_pairs(sw_block, False) == _try_pairs(kt_trimmed, True),
     )
 
     # 15. An interpolation containing a quoted bracket must not leak a stray
     #     delimiter into the compared text (`_skip_balanced` string-awareness).
-    quoted = extract_pairs(
+    quoted = _try_pairs(
         'func f() { _ = pickLanguage(l, ja: """\n    A \\(xs.joined(separator: ")")) B\n    """, en: "x") }\n',
         False,
     )
@@ -920,7 +1035,15 @@ def self_test() -> int:
         control(f"floor guard did not fire on a narrowed scan scope (rc={rc})", rc == 1 and "enumeration drifted" in out)
     finally:
         SWIFT_SCOPE_DIRS[:] = original
-    control("real tree does not pass --check after restoring scope", quiet_check()[0] == 0)
+    # Deliberately NOT `quiet_check()[0] == 0` here. That couples --self-test to
+    # the live tree's prompt CONTENT, so an ordinary one-sided edit reports
+    # "self-test: FAILED" — which reads as "the checker is broken" and, since the
+    # gate runs --self-test first, hides the message naming the literal. The
+    # parity verdict is --check's job; this only re-asserts the loading path.
+    control(
+        "restoring the scan scope did not restore the file set",
+        len(_tracked(SWIFT_SCOPE_DIRS, ".swift")) >= MIN_SWIFT_CALLSITE_FILES,
+    )
 
     # 18. A `side`-headed row that is NOT the header must be reported, not
     #     silently skipped — the opposite of this file's stated posture.
@@ -930,14 +1053,86 @@ def self_test() -> int:
         False,
     )
 
+    # 18b. The `unported` cap is an assertion, not advice.
+    # Stems must be REAL and genuinely unported, or each row is also *dangling*
+    # and that check satisfies the expectation with the cap removed.
+    capped_swift = {
+        f"Pastura/Pastura/Engine/Capped{n}.swift":
+        f'func f() {{ _ = pickLanguage(l, ja: "j{n}", en: "e{n}") }}\n'
+        for n in range(MAX_UNPORTED_ROWS + 1)
+    }
+    capped_rows = "".join(
+        f"unported\tCapped{n}\t-\t-\twhy\n" for n in range(MAX_UNPORTED_ROWS + 1)
+    )
+    expect("rows at the cap are accepted", evaluate(
+        {k: v for k, v in list(capped_swift.items())[:MAX_UNPORTED_ROWS]}, {},
+        _HEADER + "".join(f"unported\tCapped{n}\t-\t-\twhy\n" for n in range(MAX_UNPORTED_ROWS))), True)
+    expect("the unported-row cap is not enforced", evaluate(capped_swift, {}, _HEADER + capped_rows), False)
+
+    # 19. A postfix call must not end the concatenation scan — `""" … """
+    #     .trimIndent() + "tail"` once stopped at the `.` and dropped the tail,
+    #     re-opening the truncation the `+` guard closes.
+    tail_kt = (
+        'fun f() { pickLanguage(l, ja = """\n    a\n    """.trimIndent() + "TAIL", en = "x") }\n'
+    )
+    control(
+        "a tail after `.trimIndent() +` was dropped",
+        _try_pairs(tail_kt, True) == [("a" + "TAIL", "x")],
+    )
+    # …and an UNMODELLED postfix raises rather than silently truncating.
+    control(
+        "an unmodelled postfix call did not raise",
+        _try_pairs('func f() { _ = pickLanguage(l, ja: "a".uppercased(), en: "b") }\n', False) is None,
+    )
+    # `.trimMargin()` likewise — its `|` semantics are not modelled, and without
+    # this the un-dedented body would just mismatch, which reads as a prompt
+    # divergence rather than an unsupported shape.
+    # Assert the MESSAGE: with the raise removed, the generic unmodelled-postfix
+    # guard also returns None, so an `is None` control is satisfied either way.
+    try:
+        extract_pairs('fun f() { pickLanguage(l, ja = """\n    |a\n    """.trimMargin(), en = "x") }\n', True)
+        control("`.trimMargin()` did not raise", False)
+    except ExtractError as exc:
+        control(f"`.trimMargin()` raised the wrong error: {exc}", "trimMargin" in str(exc))
+    # A wrapped `.trimIndent()` on the following line is the same call.
+    control(
+        "a wrapped `.trimIndent()` was treated as absent",
+        _try_pairs('fun f() { pickLanguage(l, ja = """\n        a\n        b\n        """\n        .trimIndent(), en = "x") }\n', True)
+        == [("a\nb", "x")],
+    )
+
+    # 20. Comments are not source. A commented-out call must NOT count as live
+    #     (else a file that stopped dispatching still reports parity), and a
+    #     doc-comment example must NOT inject a phantom pair.
+    expect(
+        "a commented-out Kotlin call is treated as live",
+        evaluate(
+            {"Pastura/Pastura/Engine/Y.swift": 'func f() { _ = pickLanguage(l, ja: "A", en: "B") }\n'},
+            {
+                "shared/engine/src/commonMain/kotlin/com/pastura/engine/Y.kt":
+                'fun f(): String {\n    // pickLanguage(l, ja = "A", en = "B")\n    return "hardcoded"\n}\n'
+            },
+            _HEADER,
+        ),
+        False,
+    )
+    control(
+        "a doc-comment example injected a phantom pair",
+        _try_pairs('/// Use pickLanguage(l, ja: "docs", en: "docs")\nfunc g() {}\n', False) == [],
+    )
+    control(
+        "a `pickLanguage` inside a string literal was parsed as a call",
+        _try_pairs('func g() { log("call pickLanguage(l, ja: 1, en: 2) here") }\n', False) == [],
+    )
+
     if failures:
         print("prompt-literal parity self-test: FAILED", file=sys.stderr)
         for f in failures:
             print(f"  - {f}", file=sys.stderr)
         return 1
     print(
-        f"prompt-literal parity self-test: passed "
-        f"({counts['positive']} positive + {counts['control']} controls)."
+        f"prompt-literal parity self-test: passed ({counts['positive']} positive, "
+        f"{counts['negative']} negative-expectation, {counts['control']} direct controls)."
     )
     return 0
 
