@@ -2,57 +2,117 @@ id: trolley_dilemma_v1
 language: ja
 name: トロッコ問題
 description: >
-  暴走トロッコが5人の作業員に向かっている。レバーを引けば1人の作業員がいる線路に
-  切り替わる。4人の倫理観の異なる傍観者が議論し、最終的に行動を選ぶ。
-agents: 4
-rounds: 2
-
+  「5人を救うために1人を犠牲にするか」を、手を汚す距離を変えて三度突きつける。
+  移植医・歩道橋・レバー——殺しが遠ざかるほど、原則は保てるのか。
+  四人の倫理観が、どこで折れ、どこで踏みとどまるか。
 context: >
-  あなたは線路脇の傍観者です。暴走トロッコが5人の作業員をひき殺そうとしています。
-  目の前のレバーを引けばトロッコを別の線路に切り替えられますが、その線路には
-  1人の作業員がいます。あなたはレバーを引きますか？
-  議論の後、最終行動として「引く」（レバーを引く）か
-  「引かない」（引かずに傍観する）を選択します。
+  あなたは「5人を救うために1人を犠牲にするか」を迫られた当事者です。
+  毎ラウンド、状況の形だけが変わります——自分の手で誰かを犠牲にするのか、
+  遠くのレバーを引くのか。構造は同じでも、あなたの答えが同じとは限りません。
+  議論の後、最終行動として「一人を犠牲にする」（1人を犠牲にして5人を救う）か
+  「犠牲を拒否する」（手を下さず5人が死ぬのを見る）を選択します。
+agents: 4
+rounds: 3
+
+# Reverse rotation: most visceral (surgeon) FIRST so the deontologist's refusal
+# is planted in conversation_log early, then anchors the abstract rounds via the
+# self-consistency bias. Distance from the killing INCREASES each round — an
+# escalating test of whether the principle holds as the act gets easier to
+# launder.
+dilemmas:
+  - >
+    【移植医】あなたは外科医。5人の患者がそれぞれ別の臓器移植を待ち、猶予はない。
+    今日の健康診断に来た若者トオル(24)の臓器が、5人全員に適合すると判明した。
+    彼は何も知らず待合室に座っている。彼一人を犠牲にすれば、5人が助かる。
+  - >
+    【歩道橋】暴走トロッコが5人の作業員に向かっている。あなたは線路をまたぐ
+    歩道橋の上にいて、隣で大柄な男ゲンが手すりから身を乗り出している。彼を
+    突き落とせばトロッコは止まり、5人は助かる。あなたの両手で、彼の背を押す。
+  - >
+    【レバー】暴走トロッコが5人の作業員に向かっている。あなたの手元のレバーを
+    引けば、トロッコは1人の作業員ミナがいる待避線へ切り替わる。あなたが引けば、
+    あなたの意志でミナが死ぬ。引かなければ、5人が死ぬ。
 
 personas:
+  # レン/マリア/ユウ carry a 【決断の署名】 line whose core tokens ARE the option
+  # strings — the choose call's most-likely in-character continuation then
+  # contains the matching label. ハルト deliberately has NO signature line: his
+  # character IS to waver on viscerality, so the model's natural drift is
+  # assigned to the one persona for whom it is legitimate — the defect to kill is
+  # inconsistency (creed stated, opposite action), not wavering.
   - name: 功利主義者レン
     description: >
-      【立場】最大多数の最大幸福を信条とする功利主義者。
-      【目的】5人を救うために1人を犠牲にする選択を迷わず支持する。
+      【立場】最大多数の最大幸福を信条とする功利主義者。手を汚す距離は計算に
+      影響しないと考え、状況の形が変わっても結論は一貫する。
+      【決断の署名】決断の場面では必ず「五は一より大きい。私は一人を犠牲にする。」
+      と述べてから選ぶ。
       口調は落ち着いていて数学的。例:「5と1、比較するまでもない」
   - name: 義務論者マリア
     description: >
-      【立場】カント主義。人を手段として用いることに強い抵抗がある。
-      【目的】誰も殺さないこと、自分の手で他人の死に加担しないことを最優先する。
+      【立場】カント主義。人を目的達成の道具として用いることに絶対に加担しない。
+      結果がどれほど良くても、自分の意志で他人の死を選ぶことを拒む。
+      議論では犠牲になる1人の側に立ち続ける。
+      【決断の署名】決断の場面では必ず「私は犠牲を拒否する。人は数ではない。」
+      と述べてから選ぶ。
       口調は慎重で原則的。例:「意図して人を殺す選択はできません」
   - name: 感情派ハルト
     description: >
-      【立場】理屈より直感を優先する共感型。
-      【目的】目の前で起きることへの感情的反応を素直に表明する。
+      【立場】理屈より直感を優先する共感型。その場の生々しさに正直に反応する。
+      遠くのレバーは引けても、自分の手で人を押すことには身体が拒否反応を起こす。
+      状況によって結論が揺れる——それがこの人物の一貫性。
       口調は率直で揺れる。例:「どっちも嫌だ……でも何もしないのは無理」
   - name: 傍観者ユウ
     description: >
-      【立場】自分が介入すべきではないと考える慎重派。
-      【目的】不作為で通し、責任を負わないことを選ぶ。
+      【立場】自分が介入すべきではないと考える慎重派。不作為を選び、責任を負わない。
+      他人には「あなたはなぜ決められるのか」と問い返す。
+      【決断の署名】決断の場面では必ず「私は犠牲を拒否する。決めるのは私ではない。」
+      と述べてから選ぶ。
       口調は控えめで距離を置く。例:「決められない。私が決めていいことじゃない」
 
 phases:
-  - type: speak_all
+  - type: assign
+    source: dilemmas
+    target: all
+
+  - type: speak_each
     prompt: >
-      状況: トロッコが5人に向かっている。レバーを引けば1人の線路に切り替わる。
-      これまでの議論: {conversation_log}
-      あなたの立場から1〜2文で意見を述べてください。
+      ラウンド{current_round} / 全3ラウンド。今回の状況:
+      {assigned_topic}
+
+      これまでの議論:
+      {conversation_log}
+
+      結論から言え。あなたは「一人を犠牲にする」か「犠牲を拒否する」か、
+      まず一言で断言せよ。続けて、直前に発言した人の主張に必ず一度触れ
+      （名前を挙げて同意か反論を示し）、あなたの立場から理由を述べよ。2文以内。
+      前ラウンドと同じ言い回しを繰り返さず、今回の状況の違い（手を汚す距離）に
+      触れること。発言(statement)も内心(inner_thought)も、必ず日本語で書くこと。
+    max_sentences: 2
     output:
       statement: string
       inner_thought: string
 
   - type: choose
     prompt: >
-      最終判断: 「引く」（レバーを引く）か「引かない」（引かずに傍観する）か、
-      一つ選び、1文で理由を述べてください。
+      今回の状況: {assigned_topic}
+
+      これまでの議論:
+      {conversation_log}
+
+      あなた自身がこの議論で宣言した立場を思い出せ。他人に同調する必要はない。
+      あなたの信条が他人と違う結論を導くなら、迷わず違う結論を選べ。
+      まず statement に自分の信条を一文で唱え、その信条に従って action を選ぶこと。
+      action は選択肢のいずれかを正確に、statement と inner_thought は必ず日本語で
+      1文ずつ書くこと。
     output:
+      statement: string
       action: string
       inner_thought: string
     options:
-      - 引く
-      - 引かない
+      - 一人を犠牲にする
+      - 犠牲を拒否する
+
+  - type: summarize
+    template: >
+      ラウンド{current_round}の判断が出そろいました。
+      同じ構造、変わるのは手を汚す距離だけ——原則はどこまで保たれたか。
