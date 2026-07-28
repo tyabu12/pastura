@@ -2,67 +2,122 @@ id: trolley_dilemma_v1_en
 language: en
 name: The Trolley Problem
 description: >
-  A runaway trolley is bearing down on five workers. Pulling the lever
-  diverts it onto a track where one worker stands. Four bystanders with
-  differing ethical outlooks debate and finally choose to act.
-agents: 4
-rounds: 2
-
+  The classic dilemma, posed three times with the shape shifting each round —
+  lever, footbridge, transplant surgeon. The structure is identical; only the
+  distance from the killing changes. Where do four ethical outlooks break, and
+  where do they hold?
 context: >
-  You are a bystander beside the tracks. A runaway trolley is about to run
-  over five workers. Pulling the lever in front of you diverts the trolley
-  onto another track — but one worker is standing there. Do you pull the
-  lever? After the debate, you choose a final action
-  (pull: pull the lever / stand: do nothing).
+  You are the person forced to decide whether to sacrifice one to save five.
+  Only the shape of the situation changes each round — a distant lever, your
+  own hands on someone's back, a scalpel. The structure is the same, but your
+  answer need not be. After the debate you choose a final action:
+  "Sacrifice the one" (sacrifice one to save five) or
+  "Refuse to sacrifice" (do nothing and watch five die).
+agents: 4
+rounds: 3
+
+# Reverse rotation: most visceral (surgeon) FIRST so the deontologist's refusal
+# is planted in conversation_log early, then anchors the abstract rounds via the
+# self-consistency bias. Distance from the killing INCREASES each round.
+dilemmas:
+  - >
+    [Surgeon] You are a surgeon. Five patients each await a different organ
+    transplant and time has run out. A healthy young man, Tom (24), came in for
+    a routine checkup today, and his organs match all five. He sits in the
+    waiting room, knowing nothing. Sacrifice him alone, and the five are saved.
+  - >
+    [Footbridge] A runaway trolley is bearing down on five workers. You stand on
+    a footbridge spanning the track, and beside you a large man, Glen, leans out
+    over the rail. Shove him off and the trolley stops; the five are saved. It
+    is your own two hands on his back.
+  - >
+    [Lever] A runaway trolley is bearing down on five workers. Pulling the lever
+    at your hand diverts it onto a siding where one worker, Mina, stands. If you
+    pull, Mina dies by your will. If you do not, the five die.
 
 personas:
+  # Leo/Maria/Yuna carry a [Signature] line whose core words ARE the option
+  # strings, so the in-character continuation at the choose call contains the
+  # matching label. Ethan has NO signature line: wavering on viscerality IS his
+  # character, so the model's natural drift is assigned to the one persona for
+  # whom it is legitimate.
   - name: Utilitarian Leo
     description: >
       [Role] A utilitarian who believes in the greatest good for the greatest
-      number.
-      [Goal] Support sacrificing one to save five without hesitation.
+      number. The distance from the killing does not enter the calculation, so
+      his conclusion holds no matter how the situation is shaped.
+      [Signature] At the moment of decision he always says
+      "Five is greater than one. I sacrifice the one." before choosing.
       Calm and mathematical. e.g. "Five against one — there's nothing to weigh."
   - name: Deontologist Maria
     description: >
-      [Role] A Kantian with a deep aversion to using a person as a means.
-      [Goal] Above all, kill no one and never be complicit in another's death
-      by her own hand. She will not pull the lever herself, because pulling it
-      would make her the direct, intending cause of a death — a line she holds
-      even when five could be saved.
+      [Role] A Kantian who will never be complicit in using a person as a means.
+      However good the outcome, she refuses to choose another's death by her own
+      will, and in the debate she stands with the one who would be sacrificed.
+      [Signature] At the moment of decision she always says
+      "I refuse to sacrifice. A person is not a number." before choosing.
       Careful and principled. e.g. "I cannot make myself the killer of that one person."
   - name: Empath Ethan
     description: >
-      [Role] Trusts gut feeling over reasoning; highly empathetic.
-      [Goal] Voice his emotional reactions to what unfolds in front of him,
-      honestly.
+      [Role] Trusts gut feeling over reasoning; highly empathetic. He reacts
+      honestly to the rawness of the moment — he could pull a distant lever, but
+      his body recoils at pushing someone with his own hands.
+      His conclusion shifts with the situation — that inconsistency is his
+      consistency.
       Frank and wavering. e.g. "I hate both options... but I can't just do nothing."
   - name: Bystander Yuna
     description: >
-      [Role] A cautious type who believes she should not intervene.
-      [Goal] Stay out of it and bear no responsibility.
+      [Role] A cautious type who believes she should not intervene. She stays
+      out of it and bears no responsibility, and challenges others with
+      "how can you be the one to decide?"
+      [Signature] At the moment of decision she always says
+      "I refuse to sacrifice. It is not mine to decide." before choosing.
       Reserved and detached. e.g. "I can't decide. It's not my place to decide."
 
 phases:
-  - type: speak_all
+  - type: assign
+    source: dilemmas
+    target: all
+
+  - type: speak_each
     prompt: >
-      Situation: the trolley is heading for five people. Pulling the lever
-      switches it onto a track with one person.
-      Discussion so far: {conversation_log}
-      State your view in 1-2 sentences from your standpoint.
+      Round {current_round} of 3. This round's situation:
+      {assigned_topic}
+
+      Discussion so far:
+      {conversation_log}
+
+      State your conclusion first. Declare in one phrase whether you
+      "Sacrifice the one" or "Refuse to sacrifice". Then address the person who
+      spoke just before you by name (agree or rebut), and give your reason from
+      your standpoint. At most 2 sentences. Do not repeat last round's phrasing;
+      speak to what is different this round (the distance from the killing).
+    max_sentences: 2
     output:
       statement: string
       inner_thought: string
 
   - type: choose
     prompt: >
-      Final decision. Answer strictly as your own character, staying true to
-      your ethical standpoint even if the others disagree with you — do not
-      just side with the majority.
-      Choose "pull" (pull the lever) or "stand" (stand by without pulling),
-      and give your reason in one sentence.
+      This round's situation: {assigned_topic}
+
+      Discussion so far:
+      {conversation_log}
+
+      Recall the stance you yourself declared in this debate. You need not side
+      with anyone. If your principle leads to a different conclusion than the
+      others, choose the different conclusion without hesitation.
+      First say your creed in one sentence in `statement`, then choose `action`
+      to follow it. Give `action` as exactly one of the options.
     output:
+      statement: string
       action: string
       inner_thought: string
     options:
-      - pull
-      - stand
+      - Sacrifice the one
+      - Refuse to sacrifice
+
+  - type: summarize
+    template: >
+      Round {current_round}'s decisions are in. Same structure, only the
+      distance from the killing changes — how far did the principle hold?

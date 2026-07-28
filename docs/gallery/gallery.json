@@ -25,19 +25,21 @@
       "id": "trolley_dilemma_v1",
       "title": "トロッコ問題",
       "category": "ethics",
-      "description": "4人の異なる倫理観を持つ傍観者が議論の末に行動を選ぶ。",
+      "description": "5人を救うため1人を犠牲にするか。異なる倫理観の4人が、形を変える三つのジレンマで試される。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 12,
+      "estimated_inferences": 24,
       "agent_count": 4,
-      "rounds": 2,
+      "rounds": 3,
       "phases": [
-        "speak_all",
-        "choose"
+        "assign",
+        "speak_each",
+        "choose",
+        "summarize"
       ],
       "language": "ja",
       "yaml_url": "trolley_dilemma_v1.yaml",
-      "yaml_sha256": "59a0427f44375d1f56b96ae25c9498da19e936faa93764ae6ae47bdbb560f81f",
+      "yaml_sha256": "19ed4907738681370e554cebc3373f4d8488412193398b9fbb378a6a9eeac6aa",
       "added_at": "2026-04-15"
     },
     {
@@ -483,19 +485,21 @@
       "id": "trolley_dilemma_v1_en",
       "title": "The Trolley Problem",
       "category": "ethics",
-      "description": "Four bystanders with differing ethical outlooks debate, then choose to act.",
+      "description": "Sacrifice one to save five? Four differing ethical outlooks, tested across three shifting dilemmas.",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 12,
+      "estimated_inferences": 24,
       "agent_count": 4,
-      "rounds": 2,
+      "rounds": 3,
       "phases": [
-        "speak_all",
-        "choose"
+        "assign",
+        "speak_each",
+        "choose",
+        "summarize"
       ],
       "language": "en",
       "yaml_url": "trolley_dilemma_v1_en.yaml",
-      "yaml_sha256": "57cfe1e023d9a2edcf0b2a1685f00fe6c4f78921d25d15f913086933ad7cba89",
+      "yaml_sha256": "c23985d288c24c741f7f51e2f0a23eb0f4bc731cac00ba0d530f307a24b0914b",
       "added_at": "2026-07-01"
     },
     {
