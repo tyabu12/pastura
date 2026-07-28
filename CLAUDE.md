@@ -257,7 +257,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 **Path-scoped** (injected when a matching path is read, not from a diff / `Grep`):
 
-- `adr-writing.md` — ADR drafting concepts: fact-claim verification at write time, mechanism contract over pinned model thresholds, inter-citation consistency, and the numbering facts `/claude-kit:write-adr` cannot derive (`docs/decisions/**`)
+- `adr-writing.md` — ADR drafting concepts: fact-claim verification at write time, mechanism contract over pinned model thresholds, and the numbering facts `/claude-kit:write-adr` cannot derive. §1/§2 must stay in this file — a dozen ADRs cite them by section, and `write-adr` forwards this path to its reviewers as `ADR_RULES_PATH` (a channel its SKILL.md notes fails silently). §3's once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` (`docs/decisions/**`)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure, conservative detection) + `gh` read-surface traps. Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
 - `ci-workflows.md` — CI workflow / script editing: bash 3.2 gotchas on macOS GHA runners (no `mapfile` etc.), long-lived integration-branch gating shape (`.github/workflows/**`, `scripts/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
@@ -317,6 +317,7 @@ same change:
 | `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
 | `docs/decisions/INDEX.md`             | Full ADR decision summaries — the ADR lookup surface (roster below is titles only) |
+| `docs/decisions/adr-writing-guide.md` | ADR inter-citation consistency checklist — run once after drafting / amending (dates, SHAs, `file:line`, period words; projection-vs-measurement and status-flip variants). Companion to `.claude/rules/adr-writing.md` §3 |
 | `docs/kmp-migration-status.md`        | KMP Engine migration (ADR-023 / #501) at-a-glance progress board — stage table + gate-enforced Wave B handler checklist. Progress view only; ADR-023 = design, #501 = execution detail |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
