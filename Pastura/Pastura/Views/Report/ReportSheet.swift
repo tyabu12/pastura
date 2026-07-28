@@ -10,7 +10,7 @@ import SwiftUI
 /// - ``migrationFailure(error:)``: presented from the DB recovery screen
 ///   (`PasturaApp` `.databaseRecovery`, #580) with the SQLite migration
 ///   error auto-attached.
-/// - ``general``: pushed from Settings → Legal → "Send a content report".
+/// - ``general``: pushed from Settings → Feedback → "Send a content report".
 enum ReportContext {
   case scenario(GalleryScenario)
   case migrationFailure(error: String)

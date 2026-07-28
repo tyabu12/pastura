@@ -4,6 +4,7 @@
 // control bar, scoreboard sheet, export flow, and lifecycle hooks. Log-
 // entry rendering is already split into SimulationView+LogEntries.swift;
 // further extraction would scatter state bindings across files.
+import StoreKit
 import SwiftUI
 import UIKit
 import os
@@ -47,6 +48,10 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   // not inherit ambient appearance), so capture the current scheme here and
   // pass it in explicitly.
   @Environment(\.colorScheme) private var colorScheme
+  // StoreKit review request, fired at the completed run's happy moment (#1279).
+  // Read here rather than inside `ReviewRequestCoordinator` so the coordinator
+  // stays SwiftUI-free; eligibility lives there, presentation lives here.
+  @Environment(\.requestReview) private var requestReview
   @State private var viewModel: SimulationViewModel?
   /// `true` while the back-button confirm-on-leave dialog is showing (#673).
   @State private var pendingBackLeave = false
@@ -806,6 +811,86 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     .safeAreaInset(edge: .top, spacing: 0) {
       headerMetaInset(viewModel: viewModel)
     }
+    // App Store review prompt at the run's happy moment (#1279). Body
+    // extracted to keep `simulationContent` under `cyclomatic_complexity`.
+    .task(id: viewModel.isCompletionChromeReady) {
+      await requestReviewAtHappyMoment(viewModel: viewModel)
+    }
+  }
+
+  /// Offers the App Store review prompt once a run's closing chrome has
+  /// settled (#1279). Eligibility itself lives in ``ReviewRequestCoordinator``.
+  ///
+  /// Driven by `.task(id:)` rather than `.onChange` + a free `Task`: SwiftUI
+  /// cancels a `.task` on disappear, which covers the back / swipe-back pop,
+  /// the tab switch, and the ADR-017 Phase B park-on-hide. A detached task
+  /// would outlive the view and present a StoreKit modal over whatever screen
+  /// the user moved to.
+  ///
+  /// **Disappear is not the whole story**, which is why the guards below exist:
+  /// presenting a sheet does NOT disappear the host view, and neither does
+  /// `scenePhase` going to `.background`. Firing into either case is worse than
+  /// not firing at all — the coordinator stamps the version *before* it fires
+  /// (it gets no completion signal from StoreKit), so a presentation the system
+  /// silently drops burns this version's single attempt with nothing shown.
+  /// Hence the explicit `scenePhase` + no-modal-open checks, re-read after the
+  /// sleep rather than before it.
+  ///
+  /// The delay keeps the dialog off the score reveal itself.
+  ///
+  /// A skip here is **terminal for this view instance**: the `.task` id keys on
+  /// `isCompletionChromeReady`, which does not change again for the finished
+  /// run, so there is no re-attempt once the guards decline. That is the
+  /// intended trade — nothing was stamped, so a later completed run still gets
+  /// its chance.
+  ///
+  /// ⚠️ ``isAnyModalPresented(viewModel:)`` is a hand-maintained enumeration.
+  /// Extend it when adding a `.sheet` / `.alert` / `.fullScreenCover` to this
+  /// view; `SimulationViewModalInventoryTests` fails when the modal inventory
+  /// changes.
+  private func requestReviewAtHappyMoment(viewModel: SimulationViewModel) async {
+    guard viewModel.isCompletionChromeReady else { return }
+    try? await Task.sleep(for: Self.reviewPromptDelay)
+    guard
+      !Task.isCancelled,
+      viewModel.isCompletionChromeReady,
+      scenePhase == .active,
+      !isAnyModalPresented(viewModel: viewModel)
+    else { return }
+    await ReviewRequestCoordinator.requestIfEligible(
+      repository: dependencies.simulationRepository,
+      currentRunId: viewModel.simulationId,
+      degradedTurnCount: viewModel.degradedTurnCount,
+      requestReview: { requestReview() })
+  }
+
+  /// Whether a modal **this view owns** is currently up. Enumerated by hand —
+  /// SwiftUI exposes no "is a sheet up?" query — so it must stay in step with
+  /// the `.sheet` / `.alert` bindings in `body` and `simulationContent`.
+  /// `SimulationViewModalInventoryTests` fails when the inventory's size
+  /// changes — it detects arrival, it cannot check that a new binding was
+  /// actually folded into the predicate below.
+  ///
+  /// **Scope, stated honestly**: it does NOT see a modal presented by an
+  /// *ancestor* (the scene-level cellular-consent dialog, DB-recovery, …).
+  /// Those cover the same window and would still be obstructed. Accepted:
+  /// they are scene-lifecycle surfaces that do not plausibly appear during a
+  /// run's closing seconds, and the cheap alternative (a UIKit
+  /// `presentedViewController` probe) asserts a presentation-chain shape this
+  /// change has no way to verify.
+  ///
+  /// Consumed only by ``requestReviewAtHappyMoment(viewModel:)``: an
+  /// obstructed screen is not a moment to ask for a rating, and a dropped
+  /// StoreKit presentation is unrecoverable (see that method's doc).
+  private func isAnyModalPresented(viewModel: SimulationViewModel) -> Bool {
+    exportPayload != nil
+      || exportError != nil
+      || highlightShareItem != nil
+      || highlightShareContext != nil
+      || selectedPersona != nil
+      || showScoreboard
+      || pendingBackLeave
+      || viewModel.predictionPrompt != nil
   }
 
   /// One-shot toast for the first `.languageMismatch` event of the
@@ -1273,6 +1358,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// reads as one settle. Code-review-gated timing token (no automated firing
   /// signal); pinned by `SimulationViewCompletionChromeTests`.
   static let sharedFadeDuration: Double = 0.35
+
+  /// Wait between the result card settling and the App Store review prompt
+  /// (#1279), so the system dialog never covers the score reveal it is
+  /// rewarding. Code-review-gated timing token; pinned by
+  /// `SimulationViewCompletionChromeTests`.
+  static let reviewPromptDelay: Duration = .seconds(2)
 
   private func scrollToBottom(_ proxy: ScrollViewProxy) {
     withAnimation {
