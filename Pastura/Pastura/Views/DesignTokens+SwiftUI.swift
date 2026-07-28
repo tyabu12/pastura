@@ -121,6 +121,24 @@ extension Color {
   static let nightMuted = PasturaPalette.nightMuted.color
   static let nightRule = PasturaPalette.nightRule.color
   static let nightMoss = PasturaPalette.nightMoss.color
+  static let nightInfo = PasturaPalette.nightInfo.color
+  static let nightInfoSoft = PasturaPalette.nightInfoSoft.color
+  static let nightInfoInk = PasturaPalette.nightInfoInk.color
+  static let nightSuccess = PasturaPalette.nightSuccess.color
+  static let nightSuccessSoft = PasturaPalette.nightSuccessSoft.color
+  static let nightSuccessInk = PasturaPalette.nightSuccessInk.color
+  static let nightWarning = PasturaPalette.nightWarning.color
+  static let nightWarningSoft = PasturaPalette.nightWarningSoft.color
+  static let nightWarningInk = PasturaPalette.nightWarningInk.color
+  static let nightDanger = PasturaPalette.nightDanger.color
+  static let nightDangerSoft = PasturaPalette.nightDangerSoft.color
+  static let nightDangerInk = PasturaPalette.nightDangerInk.color
+  static let nightHover = PasturaPalette.nightHover.color
+  static let nightPressed = PasturaPalette.nightPressed.color
+  static let nightSelected = PasturaPalette.nightSelected.color
+  static let nightFocusRing = PasturaPalette.nightFocusRing.color
+  static let nightDisabledText = PasturaPalette.nightDisabledText.color
+  static let nightDisabledBackground = PasturaPalette.nightDisabledBackground.color
 
   // §2.10 Time-of-Day (decorative ambient)
   static let dawn = PasturaPalette.dawn.color
