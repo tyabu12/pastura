@@ -241,7 +241,7 @@ internal class PromptBuilder {
         val guidance = pickLanguage(
             language,
             ja = "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。" +
-                "内心（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
+                "心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
             en = "Never reveal this secret in anything the other participants can hear (your statement). " +
                 "You may reflect on it frankly in your inner_thought. It shapes your judgement and attitude.",
         )
@@ -598,7 +598,7 @@ internal class PromptBuilder {
         state.variables["notes_${persona.name}"]?.takeIf { it.isNotEmpty() }?.let { note ->
             val header = pickLanguage(
                 language,
-                ja = "## あなたの内心メモ（他の参加者には見えません）",
+                ja = "## あなたの心の声メモ（他の参加者には見えません）",
                 en = "## Your Private Notes (invisible to other participants)",
             )
             sections += "$header\n$note"

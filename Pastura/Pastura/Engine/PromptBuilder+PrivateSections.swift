@@ -37,7 +37,7 @@ nonisolated extension PromptBuilder {
     let guidance = pickLanguage(
       language,
       ja:
-        "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。内心（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
+        "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
       en:
         "Never reveal this secret in anything the other participants can hear (your statement). You may reference it freely in your inner_thought, and let it shape your decisions and demeanor."
     )
@@ -59,7 +59,7 @@ nonisolated extension PromptBuilder {
     if let note = state.variables["notes_\(persona.name)"], !note.isEmpty {
       let header = pickLanguage(
         language,
-        ja: "## あなたの内心メモ（他の参加者には見えません）",
+        ja: "## あなたの心の声メモ（他の参加者には見えません）",
         en: "## Your Private Notes (invisible to other participants)")
       sections.append("\(header)\n\(note)")
     }
