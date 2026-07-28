@@ -232,11 +232,18 @@ internal class PromptBuilder {
      * lands.
      *
      * The **guidance wording** and the **single-newline separator** below are
-     * pinned to the shipped Swift text, not re-translated from the ja (#1295):
-     * the two engines exist to be behaviour-comparable, so a wording change
-     * belongs in both at once and behind a harness A/B. `pickLanguage` literal
-     * drift is gate-enforced (`scripts/check-prompt-literal-parity.py`); the
-     * separator is *not* — see that script's non-coverage list.
+     * pinned to the shipped Swift text (#1295): the two engines exist to be
+     * behaviour-comparable, so a wording change belongs in both at once and
+     * behind a harness A/B. `pickLanguage` literal drift is gate-enforced
+     * (`scripts/check-prompt-literal-parity.py`); the separator is *not* — see
+     * that script's non-coverage list.
+     *
+     * **This pin locks in a known ja/en mismatch, tracked on #1301.** The en text
+     * it replaced ("It shapes your judgement and attitude") rendered the ja's
+     * declarative last sentence more closely than the shipped imperative one
+     * does; Swift won on "a parity PR must not move shipped prompt text", not on
+     * translation quality. Neither form has been A/B'd — do not read this pin as
+     * an endorsement of the wording.
      */
     private fun appendSecretSection(sections: MutableList<String>, persona: Persona, language: String) {
         val secret = persona.secret?.takeIf { it.isNotBlank() } ?: return

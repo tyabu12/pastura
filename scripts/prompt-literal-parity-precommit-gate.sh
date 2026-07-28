@@ -18,6 +18,14 @@
 # to catch — the Swift-only trigger looks plausible precisely because the Swift
 # tree is where most edits land.
 #
+# Scope note: the trigger reads the INDEX (`git diff --cached`) but the checker
+# reads the WORKTREE (`git ls-files` for the file list, then `read_text`). Same
+# shape as the adr023-port-coverage and kmp-status gates. Consequence: a
+# partially-staged edit (`git add -p`) is gated against uncommitted content, so a
+# one-sided edit can commit locally if its counterpart sits unstaged in the tree.
+# CI is the backstop — it checks out the commit — which is why this is documented
+# rather than re-engineered away from the sibling gates' shape.
+#
 # bash 3.2 portable — ships to dev macOS via the pre-commit hook. NO
 # mapfile/readarray, declare -A, ${var^^}, or <<< here-strings.
 

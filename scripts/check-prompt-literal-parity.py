@@ -56,7 +56,8 @@ What this cannot see
   rules block) and the conversation-log line format (`"  <name>: <content>"`).
 
 Tracked-only scope (NOT a worktree walk), per `.claude/rules/ci-workflows.md`
-§ "Gate scripts": a gate asserting a repository invariant reads `git ls-files`,
+§ "Gate scripts: `::error file=` is repo-relative, and scope must be tracked-only":
+a gate asserting a repository invariant reads `git ls-files`,
 never `os.walk`, or it goes green on a clean CI checkout and red on a developer
 machine holding build output.
 
@@ -67,7 +68,9 @@ Usage:
 """
 from __future__ import annotations
 
+import contextlib
 import hashlib
+import io
 import pathlib
 import re
 import subprocess
@@ -127,7 +130,17 @@ def _read_string_literal(src: str, i: int, kotlin: bool) -> tuple[str, int]:
         end = src.find('"""', i + 3)
         if end == -1:
             raise ExtractError("unterminated multi-line string literal")
-        return _dedent(src[i + 3 : end], src, end, kotlin), end + 3
+        body, after = src[i + 3 : end], end + 3
+        if kotlin:
+            # Kotlin's dedent is a METHOD CALL, not a property of `"""`. Applying
+            # it unconditionally normalizes away a real divergence: a raw block
+            # without `.trimIndent()` genuinely ships its source indentation into
+            # the prompt, and would then compare equal to Swift's dedented twin.
+            if src.startswith(".trimMargin(", after):
+                raise ExtractError("`.trimMargin()` semantics are not modelled — compare by hand")
+            if not src.startswith(".trimIndent()", after):
+                return body, after
+        return _dedent(body, src, end, kotlin), after
 
     j = i + 1
     out = []
@@ -189,7 +202,10 @@ def _read_concatenated(src: str, i: int, kotlin: bool) -> str:
     """Read one or more `+`-joined string literals starting at `src[i]`.
 
     Kotlin wraps long literals as `"..." +\\n    "..."`; joining before comparison
-    is what lets a wrapped Kotlin literal match its unwrapped Swift twin.
+    is what lets a wrapped Kotlin literal match its unwrapped Swift twin. This is
+    live on the real tree, not a hypothetical — `PromptBuilder.appendSecretSection`
+    / `whisperRule` / `moodRule` and `ReflectHandler`'s default prompt all wrap
+    inside a `pickLanguage` call.
     """
     i = _skip_trivia(src, i)
     if i >= len(src) or src[i] != '"':
@@ -199,12 +215,17 @@ def _read_concatenated(src: str, i: int, kotlin: bool) -> str:
         content, i = _read_string_literal(src, i, kotlin)
         parts.append(content)
         j = _skip_trivia(src, i)
-        if j < len(src) and src[j] == "+":
-            k = _skip_trivia(src, j + 1)
-            if k < len(src) and src[k] == '"':
-                i = k
-                continue
-        return "".join(parts)
+        if j >= len(src) or src[j] != "+":
+            return "".join(parts)
+        k = _skip_trivia(src, j + 1)
+        if k >= len(src) or src[k] != '"':
+            # Returning the partial join here would compare two sides on their
+            # literal prefixes alone and call a real divergence equal — a SILENT
+            # pass, the one failure mode this gate cannot afford. (A non-literal
+            # in the LEADING position already raises above, which is what made
+            # the shape look guarded from one side.)
+            raise ExtractError("pickLanguage argument concatenates a non-literal")
+        i = k
 
 
 def extract_pairs(text: str, kotlin: bool) -> list[tuple[str, str]]:
@@ -301,12 +322,28 @@ def normalize(literal: str, kotlin: bool) -> str:
 
 
 def _skip_balanced(s: str, i: int, opener: str, closer: str) -> int:
-    """Index just past the `closer` matching the `opener` at `s[i]`."""
+    """Index just past the `closer` matching the `opener` at `s[i]`.
+
+    String-aware: an interpolated expression may itself contain a quoted bracket
+    (`\\(xs.joined(separator: ")"))` is idiomatic in this tree). Counting depth
+    through it either leaks a stray `)` into the compared text or raises a false
+    "unbalanced" on a legitimate literal.
+    """
     depth = 0
     while i < len(s):
-        if s[i] == opener:
+        c = s[i]
+        if c == "\\":
+            i += 2
+            continue
+        if c == '"':
+            i += 1
+            while i < len(s) and s[i] != '"':
+                i += 2 if s[i] == "\\" else 1
+            i += 1
+            continue
+        if c == opener:
             depth += 1
-        elif s[i] == closer:
+        elif c == closer:
             depth -= 1
             if depth == 0:
                 return i + 1
@@ -348,13 +385,16 @@ def parse_allowlist(text: str) -> tuple[set[tuple[str, str, str]], set[str], lis
     divergences: set[tuple[str, str, str]] = set()
     unported: set[str] = set()
     errors: list[str] = []
+    seen_data = False
     for lineno, raw in enumerate(text.splitlines(), start=1):
         line = raw.rstrip("\n")
         if not line.strip() or line.lstrip().startswith("#"):
             continue
         cols = line.split("\t")
-        if cols[0] == "side":
-            continue  # header
+        if cols[0] == "side" and not seen_data:
+            seen_data = True
+            continue  # the header row, which may only be the first data line
+        seen_data = True
         if len(cols) != 5:
             errors.append(f"allowlist line {lineno}: expected 5 tab-separated columns, got {len(cols)}")
             continue
@@ -394,7 +434,22 @@ def evaluate(
 
     swift_by_stem = collect(swift_sources, kotlin=False)
     kotlin_by_stem = collect(kotlin_sources, kotlin=True)
-    kotlin_paths = {stem_of(p): p for p in kotlin_sources}
+
+    # Two Kotlin files reducing to one stem (a `Phases/X.kt` beside a
+    # `ScoringLogic/X.kt`). Their literals are NOT lost — `collect` accumulates
+    # per stem — but they are pooled, so a literal in one file can satisfy a
+    # Swift literal that belongs to the other, and the "counterpart exists"
+    # messages then name an arbitrary one of the two. None exist today; report
+    # the ambiguity rather than compare across a pairing nobody intended.
+    kotlin_paths: dict[str, str] = {}
+    for path in sorted(kotlin_sources):
+        stem = stem_of(path)
+        if stem in kotlin_paths:
+            problems.append(
+                f"{stem}: two Kotlin files reduce to this stem "
+                f"({kotlin_paths[stem]}, {path}) — pairing is ambiguous."
+            )
+        kotlin_paths[stem] = path
 
     for stem in sorted(swift_by_stem):
         if stem not in kotlin_paths:
@@ -424,8 +479,12 @@ def evaluate(
         elif stem not in swift_by_stem:
             problems.append(f"{stem}: dangling `unported` allowlist row — no such Swift file with literals.")
 
-    used = {(side, stem, dig) for side, stem, dig in divergences}
-    for side, stem, dig in sorted(used - _live_divergences(swift_by_stem, kotlin_by_stem)):
+    # `unported` stems are skipped above (no `_compare`), so their pairs are not
+    # live divergences — counting them would accept a `swift-only <unported-stem>`
+    # row that nothing consults and nothing reports stale: a dead row reading as
+    # an active exemption.
+    live = _live_divergences(swift_by_stem, kotlin_by_stem, skip=unported)
+    for side, stem, dig in sorted(divergences - live):
         problems.append(
             f"{stem}: allowlist row `{side}` {dig} no longer matches any divergence — "
             "the literal was changed or reconciled; drop the row."
@@ -436,9 +495,10 @@ def evaluate(
 def _live_divergences(
     swift_by_stem: dict[str, list[tuple[str, str]]],
     kotlin_by_stem: dict[str, list[tuple[str, str]]],
+    skip: set[str],
 ) -> set[tuple[str, str, str]]:
     live: set[tuple[str, str, str]] = set()
-    for stem in set(swift_by_stem) | set(kotlin_by_stem):
+    for stem in (set(swift_by_stem) | set(kotlin_by_stem)) - skip:
         s, k = _diff(swift_by_stem.get(stem, []), kotlin_by_stem.get(stem, []))
         live.update(("swift-only", stem, digest(p)) for p in s)
         live.update(("kotlin-only", stem, digest(p)) for p in k)
@@ -648,13 +708,23 @@ _HEADER = "side\tstem\tdigest\texcerpt\treason\n"
 
 def self_test() -> int:
     failures: list[str] = []
+    counts = {"positive": 0, "control": 0}
 
     def expect(label: str, problems: list[str], want_ok: bool) -> None:
+        # Counted, never hardcoded: the printed tally is an executable assertion,
+        # and a stale one is exactly how a reader misses that the suite shrank.
+        counts["positive" if want_ok else "control"] += 1
         ok = not problems
         if ok != want_ok:
             failures.append(
                 f"{label}: expected {'no problems' if want_ok else 'a failure'}, got {problems!r}"
             )
+
+    def control(label: str, condition: bool) -> None:
+        """A non-`evaluate` control: `condition` must hold."""
+        counts["control"] += 1
+        if not condition:
+            failures.append(label)
 
     sw = {"Pastura/Pastura/Engine/PromptBuilder.swift": _SWIFT_RULES}
     kt = {"shared/engine/src/commonMain/kotlin/com/pastura/engine/PromptBuilder.kt": _KOTLIN_RULES}
@@ -666,13 +736,13 @@ def self_test() -> int:
     # Negative control for the fixture itself: if the normalizer were eating the
     # bare `{...}` prose, these two would still match. Assert the prose survives.
     ja_norm = extract_pairs(_SWIFT_RULES, False)[0][0]
-    if "{で始まり}で終わる" not in ja_norm:
-        failures.append("normalizer destroyed bare `{}` prose adjacent to a template")
-    if ja_norm.count(SENTINEL) != 1:
-        failures.append(f"expected exactly 1 erased template in the ja block, got {ja_norm.count(SENTINEL)}")
+    control("normalizer destroyed bare `{}` prose adjacent to a template", "{で始まり}で終わる" in ja_norm)
+    control(f"expected exactly 1 erased template in the ja block, got {ja_norm.count(SENTINEL)}", ja_norm.count(SENTINEL) == 1)
     en_norm = extract_pairs(_SWIFT_RULES, False)[0][1]
-    if '(no empty "..." values)' not in en_norm or "```" not in en_norm:
-        failures.append("normalizer lost an embedded quote or code fence")
+    control(
+        "normalizer lost an embedded quote or code fence",
+        '(no empty "..." values)' in en_norm and "```" in en_norm,
+    )
 
     # 2. Positive: printf-vs-interpolation equivalence, `+`-concatenation, empty literal.
     expect(
@@ -735,24 +805,140 @@ def self_test() -> int:
     expect("stale allowlist row is caught", evaluate(sw, kt, _HEADER + row), False)
 
     # 9. The declaration is not mistaken for a call (its `ja: String` is a type)…
-    if extract_pairs(_DECL_SWIFT, False) or extract_pairs(_DECL_KOTLIN, True):
-        failures.append("pickLanguage declaration was parsed as a call")
+    control(
+        "pickLanguage declaration was parsed as a call",
+        not extract_pairs(_DECL_SWIFT, False) and not extract_pairs(_DECL_KOTLIN, True),
+    )
     # …and the exclusion does not overreach. A "`func` earlier on this line"
     # test drops this real call site silently; that is how it was written first.
-    if len(extract_pairs(_ONE_LINE_FUNC, False)) != 1:
-        failures.append("a call on the same line as `func` was dropped as a declaration")
+    control(
+        "a call on the same line as `func` was dropped as a declaration",
+        len(extract_pairs(_ONE_LINE_FUNC, False)) == 1,
+    )
 
     # 10. A malformed allowlist row is reported, not silently ignored.
     expect("short allowlist row is reported", evaluate(sw, kt, _HEADER + "swift-only\tX\n"), False)
     expect("unknown side is reported", evaluate(sw, kt, _HEADER + "both\tX\tabc\t-\twhy\n"), False)
-    expect("empty reason is reported", evaluate(sw, kt, _HEADER + "unported\tX\t-\t-\t\n"), False)
+    # Keyed on a stem that EXISTS and is genuinely unported: with the empty-reason
+    # guard removed the row parses as a valid `unported PromptBuilder`, exempts the
+    # file, and the case goes green. Keyed on a ghost stem instead (as it was
+    # first written) the dangling-row check fires either way and the control
+    # passes by construction, measuring nothing.
+    expect(
+        "empty reason is reported",
+        evaluate(sw, {}, _HEADER + "unported\tPromptBuilder\t-\t-\t\n"),
+        False,
+    )
+    # 11. The dangling-`unported` arm — previously reachable but unexercised.
+    expect(
+        "dangling unported row is caught",
+        evaluate({}, {}, _HEADER + "unported\tGhost\t-\t-\twhy\n"),
+        False,
+    )
+    # 12. A `swift-only` row on an `unported` stem is dead — `_compare` never runs
+    #     for that stem, so the row exempts nothing while reading as active. The
+    #     digest must be that of a REAL pair on the unported stem: with a made-up
+    #     digest the staleness check reports it either way and the control is
+    #     vacuous (measured — it was, before this).
+    real_pair = extract_pairs(_SWIFT_RULES, False)[0]
+    expect(
+        "dead allowlist row on an unported stem is caught",
+        evaluate(
+            sw,
+            {},
+            _HEADER
+            + "unported\tPromptBuilder\t-\t-\tdeferral\n"
+            + f"swift-only\tPromptBuilder\t{digest(real_pair)}\t{excerpt(real_pair)}\tdead\n",
+        ),
+        False,
+    )
+
+    # 13. Concatenation with a NON-literal operand must raise, not silently
+    #     truncate to the literal prefix — the shape that made two different
+    #     tails compare equal.
+    part = 'func f() { _ = pickLanguage(l, ja: "head " + jaTail, en: "head " + enTail) }\n'
+    try:
+        extract_pairs(part, False)
+        control("non-literal concatenation operand was silently truncated", False)
+    except ExtractError:
+        control("non-literal concatenation operand raises", True)
+
+    # 14. A Kotlin raw block WITHOUT `.trimIndent()` really does ship its source
+    #     indentation, so it must NOT be dedented into a false match with Swift.
+    sw_block = 'func f() { _ = pickLanguage(l, ja: """\n    a\n    b\n    """, en: "x") }\n'
+    kt_bare = 'fun f() { pickLanguage(l, ja = """\n            a\n            b\n        """, en = "x") }\n'
+    kt_trimmed = kt_bare.replace('"""', '""".trimIndent()', 2).replace('""".trimIndent()\n', '"""\n', 1)
+    control(
+        "Kotlin raw block without .trimIndent() was dedented into a false match",
+        extract_pairs(sw_block, False) != extract_pairs(kt_bare, True),
+    )
+    control(
+        "Kotlin raw block WITH .trimIndent() failed to match its Swift twin",
+        extract_pairs(sw_block, False) == extract_pairs(kt_trimmed, True),
+    )
+
+    # 15. An interpolation containing a quoted bracket must not leak a stray
+    #     delimiter into the compared text (`_skip_balanced` string-awareness).
+    quoted = extract_pairs(
+        'func f() { _ = pickLanguage(l, ja: """\n    A \\(xs.joined(separator: ")")) B\n    """, en: "x") }\n',
+        False,
+    )
+    control(f"stray bracket leaked from an interpolation: {quoted!r}", quoted == [(f"A {SENTINEL} B", "x")])
+
+    # 16. Two Kotlin files reducing to one stem must be reported. The two halves
+    #     must POOL to exactly the Swift side, or the multiset comparison fails on
+    #     its own and the control never exercises the collision check (measured —
+    #     passing the same file twice was vacuous).
+    swift_split = {
+        "Pastura/Pastura/Engine/PromptBuilder.swift": _SWIFT_RULES,
+        "Pastura/Pastura/Engine/PromptBuilder+Verb.swift": _SWIFT_VERB,
+    }
+    kotlin_pooled = {
+        "shared/engine/src/commonMain/kotlin/com/pastura/engine/PromptBuilder.kt": _KOTLIN_RULES,
+        "shared/engine/src/commonMain/kotlin/com/pastura/engine/Phases/PromptBuilder.kt": _KOTLIN_VERB,
+    }
+    expect("ambiguous Kotlin stem is caught", evaluate(swift_split, kotlin_pooled, _HEADER), False)
+
+    # 17. The real-tree loading path — `_tracked`'s pathspec plus the floor guard —
+    #     is otherwise reached only by `--check` on the live tree, which is where
+    #     the `<dir>/**/*.swift` bug lived. Narrow the scope and assert the floor
+    #     reddens rather than green-lighting a scoping regression.
+    def quiet_check() -> tuple[int, str]:
+        sink = io.StringIO()
+        with contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+            rc = check()
+        return rc, sink.getvalue()
+
+    original = list(SWIFT_SCOPE_DIRS)
+    try:
+        SWIFT_SCOPE_DIRS[:] = ["Pastura/Pastura/Engine/Phases"]
+        rc, out = quiet_check()
+        # Assert the FLOOR's own message, not just a non-zero exit: a narrowed
+        # scope also orphans the Kotlin files, so `check()` returns 1 either way
+        # and an exit-code-only assertion passes with the floor removed
+        # (measured — it did).
+        control(f"floor guard did not fire on a narrowed scan scope (rc={rc})", rc == 1 and "enumeration drifted" in out)
+    finally:
+        SWIFT_SCOPE_DIRS[:] = original
+    control("real tree does not pass --check after restoring scope", quiet_check()[0] == 0)
+
+    # 18. A `side`-headed row that is NOT the header must be reported, not
+    #     silently skipped — the opposite of this file's stated posture.
+    expect(
+        "a late `side` row is reported rather than skipped",
+        evaluate(sw, kt, _HEADER + "side\tX\t-\t-\twhy\n"),
+        False,
+    )
 
     if failures:
         print("prompt-literal parity self-test: FAILED", file=sys.stderr)
         for f in failures:
             print(f"  - {f}", file=sys.stderr)
         return 1
-    print("prompt-literal parity self-test: passed (2 positive + 12 controls).")
+    print(
+        f"prompt-literal parity self-test: passed "
+        f"({counts['positive']} positive + {counts['control']} controls)."
+    )
     return 0
 
 

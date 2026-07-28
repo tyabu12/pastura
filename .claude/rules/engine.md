@@ -454,18 +454,18 @@ nothing if they run different prompts. The en secret-section guidance diverged o
 enforces it (pre-commit sub-gate + the CI "Shell gate tests" job); pairing is by
 basename with any `+Extension` suffix stripped, so `PromptBuilder+PrivateSections.swift`
 pairs with `PromptBuilder.kt`. A deliberate one-sided literal — today only the
-#911 `addressRule`, whose handler is not ported — needs a row in
+#911 `addressRule`, whose handler is not ported, alongside two whole-file
+`unported` deferrals — needs a row in
 `shared/prompt-literal-parity-allowlist.tsv`; the checker prints the exact row to
 paste, keyed on a digest of the pair so a later reword forces re-approval.
 
 **What the gate does NOT see** — it measures `pickLanguage` literal-pair parity,
-not prompt parity. Assembly and separators (the `\n` vs `\n\n` join in
-`appendSecretSection`), *which value* is interpolated into a matching skeleton,
-and any prompt-visible literal outside `pickLanguage` are all invisible to it.
-Live examples of that last one, currently agreeing and therefore free to drift:
-`sentenceNoun` (`"sentence"` / `"sentences"`, interpolated straight into the en
-rules block) and the conversation-log line format. Wording changes are also a
-*behaviour* change — pair them with a harness A/B, not just with the other side.
+not prompt parity, so separators (the `\n` vs `\n\n` join in `appendSecretSection`)
+and prompt literals outside `pickLanguage` are invisible to it. The enumerated
+blind spots live in the checker's own `What this cannot see` docstring section,
+which is where a newly-found one gets added — read it there rather than trusting
+this paragraph to have stayed current. Note also that a wording change is a
+*behaviour* change: pair it with a harness A/B, not just with the other side.
 
 ## SimulationEvent & the projection contract
 

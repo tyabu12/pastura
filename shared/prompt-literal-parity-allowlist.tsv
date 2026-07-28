@@ -20,6 +20,10 @@
 #            purpose: editing either one invalidates the row, so a reworded
 #            deferral gets re-approved instead of coasting. A literal is not
 #            usable as a key — a `"""` block carries real newlines and tabs.
+#            **`unported` rows carry no digest and so are NOT pinned**: such a row
+#            exempts every literal in that file, including ones added after it was
+#            approved. It expires only when the Kotlin counterpart appears (which
+#            the checker reports as stale). Keep them scarce.
 #   excerpt  a readable, escaped prefix of the ja literal. Cosmetic; the digest is
 #            what matches. `<>` marks an erased interpolation.
 #   reason   why the divergence is intended. Required; a blank fails the gate.
