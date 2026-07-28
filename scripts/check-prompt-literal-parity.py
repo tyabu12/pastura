@@ -87,18 +87,29 @@ SENTINEL = "\x01"
 
 # Floor guard: 12 Swift files yield pickLanguage pairs (13 mention the name — the
 # 13th is the declaration in LanguageDispatch.swift, which is why this counts
-# extracted pairs rather than grepping for `pickLanguage(`). Set close to that,
-# not comfortably below it — the `<dir>/**/*.swift` pathspec bug in `_tracked`
-# dropped the four files sitting directly in `Engine/` and still left 8, so a
-# slack floor would have waved it through (mirrors
-# check-adr023-port-coverage.py's MIN_TRACKED_FILES).
-MIN_SWIFT_CALLSITE_FILES = 11
+# extracted pairs rather than grepping for `pickLanguage(`). Pinned AT the real
+# count, not below it: the `<dir>/**/*.swift` pathspec bug in `_tracked` still
+# left 9 yielding files (measured — an earlier version of this comment said 8),
+# so slack is what a scoping regression hides in. A legitimate drop is meant to
+# fail here and be lowered deliberately (mirrors check-adr023-port-coverage.py's
+# MIN_TRACKED_FILES).
+MIN_SWIFT_CALLSITE_FILES = 12
 
 # Cap on whole-file `unported` exemptions. Unlike the digest-keyed rows, these
 # never expire on their own, so an uncapped list is how "temporarily deferred"
 # becomes permanent. Two today (NarrateHandler, SpeakEachHandler); raising it is
 # a deliberate act with its reason recorded in the allowlist header.
 MAX_UNPORTED_ROWS = 2
+
+# Floor on the number of checks `--self-test` runs. The printed tally is derived,
+# so it never goes stale — but nothing stops a suite from silently shrinking, and
+# this file's history is three rounds of controls that passed by construction.
+#
+# This guard is the one thing here with no in-suite negative control, and that is
+# structural rather than an omission: a control that proved it would have to
+# delete checks, including itself. Verified out of band instead — raise the floor
+# above the real count and confirm it fires. Do that when changing it.
+MIN_SELF_TEST_CHECKS = 53
 
 # The helper's own declaration in LanguageDispatch.{swift,kt}, whose `ja: String`
 # args are types, not literals. Excluding it is load-bearing: the literal parser
@@ -110,10 +121,15 @@ MAX_UNPORTED_ROWS = 2
 _DECL_RE = re.compile(r"\b(?:fun|func)\b\s*(?:<[^>]*>\s*)?$")
 
 _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
-# printf specifiers, incl. the positional `%1$@` form xcstringstool-adjacent code
-# uses. `%%` is handled first so a literal percent survives.
+# printf specifiers, incl. the positional `%1$@` form. `%%` is handled first so a
+# literal percent survives. Applied to SWIFT ONLY: Kotlin has no `String(format:)`
+# path in this engine, so collapsing there can only lose information.
+#
+# No space in the flag class. With one, `%` + space + a conversion letter matched
+# ordinary prose — `"100% sure"` and `"100% pure"` both normalized to `100<>ure`,
+# so a genuine one-sided prose edit compared equal.
 _PRINTF_RE = re.compile(
-    r"%(?:\d+\$)?[-+ #0]*[0-9]*(?:\.[0-9]+)?(?:hh|h|ll|l|L|z|j|t|q)?[@diouxXeEfFgGcsSpa]"
+    r"%(?:\d+\$)?[-+#0]*[0-9]*(?:\.[0-9]+)?(?:hh|h|ll|l|L|z|j|t|q)?[@diouxXeEfFgGcsSpa]"
 )
 
 
@@ -292,11 +308,45 @@ def _call_positions(text: str, kotlin: bool) -> list[tuple[int, int]]:
     i, n = 0, len(text)
     while i < n:
         c = text[i]
+        if not kotlin and c == "#" and text[i + 1 : i + 2] in ('"', "#"):
+            # A Swift raw string (`#"…"#`, `##"…"##`, `#"""…"""#`). Falling through
+            # would skip the `#`, open a phantom literal at the `"`, and terminate
+            # at the first inner quote — desynchronising the scan. 14 live under
+            # Engine/ + LLM/ today, so this cannot raise; it must be consumed.
+            j = i
+            while j < n and text[j] == "#":
+                j += 1
+            hashes = text[i:j]
+            if j < n and text[j] == '"':
+                delim = '"""' if text.startswith('"""', j) else '"'
+                close = text.find(delim + hashes, j + len(delim))
+                end = n if close == -1 else close + len(delim) + len(hashes)
+                if "pickLanguage" in text[i:end]:
+                    raise ExtractError(
+                        f"`pickLanguage` appears inside a raw string literal at offset {i}"
+                    )
+                i = end
+                continue
+            i = j
+            continue
         if c == '"':
+            start = i
             try:
                 _, i = _read_string_literal(text, i, kotlin)
             except ExtractError:
                 i += 1  # not our literal to judge — resume scanning
+                continue
+            # A call reached through an INTERPOLATION (`"… \(pickLanguage(…)) …"`,
+            # `"… ${pickLanguage(…)} …"`) is inside the span just consumed, so the
+            # scan would drop it — both sides at once, which is a silent pass on a
+            # genuinely one-sided edit. Unlike a comment or KDoc mention, a
+            # `pickLanguage` inside a literal is never legitimate here, so raise
+            # rather than teaching the scanner to descend into interpolations.
+            if "pickLanguage" in text[start:i]:
+                raise ExtractError(
+                    f"`pickLanguage` appears inside a string literal at offset {start} "
+                    "(an interpolated call?) — this reader cannot see it"
+                )
             continue
         if text.startswith("//", i):
             nl = text.find("\n", i)
@@ -331,6 +381,12 @@ def _scan_call_args(text: str, open_idx: int, kotlin: bool) -> dict[str, str]:
     depth = 0
     i = open_idx
     while i < len(text):
+        if text.startswith("//", i) or text.startswith("/*", i):
+            # A comment inside the argument list. Every shape fails loudly either
+            # way, but a stray bracket in one otherwise reports "lacks ja/en",
+            # which points the reader at the wrong thing.
+            i = _skip_trivia(text, i)
+            continue
         c = text[i]
         if c == '"':
             _, i = _read_string_literal(text, i, kotlin)
@@ -390,6 +446,10 @@ def normalize(literal: str, kotlin: bool) -> str:
         out.append(c)
         i += 1
     text = "".join(out)
+    if kotlin:
+        # Kotlin has no `String(format:)` path in this engine, so there is nothing
+        # to collapse — doing it anyway could only erase real text.
+        return text
     # `%%` is a literal percent -- protect it before collapsing real specifiers.
     text = text.replace("%%", "\x02")
     text = _PRINTF_RE.sub(SENTINEL, text)
@@ -620,9 +680,14 @@ def _compare(
     swift_only, kotlin_only = _diff(swift, kotlin)
     problems = []
     for side, pairs in (("swift-only", swift_only), ("kotlin-only", kotlin_only)):
+        # A row exempts ONE instance. Without the counter, N byte-identical
+        # one-sided literals were all cleared by a single approved row, so adding
+        # another copy of an already-blessed divergence exited 0.
+        exempted: dict[str, int] = {}
         for pair in pairs:
             dig = digest(pair)
-            if (side, stem, dig) in allowed:
+            if (side, stem, dig) in allowed and not exempted.get(dig):
+                exempted[dig] = 1
                 continue
             problems.append(
                 f"{stem}: {side} pickLanguage literal (no counterpart on the other side)\n"
@@ -715,7 +780,14 @@ def dump() -> int:
     for label, sources, is_kotlin in (("SWIFT", swift, False), ("KOTLIN", kotlin, True)):
         print(f"===== {label} =====")
         for path in sorted(sources):
-            pairs = extract_pairs(sources[path], is_kotlin)
+            try:
+                pairs = extract_pairs(sources[path], is_kotlin)
+            except ExtractError as exc:
+                # Guarded like `check()`: one unreadable file must not turn the
+                # hand-verification tool into a traceback that hides every pair
+                # after it — this mode exists to be read end to end.
+                print(f"--- {path}  !! cannot extract: {exc}")
+                continue
             if not pairs:
                 continue
             print(f"--- {path}  (stem={stem_of(path)}, {len(pairs)} pairs)")
@@ -824,8 +896,9 @@ def self_test() -> int:
     counts = {"positive": 0, "negative": 0, "control": 0}
 
     def expect(label: str, problems: list[str], want_ok: bool) -> None:
-        # Counted, never hardcoded: the printed tally is an executable assertion,
-        # and a stale one is exactly how a reader misses that the suite shrank.
+        # Counted, never hardcoded — the printed tally cannot go stale. It is a
+        # derived REPORT though, not an assertion: only the floor checked at the
+        # end catches a suite that silently shrank.
         counts["positive" if want_ok else "negative"] += 1
         ok = not problems
         if ok != want_ok:
@@ -929,9 +1002,10 @@ def self_test() -> int:
     )
     # …and the exclusion does not overreach. A "`func` earlier on this line"
     # test drops this real call site silently; that is how it was written first.
+    one_line = _try_pairs(_ONE_LINE_FUNC, False)
     control(
         "a call on the same line as `func` was dropped as a declaration",
-        (_try_pairs(_ONE_LINE_FUNC, False) or []) and len(_try_pairs(_ONE_LINE_FUNC, False)) == 1,
+        one_line is not None and len(one_line) == 1,
     )
 
     # 10. A malformed allowlist row is reported, not silently ignored.
@@ -958,7 +1032,11 @@ def self_test() -> int:
     #     digest must be that of a REAL pair on the unported stem: with a made-up
     #     digest the staleness check reports it either way and the control is
     #     vacuous (measured — it was, before this).
-    real_pair = rules_pair[0]
+    # Guarded like every other `rules_pair` read: a bare index here aborts the
+    # whole suite with a TypeError the moment the fixture stops extracting —
+    # swallowing the control that names that very regression, plus every case
+    # below. That is the failure `_try_pairs` exists to prevent, reintroduced.
+    real_pair = rules_pair[0] if rules_pair else ("", "")
     expect(
         "dead allowlist row on an unported stem is caught",
         evaluate(
@@ -1069,6 +1147,85 @@ def self_test() -> int:
         _HEADER + "".join(f"unported\tCapped{n}\t-\t-\twhy\n" for n in range(MAX_UNPORTED_ROWS))), True)
     expect("the unported-row cap is not enforced", evaluate(capped_swift, {}, _HEADER + capped_rows), False)
 
+    # 18c. `collect`'s extraction-error report. The dangerous case is BOTH sides
+    #      hitting the same unmodelled shape (likely — the literals are ported
+    #      twins): the stem then vanishes from both maps, so the unanchored and
+    #      no-counterpart arms never fire and only this report stands between
+    #      that and a clean --check.
+    unreadable = evaluate(
+        {"Pastura/Pastura/Engine/U.swift": 'func f() { _ = pickLanguage(l, ja: "a".uppercased(), en: "b") }\n'},
+        {"shared/engine/src/commonMain/kotlin/com/pastura/engine/U.kt":
+         'fun f() { pickLanguage(l, ja = "a".uppercase(), en = "b") }\n'},
+        _HEADER,
+    )
+    control(
+        "an unreadable file on BOTH sides was not reported",
+        any("cannot extract" in p for p in unreadable),
+    )
+
+    # 18d. `extract_pairs`'s two raises. Both were uncontrolled, and the second
+    #      carries an authored claim ("silently skipping it is the posture this
+    #      file rejects everywhere else") that nothing executed.
+    control(
+        "a call with no ja/en labels did not raise",
+        _try_pairs('func f() { _ = pickLanguage(l, "a", "b") }\n', False) is None,
+    )
+    control(
+        "a bare `pickLanguage` mention did not raise",
+        _try_pairs("func f() { let g = pickLanguage }\n", False) is None,
+    )
+
+    # 18e. `digest` covers BOTH halves — its docstring says editing either forces
+    #      re-approval, and nothing checked the en half.
+    control("digest ignores the en half", digest(("a", "b")) != digest(("a", "c")))
+    control("digest ignores the ja half", digest(("a", "b")) != digest(("z", "b")))
+
+    # 18f. `normalize`'s `%%` protection, and the flag class that must NOT contain
+    #      a space: with one, `"100% sure"` and `"100% pure"` both collapsed to
+    #      `100<>ure` and a one-sided prose edit compared equal.
+    control("`%%` was collapsed instead of preserved", normalize("100%% done", False) == "100%% done")
+    control(
+        "`% ` in prose was eaten as a printf specifier",
+        normalize("100% sure", False) != normalize("100% pure", False),
+    )
+    control("printf collapsing leaked into Kotlin", normalize("%@", True) == "%@")
+
+    # 18g. A call reached only through a string interpolation must raise, not be
+    #      skipped with the literal — both sides go quiet together, so a genuinely
+    #      one-sided edit exits 0.
+    control(
+        "an interpolated call was silently skipped (Swift)",
+        _try_pairs('func f() { let s = "x \\(pickLanguage(l, ja: "\u3042", en: "A")) y" }\n', False) is None,
+    )
+    control(
+        "an interpolated call was silently skipped (Kotlin)",
+        _try_pairs('fun f() { val s = "x ${pickLanguage(l, ja = "\u3044", en = "B")} y" }\n', True) is None,
+    )
+    # …and a Swift raw string must be consumed whole, not desync the scanner.
+    # An ODD number of inner quotes, all on one line: with the raw-string branch
+    # disabled the phantom literal opened at `"#` runs THROUGH the call and
+    # swallows it. An even-quote fixture converges by luck and proves nothing —
+    # measured, that was the first version of this control.
+    control(
+        "a Swift raw string desynchronised the scan",
+        _try_pairs('let a = #"a"b"#; func f() { _ = pickLanguage(l, ja: "j", en: "e") }\n', False)
+        == [("j", "e")],
+    )
+    control(
+        "a `pickLanguage` inside a raw string was not reported",
+        _try_pairs('let a = #"call pickLanguage(l, ja: "x", en: "y") here"#\n', False) is None,
+    )
+
+    # 18h. One allowlist row exempts ONE instance; a second copy of an approved
+    #      one-sided literal is a new divergence.
+    dup_swift = {
+        "Pastura/Pastura/Engine/Dup.swift":
+        'func f() { _ = pickLanguage(l, ja: "d", en: "D") }\nfunc g() { _ = pickLanguage(l, ja: "d", en: "D") }\n'
+    }
+    dup_kt = {"shared/engine/src/commonMain/kotlin/com/pastura/engine/Dup.kt": 'fun f() {}\n'}
+    dup_row = _HEADER + f"swift-only\tDup\t{digest(('d', 'D'))}\td\tapproved once\n"
+    expect("a duplicate of an approved one-sided literal is exempted too", evaluate(dup_swift, dup_kt, dup_row), False)
+
     # 19. A postfix call must not end the concatenation scan — `""" … """
     #     .trimIndent() + "tail"` once stopped at the `.` and dropped the tail,
     #     re-opening the truncation the `+` guard closes.
@@ -1121,14 +1278,27 @@ def self_test() -> int:
         _try_pairs('/// Use pickLanguage(l, ja: "docs", en: "docs")\nfunc g() {}\n', False) == [],
     )
     control(
-        "a `pickLanguage` inside a string literal was parsed as a call",
-        _try_pairs('func g() { log("call pickLanguage(l, ja: 1, en: 2) here") }\n', False) == [],
+        "a `pickLanguage` inside a string literal was not reported",
+        _try_pairs('func g() { log("call pickLanguage(l, ja: 1, en: 2) here") }\n', False) is None,
     )
 
     if failures:
         print("prompt-literal parity self-test: FAILED", file=sys.stderr)
         for f in failures:
             print(f"  - {f}", file=sys.stderr)
+        return 1
+    # A derived tally cannot go stale, but it also cannot notice that the suite
+    # SHRANK — delete five controls and it just prints a smaller number and exits
+    # 0. Pinned as a floor (not an exact match, which would churn on every
+    # addition) so a deletion has to be deliberate.
+    total = counts["positive"] + counts["negative"] + counts["control"]
+    if total < MIN_SELF_TEST_CHECKS:
+        print(
+            f"prompt-literal parity self-test: only {total} checks ran "
+            f"(floor {MIN_SELF_TEST_CHECKS}) — the suite shrank; lower the floor "
+            "deliberately if that was intended.",
+            file=sys.stderr,
+        )
         return 1
     print(
         f"prompt-literal parity self-test: passed ({counts['positive']} positive, "
