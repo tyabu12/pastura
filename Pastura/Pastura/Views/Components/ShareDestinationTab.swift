@@ -40,7 +40,9 @@ enum ShareDestinationFill {
         ], startPoint: .topLeading, endPoint: .bottomTrailing))
   }
 
-  /// Solid black for the X destination.
+  /// Solid black for the X destination. ADR-028 gate-3 exemption: X's wordmark
+  /// ships on black, so this must not follow Pastura's palette in either
+  /// appearance — same class as the `instagram` ramp above.
   static var xBlack: AnyShapeStyle { AnyShapeStyle(Color.black) }
 
   /// Neutral chip fill for the utility (save / copy) destinations.
@@ -99,6 +101,9 @@ struct ShareTabXGlyph: View {
   var body: some View {
     Text(verbatim: "𝕏")
       .font(.system(size: ShareDestinationLayout.iconGlyphSize, weight: .bold))
+      // ADR-028 gate-3 exemption, paired with `ShareDestinationFill.xBlack`:
+      // white-on-black is X's own wordmark pair, not Pastura's on-accent one,
+      // so `inkOnAccent` would misname it.
       .foregroundStyle(.white)
   }
 }

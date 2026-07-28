@@ -75,6 +75,11 @@ public struct DogMark: View {
         control: CGPoint(x: 7 * unit, y: 18.5 * unit))
       body.closeSubpath()
 
+      // ADR-028 gate-3 exemption: raw white on purpose, not an un-tokenized
+      // site. Rationale in the type doc-comment above — the mark is an
+      // illustration shown over varied surfaces, so plain white is the
+      // semantic, and `inkOnAccent` does not apply (that token means
+      // "foreground on an accent fill", which this is not).
       ctx.fill(body, with: .color(.white))
       ctx.stroke(
         body,
