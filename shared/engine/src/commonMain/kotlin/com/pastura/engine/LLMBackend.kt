@@ -76,23 +76,44 @@ public interface LLMBackend {
 /**
  * One inference request crossing the §5.2 boundary.
  *
- * **Deliberately omits `antiRepetitionSeeds`** (#1105). Swift's
- * `LLMService.generateStream` carries it, but `SpeakEachHandler.swift:77` is the
- * Engine's ONLY seeder (every other reference plumbs the parameter through `LLM/`
- * or is the `= []` default), and that handler is Stage-3 freight — so a seeds field on this
- * gate slice would be dead weight the Swift adapter must map for nothing. Add it
- * with its consumer.
+ * [antiRepetitionSeeds] arrived with its consumer, as this type's earlier
+ * "deliberately omits" note said it should: [SpeakEachHandler] is the Engine's
+ * only seeder, so the field would have been dead weight for the Swift adapter to
+ * map until that handler was ported.
  *
  * @property system The system prompt defining the agent's persona and rules.
  * @property user   The user prompt with context and instructions for this turn.
  * @property schema Optional output schema. Backends translate this to their
  *   native constrained-decoding mechanism (llama.cpp: GBNF grammar). `null`
  *   means unconstrained generation.
+ * @property antiRepetitionSeeds Prior text spans seeded into the backend's DRY
+ *   sampler so a token-level repetition penalty spans the turn boundary (#1105).
+ *   Empty means no seeding — the default, and what every non-seeding caller
+ *   passes.
+ *
+ *   **Read the scope before reaching for this to fix a repetition complaint.**
+ *   The chain's own `penalties` sampler is per-generation, so it cannot see
+ *   across a `generate()` at all; this field is the only cross-turn mechanism,
+ *   and its one producer covers exactly one case. Three scopes exist, and only
+ *   the middle one is this:
+ *
+ *   1. **Within one generation** — the backend's chain penalties. Not this field.
+ *   2. **An agent's own prior turns, `speak_each` only** — [SpeakEachHandler]
+ *      seeds each turn with that agent's own most-recent statement. This field.
+ *   3. **Everything else** — cross-*agent* template collapse, and every phase
+ *      other than `speak_each`. **Unreached.** Covering one needs a new seeder,
+ *      not a bigger value here.
+ *
+ *   A backend that cannot seed (Ollama's HTTP API, Foundation Models) ignores it
+ *   rather than failing — mirroring the Swift services, which document the same
+ *   no-op. `.claude/rules/engine.md` § "The chain's `penalties` cannot reach
+ *   across a `generate()`" carries the full contract.
  */
 public data class GenerationRequest(
     public val system: String,
     public val user: String,
     public val schema: OutputSchema? = null,
+    public val antiRepetitionSeeds: List<String> = emptyList(),
 )
 
 /**

@@ -143,6 +143,24 @@ class LLMBackendContractTests {
         assertEquals(schema, backend.requests.single().schema)
     }
 
+    @Test
+    fun antiRepetitionSeedsDefaultToEmptyMeaningNoDrySeeding() {
+        // The default is what every non-`speak_each` caller relies on (#1105):
+        // seeding is opt-in, so a backend must be able to read "no seeds" from an
+        // empty list rather than from a null it would have to special-case.
+        assertTrue(request().antiRepetitionSeeds.isEmpty())
+    }
+
+    @Test
+    fun requestCarriesAntiRepetitionSeedsThrough() {
+        val backend = ScriptedLLMBackend(listOf(ScriptedLLMBackend.Script.completing("{}")))
+        backend.generateStream(
+            GenerationRequest(system = "s", user = "u", antiRepetitionSeeds = listOf("prior")),
+            RecordingStreamCallbacks(),
+        )
+        assertEquals(listOf("prior"), backend.requests.single().antiRepetitionSeeds)
+    }
+
     // MARK: - StreamHandle
 
     @Test
