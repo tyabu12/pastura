@@ -150,11 +150,14 @@ struct GalleryCatalogRow: View {
       .font(.caption2.bold())
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
+      // Token pair mirrors `PhaseTypeLabel` / `ScenarioSummaryRow`: `moss` for
+      // the wash, `mossDark` for accent text (§ 2.3). Both branches are `Color`
+      // now, so the `AnyShapeStyle` erasure is no longer needed.
       .background(
-        isTint ? Color.accentColor.opacity(0.2) : Color.secondary.opacity(0.15),
+        isTint ? Color.moss.opacity(0.2) : Color.inkSecondary.opacity(0.15),
         in: Capsule()
       )
-      .foregroundStyle(isTint ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
+      .foregroundStyle(isTint ? Color.mossDark : Color.inkSecondary)
   }
 }
 

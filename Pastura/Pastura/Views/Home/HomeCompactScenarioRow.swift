@@ -102,7 +102,7 @@ struct HomeCompactScenarioRow: View {
     .overlay(alignment: .topTrailing) {
       if hasGalleryUpdate {
         Circle()
-          .fill(Color.accentColor)
+          .fill(Color.moss)
           .frame(
             width: HomeCompactRowLayout.updateBadgeDotSize,
             height: HomeCompactRowLayout.updateBadgeDotSize
