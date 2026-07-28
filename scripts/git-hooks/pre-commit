@@ -102,3 +102,8 @@ bash ./scripts/adr023-port-coverage-precommit-gate.sh
 # ADR-023 port ledger, a ported handler .kt, or the checker; fails-fast inside.
 # Mirrors the CI shell-tests "KMP status board drift check" step locally.
 bash ./scripts/kmp-status-precommit-gate.sh
+
+# 12. Swift↔Kotlin prompt-literal parity gate (#1295) — self-gates on either
+# side's source, the allowlist, or the checker; fails-fast inside. Mirrors the
+# CI shell-tests "Prompt-literal parity check" step locally.
+bash ./scripts/prompt-literal-parity-precommit-gate.sh

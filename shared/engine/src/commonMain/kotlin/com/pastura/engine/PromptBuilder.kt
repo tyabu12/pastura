@@ -230,6 +230,20 @@ internal class PromptBuilder {
      * empty section. Guarded on blankness instead of nullity — stricter than
      * Swift, and it converges on the same behaviour once the normalizing loader
      * lands.
+     *
+     * The **guidance wording** and the **single-newline separator** below are
+     * pinned to the shipped Swift text (#1295): the two engines exist to be
+     * behaviour-comparable, so a wording change belongs in both at once and
+     * behind a harness A/B. `pickLanguage` literal drift is gate-enforced
+     * (`scripts/check-prompt-literal-parity.py`); the separator is *not* — see
+     * that script's non-coverage list.
+     *
+     * **This pin locks in a known ja/en mismatch, tracked on #1301.** The en text
+     * it replaced ("It shapes your judgement and attitude") rendered the ja's
+     * declarative last sentence more closely than the shipped imperative one
+     * does; Swift won on "a parity PR must not move shipped prompt text", not on
+     * translation quality. Neither form has been A/B'd — do not read this pin as
+     * an endorsement of the wording.
      */
     private fun appendSecretSection(sections: MutableList<String>, persona: Persona, language: String) {
         val secret = persona.secret?.takeIf { it.isNotBlank() } ?: return
@@ -243,9 +257,9 @@ internal class PromptBuilder {
             ja = "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。" +
                 "心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
             en = "Never reveal this secret in anything the other participants can hear (your statement). " +
-                "You may reflect on it frankly in your inner_thought. It shapes your judgement and attitude.",
+                "You may reference it freely in your inner_thought, and let it shape your decisions and demeanor.",
         )
-        sections += "$header\n$secret\n\n$guidance"
+        sections += "$header\n$secret\n$guidance"
     }
 
     /**
