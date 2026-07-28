@@ -316,35 +316,7 @@ same change:
 | `README.md`                           | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
 | `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
-| `docs/decisions/ADR-001.md`           | Phase 1 architecture decisions (12 ADRs)    |
-| `docs/decisions/ADR-002.md`           | llama.cpp interim LLM backend decision      |
-| `docs/decisions/ADR-003.md`           | BG execution (iOS 26 BGContinuedProcessingTask) |
-| `docs/decisions/ADR-004.md`           | Multi-platform strategy — KMP spike Accepted (Conditional GO); H5/H7 distribution-verification deferred (Status: Accepted; #220) |
-| `docs/decisions/ADR-005.md`           | Content safety architecture (App Store review) |
-| `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3; reserved — not yet written; see ADR-005 §7.5) |
-| `docs/decisions/ADR-007.md`           | DL-time demo replay — iOS lifecycle (#152)  |
-| `docs/decisions/ADR-008.md`           | Route identity vs render-time hints (`RouteHint<T>` pattern, #245) |
-| `docs/decisions/ADR-009.md`           | View testing strategy (no ViewInspector / snapshot; #269) |
-| `docs/decisions/ADR-010.md`           | Localization (i18n: ja/en) — Step C-1 design (Status: Proposed; #279) |
-| `docs/decisions/ADR-011.md`           | 6 GB RAM tier — selection criteria + Phase 2 deferral; no-go for Gemma 3 1B IT (#477) |
-| `docs/decisions/ADR-012.md`           | YAML strategy post-kaml — snakeyaml-engine-kmp for the shared Models layer (kaml archived; #220) |
-| `docs/decisions/ADR-013.md`           | Headless macOS simulation harness — SwiftPM source reuse for the scenario factory (#515) |
-| `docs/decisions/ADR-014.md`           | Release automation toolchain — fastlane + ASC API Key, local-first TestFlight-upload scope (Status: Accepted; #555) |
-| `docs/decisions/ADR-015.md`           | Execution-log retention — no silent auto-delete (manual purge + advisory cap); SQLite kept iCloud-backed (DatabaseQueue ⇒ no WAL sidecars) (#547) |
-| `docs/decisions/ADR-016.md`           | Home redesign — 4-tab bottom-tab IA + deep-link routing; `TabCoordinator`×4 unmodified AppRouter (Status: Accepted; #602) |
-| `docs/decisions/ADR-017.md`           | Simulation focus mode — hide the tab bar during a run; Phase B opt-in cross-screen continuation (`keepRunningOnLeaveEnabled` default-off, `SuspendController` park-on-hide) (Status: Accepted; #646) |
-| `docs/decisions/ADR-018.md`           | Format-preserving visual→YAML sync — surgical scalar patch via Yams `compose`+`Mark`; full-serialize fallback on structural/uncertain changes; `ScenarioYAMLPatcher` (Engine) (Status: Accepted; #725) |
-| `docs/decisions/ADR-019.md`           | Raise minimum deployment target iOS 17 → iOS 18 — `ModelRegistry.minRAM` 6.5 GB gate already excludes every iOS-17 device, so it costs nothing (Status: Accepted; #834) |
-| `docs/decisions/ADR-020.md`           | Shared-scenario backward-compat — two-layer gate on a monotonic `ENGINE_SCHEMA_VERSION` (capability `allCases` auto-gate + `min_engine_version` escape hatch); grey-out at index, never partial-run (Status: Accepted; baseline #965) |
-| `docs/decisions/ADR-021.md`           | Graceful LLM turn-failure degradation — degrade by omission never fabrication; per-turn `TurnFailureGate`; circuit breaker after 3 consecutive skips; durable `degradedTurnCount` badge. § Amendment 2026-07-17: `validateAction` drops off-menu actions (canonicalizing normalized matches) instead of falling back to `options[0]`; new `.actionRejected` event (Status: Accepted; #992, #1151) |
-| `docs/decisions/ADR-022.md`           | Phase/event extension contract — declare once in the two Models enums (no registry); every Swift projection no-default exhaustive; forced-decision CI gates for non-Swift consumers (Status: Accepted; #993) |
-| `docs/decisions/ADR-023.md`           | KMP Engine migration (Phase 3.0) — run-path Engine port to `commonMain`, callback-only K/N boundaries; Stage-2 gate **verdict GO 2026-07-18 (§12)** — Stage 3 unblocked *pending* its four conditions (incl. a detector reading + re-estimate-or-dual-landing decision on #501 first); Data stays Swift/GRDB (Status: Accepted; #501) |
-| `docs/decisions/ADR-024.md`           | Scenario semantic lint layer — `ScenarioSemanticLinter` (Engine) flags silent-no-op DSL traps at load time (error blocks, warning never blocks; R1–R20); `pastura-harness lint` gate. Post-v1 error rules ship warn-first, carve-out only when the predicate needs a DSL value from the same schema bump (§ Amendment 2026-07-17) (Status: Accepted; #994) |
-| `docs/decisions/ADR-025.md`           | Gallery scenario ordering — client-side sort in `GalleryScenarioSearch.filter`: curator-pinned `featured` (nil last) → `added_at` desc (String compare) → `id`; New badge <14d; popularity/DL ranking deferred (telemetry backend vs offline/privacy positioning; revisit >150 items, opt-in); shuffle rejected (Status: Accepted; #1117) |
-| `docs/decisions/ADR-026.md`           | LLM-dynamic Word Wolf topics — near-term No-Go; keep static `words:`. Mechanical validator misses homograph/part-of + false-positive-rejects `Pen↔Pencil`; diversity collapse (~3-5 pairs/category) → curated static list wins; category quality is per-language. Deferred `generate`-phase sketch + revisit on stronger model (ADR-002 §8.2; #906) (Status: Accepted; #906) |
-| `docs/decisions/ADR-027.md`           | Generic `pairwise_payoff` scoring logic — payoff matrix moves from Swift to scenario YAML, unblocking ja `choose` options; `prisonersDilemma` kept permanently as a shim. ⚠️ ADR-022's no-default gate does **not** cover `==` predicates — grep `== .<case>` when adding to any enum it governs (Status: Accepted; #1151) |
-| `docs/decisions/ADR-028.md`           | Dark-mode token pairing — `PasturaDynamicColor` resolves a light/dark pair via `UIColor(dynamicProvider:)`; **26 pairs wired** (ADR-028's 8 + the §2.6/§2.7 slice in #1282). 42 of 68 light tokens still unpaired ⇒ `UIUserInterfaceStyle = Light` **stays**, removal gated on 5 conditions — gates 2 (`nightSurface` deleted, #1282) and 3 (raw-colour tokenization, #1283) met. Dark values derive by three arms, not one formula, and the avatar palette fits none of them (§ Amendment 2026-07-29). ⚠️ `Color.*` now means "the device's appearance" for those 26 — a fixed-appearance consumer (`ImageRenderer` export) must read `PasturaPalette.<token>.color` directly (Status: Accepted; #1274) |
-| `docs/decisions/INDEX.md`             | Full ADR decision summaries (one-line index above; full paragraphs there) |
+| `docs/decisions/INDEX.md`             | Full ADR decision summaries — the ADR lookup surface (roster below is titles only) |
 | `docs/kmp-migration-status.md`        | KMP Engine migration (ADR-023 / #501) at-a-glance progress board — stage table + gate-enforced Wave B handler checklist. Progress view only; ADR-023 = design, #501 = execution detail |
 | `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
 | `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
@@ -358,3 +330,16 @@ same change:
 | `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
 | `docs/ci/xcodebuild-flakes.md`        | CI UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
+
+### ADR roster
+
+Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries the full decision summary for every entry below.
+
+001 Architecture Overview (Phase 1) · 002 llama.cpp interim LLM backend · 003 Background execution · 004 Multi-platform strategy · 005 Content safety architecture · 006 Cloud API implementation details · 007 DL-time demo replay (iOS lifecycle) · 008 Route identity vs render-time hints · 009 View testing strategy · 010 Localization (i18n: ja/en) · 011 6 GB RAM tier · 012 YAML strategy post-kaml · 013 Headless macOS simulation harness · 014 Release automation toolchain · 015 Execution-log retention posture · 016 Home redesign — bottom-tab IA · 017 Simulation focus mode · 018 Format-preserving visual→YAML boundary sync · 019 Raise minimum deployment target to iOS 18 · 020 Shared-scenario backward-compat · 021 Graceful degradation of LLM turn failures · 022 Phase/event extension contract · 023 KMP Engine migration architecture · 024 Scenario semantic lint layer · 025 Gallery scenario ordering · 026 LLM-dynamic Word Wolf topics (near-term no-go) · 027 Generic `pairwise_payoff` scoring logic · 028 Dark-mode token pairing
+
+**ADR-006 is reserved but unwritten** — Cloud API implementation details (Phase 3; see ADR-005 §7.5). A gap in the sequence, not a free slot.
+
+Two cross-cutting gotchas that fire outside their own ADR's subject area:
+
+- ⚠️ **ADR-022's no-default gate does not cover `==` predicates** — grep `== .<case>` when adding a case to any enum it governs (ADR-027).
+- ⚠️ **`Color.*` means "the device's appearance"** for the 26 paired tokens — a fixed-appearance consumer (`ImageRenderer` export) must read `PasturaPalette.<token>.color` directly (ADR-028).
