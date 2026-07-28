@@ -35,6 +35,10 @@ nonisolated struct AssignHandler: PhaseHandler {
   /// rejects mismatched shapes upstream — the `guard` fall-through is a no-op
   /// safety net for scenarios constructed in tests or future code paths that
   /// bypass validation.
+  ///
+  /// Empty `active` (every persona eliminated before this phase) is handled
+  /// as a clean no-op — the `!active.isEmpty` guard prevents an uncatchable
+  /// `Int.random(in: 0..<0)` trap (#1287).
   private func assignRandomOne(
     active: [Persona],
     sourceData: AnyCodableValue?,
@@ -46,6 +50,11 @@ nonisolated struct AssignHandler: PhaseHandler {
     }
 
     guard let topic = topics.randomElement() else { return }
+    // An empty active set means there is no agent to receive the minority
+    // value — return a clean no-op rather than trapping on the uncatchable
+    // `Int.random(in: 0..<0)` precondition failure (#1287). Mirrors the
+    // active-count guards in sibling per-active-agent handlers (WhisperHandler).
+    guard !active.isEmpty else { return }
     let wolfIdx = Int.random(in: 0..<active.count)
 
     for (index, persona) in active.enumerated() {

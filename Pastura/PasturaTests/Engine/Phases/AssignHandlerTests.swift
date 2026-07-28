@@ -140,4 +140,44 @@ struct AssignHandlerTests {
     }
     #expect(shared.isEmpty)
   }
+
+  @Test func assignRandomOneWithEmptyActiveSetIsNoOp() async throws {
+    // Every persona eliminated → `active` is empty. `assignRandomOne` must NOT
+    // trap on `Int.random(in: 0..<0)` (the missing `!active.isEmpty` guard,
+    // #1287) — it returns cleanly, setting no `wolf_name` and emitting no
+    // `.assignment`.
+    //
+    // Regression guard (unguarded-path input): reverting the `guard
+    // !active.isEmpty` makes `Int.random(in: 0..<active.count)` hit an
+    // uncatchable "Range is empty" precondition failure and crash this test
+    // process. The empty active set is the exact input that reaches that line.
+    let mock = MockLLMService(responses: [])
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob", "Charlie"],
+      phases: [Phase(type: .assign, source: "words", target: .randomOne)],
+      extraData: [
+        "words": .arrayOfDictionaries([
+          ["majority": "りんご", "minority": "みかん"]
+        ])
+      ]
+    )
+    var state = SimulationState.initial(for: scenario)
+    state.currentRound = 1
+    // Drive the active set to empty by eliminating every persona.
+    for name in ["Alice", "Bob", "Charlie"] {
+      state.eliminated[name] = true
+    }
+    let collector = EventCollector()
+
+    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    try await handler.execute(context: context, state: &state)
+
+    // Clean no-op: no wolf chosen, no assignment events.
+    #expect(state.variables["wolf_name"] == nil)
+    let assignments = collector.events.filter {
+      if case .assignment = $0 { return true }
+      return false
+    }
+    #expect(assignments.isEmpty)
+  }
 }
