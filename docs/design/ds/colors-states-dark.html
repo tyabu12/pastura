@@ -1,0 +1,241 @@
+<!-- @dsCard group="Colors" name="Alert family & interactive states — dark" subtitle="§2.6-2.7 の night 対 18 色（ADR-028 gate 1 スライス1）" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Alert family &amp; interactive states (dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  /* The class goes on each `.section`, not on `.card` — `card.css` sets
+     `.section { background: var(--screen-bg) }`, so a card-level override
+     leaves every swatch sitting on cream, which is exactly the surface these
+     values must NOT be judged against. Same placement as
+     `colors-reserved.html`'s `.night-section`.
+     Sections carry `--night-bg` (the app body background these colors
+     actually sit on); mocks below carry `--night-bubble` (the card surface),
+     mirroring the app's two-step. */
+  .section.night {
+    background: var(--night-bg);
+    border-color: var(--night-rule);
+    color: var(--night-ink);
+  }
+  .night .section-label { color: var(--night-ink-2); }
+  .night .section-note { color: var(--night-muted); }
+  .night .sw .name { color: var(--night-ink); }
+  .night .sw .val { color: var(--night-muted); }
+  .night .sw .use { color: var(--night-ink-2); }
+  .night code { color: var(--night-ink-2); }
+
+  /* Pair row: the light value and its dark counterpart side by side, so the
+     translation is judged as a pair rather than as a lone dark swatch. */
+  .pair {
+    display: grid;
+    grid-template-columns: 26px 26px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .pair .sq {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    border: 1px solid rgba(232, 229, 216, 0.18);
+  }
+  .pair .hexes {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--night-muted);
+    font-size: 10px;
+  }
+  .pair .tok { color: var(--night-ink); }
+  .ratio {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--night-ink-2);
+    white-space: nowrap;
+  }
+
+  .toast {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-s);
+    border-radius: var(--radius-promo);
+    padding: 10px var(--sp-m);
+    margin: 6px 0;
+    border-left: 3px solid;
+    font-size: 12px;
+    line-height: 1.65;
+  }
+  .state-demo {
+    display: inline-block;
+    padding: 8px 14px;
+    border-radius: var(--radius-button);
+    border: 1px solid var(--night-rule);
+    background: var(--night-bubble);
+    color: var(--night-ink);
+    font-size: 11px;
+    margin: 4px 6px 4px 0;
+  }
+
+  /* Screen mocks — the surfaces ADR-028's render check named as carrying the
+     bulk of the unpaired gap. */
+  .mock {
+    background: var(--night-bubble);
+    border: 1px solid var(--night-rule);
+    border-radius: var(--radius-promo);
+    padding: var(--sp-m);
+    max-width: 340px;
+    margin: 8px 0;
+  }
+  .mock-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 2px;
+    border-bottom: 1px solid var(--night-rule);
+    font-size: 12px;
+    color: var(--night-ink);
+  }
+  .mock-row:last-child { border-bottom: none; }
+  .mock-row .trail { margin-left: auto; font-size: 11px; color: var(--night-muted); }
+  .badge {
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 999px;
+    letter-spacing: .04em;
+  }
+  .bar {
+    height: 5px;
+    border-radius: 3px;
+    background: var(--night-rule);
+    overflow: hidden;
+    margin: 9px 0 6px;
+  }
+  .bar > i { display: block; height: 100%; background: var(--night-moss); }
+  .mock-title { font-size: 12px; color: var(--night-ink); margin: 0 0 2px; }
+  .mock-meta {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--night-muted);
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Alert family &amp; interactive states（dark）</p>
+  <p class="section-note" style="margin-top:-4px">
+    ADR-028 § Rollout gate 1 のスライス1（18色）。左が light、右が提案するダーク対。
+    比率は各値がその文脈で乗る面に対する WCAG コントラスト比。
+    アプリは <code>UIUserInterfaceStyle = Light</code> で固定されているため、
+    この配色が実機に出るのは gate 1〜5 がすべて閉じてから。
+  </p>
+
+  <div class="section night">
+    <p class="section-label">§2.6 Alert Family — base（アイコン・強調文字）</p>
+    <div class="pair"><span class="sq" style="background:#7B8FA8"></span><span class="sq" style="background:var(--night-info)"></span><span><span class="tok">info</span> <span class="hexes">#7B8FA8 → #97ABC4</span></span><span class="ratio">7.2:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:#7A9270"></span><span class="sq" style="background:var(--night-success)"></span><span><span class="tok">success</span> <span class="hexes">#7A9270 → #95B189</span></span><span class="ratio">7.2:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:#C7A566"></span><span class="sq" style="background:var(--night-warning)"></span><span><span class="tok">warning</span> <span class="hexes">#C7A566 → #D4B67E</span></span><span class="ratio">8.7:1 on --night-bg</span></div>
+    <div class="pair"><span class="sq" style="background:#B57870"></span><span class="sq" style="background:var(--night-danger)"></span><span><span class="tok">danger</span> <span class="hexes">#B57870 → #CE9790</span></span><span class="ratio">6.9:1 on --night-bg</span></div>
+    <p class="section-note">
+      warning が今も少し明るいのは、琥珀が黄系で輝度が高いため。ただし
+      <strong>輝度の順位を保存すると知覚重みの順位は反転する</strong>ので、そこは追わない
+      — light では warning は 4 色中<strong>最も控えめ</strong>（地に対し 2.23:1、他は
+      3.18〜3.42）なのに、輝度を忠実に写すと dark では<strong>最も強い</strong>色になる。
+      当初案 #DBBF8A は 9.58:1 でその反転が最大だった。#D4B67E で 8.74:1 まで下げ、
+      他の 3 色（6.85〜7.24:1）との差を縮めている。完全に帯へ揃えないのは、
+      琥珀は明るいというプラットフォーム上の直観と、注意状態としての識別性を残すため。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">§2.6 Alert Family — Soft（背景）と Ink（その上の文字）</p>
+    <div class="pair"><span class="sq" style="background:#E8EDF2"></span><span class="sq" style="background:var(--night-info-soft)"></span><span><span class="tok">infoSoft</span> <span class="hexes">#E8EDF2 → #252D37</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:#4A5A6F"></span><span class="sq" style="background:var(--night-info-ink)"></span><span><span class="tok">infoInk</span> <span class="hexes">#4A5A6F → #B3C5DB</span></span><span class="ratio">7.9:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:#E5ECDF"></span><span class="sq" style="background:var(--night-success-soft)"></span><span><span class="tok">successSoft</span> <span class="hexes">#E5ECDF → #2A3725</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:#4D5F44"></span><span class="sq" style="background:var(--night-success-ink)"></span><span><span class="tok">successInk</span> <span class="hexes">#4D5F44 → #BFDBB3</span></span><span class="ratio">8.4:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:#F2EAD3"></span><span class="sq" style="background:var(--night-warning-soft)"></span><span><span class="tok">warningSoft</span> <span class="hexes">#F2EAD3 → #383124</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:#6F5C2D"></span><span class="sq" style="background:var(--night-warning-ink)"></span><span><span class="tok">warningInk</span> <span class="hexes">#6F5C2D → #E0CEAE</span></span><span class="ratio">8.3:1 on Soft</span></div>
+    <div class="pair"><span class="sq" style="background:#EDD9D4"></span><span class="sq" style="background:var(--night-danger-soft)"></span><span><span class="tok">dangerSoft</span> <span class="hexes">#EDD9D4 → #382624</span></span><span class="ratio">—</span></div>
+    <div class="pair"><span class="sq" style="background:#6F4540"></span><span class="sq" style="background:var(--night-danger-ink)"></span><span><span class="tok">dangerInk</span> <span class="hexes">#6F4540 → #E0B4AE</span></span><span class="ratio">7.7:1 on Soft</span></div>
+    <p class="section-note">
+      Soft と Ink は<strong>役割が反転</strong>する。light の「淡い地 + 濃い字」が、
+      dark では「暗い地 + 淡い字」になる。delta をそのまま Soft に当てると暗面の上に
+      眩しい淡色カードが出て §1 に反するので、ここだけは変換式を使わない。
+      4 つの Soft は <code>--night-bubble</code> に対し 1.02〜1.08、地に対し 1.19〜1.35 で、
+      色相だけが温度を伝える。Ink は delta ではなく<strong>目標コントラストで配置</strong>
+      している（L=78% → 実測 7.7〜8.4:1）。
+      <br>
+      <code>--night-success-soft</code> が <code>--night-whisper-bubble</code>（#2F3626）と
+      ほぼ同値（1.003）なのは既存関係の忠実な写像で、欠陥ではない — light 側でも
+      <code>--success-soft</code> と <code>--whisper-bubble</code> は 1.026 でほぼ同値。
+      トーストと密談バブルは文脈が重ならないので、これを「直さない」こと。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">§2.6 実際のトースト（dark）</p>
+    <div class="toast" style="background:var(--night-info-soft);border-color:var(--night-info);color:var(--night-info-ink)">info — 新しいデモが届きました</div>
+    <div class="toast" style="background:var(--night-success-soft);border-color:var(--night-success);color:var(--night-success-ink)">success — ダウンロードが終わりました</div>
+    <div class="toast" style="background:var(--night-warning-soft);border-color:var(--night-warning);color:var(--night-warning-ink)">warning — ダウンロードが一時停止されました</div>
+    <div class="toast" style="background:var(--night-danger-soft);border-color:var(--night-danger);color:var(--night-danger-ink)">danger — 会話を削除しますか？</div>
+    <p class="section-note">運用ルールは light と同じ。Cancel は赤くせず <code>--night-ink-2</code> のまま、danger は破壊確認のプライマリと実破壊状態のみ。</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">§2.7 Interactive States — moss を night-moss に載せ替え、alpha を約1.33倍</p>
+    <div>
+      <span class="state-demo">resting</span>
+      <span class="state-demo" style="background:var(--night-state-hover)">hover .06 → .08</span>
+      <span class="state-demo" style="background:var(--night-state-pressed)">pressed .12 → .16</span>
+      <span class="state-demo" style="background:var(--night-state-selected)">selected .18 → .24</span>
+    </div>
+    <div style="margin-top:10px">
+      <span class="state-demo" style="outline:2px solid var(--night-focus-ring);outline-offset:2px">focus ring #8A9A6C → #A8B888</span>
+      <span class="state-demo" style="background:var(--night-disabled-bg);border-color:var(--night-disabled-bg);color:var(--night-disabled-text)">disabled #605F54 / #222420</span>
+    </div>
+    <p class="section-note">
+      alpha を上げるのは、明るい moss を 6% で暗面に重ねてもほぼ判別できないため。
+      focusRing は light 側が <code>--moss</code> と同 hex を別トークンとして持つ設計なので、
+      dark でも <code>--night-moss</code> と同 hex を別名で持つ。
+      <br>
+      disabled 地は <code>--night-bubble</code> より<strong>沈める</strong>。dark では
+      「明るい＝浮く」が既に hover / selected の意味なので、無効面を持ち上げると衝突する。
+      #222420 はカード面に対し 1.151・地に対し 1.086 で、light の #ECE7DA が
+      白カード 1.235 / 地 1.183 で<strong>どちらの面でも見える</strong>のと同じ性質を保つ
+      （当初案 #2A2B26 はカード面に対し 1.049 でカード上では消えていた）。
+      文字とのコントラストは light の 1.75:1 に対し dark 2.43:1 — どちらも
+      WCAG 1.4.3 の非活性除外に乗る意図的な sub-AA で、あえて読みやすくしていない。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">画面モック 1 — 設定（Settings）</p>
+    <div class="mock">
+      <div class="mock-row">Gemma 4 E2B <span class="badge" style="background:var(--night-success-soft);color:var(--night-success-ink)">使用中</span><span class="trail">2.9 GB</span></div>
+      <div class="mock-row" style="background:var(--night-state-selected);border-radius:6px">Sarashina 2.2 3B<span class="trail">選択中</span></div>
+      <div class="mock-row" style="color:var(--night-disabled-text)">Gemma 3 1B IT<span class="trail" style="color:var(--night-disabled-text)">端末メモリ不足</span></div>
+      <div class="mock-row">観察履歴を削除<span class="badge" style="background:var(--night-danger-soft);color:var(--night-danger-ink);margin-left:auto">取り消せません</span></div>
+    </div>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">画面モック 2 — モデルダウンロード進捗</p>
+    <div class="mock">
+      <p class="mock-title">Gemma 4 E2B をダウンロード中</p>
+      <div class="bar"><i style="width:62%"></i></div>
+      <p class="mock-meta">1.8 GB / 2.9 GB · 残り 約4分</p>
+      <div class="toast" style="background:var(--night-warning-soft);border-color:var(--night-warning);color:var(--night-warning-ink);margin-top:10px">モバイル回線のため一時停止しました</div>
+    </div>
+    <p class="section-note">
+      ADR-028 のレンダリング確認では、Home はペア済み8色でほぼ完成していた一方、
+      この2画面が未ペア色の主戦場だった。だからスライス1をここに置いている。
+    </p>
+  </div>
+</div>
+</body>
+</html>
