@@ -1,6 +1,8 @@
 ---
 paths:
-  - "Pastura/Pastura/**/*.swift"
+  - "Pastura/Pastura/Views/**"
+  - "Pastura/Pastura/App/**"
+  - "Pastura/Pastura/PasturaApp.swift"
 ---
 
 # Navigation Rules
