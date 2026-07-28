@@ -96,15 +96,16 @@ nonisolated struct PasturaDynamicColor: Sendable {
 
 /// The light↔dark token pairs wired into the app's `Color.*` aliases.
 ///
-/// **Eight pairs, not nine.** `design-system.md` §2.9 lists nine `night*`
-/// tokens but maps two of them (`nightSurface`, `nightBubble`) onto the same
-/// day token, `bubbleBackground`. `nightSurface` therefore has no light
-/// partner and is not wired here — dark wants a background/surface/bubble
-/// three-step where light has only two, and resolving that (a new light
-/// `surface` token, or dropping `nightSurface`) is a visual-design decision.
-/// ADR-028 § "The `nightSurface` double-mapping" records it as deferred.
+/// **26 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
+/// §2.7 interactive states designed in slice 1 of gate 1 (#1282).
 ///
-/// The remaining 60 light tokens still owe a dark value and stay light-only;
+/// `nightSurface` is still not wired: `design-system.md` §2.9 maps it and
+/// `nightBubble` onto the same day token, `bubbleBackground`, so it has no
+/// light partner — dark wants a background/surface/bubble three-step where
+/// light has only two. ADR-028 § "The `nightSurface` double-mapping" records
+/// it as deferred.
+///
+/// The remaining 42 light tokens still owe a dark value and stay light-only;
 /// the app is pinned to light via `Info.plist`'s `UIUserInterfaceStyle` until
 /// they are designed, so no half-dark surface can render.
 ///
@@ -145,14 +146,73 @@ enum PasturaDynamicPalette {
   static let moss = PasturaDynamicColor(
     light: PasturaPalette.moss, dark: PasturaPalette.nightMoss)
 
+  /// §2.6 — neutral notification.
+  static let info = PasturaDynamicColor(
+    light: PasturaPalette.info, dark: PasturaPalette.nightInfo)
+  /// §2.6 — background fill paired with `info`.
+  static let infoSoft = PasturaDynamicColor(
+    light: PasturaPalette.infoSoft, dark: PasturaPalette.nightInfoSoft)
+  /// §2.6 — text over `infoSoft`.
+  static let infoInk = PasturaDynamicColor(
+    light: PasturaPalette.infoInk, dark: PasturaPalette.nightInfoInk)
+
+  /// §2.6 — positive completion.
+  static let success = PasturaDynamicColor(
+    light: PasturaPalette.success, dark: PasturaPalette.nightSuccess)
+  /// §2.6 — background fill paired with `success`.
+  static let successSoft = PasturaDynamicColor(
+    light: PasturaPalette.successSoft, dark: PasturaPalette.nightSuccessSoft)
+  /// §2.6 — text over `successSoft`.
+  static let successInk = PasturaDynamicColor(
+    light: PasturaPalette.successInk, dark: PasturaPalette.nightSuccessInk)
+
+  /// §2.6 — caution / awaiting confirmation.
+  static let warning = PasturaDynamicColor(
+    light: PasturaPalette.warning, dark: PasturaPalette.nightWarning)
+  /// §2.6 — background fill paired with `warning`.
+  static let warningSoft = PasturaDynamicColor(
+    light: PasturaPalette.warningSoft, dark: PasturaPalette.nightWarningSoft)
+  /// §2.6 — text over `warningSoft`.
+  static let warningInk = PasturaDynamicColor(
+    light: PasturaPalette.warningInk, dark: PasturaPalette.nightWarningInk)
+
+  /// §2.6 — destructive / irrevocable action.
+  static let danger = PasturaDynamicColor(
+    light: PasturaPalette.danger, dark: PasturaPalette.nightDanger)
+  /// §2.6 — background fill paired with `danger`.
+  static let dangerSoft = PasturaDynamicColor(
+    light: PasturaPalette.dangerSoft, dark: PasturaPalette.nightDangerSoft)
+  /// §2.6 — text over `dangerSoft`.
+  static let dangerInk = PasturaDynamicColor(
+    light: PasturaPalette.dangerInk, dark: PasturaPalette.nightDangerInk)
+
+  /// §2.7 — hover-state accent wash.
+  static let hover = PasturaDynamicColor(
+    light: PasturaPalette.hover, dark: PasturaPalette.nightHover)
+  /// §2.7 — pressed-state accent wash.
+  static let pressed = PasturaDynamicColor(
+    light: PasturaPalette.pressed, dark: PasturaPalette.nightPressed)
+  /// §2.7 — selected-state accent wash.
+  static let selected = PasturaDynamicColor(
+    light: PasturaPalette.selected, dark: PasturaPalette.nightSelected)
+  /// §2.7 — focus-ring stroke.
+  static let focusRing = PasturaDynamicColor(
+    light: PasturaPalette.focusRing, dark: PasturaPalette.nightFocusRing)
+  /// §2.7 — disabled-state text.
+  static let disabledText = PasturaDynamicColor(
+    light: PasturaPalette.disabledText, dark: PasturaPalette.nightDisabledText)
+  /// §2.7 — disabled-state surface fill.
+  static let disabledBackground = PasturaDynamicColor(
+    light: PasturaPalette.disabledBackground, dark: PasturaPalette.nightDisabledBackground)
+
   /// Every declared pair, keyed by its light-token name.
   ///
   /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
   /// does and does not catch: the registry is hand-maintained, so declaring a
-  /// ninth pair and *not* appending it here leaves `all.count == 8` and passes.
+  /// 27th pair and *not* appending it here leaves `all.count == 26` and passes.
   /// The count guards this list against its own documented size, nothing more —
   /// the real per-alias coverage is the wiring tests, which resolve each of the
-  /// eight `Color.*` aliases under both schemes.
+  /// 26 `Color.*` aliases under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
     ("bubbleBackground", bubbleBackground),
@@ -161,6 +221,24 @@ enum PasturaDynamicPalette {
     ("inkSecondary", inkSecondary),
     ("muted", muted),
     ("rule", rule),
-    ("moss", moss)
+    ("moss", moss),
+    ("info", info),
+    ("infoSoft", infoSoft),
+    ("infoInk", infoInk),
+    ("success", success),
+    ("successSoft", successSoft),
+    ("successInk", successInk),
+    ("warning", warning),
+    ("warningSoft", warningSoft),
+    ("warningInk", warningInk),
+    ("danger", danger),
+    ("dangerSoft", dangerSoft),
+    ("dangerInk", dangerInk),
+    ("hover", hover),
+    ("pressed", pressed),
+    ("selected", selected),
+    ("focusRing", focusRing),
+    ("disabledText", disabledText),
+    ("disabledBackground", disabledBackground)
   ]
 }

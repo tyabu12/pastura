@@ -9,11 +9,12 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
-  // The eight aliases sourced from `PasturaDynamicPalette` resolve light/dark
-  // against the ambient interface style (§2.9, ADR-028); every other alias
-  // below is light-only because its token has no dark counterpart yet. The app
-  // is pinned to light via `Info.plist`'s `UIUserInterfaceStyle`, so no
-  // half-dark surface can render while that is true.
+  // The 26 aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // against the ambient interface style (§2.9, ADR-028 plus the §2.6/§2.7
+  // slice in #1282); every other alias below is light-only because its token
+  // has no dark counterpart yet. The app is pinned to light via `Info.plist`'s
+  // `UIUserInterfaceStyle`, so no half-dark surface can render while that is
+  // true.
   //
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?
@@ -85,26 +86,26 @@ extension Color {
   static let avatarHighlight = PasturaPalette.avatarHighlight.color
 
   // §2.6 Alert family
-  static let info = PasturaPalette.info.color
-  static let infoSoft = PasturaPalette.infoSoft.color
-  static let infoInk = PasturaPalette.infoInk.color
-  static let success = PasturaPalette.success.color
-  static let successSoft = PasturaPalette.successSoft.color
-  static let successInk = PasturaPalette.successInk.color
-  static let warning = PasturaPalette.warning.color
-  static let warningSoft = PasturaPalette.warningSoft.color
-  static let warningInk = PasturaPalette.warningInk.color
-  static let danger = PasturaPalette.danger.color
-  static let dangerSoft = PasturaPalette.dangerSoft.color
-  static let dangerInk = PasturaPalette.dangerInk.color
+  static let info = PasturaDynamicPalette.info.color
+  static let infoSoft = PasturaDynamicPalette.infoSoft.color
+  static let infoInk = PasturaDynamicPalette.infoInk.color
+  static let success = PasturaDynamicPalette.success.color
+  static let successSoft = PasturaDynamicPalette.successSoft.color
+  static let successInk = PasturaDynamicPalette.successInk.color
+  static let warning = PasturaDynamicPalette.warning.color
+  static let warningSoft = PasturaDynamicPalette.warningSoft.color
+  static let warningInk = PasturaDynamicPalette.warningInk.color
+  static let danger = PasturaDynamicPalette.danger.color
+  static let dangerSoft = PasturaDynamicPalette.dangerSoft.color
+  static let dangerInk = PasturaDynamicPalette.dangerInk.color
 
   // §2.7 Interactive states
-  static let hover = PasturaPalette.hover.color
-  static let pressed = PasturaPalette.pressed.color
-  static let selected = PasturaPalette.selected.color
-  static let focusRing = PasturaPalette.focusRing.color
-  static let disabledText = PasturaPalette.disabledText.color
-  static let disabledBackground = PasturaPalette.disabledBackground.color
+  static let hover = PasturaDynamicPalette.hover.color
+  static let pressed = PasturaDynamicPalette.pressed.color
+  static let selected = PasturaDynamicPalette.selected.color
+  static let focusRing = PasturaDynamicPalette.focusRing.color
+  static let disabledText = PasturaDynamicPalette.disabledText.color
+  static let disabledBackground = PasturaDynamicPalette.disabledBackground.color
 
   // §2.8 Link / Action
   static let link = PasturaPalette.link.color
