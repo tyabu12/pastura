@@ -152,7 +152,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 **trait-based 配線済み（8 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
 `UIColor(dynamicProvider:)` で解決し、下表の 8 対が `Color.*` エイリアス経由で実 UI に
-届いている（[ADR-028](../decisions/ADR-028.md)）。ただし §2.1–§2.8 / §2.12 の残り **59**
+届いている（[ADR-028](../decisions/ADR-028.md)）。ただし §2.1–§2.8 / §2.12 の残り **60**
 トークンにはダーク対が無いため、アプリは `Info.plist` の `UIUserInterfaceStyle = Light`
 で固定されたままで、実際にダークが描画されることはない。固定解除の条件は ADR-028
 § "Rollout"。Source: `§2.9 Dark Mode`。
