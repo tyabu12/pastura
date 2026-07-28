@@ -16,7 +16,7 @@ extension PhaseEditorSheet {
             fieldRolePill(for: key)
             Spacer()
             Text(phase.outputFields[key] ?? "string")
-              .foregroundStyle(.secondary)
+              .foregroundStyle(Color.inkSecondary)
             Button(role: .destructive) {
               phase.outputFields.removeValue(forKey: key)
             } label: {
@@ -29,7 +29,7 @@ extension PhaseEditorSheet {
           if let description = FieldDisplay.description(for: key) {
             Text(description)
               .font(.caption)
-              .foregroundStyle(.secondary)
+              .foregroundStyle(Color.muted)
           }
         }
       }

@@ -10,7 +10,7 @@ struct PhaseBlockRow: View {
     HStack(spacing: 10) {
       // Drag handle
       Image(systemName: "line.3.horizontal")
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.muted)
         .frame(width: 20)
 
       // Phase type badge
@@ -19,7 +19,7 @@ struct PhaseBlockRow: View {
       // Content summary
       Text(summary)
         .font(.subheadline)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
         .lineLimit(1)
         .truncationMode(.tail)
 
@@ -27,7 +27,7 @@ struct PhaseBlockRow: View {
     }
     .padding(.vertical, 8)
     .padding(.horizontal, 12)
-    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+    .background(Color.bubbleBackground, in: RoundedRectangle(cornerRadius: 10))
   }
 
   /// A brief human-readable summary of the phase content.

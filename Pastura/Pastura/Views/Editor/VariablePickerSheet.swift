@@ -51,11 +51,11 @@ struct VariablePickerSheet: View {
             VStack(alignment: .leading, spacing: 3) {
               Text(verbatim: "{\(token)}")
                 .font(.body.monospaced())
-                .foregroundStyle(Color.accentColor)
+                .foregroundStyle(Color.mossDark)
               if let description = PlaceholderDisplay.description(for: token) {
                 Text(description)
                   .font(.caption)
-                  .foregroundStyle(.secondary)
+                  .foregroundStyle(Color.muted)
               }
             }
           }

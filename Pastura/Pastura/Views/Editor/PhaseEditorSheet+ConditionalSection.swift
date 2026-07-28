@@ -70,10 +70,10 @@ extension PhaseEditorSheet {
           HStack {
             Text(subPhase.type.rawValue)
               .font(.body.monospaced())
-              .foregroundStyle(.primary)
+              .foregroundStyle(Color.ink)
             Spacer()
             Image(systemName: "chevron.right")
-              .foregroundStyle(.secondary)
+              .foregroundStyle(Color.muted)
               .font(.caption)
           }
         }
