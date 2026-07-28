@@ -117,7 +117,7 @@ extension ModelDownloadHostView {
           )
         )
         .font(.subheadline)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
         .multilineTextAlignment(.center)
         // Device names live on the support page, not in app copy — the
         // authoritative matrix is the ASC compatibility list and model
@@ -154,7 +154,7 @@ extension ModelDownloadHostView {
             localized: "This download is set to Wi-Fi only. Tap Try Again to change.")
         )
         .font(.subheadline)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
         .multilineTextAlignment(.center)
         Button {
           modelManager.startDownload(descriptor: descriptor)
@@ -197,7 +197,7 @@ extension ModelDownloadHostView {
         .progressViewStyle(.linear)
         Text(String(localized: "Please keep the app open during download."))
           .font(.caption)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.inkSecondary)
         Button(String(localized: "Cancel")) {
           if let trigger = triggerCancelConfirmation {
             trigger()
@@ -230,7 +230,7 @@ extension ModelDownloadHostView {
           .font(.title2.bold())
         Text(message)
           .font(.subheadline)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.inkSecondary)
           .multilineTextAlignment(.center)
         Button {
           modelManager.startDownload(descriptor: descriptor)

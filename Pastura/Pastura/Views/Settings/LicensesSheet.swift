@@ -60,7 +60,7 @@ private struct LicenseEntryRow: View {
         .font(.body)
       Text(entry.licenseName)
         .font(.caption)
-        .foregroundStyle(.secondary)
+        .foregroundStyle(Color.inkSecondary)
     }
     .padding(.vertical, 2)
   }
