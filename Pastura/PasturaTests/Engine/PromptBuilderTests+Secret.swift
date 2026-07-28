@@ -127,7 +127,7 @@ extension PromptBuilderTests {
     let prompt = builder.buildSystemPrompt(
       scenario: scenario, persona: scenario.personas[0], phase: speakPhase(), state: state)
     let secret = try #require(prompt.range(of: "## あなたの秘密"))
-    let notes = try #require(prompt.range(of: "## あなたの心の声メモ"))
+    let notes = try #require(prompt.range(of: "## あなたの非公開メモ"))
     #expect(secret.lowerBound < notes.lowerBound)
   }
 

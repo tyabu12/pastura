@@ -59,7 +59,7 @@ nonisolated extension PromptBuilder {
     if let note = state.variables["notes_\(persona.name)"], !note.isEmpty {
       let header = pickLanguage(
         language,
-        ja: "## あなたの心の声メモ（他の参加者には見えません）",
+        ja: "## あなたの非公開メモ（他の参加者には見えません）",
         en: "## Your Private Notes (invisible to other participants)")
       sections.append("\(header)\n\(note)")
     }

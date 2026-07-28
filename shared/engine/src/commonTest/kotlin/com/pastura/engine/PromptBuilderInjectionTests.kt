@@ -191,14 +191,14 @@ class PromptBuilderInjectionTests {
         val s = scenario()
         val state = stateOf(s, mapOf("notes_Alice" to "NOTE_SENTINEL"))
         val prompt = builder.buildSystemPrompt(s, alice, speakAll, state)
-        assertTrue(prompt.contains("あなたの心の声メモ"))
+        assertTrue(prompt.contains("あなたの非公開メモ"))
         assertTrue(prompt.contains("NOTE_SENTINEL"))
     }
 
     @Test
     fun systemPromptOmitsNotesSectionWhenUnset() {
         val s = scenario()
-        assertFalse(builder.buildSystemPrompt(s, alice, speakAll, stateOf(s)).contains("あなたの心の声メモ"))
+        assertFalse(builder.buildSystemPrompt(s, alice, speakAll, stateOf(s)).contains("あなたの非公開メモ"))
     }
 
     @Test

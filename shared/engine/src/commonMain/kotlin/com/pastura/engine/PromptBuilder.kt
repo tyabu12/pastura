@@ -598,7 +598,7 @@ internal class PromptBuilder {
         state.variables["notes_${persona.name}"]?.takeIf { it.isNotEmpty() }?.let { note ->
             val header = pickLanguage(
                 language,
-                ja = "## あなたの心の声メモ（他の参加者には見えません）",
+                ja = "## あなたの非公開メモ（他の参加者には見えません）",
                 en = "## Your Private Notes (invisible to other participants)",
             )
             sections += "$header\n$note"

@@ -213,7 +213,7 @@ extension PromptBuilderTests {
     let prompt = builder.buildSystemPrompt(
       scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
     )
-    #expect(prompt.contains("あなたの心の声メモ"))
+    #expect(prompt.contains("あなたの非公開メモ"))
     #expect(prompt.contains("I suspect Bob is the wolf."))
   }
 
@@ -225,7 +225,7 @@ extension PromptBuilderTests {
     let prompt = builder.buildSystemPrompt(
       scenario: scenario, persona: scenario.personas[0], phase: phase, state: state
     )
-    #expect(!prompt.contains("あなたの心の声メモ"))
+    #expect(!prompt.contains("あなたの非公開メモ"))
   }
 
   @Test func systemPromptPrivateNotesSectionEnHeader() {

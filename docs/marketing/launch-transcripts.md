@@ -73,7 +73,7 @@ curated 集。X 拡散 / Zenn 技術記事 / Apple フィーチャリング自�
 
 ### 撮影指示
 - **画面化手段**: 逐語ブロックを DEBUG UI テスト経路で結果タイムライン（`ResultDetailView`）にシードして撮影（`scripts/marketing-shots.sh` / `MarketingShotTests`）。生ラン非永続のため再現ラン待ちは非現実的で、逐語からの忠実シードが正。
-- **⚠️ `clue` はアプリ非表示**: word_wolf の `clue` はシナリオ定義のカスタム出力フィールドで、アプリの `AgentOutputRow` は `statement`（本文）と `inner_thought`（THINKING）しか描画しない → **`clue` 値は画面に出ない**。撮影が成立する“綻び”は clue ではなく **statement 側**（レンだけ「全体の形」を語り、他が質感・味・季節を語る）で、実際サクラ/ユウキの投票理由もこの statement のズレを名指ししている。
+- **⚠️ `clue` はアプリ非表示**: word_wolf の `clue` はシナリオ定義のカスタム出力フィールドで、アプリの `AgentOutputRow` は `statement`（本文）と `inner_thought`（ja 表示は「心の声」）しか描画しない → **`clue` 値は画面に出ない**。撮影が成立する“綻び”は clue ではなく **statement 側**（レンだけ「全体の形」を語り、他が質感・味・季節を語る）で、実際サクラ/ユウキの投票理由もこの statement のズレを名指ししている。
 - **撮りどころ**: 素の結果タイムラインで完結。
   - 1 枚目: レンの statement「…その対象が持つ**全体の形**について語りたい」＋ サクラ/ユウキの投票理由（statement のズレ→名指し）
   - 2 枚目: `🎯 ウルフ発見！` の summary リビール
@@ -227,14 +227,14 @@ curated 集。X 拡散 / Zenn 技術記事 / Apple フィーチャリング自�
 - 元トランスクリプト: セッション一時領域（非永続）。再入手は下記逐語ブロックが正。
 
 ### 撮影指示
-- **画面化手段**: 逐語ブロックを DEBUG UI テスト経路で結果タイムライン（`ResultDetailView`）にシードして撮影（`scripts/marketing-shots.sh` / `MarketingShotTests`）。inner_thought は THINKING（INNER VOICE）折り畳み、密談は whisper ヘッダ＋色付きバブルで描画される。
+- **画面化手段**: 逐語ブロックを DEBUG UI テスト経路で結果タイムライン（`ResultDetailView`）にシードして撮影（`scripts/marketing-shots.sh` / `MarketingShotTests`）。inner_thought は「心の声」折り畳み（en カタログキーは `INNER VOICE`）、密談は whisper ヘッダ＋色付きバブルで描画される。
 - **⚠️ `declared_intent` はアプリ非表示**: `clue` と同クラス — `declared_intent`（公開宣言「協力」）はログには残るが `AgentOutputRow` に描画ラベルは無い（矛盾バッジ判定の入力に使われるのみ）。よって画面で対比できるのは **公開 statement（協力呼びかけ）vs 密談 whisper（表面上は協調…）＋その inner_thought（心の声）** の2レイヤー。§条件の「3層が別々に**記録**される」は機構（ログ）の話で正しく、スクショはその記録の可視な2層を映す。
 - **撮りどころ**: ハルカの「公開 statement」と「密談 whisper＋心の声 inner_thought」を 2 枚で対比。
 - **照合用アンカー文字列**:
   - 公開 statement: `皆さん、ここは一度、協力してみたいと思いませんか？`
   - 密談 whisper: `表面上は協調するふりをして、あなたの動きを観察させてください`
   - 心の声 inner_thought: `協力の雰囲気を作りつつも、最終的には自分の利益を最大化するつもりだ`
-- **表示条件**: ロケール ja / ライトのみ（アプリはダーク非対応）/ INNER VOICE（inner_thought）展開状態。
+- **表示条件**: ロケール ja / ライトのみ（アプリはダーク非対応）/「心の声」（inner_thought）展開状態。
 
 ### 逐語引用（単一の真実源・編集禁止）
 > **ハルカ** (speak_all, R1):
@@ -287,7 +287,7 @@ curated 集。X 拡散 / Zenn 技術記事 / Apple フィーチャリング自�
 - streaming 途中本文 → ライブの核心。**必須**。
 - 実測 tok/s → dev 層への proof point。**実測のみ**（§ キャプション規律）。
 - 過去発話行の減光（生成中の行にフォーカス）→ ライブ状態の正直な描画。入れてよい。
-- 直前 committed 行の ▸ THINKING（inner voice）→ クラウドチャット UI との差別化点。`word_wolf.yaml` は speak_each に `inner_thought` を宣言しているので描画される（宣言が消えれば ▸THINKING も出ない）。入れてよい。
+- 直前 committed 行の ▸「心の声」→ クラウドチャット UI との差別化点。`word_wolf.yaml` は speak_each に `inner_thought` を宣言しているので描画される（宣言が消えれば ▸「心の声」も出ない）。入れてよい。
 - play/pause コントロールバー → 「観測を操作できるアプリ」の証拠。入れてよい。
 - タブバー非表示（フォーカスモード、ADR-017）→ 没入 chrome。自動でそうなる。
 - result card / scoreboard → **写さない**（完了物は結果ショット①の領分）。
