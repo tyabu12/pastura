@@ -255,12 +255,12 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 `.claude/rules/` contains detailed rules with two loading modes:
 
-**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`). **Verifying a `paths:` change needs a fresh session or a subagent** — the rule set is snapshotted at session start (a rule file created mid-session never injects) and each rule injects at most once per session, so re-reading a file in the editing session shows nothing either way (measured, #1312):
+**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`; verifying a `paths:` edit needs a fresh session — `knowledge-layering.md` § "Verifying a `paths:` edit needs a fresh session"):
 
 - `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` (`docs/decisions/**`)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure). Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
-- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in any layer and in both targets (`Pastura/Pastura/**/*.swift`, `Pastura/PasturaTests/**`)
-- `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating (`.github/workflows/**`, `scripts/**`)
+- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in any layer and in all three targets; its § header carries the `tools/harness` carve-out (`Pastura/Pastura/**/*.swift`, `Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`)
+- `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (`.github/workflows/**`, `scripts/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
 - `i18n.md` — Swift-side localization conventions: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, plurals, Tier 2 audit planning (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
 - `i18n-catalog.md` — `Localizable.xcstrings` editing + `xcstringstool` sync output. **Loads on a `Read` of the catalog, so a scripted mutation loads nothing** — read it explicitly before one (`Pastura/Pastura/Resources/Localizable.xcstrings`)

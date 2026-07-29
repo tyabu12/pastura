@@ -2,18 +2,24 @@
 paths:
   - "Pastura/Pastura/**/*.swift"
   - "Pastura/PasturaTests/**"
+  - "Pastura/PasturaUITests/**"
 ---
 
 # Build & Lint Traps
 
-Traps that fire when **adding or naming a Swift file** in either Xcode target, independent of
-which layer it lives in. Split out of `swiftui-traps.md` so they keep loading for
-`Engine/` / `LLM/` / `Models/` / `Data/` / `Utilities/` and test-target work, where they
-demonstrably apply but no SwiftUI trap does. `swiftui-traps.md` now scopes to the UI layers
-(`Views/**` + `App/**` + `PasturaApp.swift`); this file carries the cross-layer remainder.
+Traps that fire when **adding or naming a Swift file**, independent of which layer it lives in.
+The SwiftUI catalog (`swiftui-traps.md`) is scoped to the UI layers, so these two would be
+invisible to `Engine/` / `LLM/` / `Models/` / `Data/` / `Utilities/` and test work if they lived
+there.
 
-Both traps below are **per-target**, and Pastura has two (`Pastura`, `PasturaTests`) — hence the
-test glob above.
+`Pastura.xcodeproj` declares **three** native targets — `Pastura`, `PasturaTests`,
+`PasturaUITests` — and `.stringsdata` collides per-target, hence all three globs above.
+
+**Carve-out**: `tools/harness` (SwiftPM, ADR-013) is swiftlint-linted (`.swiftlint.yml`
+`included:`) so the directive trap applies there, but it ships no string catalog, so the
+`.stringsdata` trap does not. It is deliberately left out of `paths:` rather than loading this
+whole file for half its content — the harness is covered by `swift-testing-parallelism.md`'s
+`tools/**` glob.
 
 ## Duplicate base filename → `.stringsdata` collision
 

@@ -9,7 +9,7 @@ paths:
 
 Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface during Pastura UI development. Loaded when a file in the UI layers is read (an edit reads it first).
 
-**Scope** — the globs above are **identical to `navigation.md`'s**, deliberately: every trap here needs a SwiftUI view tree, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI (verified by `grep -rl "import SwiftUI" Pastura/Pastura --include='*.swift'`). Traps that fire in *any* layer — filename collisions, SwiftLint directive placement — live in `build-traps.md`, which keeps the wide app-target glob plus the test target. `navigation.md` carries AppRouter / `PasturaBackButton` mechanics: this file is the trap catalog, that one is the navigation pattern.
+**Scope** — the globs above are **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI (`grep -rl "import SwiftUI" Pastura/Pastura --include='*.swift'`). Not every one is a *SwiftUI* trap: § "Adding a `Color` design token = 5 files" is a workflow trap whose later steps land in a test file and `docs/design/**` — it stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point at all — filename collisions, SwiftLint directive placement — live in `build-traps.md`, which keeps the wide app-target glob plus both test targets. `navigation.md` carries AppRouter / `PasturaBackButton` mechanics: this file is the trap catalog, that one is the navigation pattern.
 
 ## Toolbar-hide API matrix (iOS 17 → 26)
 

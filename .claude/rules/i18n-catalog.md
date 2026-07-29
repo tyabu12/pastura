@@ -5,22 +5,15 @@ paths:
 
 # Localizable.xcstrings — catalog & tooling procedures
 
-Procedures for editing `Localizable.xcstrings` itself and for surviving
-`xcrun xcstringstool sync`'s output. Split out of `i18n.md`, which keeps the
-**Swift-authoring** side (`String(localized:)` / `String(format:)` forms, the Form A
-runtime-fallback hazard, plurals, the Tier 2 audit workflow) and stays globbed to
-`Pastura/Pastura/**/*.swift`. `i18n.md` also still matches this catalog, so a session
-that reads the catalog loads **both** files and nothing is lost; a session that only
-reads Swift no longer pays for the procedures below.
+Editing the catalog itself, and surviving `xcrun xcstringstool sync`'s output. The
+Swift-authoring side — Form B, the Form A fallback hazard, plurals, audit planning — is
+`i18n.md`, which matches this path too, so a catalog session loads both.
 
-⚠️ **This file loads on a `Read` of the catalog — not on a script run.** A Python
-batch-fill or `scripts/xcstrings-prune-stale.py` mutates the catalog without any agent
-`Read`, so the rules below are absent from exactly the sessions § "Catalog editing —
-don't `json.dumps` round-trip" and § "Batch ja-fill — preserve shared keys" are written
-to govern. **Read this file explicitly before any scripted catalog mutation.** (This
-gap is inherited, not introduced by the split — `i18n.md` carried the same
-`Read`-driven glob before it, and it is the same failure class `CLAUDE.md` documents
-for `automation-output-contract.md`.)
+⚠️ **This file loads on a `Read` of the catalog — not on a script run.** A batch ja-fill
+or `scripts/xcstrings-prune-stale.py` mutates the catalog without any agent `Read`, so
+§ "Catalog editing — don't json.dumps round-trip" and § "Batch ja-fill — preserve shared
+keys" are absent from exactly the sessions they govern. **Read this file explicitly
+before any scripted catalog mutation.**
 
 ## xcstringstool sync output
 
@@ -57,7 +50,8 @@ Pastura/Pastura/Resources/Localizable.xcstrings`); never commit it. A few
 artifacts (the empty `""` key, `'Pastura'` from Info.plist) reappear on
 every Xcode open — inherent, not actionable.
 
-Converting Form A → Form B (`i18n.md` § "Form A is a runtime hazard") removes the
+Converting Form A → Form B (`i18n.md` § "Form A is a runtime hazard at user-facing
+callsites") removes the
 `%arg`/`%@` divergence class for those keys, since the source literal then
 holds an explicit `%@`/`%lld` both tools extract identically. See #629.
 

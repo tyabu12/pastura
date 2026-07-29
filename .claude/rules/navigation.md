@@ -24,8 +24,10 @@ The directory entries use the bare `**` form rather than `**/*.swift` simply
 because `Views/`+`App/` contain no non-Swift files, so the suffix would buy
 nothing. It is **not** needed to reach direct children: measured, `**/` binds
 **zero** path segments in this matcher — reading `Pastura/Pastura/PasturaApp.swift`
-injects rules globbed `Pastura/Pastura/**/*.swift`, while reading a file outside
-those globs injects none (positive + negative control, #1312). An earlier
+injects `i18n.md`, which is globbed `Pastura/Pastura/**/*.swift`, while reading
+`scripts/xcstrings-prune-stale.py` injects it not at all (positive + negative
+control, #1312; re-run it against `i18n.md` specifically — `swiftui-traps.md`
+carried that glob when the control was first taken but no longer does). An earlier
 revision of this paragraph asserted the opposite as the reason for the bare form;
 that inference was wrong, and the per-directory file counts it leaned on are gone
 with it. `PasturaApp.swift` still needs its own entry — for the reason in the
