@@ -145,8 +145,8 @@ Same class of trap:
 
 ## Pattern 4 — traps inside the Kotlin port (`commonMain`, `commonTest`, the port gates)
 
-Patterns 1–3 are about the K/N *boundary*. These fire while writing the port itself, and each one
-compiles or passes somewhere before failing where it counts.
+Patterns 1–3 are about the K/N *boundary*. These fire while writing the port itself, and most of
+them compile or pass somewhere before failing where it counts.
 
 **`commonMain` is not the platform stdlib.** An API present on JVM *and* Native is not necessarily
 in the *common* stdlib. Every per-target compile (`compileKotlinIosSimulatorArm64`, `jvmTest`)
@@ -155,7 +155,8 @@ resolves it and passes — only `compileCommonMainKotlinMetadata` fails. **Run
 instances found so far carry their own why-comments at the call site (`RegexOption.DOT_MATCHES_ALL`,
 `String.codePointCount`, `Map.toSortedMap`); the rule here is the task, not the list.
 
-**Divergences that compile clean:**
+**Divergences from the Swift original** (the first fails loudly at the port site; the second is the
+compile-clean one):
 
 | Swift | Kotlin | Consequence |
 |---|---|---|
@@ -164,8 +165,8 @@ instances found so far carry their own why-comments at the call site (`RegexOpti
 
 **The schema guard sits at a different place in each engine — a live behavioural divergence, not a
 porting choice.** The two `hasAllExpectedKeys` helpers are identical (both reject a present-but-empty
-expected key), and so is the `LLMCaller` empty-field branch (`LLMCaller.kt:164` says so in its own
-comment). The divergence is **entirely in the parser**: Swift's happy path returns before any guard
+expected key), and so is the `LLMCaller` empty-field branch (`LLMCaller.kt:160-164` says so in its
+own comment). The divergence is **entirely in the parser**: Swift's happy path returns before any guard
 (`JSONResponseParser.swift:95-97`) and applies it only on the salvage and post-repair paths
 (`:105`, `:153`), whereas Kotlin applies it on every successful parse **when the phase declares an
 `output:` schema** (`expectedKeys.isNotEmpty()`, `JSONResponseParser.kt:105`). So for a well-formed
@@ -182,9 +183,14 @@ assert the **skip mechanism** (`TurnSkipped` emitted, no `AgentOutput`, prior va
 the guard. Asserting the guard is coverage theater: revert it and the test stays green (the same rule
 Swift-side is `testing.md` § "A regression test must drive the exact unguarded-path input"). The
 declaration is validator-enforced for reflect→`note` and whisper→`statement`
-(`ScenarioValidator.swift:264,278`). For an **undeclared** key — an optional `mood`, or any key on a
-schema-less phase — `expectedKeys` is empty, the parser guard never runs, and the handler guard *is*
-reachable: there a direct test is correct, and so is porting the Swift one.
+(`ScenarioValidator.swift:264,278`), and the handler must actually pass the schema through
+(`schema = OutputSchema.from(context.phase)`) — omit that and `expectedKeys` is empty again. For an
+**undeclared** key — an optional `mood`, or any key on a schema-less phase — the parser guard never
+runs and the handler guard *is* reachable: there a direct test is correct, and so is porting the
+Swift one. ⚠️ The `TurnSkipped` assertion holds only **below** `TurnFailureGate.consecutiveSkipLimit`
+— the tripping failure throws `TurnFailureLimitReached` and emits no `TurnSkipped`
+(`TurnFailureGate.kt:77-80`), so a test driving that many consecutive empty turns fails the very
+assertion this rule prescribes.
 
 **Stage a new `.kt` before believing either gate.** `check-kmp-status.py` and the prompt-literal
 parity gate both scope themselves to tracked files (correctly — `ci-workflows.md` § "Gate scripts"),

@@ -4,10 +4,9 @@
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific
 > content lives only in this copy.
 >
-> ⚠️ As of 2026-07-29 the probe-outcome material in § "Claims you author are assertions too" and
-> its verification-table row landed **here first**, ahead of claude-kit PR #12. That inverts the
-> one-way direction above, so re-diff this file against the kit once #12 merges and take the kit's
-> wording — then delete this note.
+> ⚠️ 2026-07-29: the probe-outcome text + subagent-verdict row landed here ahead of claude-kit PR #12
+> (open) — once it merges, reconcile the generic core from the kit, keep this copy's
+> `swift-isolation.md` pointer, and delete this note.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
@@ -127,7 +126,7 @@ A **why-comment you write** asserts runtime or library behaviour as the reason a
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
-Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314; PR #1265.
+Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314.
 
 ### A rules file created mid-session never injects in that session
 
