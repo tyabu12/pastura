@@ -57,9 +57,17 @@ extension DesignTokensTests {
 
   // MARK: - The eye is the darkest mark, in both appearances
 
-  /// The sheep's linework has an ordering: the eye is darker than the nose,
-  /// which is darker than every horn and face. It holds in light and must keep
-  /// holding in dark.
+  /// The eye is the sheep's darkest mark in both appearances — darker than the
+  /// nose and than every face and horn.
+  ///
+  /// Scoped to the eye deliberately, and the omission is worth stating because
+  /// the tempting fuller claim is false. "eye < nose < every horn" holds in
+  /// light but **not** in dark: `nightAvatarNose` is *lighter* than
+  /// `nightAvatarHornDave`. That is a consequence of the nose being placed
+  /// against the *eye* (1.28:1) instead of riding the face family — see its
+  /// declaration — so fixing one ordering broke the other. It is not a defect
+  /// to chase: no renderer draws the nose, so its rank among the strokes is
+  /// unobservable. Do not widen this comment, or the predicate, to the chain.
   @Test func nightAvatarEyeIsTheDarkestMark() {
     #expect(eyeIsDarkest(eye: PasturaPalette.avatarEye, inDark: false))
     #expect(eyeIsDarkest(eye: PasturaPalette.nightAvatarEye, inDark: true))
@@ -76,8 +84,9 @@ extension DesignTokensTests {
     #expect(!eyeIsDarkest(eye: PasturaPalette.avatarEye, inDark: true))
 
     // The control alone does not isolate the cause the doc-comment records:
-    // #2D2E26 is darker than TWO dark marks, and the second one
-    // (`nightAvatarNose`) is an artefact of an incoherent counterfactual — the
+    // TWO dark marks are darker than #2D2E26, so the guard reddens for two
+    // reasons at once. The second (`nightAvatarNose`) is an artefact of an
+    // incoherent counterfactual — the
     // nose was placed by holding 1.29:1 against the *paired* eye, so in a world
     // where the eye stayed light the nose would have been placed lighter too.
     // Dave's horn is the real reason, and it is a fact about shipped values

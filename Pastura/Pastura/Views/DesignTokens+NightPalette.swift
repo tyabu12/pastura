@@ -288,7 +288,9 @@ extension PasturaPalette {
   /// accent brightens in dark because its job is legibility on the night
   /// ground; a face has the opposite job, so the two diverge.
   static let nightAvatarFaceBob = PasturaColorValue(hex: 0x637446)
-  /// Carol's face under dark mode (2.21x below her body, as in light).
+  /// Carol's face under dark mode (2.22x below her body; light is 2.21x — the
+  /// smallest interior drift of the eight at 0.10%, so the rounded digits differ
+  /// while the relationship is the best-preserved of the set).
   static let nightAvatarFaceCarol = PasturaColorValue(hex: 0x936156)
   /// Dave's face under dark mode (3.86x below his body; light is 3.87x) — the
   /// strongest interior contrast of the four, which is the wolf's tell.
@@ -349,8 +351,10 @@ extension PasturaPalette {
   /// coincidence is cut. Holding #2D2E26 fixed in both appearances was the
   /// other candidate and is also wrong: `nightAvatarHornDave` is darker than
   /// it, so the wolf's horn would read as darker than his own pupil. So the eye
-  /// is paired, and placed at the palette's own near-black floor — L=7%, just
-  /// under the L=9.4% that light's darkest shipped token (`metaStrongL4`) uses.
+  /// is paired, and placed at the palette's own near-black floor — **HSL** L=7.5%,
+  /// just under the HSL L=9.4% that light's darkest shipped token
+  /// (`metaStrongL4`) uses. Note the unit: every other figure in this MARK is a
+  /// WCAG contrast ratio.
   /// Pure black is refused for the reason `nightMetaStrongL4` refuses pure
   /// white: light ships a near-black, so the asymmetry would be the anomaly.
   static let nightAvatarEye = PasturaColorValue(hex: 0x16170F)
