@@ -20,13 +20,21 @@ import SwiftUI
 /// 1. `ImageRenderer` renders its content in a *default* environment and does
 ///    NOT inherit the ambient color scheme — an unset card would always
 ///    rasterize light regardless of the device.
-/// 2. The app's `Color.*` aliases are trait-resolving for the 40 paired
+/// 2. The app's `Color.*` aliases are trait-resolving for the 57 paired
 ///    §2.9 tokens (ADR-028). Reading them here would make each family's colour
 ///    depend on how `ImageRenderer` happens to resolve a dynamic `UIColor` —
 ///    which is not contractually tied to the SwiftUI environment, even though
 ///    both renderers do pin `.environment(\.colorScheme, colorScheme)`.
 ///    ``HighlightCardPalette`` therefore reads the raw `PasturaPalette` values, which are
 ///    fixed sRGB, and selects the family itself.
+///
+/// The same reasoning reaches one level further down. ``SheepAvatar`` used to
+/// read the `Color.avatar*` aliases directly, which were fixed until slice 3 of
+/// ADR-028 gate 1 paired them; from that point the card's sheep would have
+/// resolved to whatever appearance the renderer picked, unpinned by
+/// ``HighlightCardPalette`` (which covers six tokens, none of them §2.5). So the
+/// card passes its ``colorScheme`` into the avatar as well, and
+/// ``SheepAvatarPalette`` selects fixed values from it.
 /// The caller captures the device's `@Environment(\.colorScheme)` at the
 /// share site and passes it in, so the shared image matches what the user sees.
 struct HighlightShareCard: View {
@@ -159,7 +167,7 @@ struct HighlightShareCard: View {
 
   private var header: some View {
     HStack(spacing: 12) {
-      SheepAvatar(character: model.character, size: 46)
+      SheepAvatar(character: model.character, size: 46, colorScheme: colorScheme)
       VStack(alignment: .leading, spacing: 2) {
         Text(model.agent)
           .font(.system(size: 16, weight: .semibold))

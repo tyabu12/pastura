@@ -7,12 +7,16 @@ import Testing
 /// values (ADR-028).
 ///
 /// Why this suite exists: `HighlightShareCard` is the only sanctioned
-/// fixed-appearance consumer in the app, and eight `Color.*` aliases are now
+/// fixed-appearance consumer in the app, and 57 `Color.*` aliases are now
 /// trait-resolving. If one creeps back into this palette, both families collapse
 /// to "whatever appearance the renderer resolved" — and nothing else would
 /// notice, because `ImageRenderer` output is asserted nowhere and ADR-009 rules
 /// out snapshot tests. Comparing two `Color` values is logic extraction, which
 /// ADR-009 permits.
+///
+/// ``SheepAvatarPaletteTests`` guards the same contract one level down, for
+/// the avatar this card draws — `HighlightCardPalette` covers six tokens and
+/// none of them is §2.5.
 ///
 /// A revert of the ADR-028 migration reddens every assertion below: `Color.ink`
 /// and `PasturaPalette.ink.color` are not equal, because the former is
