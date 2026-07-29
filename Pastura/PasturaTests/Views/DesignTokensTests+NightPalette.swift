@@ -155,17 +155,30 @@ extension DesignTokensTests {
     #expect(PasturaPalette.nightMetaDotOnL3.red < PasturaPalette.nightMetaDotOnL4.red)
   }
 
-  /// Each dark preset must actually deliver more contrast than the one below it
-  /// **against the surface it renders on**, and `strong` must stay at least as
-  /// loud as `base` within a step. Ordering by channel (above) is necessary but
-  /// not sufficient: a future edit could keep the channels ordered while
-  /// collapsing the perceptual steps.
+  /// Each dark preset must deliver more contrast than the one below it
+  /// **against the surface it renders on**, and `strong` must stay louder than
+  /// `base` within a step. Ordering by channel (above) is necessary but not
+  /// sufficient — it survives a change of ground, this does not.
   ///
-  /// Reads the ground from `nightBubble`, so if slice 4 pairs
-  /// `promoBackground` to something outside the band this ladder was designed
-  /// against, the fix is to re-check the ladder here rather than to discover it
-  /// on a device.
+  /// Honest about its limit: it catches an *inversion*, not a shrinking step.
+  /// Nothing here pins a minimum gap, because no threshold could be derived
+  /// rather than invented.
+  ///
+  /// The ground is `nightBubble`, which is a **stand-in**: §2.4 actually renders
+  /// on `promoBackground`, unpaired until slice 4. The ladder was designed
+  /// against the assumption that its dark value lands near #2A2D26-#2F3229 —
+  /// and that assumption is guarded by the registry check below, not by these
+  /// ratios, which stay monotone against either end of that band and so would
+  /// not notice a ground swap on their own.
   @Test func nightMetaLadderStaysMonotonicAgainstTheCardSurface() {
+    // Fires the moment slice 4 pairs `promoBackground`: at that point the real
+    // ground exists, so repoint `ground` at
+    // `PasturaDynamicPalette.promoBackground.dark` and re-measure the ladder.
+    // This is deliberately a tripwire on the *next author's action* rather than
+    // on the value — a band check would pass for any in-band value while the
+    // ladder had never actually been re-measured against it.
+    #expect(!PasturaDynamicPalette.all.contains { $0.name == "promoBackground" })
+
     let ground = PasturaPalette.nightBubble
     let base = [
       PasturaPalette.nightMetaBaseL1, PasturaPalette.nightMetaBaseL2,
@@ -178,7 +191,7 @@ extension DesignTokensTests {
 
     for index in 0..<3 {
       #expect(base[index] < base[index + 1])
-      #expect(strong[index] <= strong[index + 1])
+      #expect(strong[index] < strong[index + 1])
     }
     for index in 0..<4 {
       #expect(strong[index] >= base[index])
@@ -201,8 +214,16 @@ extension DesignTokensTests {
       PasturaPalette.nightMetaDotOnL3, PasturaPalette.nightMetaDotOnL4
     ].map { contrastRatio($0, unlit) }
 
-    // Light's own lit-vs-unlit ladder, which dark must not fall below.
-    let lightFloor = [2.03, 2.50, 3.17, 4.33]
+    // Light's own lit-vs-unlit ladder, which dark must not fall below. Derived
+    // rather than frozen: the claim is about *light's* ladder, so an edit to
+    // `moss`, `promoBackground` or any `metaDotOnL*` has to move this floor too
+    // — a literal would silently stop representing what it is named after.
+    let lightUnlit = composite(
+      PasturaPalette.moss, over: PasturaPalette.promoBackground, alpha: 0.38)
+    let lightFloor = [
+      PasturaPalette.metaDotOnL1, PasturaPalette.metaDotOnL2,
+      PasturaPalette.metaDotOnL3, PasturaPalette.metaDotOnL4
+    ].map { contrastRatio($0, lightUnlit) }
     for (measured, floor) in zip(lit, lightFloor) {
       #expect(measured >= floor)
     }
@@ -235,11 +256,13 @@ extension DesignTokensTests {
   /// mid-lightness tone reads the same against a pale ground and a dark one, so
   /// solving its own light contrast on the night ground returns its own value.
   ///
-  /// This is the guard on that decision. If someone changes the token, or pairs
-  /// it, the premise stops holding and this reddens — which is the point: the
-  /// scheme-invariance test alone would keep passing on a wrongly-paired token
-  /// only until the pair landed, and says nothing about *why* fixing is right.
+  /// This is the guard on that decision, on both halves of it. Changing the
+  /// token breaks the measurement below; pairing it trips the registry check,
+  /// which is here rather than left to `exactlyFortyPairsAreWired` so that the
+  /// *reason* fixing is right is what reddens, not just an arithmetic count.
   @Test func headerMetaSubduedReadsTheSameOnBothGrounds() {
+    #expect(!PasturaDynamicPalette.all.contains { $0.name == "headerMetaSubdued" })
+
     let onLight = contrastRatio(PasturaPalette.headerMetaSubdued, PasturaPalette.screenBackground)
     let onNight = contrastRatio(PasturaPalette.headerMetaSubdued, PasturaPalette.nightBackground)
     #expect(abs(onLight - onNight) < 0.05)

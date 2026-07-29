@@ -9,10 +9,13 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
-  // The 26 aliases sourced from `PasturaDynamicPalette` resolve light/dark
-  // against the ambient interface style (§2.9, ADR-028 plus the §2.6/§2.7
-  // slice in #1282); every other alias below is light-only because its token
-  // has no dark counterpart yet. The app is pinned to light via `Info.plist`'s
+  // The 40 aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // against the ambient interface style (§2.9 — ADR-028's original eight, the
+  // §2.6/§2.7 slice in #1282, and the §2.4 meta presets plus two §2.12 header
+  // slots in #1313). Every other alias below is light-only, in one of two
+  // senses: 27 have no dark counterpart *yet*, and `headerMetaSubdued` is
+  // fixed in both appearances by decision — see `DesignTokens+NightPalette`'s
+  // §2.12 MARK. The app is pinned to light via `Info.plist`'s
   // `UIUserInterfaceStyle`, so no half-dark surface can render while that is
   // true.
   //
