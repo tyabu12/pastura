@@ -6,8 +6,8 @@ paths:
 
 # KMP Interop Rules
 
-Traps at the Kotlin/Native (K/N) ↔ Swift boundary of the ADR-023 KMP Engine migration
-(`shared/models`, `shared/engine`). Two shapes:
+Traps of the ADR-023 KMP Engine migration (`shared/models`, `shared/engine`) — at the
+Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three shapes:
 
 - **Compile-time interop traps (Patterns 1–2)** — surface at the *Swift consumption* site when
   Swift code imports the generated `PasturaShared` XCFramework. On main that consumer is
@@ -20,6 +20,8 @@ Traps at the Kotlin/Native (K/N) ↔ Swift boundary of the ADR-023 KMP Engine mi
   they compile-fail today.
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
   in-scope for `shared/**` edits.
+- **Port-time traps (Pattern 4)** — fire while writing the Kotlin port and its tests, with no Swift
+  consumer involved; fully in-scope for `shared/**` edits.
 
 > **Prompt-literal parity with the Swift original** is gate-enforced
 > (`scripts/check-prompt-literal-parity.py`) and documented on the Swift side, in
@@ -140,3 +142,67 @@ Same class of trap:
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).
+
+## Pattern 4 — traps inside the Kotlin port (`commonMain`, `commonTest`, the port gates)
+
+Patterns 1–3 are about the K/N *boundary*. These fire while writing the port itself, and most of
+them compile or pass somewhere before failing where it counts.
+
+**`commonMain` is not the platform stdlib.** An API present on JVM *and* Native is not necessarily
+in the *common* stdlib. Every per-target compile (`compileKotlinIosSimulatorArm64`, `jvmTest`)
+resolves it and passes — only `compileCommonMainKotlinMetadata` fails. **Run
+`./gradlew :shared:engine:compileCommonMainKotlinMetadata` locally before pushing a port.** The
+instances found so far carry their own why-comments at the call site (`RegexOption.DOT_MATCHES_ALL`,
+`String.codePointCount`, `Map.toSortedMap`); the rule here is the task, not the list.
+
+**Divergences from the Swift original** (the first fails loudly at the port site; the second is the
+compile-clean one):
+
+| Swift | Kotlin | Consequence |
+|---|---|---|
+| `SimulationError` is thrown directly | it is a `@Serializable sealed class`, **not** a `Throwable` — the engine throws it wrapped in `SimulationException` | unwrap before matching; a `catch` on the raw case does not compile |
+| `1...0` traps | `1..0` is an **empty range** | a clamp port's failure mode flips from crash to silent zero-iteration, so a why-comment must say which engine it describes |
+
+**The schema guard sits at a different place in each engine — a live behavioural divergence, not a
+porting choice.** The two `hasAllExpectedKeys` helpers are identical (both reject a present-but-empty
+expected key), and so is the `LLMCaller` empty-field branch (`LLMCaller.kt:160-164` says so in its
+own comment). The divergence is **entirely in the parser**: Swift's happy path returns before any guard
+(`JSONResponseParser.swift:95-97`) and applies it only on the salvage and post-repair paths
+(`:105`, `:153`), whereas Kotlin applies it on every successful parse **when the phase declares an
+`output:` schema** (`expectedKeys.isNotEmpty()`, `JSONResponseParser.kt:105`). So for a well-formed
+but all-empty response (`{"note":""}`) to a schema-declaring phase:
+
+| | Swift | Kotlin |
+|---|---|---|
+| parser | returns the empty output | throws `JsonParseFailed` |
+| `LLMCaller` | `empty_field` retry; the **last attempt returns** the empty output | `parse_failed` every attempt → `RetriesExhausted` → turn-gate skip |
+
+**Apply.** On the Kotlin side a handler's non-empty guard on a key the phase's `output:` **declares**
+is defensive parity, unreachable via that path — so an "empty output doesn't erase X" test must
+assert the **skip mechanism** (`TurnSkipped` emitted, no `AgentOutput`, prior value survives), never
+the guard. Asserting the guard is coverage theater: revert it and the test stays green (the same rule
+Swift-side is `testing.md` § "A regression test must drive the exact unguarded-path input"). The
+declaration is validator-enforced for reflect→`note` and whisper→`statement`
+(`ScenarioValidator.swift:264,278`), and the handler must actually pass the schema through
+(`schema = OutputSchema.from(context.phase)`) — omit that and `expectedKeys` is empty again. For an
+**undeclared** key — an optional `mood`, or any key on a schema-less phase — the parser guard never
+runs and the handler guard *is* reachable: there a direct test is correct, and so is porting the
+Swift one. ⚠️ The `TurnSkipped` assertion holds only **below** `TurnFailureGate.consecutiveSkipLimit`
+— the tripping failure throws `TurnFailureLimitReached` and emits no `TurnSkipped`
+(`TurnFailureGate.kt:77-80`), so a test driving that many consecutive empty turns fails the very
+assertion this rule prescribes.
+
+**Stage a new `.kt` before believing either gate.** `check-kmp-status.py` and the prompt-literal
+parity gate both scope themselves to tracked files (correctly — `ci-workflows.md` § "Gate scripts"),
+so an **untracked** new handler reads as "marked [x] but no ported .kt exists" / "no Kotlin
+counterpart". The tracked directory is **`Phases/` with a capital P** (`KT_PHASES_DIR` is the
+authority); macOS's case-insensitive filesystem lets a lowercase path work locally and fail the gate.
+
+**A Models change can break `shared/engine`.** Adding a `SimulationError` case broke
+`SimulationException`'s exhaustive `when`, and `:shared:models:jvmTest` alone is blind to it. Run the
+CI pair — `:shared:models:jvmTest :shared:engine:jvmTest` — before pushing.
+
+**Test authoring: `copy()` replaces a seeded map.** `SimulationState.initial` seeds `eliminated`
+all-`false` for every agent, so `copy(eliminated = mapOf("Bob" to true))` leaves the others
+**absent** — the test can no longer tell `== true` from `!= null`, and a wrong-polarity check stays
+green against real state. Write the `false` entries explicitly, plus an absent-key case.
