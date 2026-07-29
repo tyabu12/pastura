@@ -240,7 +240,7 @@ auto-applies based on `ToolbarItemPlacement`. See
 **Title display mode (`.large` / `.inline`)**: which pushed screen uses
 a large vs inline navigation title is a design-system convention, not a
 routing concern — see `docs/design/design-system.md`
-§ "Navigation title display mode". This rule governs only the back
+§ 5.11 "Navigation title display mode". This rule governs only the back
 button / toolbar chrome.
 
 ## Sheets, popovers, fullScreenCover — out of scope

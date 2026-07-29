@@ -8,25 +8,24 @@ paths:
 
 # Build & Lint Traps
 
-Traps that fire when **adding or naming a Swift file**, independent of which layer it lives in.
-`swiftui-traps.md` is scoped to the UI layers, so these two would be invisible to `Engine/` /
-`LLM/` / `Models/` / `Data/` / `Utilities/`, test, and harness work if they lived there.
+Traps that fire when **adding or naming a Swift file**, independent of which layer it lives in —
+so scoping them to the UI layers alongside `swiftui-traps.md` would hide them from `Engine/` /
+`LLM/` / `Models/` / `Data/` / `Utilities/`, test, and harness work.
 
-The two have **different reach**, and the globs above are their union:
+The two have **different reach**; the globs above are their union, not a shared scope:
 
-- **`.stringsdata` collision** — Xcode's localized-string-extraction step emits one
-  `<BaseName>.stringsdata` per Swift file, per target, whether or not the target ships a string
-  catalog (SPM dependencies like GRDB and Yams emit them too). `Pastura.xcodeproj` declares
-  **three** native targets — `Pastura`, `PasturaTests`, `PasturaUITests` — so all three glob in.
-  `tools/harness` is built by SwiftPM (`swift build`, ADR-013), which runs no such step, so this
-  trap cannot fire there.
+- **`.stringsdata` collision** — gated by `SWIFT_EMIT_LOC_STRINGS`, which `Pastura.xcodeproj`
+  sets `YES` on the **app target only**. Measured in `Pastura/DerivedData`: 719 `.stringsdata`
+  under `Pastura.build`, **zero** under `PasturaTests.build` / `PasturaUITests.build`, and zero
+  under SwiftPM's `.build` (no such flag). So this trap reaches `Pastura/Pastura/**` and the
+  Xcode-built SPM dependencies — not the test targets, not the harness.
 - **SwiftLint directive placement** — fires wherever `swiftlint` lints, which per
-  `.swiftlint.yml` `included:` is `Pastura` **and** `tools/harness`. It is not a UI-layer
-  concern: the canonical `pickLanguage` case sits in `Pastura/Pastura/Engine/`.
+  `.swiftlint.yml` `included:` is `Pastura` **and** `tools/harness`. Not a UI-layer concern: the
+  canonical `pickLanguage` case sits in `Pastura/Pastura/Engine/`. **This trap alone justifies
+  the test-target and harness globs.**
 
-Injection verified from fresh subagent sessions on `Engine/`, `Views/`, `PasturaTests/` and
-`PasturaUITests/` reads (#1312) — per `knowledge-layering.md`, a `paths:` edit cannot be
-checked from the session that made it.
+Injection verified from fresh subagent sessions (#1312) — per `knowledge-layering.md`, a
+`paths:` edit cannot be checked from the session that made it.
 
 ## Duplicate base filename → `.stringsdata` collision
 

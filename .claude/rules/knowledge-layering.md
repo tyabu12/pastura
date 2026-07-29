@@ -78,10 +78,9 @@ should migrate to inline rationale or a public doc home.
 
 ## Rule-writing self-check
 
-When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an **executable assertion** — a grep command with an asserted hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor — execute it against current main state **before commit**.
+When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an **executable assertion** — a grep command with an asserted hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a byte/line delta you quote about your own changeset** — execute it against current main state **before commit**, and re-measure self-quoted deltas on the *final* commit (an intermediate figure surviving into the final message is the characteristic failure).
 
 Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
-
 
 The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b `claude-kit:critic`)**. The critic's axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
 
@@ -120,10 +119,10 @@ A **why-comment you write** asserts runtime or library behaviour as the reason a
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
+Motivating incidents: PR #1152 round-1 review; PR #1299 review rounds 1–3; #1312's own review rounds, where three successive fix commits each introduced a fresh false *reason* for a change whose *content* was correct.
+
 ### Verifying a `paths:` edit needs a fresh session
 
 The rule set is snapshotted at session start (measured, #1312), so a rule file created mid-session never injects however correct its glob — and re-reading a file that should *no longer* match shows nothing either way. Absence is what success and a broken glob both look like.
 
-**Apply**: verify from **fresh subagent sessions**, one `Read` each, always including a **positive** control (a file that should still match). Without it, "absent where expected" is indistinguishable from having deleted the file. (Injection also *appears* deduped per session; that was not isolated from the snapshot, so the guidance rests on the snapshot alone.)
-
-Motivating incidents: PR #1152 round-1 review; PR #1299 review rounds 1–3.
+**Apply**: verify from **fresh subagent sessions**, one `Read` each, always including a **positive** control (a file that should still match). Without it, "absent where expected" is indistinguishable from having deleted the file.
