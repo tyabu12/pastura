@@ -168,10 +168,11 @@ extension DesignTokensTests {
   ///
   /// The ground is `nightBubble`, which is a **stand-in**: §2.4 actually renders
   /// on `promoBackground`, unpaired until slice 4. The ladder was designed
-  /// against the assumption that its dark value lands near #2A2D26-#2F3229 —
-  /// and that assumption is guarded by the registry check below, not by these
-  /// ratios, which stay monotone against either end of that band and so would
-  /// not notice a ground swap on their own.
+  /// against the assumption that its dark value lands near #2A2D26-#2F3229.
+  /// Nothing checks that band — the registry check below instead stops the
+  /// assumption going stale unnoticed, by failing when the ground is paired at
+  /// all. These ratios cannot do that job: they stay monotone against either
+  /// end of the band, so they would not notice a ground swap either way.
   @Test func nightMetaLadderStaysMonotonicAgainstTheCardSurface() {
     // Fires the moment slice 4 appends `promoBackground` to `all` — one hop off
     // "pairs it", since the registry is hand-maintained (see `all`'s own doc).

@@ -15,8 +15,9 @@ extension Color {
   // slots in #1313). Of the 28 light tokens still in pairing scope, 27 have no
   // dark counterpart *yet* and `headerMetaSubdued` is fixed in both appearances
   // by decision — see `DesignTokens+NightPalette`'s §2.12 MARK. The remaining
-  // aliases below are outside that scope entirely: the §2.9 `night*` ones are
-  // the dark halves themselves, and §2.10 time-of-day / §2.11 chart are
+  // aliases below are outside that scope entirely: the 40 §2.9 `night*` ones are
+  // the dark halves themselves (note `night` alone is §2.10, not one of them —
+  // grepping the prefix returns 41), and §2.10 time-of-day / §2.11 chart are
   // decorative reservations that were never candidates for pairing. The app is
   // pinned to light via `Info.plist`'s `UIUserInterfaceStyle`, so no half-dark
   // surface can render while that is true.
