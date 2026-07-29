@@ -136,6 +136,38 @@
   --night-disabled-text: #605F54;
   --night-disabled-bg: #222420;
 
+  /* §2.9 dark counterparts of the §2.4 meta-contrast presets (#1313).
+     Declared FLAT rather than as dark [data-contrast="Ln"] selectors: the
+     preset switch is orthogonal to appearance, so a dark variant would need
+     [data-scheme][data-contrast] pairs no card consumes. Flat names also grep
+     1:1 against the Swift tokens, which is what this mirror is for.
+     The ladder RUNS THE OTHER WAY here — in light, a higher L is darker
+     against the pale ground; in dark the same emphasis is brighter. Three of
+     these rows are invisible to check_design_tokens_css.py because their hex
+     already appears under another name (see each note): the substring gate
+     passes even if the row is deleted, so they are diff-verified, not
+     gate-verified. */
+  --night-meta-base-l1: #7E7F6B;
+  --night-meta-strong-l1: #A0AC88;
+  --night-meta-dot-on-l1: #A8B888; /* == --night-moss, as light's == --moss */
+  --night-meta-base-l2: #9DA08C;
+  --night-meta-strong-l2: #D5DBCB;
+  --night-meta-dot-on-l2: #B7C49C;
+  --night-meta-base-l3: #C7CABC;
+  --night-meta-strong-l3: #E8E5D8; /* == --night-ink, as light's == --ink */
+  --night-meta-dot-on-l3: #C3CEAE;
+  --night-meta-base-l4: #E8E5D8; /* == --night-ink, as light's == --ink */
+  --night-meta-strong-l4: #F1F0E8;
+  --night-meta-dot-on-l4: #D5DDC6;
+
+  /* §2.9 dark counterparts of the §2.12 GameHeader slots (#1313). Only two of
+     the three slots get one: --header-meta-subdued is FIXED in both
+     appearances, because solving its own light contrast (4.04:1) on the night
+     ground returns its own light value (4.03:1) — a mid-lightness tone reads
+     the same against a pale ground and a dark one. See design-system.md §2.12. */
+  --night-header-rule: #474535;
+  --night-header-meta-ink: #B2B6A2;
+
   /* §2.10 Time-of-Day (reserved, ambient) */
   --dawn: #F4E5CD;
   --noon: #FCFAF4;

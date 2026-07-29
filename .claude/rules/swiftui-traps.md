@@ -250,13 +250,17 @@ token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `
 (#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
-steps above assume a brand-new value. A dark pair adds: the `night*` raw token (step 1), its
-`Color` alias, a `PasturaDynamicColor` entry in `DesignTokens+DynamicColor.swift`'s
+steps above assume a brand-new value. A dark pair adds: the `night*` raw token, which goes in
+`DesignTokens+NightPalette.swift` rather than step 1's file; its `Color` alias; a
+`PasturaDynamicColor` entry in `DesignTokens+DynamicPalette.swift`'s
 `PasturaDynamicPalette` (including its `all` registry — its count assertion guards
 that list's documented size, not completeness: an unregistered pair still passes), the
 light alias repointed from `PasturaPalette.x.color` to `PasturaDynamicPalette.x.color`, plus
-steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so the pairing file
-itself is inert to it — only the new `night*` hex needs a `tokens.css` row. See ADR-028.
+steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both** pairing
+files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are inert to
+it — only the new `night*` hex needs a `tokens.css` row. Keep every `DesignTokens+*` filename
+inside `check_design_tokens_css.py`'s glob; renaming one out blinds the gate silently (each
+file's own header says so). See ADR-028.
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
@@ -331,16 +335,16 @@ adopt early-return comment in `SimulationView`).
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 
-**The `Color.*` aliases now make this sharper, not milder.** **26** of them
+**The `Color.*` aliases now make this sharper, not milder.** **40** of them
 resolve light↔dark against the ambient interface style (ADR-028's original
-eight, plus the §2.6 alert family and §2.7 interactive states from #1282), so
-reading one inside `ImageRenderer` content means "whatever appearance the
-renderer resolved" — and an explicitly light or dark export becomes
-unexpressible. The other 76 aliases are still fixed (42 unpaired light tokens,
-26 `night*`, 4 time-of-day, 4 chart), so a token-styled view otherwise
-rasterizes in one appearance regardless of device. **This set grows with each
-gate-1 slice** — do not treat a specific alias as fixed without checking
-`PasturaDynamicPalette`.
+eight, the §2.6 alert family and §2.7 interactive states from #1282, and the
+§2.4 meta presets plus two §2.12 header slots from #1313), so reading one
+inside `ImageRenderer` content means "whatever appearance the renderer
+resolved" — and an explicitly light or dark export becomes unexpressible. The
+other 76 aliases are still fixed (28 unpaired light tokens, 40 `night*`,
+4 time-of-day, 4 chart), so a token-styled view otherwise rasterizes in one
+appearance regardless of device. **This set grows with each gate-1 slice** — do
+not treat a specific alias as fixed without checking `PasturaDynamicPalette`.
 
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette

@@ -61,7 +61,7 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 - **テキストは `moss-dark` 上に限る**（≈4.7:1、AA 達成）。base `moss` 上は ≈3.03:1 で 4.5:1 に届かない。
 - **グリフ・図形は `moss` 上も可**。WCAG 1.4.11 の非テキスト 3:1 が適用され ≈3.03:1 は充足する（`CheckBadge` のチェック、share タブのシンボル — 後者は `moss`→`moss-dark` グラデ上なので最悪値が明側の `moss`）。ただし余裕は約 1% しかないので、`moss` の色を動かす際はこの 2 用途を確認すること。
 
-生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため。ダークでは `moss` が `night-moss`(#A8B888) になり白は ≈2.13:1 と 3:1 すら割る。これは**計算で確定済み**なので実機 QA（ADR-028 gate 4）では決められず、gate 1 のダーク値決定（`night-moss` を暗くするか、このトークンをペア化するか）で解く。**つまりこのトークンは「両外観で固定」ではなく、gate 1 の未解決 60 個の一つ**。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
+生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため。ダークでは `moss` が `night-moss`(#A8B888) になり白は ≈2.13:1 と 3:1 すら割る。これは**計算で確定済み**なので実機 QA（ADR-028 gate 4）では決められず、gate 1 のダーク値決定（`night-moss` を暗くするか、このトークンをペア化するか）で解く。**つまりこのトークンは「両外観で固定」ではなく、gate 1 が答えを負ったまま残る 27 個の一つ**。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
 
 ### 2.3 Moss Accent（苔アクセント）
 
@@ -84,6 +84,12 @@ Pastura 唯一のブランド色。用途別に4段階。
 [data-contrast="L3"]{ --meta-base:#4A4E3D; --meta-strong:#2D2E26; --meta-dot-on:#6B7852; } /* default */
 [data-contrast="L4"]{ --meta-base:#2D2E26; --meta-strong:#1A1B15; --meta-dot-on:#556340; }
 ```
+
+ダーク対は §2.9 に 12 対そろっている（#1313）。**梯子の向きが反転する**ので、上の CSS を
+そのまま暗くしたものにはならない — 詳細と比率は §2.9 の §2.4 対応表を見ること。
+`tokens.css` 側のダーク値は `[data-contrast]` セレクタではなく `--night-meta-*-l1..l4` の
+フラット宣言で持っている（プリセット切替は外観と直交する機構なので、ダーク変種を作ると
+どのカードも使わない `[data-scheme][data-contrast]` の組み合わせが増えるだけ）。
 
 ### 2.5 キャラクターパレット（羊アバター）
 
@@ -150,18 +156,23 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（26 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 26 対が `Color.*` エイリアス経由で実 UI に
+**trait-based 配線済み（40 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 40 対が `Color.*` エイリアス経由で実 UI に
 届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
-18 対）。ただし §2.1 / §2.3 / §2.4 / §2.5 / §2.8 / §2.12 の残りと `inkOnAccent`（§2.x に記載が無い）の計 **42** トークンにはダーク対が無いため、
-アプリは `Info.plist` の `UIUserInterfaceStyle = Light` で固定されたままで、実際に
-ダークが描画されることはない。固定解除の条件は ADR-028 § "Rollout"（5 条件中 2 つ達成
-— `nightSurface` 解消と生 SwiftUI 色のトークン化）。Source: `§2.9 Dark Mode`。
+18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対）。§2.1 / §2.2 / §2.3 / §2.5 / §2.8 / §2.12 の残り計 **28** トークンにはダーク対が無く、うち **27** は
+gate 1 に答えを負ったまま — 差の 1 は `headerMetaSubdued` で、**両外観で固定**という記録に
+よって解決済みだが対は持たない（gate 1 は designed dark value と同格の充足条件として
+これを認めている）。よってアプリは `Info.plist` の `UIUserInterfaceStyle = Light` で
+固定されたままで、実際にダークが描画されることはない。固定解除の条件は
+ADR-028 § "Rollout"（5 条件中 2 つ達成 — `nightSurface` 解消と生 SwiftUI 色のトークン化）。
+Source: `§2.9 Dark Mode`。
 
 **ダーク値の視覚リファレンス**: [`ds/colors-states-dark.html`](ds/colors-states-dark.html)
-（§2.6/§2.7 の 18 対をペア表示 + トースト・設定・DL 進捗のモック）。
+（§2.6/§2.7 の 18 対 + トースト・設定・DL 進捗のモック）、
+[`ds/colors-meta-header-dark.html`](ds/colors-meta-header-dark.html)
+（§2.4/§2.12 の 14 対 + 固定 1 + L1→L4 梯子の反転表示・DL 進捗メタ行・GameHeader のモック）。
 
-**ダーク固定色が要る場合はこの 26 対のエイリアスを読まない。** `Color.ink` 等は「端末の
+**ダーク固定色が要る場合はこの 40 対のエイリアスを読まない。** `Color.ink` 等は「端末の
 外観」を意味するようになったので、`ImageRenderer` 書き出しのように外観を固定したい
 呼び出し側は `PasturaPalette.<token>.color` を直接読む（参照実装:
 `HighlightShareCard`）。
@@ -209,6 +220,51 @@ alpha を約 1.33 倍にする（明るい moss を 6% で暗面に重ねても�
 | `nightDisabledText` | `#605F54` | `disabledText`（無効地の上で 2.4:1 — light の 1.75:1 と同じく WCAG 1.4.3 の非活性除外に乗る意図的な sub-AA） |
 | `nightDisabledBackground` | `#222420` | `disabledBackground`。`nightBubble` より**沈める**（1.151）— dark では「明るい＝浮く」が既に hover/selected の意味なので、無効面を持ち上げると衝突する |
 
+§2.4 メタコントラストプリセットの対（#1313）。**L1→L4 の梯子はダークで向きが反転する** —
+light では L が上がるほど暗くなって淡い地に対するコントラストが増すが、dark では同じ強調が
+明るくなる方向。per-token の変換式では表せず、梯子ごと設計し直している（ADR-028 §
+Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある）が「機械変換不能」と名指しした唯一の項目）。比率は `nightBubble` に
+対する値で、L1〜L3 は light の比率をそのまま写している。
+
+**地は暫定**: 実描画面は `PromoCard` の `promoBackground` だが、これは未ペア（スライス4）。
+**#2A2D26〜#2F3229 の帯**はこの梯子を置いた際の設計上の*前提*であって、アサートされた
+範囲ではない。`DesignTokensTests+NightPalette` の
+`nightMetaLadderStaysMonotonicAgainstTheCardSurface` は `promoBackground` が
+**ペア化された時点で**（帯の内外を問わず）赤くなり、実際の地に対する梯子の再検算を強制する。
+帯そのものを検査しても意味がない — 梯子は帯の両端どちらでも単調なので、常に通ってしまう。
+
+| Token | Hex | 対応する day-mode token |
+|-------|-----|------------------------|
+| `nightMetaBaseL1` | `#7E7F6B` | `metaBaseL1`（3.33:1 / light 3.32:1） |
+| `nightMetaStrongL1` | `#A0AC88` | `metaStrongL1`（5.67:1、light と同値） |
+| `nightMetaDotOnL1` | `#A8B888` | `metaDotOnL1`。`nightMoss`・`nightFocusRing` と同 hex — light 側で `metaDotOnL1` が `moss`・`focusRing` と同 hex (#8A9A6C) である3者一致の忠実な写像。**統合しないこと** |
+| `nightMetaBaseL2` | `#9DA08C` | `metaBaseL2`（5.08:1、light と同値） |
+| `nightMetaStrongL2` | `#D5DBCB` | `metaStrongL2`（9.60:1 / light 9.59:1） |
+| `nightMetaDotOnL2` | `#B7C49C` | `metaDotOnL2` |
+| `nightMetaBaseL3` | `#C7CABC` | `metaBaseL3`（8.16:1 / light 8.19:1）。既定プリセットで、アプリに消費者がある唯一の段 |
+| `nightMetaStrongL3` | `#E8E5D8` | `metaStrongL3`。**天井拘束** — light は 13.11:1 だが `nightBubble` の天井は純白で 13.60:1 なので余白ごと再現できない。light 値が `ink` (#2D2E26) なので答えは `nightInk`：天井に押し当てた値が既存ペアの答えと一致した |
+| `nightMetaDotOnL3` | `#C3CEAE` | `metaDotOnL3` |
+| `nightMetaBaseL4` | `#E8E5D8` | `metaBaseL4`。同じく天井拘束で `nightInk`。light 側でも `metaBaseL4 == ink` なので「L4 は本文と同じ強さ」という意味が外観反転を越えて残る |
+| `nightMetaStrongL4` | `#F1F0E8` | `metaStrongL4`（11.89:1）。梯子の頂点で、`nightInk` より上に置く唯一のトークン。純白ではなく warm off-white — light が #1A1B15（純黒ではない near-black）を出荷している以上、非対称のほうが異常 |
+| `nightMetaDotOnL4` | `#D5DDC6` | `metaDotOnL4` |
+
+**ドットだけ守る不変量が違う。** base / strong は「地に対する比」を写しているが、点灯ドットの
+仕事は地に対してではなく**消灯ドットに対して**読めること。消灯ドットは `moss@38%` で、`moss`
+は既にペア済みなので dark では `nightMoss@38%`（合成後 #5B634C）に上がる。地基準で写すと
+点灯/消灯の差が light 2.03:1 → dark 1.34:1 まで落ちてインジケータが機能を失うので、
+`nightMoss` を起点に light の各段の明度差を反転させた梯子を採っている（消灯比 2.96 / 3.42 /
+3.83 / 4.50、light の 2.03 / 2.50 / 3.17 / 4.33 をどの段でも下回らない）。
+代償として dark のドットは同じ段のメタ文字より明るくなる（L1 で 6.40:1 対 3.33:1、light では
+逆に 2.90 対 3.32 と控えめ）。機能を採って知覚重みの相対関係を捨てた、という選択。
+
+§2.12 GameHeader スロットの対（#1313）。地は `nightBackground`（`GameHeader` は frosted な
+`screenBackground` の上に乗り、そちらはペア済み）。**3 スロット中 2 つだけ**が対を持つ。
+
+| Token | Hex | 対応する day-mode token |
+|-------|-----|------------------------|
+| `nightHeaderRule` | `#474535` | `headerRule`（1.76:1、light と同値）。`nightRule`（1.43:1）より**強い**まま — light で `headerRule` が汎用 `rule` より暗く、行内タイポセパレータとして機能するのと同じ関係 |
+| `nightHeaderMetaInk` | `#B2B6A2` | `headerMetaInk`（8.18:1 / light 8.22:1）。light では `metaBaseL3` と同 hex だが、**ダークでは値が分かれる**（#B2B6A2 対 #C7CABC）— 乗る面が違うので同じ目標比を別の地で解くと別の答えになる。§2.12 の「§2.4 とは独立して進化させる」が実際に効いた形であり、直すべきドリフトではない |
+
 ### 2.10 Time-of-Day（牧場の時間帯）
 
 未使用予約。背景帯やヘッダのアンビエント表現用。`noon` と `night` は構造的トークン（`screenBackground` / `nightBackground`）と hex が重複するが、用途意味が違うので独立して定義する。Source: `§2.10 Time-of-Day`。
@@ -239,7 +295,23 @@ alpha を約 1.33 倍にする（明るい moss を 6% で暗面に重ねても�
 |-------|-----|-----|
 | `headerRule` | `#C2C0AE` | Meta 行の中黒セパレータ `·`。汎用 `rule` (#E0DBCE) より暗く、行内タイポセパレータとして機能 |
 | `headerMetaInk` | `#4A4E3D` | Meta 行のフェーズ名前景色（`metaBaseL3` と同 hex、role-anchored） |
-| `headerMetaSubdued` | `#7B7D68` | Meta 行右寄せの推論 tok/s 値前景色（`metaBaseL1` と `metaBaseL2` の中間明度） |
+| `headerMetaSubdued` | `#7B7D68` | Meta 行右寄せの推論 tok/s 値前景色（`metaBaseL1` と `metaBaseL2` の中間明度）。**両外観で固定** — 下記参照 |
+
+`headerRule` と `headerMetaInk` は §2.9 にダーク対がある（#1313）。
+
+**`headerMetaSubdued` はダーク対を持たない — 両外観で固定。** L≈45% の中間調は明地でも
+暗地でもほぼ同じコントラストになるため、自地に対する比を忠実に写した解（light 4.04:1）が
+light 値そのものになる：実測 #7B7D68 は `nightBackground` 上で **4.03:1**。これは指標の
+退化ではなく答えで、ADR-028 § Rollout gate 1 は「両外観で固定という記録」を designed dark
+value と同格の充足条件として明示している。
+
+当初案は上表の括弧書き（「`metaBaseL1` と `metaBaseL2` の中間明度」）を不変量として写し
+#8E907B (5.20:1) を置いたが、**あれは light 値の導出メモであってこのセクションが課す拘束では
+ない** — §2.12 自身が「§2.4 とは独立して進化させる」と宣言している。実際それを写すと、この
+セクションが本当に述べている役割（セパレータに埋もれない二次情報 ＝ ink との階層）が壊れる:
+`headerMetaInk ÷ headerMetaSubdued` は light 2.032×、固定なら dark 2.031× で保存されるのに、
+#8E907B では 1.573× まで潰れる。この不変量は
+`DesignTokensTests+NightPalette.headerMetaSubduedReadsTheSameOnBothGrounds` が保持している。
 
 ---
 
