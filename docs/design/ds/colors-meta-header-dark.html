@@ -126,9 +126,9 @@
     <strong>暫定の地</strong>: §2.4 の実描画面は <code>PromoCard</code> の
     <code>--promo-bg</code> (#FBFAF2) だが、この light トークンはまだ未ペア（スライス4）。
     ここでは <code>--night-bubble</code> (#2C2F28) を暫定地として設計している。
-    スライス4 は <code>promoBackground</code> のダーク値を
-    <strong>#2A2D26〜#2F3229 の帯に収める</strong>こと — 外れたらこの梯子は再検算が要る
-    （テストで赤くなる）。§2.12 の地は <code>screenBackground</code> がペア済みなので
+    <strong>#2A2D26〜#2F3229 の帯</strong>はこの梯子を置いた際の設計上の前提で、
+    アサートされた範囲ではない。テストは <code>promoBackground</code> が
+    ペア化された時点で（帯の内外を問わず）赤くなり、実際の地に対する再検算を強制する。§2.12 の地は <code>screenBackground</code> がペア済みなので
     <code>--night-bg</code> (#1B1D17) で確定。
   </p>
 

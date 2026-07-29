@@ -138,9 +138,11 @@ extension DesignTokensTests {
   /// This is the executable form of the constraint slice 2 otherwise left as
   /// prose. The ladder is designed against `nightBubble` as a **provisional**
   /// ground — the real surface is `promoBackground`, unpaired until slice 4 —
-  /// so the companion assertion below is what turns "slice 4 must keep
-  /// `promoBackground`'s dark value in the #2A2D26-#2F3229 band" into a red
-  /// build rather than an instruction only the next author can execute.
+  /// so the companion assertion below reddens the moment slice 4 pairs
+  /// `promoBackground`, forcing the ladder to be re-measured against the real
+  /// ground instead of leaving that as an instruction. It does not check the
+  /// value against a band: the ladder stays monotone at both ends of the one
+  /// slice 2 named, so such a check would pass by construction.
   @Test func nightMetaLadderRunsBrighterFromL1ToL4() {
     #expect(PasturaPalette.nightMetaBaseL1.red < PasturaPalette.nightMetaBaseL2.red)
     #expect(PasturaPalette.nightMetaBaseL2.red < PasturaPalette.nightMetaBaseL3.red)
@@ -156,8 +158,8 @@ extension DesignTokensTests {
   }
 
   /// Each dark preset must deliver more contrast than the one below it
-  /// **against the surface it renders on**, and `strong` must stay louder than
-  /// `base` within a step. Ordering by channel (above) is necessary but not
+  /// **against the surface it renders on**, and `strong` must stay strictly
+  /// louder than `base` within a step. Ordering by channel (above) is necessary but not
   /// sufficient — it survives a change of ground, this does not.
   ///
   /// Honest about its limit: it catches an *inversion*, not a shrinking step.
@@ -171,8 +173,10 @@ extension DesignTokensTests {
   /// ratios, which stay monotone against either end of that band and so would
   /// not notice a ground swap on their own.
   @Test func nightMetaLadderStaysMonotonicAgainstTheCardSurface() {
-    // Fires the moment slice 4 pairs `promoBackground`: at that point the real
-    // ground exists, so repoint `ground` at
+    // Fires the moment slice 4 appends `promoBackground` to `all` — one hop off
+    // "pairs it", since the registry is hand-maintained (see `all`'s own doc).
+    // The wiring tests' `cases.count == all.count` closes that gap in practice.
+    // At that point the real ground exists, so repoint `ground` at
     // `PasturaDynamicPalette.promoBackground.dark` and re-measure the ladder.
     // This is deliberately a tripwire on the *next author's action* rather than
     // on the value — a band check would pass for any in-band value while the
@@ -194,7 +198,7 @@ extension DesignTokensTests {
       #expect(strong[index] < strong[index + 1])
     }
     for index in 0..<4 {
-      #expect(strong[index] >= base[index])
+      #expect(strong[index] > base[index])
     }
     // L3 is the documented default and the only preset with app consumers;
     // design-system.md § 9 promises it clears 4.5:1 for meta information.
@@ -224,6 +228,9 @@ extension DesignTokensTests {
       PasturaPalette.metaDotOnL1, PasturaPalette.metaDotOnL2,
       PasturaPalette.metaDotOnL3, PasturaPalette.metaDotOnL4
     ].map { contrastRatio($0, lightUnlit) }
+    // Margins run [0.93, 0.92, 0.66, 0.17]: L4 is an order of magnitude tighter
+    // than the rest, so it is the step an edit to `metaDotOnL4` or to light's
+    // ground flips first. Named so the next red is diagnosed, not re-derived.
     for (measured, floor) in zip(lit, lightFloor) {
       #expect(measured >= floor)
     }

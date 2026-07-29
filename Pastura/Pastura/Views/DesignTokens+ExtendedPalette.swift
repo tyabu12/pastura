@@ -29,8 +29,9 @@ extension PasturaPalette {
   ///
   /// The **light** value is settled: white over `mossDark` is ≈4.7:1 (AA).
   ///
-  /// The **dark** answer is not, so this alias is one of ADR-028 gate 1's
-  /// unresolved 60 — it is *not* "fixed in both appearances". Over the lighter
+  /// The **dark** answer is not, so this alias is one of the 27 that still owe
+  /// ADR-028 gate 1 an answer — it is *not* "fixed in both appearances" (which
+  /// is a distinct, resolved state that `headerMetaSubdued` occupies). Over the lighter
   /// `nightMoss` (#A8B888) that paired `moss` resolves to under dark mode,
   /// white measures **≈2.13:1**, below AA and below even the 3:1 non-text bar.
   /// That is settled by arithmetic, not pending observation, so gate 4's device
@@ -176,5 +177,11 @@ extension PasturaPalette {
   /// between `muted` and `metaBaseL2` in lightness; chosen so the
   /// inference-rate value reads as secondary information without
   /// collapsing into the meta-row separator.
+  ///
+  /// **Fixed in both appearances — do not pair it.** Read
+  /// `DesignTokens+NightPalette.swift`'s §2.12 MARK before changing this value:
+  /// the lightness note above is a derivation record for the light value, and
+  /// mirroring it into dark is the specific mistake that decision rejected.
+  /// Guarded by `headerMetaSubduedReadsTheSameOnBothGrounds`.
   static let headerMetaSubdued = PasturaColorValue(hex: 0x7B7D68)
 }

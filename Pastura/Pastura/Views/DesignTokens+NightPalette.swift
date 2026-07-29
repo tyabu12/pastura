@@ -139,13 +139,17 @@ extension PasturaPalette {
   // DARKER, gaining contrast against the pale ground; in dark the same emphasis
   // is BRIGHTER. So this is not the light ladder transformed per token — it is
   // a ladder redesigned against the dark ground, which is what ADR-028's
-  // Amendment 2026-07-29 means by naming it the one item no formula covers.
+  // Amendment 2026-07-29 (the #1282 one — two headings share that date) means
+  // by naming it the one item no formula covers.
   //
   // Ground: `nightBubble`. That is **provisional** — the real render surface is
-  // `PromoCard`'s `promoBackground`, still unpaired until slice 4. Slice 4 must
-  // land its dark value in roughly #2A2D26-#2F3229 or this ladder needs
-  // re-checking; `nightMetaLadderStaysMonotonicAgainstTheCardSurface` in
-  // `DesignTokensTests+NightPalette` is what reddens if it does not.
+  // `PromoCard`'s `promoBackground`, still unpaired until slice 4. The
+  // #2A2D26-#2F3229 band is the design *assumption* this ladder was placed
+  // under, not an asserted range: `nightMetaLadderStaysMonotonicAgainstTheCardSurface`
+  // in `DesignTokensTests+NightPalette` fires the moment `promoBackground` is
+  // paired at all, in-band or not, so the ladder gets re-measured against the
+  // real ground. A band check would pass by construction — the ladder stays
+  // monotone at both ends of that band.
   //
   // Design record and the rendered sign-off:
   // `docs/design/ds/colors-meta-header-dark.html`.

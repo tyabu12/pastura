@@ -159,8 +159,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 **trait-based 配線済み（40 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
 `UIColor(dynamicProvider:)` で解決し、下表の 40 対が `Color.*` エイリアス経由で実 UI に
 届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
-18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対）。§2.1 / §2.3 / §2.5 / §2.8 / §2.12 の残りと
-`inkOnAccent`（§2.x に記載が無い）の計 **28** トークンにはダーク対が無く、うち **27** は
+18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対）。§2.1 / §2.2 / §2.3 / §2.5 / §2.8 / §2.12 の残り計 **28** トークンにはダーク対が無く、うち **27** は
 gate 1 に答えを負ったまま — 差の 1 は `headerMetaSubdued` で、**両外観で固定**という記録に
 よって解決済みだが対は持たない（gate 1 は designed dark value と同格の充足条件として
 これを認めている）。よってアプリは `Info.plist` の `UIUserInterfaceStyle = Light` で
@@ -224,13 +223,15 @@ alpha を約 1.33 倍にする（明るい moss を 6% で暗面に重ねても�
 §2.4 メタコントラストプリセットの対（#1313）。**L1→L4 の梯子はダークで向きが反転する** —
 light では L が上がるほど暗くなって淡い地に対するコントラストが増すが、dark では同じ強調が
 明るくなる方向。per-token の変換式では表せず、梯子ごと設計し直している（ADR-028 §
-Amendment 2026-07-29 が「機械変換不能」と名指しした唯一の項目）。比率は `nightBubble` に
+Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある）が「機械変換不能」と名指しした唯一の項目）。比率は `nightBubble` に
 対する値で、L1〜L3 は light の比率をそのまま写している。
 
 **地は暫定**: 実描画面は `PromoCard` の `promoBackground` だが、これは未ペア（スライス4）。
-スライス4 はそのダーク値を **#2A2D26〜#2F3229 の帯**に収めること — 外れたらこの梯子は
-再検算が要る（`DesignTokensTests+NightPalette` の
-`nightMetaLadderStaysMonotonicAgainstTheCardSurface` が赤くなる）。
+**#2A2D26〜#2F3229 の帯**はこの梯子を置いた際の設計上の*前提*であって、アサートされた
+範囲ではない。`DesignTokensTests+NightPalette` の
+`nightMetaLadderStaysMonotonicAgainstTheCardSurface` は `promoBackground` が
+**ペア化された時点で**（帯の内外を問わず）赤くなり、実際の地に対する梯子の再検算を強制する。
+帯そのものを検査しても意味がない — 梯子は帯の両端どちらでも単調なので、常に通ってしまう。
 
 | Token | Hex | 対応する day-mode token |
 |-------|-----|------------------------|
