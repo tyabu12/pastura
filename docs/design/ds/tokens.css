@@ -168,6 +168,35 @@
   --night-header-rule: #474535;
   --night-header-meta-ink: #B2B6A2;
 
+  /* §2.9 dark counterparts of the §2.5 character palette (#1319). The "moonlit
+     pasture" treatment: the four bodies move down as a FAMILY, each keeping its
+     hue and absolute chroma, and every other part of a character follows from
+     that character's own light body-to-part contrast ratio. The 7.0-8.0:1 band
+     on --night-bg is the designed thing; where inside it the family lands is a
+     consequence. Unlike the §2.4 rows above, every value here is unique, so the
+     substring gate really does see all seventeen — the three light-side hex
+     coincidences (eye == ink, face-bob == moss, nose == moss-ink) are all cut.
+     Note the last row is an rgba(), not a hex: the gate asserts an
+     opacity-carrying token in that form. See design-system.md §2.5 / §2.9 and
+     ds/colors-avatar-dark.html. */
+  --night-avatar-body-alice: #BFB095;
+  --night-avatar-body-bob: #ABB29A;
+  --night-avatar-body-carol: #BAA6A0;
+  --night-avatar-body-dave: #A9A798;
+  --night-avatar-face-alice: #9F7F4F;
+  --night-avatar-face-bob: #637446;
+  --night-avatar-face-carol: #936156;
+  --night-avatar-face-dave: #4A4737;
+  --night-avatar-horn-alice: #8A6B3D;
+  --night-avatar-horn-bob: #4D5C31;
+  --night-avatar-horn-carol: #794B41;
+  --night-avatar-horn-dave: #2C291C;
+  --night-avatar-ear: #B8A88B;
+  --night-avatar-ear-inner: #A79471;
+  --night-avatar-nose: #2A2D1D;
+  --night-avatar-eye: #16170F;
+  --night-avatar-highlight: rgba(255, 255, 255, 0.4);
+
   /* §2.10 Time-of-Day (reserved, ambient) */
   --dawn: #F4E5CD;
   --noon: #FCFAF4;
