@@ -3,23 +3,30 @@ paths:
   - "Pastura/Pastura/**/*.swift"
   - "Pastura/PasturaTests/**"
   - "Pastura/PasturaUITests/**"
+  - "tools/harness/**"
 ---
 
 # Build & Lint Traps
 
 Traps that fire when **adding or naming a Swift file**, independent of which layer it lives in.
-The SwiftUI catalog (`swiftui-traps.md`) is scoped to the UI layers, so these two would be
-invisible to `Engine/` / `LLM/` / `Models/` / `Data/` / `Utilities/` and test work if they lived
-there.
+`swiftui-traps.md` is scoped to the UI layers, so these two would be invisible to `Engine/` /
+`LLM/` / `Models/` / `Data/` / `Utilities/`, test, and harness work if they lived there.
 
-`Pastura.xcodeproj` declares **three** native targets — `Pastura`, `PasturaTests`,
-`PasturaUITests` — and `.stringsdata` collides per-target, hence all three globs above.
+The two have **different reach**, and the globs above are their union:
 
-**Carve-out**: `tools/harness` (SwiftPM, ADR-013) is swiftlint-linted (`.swiftlint.yml`
-`included:`) so the directive trap applies there, but it ships no string catalog, so the
-`.stringsdata` trap does not. It is deliberately left out of `paths:` rather than loading this
-whole file for half its content — the harness is covered by `swift-testing-parallelism.md`'s
-`tools/**` glob.
+- **`.stringsdata` collision** — Xcode's localized-string-extraction step emits one
+  `<BaseName>.stringsdata` per Swift file, per target, whether or not the target ships a string
+  catalog (SPM dependencies like GRDB and Yams emit them too). `Pastura.xcodeproj` declares
+  **three** native targets — `Pastura`, `PasturaTests`, `PasturaUITests` — so all three glob in.
+  `tools/harness` is built by SwiftPM (`swift build`, ADR-013), which runs no such step, so this
+  trap cannot fire there.
+- **SwiftLint directive placement** — fires wherever `swiftlint` lints, which per
+  `.swiftlint.yml` `included:` is `Pastura` **and** `tools/harness`. It is not a UI-layer
+  concern: the canonical `pickLanguage` case sits in `Pastura/Pastura/Engine/`.
+
+Injection verified from fresh subagent sessions on `Engine/`, `Views/`, `PasturaTests/` and
+`PasturaUITests/` reads (#1312) — per `knowledge-layering.md`, a `paths:` edit cannot be
+checked from the session that made it.
 
 ## Duplicate base filename → `.stringsdata` collision
 

@@ -259,7 +259,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 - `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` (`docs/decisions/**`)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure). Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
-- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in any layer and in all three targets; its § header carries the `tools/harness` carve-out (`Pastura/Pastura/**/*.swift`, `Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`)
+- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Their reach differs (Xcode targets vs everywhere swiftlint lints) — the § header carries the split (`Pastura/Pastura/**/*.swift`, `Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `tools/harness/**`)
 - `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (`.github/workflows/**`, `scripts/**`)
 - `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
 - `i18n.md` — Swift-side localization conventions: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, plurals, Tier 2 audit planning (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
@@ -278,7 +278,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
-- `swift-isolation.md` — `nonisolated` annotation traps under default-MainActor isolation. Always-loaded because the diagnostic fires at the use site, not the declaration — and three of the traps fire none at all.
+- `swift-isolation.md` — `nonisolated` annotation traps under default-MainActor isolation. Always-loaded because the diagnostic fires at the use site, not the declaration — and the silent runtime-trap patterns fire none at all.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery). Always-loaded because the gotchas surface during worktree switches and CI debugging, not only when editing tests.
 - `subagent-usage.md` — Subagent output-cap discipline (32K cap, scope budget, Sonnet override). Always-loaded because subagent calls originate from any layer.
 - `context-budget.md` — Content discipline for always-loaded files. Self-applying — route additions to CLAUDE.md / agent docs / any no-`paths:` rule through its classifier first.

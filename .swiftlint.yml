@@ -85,7 +85,7 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "String(localized: \"...\\(x)...\") (Form A) silently falls back to English on ja — the interpolated runtime key misses the %arg catalog entry. Use Form B: String(format: String(localized: \"...%@...\"), x). See .claude/rules/i18n.md § 'Form A is a runtime hazard'."
+    message: "String(localized: \"...\\(x)...\") (Form A) silently falls back to English on ja — the interpolated runtime key misses the %arg catalog entry. Use Form B: String(format: String(localized: \"...%@...\"), x). See .claude/rules/i18n.md § 'Form A is a runtime hazard at user-facing callsites'."
 
   # ADR-002 §12 — `tryClaimGeneratingGuard` / `forceClaimGeneratingGuard` are
   # internal-access only because the cross-file `+Lifecycle.swift` extension

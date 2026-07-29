@@ -130,7 +130,9 @@ When the SUCCEEDED marker has been trimmed off entirely:
   staging index). Failures write a sentinel at
   `Pastura/DerivedData/.xcstrings-sync-failed` and return 0 — never
   blocks build. Stale entries (kept by Apple by design) can be pruned
-  manually via `python3 scripts/xcstrings-prune-stale.py`.
+  manually via `python3 scripts/xcstrings-prune-stale.py` — read
+  `.claude/rules/i18n-catalog.md` first; it is path-scoped to the catalog,
+  so *running* a script that mutates the catalog loads none of it.
 - **DerivedData**: pinned to worktree-local `Pastura/DerivedData/`
   via `-derivedDataPath "$DERIVED_DATA"`. **Pass with a space, not
   `=`** — the `=` form is silently ignored (Xcode 15.4+).

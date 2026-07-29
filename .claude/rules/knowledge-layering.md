@@ -82,11 +82,6 @@ When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an
 
 Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
 
-### Verifying a `paths:` edit needs a fresh session
-
-Editing a rule's `paths:` is the one self-check the editing session **cannot** run, and the failure mode is a false positive rather than a blank. Two measured mechanisms (#1312): the rule set is **snapshotted at session start**, so a rule file created mid-session never injects however correct its glob; and each rule **injects at most once per session**. So an author who narrows a glob, re-reads a file that should no longer match, and sees the rule absent has measured their own dedup state — the same observation a *broken* glob produces.
-
-**Apply**: verify from fresh subagent sessions, one `Read` each, and always include a **positive** control — a file that *should* still match. Without it, "absent where expected" is indistinguishable from having deleted the file.
 
 The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b `claude-kit:critic`)**. The critic's axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
 
@@ -124,5 +119,11 @@ A **why-comment you write** asserts runtime or library behaviour as the reason a
 - **A classification or count built on an earlier claim** → when you fix that claim, grep what cited it. Fixing one authored claim can *invalidate* another you authored earlier, and nothing points back at it; a concessive clause propping up a category ("it belongs here, just differently") is the tell that it already broke.
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
+
+### Verifying a `paths:` edit needs a fresh session
+
+The rule set is snapshotted at session start (measured, #1312), so a rule file created mid-session never injects however correct its glob — and re-reading a file that should *no longer* match shows nothing either way. Absence is what success and a broken glob both look like.
+
+**Apply**: verify from **fresh subagent sessions**, one `Read` each, always including a **positive** control (a file that should still match). Without it, "absent where expected" is indistinguishable from having deleted the file. (Injection also *appears* deduped per session; that was not isolated from the snapshot, so the guidance rests on the snapshot alone.)
 
 Motivating incidents: PR #1152 round-1 review; PR #1299 review rounds 1–3.
