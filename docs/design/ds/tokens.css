@@ -2,8 +2,10 @@
  *
  * Source of truth: design-system.md (authoritative) → this file (visual
  * mirror) → Pastura/Pastura/Views/DesignTokens*.swift (implementation).
- * Exception: the §2.5 avatar palette originates in
- * demo-replay-reference.html `sheepAvatar()` (see ds/README.md).
+ * Exception: the §2.5 avatar palette's LIGHT half originates in
+ * demo-replay-reference.html `sheepAvatar()` (see ds/README.md). That
+ * prototype has no dark half, so the §2.5 dark values originate in
+ * design-system.md §2.9 like every other night token.
  *
  * Drift guard: scripts/check_design_tokens_css.py asserts every color
  * literal in DesignTokens*.swift (hex AND rgba constructor forms) appears
@@ -46,8 +48,9 @@
   --meta-strong: #2D2E26;
   --meta-dot-on: #6B7852;
 
-  /* §2.5 Character palette (sheep avatars). Origin:
-   * demo-replay-reference.html sheepAvatar(). */
+  /* §2.5 Character palette (sheep avatars). Origin of these LIGHT values:
+   * demo-replay-reference.html sheepAvatar(). The dark counterparts are not
+   * from there — see the --night-avatar-* block below. */
   --avatar-body-alice: #F2E3C8;
   --avatar-body-bob: #DDE4CC;
   --avatar-body-carol: #EAD6D1;

@@ -14,10 +14,18 @@ accepted decisions back into design-system.md and SwiftUI.
 3. **`Pastura/Pastura/Views/DesignTokens*.swift`** — the shipped
    implementation of the same tokens.
 
-**Exception — avatar palette (§2.5):** the origin is
-`docs/design/demo-replay-reference.html`'s `sheepAvatar()` function,
-enforced against Swift by `DesignTokensTests`. design-system.md and
-`ds/` both mirror it.
+**Exception — avatar palette (§2.5), light half only:** the origin of the
+**light** values is `docs/design/demo-replay-reference.html`'s `sheepAvatar()`
+function. design-system.md and `ds/` both mirror it.
+
+The **dark** values have no origin there — that prototype is light-only — so
+they follow the normal layering: design-system.md §2.9 is authoritative and
+`ds/colors-avatar-dark.html` is its mirror (ADR-028 gate 1 slice 3).
+
+Note the prototype and the app have already diverged in what they *draw*:
+`sheepAvatar()` emits body, face, eyes and horns; `SheepAvatar.swift` draws
+those plus a highlight dot, and neither draws the ear or nose the tokens
+describe. The exception is about **values**, not about the drawing.
 
 ## Drift guard
 

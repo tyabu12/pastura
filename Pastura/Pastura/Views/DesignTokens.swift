@@ -8,9 +8,9 @@ import SwiftUI
 // §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
 // the doc wins — fix this file, not the doc.
 //
-// For §2.5 avatar colors specifically, the doc itself mirrors
-// `docs/design/demo-replay-reference.html`'s `sheepAvatar()` function; see
-// that file for the original prototype values.
+// For §2.5 avatar colors the doc mirrors `demo-replay-reference.html`'s
+// `sheepAvatar()` — but that prototype is LIGHT-ONLY, so the exception covers
+// the light half alone; §2.9 is the origin of the §2.5 dark values.
 //
 // Organized in layered namespaces (see individual doc comments below):
 //   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
