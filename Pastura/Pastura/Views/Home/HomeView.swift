@@ -112,8 +112,8 @@ struct HomeView: View {
     // Editorial Home layout (tab-identity PR3, 案C 中庸): a moss-gradient
     // resume hero (`HomePausedCard`) over a dense edge-to-edge stack of compact
     // icon rows (`HomeCompactScenarioRow`) — distinct from the catalog cards on
-    // Search and the timeline on Past Results, which keep the shared
-    // `PasturaCard`/`ScenarioSummaryRow` form. Delete stays a long-press context
+    // Search (`GalleryCatalogRow`) and the timeline on Past Results, which keep
+    // the shared `PasturaCard` form. Delete stays a long-press context
     // menu (Apple's documented non-List alternative).
     ScrollView {
       LazyVStack(alignment: .leading, spacing: PasturaCardMetrics.interCardSpacing) {
@@ -226,7 +226,7 @@ struct HomeView: View {
   /// first (deletable via long-press context menu), then bundled presets, as a
   /// dense edge-to-edge stack of ``HomeCompactScenarioRow`` with full-width
   /// ``PasturaRowDivider`` hairlines between adjacent rows. Lighter than the
-  /// shared ``ScenarioSummaryRow`` card that Search / Past Results still use.
+  /// catalog cards Search renders (``GalleryCatalogRow``).
   @ViewBuilder
   private func scenariosSection(viewModel: HomeViewModel) -> some View {
     let rows = viewModel.userScenarios + viewModel.presets

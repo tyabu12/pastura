@@ -19,9 +19,9 @@ struct ScenarioIntroCard: View {
   /// Resolved, display-ready values for the opening card.
   ///
   /// The failable initializer is the load-bearing visibility guard: an empty
-  /// or whitespace-only premise yields `nil` so the caller renders nothing
-  /// (mirroring `ScenarioSummaryRow`'s `!description.isEmpty` guard), rather
-  /// than an empty card box above the log.
+  /// or whitespace-only premise yields `nil` so the caller renders nothing —
+  /// the same "absent text renders no element" posture the scenario rows take
+  /// on their description line — rather than an empty card box above the log.
   nonisolated struct Model {
     /// Scenario name. Optional because the live simulation already shows the
     /// name in its header — it passes `nil` to avoid a redundant restatement,

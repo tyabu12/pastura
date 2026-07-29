@@ -3,9 +3,9 @@ import SwiftUI
 /// One compact row in the editorial Home scenario list (tab-identity PR3,
 /// 案C 中庸; visual source `docs/design/tab-identity/lookbook.html`): a leading
 /// icon tile, the scenario name, a `provenance · N agents · N rounds` caption,
-/// and a trailing chevron. Lighter and denser than the shared
-/// ``ScenarioSummaryRow`` it replaces on Home (Search / Past Results keep that
-/// component). The icon is a single ``SheepAvatar`` for presets and
+/// and a trailing chevron. Lighter and denser than the shared summary row it
+/// replaced on Home — that row was retired outright in #1296 once Search moved
+/// to ``GalleryCatalogRow``. The icon is a single ``SheepAvatar`` for presets and
 /// gallery-installed scenarios, or a document glyph for self-authored ones —
 /// the sheep-vs-doc decision and the caption's provenance share one
 /// classification (``HomeScenarioRowFormat/usesDocIcon(isPreset:category:)`` /

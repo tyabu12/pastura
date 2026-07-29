@@ -9,9 +9,10 @@ import SwiftUI
 ///
 /// Presentation-only: it takes already-resolved values (``Model``), never the
 /// `GalleryScenario` domain type, so it stays unit-testable (ADR-009) and
-/// SPM-extraction-safe — the caller maps its record into the model. Mirrors
-/// ``ScenarioSummaryRow`` (which Home still uses; Browse moves to this card,
-/// and the shared row's retirement is deferred to PR3).
+/// SPM-extraction-safe — the caller maps its record into the model. It replaced
+/// the shared summary row on Browse; that row went unrendered once Home moved to
+/// ``HomeCompactScenarioRow`` and was retired in #1296, leaving this card the
+/// only ``ScenarioBadge`` renderer in the app.
 struct GalleryCatalogRow: View {
   /// Resolved, display-ready values for one catalog card.
   ///
@@ -140,19 +141,18 @@ struct GalleryCatalogRow: View {
     }
   }
 
-  /// Title-trailing provenance / update badge. Replicates
-  /// ``ScenarioSummaryRow``'s badge styling minimally (rather than sharing a
-  /// component) to keep this PR scoped to Browse — PR3's shared-row retirement
-  /// is the right place to consolidate the two badge renderers.
+  /// Title-trailing provenance / update badge — the app's only
+  /// ``ScenarioBadge`` renderer since #1296 retired the shared summary row that
+  /// carried a near-duplicate of this styling.
   private func badgeView(_ badge: ScenarioBadge) -> some View {
     let isTint = badge.style == .tint
     return Text(badge.label)
       .font(.caption2.bold())
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
-      // Token pair mirrors `PhaseTypeLabel` / `ScenarioSummaryRow`: `moss` for
-      // the wash, `mossDark` for accent text (§ 2.3). Both branches are `Color`
-      // now, so the `AnyShapeStyle` erasure is no longer needed.
+      // Token pair mirrors `PhaseTypeLabel`: `moss` for the wash, `mossDark`
+      // for accent text (§ 2.3). Both branches are `Color`, so the
+      // `AnyShapeStyle` erasure is no longer needed.
       .background(
         isTint ? Color.moss.opacity(0.2) : Color.inkSecondary.opacity(0.15),
         in: Capsule()
@@ -168,9 +168,11 @@ struct GalleryCatalogRow: View {
 nonisolated enum GalleryCatalogRowFormat {
   /// The ordered footer segments — `N agents` and `N rounds`, joined with a `·`
   /// **only when both are present**. Returns `[]` when neither exists so the
-  /// caller renders no footer, and never emits a dangling separator (mirrors
-  /// ``ScenarioSummaryRowFormat/captionSegments``). Reuses the existing
-  /// `"%lld agents"` / `"%lld rounds"` catalog keys (Form B per i18n.md).
+  /// caller renders no footer, and never emits a dangling separator — the same
+  /// guard shape as
+  /// ``HomeScenarioRowFormat/compactCaptionSegments(isPreset:category:agentCount:rounds:)``.
+  /// Reuses the existing `"%lld agents"` / `"%lld rounds"` catalog keys
+  /// (Form B per i18n.md).
   static func footerSegments(agentCount: Int?, rounds: Int?) -> [String] {
     let agents = agentCount.map { String(format: String(localized: "%lld agents"), $0) }
     let roundsText = rounds.map { String(format: String(localized: "%lld rounds"), $0) }

@@ -88,8 +88,9 @@ nonisolated enum HomeScenarioRowFormat {
   /// The compact row's caption as ordered, already-localized segments the
   /// caller joins with `·`: `[provenance, "N agents"?, "N rounds"?]`. Provenance
   /// is always present; the agent and round halves drop out when unknown so the
-  /// caller never renders a dangling separator (same guard shape as
-  /// ``ScenarioSummaryRowFormat/captionSegments(leading:trailing:)``).
+  /// caller never renders a dangling separator — the caller joins whatever comes
+  /// back rather than deciding per-half, so an absent half can never leave a
+  /// stray `·`.
   ///
   /// The count halves are built through `String(format: String(localized:), n)`
   /// — **never** the bare `%lld …` catalog key, which would render the literal

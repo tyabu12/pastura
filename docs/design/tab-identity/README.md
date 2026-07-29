@@ -47,6 +47,10 @@ The rendered PNG is a derived artifact — not committed.
    drawer rendered above it, inverting the title→search order. The shipped
    timeline keeps the familiar inline nav title + "N records" subtitle; its tab
    identity comes from the rail/node shape alone.
-2. **PR2 — さがす catalog cards** (planned).
-3. **PR3 — ホーム hero + compact rows** (planned). After PR3, revisit whether
-   `ScenarioSummaryRow` (shared by Home + Search today) can be retired.
+2. **PR2 — さがす catalog cards** (#777, shipped) — `GalleryCatalogRow`.
+3. **PR3 — ホーム hero + compact rows** (shipped) — `HomeCompactScenarioRow`.
+   The revisit this rollout deferred to after PR3 is **resolved**: with Home on
+   the compact row and Browse on the catalog card, the shared summary row had no
+   instantiation site left and was retired in #1296. Only its badge vocabulary
+   (`ScenarioBadge` / `ScenarioBadgeStyle`) survives, now rendered solely by
+   `GalleryCatalogRow`.
