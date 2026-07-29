@@ -31,11 +31,10 @@ contract in context.
   does not block on those prompts. `git commit` is allowlisted too — since #411
   the commit-time gate moved to the git pre-commit hook (`swiftlint --strict` +
   build), so there is no per-commit prompt. (`gh issue create` was allowlisted
-  with the dangling-ADR detector (#876), which can file Step 4 issues — as can
-  the always-live `dead_link` detector. It is exercised only when a
-  needs_judgment finding actually fires; on a clean `main` both detectors are
-  designed to report zero, so Step 4 stays quiet by construction, not because
-  it is unreachable.)
+  with the dangling-ADR detector (#876); every needs_judgment detector can
+  file Step 4 issues. It is exercised only when one actually fires; on a clean
+  `main` all of them are designed to report zero, so Step 4 stays quiet by
+  construction, not because it is unreachable.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
@@ -214,8 +213,15 @@ For each `needs_judgment` finding (already deduped by `target`):
    finding carries a `target` for this — for `dead_link` it is the link path,
    for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
    it is the `<docfile>::<sourcepath>` composite (so the same source mirrored in
-   two docs files two distinct issues) — embed `target` in the issue title
+   two docs files two distinct issues), for `unparsed_adr_reservation` it is
+   `reservation:ADR-NNN` and for `adr_roster_drift` `roster:ADR-NNN` (or
+   `roster:<file>` for a shape drift) — embed `target` in the issue title
    verbatim.
+
+   **The namespacing on the last two is load-bearing.** This search matches a
+   title substring and cannot tell finding types apart, so a bare `ADR-NNN`
+   would be permanently suppressed by the open `dangling_adr` issue it exists
+   to explain — most likely exactly when both fire.
 2. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
@@ -224,12 +230,15 @@ For each `needs_judgment` finding (already deduped by `target`):
      correct new location only a human knows.
    - **Suggested action**, explicitly left for a human to decide.
 
-   Some detectors pre-author these fields. `dangling_adr` and
-   `embedded_source_mirror` findings already carry `confidence`,
-   `counter_evidence`, and `suggested_action` on the JSON — use them verbatim
-   rather than re-deriving (`embedded_source_mirror` also carries `source`, the
-   real file the block drifted from). `dead_link` does not, so author its
-   confidence / counter-evidence at filing time as before.
+   Most detectors pre-author these fields. `dangling_adr`,
+   `embedded_source_mirror`, `unparsed_adr_reservation` and `adr_roster_drift`
+   findings already carry `confidence`, `counter_evidence`, and
+   `suggested_action` on the JSON — use them verbatim rather than re-deriving.
+   Each also carries one field naming what it found: `source` (the real file a
+   mirrored block drifted from), `shape` (which reservation shape was seen),
+   and `problems` (the list of roster/INDEX/disk disagreements for one ADR).
+   `dead_link` does not, so author its confidence / counter-evidence at filing
+   time as before.
 
 Never auto-fix these — the whole point is the fix needs judgment.
 
