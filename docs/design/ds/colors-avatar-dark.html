@@ -1,0 +1,207 @@
+<!-- @dsCard group="Colors" name="Character palette — dark" subtitle="§2.5 羊アバター 17 トークンの night 対（ADR-028 gate 1 スライス3）" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Character palette (dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  /* Same placement as `colors-states-dark.html` / `colors-meta-header-dark.html`:
+     the class goes on each `.section`, because `card.css` sets
+     `.section { background: var(--screen-bg) }` and a card-level override would
+     leave every sheep standing on cream — the one ground these values must NOT
+     be judged against. */
+  .section.night {
+    background: var(--night-bg);
+    border-color: var(--night-rule);
+    color: var(--night-ink);
+  }
+  .night .section-label { color: var(--night-ink-2); }
+  .night .section-note { color: var(--night-muted); }
+  .night code { color: var(--night-ink-2); }
+
+  .flock { display: flex; gap: var(--sp-xl); padding: var(--sp-s) 0 var(--sp-m); }
+  .sheep { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+  .sheep svg { display: block; }
+  .sheep .who { font-size: 11px; font-weight: 500; }
+  .sheep .role { font-size: 9px; opacity: .72; }
+
+  .side { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-l); }
+  .ground { border-radius: 10px; padding: var(--sp-m) var(--sp-l) var(--sp-s); }
+  .ground.day { background: var(--screen-bg); color: var(--ink); }
+  .ground.nite { background: var(--night-bg); color: var(--night-ink); }
+  .ground .cap { font-size: 10px; letter-spacing: .06em; opacity: .7; }
+
+  .rows { display: flex; flex-direction: column; gap: 1px; }
+  .row5 {
+    display: grid;
+    grid-template-columns: 24px 24px 1fr 132px 92px;
+    align-items: center; gap: 10px; padding: 3px 0; font-size: 11px;
+  }
+  .row5 .sq { width: 24px; height: 24px; border-radius: 5px;
+              border: 1px solid rgba(232,229,216,.18); }
+  .row5 .hexes { font-family: 'JetBrains Mono', monospace; font-size: 10px; opacity: .82; }
+  .row5 .note { font-size: 10px; opacity: .66; text-align: right; }
+  .grp { font-size: 10px; letter-spacing: .08em; opacity: .55;
+         margin: var(--sp-m) 0 2px; }
+
+  table.inv { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+  table.inv th, table.inv td { padding: 4px 8px; text-align: right;
+                               border-bottom: 1px solid var(--night-rule); }
+  table.inv th:first-child, table.inv td:first-child { text-align: left; }
+  table.inv th { font-weight: 500; opacity: .7; font-size: 9.5px;
+                 letter-spacing: .05em; }
+  table.inv td.num { font-family: 'JetBrains Mono', monospace; }
+
+  /* --- real-screen mocks --- */
+  .mock { border-radius: 12px; padding: var(--sp-m); background: var(--night-bg); }
+  .chatrow { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 10px; }
+  .bub { background: var(--night-bubble); border-radius: 14px; padding: 8px 12px;
+         max-width: 320px; }
+  .bub .nm { font-size: 10px; color: var(--night-ink-2); margin-bottom: 2px; }
+  .bub .tx { font-size: 12.5px; color: var(--night-ink); line-height: 1.55; }
+  .homerow { display: flex; align-items: center; gap: 8px;
+             border-top: 1px solid var(--night-rule); padding: 9px 2px; }
+  .homerow .ttl { font-size: 12.5px; color: var(--night-ink); flex: 1; }
+  .homerow .mini { display: flex; gap: 2px; }
+  .homerow .mt { font-size: 10px; color: var(--night-meta-base-l3); }
+  .tile { width: 62px; height: 62px; border-radius: 12px;
+          background: rgba(168,184,136,.10);
+          border: 1px solid rgba(168,184,136,.28);
+          display: grid; grid-template-columns: 1fr 1fr; place-content: center;
+          gap: 1px; padding: 5px; }
+  .sharecard { width: 300px; height: 300px; border-radius: 14px;
+               background: var(--night-bg); padding: 22px;
+               display: flex; flex-direction: column;
+               border: 1px solid var(--night-rule); }
+  .sharecard .hd { display: flex; gap: 10px; align-items: center; }
+  .sharecard .ag { font-size: 13px; font-weight: 600; color: var(--night-ink); }
+  .sharecard .md { font-family: 'JetBrains Mono', monospace; font-size: 8px;
+                   color: var(--night-muted); }
+  .sharecard .qm { font-family: Georgia, serif; font-size: 40px;
+                   color: rgba(168,184,136,.45); line-height: .8; margin-top: 14px; }
+  .sharecard .ut { font-size: 15px; color: var(--night-ink); line-height: 1.5;
+                   margin-top: 4px; }
+  .sharecard .ft { margin-top: auto; font-size: 9px; color: var(--night-muted);
+                   border-top: 1px solid var(--night-rule); padding-top: 8px; }
+  .mockgrid { display: flex; gap: var(--sp-xl); align-items: flex-start;
+              flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Character palette (dark)</p>
+  <div class="section night">
+    <p class="section-label">§2.5 — 同じ 4 頭を light の地（左）と night の地（右）に置いた比較。48pt（会話行）と 18pt（Home 行）の両方。アプリは light 固定なので、ダーク値を見られる面はこのカードだけ</p>
+    <div class="side">
+      <div class="ground day"><div class="cap">light — screenBackground #FCFAF4</div>
+        <div class="flock">
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#F2E3C8"/><circle cx="9" cy="13" r="3.2" fill="#F2E3C8"/><circle cx="19" cy="13" r="3.2" fill="#F2E3C8"/><circle cx="11" cy="18" r="3" fill="#F2E3C8"/><circle cx="17" cy="18" r="3" fill="#F2E3C8"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#C9A979"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#B29364" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#B29364" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Alice</span><span class="role">やさしい第一声</span></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#DDE4CC"/><circle cx="9" cy="13" r="3.2" fill="#DDE4CC"/><circle cx="19" cy="13" r="3.2" fill="#DDE4CC"/><circle cx="11" cy="18" r="3" fill="#DDE4CC"/><circle cx="17" cy="18" r="3" fill="#DDE4CC"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#8A9A6C"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#6F7F54" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#6F7F54" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Bob</span><span class="role">同意的・穏やか</span></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#EAD6D1"/><circle cx="9" cy="13" r="3.2" fill="#EAD6D1"/><circle cx="19" cy="13" r="3.2" fill="#EAD6D1"/><circle cx="11" cy="18" r="3" fill="#EAD6D1"/><circle cx="17" cy="18" r="3" fill="#EAD6D1"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#B8877C"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#9C6E64" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#9C6E64" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Carol</span><span class="role">観察者</span></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#D9D7C9"/><circle cx="9" cy="13" r="3.2" fill="#D9D7C9"/><circle cx="19" cy="13" r="3.2" fill="#D9D7C9"/><circle cx="11" cy="18" r="3" fill="#D9D7C9"/><circle cx="17" cy="18" r="3" fill="#D9D7C9"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#6B6858"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4F4C3F" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4F4C3F" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Dave</span><span class="role">Wolf（狼）/ 中心人物</span></div>
+        </div>
+        <div class="flock" style="gap:14px;padding-top:0">
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#F2E3C8"/><circle cx="9" cy="13" r="3.2" fill="#F2E3C8"/><circle cx="19" cy="13" r="3.2" fill="#F2E3C8"/><circle cx="11" cy="18" r="3" fill="#F2E3C8"/><circle cx="17" cy="18" r="3" fill="#F2E3C8"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#C9A979"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#B29364" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#B29364" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#DDE4CC"/><circle cx="9" cy="13" r="3.2" fill="#DDE4CC"/><circle cx="19" cy="13" r="3.2" fill="#DDE4CC"/><circle cx="11" cy="18" r="3" fill="#DDE4CC"/><circle cx="17" cy="18" r="3" fill="#DDE4CC"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#8A9A6C"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#6F7F54" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#6F7F54" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#EAD6D1"/><circle cx="9" cy="13" r="3.2" fill="#EAD6D1"/><circle cx="19" cy="13" r="3.2" fill="#EAD6D1"/><circle cx="11" cy="18" r="3" fill="#EAD6D1"/><circle cx="17" cy="18" r="3" fill="#EAD6D1"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#B8877C"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#9C6E64" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#9C6E64" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#D9D7C9"/><circle cx="9" cy="13" r="3.2" fill="#D9D7C9"/><circle cx="19" cy="13" r="3.2" fill="#D9D7C9"/><circle cx="11" cy="18" r="3" fill="#D9D7C9"/><circle cx="17" cy="18" r="3" fill="#D9D7C9"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#6B6858"/><circle cx="12.6" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="15.4" cy="14.8" r=".7" fill="#2D2E26"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.6)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4F4C3F" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4F4C3F" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+      <div class="ground nite"><div class="cap">dark — nightBackground #1B1D17</div>
+        <div class="flock">
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BFB095"/><circle cx="9" cy="13" r="3.2" fill="#BFB095"/><circle cx="19" cy="13" r="3.2" fill="#BFB095"/><circle cx="11" cy="18" r="3" fill="#BFB095"/><circle cx="17" cy="18" r="3" fill="#BFB095"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#9F7F4F"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Alice</span><span class="role">やさしい第一声</span></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#ABB29A"/><circle cx="9" cy="13" r="3.2" fill="#ABB29A"/><circle cx="19" cy="13" r="3.2" fill="#ABB29A"/><circle cx="11" cy="18" r="3" fill="#ABB29A"/><circle cx="17" cy="18" r="3" fill="#ABB29A"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#637446"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Bob</span><span class="role">同意的・穏やか</span></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BAA6A0"/><circle cx="9" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="19" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="11" cy="18" r="3" fill="#BAA6A0"/><circle cx="17" cy="18" r="3" fill="#BAA6A0"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#936156"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Carol</span><span class="role">観察者</span></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#A9A798"/><circle cx="9" cy="13" r="3.2" fill="#A9A798"/><circle cx="19" cy="13" r="3.2" fill="#A9A798"/><circle cx="11" cy="18" r="3" fill="#A9A798"/><circle cx="17" cy="18" r="3" fill="#A9A798"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#4A4737"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/></svg><span class="who">Dave</span><span class="role">Wolf（狼）/ 中心人物</span></div>
+        </div>
+        <div class="flock" style="gap:14px;padding-top:0">
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BFB095"/><circle cx="9" cy="13" r="3.2" fill="#BFB095"/><circle cx="19" cy="13" r="3.2" fill="#BFB095"/><circle cx="11" cy="18" r="3" fill="#BFB095"/><circle cx="17" cy="18" r="3" fill="#BFB095"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#9F7F4F"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#ABB29A"/><circle cx="9" cy="13" r="3.2" fill="#ABB29A"/><circle cx="19" cy="13" r="3.2" fill="#ABB29A"/><circle cx="11" cy="18" r="3" fill="#ABB29A"/><circle cx="17" cy="18" r="3" fill="#ABB29A"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#637446"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BAA6A0"/><circle cx="9" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="19" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="11" cy="18" r="3" fill="#BAA6A0"/><circle cx="17" cy="18" r="3" fill="#BAA6A0"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#936156"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+          <div class="sheep"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#A9A798"/><circle cx="9" cy="13" r="3.2" fill="#A9A798"/><circle cx="19" cy="13" r="3.2" fill="#A9A798"/><circle cx="11" cy="18" r="3" fill="#A9A798"/><circle cx="17" cy="18" r="3" fill="#A9A798"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#4A4737"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/></svg></div>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">羊の識別は <strong>色相</strong>が担う — light の 4 体は L 82–87% に固まっていて、body 同士のコントラストは 1.03–1.14 しかない。だから「暗くする」変換は明度ではなく<strong>色相と絶対彩度</strong>を守る必要がある。<strong>地に対する比は結果であって目標ではない。</strong>設計したのは 7.0–8.0:1 の窓で、下限は Dave の内部コントラスト、上限はブランドアクセント（nightMoss 8.00:1）を追い越さないこと。4 体はこの窓を端から端まで張っている（Alice 7.99 / Dave 7.02）。ΔE2000 は 6 ペア中 <strong>4 つ</strong>が light 以上、下がる 2 つも 98% 台 — 床を規定するのは Alice/Carol の 98.1%、絶対値が最も近いのは Bob/Dave（ΔE 6.10）で 98.6%</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">17 トークンの対。ペア間隔は「線形空間の最小 per-channel gap ÷ 0.005」で、<code>everyPairsTwoSidesAreDistinguishableAtTolerance</code> が使う尺度そのもの（1.0x 未満で赤くなる。現行の最狭は <code>metaBaseL1</code> の 6.8x）</p>
+    <div class="rows">
+      <div class="grp">body — 羊毛。地に対する目標コントラストで family ごと配置</div>
+      <div class="row5"><span class="sq" style="background:#F2E3C8"></span><span class="sq" style="background:#BFB095"></span><code>avatarBodyAlice</code><span class="hexes">#F2E3C8 → #BFB095</span><span class="note"> 55.4x</span></div>
+      <div class="row5"><span class="sq" style="background:#DDE4CC"></span><span class="sq" style="background:#ABB29A"></span><code>avatarBodyBob</code><span class="hexes">#DDE4CC → #ABB29A</span><span class="note"> 56.1x</span></div>
+      <div class="row5"><span class="sq" style="background:#EAD6D1"></span><span class="sq" style="background:#BAA6A0"></span><code>avatarBodyCarol</code><span class="hexes">#EAD6D1 → #BAA6A0</span><span class="note"> 57.2x</span></div>
+      <div class="row5"><span class="sq" style="background:#D9D7C9"></span><span class="sq" style="background:#A9A798"></span><code>avatarBodyDave</code><span class="hexes">#D9D7C9 → #A9A798</span><span class="note"> 54.0x</span></div>
+      <div class="grp">face — body に対する light の比を各キャラそのまま保存</div>
+      <div class="row5"><span class="sq" style="background:#C9A979"></span><span class="sq" style="background:#9F7F4F"></span><code>avatarFaceAlice</code><span class="hexes">#C9A979 → #9F7F4F</span><span class="note"> 22.6x</span></div>
+      <div class="row5"><span class="sq" style="background:#8A9A6C"></span><span class="sq" style="background:#637446"></span><code>avatarFaceBob</code><span class="hexes">#8A9A6C → #637446</span><span class="note">== moss だが継承しない 17.7x</span></div>
+      <div class="row5"><span class="sq" style="background:#B8877C"></span><span class="sq" style="background:#936156"></span><code>avatarFaceCarol</code><span class="hexes">#B8877C → #936156</span><span class="note"> 21.7x</span></div>
+      <div class="row5"><span class="sq" style="background:#6B6858"></span><span class="sq" style="background:#4A4737"></span><code>avatarFaceDave</code><span class="hexes">#6B6858 → #4A4737</span><span class="note"> 11.9x</span></div>
+      <div class="grp">horn — 同上。body の上に描かれるので地には触れない</div>
+      <div class="row5"><span class="sq" style="background:#B29364"></span><span class="sq" style="background:#8A6B3D"></span><code>avatarHornAlice</code><span class="hexes">#B29364 → #8A6B3D</span><span class="note"> 16.2x</span></div>
+      <div class="row5"><span class="sq" style="background:#6F7F54"></span><span class="sq" style="background:#4D5C31"></span><code>avatarHornBob</code><span class="hexes">#6F7F54 → #4D5C31</span><span class="note"> 11.6x</span></div>
+      <div class="row5"><span class="sq" style="background:#9C6E64"></span><span class="sq" style="background:#794B41"></span><code>avatarHornCarol</code><span class="hexes">#9C6E64 → #794B41</span><span class="note"> 14.9x</span></div>
+      <div class="row5"><span class="sq" style="background:#4F4C3F"></span><span class="sq" style="background:#2C291C"></span><code>avatarHornDave</code><span class="hexes">#4F4C3F → #2C291C</span><span class="note"> 7.6x</span></div>
+      <div class="grp">共通部位（ear / earInner / nose はどこにも描画されない ― 下の注記）</div>
+      <div class="row5"><span class="sq" style="background:#E8D9BC"></span><span class="sq" style="background:#B8A88B"></span><code>avatarEar</code><span class="hexes">#E8D9BC → #B8A88B</span><span class="note"> 48.9x</span></div>
+      <div class="row5"><span class="sq" style="background:#D4C19E"></span><span class="sq" style="background:#A79471"></span><code>avatarEarInner</code><span class="hexes">#D4C19E → #A79471</span><span class="note"> 35.4x</span></div>
+      <div class="row5"><span class="sq" style="background:#3D4030"></span><span class="sq" style="background:#2A2D1D"></span><code>avatarNose</code><span class="hexes">#3D4030 → #2A2D1D</span><span class="note">== mossInk だが継承しない 3.5x</span></div>
+      <div class="row5"><span class="sq" style="background:#2D2E26"></span><span class="sq" style="background:#16170F"></span><code>avatarEye</code><span class="hexes">#2D2E26 → #16170F</span><span class="note">== ink だが継承しない 2.9x</span></div>
+      <div class="grp">alpha トークン（このセットで唯一）</div>
+      <div class="row5"><span class="sq" style="background:#C9A979"></span><span class="sq" style="background:#9F7F4F"></span><code>avatarHighlight</code><span class="hexes">白 0.60 → 白 0.40</span><span class="note">alpha は<strong>下げる</strong></span></div>
+    </div>
+    <p class="section-note"><strong>§2.7 の wash とは逆向きに動く。</strong>wash は「暗い面に載る薄い色」なので dark で alpha を上げた。highlight は「面の上に置く光の反射」で、面が暗くなった分だけ同じ alpha が<em>強い</em>段差になる — だから下げる。仕事が違うので向きも逆になる</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">実画面モック（すべて night の地）— 会話行 48pt / Home 行 18pt / さがすタイルの群れ / 共有カード</p>
+    <div class="mockgrid">
+      <div class="mock" style="flex:1;min-width:340px">
+        <div class="chatrow"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BFB095"/><circle cx="9" cy="13" r="3.2" fill="#BFB095"/><circle cx="19" cy="13" r="3.2" fill="#BFB095"/><circle cx="11" cy="18" r="3" fill="#BFB095"/><circle cx="17" cy="18" r="3" fill="#BFB095"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#9F7F4F"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/></svg><div class="bub"><div class="nm">Alice</div><div class="tx">……その話、もう少し聞かせてもらえますか。</div></div></div>
+        <div class="chatrow"><svg viewBox="0 0 28 28" width="48" height="48" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#A9A798"/><circle cx="9" cy="13" r="3.2" fill="#A9A798"/><circle cx="19" cy="13" r="3.2" fill="#A9A798"/><circle cx="11" cy="18" r="3" fill="#A9A798"/><circle cx="17" cy="18" r="3" fill="#A9A798"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#4A4737"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/></svg><div class="bub"><div class="nm">Dave</div><div class="tx">全員が同じ方向を向いているのが、いちばん危うい。</div></div></div>
+        <div class="homerow"><span class="ttl">囚人のジレンマ</span><span class="mini"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BFB095"/><circle cx="9" cy="13" r="3.2" fill="#BFB095"/><circle cx="19" cy="13" r="3.2" fill="#BFB095"/><circle cx="11" cy="18" r="3" fill="#BFB095"/><circle cx="17" cy="18" r="3" fill="#BFB095"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#9F7F4F"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#ABB29A"/><circle cx="9" cy="13" r="3.2" fill="#ABB29A"/><circle cx="19" cy="13" r="3.2" fill="#ABB29A"/><circle cx="11" cy="18" r="3" fill="#ABB29A"/><circle cx="17" cy="18" r="3" fill="#ABB29A"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#637446"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BAA6A0"/><circle cx="9" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="19" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="11" cy="18" r="3" fill="#BAA6A0"/><circle cx="17" cy="18" r="3" fill="#BAA6A0"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#936156"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/></svg></span><span class="mt">3体 · 5R</span></div>
+        <div class="homerow"><span class="ttl">相続会議</span><span class="mini"><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BFB095"/><circle cx="9" cy="13" r="3.2" fill="#BFB095"/><circle cx="19" cy="13" r="3.2" fill="#BFB095"/><circle cx="11" cy="18" r="3" fill="#BFB095"/><circle cx="17" cy="18" r="3" fill="#BFB095"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#9F7F4F"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#ABB29A"/><circle cx="9" cy="13" r="3.2" fill="#ABB29A"/><circle cx="19" cy="13" r="3.2" fill="#ABB29A"/><circle cx="11" cy="18" r="3" fill="#ABB29A"/><circle cx="17" cy="18" r="3" fill="#ABB29A"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#637446"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BAA6A0"/><circle cx="9" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="19" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="11" cy="18" r="3" fill="#BAA6A0"/><circle cx="17" cy="18" r="3" fill="#BAA6A0"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#936156"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="18" height="18" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#A9A798"/><circle cx="9" cy="13" r="3.2" fill="#A9A798"/><circle cx="19" cy="13" r="3.2" fill="#A9A798"/><circle cx="11" cy="18" r="3" fill="#A9A798"/><circle cx="17" cy="18" r="3" fill="#A9A798"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#4A4737"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/></svg></span><span class="mt">4体 · 8R</span></div>
+        <div class="homerow" style="border-bottom:1px solid var(--night-rule)"><span class="tile"><svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BFB095"/><circle cx="9" cy="13" r="3.2" fill="#BFB095"/><circle cx="19" cy="13" r="3.2" fill="#BFB095"/><circle cx="11" cy="18" r="3" fill="#BFB095"/><circle cx="17" cy="18" r="3" fill="#BFB095"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#9F7F4F"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#8A6B3D" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#ABB29A"/><circle cx="9" cy="13" r="3.2" fill="#ABB29A"/><circle cx="19" cy="13" r="3.2" fill="#ABB29A"/><circle cx="11" cy="18" r="3" fill="#ABB29A"/><circle cx="17" cy="18" r="3" fill="#ABB29A"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#637446"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#4D5C31" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BAA6A0"/><circle cx="9" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="19" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="11" cy="18" r="3" fill="#BAA6A0"/><circle cx="17" cy="18" r="3" fill="#BAA6A0"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#936156"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/></svg><svg viewBox="0 0 28 28" width="24" height="24" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#A9A798"/><circle cx="9" cy="13" r="3.2" fill="#A9A798"/><circle cx="19" cy="13" r="3.2" fill="#A9A798"/><circle cx="11" cy="18" r="3" fill="#A9A798"/><circle cx="17" cy="18" r="3" fill="#A9A798"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#4A4737"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#2C291C" stroke-width="1" fill="none" stroke-linecap="round"/></svg></span><span class="ttl" style="margin-left:10px">さがす — アートタイルの群れ</span></div>
+      </div>
+      <div class="sharecard">
+        <div class="hd"><svg viewBox="0 0 28 28" width="46" height="46" aria-hidden="true"><circle cx="14" cy="15" r="8" fill="#BAA6A0"/><circle cx="9" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="19" cy="13" r="3.2" fill="#BAA6A0"/><circle cx="11" cy="18" r="3" fill="#BAA6A0"/><circle cx="17" cy="18" r="3" fill="#BAA6A0"/><ellipse cx="14" cy="15.5" rx="4" ry="4.2" fill="#936156"/><circle cx="12.6" cy="14.8" r=".7" fill="#16170F"/><circle cx="15.4" cy="14.8" r=".7" fill="#16170F"/><circle cx="11.6" cy="13.5" r=".5" fill="rgba(255,255,255,0.4)"/><path d="M10.5 11.5 Q 10 10 11 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/><path d="M17.5 11.5 Q 18 10 17 9.5" stroke="#794B41" stroke-width="1" fill="none" stroke-linecap="round"/></svg><div><div class="ag">Carol</div><div class="md">Gemma 4 E2B</div></div></div>
+        <div class="qm">&ldquo;</div>
+        <div class="ut">みんなが黙っている時間こそ、いちばん雄弁だと思う。</div>
+        <div class="ft">囚人のジレンマ · pastura.app</div>
+      </div>
+    </div>
+    <p class="section-note"><strong>共有カードは <code>ImageRenderer</code> の固定外観書き出し。</strong><code>HighlightCardPalette</code> が pin しているのは 6 トークンだけで avatar は入っていないので、対にした瞬間この羊だけが「レンダラが解決した任意の外観」になる。スライス3 で <code>SheepAvatar</code> 側にも明示の外観を通す</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">守った不変量（light → dark）。<code>DesignTokensTests+NightAvatarInvariants</code> が実行するのは face÷body / horn÷body / <strong>body÷地</strong>（配置の窓: 7.0:1 以上かつ <code>nightMoss</code> 以下）/ sheen÷face の 4 行と ΔE2000。<strong>eye÷face だけは記録のみで未実行</strong> — 目について実行されるのは比ではなく「両外観で最暗である」という順序</p>
+    <table class="inv"><thead><tr><th>不変量</th><th>Alice</th><th>Bob</th><th>Carol</th><th>Dave</th></tr></thead><tbody>
+      <tr><td>face ÷ body（保存）</td><td class="num">1.76 → 1.75</td><td class="num">2.32 → 2.32</td><td class="num">2.21 → 2.22</td><td class="num">3.87 → 3.86</td></tr>
+      <tr><td>horn ÷ body（保存）</td><td class="num">2.29 → 2.32</td><td class="num">3.32 → 3.31</td><td class="num">3.11 → 3.13</td><td class="num">5.95 → 6.02</td></tr>
+      <tr><td>eye ÷ face（圧縮・床拘束）</td><td class="num">6.17 → 4.83</td><td class="num">4.52 → 3.54</td><td class="num">4.44 → 3.51</td><td class="num">2.45 → 1.93</td></tr>
+      <tr><td>body ÷ 地（反転）</td><td class="num">1.21 → 7.99</td><td class="num">1.25 → 7.75</td><td class="num">1.34 → 7.33</td><td class="num">1.39 → 7.02</td></tr>
+      <tr><td>sheen ÷ face（alpha で調整）</td><td class="num">1.66 → 1.81</td><td class="num">2.05 → 2.14</td><td class="num">2.07 → 2.13</td><td class="num">3.17 → 2.95</td></tr>
+      <tr><td>ΔE2000（body 同士 · 6 対）</td><td colspan="4" class="num" style="text-align:left">Al·Bo 9.5→10.0 / Al·Ca 11.2→11.0 / Al·Da 7.1→7.3 / Bo·Ca 17.5→17.8 / Bo·Da 6.2→6.1 / Ca·Da 10.9→11.4</td></tr>
+    </tbody></table>
+    <p class="section-note"><strong>床が天井の鏡。</strong>スライス2 は「dark の地は light にない<em>天井</em>を持つ」と記録した。ここは<em>床</em>で同じことが起きる — light は near-white の地に対して 20:1 の下向きの余白があるので body の 5.95 倍暗い horn を置けるが、night の地はそれ自体が床なので、body を下げた瞬間 Dave の horn は地より暗くなる。だから eye ÷ face だけは保存できず圧縮する（Dave 2.45 → 1.93）</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">継承しなかった 3 つの hex 一致。スライス2 では一致を忠実に引き継ぐのが 2 回とも正解だったが、ここでは 3 つとも切る</p>
+    <div class="rows">
+      <div class="row5" style="grid-template-columns:24px 24px 1fr 2fr"><span class="sq" style="background:#2D2E26"></span><span class="sq" style="background:#16170F"></span><code>avatarEye</code><span style="font-size:10px;opacity:.8">light は <code>ink</code> と同値 #2D2E26／継承なら nightInk #E8E5D8 → <strong>切る</strong>。継承すると<strong>目が白くなる</strong>。目は本文テキストではなく顔の造作</span></div>
+      <div class="row5" style="grid-template-columns:24px 24px 1fr 2fr"><span class="sq" style="background:#8A9A6C"></span><span class="sq" style="background:#637446"></span><code>avatarFaceBob</code><span style="font-size:10px;opacity:.8">light は <code>moss</code> と同値 #8A9A6C／継承なら nightMoss #A8B888 → <strong>切る</strong>。nightMoss は Bob の dark body #ABB29A より<strong>明るい</strong> — 顔が体より明るくなって反転する</span></div>
+      <div class="row5" style="grid-template-columns:24px 24px 1fr 2fr"><span class="sq" style="background:#3D4030"></span><span class="sq" style="background:#2A2D1D"></span><code>avatarNose</code><span style="font-size:10px;opacity:.8">light は <code>mossInk</code> と同値 #3D4030／継承なら スライス4 で決まる値 → <strong>切る</strong>。前方依存を作らない。鼻は顔の上の印、mossInk は淡い地の上の文字</span></div>
+    </div>
+    <p class="section-note"><code>avatarEar</code> / <code>avatarEarInner</code> / <code>avatarNose</code> は <strong>どこにも描画されていない</strong> — <code>SheepAvatar.swift</code> の <code>Canvas</code> も SoT の <code>sheepAvatar()</code> も body / face / eye / horn しか描かない（Swift はさらに highlight を描くが SoT は描かない）。この 3 つのダーク値はミラーの整合であって視覚判断ではない</p>
+  </div>
+</div>
+</body>
+</html>

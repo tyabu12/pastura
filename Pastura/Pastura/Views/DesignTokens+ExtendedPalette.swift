@@ -29,7 +29,7 @@ extension PasturaPalette {
   ///
   /// The **light** value is settled: white over `mossDark` is ≈4.7:1 (AA).
   ///
-  /// The **dark** answer is not, so this alias is one of the 27 that still owe
+  /// The **dark** answer is not, so this alias is one of the 10 that still owe
   /// ADR-028 gate 1 an answer — it is *not* "fixed in both appearances" (which
   /// is a distinct, resolved state that `headerMetaSubdued` occupies). Over the lighter
   /// `nightMoss` (#A8B888) that paired `moss` resolves to under dark mode,

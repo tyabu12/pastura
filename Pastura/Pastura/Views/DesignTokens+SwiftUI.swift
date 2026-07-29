@@ -9,18 +9,19 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
-  // The 40 aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // The 57 aliases sourced from `PasturaDynamicPalette` resolve light/dark
   // against the ambient interface style (§2.9 — ADR-028's original eight, the
-  // §2.6/§2.7 slice in #1282, and the §2.4 meta presets plus two §2.12 header
-  // slots in #1313). Of the 28 light tokens still in pairing scope, 27 have no
-  // dark counterpart *yet* and `headerMetaSubdued` is fixed in both appearances
-  // by decision — see `DesignTokens+NightPalette`'s §2.12 MARK. The remaining
-  // aliases below are outside that scope entirely: the 40 §2.9 `night*` ones are
-  // the dark halves themselves (note `night` alone is §2.10, not one of them —
-  // grepping the prefix returns 41), and §2.10 time-of-day / §2.11 chart are
-  // decorative reservations that were never candidates for pairing. The app is
-  // pinned to light via `Info.plist`'s `UIUserInterfaceStyle`, so no half-dark
-  // surface can render while that is true.
+  // §2.6/§2.7 slice in #1282, the §2.4 meta presets plus two §2.12 header
+  // slots in #1313, and the §2.5 character palette in #1319). Of the 11 light
+  // tokens still in pairing scope, 10 have no dark counterpart *yet* and
+  // `headerMetaSubdued` is fixed in both appearances by decision — see
+  // `DesignTokens+NightPalette`'s §2.12 MARK. The remaining aliases below are
+  // outside that scope entirely: the 57 §2.9 `night*` ones are the dark halves
+  // themselves (note `night` alone is §2.10, not one of them — grepping the
+  // prefix returns 58), and §2.10 time-of-day / §2.11 chart are decorative
+  // reservations that were never candidates for pairing. The app is pinned to
+  // light via `Info.plist`'s `UIUserInterfaceStyle`, so no half-dark surface
+  // can render while that is true.
   //
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?
@@ -72,24 +73,29 @@ extension Color {
   static let metaStrongL4 = PasturaDynamicPalette.metaStrongL4.color
   static let metaDotOnL4 = PasturaDynamicPalette.metaDotOnL4.color
 
-  // §2.5 Avatars
-  static let avatarBodyAlice = PasturaPalette.avatarBodyAlice.color
-  static let avatarBodyBob = PasturaPalette.avatarBodyBob.color
-  static let avatarBodyCarol = PasturaPalette.avatarBodyCarol.color
-  static let avatarBodyDave = PasturaPalette.avatarBodyDave.color
-  static let avatarFaceAlice = PasturaPalette.avatarFaceAlice.color
-  static let avatarFaceBob = PasturaPalette.avatarFaceBob.color
-  static let avatarFaceCarol = PasturaPalette.avatarFaceCarol.color
-  static let avatarFaceDave = PasturaPalette.avatarFaceDave.color
-  static let avatarHornAlice = PasturaPalette.avatarHornAlice.color
-  static let avatarHornBob = PasturaPalette.avatarHornBob.color
-  static let avatarHornCarol = PasturaPalette.avatarHornCarol.color
-  static let avatarHornDave = PasturaPalette.avatarHornDave.color
-  static let avatarEar = PasturaPalette.avatarEar.color
-  static let avatarEarInner = PasturaPalette.avatarEarInner.color
-  static let avatarNose = PasturaPalette.avatarNose.color
-  static let avatarEye = PasturaPalette.avatarEye.color
-  static let avatarHighlight = PasturaPalette.avatarHighlight.color
+  // §2.5 Avatars — paired, and with **no production consumer**. Avatar painting
+  // goes through `SheepAvatarPalette`, which reads raw `PasturaPalette` so the
+  // `HighlightShareCard` export can pin an appearance (ADR-028 slice 3). Reaching
+  // for one of these in a new avatar-adjacent view gets correct in-app behaviour
+  // and silently re-opens the export hazard the moment that view is composed
+  // into a card — use `SheepAvatarPalette` instead.
+  static let avatarBodyAlice = PasturaDynamicPalette.avatarBodyAlice.color
+  static let avatarBodyBob = PasturaDynamicPalette.avatarBodyBob.color
+  static let avatarBodyCarol = PasturaDynamicPalette.avatarBodyCarol.color
+  static let avatarBodyDave = PasturaDynamicPalette.avatarBodyDave.color
+  static let avatarFaceAlice = PasturaDynamicPalette.avatarFaceAlice.color
+  static let avatarFaceBob = PasturaDynamicPalette.avatarFaceBob.color
+  static let avatarFaceCarol = PasturaDynamicPalette.avatarFaceCarol.color
+  static let avatarFaceDave = PasturaDynamicPalette.avatarFaceDave.color
+  static let avatarHornAlice = PasturaDynamicPalette.avatarHornAlice.color
+  static let avatarHornBob = PasturaDynamicPalette.avatarHornBob.color
+  static let avatarHornCarol = PasturaDynamicPalette.avatarHornCarol.color
+  static let avatarHornDave = PasturaDynamicPalette.avatarHornDave.color
+  static let avatarEar = PasturaDynamicPalette.avatarEar.color
+  static let avatarEarInner = PasturaDynamicPalette.avatarEarInner.color
+  static let avatarNose = PasturaDynamicPalette.avatarNose.color
+  static let avatarEye = PasturaDynamicPalette.avatarEye.color
+  static let avatarHighlight = PasturaDynamicPalette.avatarHighlight.color
 
   // §2.6 Alert family
   static let info = PasturaDynamicPalette.info.color
@@ -159,6 +165,23 @@ extension Color {
   static let nightMetaDotOnL4 = PasturaPalette.nightMetaDotOnL4.color
   static let nightHeaderRule = PasturaPalette.nightHeaderRule.color
   static let nightHeaderMetaInk = PasturaPalette.nightHeaderMetaInk.color
+  static let nightAvatarBodyAlice = PasturaPalette.nightAvatarBodyAlice.color
+  static let nightAvatarBodyBob = PasturaPalette.nightAvatarBodyBob.color
+  static let nightAvatarBodyCarol = PasturaPalette.nightAvatarBodyCarol.color
+  static let nightAvatarBodyDave = PasturaPalette.nightAvatarBodyDave.color
+  static let nightAvatarFaceAlice = PasturaPalette.nightAvatarFaceAlice.color
+  static let nightAvatarFaceBob = PasturaPalette.nightAvatarFaceBob.color
+  static let nightAvatarFaceCarol = PasturaPalette.nightAvatarFaceCarol.color
+  static let nightAvatarFaceDave = PasturaPalette.nightAvatarFaceDave.color
+  static let nightAvatarHornAlice = PasturaPalette.nightAvatarHornAlice.color
+  static let nightAvatarHornBob = PasturaPalette.nightAvatarHornBob.color
+  static let nightAvatarHornCarol = PasturaPalette.nightAvatarHornCarol.color
+  static let nightAvatarHornDave = PasturaPalette.nightAvatarHornDave.color
+  static let nightAvatarEar = PasturaPalette.nightAvatarEar.color
+  static let nightAvatarEarInner = PasturaPalette.nightAvatarEarInner.color
+  static let nightAvatarNose = PasturaPalette.nightAvatarNose.color
+  static let nightAvatarEye = PasturaPalette.nightAvatarEye.color
+  static let nightAvatarHighlight = PasturaPalette.nightAvatarHighlight.color
 
   // §2.10 Time-of-Day (decorative ambient)
   static let dawn = PasturaPalette.dawn.color

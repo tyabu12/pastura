@@ -88,17 +88,17 @@
         <span class="who t-caption-name">Dave</span><span class="role">Wolf（狼）/ 中心人物</span>
       </div>
     </div>
-    <p class="section-note">Source of Truth: demo-replay-reference.html の sheepAvatar() 関数（enforcement: DesignTokensTests）。アバターは飾り — VoiceOver では .accessibilityHidden(true)、隣接する Text(agent) が identity を担う（§8）。</p>
+    <p class="section-note"><strong>耳と鼻はどの実装も描いていない</strong> — SheepAvatar.swift の Canvas も SoT の sheepAvatar() も body / face / eye / horn だけを描く（Swift はさらに highlight を描くが SoT は描かない）。同じプロトタイプ内の別関数 sheepSvg() は<em>耳を描く</em>が、それはアシスタントマーク用の別系統（MARKS.sheep_* / MARK() は返さない）で、渡される色はハードコードの hex であって §2.5 の avatarEar ではない。おとりに注意。トークンとしては残すが、塗られてはいない。Source of Truth は<strong>ライト値のみ</strong>: demo-replay-reference.html の sheepAvatar() 関数。ダーク値の原点はそこには無く design-system.md §2.9（→ <a href="colors-avatar-dark.html">colors-avatar-dark.html</a>）。Swift 側の値は DesignTokensTests が固定するが、プロトタイプ→本表の一致を検証する経路は無い（目視）。アバターは飾り — VoiceOver では .accessibilityHidden(true)、隣接する Text(agent) が identity を担う（§8）。</p>
   </div>
 
   <div class="section">
-    <p class="section-label">§2.5 パートパレット — キャラ別 body / face / horn + 共通部位（Swift 実装 SheepAvatar.swift が参照）</p>
+    <p class="section-label">§2.5 パートパレット — キャラ別 body / face / horn + 共通部位。ダーク対は <a href="colors-avatar-dark.html">colors-avatar-dark.html</a>（#1319）</p>
     <div class="sw"><span class="chip" style="background:var(--avatar-body-alice)"></span><span class="name">--avatar-body-alice</span><span class="val">#F2E3C8</span><span class="use">face #C9A979 · horn #B29364</span></div>
     <div class="sw"><span class="chip" style="background:var(--avatar-body-bob)"></span><span class="name">--avatar-body-bob</span><span class="val">#DDE4CC</span><span class="use">face #8A9A6C · horn #6F7F54</span></div>
     <div class="sw"><span class="chip" style="background:var(--avatar-body-carol)"></span><span class="name">--avatar-body-carol</span><span class="val">#EAD6D1</span><span class="use">face #B8877C · horn #9C6E64</span></div>
     <div class="sw"><span class="chip" style="background:var(--avatar-body-dave)"></span><span class="name">--avatar-body-dave</span><span class="val">#D9D7C9</span><span class="use">face #6B6858 · horn #4F4C3F</span></div>
-    <div class="sw"><span class="chip" style="background:var(--avatar-ear)"></span><span class="name">--avatar-ear</span><span class="val">#E8D9BC</span><span class="use">共通・耳（内側 #D4C19E）</span></div>
-    <div class="sw"><span class="chip" style="background:var(--avatar-nose)"></span><span class="name">--avatar-nose</span><span class="val">#3D4030</span><span class="use">共通・鼻</span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-ear)"></span><span class="name">--avatar-ear</span><span class="val">#E8D9BC</span><span class="use">共通・耳（内側 #D4C19E）— <strong>未描画</strong></span></div>
+    <div class="sw"><span class="chip" style="background:var(--avatar-nose)"></span><span class="name">--avatar-nose</span><span class="val">#3D4030</span><span class="use">共通・鼻 — <strong>未描画</strong></span></div>
     <div class="sw"><span class="chip" style="background:var(--avatar-eye)"></span><span class="name">--avatar-eye</span><span class="val">#2D2E26</span><span class="use">共通・目（ハイライト rgba(255,255,255,0.6)）</span></div>
   </div>
 </div>

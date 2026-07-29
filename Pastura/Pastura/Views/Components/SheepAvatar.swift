@@ -26,6 +26,39 @@ public struct SheepAvatar: View {
   public let character: Character
   public var size: CGFloat = 48
 
+  /// Appearance to draw for, or `nil` to follow the device's.
+  ///
+  /// Non-`nil` only on fixed-appearance export paths — today just
+  /// ``HighlightShareCard``, which rasterizes through `ImageRenderer` and so
+  /// cannot rely on the ambient environment. **Do not give this a non-optional
+  /// default**: a `= .light` default would pin every ambient call site to light
+  /// and the §2.5 pairs would never render, with every test still green (ADR-009
+  /// rules out the snapshot that would catch it).
+  public var colorScheme: ColorScheme?
+
+  @Environment(\.colorScheme) private var ambientColorScheme
+
+  /// - Parameters:
+  ///   - character: which of the four colour slots to draw.
+  ///   - size: diameter in points.
+  ///   - colorScheme: pass only from a fixed-appearance export path; `nil`
+  ///     follows the device.
+  public init(character: Character, size: CGFloat = 48, colorScheme: ColorScheme? = nil) {
+    self.character = character
+    self.size = size
+    self.colorScheme = colorScheme
+  }
+
+  /// The five fixed sRGB values this avatar paints with.
+  ///
+  /// Resolved to a concrete appearance **before** the `Canvas`, so only fixed
+  /// colours cross into `GraphicsContext` — see ``SheepAvatarPalette`` for why
+  /// that boundary matters.
+  private var palette: SheepAvatarPalette {
+    SheepAvatarPalette.resolved(
+      for: character, colorScheme: colorScheme ?? ambientColorScheme)
+  }
+
   /// Compact avatar size for dense list rows — the Home scenario list
   /// renders `agentCount` avatars at this size next to the round count
   /// (ADR-016 D3 row layout; the consuming View lands in P2). Named so the
@@ -58,9 +91,13 @@ public struct SheepAvatar: View {
       // All geometry is expressed as fractions of the 28-unit SVG viewBox.
       // Multiplying by `unit` maps viewBox coordinates to canvas points.
       let unit = canvasSize.width / 28
+      // Bound once: `palette` is computed, so reading it per part would rerun
+      // the appearance switch and rebuild five `Color`s on every draw — and a
+      // Home row renders up to six avatars.
+      let palette = palette
 
       // --- Wool body (five circles forming a cloud silhouette) ---
-      let bodyColor = character.bodyColor
+      let bodyColor = palette.body
       let woolCircles: [WoolCircle] = [
         WoolCircle(centerX: 14, centerY: 15, radius: 8),
         WoolCircle(centerX: 9, centerY: 13, radius: 3.2),
@@ -83,10 +120,10 @@ public struct SheepAvatar: View {
         ellipseIn: CGRect(
           x: (14 - 4) * unit, y: (15.5 - 4.2) * unit,
           width: 8 * unit, height: 8.4 * unit))
-      ctx.fill(facePath, with: .color(character.faceColor))
+      ctx.fill(facePath, with: .color(palette.face))
 
       // --- Eyes (two dark circles) ---
-      let eyeColor = Color.avatarEye
+      let eyeColor = palette.eye
       for eyeCenterX in [CGFloat(12.6), 15.4] {
         let eyePath = Path(
           ellipseIn: CGRect(
@@ -100,10 +137,10 @@ public struct SheepAvatar: View {
         ellipseIn: CGRect(
           x: (11.6 - 0.5) * unit, y: (13.5 - 0.5) * unit,
           width: 1.0 * unit, height: 1.0 * unit))
-      ctx.fill(highlightPath, with: .color(Color.avatarHighlight))
+      ctx.fill(highlightPath, with: .color(palette.highlight))
 
       // --- Horns (two short curved strokes) ---
-      let hornColor = character.hornColor
+      let hornColor = palette.horn
       var leftHorn = Path()
       leftHorn.move(to: CGPoint(x: 10.5 * unit, y: 11.5 * unit))
       leftHorn.addQuadCurve(
@@ -207,39 +244,12 @@ extension SheepAvatar.Character {
     }
   }
 
-  // SoT for the per-character body/face/horn palette below:
-  // `docs/design/design-system.md` §2.5 (mirrors `demo-replay-reference.html`'s
-  // `sheepAvatar()`). Update tokens in `DesignTokens.swift`, not here.
-
-  /// Wool / body fill — matches `Color.avatarBodyAlice/Bob/Carol/Dave`.
-  var bodyColor: Color {
-    switch self {
-    case .alice: return Color.avatarBodyAlice
-    case .bob: return Color.avatarBodyBob
-    case .carol: return Color.avatarBodyCarol
-    case .dave: return Color.avatarBodyDave
-    }
-  }
-
-  /// Face oval fill — matches `Color.avatarFaceAlice/Bob/Carol/Dave`.
-  var faceColor: Color {
-    switch self {
-    case .alice: return Color.avatarFaceAlice
-    case .bob: return Color.avatarFaceBob
-    case .carol: return Color.avatarFaceCarol
-    case .dave: return Color.avatarFaceDave
-    }
-  }
-
-  /// Horn stroke color — matches `Color.avatarHornAlice/Bob/Carol/Dave`.
-  var hornColor: Color {
-    switch self {
-    case .alice: return Color.avatarHornAlice
-    case .bob: return Color.avatarHornBob
-    case .carol: return Color.avatarHornCarol
-    case .dave: return Color.avatarHornDave
-    }
-  }
+  // The per-character body / face / horn colours moved to
+  // ``SheepAvatarPalette`` when ADR-028 gate 1 slice 3 paired the §2.5 tokens:
+  // they have to be selected for an explicit appearance, which is not something
+  // a `Character` knows. SoT for the values themselves is
+  // `docs/design/design-system.md` §2.5 (light) and §2.9 (dark); edit the
+  // tokens in `DesignTokens.swift` / `DesignTokens+NightPalette.swift`.
 
   /// Color-slot canonical name. Preview-only at runtime: the chat-row
   /// `SheepAvatar` carries `.accessibilityHidden(true)` so VoiceOver

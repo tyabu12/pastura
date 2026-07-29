@@ -266,7 +266,7 @@ extension DesignTokensTests {
   ///
   /// This is the guard on that decision, on both halves of it. Changing the
   /// token breaks the measurement below; pairing it trips the registry check,
-  /// which is here rather than left to `exactlyFortyPairsAreWired` so that the
+  /// which is here rather than left to `exactlyFiftySevenPairsAreWired` so that the
   /// *reason* fixing is right is what reddens, not just an arithmetic count.
   @Test func headerMetaSubduedReadsTheSameOnBothGrounds() {
     #expect(!PasturaDynamicPalette.all.contains { $0.name == "headerMetaSubdued" })
@@ -288,8 +288,11 @@ extension DesignTokensTests {
 
 /// WCAG relative luminance of a token, for the ordering assertion above.
 ///
-/// File-scope and `private`: only this file needs it. Kept out of the parent
-/// suite so `DesignTokensTests.swift` stays under its line budget.
+/// File-scope and **internal, not `private`**: `DesignTokensTests+NightAvatarInvariants.swift`
+/// builds its §2.5 invariants on this and on `contrastRatio` / `composite`
+/// below, and `private` at file scope is invisible to a sibling file (see
+/// `.claude/rules/testing.md` § "Splitting a Suite Across Files"). Kept out of
+/// the parent suite so `DesignTokensTests.swift` stays under its line budget.
 ///
 /// `@MainActor` is load-bearing, and is the cross-module corollary in
 /// `.claude/rules/swift-isolation.md` § "Same cause, two non-test shapes":
@@ -301,7 +304,7 @@ extension DesignTokensTests {
 /// from a nonisolated context". Same shape as `sRGBComponentsMatch` in
 /// `DesignTokensTests+DarkMode.swift`.
 @MainActor
-private func relativeLuminance(_ token: PasturaColorValue) -> Double {
+func relativeLuminance(_ token: PasturaColorValue) -> Double {
   func channel(_ value: Double) -> Double {
     value <= 0.03928 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
   }
@@ -313,7 +316,7 @@ private func relativeLuminance(_ token: PasturaColorValue) -> Double {
 /// WCAG contrast ratio between two tokens. Same `@MainActor` reasoning as
 /// `relativeLuminance` above, which it builds on.
 @MainActor
-private func contrastRatio(_ lhs: PasturaColorValue, _ rhs: PasturaColorValue) -> Double {
+func contrastRatio(_ lhs: PasturaColorValue, _ rhs: PasturaColorValue) -> Double {
   let left = relativeLuminance(lhs)
   let right = relativeLuminance(rhs)
   return (max(left, right) + 0.05) / (min(left, right) + 0.05)
@@ -324,7 +327,7 @@ private func contrastRatio(_ lhs: PasturaColorValue, _ rhs: PasturaColorValue) -
 /// `Color.moss.opacity(0.38)`, and `moss` is a paired token, so in dark that
 /// resolves to `nightMoss` at the same alpha over the card surface.
 @MainActor
-private func composite(
+func composite(
   _ token: PasturaColorValue, over background: PasturaColorValue, alpha: Double
 ) -> PasturaColorValue {
   PasturaColorValue(

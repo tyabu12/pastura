@@ -2,8 +2,10 @@
  *
  * Source of truth: design-system.md (authoritative) → this file (visual
  * mirror) → Pastura/Pastura/Views/DesignTokens*.swift (implementation).
- * Exception: the §2.5 avatar palette originates in
- * demo-replay-reference.html `sheepAvatar()` (see ds/README.md).
+ * Exception: the §2.5 avatar palette's LIGHT half originates in
+ * demo-replay-reference.html `sheepAvatar()` (see ds/README.md). That
+ * prototype has no dark half, so the §2.5 dark values originate in
+ * design-system.md §2.9 like every other night token.
  *
  * Drift guard: scripts/check_design_tokens_css.py asserts every color
  * literal in DesignTokens*.swift (hex AND rgba constructor forms) appears
@@ -46,8 +48,9 @@
   --meta-strong: #2D2E26;
   --meta-dot-on: #6B7852;
 
-  /* §2.5 Character palette (sheep avatars). Origin:
-   * demo-replay-reference.html sheepAvatar(). */
+  /* §2.5 Character palette (sheep avatars). Origin of these LIGHT values:
+   * demo-replay-reference.html sheepAvatar(). The dark counterparts are not
+   * from there — see the --night-avatar-* block below. */
   --avatar-body-alice: #F2E3C8;
   --avatar-body-bob: #DDE4CC;
   --avatar-body-carol: #EAD6D1;
@@ -167,6 +170,37 @@
      the same against a pale ground and a dark one. See design-system.md §2.12. */
   --night-header-rule: #474535;
   --night-header-meta-ink: #B2B6A2;
+
+  /* §2.9 dark counterparts of the §2.5 character palette (#1319). The "moonlit
+     pasture" treatment: the four bodies move down as a FAMILY, each keeping its
+     hue and absolute chroma (HSL-derived, 2*S*min(L,1-L) — NOT HSL S, which
+     falls sharply, and not Lab chroma, which rises slightly), and every other
+     part of a character follows from
+     that character's own light body-to-part contrast ratio. The 7.0-8.0:1 band
+     on --night-bg is the designed thing; where inside it the family lands is a
+     consequence. Unlike the §2.4 rows above, every value here is unique, so the
+     substring gate really does see all seventeen — the three light-side hex
+     coincidences (eye == ink, face-bob == moss, nose == moss-ink) are all cut.
+     Note the last row is an rgba(), not a hex: the gate asserts an
+     opacity-carrying token in that form. See design-system.md §2.5 / §2.9 and
+     ds/colors-avatar-dark.html. */
+  --night-avatar-body-alice: #BFB095;
+  --night-avatar-body-bob: #ABB29A;
+  --night-avatar-body-carol: #BAA6A0;
+  --night-avatar-body-dave: #A9A798;
+  --night-avatar-face-alice: #9F7F4F;
+  --night-avatar-face-bob: #637446;
+  --night-avatar-face-carol: #936156;
+  --night-avatar-face-dave: #4A4737;
+  --night-avatar-horn-alice: #8A6B3D;
+  --night-avatar-horn-bob: #4D5C31;
+  --night-avatar-horn-carol: #794B41;
+  --night-avatar-horn-dave: #2C291C;
+  --night-avatar-ear: #B8A88B;
+  --night-avatar-ear-inner: #A79471;
+  --night-avatar-nose: #2A2D1D;
+  --night-avatar-eye: #16170F;
+  --night-avatar-highlight: rgba(255, 255, 255, 0.4);
 
   /* §2.10 Time-of-Day (reserved, ambient) */
   --dawn: #F4E5CD;

@@ -6,7 +6,7 @@ import UIKit
 
 // §2.9 dark-mode token-pair tests. Protects ADR-028's mechanism decision:
 // `PasturaDynamicColor` resolves a light/dark pair through a `UIColor` dynamic
-// provider, and the 40 paired `Color.*` aliases are actually wired to it.
+// provider, and the 57 paired `Color.*` aliases are actually wired to it.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -94,13 +94,13 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.headerMetaInk.dark == PasturaPalette.nightHeaderMetaInk)
   }
 
-  /// Guards the registry's documented size, NOT completeness: declaring a 41st
-  /// pair without appending it to `all` leaves the count at 40 and passes. What it
+  /// Guards the registry's documented size, NOT completeness: declaring a 58th
+  /// pair without appending it to `all` leaves the count at 57 and passes. What it
   /// does catch outright is a copy-paste duplicate in `all` (the `Set` line).
   /// Per-alias coverage lives in `DesignTokensTests+DarkModeWiring`.
-  @Test func exactlyFortyPairsAreWired() {
-    #expect(PasturaDynamicPalette.all.count == 40)
-    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 40)
+  @Test func exactlyFiftySevenPairsAreWired() {
+    #expect(PasturaDynamicPalette.all.count == 57)
+    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 57)
   }
 
   /// The false-green guard the tolerance note above is really asking for.
@@ -157,6 +157,28 @@ extension DesignTokensTests {
 // its own module. `sRGBComponentsMatch` stays `private` because only this file
 // uses it, and `.claude/rules/swift-isolation.md` cites it as the worked
 // example of the cross-module `@MainActor`-on-a-private-helper shape.
+
+/// Whether `color` resolves to the same components under both schemes — i.e.
+/// whether it is a fixed sRGB value rather than a trait-resolving alias.
+///
+/// Internal and file-scope here rather than private to either suite:
+/// `HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests` guard the
+/// same fixed-appearance contract one level apart, and both need it. Compares
+/// `opacity` as well as RGB — an alias differing only in alpha (§2.5's
+/// highlight, §2.7's washes) would otherwise slip through.
+@MainActor
+func resolvesIdenticallyAcrossSchemes(_ color: Color) -> Bool {
+  var light = EnvironmentValues()
+  light.colorScheme = .light
+  var dark = EnvironmentValues()
+  dark.colorScheme = .dark
+  let underLight = color.resolve(in: light)
+  let underDark = color.resolve(in: dark)
+  return underLight.red == underDark.red
+    && underLight.green == underDark.green
+    && underLight.blue == underDark.blue
+    && underLight.opacity == underDark.opacity
+}
 
 /// `EnvironmentValues` pinned to dark, for `Color.resolve(in:)`.
 func darkEnvironment() -> EnvironmentValues {

@@ -22,11 +22,12 @@ import SwiftUI
 
 /// The light↔dark token pairs wired into the app's `Color.*` aliases.
 ///
-/// **40 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
+/// **57 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
 /// §2.7 interactive states from slice 1 of gate 1 (#1282), plus the §2.4 meta
-/// presets and two of the three §2.12 header slots from slice 2 (#1313).
+/// presets and two of the three §2.12 header slots from slice 2 (#1313), plus
+/// the §2.5 character palette from slice 3 (#1319).
 ///
-/// 28 light tokens remain unpaired, and gate 1 still owes an answer for **27**
+/// 11 light tokens remain unpaired, and gate 1 still owes an answer for **10**
 /// of them — the two counts differ because `headerMetaSubdued` is resolved but
 /// unpaired: slice 2 recorded it as fixed in both appearances, which gate 1
 /// admits as an equal alternative to a designed dark value. The app is pinned
@@ -172,14 +173,66 @@ enum PasturaDynamicPalette {
   static let headerMetaInk = PasturaDynamicColor(
     light: PasturaPalette.headerMetaInk, dark: PasturaPalette.nightHeaderMetaInk)
 
+  /// §2.5 — Alice's body.
+  static let avatarBodyAlice = PasturaDynamicColor(
+    light: PasturaPalette.avatarBodyAlice, dark: PasturaPalette.nightAvatarBodyAlice)
+  /// §2.5 — Bob's body.
+  static let avatarBodyBob = PasturaDynamicColor(
+    light: PasturaPalette.avatarBodyBob, dark: PasturaPalette.nightAvatarBodyBob)
+  /// §2.5 — Carol's body.
+  static let avatarBodyCarol = PasturaDynamicColor(
+    light: PasturaPalette.avatarBodyCarol, dark: PasturaPalette.nightAvatarBodyCarol)
+  /// §2.5 — Dave's body.
+  static let avatarBodyDave = PasturaDynamicColor(
+    light: PasturaPalette.avatarBodyDave, dark: PasturaPalette.nightAvatarBodyDave)
+  /// §2.5 — Alice's face.
+  static let avatarFaceAlice = PasturaDynamicColor(
+    light: PasturaPalette.avatarFaceAlice, dark: PasturaPalette.nightAvatarFaceAlice)
+  /// §2.5 — Bob's face.
+  static let avatarFaceBob = PasturaDynamicColor(
+    light: PasturaPalette.avatarFaceBob, dark: PasturaPalette.nightAvatarFaceBob)
+  /// §2.5 — Carol's face.
+  static let avatarFaceCarol = PasturaDynamicColor(
+    light: PasturaPalette.avatarFaceCarol, dark: PasturaPalette.nightAvatarFaceCarol)
+  /// §2.5 — Dave's face.
+  static let avatarFaceDave = PasturaDynamicColor(
+    light: PasturaPalette.avatarFaceDave, dark: PasturaPalette.nightAvatarFaceDave)
+  /// §2.5 — Alice's horn.
+  static let avatarHornAlice = PasturaDynamicColor(
+    light: PasturaPalette.avatarHornAlice, dark: PasturaPalette.nightAvatarHornAlice)
+  /// §2.5 — Bob's horn.
+  static let avatarHornBob = PasturaDynamicColor(
+    light: PasturaPalette.avatarHornBob, dark: PasturaPalette.nightAvatarHornBob)
+  /// §2.5 — Carol's horn.
+  static let avatarHornCarol = PasturaDynamicColor(
+    light: PasturaPalette.avatarHornCarol, dark: PasturaPalette.nightAvatarHornCarol)
+  /// §2.5 — Dave's horn.
+  static let avatarHornDave = PasturaDynamicColor(
+    light: PasturaPalette.avatarHornDave, dark: PasturaPalette.nightAvatarHornDave)
+  /// §2.5 — shared ear (drawn by no renderer).
+  static let avatarEar = PasturaDynamicColor(
+    light: PasturaPalette.avatarEar, dark: PasturaPalette.nightAvatarEar)
+  /// §2.5 — shared inner ear (drawn by no renderer).
+  static let avatarEarInner = PasturaDynamicColor(
+    light: PasturaPalette.avatarEarInner, dark: PasturaPalette.nightAvatarEarInner)
+  /// §2.5 — shared nose (drawn by no renderer).
+  static let avatarNose = PasturaDynamicColor(
+    light: PasturaPalette.avatarNose, dark: PasturaPalette.nightAvatarNose)
+  /// §2.5 — shared eye — the darkest mark.
+  static let avatarEye = PasturaDynamicColor(
+    light: PasturaPalette.avatarEye, dark: PasturaPalette.nightAvatarEye)
+  /// §2.5 — specular sheen over the face (alpha).
+  static let avatarHighlight = PasturaDynamicColor(
+    light: PasturaPalette.avatarHighlight, dark: PasturaPalette.nightAvatarHighlight)
+
   /// Every declared pair, keyed by its light-token name.
   ///
   /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
   /// does and does not catch: the registry is hand-maintained, so declaring a
-  /// 41st pair and *not* appending it here leaves `all.count == 40` and passes.
+  /// 58th pair and *not* appending it here leaves `all.count == 57` and passes.
   /// The count guards this list against its own documented size, nothing more —
   /// the real per-alias coverage is the wiring tests in
-  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 40 `Color.*`
+  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 57 `Color.*`
   /// aliases under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
@@ -221,6 +274,23 @@ enum PasturaDynamicPalette {
     ("metaStrongL4", metaStrongL4),
     ("metaDotOnL4", metaDotOnL4),
     ("headerRule", headerRule),
-    ("headerMetaInk", headerMetaInk)
+    ("headerMetaInk", headerMetaInk),
+    ("avatarBodyAlice", avatarBodyAlice),
+    ("avatarBodyBob", avatarBodyBob),
+    ("avatarBodyCarol", avatarBodyCarol),
+    ("avatarBodyDave", avatarBodyDave),
+    ("avatarFaceAlice", avatarFaceAlice),
+    ("avatarFaceBob", avatarFaceBob),
+    ("avatarFaceCarol", avatarFaceCarol),
+    ("avatarFaceDave", avatarFaceDave),
+    ("avatarHornAlice", avatarHornAlice),
+    ("avatarHornBob", avatarHornBob),
+    ("avatarHornCarol", avatarHornCarol),
+    ("avatarHornDave", avatarHornDave),
+    ("avatarEar", avatarEar),
+    ("avatarEarInner", avatarEarInner),
+    ("avatarNose", avatarNose),
+    ("avatarEye", avatarEye),
+    ("avatarHighlight", avatarHighlight)
   ]
 }

@@ -7,12 +7,16 @@ import Testing
 /// values (ADR-028).
 ///
 /// Why this suite exists: `HighlightShareCard` is the only sanctioned
-/// fixed-appearance consumer in the app, and eight `Color.*` aliases are now
+/// fixed-appearance consumer in the app, and 57 `Color.*` aliases are now
 /// trait-resolving. If one creeps back into this palette, both families collapse
 /// to "whatever appearance the renderer resolved" — and nothing else would
 /// notice, because `ImageRenderer` output is asserted nowhere and ADR-009 rules
 /// out snapshot tests. Comparing two `Color` values is logic extraction, which
 /// ADR-009 permits.
+///
+/// ``SheepAvatarPaletteTests`` guards the same contract one level down, for
+/// the avatar this card draws — `HighlightCardPalette` covers six tokens and
+/// none of them is §2.5.
 ///
 /// A revert of the ADR-028 migration reddens every assertion below: `Color.ink`
 /// and `PasturaPalette.ink.color` are not equal, because the former is
@@ -55,11 +59,6 @@ struct HighlightShareCardPaletteTests {
   /// paired alias. This is the assertion with a real trigger — alias creep
   /// resolves differently across schemes and reddens here.
   @Test func rawPaletteValuesAreAppearanceInvariant() {
-    var light = EnvironmentValues()
-    light.colorScheme = .light
-    var dark = EnvironmentValues()
-    dark.colorScheme = .dark
-
     let families = [HighlightCardPalette.light, HighlightCardPalette.dark]
     for family in families {
       let slots = [
@@ -67,12 +66,24 @@ struct HighlightShareCardPaletteTests {
         family.muted, family.rule, family.moss
       ]
       for slot in slots {
-        let underLight = slot.resolve(in: light)
-        let underDark = slot.resolve(in: dark)
-        #expect(underLight.red == underDark.red)
-        #expect(underLight.green == underDark.green)
-        #expect(underLight.blue == underDark.blue)
+        #expect(resolvesIdenticallyAcrossSchemes(slot))
       }
+    }
+  }
+
+  /// Positive control for `rawPaletteValuesAreAppearanceInvariant`, added with
+  /// ADR-028 slice 3.
+  ///
+  /// That test asserts a *negative* — "these do not vary" — which a broken
+  /// comparison satisfies just as well. This feeds the same helper the paired
+  /// aliases the palette deliberately avoids, and requires it to report them as
+  /// varying. Without it the invariance assertion could pass by measuring
+  /// nothing. (The shared helper also compares `opacity`, which this suite's
+  /// previous inline version did not.)
+  @Test func thePairedAliasesThisPaletteAvoidsDoVaryAcrossSchemes() {
+    let paired: [Color] = [.screenBackground, .ink, .inkSecondary, .muted, .rule, .moss]
+    for alias in paired {
+      #expect(!resolvesIdenticallyAcrossSchemes(alias))
     }
   }
 }
