@@ -123,7 +123,7 @@ struct RecordsCountPluralTests {
     // `xcstringstool extract` (no type info) cannot resolve the interpolation,
     // so its sync would mark the key `stale` on every build. `manual` opts the
     // key out of auto-sync staling/pruning. Removing it ⇒ perpetual stale
-    // churn. See .claude/rules/i18n.md § "Plurals".
+    // churn. See .claude/rules/i18n.md § "Plurals — the sanctioned exception to Form B".
     #expect(try entry()["extractionState"] as? String == "manual")
   }
 }

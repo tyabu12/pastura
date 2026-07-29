@@ -6,6 +6,11 @@ references disappear (e.g., after a rename). Translated stale entries are
 preserved by Apple's design — translator work is never auto-discarded. This
 script provides opt-in cleanup.
 
+Read ``.claude/rules/i18n-catalog.md`` before running this. That rule is
+path-scoped to ``Localizable.xcstrings`` and therefore loads on an agent
+``Read`` of the catalog — running this script mutates the catalog without one,
+so its procedures are absent from exactly the session that needs them.
+
 Format-fidelity invariant (load-bearing):
 
 - Apple-canonical xcstrings format uses 2-space indent and ``' : '`` separators.

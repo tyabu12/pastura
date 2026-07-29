@@ -22,7 +22,7 @@ import Foundation
 //
 // See `docs/decisions/ADR-008.md` for the full rationale (alternatives
 // considered, KMP / state-restoration impact). Operational rule lives in
-// `.claude/rules/navigation.md` § "Render-time hints — RouteHint".
+// `.claude/rules/navigation.md` § "Render-time hints — `RouteHint`".
 
 /// A render-time hint that does NOT participate in `Equatable` /
 /// `Hashable` identity.
