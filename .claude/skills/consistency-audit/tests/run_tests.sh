@@ -171,6 +171,53 @@ no_target_collision "$OUT" "deleted"
 echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="unparsed_adr_reservation") | (has("adr") and has("shape") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target == "reservation:" + .adr))] | all' >/dev/null \
   || fail "deleted: an unparsed_adr_reservation finding is missing its judgment scalars or namespaced target"
 
+# --- roster fixture: three-way roster / INDEX / on-disk drift ---------------
+# FIRE: 002 (on disk + indexed, never rostered — the "author skipped the
+# roster" case), 003 (on disk + rostered, never indexed), 007 (title edited on
+# one side), 099 (rostered with no file and no reserved row).
+# SILENT: 001 (agrees everywhere), 006 (listed everywhere, no file, reserved
+# row present — the same subtraction dangling_adr performs), 016 (its title
+# carries an em dash *after* the heading separator; splitting anywhere but the
+# first separator corrupts it into a title mismatch).
+OUT=$(python3 "$AUDIT" --repo-root fixtures/roster)
+[ "$(af_len "$OUT")" -eq 0 ] || fail "roster: auto_fixable should be empty: $(echo "$OUT" | jq -c .auto_fixable)"
+[ "$(nj_len "$OUT")" -eq 4 ] || fail "roster: expected 4 findings total, got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
+[ "$(nj_type_len "$OUT" adr_roster_drift)" -eq 4 ] \
+  || fail "roster: all 4 findings should be adr_roster_drift, got $(nj_type_len "$OUT" adr_roster_drift)"
+for want in ADR-002 ADR-003 ADR-007 ADR-099; do
+  echo "$OUT" | jq -e --arg a "$want" '.needs_judgment[] | select(.type=="adr_roster_drift" and .adr==$a)' >/dev/null \
+    || fail "roster: expected a drift finding for $want"
+done
+for silent in ADR-001 ADR-006 ADR-016; do
+  echo "$OUT" | jq -e --arg a "$silent" '.needs_judgment[] | select(.type=="adr_roster_drift" and .adr==$a)' >/dev/null \
+    && fail "roster: $silent should NOT be flagged" || true
+done
+echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-002") | .problems | any(test("missing from the CLAUDE.md ADR roster"))' >/dev/null \
+  || fail "roster: ADR-002 should report a missing roster entry"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-003") | .problems | any(test("missing from docs/decisions/INDEX.md"))' >/dev/null \
+  || fail "roster: ADR-003 should report a missing INDEX entry"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-007") | .problems | any(test("byte-identical"))' >/dev/null \
+  || fail "roster: ADR-007 should report a title mismatch"
+no_target_collision "$OUT" "roster"
+# namespaced target + pre-authored judgment scalars, same contract as the
+# other detectors whose findings Step 4 files verbatim.
+echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="adr_roster_drift") | (has("problems") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target == "roster:" + .adr))] | all' >/dev/null \
+  || fail "roster: a drift finding is missing its judgment scalars or namespaced target"
+
+# --- roster-shape / index-shape: the two fail-open anchors ------------------
+# Each check reads a structure it does not own. If that structure is reshaped,
+# silently returning nothing repeats load_reserved_adrs' failure, and comparing
+# against the empty parse floods one finding per ADR. Both must report the
+# shape change exactly once instead.
+OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-shape)
+[ "$(nj_len "$OUT")" -eq 1 ] || fail "roster-shape: expected exactly 1 finding (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|.target]')"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and .target=="roster:CLAUDE.md")' >/dev/null \
+  || fail "roster-shape: a declared-but-unparseable roster must report the shape change"
+OUT=$(python3 "$AUDIT" --repo-root fixtures/index-shape)
+[ "$(nj_len "$OUT")" -eq 1 ] || fail "index-shape: expected exactly 1 finding (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|.target]')"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and .target=="roster:docs/decisions/INDEX.md")' >/dev/null \
+  || fail "index-shape: an unparseable INDEX heading shape must report once"
+
 # --- mirror fixture: inverted embedded-source-mirror detector --------------
 # FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /
 # epsilon tilde-fenced-with-backtick-content); SILENT on identical (beta),
