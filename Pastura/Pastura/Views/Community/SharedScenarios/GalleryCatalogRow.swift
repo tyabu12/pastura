@@ -145,19 +145,17 @@ struct GalleryCatalogRow: View {
   /// ``ScenarioBadge`` renderer since #1296 retired the shared summary row that
   /// carried a near-duplicate of this styling.
   private func badgeView(_ badge: ScenarioBadge) -> some View {
-    let isTint = badge.style == .tint
+    let style = badge.style
     return Text(badge.label)
       .font(.caption2.bold())
       .padding(.horizontal, 6)
       .padding(.vertical, 2)
-      // Token pair mirrors `PhaseTypeLabel`: `moss` for the wash, `mossDark`
-      // for accent text (§ 2.3). Both branches are `Color`, so the
-      // `AnyShapeStyle` erasure is no longer needed.
-      .background(
-        isTint ? Color.moss.opacity(0.2) : Color.inkSecondary.opacity(0.15),
-        in: Capsule()
-      )
-      .foregroundStyle(isTint ? Color.mossDark : Color.inkSecondary)
+      // Tokens live on `ScenarioBadgeStyle` (see its extension in
+      // `ScenarioBadge.swift`) so this renderer cannot drift from the
+      // design-system § 2.3 pair unnoticed — `ScenarioBadgeStyleTokenTests`
+      // pins them.
+      .background(style.fillToken.opacity(style.fillOpacity), in: Capsule())
+      .foregroundStyle(style.labelToken)
   }
 }
 

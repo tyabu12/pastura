@@ -56,3 +56,46 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
   case secondary
   case tint
 }
+
+/// The badge's colour contract, hoisted off ``GalleryCatalogRow``'s renderer so
+/// the one surviving badge has a single, assertable definition of its tokens
+/// (#1296). Before this, the pair was inlined in two renderers that had to be
+/// kept byte-identical by hand.
+///
+/// Token choice follows the ``PhaseTypeLabel`` precedent and design-system
+/// § 2.3, which reserves `mossDark` for accent **text** and `moss` for fills:
+/// the tinted badge reads its wash off `moss` and its label off `mossDark`,
+/// while the quieter `secondary` uses `inkSecondary` for both. The wash
+/// opacities are **not** shared with `PhaseTypeLabel` (which uses 0.15 for
+/// both) — the tinted badge sits on a card background and needs 0.2 to read.
+///
+/// These are trait-resolving `Color.*` aliases on purpose: the badge renders
+/// live on-device, so it must follow the device appearance. A
+/// fixed-appearance consumer (`ImageRenderer`) would have to read
+/// `PasturaPalette.<token>.color` directly instead — see ADR-028.
+extension ScenarioBadgeStyle {
+  /// Capsule wash colour, before ``fillOpacity`` is applied.
+  var fillToken: Color {
+    switch self {
+    case .tint: return Color.moss
+    case .secondary: return Color.inkSecondary
+    }
+  }
+
+  /// Label colour.
+  var labelToken: Color {
+    switch self {
+    case .tint: return Color.mossDark
+    case .secondary: return Color.inkSecondary
+    }
+  }
+
+  /// Opacity applied to ``fillToken``. Kept separate from the token so the
+  /// change-detector test can compare bare aliases rather than derived colours.
+  var fillOpacity: Double {
+    switch self {
+    case .tint: return 0.2
+    case .secondary: return 0.15
+    }
+  }
+}
