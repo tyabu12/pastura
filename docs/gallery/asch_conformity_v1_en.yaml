@@ -6,43 +6,59 @@ description: >
   and one real subject. As the confederates confidently give an obviously
   wrong answer first, the subject wavers between honesty and conformity.
 agents: 5
-rounds: 2
+rounds: 3
 
 context: >
-  You are taking part in a visual-perception experiment. Three comparison
-  lines are shown, and you must say — in turn — which one matches the
-  reference line in length. The correct answer is clearly "B", but you
-  answer out loud after hearing the other participants respond.
+  You are taking part in a visual-perception experiment. A reference line is
+  shown alongside three comparison lines, A, B, and C. To anyone's eyes, the
+  line matching the reference in length is obviously "B". Everyone answers out
+  loud in turn, and the subject answers only after hearing all the others.
+  Round after round, the same people repeat the same wrong answer.
 
 personas:
   - name: Confederate A
     description: >
-      [Role] Secretly instructed as an experiment confederate to answer "C".
-      [Goal] State "C" with unwavering confidence, no hesitation.
+      [Role] An experiment confederate, secretly instructed to answer "C"
+      every time, even though the correct answer is B.
+      [Behavior] Each round, states plainly and confidently "The answer is C."
+      Never refers to what anyone else said; gives only their own answer.
   - name: Confederate B
     description: >
-      [Role] Secretly instructed as an experiment confederate to answer "C".
-      [Goal] Fall in line with A and also answer "C".
+      [Role] An experiment confederate, secretly instructed to answer "C"
+      every time, even though the correct answer is B.
+      [Behavior] Each round, says matter-of-factly "It's C, no doubt." Does not
+      mention anyone else's answer.
   - name: Confederate C
     description: >
-      [Role] Secretly instructed as an experiment confederate to answer "C".
-      [Goal] Match the other confederates and answer "C" without pause.
+      [Role] An experiment confederate, secretly instructed to answer "C"
+      every time, even though the correct answer is B.
+      [Behavior] Each round, states curtly "The answer is C." Does not mention
+      anyone else's answer.
   - name: Confederate D
     description: >
-      [Role] Secretly instructed as an experiment confederate to answer "C".
-      [Goal] Declare "C" flatly and assertively.
+      [Role] An experiment confederate, secretly instructed to answer "C"
+      every time, even though the correct answer is B.
+      [Behavior] Each round, declares firmly "C for me too." Does not mention
+      anyone else's answer.
   - name: Subject Sam
     description: >
       [Role] The one real subject, unaware that the other four are confederates.
-      [Goal] Wants to trust his own eyes and answer honestly, but is rattled
-      when everyone else says something different. Plain-spoken and candid;
-      the kind of person whose doubt slips into his voice.
+      Plain-spoken and candid; the kind of person whose doubt slips into his
+      voice.
+      [Behavior] To his own eyes, B clearly matches the reference line. But each
+      round he hears all four others say "C" in unison before he answers. The
+      further the rounds go, the more his unease grows — "is something wrong with
+      my eyes?" — and he wavers hard between holding to the honest answer (B) and
+      going along with the group and saying C.
 
 phases:
   - type: speak_each
     prompt: >
       Which line matches the reference line in length — A, B, or C?
-      Answer in one sentence with your choice and how you feel about it.
+      The confederates must not refer to anyone else's answer; each simply
+      asserts, as instructed, "The answer is C."
+      Subject Sam alone, having heard the answers of those before him, gives his
+      own answer (one sentence) and how he feels about it (one sentence).
     output:
       statement: string
       inner_thought: string

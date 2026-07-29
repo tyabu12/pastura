@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-07-28T00:00:00Z",
+  "updated_at": "2026-07-29T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -9,16 +9,16 @@
       "description": "4人のサクラと1人の被験者で構成される古典的同調実験の再現。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 10,
+      "estimated_inferences": 15,
       "agent_count": 5,
-      "rounds": 2,
+      "rounds": 3,
       "phases": [
         "speak_each",
         "summarize"
       ],
       "language": "ja",
       "yaml_url": "asch_conformity_v1.yaml",
-      "yaml_sha256": "c4dc793962bfa5309efb8a00930958070f875e271aab8cda2fc0c662c0648947",
+      "yaml_sha256": "090ef06d9d49ea3a538d33c05299a2b7a45100f6aafa3dfa71da28bd81d13960",
       "added_at": "2026-04-15"
     },
     {
@@ -469,16 +469,16 @@
       "description": "A recreation of the classic conformity experiment: four confederates and one real subject.",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 10,
+      "estimated_inferences": 15,
       "agent_count": 5,
-      "rounds": 2,
+      "rounds": 3,
       "phases": [
         "speak_each",
         "summarize"
       ],
       "language": "en",
       "yaml_url": "asch_conformity_v1_en.yaml",
-      "yaml_sha256": "35b3484e0d3b6a9b5c90615f9cb101d70a5bbcac0ccd689bde10ed8eb2f18cfc",
+      "yaml_sha256": "58fb48fefafb576f909316e31fa4f4501ba4eed3229608de53a1730c712954e5",
       "added_at": "2026-07-01"
     },
     {
