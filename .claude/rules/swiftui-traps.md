@@ -281,13 +281,19 @@ token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `
 (#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
-steps above assume a brand-new value. A dark pair adds: the `night*` raw token (step 1), its
-`Color` alias, a `PasturaDynamicColor` entry in `DesignTokens+DynamicColor.swift`'s
+steps above assume a brand-new value. A dark pair adds: the `night*` raw token, which goes in
+`DesignTokens+NightPalette.swift` rather than step 1's file; its `Color` alias; a
+`PasturaDynamicColor` entry in `DesignTokens+DynamicPalette.swift`'s
 `PasturaDynamicPalette` (including its `all` registry — its count assertion guards
 that list's documented size, not completeness: an unregistered pair still passes), the
 light alias repointed from `PasturaPalette.x.color` to `PasturaDynamicPalette.x.color`, plus
-steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so the pairing file
-itself is inert to it — only the new `night*` hex needs a `tokens.css` row. See ADR-028.
+steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both** pairing
+files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are inert to
+it — only the new `night*` hex needs a `tokens.css` row. See ADR-028.
+
+Those three `DesignTokens+*` filenames are load-bearing beyond taste:
+`check_design_tokens_css.py` globs `Pastura/Pastura/Views/DesignTokens*.swift`, so renaming
+any of them out of that glob takes the mirror gate blind with no signal.
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
