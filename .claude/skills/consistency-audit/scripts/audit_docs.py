@@ -137,6 +137,15 @@ ROSTER_SEP = " · "
 ROSTER_LINE = re.compile(r"^\d{3}\s+\S")
 ROSTER_ENTRY = re.compile(r"^(\d{3})\s+(\S.*?)\s*$")
 ROSTER_DECLARED = "ADR roster"
+# Above this many INDEX-listed-but-fileless ADRs, the canary collapses to one
+# finding: see reservation_findings. Three is "a couple of reservations went
+# unparsed"; more is a structural accident.
+RESERVATION_FLOOD_CAP = 3
+# CommonMark lets an ATX heading sit flush against a paragraph on either side,
+# so a heading line is a paragraph boundary even though it is not blank. The
+# roster's own `### ADR roster` written without a blank line after it would
+# otherwise be counted into the roster's paragraph and read as a reflow.
+ATX_HEADING = re.compile(r"^#{1,6}\s")
 
 EXCLUDE_PARTS = {".git", "DerivedData", "node_modules"}
 
@@ -351,9 +360,30 @@ def reservation_findings(claude_md: Path, reserved_adrs: set[str],
 
     # (b) first: it names the authoritative listing, so its file:line is the
     # more useful anchor when both shapes describe the same ADR.
-    for nnn, (_title, lineno) in sorted(index_adrs.items()):
-        if nnn in existing or nnn in reserved_adrs:
-            continue
+    listed = [(nnn, lineno) for nnn, (_t, lineno) in sorted(index_adrs.items())
+              if nnn not in existing and nnn not in reserved_adrs]
+    if len(listed) > RESERVATION_FLOOD_CAP:
+        # Past a handful this is not "someone reshaped one reservation row" but
+        # "the ADR directory is gone from the worktree while still tracked".
+        # One canary per ADR would then *double* the dangling_adr flood it
+        # exists to explain, which is the cost rule 6 rations. Collapse, the
+        # same move _shape_finding makes for a reshaped structure.
+        return [{
+            "type": "unparsed_adr_reservation",
+            "target": "reservation:bulk", "key": "reservation:bulk",
+            "shape": "many-listed-in-index",
+            "count": len(listed),
+            "confidence": "high",
+            "counter_evidence": _RESERVATION_COUNTER_EVIDENCE,
+            "suggested_action": (
+                f"{len(listed)} ADRs are listed in {DEFAULT_INDEX} with no "
+                f"file under {ADR_DIR}/ and no reserved row. At this scale the "
+                "likely cause is the directory being absent from the worktree "
+                "rather than a reservation shape change — check that before "
+                "reading the dangling_adr findings beside this one."),
+            "file": DEFAULT_INDEX, "line": listed[0][1],
+        }]
+    for nnn, lineno in listed:
         register(nnn, DEFAULT_INDEX, lineno, "listed-in-index")
 
     if not reserved_adrs:
@@ -417,11 +447,14 @@ def load_roster(claude_md: Path) -> tuple[dict[str, tuple[str, int]], str, int, 
     if anchor is None:
         declared = any(ROSTER_DECLARED in ln for ln in lines)
         return {}, ("unparsed" if declared else "absent"), 0, 0
+    def boundary(ln: str) -> bool:
+        return not ln.strip() or bool(ATX_HEADING.match(ln))
+
     start = anchor
-    while start > 0 and lines[start - 1].strip():
+    while start > 0 and not boundary(lines[start - 1]):
         start -= 1
     end = anchor
-    while end + 1 < len(lines) and lines[end + 1].strip():
+    while end + 1 < len(lines) and not boundary(lines[end + 1]):
         end += 1
     span = end - start + 1
     content = [i for i in range(start, end + 1)
@@ -559,6 +592,10 @@ def roster_findings(claude_md: Path, index_md: Path,
             # unparsed_adr_reservation reports with a reservation-specific
             # action. Reporting it here as well files two issues for one
             # omission, on top of the dangling_adr the canary already explains.
+            # The `elif` below means the title axis defers with it: a title
+            # drift on such an ADR is not reported until the file or reserved
+            # row lands and `backed` gains it. A deferred miss on an already
+            # doubly-reported ADR, not a hole.
             if nnn not in index_adrs:
                 add(nnn, "listed in the roster with no ADR file on disk and "
                          "no reserved row in CLAUDE.md's Reference Documents "

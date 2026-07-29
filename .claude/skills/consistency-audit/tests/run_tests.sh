@@ -222,9 +222,10 @@ echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="adr_roster_drift") | (h
 # shape); roster-reflow rewraps across two lines while still matching, with
 # the wrap landing after a separator so the continuation carries none;
 # index-shape leaves INDEX.md with no parseable heading at all.
-for f in roster-shape roster-reflow-head roster-prose index-stub roster-no-index; do
+for f in roster-shape roster-reflow-head roster-prose index-stub roster-no-index roster-tight-heading; do
   OUT=$(python3 "$AUDIT" --repo-root "fixtures/$f")
-  EXPECT=1; [ "$f" = roster-no-index ] && EXPECT=0
+  EXPECT=1
+  case "$f" in roster-no-index|roster-tight-heading) EXPECT=0 ;; esac
   [ "$(nj_len "$OUT")" -eq "$EXPECT" ] \
     || fail "$f: expected exactly $EXPECT finding(s) (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{target,problems}]')"
   [ "$EXPECT" -eq 0 ] || echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and (has("adr")|not))' >/dev/null \
@@ -233,7 +234,9 @@ for f in roster-shape roster-reflow-head roster-prose index-stub roster-no-index
 done
 # roster-no-index is the only reachable exercise of `backed`'s reserved
 # component: everywhere else, a reserved fileless ADR is also in INDEX.md and
-# the roster branch defers to the canary on that instead.
+# the roster branch defers to the canary on that instead. roster-tight-heading
+# is the ATX-boundary control — its roster is one complete line wedged between
+# two flush headings, which a blank-line-only paragraph walk reads as a reflow.
 
 # --- degradation: one unreadable structure must not silence the other axis --
 # Both were early returns, which hid genuine drift on the axis that did not
@@ -273,6 +276,7 @@ OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-both-listed)
   || fail "roster-both-listed: adr_roster_drift must defer to the canary: $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target,problems}]')"
 [ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
   || fail "roster-both-listed: the canary must still fire"
+no_target_collision "$OUT" "roster-both-listed"
 
 # --- untracked ADR draft: not yet required, but it does back a listing ------
 # Needs a real git repo, since the tracked/existing split is what `git ls-files`
@@ -291,10 +295,12 @@ roster '001 A · 003 C'
 index '## ADR-001 — A\n\n## ADR-003 — C'
 printf '# ADR-001\n' > "$G/docs/decisions/ADR-001.md"
 printf '# ADR-003\n' > "$G/docs/decisions/ADR-003.md"
-git -C "$G" init -q
-# Isolate from the developer's global config: commit.gpgsign or an
-# init.templateDir hook would otherwise fail or fire here. CI is clean.
+# Isolate from the developer's global config BEFORE init: init.templateDir is
+# consumed at init time (hooks are copied into .git/hooks then), while
+# commit.gpgsign and core.hooksPath are read at commit time. Exporting after
+# init would neutralize the latter two only. CI's config is clean either way.
 export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
+git -C "$G" init -q
 git -C "$G" -c user.email=t@e -c user.name=t add -A >/dev/null
 git -C "$G" -c user.email=t@e -c user.name=t commit -qm base
 
@@ -338,6 +344,18 @@ rm "$G/docs/decisions/ADR-002.md"
 OUT=$(python3 "$AUDIT" --repo-root "$G")
 [ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
   || fail "untracked: a tracked-but-deleted ADR must still raise the canary beside its dangling_adr, got $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
+no_target_collision "$OUT" "untracked-deleted"
+
+# Phase 4 — the whole directory gone while tracked. Per-ADR canaries would
+# double the dangling_adr flood they exist to explain, so past the cap they
+# collapse to one structural finding.
+rm "$G"/docs/decisions/ADR-00*.md
+index '## ADR-001 — A\n\n## ADR-002 — B\n\n## ADR-003 — C\n\n## ADR-004 — D'
+OUT=$(python3 "$AUDIT" --repo-root "$G")
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
+  || fail "untracked: a wiped decisions dir must collapse to one canary, got $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="unparsed_adr_reservation")|.target]')"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="unparsed_adr_reservation" and .shape=="many-listed-in-index" and .count==4)' >/dev/null \
+  || fail "untracked: the collapsed canary must report the count it stands for: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="unparsed_adr_reservation")]')"
 
 # --- mirror fixture: inverted embedded-source-mirror detector --------------
 # FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /

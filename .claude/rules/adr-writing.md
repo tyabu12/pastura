@@ -59,9 +59,9 @@ what the skill cannot derive belongs here.
   **byte-identical** to the INDEX `## ADR-NNN — <title>` heading). Nothing at
   commit or merge time catches a skip. `consistency-audit`'s `adr_roster_drift`
   compares the roster, the INDEX headings and the **tracked** `ADR-*.md` files
-  and files an issue — but only when someone runs it, and not at all while the
-  ADR file is untracked (a draft in one checkout is deliberately not evidence
-  about the sequence; see the third bullet).
+  and files an issue — but only when someone runs it, and it does not demand
+  listings for an ADR whose file is still untracked (a draft in one checkout is
+  deliberately not evidence about the sequence; see the third bullet).
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
   recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
   with no file on disk. It is a gap in the listing, not a free slot. Its

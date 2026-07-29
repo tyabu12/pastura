@@ -228,6 +228,11 @@ For each `needs_judgment` finding (already deduped by `target`):
    confirm the matched issue's title actually contains the target verbatim**
    — a match on the bare ADR id when the target is namespaced (or vice versa)
    is a different finding, and skipping on it drops a real one silently.
+
+   Quote the target when it contains a `:` — `--search '"roster:ADR-006" in:title'`.
+   Unquoted, GitHub reads `roster:` as a search qualifier. (This predates the
+   two new types: `embedded_source_mirror`'s `<docfile>::<sourcepath>` composite
+   has the same shape.)
 2. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
