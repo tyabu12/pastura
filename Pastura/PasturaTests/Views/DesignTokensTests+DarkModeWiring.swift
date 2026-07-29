@@ -98,7 +98,7 @@ extension DesignTokensTests {
       (.metaDotOnL4, PasturaPalette.nightMetaDotOnL4),
       (.headerRule, PasturaPalette.nightHeaderRule),
       (.headerMetaInk, PasturaPalette.nightHeaderMetaInk)
-    ]
+    ] + avatarDarkPairs()
 
     // The list is hand-written on purpose — it is what proves the *alias* is
     // wired, which iterating `all` cannot show. This pins its size to the
@@ -154,7 +154,7 @@ extension DesignTokensTests {
       (.metaDotOnL4, PasturaPalette.metaDotOnL4),
       (.headerRule, PasturaPalette.headerRule),
       (.headerMetaInk, PasturaPalette.headerMetaInk)
-    ]
+    ] + avatarLightPairs()
 
     #expect(cases.count == PasturaDynamicPalette.all.count)
 
@@ -172,11 +172,12 @@ extension DesignTokensTests {
   /// documents the intended light-only boundary; it does not police it. A real
   /// control would need an over-application mechanism to exist first.
   @Test func unpairedAliasesDoNotChangeAcrossColorSchemes() {
-    // Refilled twice as slices land: `.warning` / `.danger` left with #1282,
-    // `.metaBaseL3` with #1313. Drawn from the 28 that remain unpaired, spread
-    // across §2.1/§2.3/§2.5/§2.8 so a future slice removing one leaves the rest
-    // — §2.4 no longer has a representative here, because #1313 paired all
-    // twelve of its tokens.
+    // Refilled three times as slices land: `.warning` / `.danger` left with
+    // #1282, `.metaBaseL3` with #1313, `.avatarBodyAlice` with #1319. Drawn
+    // from the 11 that remain unpaired, spread across §2.1/§2.3/§2.8 so a
+    // future slice removing one leaves the rest — §2.4 and §2.5 no longer have
+    // a representative here, because #1313 and #1319 paired every token in
+    // both.
     //
     // `.headerMetaSubdued` is a different kind of member and is listed last on
     // purpose: it is unpaired *by decision* rather than by not-yet-designed
@@ -184,8 +185,7 @@ extension DesignTokensTests {
     // it is not expected to leave this list. Why fixing is the right answer for
     // it is asserted separately in `DesignTokensTests+NightPalette`.
     let lightOnly: [Color] = [
-      .page, .promoBackground, .mossSoft, .inkOnAccent, .avatarBodyAlice, .link,
-      .headerMetaSubdued
+      .page, .promoBackground, .mossSoft, .inkOnAccent, .link, .headerMetaSubdued
     ]
 
     for alias in lightOnly {
@@ -193,5 +193,58 @@ extension DesignTokensTests {
       let underDark = alias.resolve(in: darkEnvironment())
       #expect(resolvedComponentsMatch(underLight, underDark))
     }
+  }
+
+  // MARK: - §2.5 rows, extracted
+
+  // Extracted from the two tables above purely for swiftlint's
+  // `function_body_length` (50): the §2.5 slice added 17 rows to each and both
+  // bodies crossed the cap. Deliberately still HAND-WRITTEN per alias rather
+  // than driven from `PasturaDynamicPalette.all` — driving them from the
+  // registry would make the wiring tests assert the registry against itself,
+  // which is exactly the independence that makes them worth having.
+
+  func avatarDarkPairs() -> [(alias: Color, dark: PasturaColorValue)] {
+    [
+      (.avatarBodyAlice, PasturaPalette.nightAvatarBodyAlice),
+      (.avatarBodyBob, PasturaPalette.nightAvatarBodyBob),
+      (.avatarBodyCarol, PasturaPalette.nightAvatarBodyCarol),
+      (.avatarBodyDave, PasturaPalette.nightAvatarBodyDave),
+      (.avatarFaceAlice, PasturaPalette.nightAvatarFaceAlice),
+      (.avatarFaceBob, PasturaPalette.nightAvatarFaceBob),
+      (.avatarFaceCarol, PasturaPalette.nightAvatarFaceCarol),
+      (.avatarFaceDave, PasturaPalette.nightAvatarFaceDave),
+      (.avatarHornAlice, PasturaPalette.nightAvatarHornAlice),
+      (.avatarHornBob, PasturaPalette.nightAvatarHornBob),
+      (.avatarHornCarol, PasturaPalette.nightAvatarHornCarol),
+      (.avatarHornDave, PasturaPalette.nightAvatarHornDave),
+      (.avatarEar, PasturaPalette.nightAvatarEar),
+      (.avatarEarInner, PasturaPalette.nightAvatarEarInner),
+      (.avatarNose, PasturaPalette.nightAvatarNose),
+      (.avatarEye, PasturaPalette.nightAvatarEye),
+      (.avatarHighlight, PasturaPalette.nightAvatarHighlight)
+    ]
+  }
+
+  func avatarLightPairs() -> [(alias: Color, light: PasturaColorValue)] {
+    [
+      (.avatarBodyAlice, PasturaPalette.avatarBodyAlice),
+      (.avatarBodyBob, PasturaPalette.avatarBodyBob),
+      (.avatarBodyCarol, PasturaPalette.avatarBodyCarol),
+      (.avatarBodyDave, PasturaPalette.avatarBodyDave),
+      (.avatarFaceAlice, PasturaPalette.avatarFaceAlice),
+      (.avatarFaceBob, PasturaPalette.avatarFaceBob),
+      (.avatarFaceCarol, PasturaPalette.avatarFaceCarol),
+      (.avatarFaceDave, PasturaPalette.avatarFaceDave),
+      (.avatarHornAlice, PasturaPalette.avatarHornAlice),
+      (.avatarHornBob, PasturaPalette.avatarHornBob),
+      (.avatarHornCarol, PasturaPalette.avatarHornCarol),
+      (.avatarHornDave, PasturaPalette.avatarHornDave),
+      (.avatarEar, PasturaPalette.avatarEar),
+      (.avatarEarInner, PasturaPalette.avatarEarInner),
+      (.avatarNose, PasturaPalette.avatarNose),
+      (.avatarEye, PasturaPalette.avatarEye),
+      (.avatarHighlight, PasturaPalette.avatarHighlight)
+    ]
   }
 }
