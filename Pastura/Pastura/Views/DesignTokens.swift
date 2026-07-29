@@ -8,10 +8,6 @@ import SwiftUI
 // §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
 // the doc wins — fix this file, not the doc.
 //
-// For §2.5 avatar colors the doc mirrors `demo-replay-reference.html`'s
-// `sheepAvatar()` — but that prototype is LIGHT-ONLY, so the exception covers
-// the light half alone; §2.9 is the origin of the §2.5 dark values.
-//
 // Organized in layered namespaces (see individual doc comments below):
 //   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
 //   - Typography + Spacing + Radius   — layout + type scales.
@@ -136,48 +132,10 @@ enum PasturaPalette {
   static let metaStrongL4 = PasturaColorValue(hex: 0x1A1B15)
   static let metaDotOnL4 = PasturaColorValue(hex: 0x556340)
 
-  // MARK: §2.5 Avatar palette (sheep characters)
-  //
-  // Naming convention: shared parts use `avatarPart` (e.g. `avatarEar`);
-  // per-character parts use `avatarPartCharacter` (e.g. `avatarBodyAlice`).
-
-  /// Alice — body (wool / cream). Gentle first voice.
-  static let avatarBodyAlice = PasturaColorValue(hex: 0xF2E3C8)
-  /// Bob — body (wool / sage). Agreeable / calm.
-  static let avatarBodyBob = PasturaColorValue(hex: 0xDDE4CC)
-  /// Carol — body (wool / pink). Observer.
-  static let avatarBodyCarol = PasturaColorValue(hex: 0xEAD6D1)
-  /// Dave — body (wool / slate). Wolf / central figure.
-  static let avatarBodyDave = PasturaColorValue(hex: 0xD9D7C9)
-
-  /// Alice — face oval (darker cream accent over body).
-  static let avatarFaceAlice = PasturaColorValue(hex: 0xC9A979)
-  /// Bob — face oval (moss accent over body).
-  static let avatarFaceBob = PasturaColorValue(hex: 0x8A9A6C)
-  /// Carol — face oval (terracotta accent over body).
-  static let avatarFaceCarol = PasturaColorValue(hex: 0xB8877C)
-  /// Dave — face oval (deep slate accent over body).
-  static let avatarFaceDave = PasturaColorValue(hex: 0x6B6858)
-
-  /// Alice — horn stroke.
-  static let avatarHornAlice = PasturaColorValue(hex: 0xB29364)
-  /// Bob — horn stroke.
-  static let avatarHornBob = PasturaColorValue(hex: 0x6F7F54)
-  /// Carol — horn stroke.
-  static let avatarHornCarol = PasturaColorValue(hex: 0x9C6E64)
-  /// Dave — horn stroke.
-  static let avatarHornDave = PasturaColorValue(hex: 0x4F4C3F)
-
-  /// Shared avatar ear color.
-  static let avatarEar = PasturaColorValue(hex: 0xE8D9BC)
-  /// Inner ear tint.
-  static let avatarEarInner = PasturaColorValue(hex: 0xD4C19E)
-  /// Avatar nose.
-  static let avatarNose = PasturaColorValue(hex: 0x3D4030)
-  /// Avatar eye.
-  static let avatarEye = PasturaColorValue(hex: 0x2D2E26)
-  /// Translucent highlight (rgba(255,255,255,.6)).
-  static let avatarHighlight = PasturaColorValue(hex: 0xFFFFFF, opacity: 0.6)
+  // §2.5's avatar palette lives in `DesignTokens+AvatarPalette.swift` — both
+  // halves together, because §2.5 was completed by ADR-028 gate 1's slice 3 and
+  // is the one section that will not grow again. Moving it out is what kept this
+  // file under the 400-line `file_length` cap while slice 4 added to §2.1/§2.3.
 }
 
 // MARK: - §4.3 Shadow tokens
