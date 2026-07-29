@@ -60,17 +60,15 @@ what the skill cannot derive belongs here.
   commit or merge time catches a skip. `consistency-audit`'s `adr_roster_drift`
   compares the roster, the INDEX headings and the **tracked** `ADR-*.md` files
   and files an issue — but only when someone runs it, and it does not demand
-  listings for an ADR whose file is still untracked (a draft in one checkout is
-  deliberately not evidence about the sequence; see the third bullet).
+  listings for an ADR whose file is still untracked (third bullet).
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
   recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
   with no file on disk. It is a gap in the listing, not a free slot. Its
   `CLAUDE.md` entry must stay a **table row with the path in cell 1** —
   `consistency-audit`'s `load_reserved_adrs` parses that shape to suppress
   `dangling_adr` false positives, and fails open (empty set) if it changes.
-  `unparsed_adr_reservation` now announces that parse miss rather than leaving
-  it silent, but announcing is not repairing: restoring the row is still the
-  fix, and the announcement only reaches you on the next audit run.
+  `unparsed_adr_reservation` announces that parse miss rather than leaving it
+  silent — but only on the next audit run, so do not rely on being told.
 - **A file listing can also *over*-report.** The skill's reservation check
   covers a listing that under-reports; the inverse also happens here — an ADR
   draft sitting **untracked** in one checkout is visible to `ls` but absent for
