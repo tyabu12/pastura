@@ -19,8 +19,8 @@ nj_len() { echo "$1" | jq '.needs_judgment | length'; }
 nj_type_len() { echo "$1" | jq --arg t "$2" '[.needs_judgment[] | select(.type==$t)] | length'; }
 # The SKILL's Step 4 cross-run dedup is `gh issue list --search "<target>
 # in:title"` — type-blind, so two finding types sharing a target silently
-# suppress each other across runs. Asserted per fixture, not just where two
-# types happen to fire today.
+# suppress each other across runs. Called on every fixture run that yields
+# judgment findings, not just the ones where two types fire today.
 no_target_collision() {
   local n
   n=$(echo "$1" | jq '[.needs_judgment[] | {t:.type, g:.target}] | group_by(.g)
@@ -99,6 +99,7 @@ echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dead_link") | select(has
   && fail "judgment: dead_link finding leaked a non-dead_link/per-occurrence key" || true
 echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dead_link") | (has("target") and has("locations"))] | all' >/dev/null \
   || fail "judgment: a dead_link finding is missing target/locations"
+no_target_collision "$OUT" "judgment"
 
 # --- adr fixture: dangling ADR flagged; reserved / existing / fenced silent --
 # ADR-099 (no file, no reserved row) and ADR-005 (only in the ADR-006 row's
@@ -128,6 +129,7 @@ echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dangling_adr") | (has("
 # Without that gate the canary would fire on every inline-marked reference.
 [ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 0 ] \
   || fail "adr: unparsed_adr_reservation must stay silent when the row parses: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="unparsed_adr_reservation")]')"
+no_target_collision "$OUT" "adr"
 
 # --- adr-reservation-reshaped: negative control for the table-row shape -----
 # The `adr` fixture above asserts ADR-006 stays SILENT when its reservation is
@@ -200,23 +202,86 @@ echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-007") | .problems | a
   || fail "roster: ADR-007 should report a title mismatch"
 no_target_collision "$OUT" "roster"
 # namespaced target + pre-authored judgment scalars, same contract as the
-# other detectors whose findings Step 4 files verbatim.
-echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="adr_roster_drift") | (has("problems") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target == "roster:" + .adr))] | all' >/dev/null \
+# other detectors whose findings Step 4 files verbatim. Two shapes: per-ADR
+# findings carry `adr` and key off it; the structural ones name the file
+# instead, so the target check branches rather than assuming `adr` is present.
+echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="adr_roster_drift") | (has("problems") and has("confidence") and has("counter_evidence") and has("suggested_action") and (if has("adr") then .target == "roster:" + .adr else (.target | startswith("roster:")) end))] | all' >/dev/null \
   || fail "roster: a drift finding is missing its judgment scalars or namespaced target"
 
-# --- roster-shape / index-shape: the two fail-open anchors ------------------
-# Each check reads a structure it does not own. If that structure is reshaped,
-# silently returning nothing repeats load_reserved_adrs' failure, and comparing
-# against the empty parse floods one finding per ADR. Both must report the
-# shape change exactly once instead.
-OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-shape)
-[ "$(nj_len "$OUT")" -eq 1 ] || fail "roster-shape: expected exactly 1 finding (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|.target]')"
-echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and .target=="roster:CLAUDE.md")' >/dev/null \
+# --- the three fail-open anchors: reshape must report ONCE, never flood -----
+# Each check reads a structure it does not own. Silently returning nothing
+# repeats load_reserved_adrs' failure; comparing against a partial or empty
+# parse floods one finding per ADR, at high confidence, because those ADRs
+# exist. roster-shape reflows into a bullet list (stops matching the entry
+# shape); roster-reflow rewraps across two lines while still matching, with
+# the wrap landing after a separator so the continuation carries none;
+# index-shape leaves INDEX.md with no parseable heading at all.
+for f in roster-shape roster-reflow index-shape index-stub; do
+  OUT=$(python3 "$AUDIT" --repo-root "fixtures/$f")
+  [ "$(nj_len "$OUT")" -eq 1 ] \
+    || fail "$f: expected exactly 1 finding (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{target,problems}]')"
+  echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and (has("adr")|not))' >/dev/null \
+    || fail "$f: the single finding must be structural (no per-ADR claim): $(echo "$OUT" | jq -c '[.needs_judgment[]|{target,problems}]')"
+  no_target_collision "$OUT" "$f"
+done
+python3 "$AUDIT" --repo-root fixtures/roster-shape | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md")' >/dev/null \
   || fail "roster-shape: a declared-but-unparseable roster must report the shape change"
-OUT=$(python3 "$AUDIT" --repo-root fixtures/index-shape)
-[ "$(nj_len "$OUT")" -eq 1 ] || fail "index-shape: expected exactly 1 finding (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|.target]')"
-echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and .target=="roster:docs/decisions/INDEX.md")' >/dev/null \
+python3 "$AUDIT" --repo-root fixtures/roster-reflow | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md") | .problems[0] | test("spans 2 lines")' >/dev/null \
+  || fail "roster-reflow: a rewrapped roster must report the reflow, measured as a paragraph"
+python3 "$AUDIT" --repo-root fixtures/index-shape | jq -e '.needs_judgment[] | select(.target=="roster:docs/decisions/INDEX.md")' >/dev/null \
   || fail "index-shape: an unparseable INDEX heading shape must report once"
+python3 "$AUDIT" --repo-root fixtures/index-stub | jq -e '.needs_judgment[] | select(.target=="roster:docs/decisions/INDEX.md")' >/dev/null \
+  || fail "index-stub: a placeholder INDEX with no ADR token at all must report once, not flood"
+
+# --- untracked ADR draft: not yet required, but it does back a listing ------
+# Needs a real git repo, since the tracked/existing split is what `git ls-files`
+# answers — no fixture directory can exercise it (they resolve below this
+# repo's toplevel, where both sets collapse to the glob). An author mid-draft
+# has written the ADR and updated both listings; nothing should fire. Reading
+# one set for both questions produced a `high`-confidence "record a reserved
+# row" against an ADR being written right then.
+G="$TMP/untracked"
+mkdir -p "$G/docs/decisions"
+# %b, not %s: printf interprets escapes in the format string only, so a \n
+# passed as an argument would land in the file as a literal backslash-n.
+roster() { printf '# Scratch\n\n### ADR roster\n\n%b\n' "$1" > "$G/CLAUDE.md"; }
+index() { printf '# Index\n\n%b\n' "$1" > "$G/docs/decisions/INDEX.md"; }
+roster '001 A · 003 C'
+index '## ADR-001 — A\n\n## ADR-003 — C'
+printf '# ADR-001\n' > "$G/docs/decisions/ADR-001.md"
+printf '# ADR-003\n' > "$G/docs/decisions/ADR-003.md"
+git -C "$G" init -q
+git -C "$G" -c user.email=t@e -c user.name=t add -A >/dev/null
+git -C "$G" -c user.email=t@e -c user.name=t commit -qm base
+
+# Phase 0 — requirement direction. ADR-002 is written but nothing is committed
+# and neither listing mentions it yet. A draft mid-authoring must not be told
+# it is missing from two indexes; only landing it makes those entries due.
+printf '# ADR-002\n' > "$G/docs/decisions/ADR-002.md"
+OUT=$(python3 "$AUDIT" --repo-root "$G")
+[ "$(nj_len "$OUT")" -eq 0 ] \
+  || fail "untracked: an unlisted untracked draft must not be reported missing, got $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target,problems}]')"
+
+# Phase 1 — suppression direction. The author has written ADR-002 and added it
+# to both listings, but has committed nothing yet. The draft is untracked, so
+# it demands no listings; it does back the two entries just added. Answering
+# both questions from the tracked set alone produced a high-confidence "record
+# a reserved row" against an ADR being written right then.
+roster '001 A · 002 B · 003 C'
+index '## ADR-001 — A\n\n## ADR-002 — B\n\n## ADR-003 — C'
+OUT=$(python3 "$AUDIT" --repo-root "$G")
+[ "$(nj_len "$OUT")" -eq 0 ] \
+  || fail "untracked: an untracked draft backing its own listings must be silent, got $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target,confidence}]')"
+
+# Phase 2 — requirement direction, and the negative control proving phase 1's
+# silence is scoped rather than blanket: the same ADR, now tracked and in
+# neither listing, must report both omissions.
+git -C "$G" -c user.email=t@e -c user.name=t add docs/decisions/ADR-002.md >/dev/null
+roster '001 A · 003 C'
+index '## ADR-001 — A\n\n## ADR-003 — C'
+OUT=$(python3 "$AUDIT" --repo-root "$G")
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and .adr=="ADR-002") | .problems | (any(test("missing from the CLAUDE.md ADR roster")) and any(test("missing from docs/decisions/INDEX.md")))' >/dev/null \
+  || fail "untracked: a tracked ADR absent from both listings must report both: $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target,problems}]')"
 
 # --- mirror fixture: inverted embedded-source-mirror detector --------------
 # FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /
@@ -263,5 +328,6 @@ if echo "$OUT" | jq -e '.needs_judgment[]|select(.type=="embedded_source_mirror"
 fi
 echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="embedded_source_mirror")|(has("confidence") and has("counter_evidence") and has("suggested_action") and has("source") and (.target==.source|not))]|all' >/dev/null \
   || fail "mirror: a mirror finding is missing its pre-authored judgment scalars"
+no_target_collision "$OUT" "mirror"
 
 echo "ALL TESTS PASSED"
