@@ -315,7 +315,8 @@ struct ResultsView: View {
   /// One sheep avatar per agent (clamped via ``ResultsRowFormat/rowSheepCount``).
   /// The sheep are decorative (``SheepAvatar`` is `.accessibilityHidden`); the
   /// true agent count is announced to VoiceOver via the group's `%lld agents`
-  /// label so the visual clamp never hides it (mirrors ``HomeScenarioMetaLine``).
+  /// label so the visual clamp never hides it. Browse's art tile takes the same
+  /// posture (``GalleryCatalogRowFormat/clusterSheepCount(agentCount:)``).
   private func sheepCluster(count: Int, agentCount: Int?) -> some View {
     HStack(spacing: 2) {
       ForEach(0..<count, id: \.self) { index in

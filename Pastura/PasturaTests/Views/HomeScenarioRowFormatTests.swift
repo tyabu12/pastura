@@ -10,29 +10,6 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct HomeScenarioRowFormatTests {
 
-  // MARK: - Sheep count clamping
-
-  @Test func sheepCountMatchesAgentCountBelowMax() {
-    #expect(HomeScenarioRowFormat.rowSheepCount(agentCount: 1) == 1)
-    #expect(HomeScenarioRowFormat.rowSheepCount(agentCount: 3) == 3)
-    #expect(
-      HomeScenarioRowFormat.rowSheepCount(agentCount: HomeScenarioRowFormat.maxRowSheep)
-        == HomeScenarioRowFormat.maxRowSheep)
-  }
-
-  @Test func sheepCountClampsAboveMax() {
-    #expect(
-      HomeScenarioRowFormat.rowSheepCount(agentCount: HomeScenarioRowFormat.maxRowSheep + 1)
-        == HomeScenarioRowFormat.maxRowSheep)
-    #expect(
-      HomeScenarioRowFormat.rowSheepCount(agentCount: 100) == HomeScenarioRowFormat.maxRowSheep)
-  }
-
-  @Test func sheepCountZeroWhenUnknownOrEmpty() {
-    #expect(HomeScenarioRowFormat.rowSheepCount(agentCount: nil) == 0)
-    #expect(HomeScenarioRowFormat.rowSheepCount(agentCount: 0) == 0)
-  }
-
   // MARK: - Rounds label
 
   @Test func roundsLabelNilWhenUnknownOrZero() {
@@ -44,15 +21,6 @@ struct HomeScenarioRowFormatTests {
     // Partial match — the localized template varies by locale, but the
     // numeral must appear regardless.
     #expect(HomeScenarioRowFormat.roundsLabel(rounds: 5)?.contains("5") == true)
-  }
-
-  // MARK: - Meta-line visibility
-
-  @Test func metaLineHiddenOnlyWhenBothUnknown() {
-    #expect(HomeScenarioRowFormat.showsMetaLine(agentCount: nil, rounds: nil) == false)
-    #expect(HomeScenarioRowFormat.showsMetaLine(agentCount: 2, rounds: nil) == true)
-    #expect(HomeScenarioRowFormat.showsMetaLine(agentCount: nil, rounds: 5) == true)
-    #expect(HomeScenarioRowFormat.showsMetaLine(agentCount: 3, rounds: 10) == true)
   }
 
   // MARK: - Description line limit

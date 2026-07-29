@@ -163,10 +163,12 @@ nonisolated enum ResultsRowFormat {
 
   // MARK: - Sheep avatars (P5 PR2)
 
-  /// Maximum sheep avatars drawn in one row before clamping (mirrors
-  /// ``HomeScenarioRowFormat/maxRowSheep``). The exact cast size is secondary
-  /// garnish the user doesn't act on in the list; VoiceOver still announces the
-  /// true count via the row's `%lld agents` label.
+  /// Maximum sheep avatars drawn in one timeline row before clamping. Each
+  /// surface owns its own bound — Browse's art tile clamps to 6
+  /// (``GalleryCatalogMetrics/maxClusterSheep``) because the tile has more room;
+  /// Home's equivalent was retired with the shared summary row in #1296. The
+  /// exact cast size is secondary garnish the user doesn't act on in the list;
+  /// VoiceOver still announces the true count via the row's `%lld agents` label.
   static let maxRowSheep = 5
 
   /// Number of sheep faces to draw for `agentCount`, clamped to ``maxRowSheep``.
