@@ -368,16 +368,18 @@ adopt early-return comment in `SimulationView`).
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 
-**The `Color.*` aliases now make this sharper, not milder.** **26** of them
+**The `Color.*` aliases now make this sharper, not milder.** **40** of them
 resolve light↔dark against the ambient interface style (ADR-028's original
-eight, plus the §2.6 alert family and §2.7 interactive states from #1282), so
-reading one inside `ImageRenderer` content means "whatever appearance the
-renderer resolved" — and an explicitly light or dark export becomes
-unexpressible. The other 76 aliases are still fixed (42 unpaired light tokens,
-26 `night*`, 4 time-of-day, 4 chart), so a token-styled view otherwise
-rasterizes in one appearance regardless of device. **This set grows with each
-gate-1 slice** — do not treat a specific alias as fixed without checking
-`PasturaDynamicPalette`.
+eight, the §2.6 alert family and §2.7 interactive states from #1282, and the
+§2.4 meta presets plus two §2.12 header slots from #1313), so reading one
+inside `ImageRenderer` content means "whatever appearance the renderer
+resolved" — and an explicitly light or dark export becomes unexpressible. The
+other 76 aliases are still fixed (28 unpaired light tokens, 40 `night*`,
+4 time-of-day, 4 chart — that total happens not to move per slice, because each
+adds a `night*` alias for every light one it takes out of the unpaired set), so
+a token-styled view otherwise rasterizes in one appearance regardless of
+device. **This set grows with each gate-1 slice** — do not treat a specific
+alias as fixed without checking `PasturaDynamicPalette`.
 
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette
