@@ -20,11 +20,16 @@ narrow`). `scripts/generate-navigation-map.py`'s `SCAN_DIRS` covers only
 `Views` and `App`, so the drift gate does **not** backstop it — this rule text is
 its only guard.
 
-The directory entries use the bare `**` form rather than `**/*.swift` because
-`App/` holds 68 direct-child `.swift` files (`AppRouter.swift` among them) and
-`Views/` holds 5: a `**/` that binds ≥1 path segment would silently drop every
-one. `App/**` reaches direct children under either globstar reading, and
-`Views/`+`App/` contain no non-Swift files, so the suffix would buy nothing.
+The directory entries use the bare `**` form rather than `**/*.swift` simply
+because `Views/`+`App/` contain no non-Swift files, so the suffix would buy
+nothing. It is **not** needed to reach direct children: measured, `**/` binds
+**zero** path segments in this matcher — reading `Pastura/Pastura/PasturaApp.swift`
+injects rules globbed `Pastura/Pastura/**/*.swift`, while reading a file outside
+those globs injects none (positive + negative control, #1312). An earlier
+revision of this paragraph asserted the opposite as the reason for the bare form;
+that inference was wrong, and the per-directory file counts it leaned on are gone
+with it. `PasturaApp.swift` still needs its own entry — for the reason in the
+paragraph above, that no *directory* glob reaches a top-level file.
 
 **Accepted gaps**: a session that reaches a matching file only via Bash or
 `Grep` — never a `Read` — does not load this rule; and test files fall outside,
