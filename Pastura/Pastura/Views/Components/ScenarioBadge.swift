@@ -62,14 +62,22 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// (#1296). Before this, the pair was inlined in two renderers that had to be
 /// kept byte-identical by hand.
 ///
-/// Token choice follows the ``PhaseTypeLabel`` precedent. Design-system § 2.3
-/// lists `mossDark` for accent text (links, status labels), and § 2.2's
-/// `--ink-on-accent` bullets carry the constraint that forces the split: text on
-/// base `moss` is ≈3.03:1, short of the 4.5:1 bar, while `mossDark` clears it at
-/// ≈4.7:1. So the tinted badge takes `moss` for its wash and `mossDark` for its
-/// label; the quieter `secondary` uses `inkSecondary` for both. The wash
-/// opacities are **not** shared with `PhaseTypeLabel` (which uses 0.15 for
-/// both) — the tinted badge sits on a card background and needs 0.2 to read.
+/// Token choice follows the ``PhaseTypeLabel`` precedent and design-system
+/// § 2.3, which lists `mossDark` for accent text (links, status labels) and
+/// keeps base `moss` for fills / borders. `mossDark` is the readable half of
+/// that pair in either framing, so the tinted badge takes `moss` for its wash
+/// and `mossDark` for its label; the quieter `secondary` uses `inkSecondary`
+/// for both. The wash opacities are **not** shared with `PhaseTypeLabel` (which
+/// uses 0.15 for both) — the tinted badge sits on a card background and needs
+/// 0.2 to read.
+///
+/// Measured on the composited wash (`mossDark` over `moss` @0.2 over
+/// `bubbleBackground`): **≈3.92:1**, versus ≈2.51:1 if the label were `moss`.
+/// So the token split is what makes the badge legible, but at `caption2.bold`
+/// it does **not** reach the 4.5:1 text bar — a pre-existing property of the
+/// shipped design, unchanged by the hoist. Do not read § 2.2's ≈3.03 / ≈4.7
+/// figures as covering this: those are **white on a solid fill**, a different
+/// pairing. `secondary` measures ≈5.57:1.
 ///
 /// These are trait-resolving `Color.*` aliases on purpose: the badge renders
 /// live on-device, so it must follow the device appearance. A
@@ -77,12 +85,15 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// `PasturaPalette.<token>.color` directly instead — see ADR-028.
 ///
 /// The members are **MainActor-isolated** even though ``ScenarioBadgeStyle``
-/// itself is `nonisolated` — an extension does not inherit the type's
-/// annotation, and that boundary is intended: these are UI values whose only
-/// legitimate caller is a View, while the pure case → emphasis mapping stays
-/// nonisolated. Do **not** add `nonisolated` here to "match the type"; see
-/// ``ScenarioBadgeStyleTokenTests`` for the probe that established the current
-/// isolation (the target compiles either way, so a build alone proves nothing).
+/// itself is `nonisolated`: an extension does not inherit the type's
+/// annotation, same-file or sibling. That boundary is intended — these are UI
+/// values whose only legitimate caller is a View, while the pure
+/// case → emphasis mapping stays nonisolated. Do **not** add `nonisolated`
+/// here to "match the type": it fails the build on all four `Color.*` reads
+/// (`main actor-isolated static property 'moss' can not be referenced from a
+/// nonisolated context`), which is `.claude/rules/swift-isolation.md`
+/// Pattern 5's non-test table, row 2. Pattern 5's cross-module corollary does
+/// not apply — these reads are in-module.
 extension ScenarioBadgeStyle {
   /// Capsule wash colour, before ``fillOpacity`` is applied.
   var fillToken: Color {

@@ -27,25 +27,28 @@ import Testing
 /// one — which is the actual drift being guarded.
 ///
 /// `@MainActor` is required twice over, which is why it is not removable: this
-/// suite reads the `Color.*` statics **directly and cross-module**, and the
-/// token members it calls are themselves MainActor-isolated. The latter is not
-/// inferable from "the target builds" — `Color` is `Sendable` and the aliases
-/// are `let`s, so the extension body compiles under either isolation
-/// (`.claude/rules/swift-isolation.md` Pattern 5 § "Cross-module corollary").
-/// It was established by a discriminating probe: an in-module
-/// `nonisolated func { _ = ScenarioBadgeStyle.tint.fillToken }` fails the build
-/// with "main actor-isolated property 'fillToken' can not be referenced from a
-/// nonisolated context". That MainActor boundary is deliberate — the tokens are
-/// UI values whose only legitimate caller is a View, while the pure
-/// `ScenarioBadge` → `ScenarioBadgeStyle` mapping stays nonisolated and is
-/// covered by ``ScenarioBadgeTests``.
+/// suite reads the `Color.*` statics directly, and the token members it calls
+/// are themselves MainActor-isolated. Both arms of that second fact were
+/// measured against `scripts/xcodebuild.sh build` (Pattern 8: the target, never
+/// a `swiftc -typecheck` probe) — an in-module
+/// `nonisolated func { _ = ScenarioBadgeStyle.tint.fillToken }` fails, and so
+/// does marking the extension itself `nonisolated`, on all four `Color.*`
+/// reads. So a build **does** discriminate here, per
+/// `.claude/rules/swift-isolation.md` Pattern 5's non-test table row 2; its
+/// cross-module corollary does not apply, because those reads are in-module.
+/// The MainActor boundary is deliberate — the tokens are UI values whose only
+/// legitimate caller is a View, while the pure `ScenarioBadge` →
+/// `ScenarioBadgeStyle` mapping stays nonisolated and is covered by
+/// ``ScenarioBadgeTests``.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct ScenarioBadgeStyleTokenTests {
 
   @Test func tintReadsTheAccentPair() {
-    // § 2.3: `moss` for fills, `mossDark` for accent text. Swapping the label
-    // to `moss` would drop white-on-accent contrast below AA.
+    // § 2.3: `moss` for fills, `mossDark` for accent text. On this badge's
+    // composited wash the label measures ≈3.92:1; swapping it to `moss` drops
+    // it to ≈2.51:1. (Not "white-on-accent" — no white foreground is involved
+    // here; that framing belongs to the solid-fill cases in ADR-028.)
     #expect(ScenarioBadgeStyle.tint.fillToken == Color.moss)
     #expect(ScenarioBadgeStyle.tint.labelToken == Color.mossDark)
   }

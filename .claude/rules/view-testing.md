@@ -53,8 +53,9 @@ tautological.
 `Equatable` is necessary but **not sufficient**. `SwiftUI.Font` /
 `AnyTransition` aren't `Equatable` at all — leave those inline and
 code-review-gate them. `Color` *is*, yet a `PasturaDynamicColor`-backed alias
-compares by provider instance, so asserting that two paired tokens **differ**
-passes and can never fire. Pin *which token* a consumer reads
+compares by provider instance, so asserting that two tokens **differ** passes
+and can never fire whenever either side is paired (two *fixed* aliases do
+compare by value). Pin *which token* a consumer reads
 (`style.fillToken == Color.moss` — one `static let` against itself); leave *what
 value* it carries to `DesignTokensTests`. Probe + the fixed-appearance exception:
 `ScenarioBadgeStyleTokenTests` (#1296) and `swiftui-traps.md` § "`ImageRenderer`
