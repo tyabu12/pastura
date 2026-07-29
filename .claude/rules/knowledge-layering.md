@@ -123,6 +123,6 @@ Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 roun
 
 ### A rules file created mid-session never injects in that session
 
-Measured (#1312): however correct its `paths:`, a working glob and a broken one look identical in the authoring session — both simply absent. The *mechanism* is not measured (a session-start snapshot is the likeliest model, but not the only one fitting the probes), and **editing** an existing rule's `paths:` was never probed — under that model the two directions would not even share a symptom, so do not extend the effect to an edit.
+However correct its `paths:`, a working glob and a broken one look identical in the authoring session — both simply absent. The *effect* is measured; the mechanism is not, and an **edit** to an existing rule was never probed, so don't extend it there.
 
-**Apply**: verify a new or re-scoped rule from fresh subagent probes, one `Read` each, with a **positive** control (a file that should still match).
+**Apply**: verify a new or re-scoped rule from fresh subagent probes, one `Read` each, with a **positive** control. Probes, mechanism caveat and scope limits: #1312.
