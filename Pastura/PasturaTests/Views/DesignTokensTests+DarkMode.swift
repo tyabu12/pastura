@@ -158,6 +158,28 @@ extension DesignTokensTests {
 // uses it, and `.claude/rules/swift-isolation.md` cites it as the worked
 // example of the cross-module `@MainActor`-on-a-private-helper shape.
 
+/// Whether `color` resolves to the same components under both schemes — i.e.
+/// whether it is a fixed sRGB value rather than a trait-resolving alias.
+///
+/// Internal and file-scope here rather than private to either suite:
+/// `HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests` guard the
+/// same fixed-appearance contract one level apart, and both need it. Compares
+/// `opacity` as well as RGB — an alias differing only in alpha (§2.5's
+/// highlight, §2.7's washes) would otherwise slip through.
+@MainActor
+func resolvesIdenticallyAcrossSchemes(_ color: Color) -> Bool {
+  var light = EnvironmentValues()
+  light.colorScheme = .light
+  var dark = EnvironmentValues()
+  dark.colorScheme = .dark
+  let underLight = color.resolve(in: light)
+  let underDark = color.resolve(in: dark)
+  return underLight.red == underDark.red
+    && underLight.green == underDark.green
+    && underLight.blue == underDark.blue
+    && underLight.opacity == underDark.opacity
+}
+
 /// `EnvironmentValues` pinned to dark, for `Color.resolve(in:)`.
 func darkEnvironment() -> EnvironmentValues {
   var env = EnvironmentValues()

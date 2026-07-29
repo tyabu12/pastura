@@ -59,11 +59,6 @@ struct HighlightShareCardPaletteTests {
   /// paired alias. This is the assertion with a real trigger — alias creep
   /// resolves differently across schemes and reddens here.
   @Test func rawPaletteValuesAreAppearanceInvariant() {
-    var light = EnvironmentValues()
-    light.colorScheme = .light
-    var dark = EnvironmentValues()
-    dark.colorScheme = .dark
-
     let families = [HighlightCardPalette.light, HighlightCardPalette.dark]
     for family in families {
       let slots = [
@@ -71,12 +66,24 @@ struct HighlightShareCardPaletteTests {
         family.muted, family.rule, family.moss
       ]
       for slot in slots {
-        let underLight = slot.resolve(in: light)
-        let underDark = slot.resolve(in: dark)
-        #expect(underLight.red == underDark.red)
-        #expect(underLight.green == underDark.green)
-        #expect(underLight.blue == underDark.blue)
+        #expect(resolvesIdenticallyAcrossSchemes(slot))
       }
+    }
+  }
+
+  /// Positive control for `rawPaletteValuesAreAppearanceInvariant`, added with
+  /// ADR-028 slice 3.
+  ///
+  /// That test asserts a *negative* — "these do not vary" — which a broken
+  /// comparison satisfies just as well. This feeds the same helper the paired
+  /// aliases the palette deliberately avoids, and requires it to report them as
+  /// varying. Without it the invariance assertion could pass by measuring
+  /// nothing. (The shared helper also compares `opacity`, which this suite's
+  /// previous inline version did not.)
+  @Test func thePairedAliasesThisPaletteAvoidsDoVaryAcrossSchemes() {
+    let paired: [Color] = [.screenBackground, .ink, .inkSecondary, .muted, .rule, .moss]
+    for alias in paired {
+      #expect(!resolvesIdenticallyAcrossSchemes(alias))
     }
   }
 }

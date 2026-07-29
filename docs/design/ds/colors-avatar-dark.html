@@ -128,7 +128,7 @@
         </div>
       </div>
     </div>
-    <p class="section-note">羊の識別は <strong>色相</strong>が担う — light の 4 体は L 82–87% に固まっていて、body 同士のコントラストは 1.03–1.14 しかない。だから「暗くする」変換は明度ではなく<strong>色相と絶対彩度</strong>を守る必要がある。<strong>地に対する比は結果であって目標ではない。</strong>設計したのは 7.0–8.0:1 の窓で、下限は Dave の内部コントラスト、上限はブランドアクセント（nightMoss 8.00:1）を追い越さないこと。ΔE2000 は 6 ペア中 5 つが light 以上、最狭の Bob/Dave が 98.1%</p>
+    <p class="section-note">羊の識別は <strong>色相</strong>が担う — light の 4 体は L 82–87% に固まっていて、body 同士のコントラストは 1.03–1.14 しかない。だから「暗くする」変換は明度ではなく<strong>色相と絶対彩度</strong>を守る必要がある。<strong>地に対する比は結果であって目標ではない。</strong>設計したのは 7.0–8.0:1 の窓で、下限は Dave の内部コントラスト、上限はブランドアクセント（nightMoss 8.00:1）を追い越さないこと。4 体はこの窓を端から端まで張っている（Alice 7.99 / Dave 7.02）。ΔE2000 は 6 ペア中 <strong>4 つ</strong>が light 以上、下がる 2 つも 98% 台 — 床を規定するのは Alice/Carol の 98.1%、絶対値が最も近いのは Bob/Dave（ΔE 6.10）で 98.6%</p>
   </div>
 
   <div class="section night">
@@ -181,7 +181,7 @@
   </div>
 
   <div class="section night">
-    <p class="section-label">守った不変量（light → dark）。テストで実行可能にするのはこの表</p>
+    <p class="section-label">守った不変量（light → dark）。<code>DesignTokensTests+NightAvatarInvariants</code> が実行するのは face÷body / horn÷body / eye÷face / sheen÷face の 4 行と、下段の ΔE2000、加えて表に出ていない<strong>配置の窓</strong>（body の地に対する比が 7.0:1 以上かつ <code>nightMoss</code> 以下）</p>
     <table class="inv"><thead><tr><th>不変量</th><th>Alice</th><th>Bob</th><th>Carol</th><th>Dave</th></tr></thead><tbody>
       <tr><td>face ÷ body（保存）</td><td class="num">1.76 → 1.75</td><td class="num">2.32 → 2.32</td><td class="num">2.21 → 2.22</td><td class="num">3.87 → 3.86</td></tr>
       <tr><td>horn ÷ body（保存）</td><td class="num">2.29 → 2.32</td><td class="num">3.32 → 3.31</td><td class="num">3.11 → 3.13</td><td class="num">5.95 → 6.02</td></tr>

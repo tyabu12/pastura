@@ -91,6 +91,10 @@ public struct SheepAvatar: View {
       // All geometry is expressed as fractions of the 28-unit SVG viewBox.
       // Multiplying by `unit` maps viewBox coordinates to canvas points.
       let unit = canvasSize.width / 28
+      // Bound once: `palette` is computed, so reading it per part would rerun
+      // the appearance switch and rebuild five `Color`s on every draw — and a
+      // Home row renders up to six avatars.
+      let palette = palette
 
       // --- Wool body (five circles forming a cloud silhouette) ---
       let bodyColor = palette.body

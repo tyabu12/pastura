@@ -246,7 +246,9 @@ extension PasturaPalette {
   // from the page by only 1.21-1.39 — is preserved rather than transformed.
   //
   // **Where the family sits, and why that number is a consequence rather than a
-  // target.** It lands mid-way through a 7.0-8.0:1 window on `nightBackground`.
+  // target.** The family SPANS a 7.0-8.0:1 window on `nightBackground` — Alice
+  // at 7.99 sits essentially on the ceiling (`nightMoss` is 8.00) and Dave at
+  // 7.02 on the floor, so the window has no slack left in either direction.
   // The window is what is designed: below ~7:1 Dave's interior collapses (his
   // eye-on-face is the palette's thinnest step and falls under 1.8), above
   // ~8:1 the wool overtakes `nightMoss` (8.00:1) and the decoration starts
@@ -277,7 +279,7 @@ extension PasturaPalette {
 
   /// Alice's face under dark mode (1.75x below her body; light is 1.76x).
   static let nightAvatarFaceAlice = PasturaColorValue(hex: 0x9F7F4F)
-  /// Bob's face under dark mode (2.31x below his body; light is 2.32x).
+  /// Bob's face under dark mode (2.32x below his body, as in light).
   ///
   /// Light's value is the same hex as `moss` (#8A9A6C), and that coincidence is
   /// deliberately **not** carried across. `nightMoss` (#A8B888) is *brighter*
@@ -292,15 +294,16 @@ extension PasturaPalette {
   /// strongest interior contrast of the four, which is the wolf's tell.
   static let nightAvatarFaceDave = PasturaColorValue(hex: 0x4A4737)
 
-  /// Alice's horns under dark mode (2.28x below her body; light is 2.29x).
+  /// Alice's horns under dark mode (2.32x below her body; light is 2.29x — the
+  /// widest interior drift of the eight, at 1.32%).
   static let nightAvatarHornAlice = PasturaColorValue(hex: 0x8A6B3D)
-  /// Bob's horns under dark mode (3.32x below his body, as in light).
+  /// Bob's horns under dark mode (3.31x below his body; light is 3.32x).
   static let nightAvatarHornBob = PasturaColorValue(hex: 0x4D5C31)
-  /// Carol's horns under dark mode (3.11x below her body, as in light).
+  /// Carol's horns under dark mode (3.13x below her body; light is 3.11x).
   static let nightAvatarHornCarol = PasturaColorValue(hex: 0x794B41)
-  /// Dave's horns under dark mode (6.00x below his body; light is 5.95x).
+  /// Dave's horns under dark mode (6.02x below his body; light is 5.95x).
   ///
-  /// This is the token the floor binds hardest: it sits at 1.25:1 against
+  /// This is the token the floor binds hardest: it sits at 1.17:1 against
   /// `nightBackground`, i.e. barely distinguishable from the night ground —
   /// which is fine, because horns are stroked ON the wool and never touch the
   /// background. Light's horn is at the opposite extreme for the same reason
@@ -312,7 +315,11 @@ extension PasturaPalette {
   ///
   /// **No renderer draws this.** Neither `SheepAvatar`'s `Canvas` nor the §2.5
   /// source-of-truth `sheepAvatar()` in `docs/design/demo-replay-reference.html`
-  /// emits an ear — both draw body, face, eyes and horns only. It is paired
+  /// emits an ear — both draw body, face, eyes and horns only. Beware the decoy
+  /// in that same prototype: a *different* function, `sheepSvg(bodyStroke:
+  /// faceColor: earColor:)`, takes an `earColor` and never uses it — it draws no
+  /// ear either, and it builds side-view marks (`MARKS.sheep_*`) that `MARK()`
+  /// never returns. The parameter name has already misled one reviewer. It is paired
   /// anyway because §2.5 is public palette API and a half-paired section is a
   /// state no count paragraph can describe; the value rides the body family, so
   /// it stays correct if a renderer ever grows ears. Swatch-reviewed only —

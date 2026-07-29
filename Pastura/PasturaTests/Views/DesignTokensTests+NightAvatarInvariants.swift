@@ -30,8 +30,11 @@ extension DesignTokensTests {
   /// interior relationships do not change.
   ///
   /// Tolerance is 3% *relative*, not absolute — at the dark end an 8-bit hex
-  /// step moves a ratio by more than a hundredth (Dave's horn ratio lands at
-  /// 6.00 against light's 5.95, which is quantization, not drift).
+  /// step moves a ratio by more than a hundredth. The binding case is **Alice's
+  /// horn** at 1.32% (2.319 dark against light's 2.289); Dave's horn is second
+  /// at 1.04% (6.02 against 5.95) and the other six are all under 0.5%. So the
+  /// 3% bar is 2.3x the worst observed drift — headroom for quantization, not a
+  /// figure fitted to let the shipped values through.
   @Test func nightAvatarInteriorRatiosMatchLight() {
     for character in AvatarCharacterTokens.all {
       #expect(interiorRatiosMatch(character, tolerance: 0.03))
@@ -71,6 +74,17 @@ extension DesignTokensTests {
   /// pupil. The guard fires on exactly that substitution.
   @Test func eyeDarkestCheckRejectsHoldingTheLightEyeFixedInDark() {
     #expect(!eyeIsDarkest(eye: PasturaPalette.avatarEye, inDark: true))
+
+    // The control alone does not isolate the cause the doc-comment records:
+    // #2D2E26 is darker than TWO dark marks, and the second one
+    // (`nightAvatarNose`) is an artefact of an incoherent counterfactual — the
+    // nose was placed by holding 1.29:1 against the *paired* eye, so in a world
+    // where the eye stayed light the nose would have been placed lighter too.
+    // Dave's horn is the real reason, and it is a fact about shipped values
+    // rather than about a hypothetical, so it is assertable directly.
+    #expect(
+      relativeLuminance(PasturaPalette.nightAvatarHornDave)
+        < relativeLuminance(PasturaPalette.avatarEye))
   }
 
   // MARK: - Character identity survives the dimming
@@ -80,10 +94,13 @@ extension DesignTokensTests {
   /// distinct" is a perceptual question, not a contrast one. Measured as
   /// CIEDE2000 between every pair of bodies.
   ///
-  /// The bar is 95% of the light separation rather than 100%: the closest pair
-  /// in both appearances (Bob/Dave, the sage and the slate) lands at 98.1%, and
-  /// the guard exists to catch **convergence**, which would cost far more than
-  /// a few percent. Five of the six pairs come out at or above light's.
+  /// The bar is 95% of the light separation rather than 100%, and two distinct
+  /// pairs are worth naming because it is easy to conflate them. The pair that
+  /// **binds the floor** is Alice/Carol at 98.1%; the pair with the smallest
+  /// *absolute* separation is Bob/Dave (ΔE 6.19 light, 6.10 dark) at 98.6%.
+  /// **Four** of the six come out at or above light's; the two that dip are
+  /// those. The guard exists to catch **convergence**, which would cost far
+  /// more than a couple of percent.
   @Test func nightAvatarCharacterSeparationHoldsAgainstLight() {
     for (left, right) in AvatarCharacterTokens.pairs {
       #expect(separationHolds(left, right, floorFraction: 0.95))
@@ -103,6 +120,40 @@ extension DesignTokensTests {
     #expect(!separationHolds(converged, AvatarCharacterTokens.dave, floorFraction: 0.95))
   }
 
+  // MARK: - The body family sits inside its designed window
+
+  /// The placement window is the thing §2.5's docs call **designed** — the
+  /// per-character on-ground ratios are described everywhere as consequences of
+  /// it — and until this it was the one claim in the slice that nothing
+  /// executed. It is also the check that would have caught the wrong ground
+  /// contrast that shipped in three doc sites and survived to code review.
+  ///
+  /// Floor 7.0:1 — below it Dave's interior collapses (his eye-on-face is the
+  /// palette's thinnest step). Ceiling is `nightMoss`'s **own** ratio rather
+  /// than a literal 8.0, so retuning the accent moves the ceiling with it
+  /// instead of silently invalidating this test: decorative wool must not
+  /// out-shout the brand accent.
+  ///
+  /// The window has no slack left — Alice sits at 7.99 against a ceiling of
+  /// 8.00, Dave at 7.02 against a floor of 7.00 — so any future hex tweak in
+  /// either direction reddens here.
+  @Test func nightAvatarBodiesSitInsideTheDesignedWindow() {
+    for tokens in AvatarCharacterTokens.all {
+      #expect(bodySitsInWindow(tokens.darkBody))
+    }
+  }
+
+  /// Negative control for `nightAvatarBodiesSitInsideTheDesignedWindow`.
+  ///
+  /// Feeds the predicate a body at `nightInk`'s luminance — wool as bright as
+  /// body text, the "arm 1 blows out a cream body" failure ADR-028 names — and
+  /// confirms it rejects. Pairs with the floor case below so neither bound is
+  /// vacuous.
+  @Test func windowCheckRejectsBodiesOutsideEitherBound() {
+    #expect(!bodySitsInWindow(PasturaPalette.nightInk))
+    #expect(!bodySitsInWindow(PasturaPalette.nightMuted))
+  }
+
   // MARK: - The sheen keeps its step over the face
 
   /// The highlight is a specular mark whose job is a fixed relative step above
@@ -120,19 +171,6 @@ extension DesignTokensTests {
   /// light. Confirms the predicate rejects it.
   @Test func sheenStepCheckRejectsCarryingTheLightAlphaAcross() {
     #expect(!sheenStepMatchesLight(darkAlpha: PasturaPalette.avatarHighlight.opacity))
-  }
-
-  // MARK: - The metric itself
-
-  /// `perceptualDifference` is ~55 lines of unexercised colour maths, and every
-  /// identity assertion above rests on it. These two anchors are the cheapest
-  /// way to know it is not returning a constant: CIEDE2000 is 0 for a colour
-  /// against itself and 100 for white against black.
-  @Test func perceptualDifferenceMetricIsCalibrated() {
-    let white = PasturaColorValue(hex: 0xFFFFFF)
-    let black = PasturaColorValue(hex: 0x000000)
-    #expect(abs(perceptualDifference(white, white)) < 0.001)
-    #expect(abs(perceptualDifference(white, black) - 100.0) < 0.5)
   }
 }
 
@@ -233,8 +271,27 @@ func separationHolds(
   return dark >= light * floorFraction
 }
 
+/// Whether a dark wool value sits inside the designed placement window on
+/// `nightBackground`: at or above 7.0:1, and at or below `nightMoss`'s own
+/// ratio against the same ground.
+@MainActor
+func bodySitsInWindow(_ body: PasturaColorValue) -> Bool {
+  let onGround = contrastRatio(body, PasturaPalette.nightBackground)
+  let ceiling = contrastRatio(PasturaPalette.nightMoss, PasturaPalette.nightBackground)
+  return onGround >= 7.0 && onGround <= ceiling
+}
+
 /// White at `darkAlpha` over each dark face lands within 12% of the mean step
 /// that white at 0.60 makes over the light faces.
+///
+/// The tolerance is deliberately loose relative to the shipped value, which
+/// deviates by only 1.0% (light mean 2.238, dark-at-0.40 mean 2.256). It is
+/// sized to the *decision* rather than the value: the passing band is roughly
+/// alpha 0.32-0.47, so this asserts "the alpha was re-derived downward for the
+/// dark faces", not "0.40 is the unique right answer". Light's own 0.60 lands
+/// at 43.5% and is rejected. Tightening it toward 5% would make it a
+/// change-detector on a value nothing else pins — which is a different guard,
+/// and would need the doc-comment to say so.
 @MainActor
 func sheenStepMatchesLight(darkAlpha: Double) -> Bool {
   func meanStep(faces: [PasturaColorValue], alpha: Double) -> Double {
@@ -245,126 +302,4 @@ func sheenStepMatchesLight(darkAlpha: Double) -> Bool {
   let light = meanStep(faces: AvatarCharacterTokens.all.map(\.lightFace), alpha: 0.6)
   let dark = meanStep(faces: AvatarCharacterTokens.all.map(\.darkFace), alpha: darkAlpha)
   return abs(dark / light - 1) < 0.12
-}
-
-// MARK: Perceptual difference (CIEDE2000)
-//
-// Spelled out rather than using the formula's single-letter symbols: swiftlint's
-// `identifier_name` floor is 3 characters, and the expansion is the honest
-// trade — the published algorithm's `a1` / `C1'` / `Sl` are unreadable to
-// anyone not holding the paper anyway. Split across two functions and two small
-// structs so no body crosses `function_body_length` and no signature crosses
-// `function_parameter_count` / `large_tuple`.
-
-/// CIELAB coordinates under D65.
-struct LabColor {
-  let lightness: Double
-  let greenRed: Double
-  let blueYellow: Double
-}
-
-/// The intermediate quantities CIEDE2000's weighting half consumes.
-private struct DifferenceTerms {
-  let deltaLightness: Double
-  let deltaChroma: Double
-  let deltaHue: Double
-  let meanLightness: Double
-  let meanChroma: Double
-  let meanHueDegrees: Double
-}
-
-@MainActor
-func labColor(of value: PasturaColorValue) -> LabColor {
-  func channel(_ component: Double) -> Double {
-    component <= 0.03928 ? component / 12.92 : pow((component + 0.055) / 1.055, 2.4)
-  }
-  let red = channel(value.red)
-  let green = channel(value.green)
-  let blue = channel(value.blue)
-  let tristimulusX = (0.4124564 * red + 0.3575761 * green + 0.1804375 * blue) / 0.95047
-  let tristimulusY = 0.2126729 * red + 0.7151522 * green + 0.0721750 * blue
-  let tristimulusZ = (0.0193339 * red + 0.1191920 * green + 0.9503041 * blue) / 1.08883
-  func pivot(_ component: Double) -> Double {
-    component > 216.0 / 24389.0
-      ? pow(component, 1.0 / 3.0) : (841.0 / 108.0) * component + 4.0 / 29.0
-  }
-  let pivotX = pivot(tristimulusX)
-  let pivotY = pivot(tristimulusY)
-  let pivotZ = pivot(tristimulusZ)
-  return LabColor(
-    lightness: 116 * pivotY - 16,
-    greenRed: 500 * (pivotX - pivotY),
-    blueYellow: 200 * (pivotY - pivotZ))
-}
-
-/// CIEDE2000 perceptual difference.
-///
-/// Identity here is carried by hue at near-equal lightness, so a contrast or
-/// raw-channel metric would report the four characters as nearly identical and
-/// prove nothing. Calibrated by `perceptualDifferenceMetricIsCalibrated`.
-@MainActor
-func perceptualDifference(_ lhs: PasturaColorValue, _ rhs: PasturaColorValue) -> Double {
-  weightedDifference(terms(from: labColor(of: lhs), to: labColor(of: rhs)))
-}
-
-private func terms(from first: LabColor, to second: LabColor) -> DifferenceTerms {
-  let meanRawChroma =
-    (hypot(first.greenRed, first.blueYellow) + hypot(second.greenRed, second.blueYellow)) / 2
-  let raised = pow(meanRawChroma, 7)
-  let compensation = 0.5 * (1 - (raised / (raised + pow(25.0, 7))).squareRoot())
-  let firstGreenRed = (1 + compensation) * first.greenRed
-  let secondGreenRed = (1 + compensation) * second.greenRed
-  let firstChroma = hypot(firstGreenRed, first.blueYellow)
-  let secondChroma = hypot(secondGreenRed, second.blueYellow)
-  let firstHue = firstChroma == 0 ? 0 : atan2(first.blueYellow, firstGreenRed).degreesNormalized
-  let secondHue =
-    secondChroma == 0 ? 0 : atan2(second.blueYellow, secondGreenRed).degreesNormalized
-  var hueDelta = 0.0
-  if firstChroma * secondChroma != 0 {
-    let raw = secondHue - firstHue
-    hueDelta = abs(raw) <= 180 ? raw : (raw > 0 ? raw - 360 : raw + 360)
-  }
-  return DifferenceTerms(
-    deltaLightness: second.lightness - first.lightness,
-    deltaChroma: secondChroma - firstChroma,
-    deltaHue: 2 * (firstChroma * secondChroma).squareRoot() * sin((hueDelta / 2) * .pi / 180),
-    meanLightness: (first.lightness + second.lightness) / 2,
-    meanChroma: (firstChroma + secondChroma) / 2,
-    meanHueDegrees: meanHue(firstHue, secondHue, firstChroma * secondChroma != 0))
-}
-
-private func meanHue(_ first: Double, _ second: Double, _ bothChromatic: Bool) -> Double {
-  guard bothChromatic else { return first + second }
-  if abs(first - second) <= 180 { return (first + second) / 2 }
-  return first + second < 360 ? (first + second + 360) / 2 : (first + second - 360) / 2
-}
-
-private func weightedDifference(_ terms: DifferenceTerms) -> Double {
-  func cosDegrees(_ degrees: Double) -> Double { cos(degrees * .pi / 180) }
-  let hueWeight =
-    1 - 0.17 * cosDegrees(terms.meanHueDegrees - 30) + 0.24 * cosDegrees(2 * terms.meanHueDegrees)
-    + 0.32 * cosDegrees(3 * terms.meanHueDegrees + 6)
-    - 0.20 * cosDegrees(4 * terms.meanHueDegrees - 63)
-  let raised = pow(terms.meanChroma, 7)
-  let lightnessOffset = pow(terms.meanLightness - 50, 2)
-  let scaleLightness = 1 + (0.015 * lightnessOffset) / (20 + lightnessOffset).squareRoot()
-  let scaleChroma = 1 + 0.045 * terms.meanChroma
-  let scaleHue = 1 + 0.015 * terms.meanChroma * hueWeight
-  let rotation =
-    -sin(2 * (30 * exp(-pow((terms.meanHueDegrees - 275) / 25, 2))) * .pi / 180)
-    * 2 * (raised / (raised + pow(25.0, 7))).squareRoot()
-  let lightnessTerm = terms.deltaLightness / scaleLightness
-  let chromaTerm = terms.deltaChroma / scaleChroma
-  let hueTerm = terms.deltaHue / scaleHue
-  return
-    (pow(lightnessTerm, 2) + pow(chromaTerm, 2) + pow(hueTerm, 2)
-    + rotation * chromaTerm * hueTerm).squareRoot()
-}
-
-extension Double {
-  /// Radians to degrees, wrapped into `0..<360`.
-  fileprivate var degreesNormalized: Double {
-    let degrees = self * 180 / .pi
-    return degrees < 0 ? degrees + 360 : degrees
-  }
 }

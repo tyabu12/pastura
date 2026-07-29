@@ -116,12 +116,24 @@ extension DesignTokensTests {
   ///   inheriting would create a forward dependency on a value nobody has
   ///   chosen yet.
   @Test func nightAvatarCutsTheThreeLightHexCoincidences() {
-    #expect(PasturaPalette.avatarEye.red == PasturaPalette.ink.red)
-    #expect(!approxEqual(PasturaPalette.nightAvatarEye.red, PasturaPalette.nightInk.red))
+    // Full-value comparisons, not `.red` alone: a single-channel check passes
+    // for any two tokens that happen to share one channel, and
+    // `PasturaColorValue` is `Equatable`, so the stronger form is free.
+    #expect(PasturaPalette.avatarEye == PasturaPalette.ink)
+    #expect(PasturaPalette.nightAvatarEye != PasturaPalette.nightInk)
 
-    #expect(PasturaPalette.avatarFaceBob.red == PasturaPalette.moss.red)
-    #expect(!approxEqual(PasturaPalette.nightAvatarFaceBob.red, PasturaPalette.nightMoss.red))
+    #expect(PasturaPalette.avatarFaceBob == PasturaPalette.moss)
+    #expect(PasturaPalette.nightAvatarFaceBob != PasturaPalette.nightMoss)
 
-    #expect(PasturaPalette.avatarNose.red == PasturaPalette.mossInk.red)
+    // The third cut cannot be asserted the same way — `mossInk` has no dark
+    // counterpart until slice 4, so there is no value to compare against. What
+    // the cut is *for* is assertable today: had the nose inherited `mossInk`'s
+    // eventual pair it would have been placed by that token's job (text on a
+    // pale ground), not by its own (a mark on a face, above the eye and below
+    // every face). That ordering is the substance.
+    #expect(PasturaPalette.avatarNose == PasturaPalette.mossInk)
+    #expect(
+      relativeLuminance(PasturaPalette.nightAvatarNose)
+        > relativeLuminance(PasturaPalette.nightAvatarEye))
   }
 }

@@ -127,6 +127,13 @@ struct HighlightShareCard: View {
   let model: Model
   /// Explicit appearance — see the type doc for why this is not read from the
   /// environment.
+  ///
+  /// Non-optional with a `.light` default, which is the shape
+  /// ``SheepAvatar/colorScheme`` explicitly forbids for itself. The two are not
+  /// in conflict: this card is **never** ambient — all its construction sites
+  /// (`HighlightCardImageRenderer`, `StoryShareSheet`) pass an appearance
+  /// explicitly — whereas the avatar is ambient at ten of its eleven, so a
+  /// silent default there would pin the app to light.
   var colorScheme: ColorScheme = .light
 
   /// Point size of the square card. `ImageRenderer` scales this up (×3) to the

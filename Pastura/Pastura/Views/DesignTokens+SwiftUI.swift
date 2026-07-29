@@ -73,7 +73,12 @@ extension Color {
   static let metaStrongL4 = PasturaDynamicPalette.metaStrongL4.color
   static let metaDotOnL4 = PasturaDynamicPalette.metaDotOnL4.color
 
-  // §2.5 Avatars
+  // §2.5 Avatars — paired, and with **no production consumer**. Avatar painting
+  // goes through `SheepAvatarPalette`, which reads raw `PasturaPalette` so the
+  // `HighlightShareCard` export can pin an appearance (ADR-028 slice 3). Reaching
+  // for one of these in a new avatar-adjacent view gets correct in-app behaviour
+  // and silently re-opens the export hazard the moment that view is composed
+  // into a card — use `SheepAvatarPalette` instead.
   static let avatarBodyAlice = PasturaDynamicPalette.avatarBodyAlice.color
   static let avatarBodyBob = PasturaDynamicPalette.avatarBodyBob.color
   static let avatarBodyCarol = PasturaDynamicPalette.avatarBodyCarol.color

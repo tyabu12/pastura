@@ -93,7 +93,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.5 キャラクターパレット（羊アバター）
 
-> **Source of Truth（light 半分のみ）**: `docs/design/demo-replay-reference.html` の `sheepAvatar()` 関数が**ライト値の**原点。本テーブルはその mirror で、Swift `Pastura/Views/DesignTokens.swift` の `PasturaPalette.avatar*` トークンが本テーブルを参照する。**ダーク値の原点はそこには無い** — あのプロトタイプは light 専用なので、§2.9 が正本、`ds/colors-avatar-dark.html` がその mirror（#1319）。HTML 内の letters mode `.ava.<who>` セレクタの背景色は HTML-only ornament で iOS では未レンダー、scope 外。命名規約: 共有部位は `avatarPart`（例: `avatarEar`）、キャラ別部位は `avatarPartCharacter`（例: `avatarBodyAlice`）。enforcement 層: `Pastura/PasturaTests/Views/DesignTokensTests.swift`。
+> **Source of Truth（light 半分のみ）**: `docs/design/demo-replay-reference.html` の `sheepAvatar()` 関数が**ライト値の**原点。本テーブルはその mirror で、Swift `Pastura/Views/DesignTokens.swift` の `PasturaPalette.avatar*` トークンが本テーブルを参照する。**ダーク値の原点はそこには無い** — あのプロトタイプは light 専用なので、§2.9 が正本、`ds/colors-avatar-dark.html` がその mirror（#1319）。HTML 内の letters mode `.ava.<who>` セレクタの背景色は HTML-only ornament で iOS では未レンダー、scope 外。命名規約: 共有部位は `avatarPart`（例: `avatarEar`）、キャラ別部位は `avatarPartCharacter`（例: `avatarBodyAlice`）。Swift 側の値は `Pastura/PasturaTests/Views/DesignTokensTests.swift` が固定する。ただし**プロトタイプ→本表の一致を検証する経路は無い**（目視のみ）— HTML を parse するテストもスクリプトも存在しない。
 
 | キャラ | body | face | horn | 役割 |
 |-------|------|------|------|------|
@@ -181,8 +181,9 @@ Source: `§2.9 Dark Mode`。
 **ダーク固定色が要る場合はこの 57 対のエイリアスを読まない。** `Color.ink` 等は「端末の
 外観」を意味するようになったので、`ImageRenderer` 書き出しのように外観を固定したい
 呼び出し側は `PasturaPalette.<token>.color` を直接読む（参照実装:
-`HighlightShareCard`）。**同じ理屈は一段下にも及ぶ** — `SheepAvatar` は §2.5 の
-エイリアスを 17 回読んでいて、そのカードの中で描かれる。`HighlightCardPalette` が pin
+`HighlightShareCard`）。**同じ理屈は一段下にも及ぶ** — `SheepAvatar` はスライス3 以前、§2.5 の
+エイリアスを **14 箇所**（17 から未描画の 3 つを引いた数）で読んでいて、そのカードの中で
+描かれる。現在は 0 箇所で、塗りは `SheepAvatarPalette` を通る。`HighlightCardPalette` が pin
 しているのは 6 トークンだけで §2.5 は入っていないので、#1319 で `SheepAvatarPalette` を
 足し、カードから明示の外観を渡すようにした。
 
@@ -284,7 +285,10 @@ Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある�
 **地に対する比は結果であって目標ではない。** 設計したのは `nightBackground` に対する
 **7.0〜8.0:1 の窓**で、下限は Dave の内部コントラスト（彼の eye÷face はパレット最薄の段で、
 7:1 を割ると 1.8 を下回る）、上限はブランドアクセント `nightMoss`（8.00:1）を羊毛が
-追い越さないこと。「地に対して 7.5:1 を狙った」と書くとアーム3（目標コントラスト配置）の
+追い越さないこと。4 体は**この窓を端から端まで張っている** — Alice 7.99 は天井の 8.00 の
+すぐ下、Dave 7.02 は床の 7.00 のすぐ上で、どちら向きにも余裕は無い。この窓は
+`nightAvatarBodiesSitInsideTheDesignedWindow` がアサートしており、天井は 8.0 のリテラルでは
+なく `nightMoss` 自身の比を読むので、アクセントを再調整すれば天井も一緒に動く。「地に対して 7.5:1 を狙った」と書くとアーム3（目標コントラスト配置）の
 理屈になり、legibility の仕事を持たないトークンに対して次のスライスがそれを先例に引く。
 
 **床が天井の鏡になる。** スライス2 は「dark の地は light に無い*天井*を持つ」を記録した。
@@ -302,17 +306,17 @@ Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある�
 | `nightAvatarBodyCarol` | `#BAA6A0` | `avatarBodyCarol`（7.33:1） |
 | `nightAvatarBodyDave` | `#A9A798` | `avatarBodyDave`（7.02:1）。4 体で最も彩度が低いのは light 同様、それが Dave の識別 |
 | `nightAvatarFaceAlice` | `#9F7F4F` | `avatarFaceAlice`（body 比 1.75、light は 1.76） |
-| `nightAvatarFaceBob` | `#637446` | `avatarFaceBob`（body 比 2.31、light は 2.32）。light 値は `moss` と同 hex だが**継承しない** — `nightMoss` は Bob の dark body より明るく、顔が体に対し 1.03:1 になって消える |
-| `nightAvatarFaceCarol` | `#936156` | `avatarFaceCarol`（body 比 2.21、light と同値） |
+| `nightAvatarFaceBob` | `#637446` | `avatarFaceBob`（body 比 2.32、light と同値）。light 値は `moss` と同 hex だが**継承しない** — `nightMoss` は Bob の dark body より明るく、顔が体に対し 1.03:1 になって消える |
+| `nightAvatarFaceCarol` | `#936156` | `avatarFaceCarol`（body 比 2.22、light は 2.21） |
 | `nightAvatarFaceDave` | `#4A4737` | `avatarFaceDave`（body 比 3.86、light は 3.87）。4 体で最も強い内部コントラストで、それが狼の徴 |
-| `nightAvatarHornAlice` | `#8A6B3D` | `avatarHornAlice`（body 比 2.28、light は 2.29） |
-| `nightAvatarHornBob` | `#4D5C31` | `avatarHornBob`（body 比 3.32、light と同値） |
-| `nightAvatarHornCarol` | `#794B41` | `avatarHornCarol`（body 比 3.11、light と同値） |
-| `nightAvatarHornDave` | `#2C291C` | `avatarHornDave`（body 比 6.00、light は 5.95）。地に対しては 1.25:1 とほぼ見分けが付かないが、角は毛の**上に**描かれ地に触れないので問題にならない。light の角も同じ理由で反対の極（淡い地に対し 8.25:1）にある |
+| `nightAvatarHornAlice` | `#8A6B3D` | `avatarHornAlice`（body 比 2.32、light は 2.29 — 8 つの中で最も乖離が大きく 1.32%） |
+| `nightAvatarHornBob` | `#4D5C31` | `avatarHornBob`（body 比 3.31、light は 3.32） |
+| `nightAvatarHornCarol` | `#794B41` | `avatarHornCarol`（body 比 3.13、light は 3.11） |
+| `nightAvatarHornDave` | `#2C291C` | `avatarHornDave`（body 比 6.02、light は 5.95）。地に対しては 1.17:1 とほぼ見分けが付かないが、角は毛の**上に**描かれ地に触れないので問題にならない。light の角も同じ理由で反対の極（淡い地に対し 8.25:1）にある |
 | `nightAvatarEar` | `#B8A88B` | `avatarEar`。**未描画**（下記） |
 | `nightAvatarEarInner` | `#A79471` | `avatarEarInner`。**未描画** |
 | `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス4 まで未ペアで、未決の値への前方依存になる） |
-| `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、パレット自身の near-black の床（L=7%、light 最暗の `metaStrongL4` の L=9.4% のすぐ下）に置いた。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
+| `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、パレット自身の near-black の床（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
 | `nightAvatarHighlight` | `rgba(255,255,255,0.40)` | `avatarHighlight`。**alpha を下げる**（0.60 → 0.40）。§2.7 の wash が約 1.33 倍に上げたのと逆向きだが、矛盾ではない — wash は暗い面に載せる**淡い色**なので alpha が要る。こちらは面の上に置く**光の反射**で、面が暗くなった分だけ同じ alpha が*強い*段差になる。仕事が逆なので向きも逆 |
 
 **耳・耳内・鼻はどの実装も描かない。** §2.5 の完全性のためにペア化してあるが、
