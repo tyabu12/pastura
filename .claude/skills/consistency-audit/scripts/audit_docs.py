@@ -19,8 +19,9 @@ Two finding classes:
 Conservatism is deliberate: false positives poison the queue, so each detector
 prefers a miss over a wrong flag. Every shipped detector fires zero false
 positives on the current repo: dependency_version, min_ios, dead_link
-(needs_judgment), dangling_adr (needs_judgment), and embedded_source_mirror
-(needs_judgment). Detectors that flood until their FP sources are designed out
+(needs_judgment), dangling_adr (needs_judgment), embedded_source_mirror
+(needs_judgment), and unparsed_adr_reservation (needs_judgment).
+Detectors that flood until their FP sources are designed out
 are intentionally deferred — see the SKILL's "Deferred detectors" note:
   - file:line citation checks   (docs cite source-root-relative paths, GitHub
                                  org/repo slugs, and property accessors that a
@@ -45,6 +46,14 @@ reserved row must exist in the table before an absent ADR is referenced, else
 the reference is flagged (an issue, never an auto-fix); an inline "ADR-NNN
 (reserved / not yet written)" reference is skipped by the shared reserved-line
 guard even without a table row.
+
+That reserved set fails open on a parse miss, which is indistinguishable from
+the documented unreadable-CLAUDE.md case and floods every reference to the
+reserved ADR (#1310). unparsed_adr_reservation is the canary: it fires when an
+ADR is documented as intentionally absent — by CLAUDE.md prose or by an
+INDEX.md listing with no file — yet the reserved set does not contain it. So a
+change to the row's shape announces itself instead of arriving as a wall of
+dangling_adr issues.
 
 usage:
   audit_docs.py [--repo-root DIR] [--fix]
@@ -111,6 +120,11 @@ ADR_REF = re.compile(r"\bADR-(\d{3})\b")
 # (`docs/decisions/ADR-NNN.md`), never a bare ADR-NNN elsewhere in the row —
 # so "see ADR-005 §7.5" inside the ADR-006 reservation row cannot reserve 005.
 RESERVED_ADR_CELL = re.compile(r"docs/decisions/ADR-(\d{3})\.md")
+# INDEX.md's per-ADR heading — the authoritative listing of every ADR the repo
+# claims to have, including ones with no file behind them.
+ADR_DIR = "docs/decisions"
+DEFAULT_INDEX = f"{ADR_DIR}/INDEX.md"
+INDEX_HEADING = re.compile(r"^##\s+ADR-(\d{3})\s+—\s+(.+?)\s*$")
 
 EXCLUDE_PARTS = {".git", "DerivedData", "node_modules"}
 
@@ -187,6 +201,142 @@ def load_reserved_adrs(claude_md: Path) -> set[str]:
         if m:
             reserved.add(m.group(1))
     return reserved
+
+
+def adr_files_on_disk(root: Path) -> set[str]:
+    """NNN for every `docs/decisions/ADR-NNN.md`.
+
+    Prefers `git ls-files` when `root` IS a git work tree's toplevel: an ADR
+    draft sitting untracked in one checkout is visible to `ls` but absent for
+    every other contributor and in CI, so treating it as evidence about the
+    sequence over-reports (`adr-writing.md` §4). Falls back to a glob when root
+    is not a toplevel (the audit's own fixtures, which live inside this repo's
+    tree and would otherwise resolve against it) or when the tracked set comes
+    back empty (a fresh checkout with nothing committed — flooding every ADR as
+    absent would be worse than trusting the glob)."""
+    tracked: list[str] = []
+    try:
+        top = subprocess.check_output(
+            ["git", "-C", str(root), "rev-parse", "--show-toplevel"],
+            text=True, stderr=subprocess.DEVNULL).strip()
+    except (subprocess.CalledProcessError, OSError):
+        top = ""
+    if top and Path(top).resolve() == root.resolve():
+        try:
+            tracked = subprocess.check_output(
+                ["git", "-C", str(root), "ls-files", f"{ADR_DIR}/ADR-*.md"],
+                text=True, stderr=subprocess.DEVNULL).splitlines()
+        except (subprocess.CalledProcessError, OSError):
+            tracked = []
+    names = tracked or [p.name for p in (root / ADR_DIR).glob("ADR-*.md")]
+    out: set[str] = set()
+    for n in names:
+        m = re.search(r"ADR-(\d{3})\.md$", n.replace(os.sep, "/"))
+        if m:
+            out.add(m.group(1))
+    return out
+
+
+def load_index_adrs(index_md: Path) -> dict[str, tuple[str, int]]:
+    """NNN -> (title, lineno) from INDEX.md's `## ADR-NNN — <title>` headings."""
+    try:
+        lines = index_md.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    out: dict[str, tuple[str, int]] = {}
+    for lineno, line in enumerate(lines, 1):
+        m = INDEX_HEADING.match(line)
+        if m:
+            out[m.group(1)] = (m.group(2), lineno)
+    return out
+
+
+_RESERVATION_COUNTER_EVIDENCE = (
+    "The ADR may simply be missing rather than reserved — in which case the "
+    "dangling_adr findings alongside this one are correct and the fix is to "
+    "write it, not to record a reservation. Or the reservation may have been "
+    "deliberately retired because the number is being freed for reuse.")
+
+
+def reservation_findings(claude_md: Path, reserved_adrs: set[str],
+                         index_adrs: dict[str, tuple[str, int]],
+                         on_disk: set[str]) -> list[dict]:
+    """An intentionally-absent ADR that `load_reserved_adrs` did NOT absorb.
+
+    load_reserved_adrs returns the empty set both when CLAUDE.md is unreadable
+    (documented, deliberate) and when no line satisfies its three conditions —
+    and the two are indistinguishable, so a reshaped table row silently turns
+    every reference to the reserved ADR into a dangling_adr false positive
+    (#1310). This check makes that parse-miss announce itself. Two shapes:
+
+      (a) reshaped — the reservation is still stated in CLAUDE.md (marker words
+          + ADR-NNN) but not as a `|` row with a `docs/decisions/ADR-NNN.md`
+          first cell. Gated on `reserved_adrs` being *empty* so a legitimate
+          inline "ADR-098 (reserved / not yet written)" mention, which the
+          shared per-line guard already handles, does not fire alongside a
+          working table row. Verified load-bearing: dropping the gate makes the
+          `adr` fixture emit three findings, one of them ADR-098's.
+      (b) deleted — the reservation prose is gone entirely, so (a) sees
+          nothing, but INDEX.md still lists the ADR and no file backs it. Per
+          ADR, no empty-set gate needed: an INDEX entry with no file and no
+          reservation is unambiguous.
+
+    Blind spot, deliberate: with two or more reserved ADRs, reshaping only one
+    leaves `reserved_adrs` non-empty, so (a) stays silent for it. (b) still
+    covers it whenever the ADR is listed in INDEX.md, which is the repo
+    convention (`adr-writing.md` §4 requires both listings).
+
+    needs_judgment, never auto_fixable: restoring the row means composing prose
+    in a table cell, not splicing an authoritative value at a known offset
+    (Output Contract rule 3)."""
+    found: dict[str, dict] = {}
+
+    def register(nnn: str, rel: str, lineno: int, shape: str) -> None:
+        if nnn in found:
+            return
+        adr = f"ADR-{nnn}"
+        # `reservation:` prefix, not a bare ADR id: the SKILL's Step 4 cross-run
+        # dedup is `gh issue list --search "<target> in:title"`, which is
+        # type-blind, so a bare id would be permanently swallowed by the
+        # dangling_adr issue this finding exists to explain.
+        key = f"reservation:{adr}"
+        found[nnn] = {
+            "type": "unparsed_adr_reservation",
+            "adr": adr, "target": key, "key": key,
+            "shape": shape,
+            "confidence": "high",
+            "counter_evidence": _RESERVATION_COUNTER_EVIDENCE,
+            "suggested_action": (
+                f"Record {adr} in CLAUDE.md's Reference Documents table as a "
+                f"`|` row whose first cell is `{ADR_DIR}/{adr}.md` and whose "
+                "text carries a reserved / not-yet-written marker — the shape "
+                "load_reserved_adrs parses. Any other shape reads as absent "
+                f"and floods every {adr} reference as dangling_adr."),
+            "file": rel, "line": lineno,
+        }
+
+    # (b) first: it names the authoritative listing, so its file:line is the
+    # more useful anchor when both shapes describe the same ADR.
+    for nnn, (_title, lineno) in sorted(index_adrs.items()):
+        if nnn in on_disk or nnn in reserved_adrs:
+            continue
+        register(nnn, DEFAULT_INDEX, lineno, "listed-in-index")
+
+    if not reserved_adrs:
+        try:
+            lines = claude_md.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            lines = []
+        for lineno, line in enumerate(lines, 1):
+            if not RESERVED.search(line):
+                continue
+            for m in ADR_REF.finditer(line):
+                nnn = m.group(1)
+                if nnn in on_disk:
+                    continue
+                register(nnn, "CLAUDE.md", lineno, "marker-not-in-table-row")
+
+    return list(found.values())
 
 
 def build_yaml_index(root: Path) -> dict[str, list[str]]:
@@ -527,11 +677,20 @@ def main() -> int:
                     else root / DEFAULT_PBXPROJ)
     resolved = load_resolved(resolved_path)
     min_ios = load_min_ios(pbxproj_path)
-    reserved_adrs = load_reserved_adrs(root / "CLAUDE.md")
+    claude_md = root / "CLAUDE.md"
+    reserved_adrs = load_reserved_adrs(claude_md)
+    index_adrs = load_index_adrs(root / DEFAULT_INDEX)
+    on_disk = adr_files_on_disk(root)
     yaml_index = build_yaml_index(root)
 
     auto: list[dict] = []
-    judg: list[dict] = []
+    # Repo-level pre-pass, deliberately outside the per-doc loop. scan_doc
+    # `continue`s past every reserved-marked line before its judgment detectors
+    # run — which is exactly the line this check must read — and its findings
+    # concern single, named files rather than whichever doc is being scanned.
+    # Emitted first so they precede the dangling_adr flood they explain.
+    judg: list[dict] = reservation_findings(
+        claude_md, reserved_adrs, index_adrs, on_disk)
     for doc in discover_docs(root):
         a, j = scan_doc(doc, root, resolved, min_ios, reserved_adrs, yaml_index)
         auto.extend(a)

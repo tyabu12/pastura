@@ -16,6 +16,17 @@ trap 'rm -rf "$TMP"' EXIT
 fail() { echo "FAIL: $1" >&2; exit 1; }
 af_len() { echo "$1" | jq '.auto_fixable | length'; }
 nj_len() { echo "$1" | jq '.needs_judgment | length'; }
+nj_type_len() { echo "$1" | jq --arg t "$2" '[.needs_judgment[] | select(.type==$t)] | length'; }
+# The SKILL's Step 4 cross-run dedup is `gh issue list --search "<target>
+# in:title"` — type-blind, so two finding types sharing a target silently
+# suppress each other across runs. Asserted per fixture, not just where two
+# types happen to fire today.
+no_target_collision() {
+  local n
+  n=$(echo "$1" | jq '[.needs_judgment[] | {t:.type, g:.target}] | group_by(.g)
+                      | map(select((map(.t) | unique | length) > 1)) | length')
+  [ "$n" -eq 0 ] || fail "$2: $n target(s) shared across finding types (Step 4 dedup is type-blind): $(echo "$1" | jq -c '[.needs_judgment[]|{type,target}]')"
+}
 
 # --- clean fixture: zero findings (doubles as the must-NOT-fire set) --------
 OUT=$(python3 "$AUDIT" --repo-root fixtures/clean \
@@ -111,6 +122,12 @@ done
 # a target aliasing the ADR id (Step 4 `<target> in:title` dedup depends on it).
 echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dangling_adr") | (has("adr") and has("target") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target==.adr))] | all' >/dev/null \
   || fail "adr: a dangling_adr finding is missing its judgment scalars or target!=adr"
+# The reservation canary must stay SILENT here: the ADR-006 row parses, so the
+# reserved set is non-empty and shape (a) is gated off — which is what keeps
+# ADR-098's legitimate inline "(reserved — not yet written)" mention quiet.
+# Without that gate the canary would fire on every inline-marked reference.
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 0 ] \
+  || fail "adr: unparsed_adr_reservation must stay silent when the row parses: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="unparsed_adr_reservation")]')"
 
 # --- adr-reservation-reshaped: negative control for the table-row shape -----
 # The `adr` fixture above asserts ADR-006 stays SILENT when its reservation is
@@ -127,6 +144,32 @@ echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dangling_adr" and .adr==
   || fail "reshaped: ADR-006 must be flagged when its reservation is not in table-row shape"
 echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dangling_adr" and .adr=="ADR-001")' >/dev/null \
   && fail "reshaped: ADR-001 resolves to a file and must NOT be flagged" || true
+# ...and the canary that explains the flood fires alongside it, via shape (a):
+# a marker line naming a fileless ADR while the reserved set came back empty.
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
+  || fail "reshaped: expected 1 unparsed_adr_reservation, got $(nj_type_len "$OUT" unparsed_adr_reservation)"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="unparsed_adr_reservation" and .adr=="ADR-006" and .shape=="marker-not-in-table-row" and .target=="reservation:ADR-006")' >/dev/null \
+  || fail "reshaped: unparsed_adr_reservation missing, mis-shaped, or not namespaced: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="unparsed_adr_reservation")]')"
+no_target_collision "$OUT" "reshaped"
+
+# --- adr-reservation-deleted: the canary's second shape ---------------------
+# Next compaction step after `reshaped`: the reservation prose is gone from
+# CLAUDE.md entirely, so scanning it for marker words finds nothing. INDEX.md
+# still lists the ADR with no file behind it, which shape (b) keys on — no
+# empty-reserved-set gate needed, since that combination is unambiguous.
+OUT=$(python3 "$AUDIT" --repo-root fixtures/adr-reservation-deleted)
+[ "$(af_len "$OUT")" -eq 0 ] || fail "deleted: auto_fixable should be empty: $(echo "$OUT" | jq -c .auto_fixable)"
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
+  || fail "deleted: expected 1 unparsed_adr_reservation, got $(nj_type_len "$OUT" unparsed_adr_reservation)"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="unparsed_adr_reservation" and .adr=="ADR-006" and .shape=="listed-in-index")' >/dev/null \
+  || fail "deleted: ADR-006 must fire via the INDEX listing: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="unparsed_adr_reservation")]')"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="unparsed_adr_reservation" and .adr=="ADR-001")' >/dev/null \
+  && fail "deleted: ADR-001 is backed by a file and must NOT fire" || true
+no_target_collision "$OUT" "deleted"
+# every unparsed_adr_reservation carries the pre-authored judgment scalars the
+# SKILL's Step 4 uses verbatim, and a namespaced target (never a bare ADR id).
+echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="unparsed_adr_reservation") | (has("adr") and has("shape") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target == "reservation:" + .adr))] | all' >/dev/null \
+  || fail "deleted: an unparsed_adr_reservation finding is missing its judgment scalars or namespaced target"
 
 # --- mirror fixture: inverted embedded-source-mirror detector --------------
 # FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /
@@ -144,6 +187,12 @@ echo "$OUT" | jq -e '.auto_fixable[] | select(.dependency=="Yams" and .expected=
   || fail "mirror: dead_link did not fire beside a mirror block"
 [ "$(echo "$OUT" | jq '[.needs_judgment[]|select(.type=="dangling_adr")]|length')" -eq 1 ] \
   || fail "mirror: dangling_adr did not fire beside a mirror block"
+# This fixture has no CLAUDE.md at all, so the reserved set is empty while an
+# ADR reference exists — the literal condition #1309 first proposed. It must
+# NOT fire: an empty reserved set is the normal state for a repo that reserves
+# nothing, and firing here would flood every such repo.
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 0 ] \
+  || fail "mirror: unparsed_adr_reservation must not fire on an empty reserved set alone"
 # exactly four mirror findings: mirrors.md's three FIRE blocks + coexist's one
 MIR=$(echo "$OUT" | jq '[.needs_judgment[]|select(.type=="embedded_source_mirror")]|length')
 [ "$MIR" -eq 4 ] || fail "mirror: expected 4 embedded_source_mirror, got $MIR: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="embedded_source_mirror").target]')"
