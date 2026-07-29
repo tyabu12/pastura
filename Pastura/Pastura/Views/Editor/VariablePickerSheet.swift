@@ -5,7 +5,7 @@ import SwiftUI
 /// inserts the tapped token into the prompt / template at the caret.
 ///
 /// Sheet-owned `NavigationStack` (exempt from the tab-stack `navigationDestination`
-/// rule — `.claude/rules/navigation.md` § "Sheets … out of scope"). Presented via
+/// rule — `.claude/rules/navigation.md` § "Sheets, popovers, fullScreenCover — out of scope"). Presented via
 /// `.sheet(isPresented:)` on the prompt / template editor's footer button, not a
 /// second sibling `.sheet` on `PhaseEditorSheet.body` (which already presents the
 /// nested sub-phase editor).
