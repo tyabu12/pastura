@@ -112,6 +112,22 @@ done
 echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="dangling_adr") | (has("adr") and has("target") and has("confidence") and has("counter_evidence") and has("suggested_action") and (.target==.adr))] | all' >/dev/null \
   || fail "adr: a dangling_adr finding is missing its judgment scalars or target!=adr"
 
+# --- adr-reservation-reshaped: negative control for the table-row shape -----
+# The `adr` fixture above asserts ADR-006 stays SILENT when its reservation is
+# a table row — a success case, which passes whether or not load_reserved_adrs
+# actually requires that shape. This fixture is the negative control: the same
+# reservation in prose (marker + ADR-006, no `|`, no path cell) must NOT be
+# absorbed, so ADR-006 fires. Without it the shape requirement is asserted by
+# nobody, which is how PR #1310 shipped the regression this fixture reproduces.
+OUT=$(python3 "$AUDIT" --repo-root fixtures/adr-reservation-reshaped)
+[ "$(af_len "$OUT")" -eq 0 ] || fail "reshaped: auto_fixable should be empty: $(echo "$OUT" | jq -c .auto_fixable)"
+RSH_DAD=$(echo "$OUT" | jq '[.needs_judgment[] | select(.type=="dangling_adr")] | length')
+[ "$RSH_DAD" -eq 1 ] || fail "reshaped: expected 1 dangling_adr, got $RSH_DAD: $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.type=="dangling_adr").adr]')"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dangling_adr" and .adr=="ADR-006")' >/dev/null \
+  || fail "reshaped: ADR-006 must be flagged when its reservation is not in table-row shape"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="dangling_adr" and .adr=="ADR-001")' >/dev/null \
+  && fail "reshaped: ADR-001 resolves to a file and must NOT be flagged" || true
+
 # --- mirror fixture: inverted embedded-source-mirror detector --------------
 # FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /
 # epsilon tilde-fenced-with-backtick-content); SILENT on identical (beta),
