@@ -1,0 +1,351 @@
+<!-- @dsCard group="Colors" name="Meta presets & header slots — dark" subtitle="§2.4/§2.12 の 15 トークン — night 対 14 + 両外観固定 1（ADR-028 gate 1 スライス2）" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — Meta presets &amp; header slots (dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  /* Same placement as `colors-states-dark.html`: the class goes on each
+     `.section`, because `card.css` sets `.section { background: var(--screen-bg) }`
+     and a card-level override would leave every swatch sitting on cream — the
+     one surface these values must NOT be judged against. */
+  .section.night {
+    background: var(--night-bg);
+    border-color: var(--night-rule);
+    color: var(--night-ink);
+  }
+  .night .section-label { color: var(--night-ink-2); }
+  .night .section-note { color: var(--night-muted); }
+  .night code { color: var(--night-ink-2); }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 26px 26px 1fr auto;
+    align-items: center;
+    gap: 10px;
+    padding: 3px 0;
+    font-size: 11px;
+  }
+  .pair .sq {
+    width: 26px;
+    height: 26px;
+    border-radius: 5px;
+    border: 1px solid rgba(232, 229, 216, 0.18);
+  }
+  .pair .hexes {
+    font-family: "JetBrains Mono", monospace;
+    color: var(--night-muted);
+    font-size: 10px;
+  }
+  .pair .tok { color: var(--night-ink); }
+  .ratio {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--night-ink-2);
+    white-space: nowrap;
+  }
+
+  /* Ladder — the whole point of this card. Light reads L1→L4 as progressively
+     DARKER; dark must read as progressively BRIGHTER. Shown as two strips so
+     the inversion is a single glance rather than a table lookup. */
+  .ladder { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 8px 0 4px; }
+  .rung { border-radius: 6px; padding: 9px 8px; text-align: center; }
+  .rung .lv {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    letter-spacing: .08em;
+    opacity: .75;
+    display: block;
+    margin-bottom: 5px;
+  }
+  .rung .sample { font-size: 12px; font-weight: 500; display: block; }
+  .rung .r { font-family: "JetBrains Mono", monospace; font-size: 9px; display: block; margin-top: 4px; opacity: .7; }
+  .strip-label {
+    font-size: 10px;
+    letter-spacing: .06em;
+    margin: 12px 0 2px;
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* Screen mocks, light and dark side by side — a dark value is judged against
+     the light original it replaces, not on its own. */
+  .sbs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  @media (max-width: 620px) { .sbs { grid-template-columns: 1fr; } }
+  .mock { border-radius: var(--radius-promo); padding: 12px 14px; font-size: 12px; }
+  .mock.light { background: var(--promo-bg); border: 1px solid var(--promo-border); }
+  .mock.dark { background: var(--night-bubble); border: 1px solid var(--night-rule); }
+  .metaline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .06em;
+  }
+  .dots { display: flex; gap: 2.5px; align-items: center; }
+  .dots i { width: 4px; height: 4px; border-radius: 999px; display: block; }
+  .eta { font-family: "JetBrains Mono", monospace; font-size: 10px; margin-top: 4px; }
+
+  .hdr { border-radius: 8px; padding: 10px 12px; }
+  .hdr.light { background: var(--screen-bg); border: 1px solid var(--rule); }
+  .hdr.dark { background: var(--night-bg); border: 1px solid var(--night-rule); }
+  .hdr-title { font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+  .hdr-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    letter-spacing: .04em;
+  }
+  .hdr-meta .push { margin-left: auto; }
+  .pending {
+    border: 1px dashed rgba(232, 229, 216, 0.35);
+    border-radius: 4px;
+    padding: 0 3px;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — Meta presets &amp; header slots（dark）</p>
+  <p class="section-note" style="margin-top:-4px">
+    ADR-028 § Rollout gate 1 のスライス2（15 トークン ＝ ダーク対 14 + 両外観固定 1）。左が light、右がそのダーク対。
+    <strong>正典は <code>design-system.md</code> §2.9</strong>、このカードはその視覚ミラー。
+    設計時はサインオフ面として値の確定に先行したが、確定後は §2.9 が上位 — 食い違ったら §2.9 が正しい。
+    アプリは <code>UIUserInterfaceStyle = Light</code> 固定なので、この配色が実機に出るのは gate 1〜5 が
+    すべて閉じてから。
+    <br>
+    <strong>暫定の地</strong>: §2.4 の実描画面は <code>PromoCard</code> の
+    <code>--promo-bg</code> (#FBFAF2) だが、この light トークンはまだ未ペア（スライス4）。
+    ここでは <code>--night-bubble</code> (#2C2F28) を暫定地として設計している。
+    スライス4 は <code>promoBackground</code> のダーク値を
+    <strong>#2A2D26〜#2F3229 の帯に収める</strong>こと — 外れたらこの梯子は再検算が要る
+    （テストで赤くなる）。§2.12 の地は <code>screenBackground</code> がペア済みなので
+    <code>--night-bg</code> (#1B1D17) で確定。
+  </p>
+
+  <div class="section night">
+    <p class="section-label">§2.4 梯子の向きが反転する — これがこのスライスの核心</p>
+    <p class="section-note" style="margin-top:0">
+      light では L が上がるほど<strong>暗く</strong>なることで淡い地に対するコントラストが増す。
+      dark では同じ「強調」が<strong>明るく</strong>なる方向。だから L1→L4 は per-token の
+      変換式では表せず、梯子ごと設計し直している（ADR-028 § Amendment が
+      「機械変換不能」と名指しした唯一の項目）。
+    </p>
+
+    <p class="strip-label" style="color:var(--night-muted)">LIGHT — <code>metaBase</code> on #FBFAF2（暗くなる↓）</p>
+    <div class="ladder">
+      <div class="rung" style="background:#FBFAF2"><span class="lv" style="color:#4A4E3D">L1</span><span class="sample" style="color:#8A8B76">1.8 GB / 2.9 GB</span><span class="r" style="color:#4A4E3D">3.32:1</span></div>
+      <div class="rung" style="background:#FBFAF2"><span class="lv" style="color:#4A4E3D">L2</span><span class="sample" style="color:#6A6D5A">1.8 GB / 2.9 GB</span><span class="r" style="color:#4A4E3D">5.08:1</span></div>
+      <div class="rung" style="background:#FBFAF2"><span class="lv" style="color:#4A4E3D">L3 既定</span><span class="sample" style="color:#4A4E3D">1.8 GB / 2.9 GB</span><span class="r" style="color:#4A4E3D">8.19:1</span></div>
+      <div class="rung" style="background:#FBFAF2"><span class="lv" style="color:#4A4E3D">L4</span><span class="sample" style="color:#2D2E26">1.8 GB / 2.9 GB</span><span class="r" style="color:#4A4E3D">13.11:1</span></div>
+    </div>
+
+    <p class="strip-label" style="color:var(--night-muted)">DARK — <code>nightMetaBase</code> on #2C2F28（明るくなる↑）</p>
+    <div class="ladder">
+      <div class="rung" style="background:var(--night-bubble)"><span class="lv" style="color:var(--night-ink-2)">L1</span><span class="sample" style="color:var(--night-meta-base-l1)">1.8 GB / 2.9 GB</span><span class="r" style="color:var(--night-ink-2)">3.33:1</span></div>
+      <div class="rung" style="background:var(--night-bubble)"><span class="lv" style="color:var(--night-ink-2)">L2</span><span class="sample" style="color:var(--night-meta-base-l2)">1.8 GB / 2.9 GB</span><span class="r" style="color:var(--night-ink-2)">5.08:1</span></div>
+      <div class="rung" style="background:var(--night-bubble)"><span class="lv" style="color:var(--night-ink-2)">L3 既定</span><span class="sample" style="color:var(--night-meta-base-l3)">1.8 GB / 2.9 GB</span><span class="r" style="color:var(--night-ink-2)">8.16:1</span></div>
+      <div class="rung" style="background:var(--night-bubble)"><span class="lv" style="color:var(--night-ink-2)">L4</span><span class="sample" style="color:var(--night-meta-base-l4)">1.8 GB / 2.9 GB</span><span class="r" style="color:var(--night-ink-2)">10.77:1</span></div>
+    </div>
+
+    <p class="section-note">
+      L1〜L3 は light の比率をそのまま写している。<strong>L4 だけは写せない</strong> —
+      淡い地は near-black で 20.06:1 まで出せるが、暗いカード面 #2C2F28 の天井は
+      <strong>13.60:1</strong> で、light の 13.11:1 を再現すると余白がほぼ残らない。
+      ここで light の <code>metaBaseL4</code> が <code>ink</code> と同 hex (#2D2E26) である
+      ことが効く — ダーク側の答えは <code>nightInk</code> (#E8E5D8, 10.77:1) で、
+      <strong>天井に押し当てた値が既存ペアの答えと一致した</strong>。値を発明せずに
+      「L4 = 本文と同じ強さのメタ文字」という意味も保たれる。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">§2.4 — 3 ロール × 4 段（全12色）</p>
+
+    <p class="strip-label" style="color:var(--night-muted)">base（メタ文字本体）</p>
+    <div class="pair"><span class="sq" style="background:#8A8B76"></span><span class="sq" style="background:var(--night-meta-base-l1)"></span><span><span class="tok">metaBaseL1</span> <span class="hexes">#8A8B76 → #7E7F6B</span></span><span class="ratio">3.33:1 / light 3.32</span></div>
+    <div class="pair"><span class="sq" style="background:#6A6D5A"></span><span class="sq" style="background:var(--night-meta-base-l2)"></span><span><span class="tok">metaBaseL2</span> <span class="hexes">#6A6D5A → #9DA08C</span></span><span class="ratio">5.08:1 / light 5.08</span></div>
+    <div class="pair"><span class="sq" style="background:#4A4E3D"></span><span class="sq" style="background:var(--night-meta-base-l3)"></span><span><span class="tok">metaBaseL3</span> <span class="hexes">#4A4E3D → #C7CABC</span></span><span class="ratio">8.16:1 / light 8.19</span></div>
+    <div class="pair"><span class="sq" style="background:#2D2E26"></span><span class="sq" style="background:var(--night-meta-base-l4)"></span><span><span class="tok">metaBaseL4</span> <span class="hexes">#2D2E26 → #E8E5D8</span></span><span class="ratio">10.77:1 / light 13.11</span></div>
+
+    <p class="strip-label" style="color:var(--night-muted)">strong（同じ段の中の強調 — 常に base より強い）</p>
+    <div class="pair"><span class="sq" style="background:#5D6848"></span><span class="sq" style="background:var(--night-meta-strong-l1)"></span><span><span class="tok">metaStrongL1</span> <span class="hexes">#5D6848 → #A0AC88</span></span><span class="ratio">5.67:1 / light 5.67</span></div>
+    <div class="pair"><span class="sq" style="background:#3D4530"></span><span class="sq" style="background:var(--night-meta-strong-l2)"></span><span><span class="tok">metaStrongL2</span> <span class="hexes">#3D4530 → #D5DBCB</span></span><span class="ratio">9.60:1 / light 9.59</span></div>
+    <div class="pair"><span class="sq" style="background:#2D2E26"></span><span class="sq" style="background:var(--night-meta-strong-l3)"></span><span><span class="tok">metaStrongL3</span> <span class="hexes">#2D2E26 → #E8E5D8</span></span><span class="ratio">10.77:1 / light 13.11</span></div>
+    <div class="pair"><span class="sq" style="background:#1A1B15"></span><span class="sq" style="background:var(--night-meta-strong-l4)"></span><span><span class="tok">metaStrongL4</span> <span class="hexes">#1A1B15 → #F1F0E8</span></span><span class="ratio">11.89:1 / light 16.56</span></div>
+
+    <p class="strip-label" style="color:var(--night-muted)">dotOn（点灯した DL 進捗ドット）</p>
+    <div class="pair"><span class="sq" style="background:#8A9A6C"></span><span class="sq" style="background:var(--night-meta-dot-on-l1)"></span><span><span class="tok">metaDotOnL1</span> <span class="hexes">#8A9A6C → #A8B888</span></span><span class="ratio">消灯比 2.96:1 / light 2.03</span></div>
+    <div class="pair"><span class="sq" style="background:#7A8A5C"></span><span class="sq" style="background:var(--night-meta-dot-on-l2)"></span><span><span class="tok">metaDotOnL2</span> <span class="hexes">#7A8A5C → #B7C49C</span></span><span class="ratio">消灯比 3.42:1 / light 2.50</span></div>
+    <div class="pair"><span class="sq" style="background:#6B7852"></span><span class="sq" style="background:var(--night-meta-dot-on-l3)"></span><span><span class="tok">metaDotOnL3</span> <span class="hexes">#6B7852 → #C3CEAE</span></span><span class="ratio">消灯比 3.83:1 / light 3.17</span></div>
+    <div class="pair"><span class="sq" style="background:#556340"></span><span class="sq" style="background:var(--night-meta-dot-on-l4)"></span><span><span class="tok">metaDotOnL4</span> <span class="hexes">#556340 → #D5DDC6</span></span><span class="ratio">消灯比 4.50:1 / light 4.33</span></div>
+
+    <p class="section-note">
+      <strong>ドットだけ不変量が違う。</strong> base / strong は「地に対する比」を写しているが、
+      ドットの仕事は地に対してではなく<strong>消灯ドットに対して</strong>読めること。
+      消灯ドットは <code>moss@38%</code> で、<code>moss</code> は既にペア済みなので dark では
+      <code>nightMoss@38%</code>（= #5B634C）に動く。この床が light（#D0D6BF、地に対し 1.43:1）
+      より相対的に高いので、地基準で写すと点灯/消灯の差が 2.03→1.34:1 まで落ちて
+      ドットが機能しなくなる。
+      <br>
+      採ったのは <strong><code>nightMoss</code> を起点に明るくなる梯子</strong> — light の梯子が
+      <code>moss</code> を起点に暗くなるのの鏡像で、各段の明度差をそのまま反転させている。
+      結果 <code>metaDotOnL1 == nightMoss</code> となり、light の
+      <code>metaDotOnL1 == moss</code>（さらに <code>focusRing</code> とも同 hex）という
+      3者一致がダークにそのまま引き継がれた。消灯比も light を下回らない（2.96 / 3.42 / 3.83 / 4.50）。
+      <br>
+      <strong>代償を明示しておく</strong>: この置き方だと dark のドットは同じ段のメタ文字より
+      <em>明るく</em>なる（L1 で 6.40:1 対 3.33:1）。light では逆に少しだけ<em>控えめ</em>だった
+      （2.90 対 3.32）。ドットの機能（点灯判別）を守ると知覚重みの相対関係は保てない、という
+      トレードオフで、機能を採っている。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">§2.12 GameHeader スロット（地は <code>--night-bg</code>）— 2 対 + 1 固定</p>
+    <div class="pair"><span class="sq" style="background:#C2C0AE"></span><span class="sq" style="background:var(--night-header-rule)"></span><span><span class="tok">headerRule</span> <span class="hexes">#C2C0AE → #474535</span></span><span class="ratio">1.76:1 / light 1.76</span></div>
+    <div class="pair"><span class="sq" style="background:#4A4E3D"></span><span class="sq" style="background:var(--night-header-meta-ink)"></span><span><span class="tok">headerMetaInk</span> <span class="hexes">#4A4E3D → #B2B6A2</span></span><span class="ratio">8.18:1 / light 8.22</span></div>
+    <div class="pair"><span class="sq" style="background:#7B7D68"></span><span class="sq" style="background:#7B7D68"></span><span><span class="tok">headerMetaSubdued</span> <span class="hexes">#7B7D68 → 両外観で固定</span></span><span class="ratio">4.03:1 / light 4.04</span></div>
+    <p class="section-note">
+      <code>headerRule</code> は <code>--night-rule</code>（1.43:1）より<strong>強い</strong>まま
+      — light 側で <code>headerRule</code> が汎用 <code>rule</code> より暗い（行内タイポ
+      セパレータとして機能させる）のと同じ関係。
+      <br>
+      <code>headerMetaInk</code> は light で <code>metaBaseL3</code> と同 hex (#4A4E3D) だが、
+      design-system が「偶然の一致・統合するな」と明記している通り、
+      <strong>ダークでは値が分かれる</strong>（#B2B6A2 対 #C7CABC）。乗る面が違う
+      （<code>--night-bg</code> 対 <code>--night-bubble</code>）ので、同じ目標比を
+      別の地で解くと別の答えになる — doc の「役割で独立して進化させる」という主張が
+      ここで実際に効いた形。
+      <br>
+      <code>headerMetaSubdued</code> は<strong>ダーク対を持たない</strong>。L≈45% の
+      中間調は明地でも暗地でもほぼ同じ比になるので、自地コントラストを忠実に写した解
+      （4.04:1）が light 値そのものになる — 実測 #7B7D68 は <code>--night-bg</code> 上で
+      <strong>4.03:1</strong>。<strong>これは退化ではなく答えで</strong>、ADR-028 gate 1 は
+      「両外観で固定という記録」を designed dark value と同格の充足条件として明示している。
+      <code>everyPairsTwoSidesAreDistinguishableAtTolerance</code> が赤くなるのは
+      「別の値を発明しろ」ではなく「ペアにするな」という信号。
+      <br>
+      当初案は「<code>metaBaseL1</code> と <code>metaBaseL2</code> の中間明度」という
+      design-system の記述を不変量として写し #8E907B (5.20:1) を置いたが、あれは light 値の
+      <strong>導出メモ</strong>であって §2.12 が課す拘束ではない（§2.12 自身が「§2.4 とは
+      独立して進化させる」と宣言している）。実際それを写すと、doc が本当に述べている役割
+      — セパレータに埋もれない二次情報、すなわち ink との<strong>階層</strong> — が壊れる:
+      <code>headerMetaInk ÷ headerMetaSubdued</code> は light 2.032×、固定なら dark 2.031× で
+      保存されるのに、#8E907B では <strong>1.573×</strong> まで潰れる。
+      固定値は偶然 <code>--night-muted</code>（#7A7768, 3.78:1）のすぐ隣に着地しており、
+      tok/s というアンビエント情報に相応の「静謐ティア」にそのまま乗る。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">画面モック 1 — DL 進捗メタ行（<code>PromoCard</code>、L3 既定）</p>
+    <div class="sbs">
+      <div>
+        <p class="strip-label" style="color:var(--night-muted);margin-top:0">light</p>
+        <div class="mock light">
+          <div class="metaline" style="color:#4A4E3D">
+            <span>DL</span>
+            <span class="dots">
+              <i style="background:#6B7852"></i><i style="background:#6B7852"></i><i style="background:#6B7852"></i><i style="background:#6B7852"></i><i style="background:#6B7852"></i>
+              <i style="background:rgba(138,154,108,.38)"></i><i style="background:rgba(138,154,108,.38)"></i><i style="background:rgba(138,154,108,.38)"></i>
+            </span>
+            <span>62%</span><span style="color:rgba(74,78,61,.6)">·</span><span>1.8 GB / 2.9 GB</span>
+          </div>
+          <p class="eta" style="color:#2D2E26">残り 約4分</p>
+        </div>
+      </div>
+      <div>
+        <p class="strip-label" style="color:var(--night-muted);margin-top:0">dark</p>
+        <div class="mock dark">
+          <div class="metaline" style="color:var(--night-meta-base-l3)">
+            <span>DL</span>
+            <span class="dots">
+              <i style="background:var(--night-meta-dot-on-l3)"></i><i style="background:var(--night-meta-dot-on-l3)"></i><i style="background:var(--night-meta-dot-on-l3)"></i><i style="background:var(--night-meta-dot-on-l3)"></i><i style="background:var(--night-meta-dot-on-l3)"></i>
+              <i style="background:rgba(168,184,136,.38)"></i><i style="background:rgba(168,184,136,.38)"></i><i style="background:rgba(168,184,136,.38)"></i>
+            </span>
+            <span>62%</span><span style="color:rgba(199,202,188,.6)">·</span><span>1.8 GB / 2.9 GB</span>
+          </div>
+          <p class="eta" style="color:var(--night-meta-strong-l3)">残り 約4分</p>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">
+      ダーク側のカード地は暫定（<code>promoBackground</code> は未ペア）。点灯5・消灯3の
+      並びで点灯側が読めるか、ETA 行（<code>metaStrongL3</code>）が本文と同じ強さで
+      浮きすぎないか、が見るべき点。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">画面モック 2 — GameHeader 2 段レイアウト</p>
+    <div class="sbs">
+      <div>
+        <p class="strip-label" style="color:var(--night-muted);margin-top:0">light</p>
+        <div class="hdr light">
+          <p class="hdr-title" style="color:#2D2E26">人狼village</p>
+          <div class="hdr-meta">
+            <span style="color:#6B7852">ROUND 3 / 5</span>
+            <span style="color:#C2C0AE">·</span>
+            <span style="color:#4A4E3D">議論フェーズ</span>
+            <span class="push" style="color:#7B7D68">12.4 tok/s</span>
+          </div>
+        </div>
+      </div>
+      <div>
+        <p class="strip-label" style="color:var(--night-muted);margin-top:0">dark</p>
+        <div class="hdr dark">
+          <p class="hdr-title" style="color:var(--night-ink)">人狼village</p>
+          <div class="hdr-meta">
+            <span class="pending" style="color:#6B7852">ROUND 3 / 5</span>
+            <span style="color:var(--night-header-rule)">·</span>
+            <span style="color:var(--night-header-meta-ink)">議論フェーズ</span>
+            <span class="push" style="color:#7B7D68">12.4 tok/s</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="section-note">
+      破線で囲った <code>ROUND 3 / 5</code> は <code>mossDark</code> — <strong>まだ未ペア
+      （スライス4）</strong>なので light 値のまま暗地に乗っており、意図的に読みにくいまま
+      表示している。このスライスで直す対象ではないが、ヘッダー行の完成形はスライス4 を
+      待つ、ということがこのモックから見える。
+      <br>
+      <code>·</code> セパレータが行内で「レイアウト区切り」に見えず、
+      <code>12.4 tok/s</code> が phase 名より一段引いて見えるか、が見るべき点。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">検算</p>
+    <p class="section-note" style="margin-top:0">
+      ペア間隔の指標は「sRGB→線形変換後の <strong>per-RGB-channel 最小差 ÷ 0.005</strong>」
+      （0.005 = <code>DesignTokensTests</code> の <code>resolvedComponentsMatch</code> の許容差）。
+      使用前に既知ベースラインを再現確認済み — <code>muted</code> 11.91x /
+      <code>moss</code>・<code>focusRing</code> 19.25x / <code>warning</code> 15.15x が
+      doc の 11.9 / 19.2 / 15.2 と一致。
+      <br>
+      新規14対の最狭は <code>metaBaseL1</code> の <strong>6.8x</strong> で、
+      これが既存最狭 <code>muted</code> 11.9x を下回り<strong>全体の新しい最狭</strong>になる
+      （テストが赤くなる床は 1.0x なので十分な余裕）。中間調どうしのペアは本質的に
+      間隔が狭くなる — 淡い地の上のグレーと暗い地の上のグレーは、正しく置くと近い値になる。
+      <br>
+      hex 衝突は3件（<code>metaDotOnL1</code> = <code>nightMoss</code> = <code>nightFocusRing</code>、
+      <code>metaBaseL4</code> = <code>metaStrongL3</code> = <code>nightInk</code>）。
+      いずれも light 側の3者一致の忠実な写像だが、
+      <code>check_design_tokens_css.py</code> は hex の substring match なので
+      <strong>この3行は削除してもゲートが通る</strong> — diff で目視確認する。
+    </p>
+  </div>
+</div>
+</body>
+</html>
