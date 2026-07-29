@@ -255,7 +255,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 `.claude/rules/` contains detailed rules with two loading modes:
 
-**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`):
+**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`). **Verifying a `paths:` change needs a fresh session or a subagent** — the rule set is snapshotted at session start (a rule file created mid-session never injects) and each rule injects at most once per session, so re-reading a file in the editing session shows nothing either way (measured, #1312):
 
 - `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` (`docs/decisions/**`)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure). Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
