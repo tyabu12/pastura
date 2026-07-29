@@ -88,7 +88,7 @@
         <span class="who t-caption-name">Dave</span><span class="role">Wolf（狼）/ 中心人物</span>
       </div>
     </div>
-    <p class="section-note"><strong>耳と鼻はどの実装も描いていない</strong> — SheepAvatar.swift の Canvas も SoT の sheepAvatar() も body / face / eye / horn だけを描く（Swift はさらに highlight を描くが SoT は描かない）。同じプロトタイプ内の別関数 sheepSvg() は earColor を<em>引数に取るだけで使っていない</em>ので、おとりに注意。トークンとしては残すが、塗られてはいない。Source of Truth は<strong>ライト値のみ</strong>: demo-replay-reference.html の sheepAvatar() 関数。ダーク値の原点はそこには無く design-system.md §2.9（→ <a href="colors-avatar-dark.html">colors-avatar-dark.html</a>）。Swift 側の値は DesignTokensTests が固定するが、プロトタイプ→本表の一致を検証する経路は無い（目視）。アバターは飾り — VoiceOver では .accessibilityHidden(true)、隣接する Text(agent) が identity を担う（§8）。</p>
+    <p class="section-note"><strong>耳と鼻はどの実装も描いていない</strong> — SheepAvatar.swift の Canvas も SoT の sheepAvatar() も body / face / eye / horn だけを描く（Swift はさらに highlight を描くが SoT は描かない）。同じプロトタイプ内の別関数 sheepSvg() は<em>耳を描く</em>が、それはアシスタントマーク用の別系統（MARKS.sheep_* / MARK() は返さない）で、渡される色はハードコードの hex であって §2.5 の avatarEar ではない。おとりに注意。トークンとしては残すが、塗られてはいない。Source of Truth は<strong>ライト値のみ</strong>: demo-replay-reference.html の sheepAvatar() 関数。ダーク値の原点はそこには無く design-system.md §2.9（→ <a href="colors-avatar-dark.html">colors-avatar-dark.html</a>）。Swift 側の値は DesignTokensTests が固定するが、プロトタイプ→本表の一致を検証する経路は無い（目視）。アバターは飾り — VoiceOver では .accessibilityHidden(true)、隣接する Text(agent) が identity を担う（§8）。</p>
   </div>
 
   <div class="section">

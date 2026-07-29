@@ -12,7 +12,8 @@ import XCTest
 /// CI-skipped via `-skip-testing PasturaUITests/MarketingShotTests` in
 /// `ci.yml` — same class as `StoreScreenshotTests`. **ja / light only**: the app
 /// is pinned to light by `Info.plist`'s `UIUserInterfaceStyle`, so light is the
-/// only appearance it can render (eight tokens are trait-paired as of ADR-028,
+/// only appearance it can render (ADR-028's original eight tokens were the first
+/// trait-paired ones and the set has grown since,
 /// but the lock means dark never resolves).
 @MainActor
 final class MarketingShotTests: XCTestCase {

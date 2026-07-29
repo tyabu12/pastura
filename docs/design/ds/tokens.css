@@ -173,7 +173,9 @@
 
   /* §2.9 dark counterparts of the §2.5 character palette (#1319). The "moonlit
      pasture" treatment: the four bodies move down as a FAMILY, each keeping its
-     hue and absolute chroma, and every other part of a character follows from
+     hue and absolute chroma (HSL-derived, 2*S*min(L,1-L) — NOT HSL S, which
+     falls sharply, and not Lab chroma, which rises slightly), and every other
+     part of a character follows from
      that character's own light body-to-part contrast ratio. The 7.0-8.0:1 band
      on --night-bg is the designed thing; where inside it the family lands is a
      consequence. Unlike the §2.4 rows above, every value here is unique, so the

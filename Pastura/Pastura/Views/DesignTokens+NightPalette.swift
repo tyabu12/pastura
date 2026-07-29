@@ -313,13 +313,16 @@ extension PasturaPalette {
 
   /// Shared ear under dark mode.
   ///
-  /// **No renderer draws this.** Neither `SheepAvatar`'s `Canvas` nor the §2.5
-  /// source-of-truth `sheepAvatar()` in `docs/design/demo-replay-reference.html`
+  /// **No renderer draws this.** Neither `SheepAvatar`'s `Canvas` nor
+  /// `sheepAvatar()` in `docs/design/demo-replay-reference.html` — the source of
+  /// truth for §2.5's **light** values only —
   /// emits an ear — both draw body, face, eyes and horns only. Beware the decoy
   /// in that same prototype: a *different* function, `sheepSvg(bodyStroke:
-  /// faceColor: earColor:)`, takes an `earColor` and never uses it — it draws no
-  /// ear either, and it builds side-view marks (`MARKS.sheep_*`) that `MARK()`
-  /// never returns. The parameter name has already misled one reviewer. It is paired
+  /// faceColor: earColor:)`, **does** draw ears — but it is the side-view
+  /// assistant-mark builder, its ears take a hardcoded hex rather than this
+  /// token, and the marks it builds (`MARKS.sheep_*`) are ones `MARK()` never
+  /// returns. Two readers have now reached the wrong conclusion from it, in
+  /// opposite directions. It is paired
   /// anyway because §2.5 is public palette API and a half-paired section is a
   /// state no count paragraph can describe; the value rides the body family, so
   /// it stays correct if a renderer ever grows ears. Swatch-reviewed only —

@@ -34,8 +34,9 @@ import SwiftUI
 /// ## Only five members
 ///
 /// `avatarEar`, `avatarEarInner` and `avatarNose` are absent because no
-/// renderer draws them — neither this app's `Canvas` nor the §2.5
-/// source-of-truth `sheepAvatar()` in `docs/design/demo-replay-reference.html`.
+/// renderer draws them — neither this app's `Canvas` nor `sheepAvatar()` in
+/// `docs/design/demo-replay-reference.html`, which is the source of truth for
+/// §2.5's **light** values only (that prototype has no dark half).
 /// They remain tokens (see their declarations), but they are not part of what
 /// gets painted.
 struct SheepAvatarPalette {

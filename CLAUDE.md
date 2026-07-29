@@ -346,4 +346,4 @@ Titles are kept byte-identical to INDEX's `## ADR-NNN — <title>` headings. **N
 Two cross-cutting gotchas that fire outside their own ADR's subject area:
 
 - ⚠️ **ADR-022's no-default gate does not cover `==` predicates** — grep `== .<case>` when adding a case to any enum it governs (ADR-027).
-- ⚠️ **`Color.*` means "the device's appearance"** for the 57 paired tokens — a fixed-appearance consumer (`ImageRenderer` export) must read `PasturaPalette.<token>.color` directly, and so must any **component** it draws (ADR-028).
+- ⚠️ **`Color.*` means "the device's appearance"** for every token registered in `PasturaDynamicPalette` — a fixed-appearance consumer (`ImageRenderer` export) must read `PasturaPalette.<token>.color` directly, and so must any **component** it draws (ADR-028). Deliberately stated without a count: the number moves every gate-1 slice.
