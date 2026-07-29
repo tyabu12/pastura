@@ -1,11 +1,15 @@
 ---
 paths:
-  - "Pastura/Pastura/**/*.swift"
+  - "Pastura/Pastura/Views/**"
+  - "Pastura/Pastura/App/**"
+  - "Pastura/Pastura/PasturaApp.swift"
 ---
 
 # SwiftUI / Swift 6 Traps
 
-Aggregation point for SwiftUI footguns, Swift 6 isolation quirks, and build-graph/xcodeproj traps that surface during Pastura app development. Loaded when a Swift file in the app target is read (an edit reads it first). Cross-references to `navigation.md` (path-scoped to `Views/**` + `App/**` + `PasturaApp.swift`, a subset of this file's glob — so it loads alongside UI-layer edits but **not** alongside `Engine/` / `LLM/` / `Models/` / `Data/` / `Utilities/` edits) for AppRouter / `PasturaBackButton` mechanics — this file is the trap catalog, that one is the navigation pattern.
+Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface during Pastura UI development. Loaded when a file in the UI layers is read (an edit reads it first).
+
+**Scope** — the globs above are **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI (`grep -rl "import SwiftUI" Pastura/Pastura --include='*.swift'`). Not every one is a *SwiftUI* trap: § "Adding a `Color` design token = 5 files; the 5th fails silently (workflow trap, not SwiftUI)" has later steps landing in a test file and `docs/design/**` — it stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point at all — filename collisions, SwiftLint directive placement — live in `build-traps.md`, whose globs are the union of the two traps' differing reach. `navigation.md` carries AppRouter / `PasturaBackButton` mechanics: this file is the trap catalog, that one is the navigation pattern.
 
 ## Toolbar-hide API matrix (iOS 17 → 26)
 
@@ -155,41 +159,6 @@ button carries `scenarioDetail.runSimulationButton`).
 by exporting the a11y snapshot from the failing `.xcresult`:
 `xcrun xcresulttool export attachments --path <xcresult> --output-path <dir>`,
 then read the "App UI hierarchy" `.txt`.
-
-## Duplicate base filename → `.stringsdata` collision (build trap, not SwiftUI)
-
-Two Swift files with the same **base name** in one target fail the build with
-`error: Multiple commands produce '…/<Name>.stringsdata'` (each Swift file emits
-one `<BaseName>.stringsdata`). Easy to hit under Pastura's
-`PBXFileSystemSynchronizedRootGroup` — sync folder groups auto-include every new
-file under `Pastura/`, so a duplicate base name **anywhere** in the tree (even
-cross-layer) collides.
-
-**Apply**: before adding a file, `find Pastura/Pastura -name '<Name>*.swift'`;
-if taken, pick a distinct name (rename the type too if it also clashes). Case
-study: #759 renamed a new `ScenarioSummary.swift` (Views) that collided with the
-Data-layer `ScenarioSummary` → `ScenarioSummaryStrip`.
-
-## SwiftLint directive placement around a `///` doc comment (lint trap, not SwiftUI)
-
-A `swiftlint:disable[:next] X` directive can't cleanly suppress a rule on a
-declaration that also carries a `///` doc comment — **both** placements fail:
-
-- **Between the doc comment and the declaration** (a `// swiftlint:disable:next X`
-  line separating `/// …` from the `func`): detaches the doc comment, firing
-  `orphaned_doc_comment`.
-- **Inside the `///` block** (`/// swiftlint:disable:next X`): a **no-op** under
-  `swiftlint --strict` — the comment-command parser recognizes `//`-form only, so
-  the warning upgrades to an error unsuppressed. It looks load-bearing but is
-  untested until the body later crosses the threshold.
-
-**Apply** — don't relocate the directive; remove the need for it:
-
-- `function_body_length` → **extract a helper** so each body stays under the
-  threshold. Ref: `BundledDemoReplaySource.loadOne` → `buildSourceOrSkip`.
-- `identifier_name` (short domain identifiers like `ja` / `en`) → add a
-  **`.swiftlint.yml` `identifier_name.excluded`** entry (ref: the `ja` / `en`
-  exclusions consumed by `pickLanguage(_:ja:en:)`), or rename to 3+ chars.
 
 ## iOS 26 `.confirmationDialog` renders as a mis-anchored popover
 

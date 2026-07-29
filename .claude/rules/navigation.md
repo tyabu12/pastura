@@ -20,11 +20,21 @@ narrow`). `scripts/generate-navigation-map.py`'s `SCAN_DIRS` covers only
 `Views` and `App`, so the drift gate does **not** backstop it — this rule text is
 its only guard.
 
-The directory entries use the bare `**` form rather than `**/*.swift` because
-`App/` holds 68 direct-child `.swift` files (`AppRouter.swift` among them) and
-`Views/` holds 5: a `**/` that binds ≥1 path segment would silently drop every
-one. `App/**` reaches direct children under either globstar reading, and
-`Views/`+`App/` contain no non-Swift files, so the suffix would buy nothing.
+The directory entries use the bare `**` form rather than `**/*.swift` simply
+because `Views/`+`App/` contain no non-Swift files, so the suffix would buy
+nothing. It is **not** needed to reach direct children: measured, `**/` binds
+**zero** path segments in this matcher — reading `Pastura/Pastura/PasturaApp.swift`
+injects `i18n.md`, which is globbed `Pastura/Pastura/**/*.swift` (#1312; re-run it
+against `i18n.md` specifically — `swiftui-traps.md` carried that glob when the
+control was first taken but no longer does). **The positive control is the whole
+discriminator here**: the paired negative (reading `scripts/xcstrings-prune-stale.py`,
+which injects `i18n.md` not at all) sits outside the `Pastura/Pastura/` prefix, so it
+fails to match under *either* globstar reading and only rules out unconditional
+injection. An earlier
+revision of this paragraph asserted the opposite as the reason for the bare form;
+that inference was wrong, and the per-directory file counts it leaned on are gone
+with it. `PasturaApp.swift` still needs its own entry — for the reason in the
+paragraph above, that no *directory* glob reaches a top-level file.
 
 **Accepted gaps**: a session that reaches a matching file only via Bash or
 `Grep` — never a `Read` — does not load this rule; and test files fall outside,
@@ -230,7 +240,7 @@ auto-applies based on `ToolbarItemPlacement`. See
 **Title display mode (`.large` / `.inline`)**: which pushed screen uses
 a large vs inline navigation title is a design-system convention, not a
 routing concern — see `docs/design/design-system.md`
-§ "Navigation title display mode". This rule governs only the back
+§ 5.11 "Navigation title display mode". This rule governs only the back
 button / toolbar chrome.
 
 ## Sheets, popovers, fullScreenCover — out of scope

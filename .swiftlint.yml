@@ -62,7 +62,7 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: warning
-    message: "User-facing String must be wrapped with String(localized: \"...\") so it lands in Localizable.xcstrings and gets a `ja` translation. See CLAUDE.md § 'User-facing String literals' and docs/i18n/leak-detection.md."
+    message: "User-facing String must be wrapped with String(localized: \"...\") so it lands in Localizable.xcstrings and gets a `ja` translation. See the CLAUDE.md 'User-facing String literals' convention and docs/i18n/leak-detection.md."
 
   # Form A interpolation hazard (#629) — `String(localized: "...\(x)...")`
   # (Swift-interpolation, "Form A") produces a `%arg` catalog key, but the
@@ -85,7 +85,7 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "String(localized: \"...\\(x)...\") (Form A) silently falls back to English on ja — the interpolated runtime key misses the %arg catalog entry. Use Form B: String(format: String(localized: \"...%@...\"), x). See .claude/rules/i18n.md § 'Form A is a runtime hazard'."
+    message: "String(localized: \"...\\(x)...\") (Form A) silently falls back to English on ja — the interpolated runtime key misses the %arg catalog entry. Use Form B: String(format: String(localized: \"...%@...\"), x). See .claude/rules/i18n.md § 'Form A is a runtime hazard at user-facing callsites'."
 
   # ADR-002 §12 — `tryClaimGeneratingGuard` / `forceClaimGeneratingGuard` are
   # internal-access only because the cross-file `+Lifecycle.swift` extension
