@@ -24,8 +24,8 @@ Validates that every top-level key in ``Localizable.xcstrings`` has a complete
    block is present (sync emits one for multi-arg positional forms), its
    ``stringUnit.state`` must be ``"translated"`` with a non-empty value. Keys
    with no ``en`` block use the key literal as their source and stay valid.
-   This enforces the ``en`` half of .claude/rules/i18n.md § "state=new + en-only
-   after sync" — "flip BOTH ``en`` and ``ja`` ``state`` to ``translated``"
+   This enforces the ``en`` half of .claude/rules/i18n-catalog.md § "state=new +
+   en-only after sync" — "flip BOTH ``en`` and ``ja`` ``state`` to ``translated``"
    (#676).
 
 Run ``--self-test`` to exercise the failure paths against in-memory fixtures
@@ -102,7 +102,7 @@ def validate_catalog(data: dict[str, Any]) -> list[str]:
         # block (the source is the key literal itself) and must stay valid;
         # but when sync emits a positional-form `en` block (multi-arg keys),
         # its `state` must reach "translated" too, mirroring the workflow in
-        # .claude/rules/i18n.md § "state=new + en-only after sync" (#676).
+        # .claude/rules/i18n-catalog.md § "state=new + en-only after sync" (#676).
         errors.extend(_validate_source_locale(key, entry))
 
     return errors

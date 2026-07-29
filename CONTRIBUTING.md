@@ -115,8 +115,11 @@ accessibility labels, and so on) must be wrapped in
 `String(localized: "...")` so it lands in `Localizable.xcstrings` and
 gets a Japanese translation. SwiftLint has a tripwire for this, and CI
 checks coverage. See
-[`docs/i18n/leak-detection.md`](docs/i18n/leak-detection.md) and
-[`.claude/rules/i18n.md`](.claude/rules/i18n.md).
+[`docs/i18n/leak-detection.md`](docs/i18n/leak-detection.md) for the
+architecture, [`.claude/rules/i18n.md`](.claude/rules/i18n.md) for the
+Swift-side conventions, and
+[`.claude/rules/i18n-catalog.md`](.claude/rules/i18n-catalog.md) when you
+edit `Localizable.xcstrings` itself.
 
 ### Content blocklist
 
