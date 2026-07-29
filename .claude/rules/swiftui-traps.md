@@ -258,11 +258,9 @@ that list's documented size, not completeness: an unregistered pair still passes
 light alias repointed from `PasturaPalette.x.color` to `PasturaDynamicPalette.x.color`, plus
 steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both** pairing
 files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are inert to
-it — only the new `night*` hex needs a `tokens.css` row. See ADR-028.
-
-Those three `DesignTokens+*` filenames are load-bearing beyond taste:
-`check_design_tokens_css.py` globs `Pastura/Pastura/Views/DesignTokens*.swift`, so renaming
-any of them out of that glob takes the mirror gate blind with no signal.
+it — only the new `night*` hex needs a `tokens.css` row. Keep every `DesignTokens+*` filename
+inside `check_design_tokens_css.py`'s glob; renaming one out blinds the gate silently (each
+file's own header says so). See ADR-028.
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
@@ -344,11 +342,9 @@ eight, the §2.6 alert family and §2.7 interactive states from #1282, and the
 inside `ImageRenderer` content means "whatever appearance the renderer
 resolved" — and an explicitly light or dark export becomes unexpressible. The
 other 76 aliases are still fixed (28 unpaired light tokens, 40 `night*`,
-4 time-of-day, 4 chart — that total happens not to move per slice, because each
-adds a `night*` alias for every light one it takes out of the unpaired set), so
-a token-styled view otherwise rasterizes in one appearance regardless of
-device. **This set grows with each gate-1 slice** — do not treat a specific
-alias as fixed without checking `PasturaDynamicPalette`.
+4 time-of-day, 4 chart), so a token-styled view otherwise rasterizes in one
+appearance regardless of device. **This set grows with each gate-1 slice** — do
+not treat a specific alias as fixed without checking `PasturaDynamicPalette`.
 
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette
