@@ -78,7 +78,7 @@ should migrate to inline rationale or a public doc home.
 
 ## Rule-writing self-check
 
-When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an **executable assertion** — a grep command with an asserted hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a byte/line delta you quote about your own changeset** — execute it against current main state **before commit**, and re-measure self-quoted deltas on the *final* commit (an intermediate figure surviving into the final message is the characteristic failure).
+When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an **executable assertion** — a grep command with an asserted hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a self-quoted byte/line delta** (re-measure on the *final* commit) — execute it against current main state **before commit**.
 
 Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
 
@@ -119,10 +119,10 @@ A **why-comment you write** asserts runtime or library behaviour as the reason a
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
-Motivating incidents: PR #1152 round-1 review; PR #1299 review rounds 1–3; #1312's own review rounds, where three successive fix commits each introduced a fresh false *reason* for a change whose *content* was correct.
+Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4.
 
 ### Verifying a `paths:` edit needs a fresh session
 
-The rule set is snapshotted at session start (measured, #1312), so a rule file created mid-session never injects however correct its glob — and re-reading a file that should *no longer* match shows nothing either way. Absence is what success and a broken glob both look like.
+The rule set is snapshotted at session start (measured, #1312), so the editing session can never observe its own `paths:` change — a new or narrowed rule stays absent there, exactly as a broken glob would.
 
-**Apply**: verify from **fresh subagent sessions**, one `Read` each, always including a **positive** control (a file that should still match). Without it, "absent where expected" is indistinguishable from having deleted the file.
+**Apply**: verify from fresh subagent sessions, one `Read` each, with a **positive** control (a file that should still match).

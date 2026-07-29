@@ -15,9 +15,6 @@ or `scripts/xcstrings-prune-stale.py` mutates the catalog without any agent `Rea
 keys" are absent from exactly the sessions they govern. **Read this file explicitly
 before any scripted catalog mutation.**
 
-Non-injection on Swift-only reads verified from fresh subagent sessions (#1312) — the
-exact-path (non-glob) `paths:` entry above is an untested shape otherwise.
-
 ## xcstringstool sync output
 
 `scripts/xcodebuild.sh build` auto-runs `xcrun xcstringstool sync` against `Localizable.xcstrings`. For **multi-arg** keys, sync generates a catalog entry with the source key plus a positional-form `en` block:
@@ -87,7 +84,7 @@ A Python script that fills `ja` across many catalog keys at once will **silently
 `scripts/check_localization_coverage.py` does **not** catch this: it validates *presence + state + non-emptiness + extractionState*, never *value correctness*. A wrong-but-translated `ja` passes the gate clean, so the drift reaches main silently (caught only by a code-reviewer reading the catalog diff).
 
 **Before a batch ja-fill:** grep every target key's consumers —
-`rg 'String\(localized: "KEY")' Pastura/Pastura --type swift`. A key with ≥2 consumers on different surfaces is **shared**: reuse its prior `ja` verbatim, or split into export-only keys. Make the script idempotent — skip the overwrite when `state == "translated"` and `value` is non-empty. See #382 (a `Paused` ja value shifted under an unrelated export wrap).
+`rg -F 'String(localized: "KEY")' Pastura/Pastura --type swift`. A key with ≥2 consumers on different surfaces is **shared**: reuse its prior `ja` verbatim, or split into export-only keys. Make the script idempotent — skip the overwrite when `state == "translated"` and `value` is non-empty. See #382 (a `Paused` ja value shifted under an unrelated export wrap).
 
 ## A role word in ja copy must follow `thoughtField`, not "this field feels private"
 

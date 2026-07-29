@@ -8,24 +8,13 @@ paths:
 
 # Build & Lint Traps
 
-Traps that fire when **adding or naming a Swift file**, independent of which layer it lives in —
-so scoping them to the UI layers alongside `swiftui-traps.md` would hide them from `Engine/` /
-`LLM/` / `Models/` / `Data/` / `Utilities/`, test, and harness work.
+Traps that fire when **adding or naming a Swift file**, in any layer and any target — hence the
+globs above, which are the union of the two traps' reach.
 
-The two have **different reach**; the globs above are their union, not a shared scope:
-
-- **`.stringsdata` collision** — gated by `SWIFT_EMIT_LOC_STRINGS`, which `Pastura.xcodeproj`
-  sets `YES` on the **app target only**. Measured in `Pastura/DerivedData`: 719 `.stringsdata`
-  under `Pastura.build`, **zero** under `PasturaTests.build` / `PasturaUITests.build`, and zero
-  under SwiftPM's `.build` (no such flag). So this trap reaches `Pastura/Pastura/**` and the
-  Xcode-built SPM dependencies — not the test targets, not the harness.
-- **SwiftLint directive placement** — fires wherever `swiftlint` lints, which per
-  `.swiftlint.yml` `included:` is `Pastura` **and** `tools/harness`. Not a UI-layer concern: the
-  canonical `pickLanguage` case sits in `Pastura/Pastura/Engine/`. **This trap alone justifies
-  the test-target and harness globs.**
-
-Injection verified from fresh subagent sessions (#1312) — per `knowledge-layering.md`, a
-`paths:` edit cannot be checked from the session that made it.
+Duplicate base filenames fail the build in **every** Swift target: `swiftc` rejects them outright
+(`filename "Foo.swift" used twice`) and SwiftPM errors on duplicate `.o` producers. The
+`.stringsdata` wording below is just the app-target surface, where `SWIFT_EMIT_LOC_STRINGS = YES`.
+The SwiftLint trap fires wherever `.swiftlint.yml` `included:` reaches.
 
 ## Duplicate base filename → `.stringsdata` collision
 
