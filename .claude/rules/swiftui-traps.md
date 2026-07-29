@@ -335,19 +335,15 @@ adopt early-return comment in `SimulationView`).
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 
-**The `Color.*` aliases now make this sharper, not milder.** **57** of them
-resolve light↔dark against the ambient interface style (ADR-028's original
-eight, the §2.6 alert family and §2.7 interactive states from #1282, the
-§2.4 meta presets plus two §2.12 header slots from #1313, and the §2.5
-character palette from #1319), so reading one inside `ImageRenderer` content
-means "whatever appearance the renderer resolved" — and an explicitly light or
-dark export becomes unexpressible. The other 76 aliases are still fixed — the
-**total** is unchanged by a slice, but its split is not: 11 unpaired light
-tokens, 57 `night*`, 4 time-of-day, 4 chart. So a token-styled view otherwise
-rasterizes in one appearance regardless of device. **This set grows with each
-gate-1 slice** — do not treat a specific alias as fixed without checking
-`PasturaDynamicPalette`. A count sweep that greps for the changed numbers will
-skip this paragraph, because 76 stays 76 while the breakdown goes wrong.
+**The `Color.*` aliases make this sharper, not milder.** Most of them resolve
+light↔dark against the ambient interface style, so reading one inside
+`ImageRenderer` content means "whatever appearance the renderer resolved" — and
+an explicitly light or dark export becomes unexpressible. The rest are fixed
+(unpaired light tokens, `night*`, time-of-day, chart), so a token-styled view
+otherwise rasterizes in one appearance regardless of device. **The paired set
+grows with each gate-1 slice** — do not treat a specific alias as fixed without
+checking `PasturaDynamicPalette`, whose doc comment carries the current
+membership and its slice-by-slice provenance.
 
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette
@@ -366,11 +362,10 @@ creeping back into that palette reddens. ADR-009 rules out snapshots, so any
 Reference consumers: `HighlightCardPalette`, and `SheepAvatarPalette` for the
 avatar that card draws.
 
-**The consumer is not always the view you migrated.** #1319 paired §2.5 and
-that silently un-pinned the card's sheep — `SheepAvatar` is a *component*
-`HighlightShareCard` renders, so it inherited the constraint without appearing
-in any list of fixed-appearance consumers. When pairing a family, ask not "does
-a fixed-appearance consumer read this token" but "does one read a **view** that
-reads it".
+**The consumer is not always the view you migrated.** A component a
+fixed-appearance consumer *draws* inherits the constraint without appearing in
+any consumer list — pairing §2.5 silently un-pinned `HighlightShareCard`'s
+`SheepAvatar` (#1319). Ask not "does a fixed-appearance consumer read this
+token" but "does one read a **view** that reads it".
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
