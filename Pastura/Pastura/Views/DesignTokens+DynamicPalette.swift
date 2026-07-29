@@ -22,12 +22,16 @@ import SwiftUI
 
 /// The light↔dark token pairs wired into the app's `Color.*` aliases.
 ///
-/// **26 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
-/// §2.7 interactive states designed in slice 1 of gate 1 (#1282).
+/// **40 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
+/// §2.7 interactive states from slice 1 of gate 1 (#1282), plus the §2.4 meta
+/// presets and two of the three §2.12 header slots from slice 2 (#1313).
 ///
-/// The remaining 42 light tokens still owe a dark value and stay light-only;
-/// the app is pinned to light via `Info.plist`'s `UIUserInterfaceStyle` until
-/// they are designed, so no half-dark surface can render.
+/// 28 light tokens remain unpaired, and gate 1 still owes an answer for **27**
+/// of them — the two counts differ because `headerMetaSubdued` is resolved but
+/// unpaired: slice 2 recorded it as fixed in both appearances, which gate 1
+/// admits as an equal alternative to a designed dark value. The app is pinned
+/// to light via `Info.plist`'s `UIUserInterfaceStyle` until the rest are
+/// designed, so no half-dark surface can render.
 ///
 /// Unlike ``PasturaDynamicColor`` this namespace is deliberately NOT
 /// `nonisolated`: its static initializers read `PasturaPalette`, which is
@@ -125,14 +129,58 @@ enum PasturaDynamicPalette {
   static let disabledBackground = PasturaDynamicColor(
     light: PasturaPalette.disabledBackground, dark: PasturaPalette.nightDisabledBackground)
 
+  /// §2.4 — meta text, preset L1 (quietest).
+  static let metaBaseL1 = PasturaDynamicColor(
+    light: PasturaPalette.metaBaseL1, dark: PasturaPalette.nightMetaBaseL1)
+  /// §2.4 — emphasis within preset L1.
+  static let metaStrongL1 = PasturaDynamicColor(
+    light: PasturaPalette.metaStrongL1, dark: PasturaPalette.nightMetaStrongL1)
+  /// §2.4 — lit progress dot, preset L1.
+  static let metaDotOnL1 = PasturaDynamicColor(
+    light: PasturaPalette.metaDotOnL1, dark: PasturaPalette.nightMetaDotOnL1)
+  /// §2.4 — meta text, preset L2.
+  static let metaBaseL2 = PasturaDynamicColor(
+    light: PasturaPalette.metaBaseL2, dark: PasturaPalette.nightMetaBaseL2)
+  /// §2.4 — emphasis within preset L2.
+  static let metaStrongL2 = PasturaDynamicColor(
+    light: PasturaPalette.metaStrongL2, dark: PasturaPalette.nightMetaStrongL2)
+  /// §2.4 — lit progress dot, preset L2.
+  static let metaDotOnL2 = PasturaDynamicColor(
+    light: PasturaPalette.metaDotOnL2, dark: PasturaPalette.nightMetaDotOnL2)
+  /// §2.4 — meta text, preset L3 (default).
+  static let metaBaseL3 = PasturaDynamicColor(
+    light: PasturaPalette.metaBaseL3, dark: PasturaPalette.nightMetaBaseL3)
+  /// §2.4 — emphasis within preset L3.
+  static let metaStrongL3 = PasturaDynamicColor(
+    light: PasturaPalette.metaStrongL3, dark: PasturaPalette.nightMetaStrongL3)
+  /// §2.4 — lit progress dot, preset L3.
+  static let metaDotOnL3 = PasturaDynamicColor(
+    light: PasturaPalette.metaDotOnL3, dark: PasturaPalette.nightMetaDotOnL3)
+  /// §2.4 — meta text, preset L4 (loudest).
+  static let metaBaseL4 = PasturaDynamicColor(
+    light: PasturaPalette.metaBaseL4, dark: PasturaPalette.nightMetaBaseL4)
+  /// §2.4 — emphasis within preset L4.
+  static let metaStrongL4 = PasturaDynamicColor(
+    light: PasturaPalette.metaStrongL4, dark: PasturaPalette.nightMetaStrongL4)
+  /// §2.4 — lit progress dot, preset L4.
+  static let metaDotOnL4 = PasturaDynamicColor(
+    light: PasturaPalette.metaDotOnL4, dark: PasturaPalette.nightMetaDotOnL4)
+  /// §2.12 — GameHeader meta-row separator.
+  static let headerRule = PasturaDynamicColor(
+    light: PasturaPalette.headerRule, dark: PasturaPalette.nightHeaderRule)
+  /// §2.12 — GameHeader meta-row phase name.
+  static let headerMetaInk = PasturaDynamicColor(
+    light: PasturaPalette.headerMetaInk, dark: PasturaPalette.nightHeaderMetaInk)
+
   /// Every declared pair, keyed by its light-token name.
   ///
   /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
   /// does and does not catch: the registry is hand-maintained, so declaring a
-  /// 27th pair and *not* appending it here leaves `all.count == 26` and passes.
+  /// 41st pair and *not* appending it here leaves `all.count == 40` and passes.
   /// The count guards this list against its own documented size, nothing more —
-  /// the real per-alias coverage is the wiring tests, which resolve each of the
-  /// 26 `Color.*` aliases under both schemes.
+  /// the real per-alias coverage is the wiring tests in
+  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 40 `Color.*`
+  /// aliases under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
     ("bubbleBackground", bubbleBackground),
@@ -159,6 +207,20 @@ enum PasturaDynamicPalette {
     ("selected", selected),
     ("focusRing", focusRing),
     ("disabledText", disabledText),
-    ("disabledBackground", disabledBackground)
+    ("disabledBackground", disabledBackground),
+    ("metaBaseL1", metaBaseL1),
+    ("metaStrongL1", metaStrongL1),
+    ("metaDotOnL1", metaDotOnL1),
+    ("metaBaseL2", metaBaseL2),
+    ("metaStrongL2", metaStrongL2),
+    ("metaDotOnL2", metaDotOnL2),
+    ("metaBaseL3", metaBaseL3),
+    ("metaStrongL3", metaStrongL3),
+    ("metaDotOnL3", metaDotOnL3),
+    ("metaBaseL4", metaBaseL4),
+    ("metaStrongL4", metaStrongL4),
+    ("metaDotOnL4", metaDotOnL4),
+    ("headerRule", headerRule),
+    ("headerMetaInk", headerMetaInk)
   ]
 }

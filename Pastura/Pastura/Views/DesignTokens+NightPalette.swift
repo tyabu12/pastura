@@ -30,7 +30,8 @@ extension PasturaPalette {
   // below is the dark half of a `PasturaDynamicPalette` pair, reached through
   // the repointed light `Color.*` alias rather than through `Color.night*`.
   // Dark still never renders, because `Info.plist` pins the app to light
-  // until the remaining 42 light tokens have dark values (ADR-028 § Rollout).
+  // until the 27 light tokens still owing gate 1 an answer have one
+  // (ADR-028 § Rollout).
 
   /// Outermost background under dark mode.
   static let nightBackground = PasturaColorValue(hex: 0x1B1D17)
@@ -131,4 +132,95 @@ extension PasturaPalette {
   /// is visible against both the card and the ground (1.235 / 1.183); this
   /// holds the same property (1.151 / 1.086).
   static let nightDisabledBackground = PasturaColorValue(hex: 0x222420)
+
+  // MARK: §2.9 Dark counterparts of the §2.4 meta-contrast presets
+  //
+  // **The L1→L4 ladder runs the other way here.** In light a higher preset is
+  // DARKER, gaining contrast against the pale ground; in dark the same emphasis
+  // is BRIGHTER. So this is not the light ladder transformed per token — it is
+  // a ladder redesigned against the dark ground, which is what ADR-028's
+  // Amendment 2026-07-29 means by naming it the one item no formula covers.
+  //
+  // Ground: `nightBubble`. That is **provisional** — the real render surface is
+  // `PromoCard`'s `promoBackground`, still unpaired until slice 4. Slice 4 must
+  // land its dark value in roughly #2A2D26-#2F3229 or this ladder needs
+  // re-checking; `nightMetaLadderStaysMonotonicAgainstTheCardSurface` in
+  // `DesignTokensTests+NightPalette` is what reddens if it does not.
+  //
+  // Design record and the rendered sign-off:
+  // `docs/design/ds/colors-meta-header-dark.html`.
+
+  /// Meta text, preset L1 (quietest) under dark mode — 3.33:1 on `nightBubble`,
+  /// mirroring light's 3.32:1 on `promoBackground`.
+  static let nightMetaBaseL1 = PasturaColorValue(hex: 0x7E7F6B)
+  /// Emphasis within preset L1 under dark mode (5.67:1, light's ratio exactly).
+  static let nightMetaStrongL1 = PasturaColorValue(hex: 0xA0AC88)
+  /// Lit progress dot, preset L1 under dark mode.
+  ///
+  /// Same hex as `nightMoss` — and so also as `nightFocusRing` — exactly as
+  /// light's `metaDotOnL1` re-states `moss` and `focusRing` (#8A9A6C). The
+  /// three-way coincidence is carried across deliberately, not stumbled into.
+  static let nightMetaDotOnL1 = PasturaColorValue(hex: 0xA8B888)
+
+  /// Meta text, preset L2 under dark mode (5.08:1, light's ratio exactly).
+  static let nightMetaBaseL2 = PasturaColorValue(hex: 0x9DA08C)
+  /// Emphasis within preset L2 under dark mode (9.60:1 vs light's 9.59:1).
+  static let nightMetaStrongL2 = PasturaColorValue(hex: 0xD5DBCB)
+  /// Lit progress dot, preset L2 under dark mode.
+  static let nightMetaDotOnL2 = PasturaColorValue(hex: 0xB7C49C)
+
+  /// Meta text, preset L3 (the documented default) under dark mode — 8.16:1,
+  /// mirroring light's 8.19:1. The only preset with app consumers.
+  static let nightMetaBaseL3 = PasturaColorValue(hex: 0xC7CABC)
+  /// Emphasis within preset L3 under dark mode.
+  ///
+  /// Ceiling-bound: light is 13.11:1, but `nightBubble` caps at 13.60:1 for
+  /// pure white, so that ratio cannot be reproduced with any headroom. Light's
+  /// value IS `ink` (#2D2E26), so the dark answer is `nightInk` — the
+  /// ceiling-compressed value coincided with the existing pair's, so nothing
+  /// was invented. Same value as `nightMetaBaseL4`, as in light.
+  static let nightMetaStrongL3 = PasturaColorValue(hex: 0xE8E5D8)
+  /// Lit progress dot, preset L3 under dark mode.
+  static let nightMetaDotOnL3 = PasturaColorValue(hex: 0xC3CEAE)
+
+  /// Meta text, preset L4 (loudest) under dark mode. Ceiling-bound onto
+  /// `nightInk` for the reason given on `nightMetaStrongL3`; light's
+  /// `metaBaseL4` is likewise `ink`, so "L4 reads as loud as body text"
+  /// survives the appearance flip.
+  static let nightMetaBaseL4 = PasturaColorValue(hex: 0xE8E5D8)
+  /// Emphasis within preset L4 under dark mode — the top of the ladder, and the
+  /// only token here placed above `nightInk` (11.89:1). A warm off-white, not
+  /// pure white; light ships #1A1B15, near-black rather than pure black, so the
+  /// asymmetry would be the anomaly. §1's "no pure white" guidance is about
+  /// surfaces (§2.2), not foregrounds.
+  static let nightMetaStrongL4 = PasturaColorValue(hex: 0xF1F0E8)
+  /// Lit progress dot, preset L4 under dark mode.
+  static let nightMetaDotOnL4 = PasturaColorValue(hex: 0xD5DDC6)
+
+  // MARK: §2.9 Dark counterparts of the §2.12 GameHeader slots
+  //
+  // Ground here is `nightBackground`, not `nightBubble`: `GameHeader` sits on a
+  // frosted `screenBackground`, which is already paired to it.
+  //
+  // Only TWO of the three slots appear. `headerMetaSubdued` is **fixed in both
+  // appearances** — solving its own light contrast (4.04:1) on this ground
+  // returns its own light value (measured 4.03:1), because a mid-lightness tone
+  // reads the same against a pale ground and a dark one. ADR-028 gate 1 admits
+  // a recorded fixed decision as an equal alternative to a designed value; see
+  // `design-system.md` §2.12 for the measurement and why the alternative
+  // (mirroring the "midpoint of metaBaseL1/L2" note) was rejected.
+
+  /// GameHeader meta-row middle-dot separator under dark mode (1.76:1, light's
+  /// ratio exactly). Stays STRONGER than `nightRule` (1.43:1), mirroring the
+  /// light relation where `headerRule` is darker than the general-purpose
+  /// `rule` so it reads as a typographic separator rather than a layout divider.
+  static let nightHeaderRule = PasturaColorValue(hex: 0x474535)
+  /// GameHeader meta-row phase-name foreground under dark mode (8.18:1 vs
+  /// light's 8.22:1).
+  ///
+  /// Light's value is the same hex as `metaBaseL3` (#4A4E3D); the dark values
+  /// **diverge** (#B2B6A2 vs #C7CABC) because the two render on different
+  /// grounds. That is §2.12's "evolves independently of §2.4, do not merge"
+  /// claim coming true rather than a drift to fix.
+  static let nightHeaderMetaInk = PasturaColorValue(hex: 0xB2B6A2)
 }

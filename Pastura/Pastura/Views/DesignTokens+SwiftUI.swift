@@ -47,24 +47,24 @@ extension Color {
   static let mossSoft = PasturaPalette.mossSoft.color
 
   // §2.4 Meta L1
-  static let metaBaseL1 = PasturaPalette.metaBaseL1.color
-  static let metaStrongL1 = PasturaPalette.metaStrongL1.color
-  static let metaDotOnL1 = PasturaPalette.metaDotOnL1.color
+  static let metaBaseL1 = PasturaDynamicPalette.metaBaseL1.color
+  static let metaStrongL1 = PasturaDynamicPalette.metaStrongL1.color
+  static let metaDotOnL1 = PasturaDynamicPalette.metaDotOnL1.color
 
   // §2.4 Meta L2
-  static let metaBaseL2 = PasturaPalette.metaBaseL2.color
-  static let metaStrongL2 = PasturaPalette.metaStrongL2.color
-  static let metaDotOnL2 = PasturaPalette.metaDotOnL2.color
+  static let metaBaseL2 = PasturaDynamicPalette.metaBaseL2.color
+  static let metaStrongL2 = PasturaDynamicPalette.metaStrongL2.color
+  static let metaDotOnL2 = PasturaDynamicPalette.metaDotOnL2.color
 
   // §2.4 Meta L3 (default)
-  static let metaBaseL3 = PasturaPalette.metaBaseL3.color
-  static let metaStrongL3 = PasturaPalette.metaStrongL3.color
-  static let metaDotOnL3 = PasturaPalette.metaDotOnL3.color
+  static let metaBaseL3 = PasturaDynamicPalette.metaBaseL3.color
+  static let metaStrongL3 = PasturaDynamicPalette.metaStrongL3.color
+  static let metaDotOnL3 = PasturaDynamicPalette.metaDotOnL3.color
 
   // §2.4 Meta L4
-  static let metaBaseL4 = PasturaPalette.metaBaseL4.color
-  static let metaStrongL4 = PasturaPalette.metaStrongL4.color
-  static let metaDotOnL4 = PasturaPalette.metaDotOnL4.color
+  static let metaBaseL4 = PasturaDynamicPalette.metaBaseL4.color
+  static let metaStrongL4 = PasturaDynamicPalette.metaStrongL4.color
+  static let metaDotOnL4 = PasturaDynamicPalette.metaDotOnL4.color
 
   // §2.5 Avatars
   static let avatarBodyAlice = PasturaPalette.avatarBodyAlice.color
@@ -139,6 +139,20 @@ extension Color {
   static let nightFocusRing = PasturaPalette.nightFocusRing.color
   static let nightDisabledText = PasturaPalette.nightDisabledText.color
   static let nightDisabledBackground = PasturaPalette.nightDisabledBackground.color
+  static let nightMetaBaseL1 = PasturaPalette.nightMetaBaseL1.color
+  static let nightMetaStrongL1 = PasturaPalette.nightMetaStrongL1.color
+  static let nightMetaDotOnL1 = PasturaPalette.nightMetaDotOnL1.color
+  static let nightMetaBaseL2 = PasturaPalette.nightMetaBaseL2.color
+  static let nightMetaStrongL2 = PasturaPalette.nightMetaStrongL2.color
+  static let nightMetaDotOnL2 = PasturaPalette.nightMetaDotOnL2.color
+  static let nightMetaBaseL3 = PasturaPalette.nightMetaBaseL3.color
+  static let nightMetaStrongL3 = PasturaPalette.nightMetaStrongL3.color
+  static let nightMetaDotOnL3 = PasturaPalette.nightMetaDotOnL3.color
+  static let nightMetaBaseL4 = PasturaPalette.nightMetaBaseL4.color
+  static let nightMetaStrongL4 = PasturaPalette.nightMetaStrongL4.color
+  static let nightMetaDotOnL4 = PasturaPalette.nightMetaDotOnL4.color
+  static let nightHeaderRule = PasturaPalette.nightHeaderRule.color
+  static let nightHeaderMetaInk = PasturaPalette.nightHeaderMetaInk.color
 
   // §2.10 Time-of-Day (decorative ambient)
   static let dawn = PasturaPalette.dawn.color
@@ -153,8 +167,8 @@ extension Color {
   static let chart4 = PasturaPalette.chart4.color
 
   // §2.12 Header Slots — GameHeader role-anchored
-  static let headerRule = PasturaPalette.headerRule.color
-  static let headerMetaInk = PasturaPalette.headerMetaInk.color
+  static let headerRule = PasturaDynamicPalette.headerRule.color
+  static let headerMetaInk = PasturaDynamicPalette.headerMetaInk.color
   static let headerMetaSubdued = PasturaPalette.headerMetaSubdued.color
 }
 

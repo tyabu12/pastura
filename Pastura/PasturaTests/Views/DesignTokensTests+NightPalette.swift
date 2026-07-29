@@ -101,6 +101,156 @@ extension DesignTokensTests {
       relativeLuminance(PasturaPalette.nightDisabledBackground)
         < relativeLuminance(PasturaPalette.nightBubble))
   }
+
+  // MARK: - §2.9 dark counterparts of the §2.4 meta presets + §2.12 header slots
+
+  @Test func nightMetaAndHeaderTokensMatchSpec() {
+    let cases: [(token: PasturaColorValue, hex: UInt32)] = [
+      (PasturaPalette.nightMetaBaseL1, 0x7E7F6B),
+      (PasturaPalette.nightMetaStrongL1, 0xA0AC88),
+      (PasturaPalette.nightMetaDotOnL1, 0xA8B888),
+      (PasturaPalette.nightMetaBaseL2, 0x9DA08C),
+      (PasturaPalette.nightMetaStrongL2, 0xD5DBCB),
+      (PasturaPalette.nightMetaDotOnL2, 0xB7C49C),
+      (PasturaPalette.nightMetaBaseL3, 0xC7CABC),
+      (PasturaPalette.nightMetaStrongL3, 0xE8E5D8),
+      (PasturaPalette.nightMetaDotOnL3, 0xC3CEAE),
+      (PasturaPalette.nightMetaBaseL4, 0xE8E5D8),
+      (PasturaPalette.nightMetaStrongL4, 0xF1F0E8),
+      (PasturaPalette.nightMetaDotOnL4, 0xD5DDC6),
+      (PasturaPalette.nightHeaderRule, 0x474535),
+      (PasturaPalette.nightHeaderMetaInk, 0xB2B6A2)
+    ]
+
+    for (token, hex) in cases {
+      #expect(approxEqual(token.red, Double((hex >> 16) & 0xFF) / 255.0))
+      #expect(approxEqual(token.green, Double((hex >> 8) & 0xFF) / 255.0))
+      #expect(approxEqual(token.blue, Double(hex & 0xFF) / 255.0))
+      #expect(approxEqual(token.opacity, 1.0))
+    }
+  }
+
+  /// The §2.4 ladder must run the OTHER WAY in dark. Light's sibling assertion
+  /// (`metaContrastRangesFromL1ToL4`) checks L1 > L2 > L3 > L4 on the red
+  /// channel; here the comparator inverts, because in dark a higher preset
+  /// gains contrast by getting brighter rather than darker.
+  ///
+  /// This is the executable form of the constraint slice 2 otherwise left as
+  /// prose. The ladder is designed against `nightBubble` as a **provisional**
+  /// ground — the real surface is `promoBackground`, unpaired until slice 4 —
+  /// so the companion assertion below is what turns "slice 4 must keep
+  /// `promoBackground`'s dark value in the #2A2D26-#2F3229 band" into a red
+  /// build rather than an instruction only the next author can execute.
+  @Test func nightMetaLadderRunsBrighterFromL1ToL4() {
+    #expect(PasturaPalette.nightMetaBaseL1.red < PasturaPalette.nightMetaBaseL2.red)
+    #expect(PasturaPalette.nightMetaBaseL2.red < PasturaPalette.nightMetaBaseL3.red)
+    #expect(PasturaPalette.nightMetaBaseL3.red < PasturaPalette.nightMetaBaseL4.red)
+
+    #expect(PasturaPalette.nightMetaStrongL1.red < PasturaPalette.nightMetaStrongL2.red)
+    #expect(PasturaPalette.nightMetaStrongL2.red < PasturaPalette.nightMetaStrongL3.red)
+    #expect(PasturaPalette.nightMetaStrongL3.red < PasturaPalette.nightMetaStrongL4.red)
+
+    #expect(PasturaPalette.nightMetaDotOnL1.red < PasturaPalette.nightMetaDotOnL2.red)
+    #expect(PasturaPalette.nightMetaDotOnL2.red < PasturaPalette.nightMetaDotOnL3.red)
+    #expect(PasturaPalette.nightMetaDotOnL3.red < PasturaPalette.nightMetaDotOnL4.red)
+  }
+
+  /// Each dark preset must actually deliver more contrast than the one below it
+  /// **against the surface it renders on**, and `strong` must stay at least as
+  /// loud as `base` within a step. Ordering by channel (above) is necessary but
+  /// not sufficient: a future edit could keep the channels ordered while
+  /// collapsing the perceptual steps.
+  ///
+  /// Reads the ground from `nightBubble`, so if slice 4 pairs
+  /// `promoBackground` to something outside the band this ladder was designed
+  /// against, the fix is to re-check the ladder here rather than to discover it
+  /// on a device.
+  @Test func nightMetaLadderStaysMonotonicAgainstTheCardSurface() {
+    let ground = PasturaPalette.nightBubble
+    let base = [
+      PasturaPalette.nightMetaBaseL1, PasturaPalette.nightMetaBaseL2,
+      PasturaPalette.nightMetaBaseL3, PasturaPalette.nightMetaBaseL4
+    ].map { contrastRatio($0, ground) }
+    let strong = [
+      PasturaPalette.nightMetaStrongL1, PasturaPalette.nightMetaStrongL2,
+      PasturaPalette.nightMetaStrongL3, PasturaPalette.nightMetaStrongL4
+    ].map { contrastRatio($0, ground) }
+
+    for index in 0..<3 {
+      #expect(base[index] < base[index + 1])
+      #expect(strong[index] <= strong[index + 1])
+    }
+    for index in 0..<4 {
+      #expect(strong[index] >= base[index])
+    }
+    // L3 is the documented default and the only preset with app consumers;
+    // design-system.md § 9 promises it clears 4.5:1 for meta information.
+    #expect(base[2] >= 4.5)
+  }
+
+  /// The lit progress dot is placed by lit-vs-unlit contrast, not by contrast
+  /// against the ground — its job is telling a lit dot from an unlit one. The
+  /// unlit dot is `moss` at 38%, and `moss` is already paired, so in dark that
+  /// floor rises to `nightMoss` @38% composited over the card. Mirroring the
+  /// ground ratio instead would drop L1 to ~1.34:1 and the indicator stops
+  /// working; this pins the property that placement exists to protect.
+  @Test func nightLitDotsStayDistinguishableFromUnlitOnes() {
+    let unlit = composite(PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.38)
+    let lit = [
+      PasturaPalette.nightMetaDotOnL1, PasturaPalette.nightMetaDotOnL2,
+      PasturaPalette.nightMetaDotOnL3, PasturaPalette.nightMetaDotOnL4
+    ].map { contrastRatio($0, unlit) }
+
+    // Light's own lit-vs-unlit ladder, which dark must not fall below.
+    let lightFloor = [2.03, 2.50, 3.17, 4.33]
+    for (measured, floor) in zip(lit, lightFloor) {
+      #expect(measured >= floor)
+    }
+    for index in 0..<3 {
+      #expect(lit[index] < lit[index + 1])
+    }
+  }
+
+  /// `metaDotOnL1` re-states `moss` and `focusRing` in light (#8A9A6C); the dark
+  /// side carries that three-way coincidence across deliberately. Pinned because
+  /// a reader finding three identical hexes would otherwise reasonably collapse
+  /// them — and because the `tokens.css` mirror gate cannot see these rows at
+  /// all (it substring-matches the hex, which already appears under two other
+  /// names).
+  @Test func nightMetaDotOnL1IntentionallyMatchesNightMoss() {
+    #expect(PasturaPalette.nightMetaDotOnL1 == PasturaPalette.nightMoss)
+    #expect(PasturaPalette.nightMetaDotOnL1 == PasturaPalette.nightFocusRing)
+  }
+
+  /// Same shape for the ceiling-bound top of the ladder: light's `metaBaseL4`
+  /// and `metaStrongL3` are both `ink`, and both dark values are `nightInk`.
+  @Test func nightMetaLadderTopIntentionallyMatchesNightInk() {
+    #expect(PasturaPalette.nightMetaBaseL4 == PasturaPalette.nightInk)
+    #expect(PasturaPalette.nightMetaStrongL3 == PasturaPalette.nightInk)
+  }
+
+  /// `headerMetaSubdued` is deliberately **not** paired — it is fixed in both
+  /// appearances, which ADR-028 gate 1 admits as an equal alternative to a
+  /// designed dark value. The reason is measurable, so it is measured: a
+  /// mid-lightness tone reads the same against a pale ground and a dark one, so
+  /// solving its own light contrast on the night ground returns its own value.
+  ///
+  /// This is the guard on that decision. If someone changes the token, or pairs
+  /// it, the premise stops holding and this reddens — which is the point: the
+  /// scheme-invariance test alone would keep passing on a wrongly-paired token
+  /// only until the pair landed, and says nothing about *why* fixing is right.
+  @Test func headerMetaSubduedReadsTheSameOnBothGrounds() {
+    let onLight = contrastRatio(PasturaPalette.headerMetaSubdued, PasturaPalette.screenBackground)
+    let onNight = contrastRatio(PasturaPalette.headerMetaSubdued, PasturaPalette.nightBackground)
+    #expect(abs(onLight - onNight) < 0.05)
+
+    // And it must keep sitting between the separator and the phase name in dark,
+    // which is the hierarchy §2.12 actually describes.
+    let rule = contrastRatio(PasturaPalette.nightHeaderRule, PasturaPalette.nightBackground)
+    let ink = contrastRatio(PasturaPalette.nightHeaderMetaInk, PasturaPalette.nightBackground)
+    #expect(rule < onNight)
+    #expect(onNight < ink)
+  }
 }
 
 // MARK: - Helpers
@@ -127,4 +277,28 @@ private func relativeLuminance(_ token: PasturaColorValue) -> Double {
   return 0.2126 * channel(token.red)
     + 0.7152 * channel(token.green)
     + 0.0722 * channel(token.blue)
+}
+
+/// WCAG contrast ratio between two tokens. Same `@MainActor` reasoning as
+/// `relativeLuminance` above, which it builds on.
+@MainActor
+private func contrastRatio(_ lhs: PasturaColorValue, _ rhs: PasturaColorValue) -> Double {
+  let left = relativeLuminance(lhs)
+  let right = relativeLuminance(rhs)
+  return (max(left, right) + 0.05) / (min(left, right) + 0.05)
+}
+
+/// Source-over composite of `token` at `alpha` onto `background`, for the
+/// unlit-progress-dot floor. `PromoCard` renders the unlit dots as
+/// `Color.moss.opacity(0.38)`, and `moss` is a paired token, so in dark that
+/// resolves to `nightMoss` at the same alpha over the card surface.
+@MainActor
+private func composite(
+  _ token: PasturaColorValue, over background: PasturaColorValue, alpha: Double
+) -> PasturaColorValue {
+  PasturaColorValue(
+    red: token.red * alpha + background.red * (1 - alpha),
+    green: token.green * alpha + background.green * (1 - alpha),
+    blue: token.blue * alpha + background.blue * (1 - alpha),
+    opacity: 1.0)
 }

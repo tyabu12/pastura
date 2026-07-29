@@ -41,9 +41,12 @@ extension DesignTokensTests {
   // RGB — including alpha collapses every opaque pair to 0, since both sides
   // are 1.0.
   //
-  // By that metric the closest opaque pair is `muted`↔`nightMuted` at 11.9x the
-  // tolerance, next `moss` and `focusRing` at 19.2x; #1282's slice adds nothing
-  // tighter than `warning` at 15.2x. The three §2.7 overlays are the exception —
+  // By that metric the closest opaque pair is `metaBaseL1`↔`nightMetaBaseL1` at
+  // 6.8x the tolerance since #1313 — mid-tone pairs are intrinsically close,
+  // because a grey placed correctly on a pale ground and one placed correctly on
+  // a dark ground land near each other. Before that the narrowest was
+  // `muted`↔`nightMuted` at 11.9x, then `moss` and `focusRing` at 19.2x. The
+  // three §2.7 overlays are the exception —
   // their RGB gap is 19.2x but their alpha gap is only 4.0x (`hover`), 8.0x
   // (`pressed`) and 12.0x (`selected`).
   //
@@ -80,7 +83,21 @@ extension DesignTokensTests {
       (.selected, PasturaPalette.nightSelected),
       (.focusRing, PasturaPalette.nightFocusRing),
       (.disabledText, PasturaPalette.nightDisabledText),
-      (.disabledBackground, PasturaPalette.nightDisabledBackground)
+      (.disabledBackground, PasturaPalette.nightDisabledBackground),
+      (.metaBaseL1, PasturaPalette.nightMetaBaseL1),
+      (.metaStrongL1, PasturaPalette.nightMetaStrongL1),
+      (.metaDotOnL1, PasturaPalette.nightMetaDotOnL1),
+      (.metaBaseL2, PasturaPalette.nightMetaBaseL2),
+      (.metaStrongL2, PasturaPalette.nightMetaStrongL2),
+      (.metaDotOnL2, PasturaPalette.nightMetaDotOnL2),
+      (.metaBaseL3, PasturaPalette.nightMetaBaseL3),
+      (.metaStrongL3, PasturaPalette.nightMetaStrongL3),
+      (.metaDotOnL3, PasturaPalette.nightMetaDotOnL3),
+      (.metaBaseL4, PasturaPalette.nightMetaBaseL4),
+      (.metaStrongL4, PasturaPalette.nightMetaStrongL4),
+      (.metaDotOnL4, PasturaPalette.nightMetaDotOnL4),
+      (.headerRule, PasturaPalette.nightHeaderRule),
+      (.headerMetaInk, PasturaPalette.nightHeaderMetaInk)
     ]
 
     // The list is hand-written on purpose — it is what proves the *alias* is
@@ -122,7 +139,21 @@ extension DesignTokensTests {
       (.selected, PasturaPalette.selected),
       (.focusRing, PasturaPalette.focusRing),
       (.disabledText, PasturaPalette.disabledText),
-      (.disabledBackground, PasturaPalette.disabledBackground)
+      (.disabledBackground, PasturaPalette.disabledBackground),
+      (.metaBaseL1, PasturaPalette.metaBaseL1),
+      (.metaStrongL1, PasturaPalette.metaStrongL1),
+      (.metaDotOnL1, PasturaPalette.metaDotOnL1),
+      (.metaBaseL2, PasturaPalette.metaBaseL2),
+      (.metaStrongL2, PasturaPalette.metaStrongL2),
+      (.metaDotOnL2, PasturaPalette.metaDotOnL2),
+      (.metaBaseL3, PasturaPalette.metaBaseL3),
+      (.metaStrongL3, PasturaPalette.metaStrongL3),
+      (.metaDotOnL3, PasturaPalette.metaDotOnL3),
+      (.metaBaseL4, PasturaPalette.metaBaseL4),
+      (.metaStrongL4, PasturaPalette.metaStrongL4),
+      (.metaDotOnL4, PasturaPalette.metaDotOnL4),
+      (.headerRule, PasturaPalette.headerRule),
+      (.headerMetaInk, PasturaPalette.headerMetaInk)
     ]
 
     #expect(cases.count == PasturaDynamicPalette.all.count)
@@ -141,11 +172,20 @@ extension DesignTokensTests {
   /// documents the intended light-only boundary; it does not police it. A real
   /// control would need an over-application mechanism to exist first.
   @Test func unpairedAliasesDoNotChangeAcrossColorSchemes() {
-    // `.warning` / `.danger` used to sit here and were paired by #1282's slice;
-    // refilled from the 42 that remain unpaired, spread across §2.1/§2.3/§2.4/
-    // §2.5/§2.8 so a future slice removing one leaves the rest.
+    // Refilled twice as slices land: `.warning` / `.danger` left with #1282,
+    // `.metaBaseL3` with #1313. Drawn from the 28 that remain unpaired, spread
+    // across §2.1/§2.3/§2.5/§2.8 so a future slice removing one leaves the rest
+    // — §2.4 no longer has a representative here, because #1313 paired all
+    // twelve of its tokens.
+    //
+    // `.headerMetaSubdued` is a different kind of member and is listed last on
+    // purpose: it is unpaired *by decision* rather than by not-yet-designed
+    // (ADR-028 gate 1 admits a recorded fixed value), so unlike its neighbours
+    // it is not expected to leave this list. Why fixing is the right answer for
+    // it is asserted separately in `DesignTokensTests+NightPalette`.
     let lightOnly: [Color] = [
-      .page, .promoBackground, .mossSoft, .inkOnAccent, .metaBaseL3, .avatarBodyAlice, .link
+      .page, .promoBackground, .mossSoft, .inkOnAccent, .avatarBodyAlice, .link,
+      .headerMetaSubdued
     ]
 
     for alias in lightOnly {

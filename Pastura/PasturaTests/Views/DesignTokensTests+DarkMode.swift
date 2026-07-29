@@ -6,7 +6,7 @@ import UIKit
 
 // §2.9 dark-mode token-pair tests. Protects ADR-028's mechanism decision:
 // `PasturaDynamicColor` resolves a light/dark pair through a `UIColor` dynamic
-// provider, and the 26 paired `Color.*` aliases are actually wired to it.
+// provider, and the 40 paired `Color.*` aliases are actually wired to it.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -78,15 +78,29 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.disabledText.dark == PasturaPalette.nightDisabledText)
     #expect(
       PasturaDynamicPalette.disabledBackground.dark == PasturaPalette.nightDisabledBackground)
+    #expect(PasturaDynamicPalette.metaBaseL1.dark == PasturaPalette.nightMetaBaseL1)
+    #expect(PasturaDynamicPalette.metaStrongL1.dark == PasturaPalette.nightMetaStrongL1)
+    #expect(PasturaDynamicPalette.metaDotOnL1.dark == PasturaPalette.nightMetaDotOnL1)
+    #expect(PasturaDynamicPalette.metaBaseL2.dark == PasturaPalette.nightMetaBaseL2)
+    #expect(PasturaDynamicPalette.metaStrongL2.dark == PasturaPalette.nightMetaStrongL2)
+    #expect(PasturaDynamicPalette.metaDotOnL2.dark == PasturaPalette.nightMetaDotOnL2)
+    #expect(PasturaDynamicPalette.metaBaseL3.dark == PasturaPalette.nightMetaBaseL3)
+    #expect(PasturaDynamicPalette.metaStrongL3.dark == PasturaPalette.nightMetaStrongL3)
+    #expect(PasturaDynamicPalette.metaDotOnL3.dark == PasturaPalette.nightMetaDotOnL3)
+    #expect(PasturaDynamicPalette.metaBaseL4.dark == PasturaPalette.nightMetaBaseL4)
+    #expect(PasturaDynamicPalette.metaStrongL4.dark == PasturaPalette.nightMetaStrongL4)
+    #expect(PasturaDynamicPalette.metaDotOnL4.dark == PasturaPalette.nightMetaDotOnL4)
+    #expect(PasturaDynamicPalette.headerRule.dark == PasturaPalette.nightHeaderRule)
+    #expect(PasturaDynamicPalette.headerMetaInk.dark == PasturaPalette.nightHeaderMetaInk)
   }
 
-  /// Guards the registry's documented size, NOT completeness: declaring a 27th
-  /// pair without appending it to `all` leaves the count at 26 and passes. What it
+  /// Guards the registry's documented size, NOT completeness: declaring a 41st
+  /// pair without appending it to `all` leaves the count at 40 and passes. What it
   /// does catch outright is a copy-paste duplicate in `all` (the `Set` line).
-  /// Per-alias coverage lives in the wiring tests above.
-  @Test func exactlyTwentySixPairsAreWired() {
-    #expect(PasturaDynamicPalette.all.count == 26)
-    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 26)
+  /// Per-alias coverage lives in `DesignTokensTests+DarkModeWiring`.
+  @Test func exactlyFortyPairsAreWired() {
+    #expect(PasturaDynamicPalette.all.count == 40)
+    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 40)
   }
 
   /// The false-green guard the tolerance note above is really asking for.
