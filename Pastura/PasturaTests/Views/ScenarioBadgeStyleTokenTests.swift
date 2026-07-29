@@ -26,11 +26,19 @@ import Testing
 /// `mossDark`, while still reddening if a token is swapped for a *different*
 /// one — which is the actual drift being guarded.
 ///
-/// `@MainActor` because the token members are MainActor-isolated: they read the
-/// `Color.*` statics, which are declared in a default-MainActor layer
-/// (`.claude/rules/swift-isolation.md` Pattern 5, fix order 1). The
-/// `ScenarioBadge` → `ScenarioBadgeStyle` mapping itself stays nonisolated and
-/// is covered by ``ScenarioBadgeTests``.
+/// `@MainActor` is required twice over, which is why it is not removable: this
+/// suite reads the `Color.*` statics **directly and cross-module**, and the
+/// token members it calls are themselves MainActor-isolated. The latter is not
+/// inferable from "the target builds" — `Color` is `Sendable` and the aliases
+/// are `let`s, so the extension body compiles under either isolation
+/// (`.claude/rules/swift-isolation.md` Pattern 5 § "Cross-module corollary").
+/// It was established by a discriminating probe: an in-module
+/// `nonisolated func { _ = ScenarioBadgeStyle.tint.fillToken }` fails the build
+/// with "main actor-isolated property 'fillToken' can not be referenced from a
+/// nonisolated context". That MainActor boundary is deliberate — the tokens are
+/// UI values whose only legitimate caller is a View, while the pure
+/// `ScenarioBadge` → `ScenarioBadgeStyle` mapping stays nonisolated and is
+/// covered by ``ScenarioBadgeTests``.
 @MainActor
 @Suite(.timeLimit(.minutes(1)))
 struct ScenarioBadgeStyleTokenTests {
@@ -52,12 +60,13 @@ struct ScenarioBadgeStyleTokenTests {
     #expect(ScenarioBadgeStyle.secondary.fillOpacity == 0.15)
   }
 
-  /// The two styles must stay visually distinguishable. Independent of the
-  /// assertions above: those would all still pass if a future retune gave
-  /// `moss` and `inkSecondary` the same value, collapsing the tint/secondary
-  /// distinction the badge relies on to separate "changed" from "provenance".
-  @Test func theTwoStylesAreNotIdentical() {
-    #expect(ScenarioBadgeStyle.tint.fillToken != ScenarioBadgeStyle.secondary.fillToken)
-    #expect(ScenarioBadgeStyle.tint.labelToken != ScenarioBadgeStyle.secondary.labelToken)
-  }
+  // No "the two styles are not identical" test here, deliberately. Such a test
+  // would have to compare two `Color.*` aliases, and alias `==` is instance-based
+  // rather than value-based (a `PasturaDynamicColor`-backed alias compares by
+  // provider, not by resolved components) — so it cannot see the token-value
+  // collapse it would claim to guard. Probed: giving `moss` / `nightMoss` their
+  // `inkSecondary` counterparts' hex left an alias-level `!=` assertion GREEN,
+  // while `DesignTokensTests.mossPrimaryMatchesSpec` reddened on the same
+  // mutation. Token values are that suite's contract; this one guards only which
+  // token the badge reads.
 }

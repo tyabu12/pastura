@@ -166,9 +166,15 @@ struct GalleryCatalogRow: View {
 nonisolated enum GalleryCatalogRowFormat {
   /// The ordered footer segments — `N agents` and `N rounds`, joined with a `·`
   /// **only when both are present**. Returns `[]` when neither exists so the
-  /// caller renders no footer, and never emits a dangling separator — the same
-  /// guard shape as
-  /// ``HomeScenarioRowFormat/compactCaptionSegments(isPreset:category:agentCount:rounds:)``.
+  /// caller renders no footer, and never emits a dangling separator.
+  ///
+  /// The `·` is returned as **its own element**, so the caller renders the
+  /// elements verbatim one by one and must never insert separators itself —
+  /// `joined(separator: " · ")` over this result would double the dot.
+  /// (`HomeScenarioRowFormat.compactCaptionSegments` takes the opposite
+  /// contract — content-only segments, separators supplied by the caller — so
+  /// the two are not interchangeable despite the similar shape.)
+  ///
   /// Reuses the existing `"%lld agents"` / `"%lld rounds"` catalog keys
   /// (Form B per i18n.md).
   static func footerSegments(agentCount: Int?, rounds: Int?) -> [String] {

@@ -1,7 +1,8 @@
 import Foundation
 
-/// Pure display-formatting helpers for the Home scenario list row
-/// (ADR-016 D3 row layout: name / sheep×agentCount · rounds / description).
+/// Pure display-formatting helpers for the Home scenario surfaces — the compact
+/// list row (icon tile / name / description / `provenance · N agents · N rounds`
+/// caption) and the paused resume card. Layout decision: ADR-016 D3.
 ///
 /// Kept `nonisolated` and side-effect-free so the row's non-trivial display
 /// logic — the rounds label, provenance classification, and the Dynamic-Type
@@ -24,10 +25,13 @@ nonisolated enum HomeScenarioRowFormat {
     return String(format: String(localized: "%lld rounds"), rounds)
   }
 
-  /// Description line limit: up to two truncated lines at normal Dynamic Type
-  /// sizes (aligned to the Shared Scenarios row), but unlimited so the text
-  /// wraps at accessibility sizes — clipping to two lines at AX5 would drop
-  /// most of it. `nil` means "no limit" to SwiftUI's `.lineLimit(_:)`.
+  /// Description line limit for the paused resume card (``HomePausedCard``, its
+  /// only caller): up to two truncated lines at normal Dynamic Type sizes, but
+  /// unlimited so the text wraps at accessibility sizes — clipping to two lines
+  /// at AX5 would drop most of it. `nil` means "no limit" to SwiftUI's
+  /// `.lineLimit(_:)`. Browse's flat `GalleryCatalogMetrics.descriptionLineLimit`
+  /// happens to be 2 as well but has no accessibility branch — not a parity
+  /// contract.
   static func descriptionLineLimit(isAccessibilitySize: Bool) -> Int? {
     isAccessibilitySize ? nil : 2
   }

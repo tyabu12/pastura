@@ -62,10 +62,12 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// (#1296). Before this, the pair was inlined in two renderers that had to be
 /// kept byte-identical by hand.
 ///
-/// Token choice follows the ``PhaseTypeLabel`` precedent and design-system
-/// § 2.3, which reserves `mossDark` for accent **text** and `moss` for fills:
-/// the tinted badge reads its wash off `moss` and its label off `mossDark`,
-/// while the quieter `secondary` uses `inkSecondary` for both. The wash
+/// Token choice follows the ``PhaseTypeLabel`` precedent. Design-system § 2.3
+/// lists `mossDark` for accent text (links, status labels), and § 2.2's
+/// `--ink-on-accent` bullets carry the constraint that forces the split: text on
+/// base `moss` is ≈3.03:1, short of the 4.5:1 bar, while `mossDark` clears it at
+/// ≈4.7:1. So the tinted badge takes `moss` for its wash and `mossDark` for its
+/// label; the quieter `secondary` uses `inkSecondary` for both. The wash
 /// opacities are **not** shared with `PhaseTypeLabel` (which uses 0.15 for
 /// both) — the tinted badge sits on a card background and needs 0.2 to read.
 ///
@@ -73,6 +75,14 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// live on-device, so it must follow the device appearance. A
 /// fixed-appearance consumer (`ImageRenderer`) would have to read
 /// `PasturaPalette.<token>.color` directly instead — see ADR-028.
+///
+/// The members are **MainActor-isolated** even though ``ScenarioBadgeStyle``
+/// itself is `nonisolated` — an extension does not inherit the type's
+/// annotation, and that boundary is intended: these are UI values whose only
+/// legitimate caller is a View, while the pure case → emphasis mapping stays
+/// nonisolated. Do **not** add `nonisolated` here to "match the type"; see
+/// ``ScenarioBadgeStyleTokenTests`` for the probe that established the current
+/// isolation (the target compiles either way, so a build alone proves nothing).
 extension ScenarioBadgeStyle {
   /// Capsule wash colour, before ``fillOpacity`` is applied.
   var fillToken: Color {
