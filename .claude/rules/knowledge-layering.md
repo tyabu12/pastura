@@ -3,10 +3,6 @@
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/knowledge-layering.md` —
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific
 > content lives only in this copy.
->
-> ⚠️ 2026-07-29: the probe-outcome text + subagent-verdict row landed here ahead of claude-kit PR #12
-> (open) — once it merges, reconcile the generic core from the kit, keep this copy's
-> `swift-isolation.md` pointer, and delete this note.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
