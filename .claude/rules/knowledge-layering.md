@@ -3,6 +3,11 @@
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/knowledge-layering.md` —
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific
 > content lives only in this copy.
+>
+> ⚠️ As of 2026-07-29 the probe-outcome material in § "Claims you author are assertions too" and
+> its verification-table row landed **here first**, ahead of claude-kit PR #12. That inverts the
+> one-way direction above, so re-diff this file against the kit once #12 merges and take the kit's
+> wording — then delete this note.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
@@ -93,6 +98,7 @@ The same "verify before you lock it" discipline extends past rule assertions to 
 | Two UI surfaces asserted to show "the same metric" | grep both value sources before claiming equivalence — layout/label similarity ≠ value identity; a static estimate and a measured count can read as "matching" yet diverge silently |
 | An external standard (SEO, RFC, sitemap/robots, OAuth, HTTP semantics) | WebSearch + WebFetch the authority (Google Search Central, the RFC, MDN); verbatim-cite before critic |
 | Vendor feature availability (free/paid/plan tier) | WebFetch the canonical docs; verbatim-quote the "Who can use this feature" box — never infer from search snippets |
+| A subagent's verdict on an external platform fact (SDK annotation, threading contract, API availability) | Re-derive it yourself — a verdict that *dismisses* a risk ends inquiry and is the expensive one to get wrong. Then run the prescribed check against a **known-positive control**; `swift-isolation.md` § Pattern 7 is the worked instance |
 
 ### Apply (verification table)
 
@@ -114,12 +120,14 @@ A 30-second self-check prevents 1–2 extra critic / code-reviewer rounds. Motiv
 A **why-comment you write** asserts runtime or library behaviour as the reason a mechanism exists — the same kind of claim as the table's, but authored at implementation *or review-fix* time and executed by nobody. Reviewers check whether the *code* is correct, not whether the *stated reason* is true, so a false one ships and the next reader inherits it as fact. Three shapes, none expressible as a `Verify by` lookup:
 
 - **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is false, or the tests never covered it.
-- **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A guard's success case proves nothing; only a negative control does. Scope it to the claim it defends: a check narrower than that claim (a files-only loop behind a files-and-directories completeness claim), or one that silently skips its exemptions instead of declaring them, passes by construction.
+- **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A guard's success case proves nothing; only a negative control does. Scope it to the claim it defends: a check narrower than that claim (a files-only loop behind a files-and-directories completeness claim), or one that silently skips its exemptions instead of declaring them, passes by construction. And a control whose fixture a **sibling arm** can also reach reddens for the wrong reason — read *which* message fired, not the exit code, and re-key the fixture until only the guard can reach it.
 - **A classification or count built on an earlier claim** → when you fix that claim, grep what cited it. Fixing one authored claim can *invalidate* another you authored earlier, and nothing points back at it; a concessive clause propping up a category ("it belongs here, just differently") is the tell that it already broke.
+
+**A probe's outcome gets misread in both directions.** Assert that the mutation's anchor matched — a `replace` that silently no-ops leaves the original behaviour and reads as verified. And treat a probe that stays **green** as a finding about the *fixtures*, not a redundant guard: a suite only reddens on states its fixtures build, so name the state the guard defends and confirm something constructs it before concluding anything.
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
-Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4.
+Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314; PR #1265.
 
 ### A rules file created mid-session never injects in that session
 
