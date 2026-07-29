@@ -8,3 +8,6 @@ check reports the shape change once instead.
 ### ADR roster
 
 001 Architecture overview · 002 Multi-platform strategy
+
+ADR-003 is on disk and absent from the roster. The INDEX axis is unreadable
+here; the roster axis is not, and degrading one must not silence the other.

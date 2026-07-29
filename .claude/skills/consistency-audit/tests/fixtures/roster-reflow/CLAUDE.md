@@ -19,3 +19,7 @@ it; the roster's markdown paragraph is what has to be measured.
 ## Expected
 
 Exactly one finding, naming the reflow — never one finding per ADR.
+
+ADR-003 is on disk and in the roster but absent from INDEX.md. The roster axis
+is unreadable here; the INDEX axis is not, and degrading one must not silence
+the other.

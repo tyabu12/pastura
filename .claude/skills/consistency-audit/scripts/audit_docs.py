@@ -227,25 +227,32 @@ def _adr_numbers(names: list[str]) -> set[str]:
 def adr_files_on_disk(root: Path) -> tuple[set[str], set[str]]:
     """(tracked, existing) NNN sets for `docs/decisions/ADR-NNN.md`.
 
-    Two sets, because the caller needs the untracked question answered in both
-    directions and a single set gets one of them wrong:
+    Two sets, because the caller asks two questions that the untracked case
+    answers oppositely, and a single set gets one of them wrong:
 
       tracked  — "which ADRs must appear in the listings?" A draft sitting
                  untracked in one checkout is absent for every other
                  contributor and in CI, so demanding index entries for it
-                 over-reports (`adr-writing.md` §4).
-      existing — "is there a file behind this listing?" Here the same
-                 exclusion inverts: an untracked draft *does* back the entry
-                 its author just added, and calling it absent produces a
-                 confident "record a reserved row for it" against an ADR being
-                 written right now. This set matches what dangling_adr already
-                 believes, since that detector tests Path.exists().
+                 over-reports (`adr-writing.md` §4). From `git ls-files`.
+      existing — "is there a file behind this listing?" Here the exclusion
+                 inverts: an untracked draft *does* back the entry its author
+                 just added, and calling it absent produces a confident
+                 "record a reserved row for it" against an ADR being written
+                 right now. This is the plain glob, which is exactly what
+                 dangling_adr tests — so the two detectors cannot disagree
+                 about whether a file exists.
 
-    Both collapse to the glob when root is not a git work tree's toplevel (the
-    audit's own fixtures, which live inside this repo and would otherwise
-    resolve against it) or when the tracked query comes back empty — a fresh
-    checkout with nothing committed, where flooding every ADR as absent would
-    be worse than trusting the glob."""
+    `existing` is deliberately NOT `tracked | glob`: `git ls-files` still
+    lists a file deleted from the worktree without being staged for removal,
+    and treating that as backing a listing would silence both new detectors on
+    the one state that floods dangling_adr — a flood with no canary, the exact
+    shape the canary was built for.
+
+    `tracked` collapses to the glob when root is not a git work tree's
+    toplevel (the audit's own fixtures, which live inside this repo and would
+    otherwise resolve against it) or when the tracked query comes back empty —
+    a fresh checkout with nothing committed, where reporting every ADR as
+    missing from the listings would be worse than trusting the glob."""
     tracked: list[str] = []
     try:
         top = subprocess.check_output(
@@ -260,10 +267,8 @@ def adr_files_on_disk(root: Path) -> tuple[set[str], set[str]]:
                 text=True, stderr=subprocess.DEVNULL).splitlines()
         except (subprocess.CalledProcessError, OSError):
             tracked = []
-    globbed = _adr_numbers([p.name for p in (root / ADR_DIR).glob("ADR-*.md")])
-    if not tracked:
-        return globbed, globbed
-    return _adr_numbers(tracked), _adr_numbers(tracked) | globbed
+    existing = _adr_numbers([p.name for p in (root / ADR_DIR).glob("ADR-*.md")])
+    return (_adr_numbers(tracked) if tracked else existing), existing
 
 
 def load_index_adrs(index_md: Path) -> dict[str, tuple[str, int]]:
@@ -368,45 +373,69 @@ def reservation_findings(claude_md: Path, reserved_adrs: set[str],
     return list(found.values())
 
 
-def load_roster(claude_md: Path) -> tuple[dict[str, tuple[str, int]], int, bool]:
-    """(NNN -> (title, lineno), paragraph_line_span, declared) for the roster.
+def load_roster(claude_md: Path) -> tuple[dict[str, tuple[str, int]], str, int, int]:
+    """(NNN -> (title, lineno), status, lineno, paragraph_span) for the roster.
 
-    `paragraph_line_span` is what stops the reflow trap: parsing only the first
-    line and returning would treat every entry below it as missing, and those
-    findings land at `high` confidence because the ADRs do exist. Reflowing a
-    1200-character line is ordinary editing and renders identically in
-    markdown, so the caller reports the reflow once rather than comparing
-    against a partial roster. Stitching the lines back together instead was
-    rejected: a wrap landing mid-entry silently truncates that entry's title
-    into a wrong title-mismatch finding, and Output Contract rule 6 prefers one
-    honest nag to a confident wrong claim.
+    status is one of:
+      "absent"    — no roster, and none declared. Silent: every other fixture,
+                    and any project that never adopted the convention.
+      "unparsed"  — a roster is declared but nothing matches the entry shape.
+      "multiline" — the roster's markdown paragraph is more than one line.
+      "ok"        — exactly one entry line, alone in its paragraph.
 
-    `declared` distinguishes "this repo has no roster" (silent — every other
-    fixture, and any project that never adopted one) from "a roster is declared
-    but nothing matches the shape". Without that split the check would fail
-    open exactly the way load_reserved_adrs did."""
+    Splitting "absent" from "unparsed" is what stops this check failing open
+    the way load_reserved_adrs did.
+
+    "multiline" is the reflow guard, and it is measured over the *paragraph*
+    rather than over lines that re-match the entry shape. Two shapes hide from
+    a shape-only count, and both flood one high-confidence finding per ADR
+    (high because the ADRs do exist):
+
+      - a wrap landing on a separator leaves the continuation without one
+        (`… 003 C ·` / `004 D`);
+      - a wrap after the *first* entry leaves the anchor line itself without
+        one, so scanning for an entry-shaped line finds the SECOND line and
+        measures the paragraph from there. `ROSTER_SEP` carries both spaces,
+        so stripping the trailing whitespace off `001 A · ` — what every
+        whitespace-stripping editor does on save — is the entire difference.
+
+    The paragraph is anchored on a line carrying both the separator and the
+    entry shape (either alone is too weak to identify a roster in prose), then
+    walked outward to the blank lines around it.
+
+    A paragraph that continues into prose is reported too, not parsed: this
+    check cannot tell following prose from a title that wrapped, and reading
+    only the first line would truncate the last entry's title into a confident
+    wrong title-mismatch. Stitching the lines back together has the same
+    defect. Output Contract rule 6 prefers one honest structural nag."""
     try:
         lines = claude_md.read_text(encoding="utf-8").splitlines()
     except OSError:
-        return {}, 0, False
-    start = next((i for i, ln in enumerate(lines)
-                  if ROSTER_SEP in ln and ROSTER_LINE.match(ln)), None)
+        return {}, "absent", 0, 0
+    anchor = next((i for i, ln in enumerate(lines)
+                   if ROSTER_SEP in ln and ROSTER_LINE.match(ln)), None)
+    if anchor is None:
+        declared = any(ROSTER_DECLARED in ln for ln in lines)
+        return {}, ("unparsed" if declared else "absent"), 0, 0
+    start = anchor
+    while start > 0 and lines[start - 1].strip():
+        start -= 1
+    end = anchor
+    while end + 1 < len(lines) and lines[end + 1].strip():
+        end += 1
+    span = end - start + 1
+    content = [i for i in range(start, end + 1)
+               if ROSTER_SEP in lines[i] or ROSTER_LINE.match(lines[i])]
+    if span > 1:
+        return {}, "multiline", content[0] + 1, span
     out: dict[str, tuple[str, int]] = {}
-    span = 0
-    if start is not None:
-        # The roster's markdown *paragraph* — contiguous non-blank lines — not
-        # just the lines that re-match the entry shape. A wrap landing on a
-        # separator leaves the continuation without one (`… 003 C ·` / `004 D`),
-        # which a shape-only count misses while the partial parse still drops
-        # every entry below the first.
-        span = next((k for k, ln in enumerate(lines[start:]) if not ln.strip()),
-                    len(lines) - start)
-        for entry in lines[start].split(ROSTER_SEP):
-            m = ROSTER_ENTRY.match(entry.strip())
-            if m:
-                out[m.group(1)] = (m.group(2), start + 1)
-    declared = bool(out) or any(ROSTER_DECLARED in ln for ln in lines)
-    return out, span, declared
+    for entry in lines[anchor].split(ROSTER_SEP):
+        m = ROSTER_ENTRY.match(entry.strip())
+        if m:
+            out[m.group(1)] = (m.group(2), anchor + 1)
+    if not out:
+        return {}, "unparsed", anchor + 1, span
+    return out, "ok", anchor + 1, span
 
 
 _ROSTER_COUNTER_EVIDENCE = (
@@ -451,6 +480,10 @@ def roster_findings(claude_md: Path, index_md: Path,
     sits in the second but not the first, which is exactly right: it demands no
     index entries yet, and it does justify the entries its author just added.
 
+    Each of the three sources can be unreadable on its own, so each degrades
+    only the axes that need it rather than aborting the pass — an early return
+    on one hid genuine drift on the others.
+
     `reserved_adrs` joins both, so an ADR that is listed everywhere and
     deliberately has no file (ADR-006) stays silent — the same subtraction
     dangling_adr already performs.
@@ -466,39 +499,47 @@ def roster_findings(claude_md: Path, index_md: Path,
     precondition explicitly disqualifies a detector that cannot report an
     exact offset for what it found)."""
     sep = ROSTER_SEP.strip()
-    roster, span, declared = load_roster(claude_md)
-    if not roster:
-        if not declared:
-            return []      # no roster in this repo — not a finding
-        return [_shape_finding(
+    roster, status, roster_line, span = load_roster(claude_md)
+    if status == "absent":
+        return []          # no roster in this repo — not a finding
+    out: list[dict] = []
+    # A structure this check reads can be reshaped independently of the others,
+    # so each unreadable structure degrades only the axes that need it. An
+    # early return here suppressed the axes that did not: a stub INDEX hid a
+    # genuine roster-vs-disk omission, and a reflowed roster hid genuine INDEX
+    # omissions. Both silently, which is the failure mode this whole file is
+    # about.
+    if status == "unparsed":
+        out.append(_shape_finding(
             "roster:CLAUDE.md", "CLAUDE.md", 1,
             "CLAUDE.md declares an ADR roster but no line matches the "
             f"`NNN <title>` entries joined by `{sep}` shape",
             "Restore the roster to one line of `NNN <title>` entries joined by "
-            f"`{sep}`, or drop this check with the roster.")]
-    if span > 1:
-        return [_shape_finding(
-            "roster:CLAUDE.md", "CLAUDE.md", next(iter(roster.values()))[1],
-            f"the roster paragraph spans {span} lines; this check reads a "
-            "single line, so comparing against it would report every entry "
-            "below the first as missing",
-            f"Rejoin the roster onto one line of `NNN <title>` entries "
-            f"separated by `{sep}`, or teach load_roster to span lines "
-            "(note that a wrap landing mid-entry truncates that title).")]
+            f"`{sep}`, or drop this check with the roster."))
+    elif status == "multiline":
+        out.append(_shape_finding(
+            "roster:CLAUDE.md", "CLAUDE.md", roster_line,
+            f"the roster's paragraph spans {span} lines; this check reads one "
+            "entry line, and cannot tell a title that wrapped onto the rest "
+            "from prose that merely follows the roster",
+            f"Keep the roster on a single line of `NNN <title>` entries "
+            f"separated by `{sep}`, with a blank line before any prose that "
+            "follows it."))
+    roster_ok = status == "ok"
 
     has_index = index_md.is_file()
     # No `mentions` probe: a tracked INDEX.md that parses zero headings is
     # already anomalous, and requiring an ADR-NNN token first let a stub or
     # placeholder INDEX through into the very per-ADR flood this closes.
     if has_index and not index_adrs:
-        return [_shape_finding(
+        out.append(_shape_finding(
             f"roster:{DEFAULT_INDEX}", DEFAULT_INDEX, 1,
             "INDEX.md exists but no `## ADR-NNN — <title>` heading parses, so "
             "the roster cannot be compared against it",
             "Restore the `## ADR-NNN — <title>` heading shape in "
-            f"{DEFAULT_INDEX}.")]
+            f"{DEFAULT_INDEX}."))
+        has_index = False
 
-    roster_line = next(iter(roster.values()))[1]
     required = tracked | reserved_adrs
     backed = existing | reserved_adrs
     problems: dict[str, list[str]] = {}
@@ -507,22 +548,27 @@ def roster_findings(claude_md: Path, index_md: Path,
         problems.setdefault(nnn, []).append(msg)
 
     for nnn in sorted(required):
-        if nnn not in roster:
+        if roster_ok and nnn not in roster:
             add(nnn, "missing from the CLAUDE.md ADR roster")
         if has_index and nnn not in index_adrs:
             add(nnn, f"missing from {DEFAULT_INDEX}")
 
-    for nnn in sorted(roster):
+    for nnn in sorted(roster) if roster_ok else []:
         if nnn not in backed:
-            add(nnn, "listed in the roster with no ADR file on disk and no "
-                     "reserved row in CLAUDE.md's Reference Documents table")
+            # ...unless INDEX lists it too, which is the state
+            # unparsed_adr_reservation reports with a reservation-specific
+            # action. Reporting it here as well files two issues for one
+            # omission, on top of the dangling_adr the canary already explains.
+            if nnn not in index_adrs:
+                add(nnn, "listed in the roster with no ADR file on disk and "
+                         "no reserved row in CLAUDE.md's Reference Documents "
+                         "table")
         elif has_index and nnn in index_adrs:
             r_title, i_title = roster[nnn][0], index_adrs[nnn][0]
             if r_title != i_title:
                 add(nnn, f"roster title {r_title!r} is not byte-identical to "
                          f"the INDEX heading {i_title!r}")
 
-    out: list[dict] = []
     for nnn in sorted(problems):
         adr = f"ADR-{nnn}"
         # `roster:` prefix for the same reason unparsed_adr_reservation carries

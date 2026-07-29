@@ -2,4 +2,4 @@
 
 ## ADR-001 — Architecture overview
 
-## ADR-002 — Multi-platform strategy
+## ADR-099 — Withdrawn experiment

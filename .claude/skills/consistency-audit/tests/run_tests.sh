@@ -21,6 +21,12 @@ nj_type_len() { echo "$1" | jq --arg t "$2" '[.needs_judgment[] | select(.type==
 # in:title"` — type-blind, so two finding types sharing a target silently
 # suppress each other across runs. Called on every fixture run that yields
 # judgment findings, not just the ones where two types fire today.
+#
+# Scope, stated because a guard narrower than its claim proves nothing: this
+# tests EXACT target equality only. GitHub's search also matches on tokens, so
+# `reservation:ADR-006` and `ADR-006` can still match each other's titles —
+# unavoidable while a target names its ADR, and handled in SKILL.md Step 4 by
+# confirming the matched issue before skipping.
 no_target_collision() {
   local n
   n=$(echo "$1" | jq '[.needs_judgment[] | {t:.type, g:.target}] | group_by(.g)
@@ -216,22 +222,57 @@ echo "$OUT" | jq -e '[.needs_judgment[] | select(.type=="adr_roster_drift") | (h
 # shape); roster-reflow rewraps across two lines while still matching, with
 # the wrap landing after a separator so the continuation carries none;
 # index-shape leaves INDEX.md with no parseable heading at all.
-for f in roster-shape roster-reflow index-shape index-stub; do
+for f in roster-shape roster-reflow-head roster-prose index-stub roster-no-index; do
   OUT=$(python3 "$AUDIT" --repo-root "fixtures/$f")
-  [ "$(nj_len "$OUT")" -eq 1 ] \
-    || fail "$f: expected exactly 1 finding (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{target,problems}]')"
-  echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and (has("adr")|not))' >/dev/null \
+  EXPECT=1; [ "$f" = roster-no-index ] && EXPECT=0
+  [ "$(nj_len "$OUT")" -eq "$EXPECT" ] \
+    || fail "$f: expected exactly $EXPECT finding(s) (no per-ADR flood), got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{target,problems}]')"
+  [ "$EXPECT" -eq 0 ] || echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and (has("adr")|not))' >/dev/null \
     || fail "$f: the single finding must be structural (no per-ADR claim): $(echo "$OUT" | jq -c '[.needs_judgment[]|{target,problems}]')"
   no_target_collision "$OUT" "$f"
 done
-python3 "$AUDIT" --repo-root fixtures/roster-shape | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md")' >/dev/null \
-  || fail "roster-shape: a declared-but-unparseable roster must report the shape change"
-python3 "$AUDIT" --repo-root fixtures/roster-reflow | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md") | .problems[0] | test("spans 2 lines")' >/dev/null \
+# roster-no-index is the only reachable exercise of `backed`'s reserved
+# component: everywhere else, a reserved fileless ADR is also in INDEX.md and
+# the roster branch defers to the canary on that instead.
+
+# --- degradation: one unreadable structure must not silence the other axis --
+# Both were early returns, which hid genuine drift on the axis that did not
+# depend on the reshaped structure.
+OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-reflow)
+echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md") | .problems[0] | test("spans 2 lines")' >/dev/null \
   || fail "roster-reflow: a rewrapped roster must report the reflow, measured as a paragraph"
-python3 "$AUDIT" --repo-root fixtures/index-shape | jq -e '.needs_judgment[] | select(.target=="roster:docs/decisions/INDEX.md")' >/dev/null \
+echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-003") | .problems | any(test("missing from docs/decisions/INDEX.md"))' >/dev/null \
+  || fail "roster-reflow: an unreadable roster must not silence the INDEX-vs-disk axis"
+echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-003") | .problems | any(test("missing from the CLAUDE.md ADR roster"))' >/dev/null \
+  && fail "roster-reflow: the roster axis must stay silent while the roster is unreadable" || true
+no_target_collision "$OUT" "roster-reflow"
+OUT=$(python3 "$AUDIT" --repo-root fixtures/index-shape)
+echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="roster:docs/decisions/INDEX.md")' >/dev/null \
   || fail "index-shape: an unparseable INDEX heading shape must report once"
-python3 "$AUDIT" --repo-root fixtures/index-stub | jq -e '.needs_judgment[] | select(.target=="roster:docs/decisions/INDEX.md")' >/dev/null \
+echo "$OUT" | jq -e '.needs_judgment[] | select(.adr=="ADR-003") | .problems | any(test("missing from the CLAUDE.md ADR roster"))' >/dev/null \
+  || fail "index-shape: an unreadable INDEX must not silence the roster-vs-disk axis"
+no_target_collision "$OUT" "index-shape"
+OUT=$(python3 "$AUDIT" --repo-root fixtures/index-stub)
+echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="roster:docs/decisions/INDEX.md")' >/dev/null \
   || fail "index-stub: a placeholder INDEX with no ADR token at all must report once, not flood"
+
+OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-reflow-head)
+echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md")' >/dev/null \
+  || fail "roster-reflow-head: a wrap after the FIRST entry must report the reflow, not flood per ADR"
+OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-prose)
+echo "$OUT" | jq -e '.needs_judgment[] | select(.target=="roster:CLAUDE.md") | .problems[0] | test("cannot tell a title that wrapped")' >/dev/null \
+  || fail "roster-prose: the finding must claim only what is true — the paragraph is unread, not that entries are missing"
+
+# --- roster-both-listed: one omission, one issue ---------------------------
+# A fileless ADR in BOTH listings is the shape adr-writing.md §4 produces, and
+# unparsed_adr_reservation already reports it with a reservation-specific
+# action. adr_roster_drift must defer, or the run files two issues for one
+# omission on top of the dangling_adr the canary explains.
+OUT=$(python3 "$AUDIT" --repo-root fixtures/roster-both-listed)
+[ "$(nj_type_len "$OUT" adr_roster_drift)" -eq 0 ] \
+  || fail "roster-both-listed: adr_roster_drift must defer to the canary: $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target,problems}]')"
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
+  || fail "roster-both-listed: the canary must still fire"
 
 # --- untracked ADR draft: not yet required, but it does back a listing ------
 # Needs a real git repo, since the tracked/existing split is what `git ls-files`
@@ -251,6 +292,9 @@ index '## ADR-001 — A\n\n## ADR-003 — C'
 printf '# ADR-001\n' > "$G/docs/decisions/ADR-001.md"
 printf '# ADR-003\n' > "$G/docs/decisions/ADR-003.md"
 git -C "$G" init -q
+# Isolate from the developer's global config: commit.gpgsign or an
+# init.templateDir hook would otherwise fail or fire here. CI is clean.
+export GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_SYSTEM=/dev/null
 git -C "$G" -c user.email=t@e -c user.name=t add -A >/dev/null
 git -C "$G" -c user.email=t@e -c user.name=t commit -qm base
 
@@ -282,6 +326,18 @@ index '## ADR-001 — A\n\n## ADR-003 — C'
 OUT=$(python3 "$AUDIT" --repo-root "$G")
 echo "$OUT" | jq -e '.needs_judgment[] | select(.type=="adr_roster_drift" and .adr=="ADR-002") | .problems | (any(test("missing from the CLAUDE.md ADR roster")) and any(test("missing from docs/decisions/INDEX.md")))' >/dev/null \
   || fail "untracked: a tracked ADR absent from both listings must report both: $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target,problems}]')"
+no_target_collision "$OUT" "untracked"
+
+# Phase 3 — tracked but deleted from the worktree. `git ls-files` still lists
+# it, so folding the tracked set into "is a file behind this listing" would
+# silence both new detectors on the one state that floods dangling_adr — a
+# flood with no canary, which is the shape the canary exists for.
+roster '001 A · 002 B · 003 C'
+index '## ADR-001 — A\n\n## ADR-002 — B\n\n## ADR-003 — C'
+rm "$G/docs/decisions/ADR-002.md"
+OUT=$(python3 "$AUDIT" --repo-root "$G")
+[ "$(nj_type_len "$OUT" unparsed_adr_reservation)" -eq 1 ] \
+  || fail "untracked: a tracked-but-deleted ADR must still raise the canary beside its dangling_adr, got $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
 
 # --- mirror fixture: inverted embedded-source-mirror detector --------------
 # FIRE on near-complete drifted copies (alpha flush / delta indented-in-list /

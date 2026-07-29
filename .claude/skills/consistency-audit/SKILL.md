@@ -218,10 +218,16 @@ For each `needs_judgment` finding (already deduped by `target`):
    `roster:<file>` for a shape drift) — embed `target` in the issue title
    verbatim.
 
-   **The namespacing on the last two is load-bearing.** This search matches a
-   title substring and cannot tell finding types apart, so a bare `ADR-NNN`
-   would be permanently suppressed by the open `dangling_adr` issue it exists
-   to explain — most likely exactly when both fire.
+   **The namespacing on the last two is load-bearing, and it is not
+   sufficient.** The search cannot tell finding types apart, so a bare
+   `ADR-NNN` would be permanently suppressed by the open `dangling_adr` issue
+   it exists to explain — most likely exactly when both fire. The prefix stops
+   that, but GitHub also matches on tokens rather than whole strings, and
+   every one of these targets names its ADR, so `reservation:ADR-006` and
+   `ADR-006` can still surface each other. **Before skipping as a duplicate,
+   confirm the matched issue's title actually contains the target verbatim**
+   — a match on the bare ADR id when the target is namespaced (or vice versa)
+   is a different finding, and skipping on it drops a real one silently.
 2. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
