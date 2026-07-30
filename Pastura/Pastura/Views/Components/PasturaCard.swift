@@ -28,7 +28,7 @@ enum PasturaCardMetrics {
 /// `UITableView.Style` / SwiftUI `ListStyle` vocabulary so the intent reads at
 /// a glance to any iOS engineer.
 ///
-/// - ``insetGrouped``: a rounded white pane inset from the screen edge with an
+/// - ``insetGrouped``: a rounded white-in-light pane inset from the screen edge with an
 ///   all-around hairline. The detail-screen / content-grouping form
 ///   (ScenarioDetail, GalleryScenarioDetail) — the default.
 /// - ``grouped``: a full-bleed white band reaching both screen edges, no corner

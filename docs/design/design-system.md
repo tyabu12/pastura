@@ -65,7 +65,7 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--rule` | `#E0DBCE` | 罫線 |
 | `--ink-on-accent` | `#FFFFFF` | アクセント塗り（`moss` / `moss-dark`）の上に載る文字・グリフ |
 
-`--ink-on-accent` は §2.3 が認める white-on-accent の前景。§1 の「純白の面を避ける」は**背景**の話なので抵触しない。適用範囲は下地で変わる:
+`--ink-on-accent` は §2.3 が認めるアクセント上の前景（**light では白**、dark は `night-ink-on-accent`）。§1 の「純白の面を避ける」は**背景**の話なので抵触しない。適用範囲は下地で変わる:
 
 - **テキストは `moss-dark` 上に限る**（≈4.7:1、AA 達成）。base `moss` 上は ≈3.03:1 で 4.5:1 に届かない。
 - **グリフ・図形は `moss` 上も可**。WCAG 1.4.11 の非テキスト 3:1 が適用され ≈3.03:1 は充足する（`CheckBadge` のチェック、share タブのシンボル — 後者は `moss`→`moss-dark` グラデ上なので最悪値が明側の `moss`）。ただし余裕は約 1% しかないので、`moss` の色を動かす際はこの 2 用途を確認すること。
@@ -280,12 +280,22 @@ light では L が上がるほど暗くなって淡い地に対するコント�
 Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある）が「機械変換不能」と名指しした唯一の項目）。比率は `nightBubble` に
 対する値で、L1〜L3 は light の比率をそのまま写している。
 
-**地は暫定**: 実描画面は `PromoCard` の `promoBackground` だが、これは未ペア（スライス4）。
-**#2A2D26〜#2F3229 の帯**はこの梯子を置いた際の設計上の*前提*であって、アサートされた
-範囲ではない。`DesignTokensTests+NightPalette` の
-`nightMetaLadderStaysMonotonicAgainstTheCardSurface` は `promoBackground` が
-**ペア化された時点で**（帯の内外を問わず）赤くなり、実際の地に対する梯子の再検算を強制する。
-帯そのものを検査しても意味がない — 梯子は帯の両端どちらでも単調なので、常に通ってしまう。
+**地は確定した（slice 4）。** 実描画面は `PromoCard` の `promoBackground` で、その
+ダーク値 `nightPromoBackground`(#282C24) がこの梯子の実際の地。設計時は
+`nightBubble` を暫定地に置き、**#2A2D26〜#2F3229 の帯**をアサートではなく*前提*として
+いたが、導出値はその帯のわずか**下**に着地した（Y 0.0238 対 帯下端 0.0251）。
+`DesignTokensTests+NightMeta` の
+`nightMetaLadderStaysMonotonicAgainstTheCardSurface` は `promoBackground` の
+pair registry 不在をアサートするトリップワイヤを持っていて、ペア化した瞬間に**発火した**。
+再検算の結果、梯子は帯外でも保つ — base は 3.33/5.08/8.16/10.77 から
+**3.48/5.31/8.54/11.27** に上がり、単調性を維持し L3 は 8.54（約束の 4.5 以上）。
+帯そのものを検査していなかったのは正しかった — 梯子は帯の両端どちらでも単調なので、
+帯検査は常に通り、実際の地に対して一度も測らないまま終わっていた。
+
+**下表の per-token 比は暫定地（`nightBubble`）に対する設計記録**で、意図的にそのまま
+残している（「light の比をそのまま写している」が成り立つのはこの地に対してのみ）。実際の
+地に対しては各段が上振れし、白の天井も 13.60 → 14.23 に動く。再検算が確立したのは
+**単調性と L3 ≥ 4.5** であって、light 比の保持ではない。
 
 | Token | Hex | 対応する day-mode token |
 |-------|-----|------------------------|
@@ -359,7 +369,7 @@ Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある�
 | `nightAvatarHornDave` | `#2C291C` | `avatarHornDave`（body 比 6.02、light は 5.95）。地に対しては 1.17:1 とほぼ見分けが付かないが、角は毛の**上に**描かれ地に触れないので問題にならない。light の角も同じ理由で反対の極（淡い地に対し 8.25:1）にある |
 | `nightAvatarEar` | `#B8A88B` | `avatarEar`。**未描画**（下記） |
 | `nightAvatarEarInner` | `#A79471` | `avatarEarInner`。**未描画** |
-| `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス4 まで未ペアで、未決の値への前方依存になる） |
+| `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス3 の時点で未ペアで、未決の値への前方依存になるため。slice 4 でペア済み） |
 | `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、§2.5 自身の near-black の床（パレット全体の最暗値は slice 4 の `night-page` #11130F）（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
 | `nightAvatarHighlight` | `rgba(255,255,255,0.40)` | `avatarHighlight`。**alpha を下げる**（0.60 → 0.40）。§2.7 の wash が約 1.33 倍に上げたのと逆向きだが、矛盾ではない — wash は暗い面に載せる**淡い色**なので alpha が要る。こちらは面の上に置く**光の反射**で、面が暗くなった分だけ同じ alpha が*強い*段差になる。仕事が逆なので向きも逆 |
 | `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値） |
@@ -656,8 +666,8 @@ ToolbarItem(placement: .primaryAction) {
 
 | 仕様項目 | 値 / 理由 |
 |---------|----------|
-| 塗り | `mossDark`（#6B7852）。白文字とのコントラスト ≈ 4.74:1（WCAG AA 達成）。base `moss`（#8A9A6C）の `.borderedProminent` は ≈ 3.0:1 で AA 未達のため不可 |
-| 文字色 | 白（text-on-accent。§1「純白を避ける」は背景の話で、アクセント上の文字は対象外） |
+| 塗り | `mossDark`（#6B7852）。`inkOnAccent` とのコントラスト ≈ 4.74:1（light、WCAG AA 達成）／ ≈7.12:1（dark、AAA）。`.borderedProminent` は継承された `.tint(Color.moss)` から塗るので ≈ 3.03:1（light）／≈2.13:1（dark） で AA 未達のため不可 |
+| 文字色 | `inkOnAccent`（**light では白**、dark は #2C2F28 の near-ground tone。§1「純白を避ける」は背景の話で、アクセント上の文字は対象外） |
 | 角丸 | 12pt（14pt カードの内側で角が競合しないよう一段小さく） |
 | 押下 | `pressedOpacity` 0.7 で減光。capsule 展開・scale アニメーションなし（§1 静的 voice） |
 

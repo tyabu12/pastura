@@ -10,16 +10,19 @@ import SwiftUI
 ///
 /// ## Why a custom style (not `.borderedProminent`)
 ///
-/// The system `.borderedProminent` tints with the **accent asset**
-/// (`AccentColor.colorset`, a single `universal` #8A9A6C with no dark
-/// appearance) and labels it with the system's own prominent-label colour, not
-/// `Color.inkOnAccent`. So slice 4's pairing reaches neither half of it: white on
-/// #8A9A6C is ≈3.03:1 in **both** appearances — clearing WCAG 1.4.11's 3:1
-/// non-text bar, failing the 4.5:1 text bar, and below Pastura's own §8 target
-/// either way. It also opts **into** iOS 26's Liquid Glass capsule, which §5.8
-/// deliberately opts out of for every other custom control. This style's
-/// `mossDark` fill lifts text contrast to ≈4.74:1 in light (AA) and ≈7.12:1 in
-/// dark (AAA), and keeps the flat moss tone.
+/// The system `.borderedProminent` fills from the ambient `\.tint`, and
+/// `RootTabView` sets `.tint(Color.moss)` on the whole `TabView` — a **paired**
+/// token, so inside the tab hierarchy (where every consumer of this style lives)
+/// it resolves #8A9A6C in light and #A8B888 in dark. Its label is the system's
+/// own prominent-label colour, **not** `Color.inkOnAccent`, so pairing cannot
+/// help it: white measures ≈3.03:1 in light and **≈2.13:1 in dark**, i.e. the
+/// alternative gets *worse* under dark, dropping below even the 3:1 non-text bar.
+/// (`AccentColor.colorset` is a single `universal` #8A9A6C with no dark
+/// appearance, but that is only the fallback where nothing sets a tint — it is not
+/// what these call sites resolve.) `.borderedProminent` also opts **into** iOS
+/// 26's Liquid Glass capsule, which §5.8 deliberately opts out of for every other
+/// custom control. This style's `mossDark` fill lifts text contrast to ≈4.74:1 in
+/// light (AA) and ≈7.12:1 in dark (AAA), and keeps the flat moss tone.
 ///
 /// ## Scope
 ///
@@ -64,9 +67,9 @@ struct PasturaPrimaryButtonStyle: ButtonStyle {
   private var horizontalPadding: CGFloat { size == .compact ? 16 : 20 }
 
   /// Fill color. `mossDark` (#6B7852) — `inkOnAccent`-on-fill ≈4.74:1 in light
-  /// (AA) / ≈7.12:1 in dark (AAA). `.borderedProminent`'s base `moss` (#8A9A6C)
-  /// with the system's white label is ≈3.03:1 in both appearances; see the
-  /// type's doc comment for why pairing does not improve it.
+  /// (AA) / ≈7.12:1 in dark (AAA). `.borderedProminent` fills from the inherited
+  /// `.tint(Color.moss)` with the system's white label: ≈3.03:1 in light and
+  /// ≈2.13:1 in dark. See the type's doc comment.
   static let fill: Color = .mossDark
 
   /// Label color. `inkOnAccent` — white in light, `nightInkOnAccent` (a

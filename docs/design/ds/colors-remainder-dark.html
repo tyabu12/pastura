@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pastura DS — §2.1/§2.3/§2.8 remainder (dark)</title>
+<title>Pastura DS — §2.1/§2.2/§2.3/§2.8 remainder (dark)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
@@ -104,7 +104,7 @@
 </head>
 <body>
 <div class="card">
-  <p class="card-title">Colors — §2.1/§2.3/§2.8 remainder (dark)</p>
+  <p class="card-title">Colors — §2.1/§2.2/§2.3/§2.8 remainder (dark)</p>
 
   <div class="section night">
     <p class="section-label">§2.1（page・promoBackground・promoBorder）/ §2.2（inkOnAccent）/ §2.3（moss 4段のうち dark・ink・soft — <code>moss</code> 自体は原初の 8 対で既にペア済み）/ §2.8（link 3種）— gate 1 で残っていた 10 トークン。これで gate 1 は完了</p>
@@ -223,7 +223,7 @@
   <div class="section night">
     <p class="section-label">設計判断</p>
     <p class="section-note">
-      <strong><code>page</code> は沈み、<code>promoBackground</code> は浮く。</strong>light では両方とも body 地よりわずかに below（1.099 / 1.047）で同じ向きだが、dark では <code>nightPage</code> が引き続き below（1.099）である一方 <code>nightPromoBackground</code> は body 地に対して above（1.195）に転じる — <code>page</code> は画面の奥に退く背景の役割を night でも保つのに対し、<code>promoBackground</code> はカードとして手前に浮く役割を night で強めて保つ、という向きの違いがそのまま比の違いになる。
+      <strong><code>page</code> は沈み、<code>promoBackground</code> は浮く。</strong>light では両方とも body 地よりわずかに below（1.099 / 1.003 — 1.047 は promoBackground の bubble 比）で同じ向きだが、dark では <code>nightPage</code> が引き続き below（1.099）である一方 <code>nightPromoBackground</code> は body 地に対して above（1.195）に転じる — <code>page</code> は画面の奥に退く背景の役割を night でも保つのに対し、<code>promoBackground</code> はカードとして手前に浮く役割を night で強めて保つ、という向きの違いがそのまま比の違いになる。
     </p>
     <p class="section-note">
       <strong><code>promoBorder</code> と <code>mossSoft</code> は方向が反転する。</strong>境界線は自分の乗るカードに対する量を light/dark 双方で 1.204 のまま持ち越すが、<em>向き</em>は反対にした。light の向き（カードより暗い）を保つと #1A1C17 になり、カードに対しては 1.207 で通る一方、<strong>背後の地に対して 1.010</strong> まで縮んでカード端が溶ける — 通したい面ではなく、通したくない面で落ちる。だから向きを反転させ、出荷値 <code>nightPromoBorder</code> は地に対して <strong>1.440 above</strong> に座る。<code>rule</code> → <code>nightRule</code>（1.324 below → 1.425 above）と同じ形で、原初の 8 対が既に踏んでいた反転。
@@ -232,7 +232,7 @@
       <strong>§2.3 の 4 段は順序ごと反転する。</strong>light は ink &lt; dark &lt; moss &lt; soft の明度順だが、dark は soft &lt; moss &lt; dark &lt; ink に並び替わる。<code>nightMossDark</code>（body 地比 8.902）は <code>nightMoss</code>（7.999）より明るい — dark 側の「濃い moss」が「基準の moss」を追い越す。
     </p>
     <p class="section-note">
-      <strong><code>inkOnAccent</code> は dark で白ではない。</strong>MD3 は primary が tone 40→80（moss → nightMoss 相当）に上がるとき on-primary の tone を 100→20 へ落とす。最小消費が 9pt/9.5pt のラベルであるため、置いた基準は白ではなく WCAG AAA 7:1（<code>mossDark</code> 上 7.117）。<code>nightBubble</code> と同値になったのは<strong>結果</strong>であって、継承して持ち越した一致ではない。
+      <strong><code>inkOnAccent</code> は dark で白ではない。</strong>MD3 は primary が tone 40→80（moss → nightMoss 相当）に上がるとき on-primary の tone を 100→20 へ落とす。最小消費が 9pt/9.5pt のラベルであるため、置いた基準は白ではなく WCAG AAA 7:1（<code>nightMossDark</code> 上 7.117）。<code>nightBubble</code> と同値になったのは<strong>結果</strong>であって、継承して持ち越した一致ではない。
     </p>
     <p class="section-note">
       <strong><code>mossSoft</code> の色相は moss ファミリへ移した。</strong>light の 47.7° というクリームがかった色相を dark でもそのまま保つと 5% 輝度ではアンバーに読め、<code>nightWarningSoft</code> と衝突する。<code>nightMossSoft</code> は 80.9° の moss 系へ寄せて回避した。

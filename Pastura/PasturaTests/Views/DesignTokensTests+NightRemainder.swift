@@ -49,8 +49,9 @@ extension DesignTokensTests {
   /// §2.3's four steps run one way in light and the **other way** in dark. Light
   /// orders them ink < dark < moss < soft by luminance (ink darkest); dark orders
   /// them soft < moss < dark < ink (ink brightest). That inversion is the whole
-  /// reason arm 3 is degenerate for `mossDark` — see the §2.3 MARK's
-  /// arm-3-is-degenerate paragraph in `DesignTokens+NightPalette.swift`.
+  /// reason arm 3 is degenerate for `mossDark` — see the arm-3-is-degenerate
+  /// paragraph under the "§2.9 Dark counterparts of the §2.3 moss accent" MARK in
+  /// `DesignTokens+NightPalette.swift`.
   @Test func mossFamilyOrderingInvertsBetweenAppearances() {
     #expect(
       isStrictlyBrightening([
@@ -72,7 +73,7 @@ extension DesignTokensTests {
   /// that directly. What it does catch is the one thing the positive arm cannot:
   /// a predicate that is **constant true**. That is a real residual job, and
   /// worth a test, but not the one a reader would assume.
-  @Test func mossFamilyOrderingControlRejectsTheUninvertedArrangement() {
+  @Test func mossFamilyOrderingControlRejectsAConstantTruePredicate() {
     #expect(
       !isStrictlyBrightening([
         PasturaPalette.nightMossInk, PasturaPalette.nightMossDark,
@@ -139,17 +140,58 @@ extension DesignTokensTests {
         line: PasturaPalette.nightRule,
         surface: PasturaPalette.nightBubble,
         ground: PasturaPalette.nightBackground))
+    // `mossSoft` is named in this test's doc, so assert it rather than leaving the
+    // sentence unbacked. Its surface is the body ground itself (it is a line on the
+    // page, not on a card), so surface and ground coincide here.
+    #expect(
+      lineSeparatesSurfaceFromGround(
+        line: PasturaPalette.nightMossSoft,
+        surface: PasturaPalette.nightBackground,
+        ground: PasturaPalette.nightBackground))
   }
 
   /// The control, again the rejected alternative: a `promoBorder` that keeps
   /// light's 1.204 but on the **darker** side of its card lands at #1A1C17, which
   /// measures 1.207 against the card — passing, if that were the only check — and
   /// **1.010 against the ground behind it**. The card edge would dissolve exactly
-  /// where it has to read. This is why the predicate takes a ground at all.
+  /// where it has to read.
+  ///
+  /// Note what actually rejects it: the **direction** clause, which short-circuits
+  /// first, so its 1.010 ground reading is never taken. That reading is still the
+  /// reason the value was rejected as a *design*, which is why it is recorded — but
+  /// it is not what this test observes.
   @Test func quietLineControlRejectsTheDarkerDirection() {
     #expect(
       !lineSeparatesSurfaceFromGround(
         line: PasturaColorValue(hex: 0x1A1C17),
+        surface: PasturaPalette.nightPromoBackground,
+        ground: PasturaPalette.nightBackground))
+  }
+
+  /// A **second** control, because the first does not test what the predicate's
+  /// name promises. #1A1C17 is rejected by the ground clause *and* by the
+  /// direction clause, so it would fail identically with direction unchecked —
+  /// it cannot be the evidence that direction is enforced.
+  ///
+  /// #0E100C is that evidence. At Y≈0.0049 it clears **both** separability
+  /// clauses (1.344 against the card, 1.124 against the ground) while sitting
+  /// darker than both, so before the direction clause existed it passed a test
+  /// named "…InvertDirection". It is rejected on direction alone.
+  ///
+  /// The escape region is narrow but real — for this call site, any line at
+  /// Y ≤ 0.0061 (the bound is call-site-specific: it derives from
+  /// `nightBackground`). `nightPage` at Y≈0.00619 sits just *outside* it and would
+  /// have been rejected by the 1.1 bar anyway (1.099 against the ground), so no
+  /// shipped token exposed the gap and only a constructed value can.
+  @Test func quietLineControlRejectsALineDarkerThanBothAtAdequateSeparation() {
+    let escapee = PasturaColorValue(hex: 0x0E100C)
+    // The two separability clauses, satisfied — this is what made the gap reachable.
+    #expect(contrastRatio(escapee, PasturaPalette.nightPromoBackground) >= 1.1)
+    #expect(contrastRatio(escapee, PasturaPalette.nightBackground) >= 1.1)
+    // And the predicate rejects it anyway, on direction.
+    #expect(
+      !lineSeparatesSurfaceFromGround(
+        line: escapee,
         surface: PasturaPalette.nightPromoBackground,
         ground: PasturaPalette.nightBackground))
   }
@@ -202,10 +244,12 @@ extension DesignTokensTests {
     let dark = contrastRatio(PasturaPalette.nightBackground, PasturaPalette.nightMossInk)
     #expect(abs(light - dark) < 0.05)
     // The claim is the *equality* above (measured 0.0027 apart). This second leg
-    // is a change-detector, not a derived bound: it pins the pair to the ~10:1
-    // band so that a future edit moving BOTH tokens together — which the equality
-    // would not notice — still reddens. Stated so it is not fairly deleted as an
-    // arbitrary round number (`view-testing.md` § "Change-detector tripwire").
+    // is a change-detector, not a derived bound, and it is a **floor** rather than
+    // a band: it catches a both-tokens-together edit that drops the pair below
+    // ~10:1 — which the equality would not notice — but not one that raises it. A
+    // one-sided check is what the design cares about here (legibility of the CTA
+    // label), so the asymmetry is deliberate. Stated so it is not fairly deleted as
+    // an arbitrary round number (`view-testing.md` § "Change-detector tripwire").
     #expect(light > 10.0)
   }
 
@@ -228,7 +272,8 @@ extension DesignTokensTests {
   /// contrast and are **not** to be merged. Arithmetic coincidence: the card sits
   /// 1.195 above the ground, so "8.54 on the card" (where §2.4 renders) and
   /// "10.19 on the ground" (where §2.3 renders) resolve to the same luminance
-  /// (10.187 / 8.539 = 1.193). Both figures are against the **real** card
+  /// (10.187 / 8.539 = 1.193 — the 0.002 gap from the card's own 1.195 **is** the
+  /// 1.002 convergence between the two tokens, not a rounding slip). Both figures are against the **real** card
   /// `nightPromoBackground`; the 1.251 / 8.16 pair belongs to the `nightBubble`
   /// stand-in slice 4 retired, and being internally consistent with each other is
   /// exactly why they read as verified.
@@ -275,17 +320,29 @@ func onAccentForegroundClearsItsBars(
 /// separable from both that surface and the ground behind it.
 ///
 /// The direction clause is not decoration: `contrastRatio` is symmetric, so the
-/// two separability clauses alone also admit a line *darker* than both (anything
-/// at Y <= 0.0061, i.e. `nightPage` territory) — which would pass a test whose
-/// name promises inversion. The ground clause is the one that matters on a dark
-/// palette: a line placed only against its own surface can land on top of the
-/// ground and vanish at the card edge.
+/// two separability clauses alone also admit a line *darker* than both — which
+/// would pass a test whose name promises inversion.
+/// `quietLineControlRejectsALineDarkerThanBothAtAdequateSeparation` constructs one
+/// and is the only evidence that direction is enforced.
 ///
-/// The 1.1 bar is a floor, not a derived threshold, and it is near-binding —
-/// `nightRule` against `nightBubble` measures 1.139, i.e. 3.5% of headroom. It is
-/// set just under the quietest hairline the palette ships so that a *new* line
-/// quieter than any existing one fails; do not tighten it toward 1.139 (the
-/// existing token would sit on the boundary) or loosen it (it stops discriminating).
+/// **The `ground` clause cannot currently bind, and that is a property of the
+/// topology rather than of the values.** `contrastRatio` is monotone in Y, so once
+/// `line` is lighter than `surface` and the ground is *below* the surface —
+/// `nightBackground` sits under both `nightPromoBackground` and `nightBubble` — then
+/// `cr(line, ground) >= cr(line, surface) >= 1.1` is entailed. Every shipped call
+/// site has that sunken-ground shape. The clause is kept rather than deleted
+/// because it becomes load-bearing the moment a hairline is drawn on a surface that
+/// sits *below* its ground (a line on `nightPage` under `nightBackground`, say),
+/// and a future call site of that shape would otherwise lose the check silently.
+/// It is documented as inert-by-topology so nobody mistakes it for a guard that has
+/// been exercised.
+///
+/// The 1.1 bar is a floor, not a derived threshold. It sits **below** the quietest
+/// shipped hairline (`nightRule` against `nightBubble`, 1.139) with a deliberate
+/// margin so no existing token rests on the boundary — which means it rejects a
+/// line *substantially* quieter than anything shipped, not a marginally quieter
+/// one: a new line in [1.100, 1.139) still passes. Do not tighten it to 1.139
+/// (`nightRule` would sit exactly on it) or loosen it further.
 @MainActor
 func lineSeparatesSurfaceFromGround(
   line: PasturaColorValue, surface: PasturaColorValue, ground: PasturaColorValue
