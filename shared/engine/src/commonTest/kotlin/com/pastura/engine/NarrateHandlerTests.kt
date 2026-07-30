@@ -43,7 +43,7 @@ import kotlin.test.assertTrue
  * | Persists nothing | final `return state` → a `copy` writing a probe var | [narratorIsNotAParticipant] | none |
  * | Descriptor gate — **closed** | `if (trimmed.isNotEmpty())` → `if (false)` | [injectsNarratorDescriptorIntoSystemPrompt] | none |
  * | Descriptor gate — **open** | same → `if (true)` | [omitsTheDescriptorSectionWhenNarratorIsBlank] | none |
- * | `max_sentences` clamp (divergence 6) | `.coerceIn(1, 6)` deleted | [clampsMaxSentencesIntoTheSwiftValidatorRange], [clampsMaxSentencesToTheUpperBoundToo] | none |
+ * | `max_sentences` clamp (divergence 6) | `NarrateHandler.execute`'s `.coerceIn(1, 6)` deleted — the expression is NOT unique, `PromptBuilder` has its own and deleting that reddens neither | [clampsMaxSentencesIntoTheSwiftValidatorRange], [clampsMaxSentencesToTheUpperBoundToo] | none |
  * | Log grounding | `variables["conversation_log"] = …` dropped | [groundsTheUserPromptInTheConversationLog] | none |
  * | Engine-fixed schema | field `"commentary"` → `"comment"` | [requestsCommentarySchema] | 10 (every response then fails to parse) |
  * | One inference per round | a 2nd `call` immediately **before the `try`** | [singleInferenceRegardlessOfAgentCount] | 11 (it consumes script #1) |
@@ -70,9 +70,19 @@ import kotlin.test.assertTrue
  *    `assertEquals`, not via the harness's script-exhaustion error — which would be
  *    the same failure mode as all 10 incidentals and therefore no evidence at all.
  *
- * **Coverage of the table itself**: 12 axes, 13 of the 16 tests are a dedicated
- * claimant, and every mechanism named in the handler's "Divergences" list has a row —
- * including the clamp, which was only ever *incidental* until this was checked. The
+ * **Coverage of the table itself**: 12 axes and 13 of the 16 tests as a dedicated
+ * claimant — including the clamp, which was only ever *incidental* until this was
+ * checked. Five of the handler's six "Divergences" bullets have their own row; two
+ * items are covered only **transitively**, and saying so is the point:
+ *
+ * - **"Its own system prompt"** — switching to `PromptBuilder.buildSystemPrompt` would
+ *   drop the narrator descriptor and redden [injectsNarratorDescriptorIntoSystemPrompt],
+ *   so it is detected, but by a claimant belonging to another axis.
+ * - **An added `inject*` call** — the "must NOT call" list names these, and **nothing
+ *   here would catch one today.** No test asserts the absence of a reserved-namespace
+ *   token in the prompt. An acknowledged gap, not a covered mechanism.
+ *
+ * The
  * three non-claimants are deliberate: [emitsNarrationOnSuccess] pins the happy path
  * (it is the baseline the other rows perturb), [usesTheHandlersOwnDefaultWhenMaxSentencesIsAbsent]
  * pins a value no mutation can isolate while both defaults are 3 (see its comment),
@@ -143,10 +153,11 @@ class NarrateHandlerTests {
      * A state whose conversation log is non-empty, so narrate has facts to ground on
      * and does not hit the empty-log skip.
      *
-     * `conversationLog` defaults to `emptyList()` on [SimulationState.initial] — only
-     * `eliminated` is seeded — so replacing it wholesale here cannot hide an
-     * absent-key hole (`.claude/rules/kmp-interop.md` Pattern 4). narrate never reads
-     * `eliminated` regardless.
+     * `conversationLog` defaults to `emptyList()` on [SimulationState.initial] — the
+     * only seeded maps are `scores` and `eliminated` — so replacing it wholesale here
+     * cannot hide an absent-key hole (`.claude/rules/kmp-interop.md` Pattern 4).
+     * narrate never reads `eliminated`, and it reads `scores` only through
+     * `formatScoreboard`, which this fixture leaves fully seeded.
      */
     private fun stateWithLog(s: Scenario) = SimulationState.initial(s).copy(
         currentRound = 1,
