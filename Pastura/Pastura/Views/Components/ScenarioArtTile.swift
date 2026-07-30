@@ -47,9 +47,10 @@ struct ScenarioArtTile: View {
       .accessibilityHidden(true)
   }
 
-  /// The signature-phase glyph badge — a white circle with a mossDark SF Symbol,
-  /// offset outward so it overhangs the tile's bottom-trailing corner. Hidden
-  /// when `signature` is `nil`.
+  /// The signature-phase glyph badge — a `bubbleBackground` circle with a
+  /// `mossDark` SF Symbol (both paired, so the circle is `nightBubble` and the
+  /// glyph `nightMossDark` in dark; ADR-028), offset outward so it overhangs the
+  /// tile's bottom-trailing corner. Hidden when `signature` is `nil`.
   @ViewBuilder private var badge: some View {
     if let signature {
       Image(systemName: signature.sfSymbolName)

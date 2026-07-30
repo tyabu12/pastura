@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The selection indicator at the trailing edge of each picker row.
 ///
-/// - `filled == true`: solid moss-colored circle with a white check.
+/// - `filled == true`: solid moss-colored circle with an `inkOnAccent` check
+///   (white in light, `nightInkOnAccent` in dark — see the stroke's own note).
 /// - `filled == false`: hairline-outline circle, transparent fill.
 ///
 /// Decoration of the row's `.accessibilityAddTraits(.isSelected)` state —

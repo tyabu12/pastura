@@ -20,9 +20,11 @@ import SwiftUI
 // the prefix for the same reason) — rename either out of that glob and the
 // `tokens.css` mirror gate goes blind with no signal.
 //
-// **This file is effectively full** and gate 1 closing means §2.9 takes no further
-// tokens — an addition needs a split first, chosen by what it touches ("a completed
-// section moves out whole" stops discriminating once every section is).
+// **Gate 1 closing means §2.9 takes no further tokens.** After the §2.6/§2.7 move
+// to `DesignTokens+NightStatePalette.swift` this file sits at 325 lines, so it has
+// room again — the constraint is the closed gate, not the line count. Should an
+// addition ever be warranted, split by what it touches ("a completed section moves
+// out whole" stops discriminating once every section is).
 //
 // Every token here is the dark half of a `PasturaDynamicPalette` pair
 // (`DesignTokens+DynamicPalette.swift`), reached through the repointed light

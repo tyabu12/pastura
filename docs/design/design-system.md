@@ -287,6 +287,8 @@ Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある�
 `DesignTokensTests+NightMeta` の
 `nightMetaLadderStaysMonotonicAgainstTheCardSurface` は `promoBackground` の
 pair registry 不在をアサートするトリップワイヤを持っていて、ペア化した瞬間に**発火した**。
+発火が役目だったので**そのアサーションは削除済み**（テストを grep しても今は無い） —
+地を実描画面の `nightPromoBackground` に差し替えて梯子を再測定したのが後継。
 再検算の結果、梯子は帯外でも保つ — base は 3.33/5.08/8.16/10.77 から
 **3.48/5.31/8.54/11.27** に上がり、単調性を維持し L3 は 8.54（約束の 4.5 以上）。
 帯そのものを検査していなかったのは正しかった — 梯子は帯の両端どちらでも単調なので、
