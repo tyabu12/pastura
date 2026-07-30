@@ -37,7 +37,7 @@ extension PasturaPalette {
   /// `nightInkOnAccent` measures ≈7.12:1 (AAA); over base `moss`, ≈6.40:1.
   ///
   /// Scope: `mossDark` is the only fill where the pair clears AA for **text**
-  /// in both appearances (light ≈4.76:1, dark ≈7.12:1). On base `moss` it is
+  /// in both appearances (light ≈4.74:1, dark ≈7.12:1). On base `moss` it is
   /// ≈3.03:1 in light / ≈6.40:1 in dark — light clears WCAG 1.4.11's 3:1
   /// non-text bar for glyphs and shapes (`CheckBadge`, the share-tab symbols)
   /// but not the 4.5:1 text bar, so text on an accent belongs on `mossDark`.

@@ -182,7 +182,7 @@ extension DesignTokensTests {
     // expected to leave: `.headerMetaSubdued` is unpaired *by decision* rather
     // than by not-yet-designed (ADR-028 gate 1 admits a recorded fixed value in
     // place of a designed one). Why fixing is right for it is asserted separately
-    // in `DesignTokensTests+NightPalette`.
+    // in `DesignTokensTests+NightMeta` (it moved there with §2.4/§2.12 in slice 4).
     //
     // So this list is now terminal rather than draining. If a future change pairs
     // `headerMetaSubdued`, delete the test rather than emptying the array — an

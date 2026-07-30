@@ -94,7 +94,7 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.headerMetaInk.dark == PasturaPalette.nightHeaderMetaInk)
   }
 
-  /// Guards the registry's documented size, NOT completeness: declaring a 58th
+  /// Guards the registry's documented size, NOT completeness: declaring a 68th
   /// pair without appending it to `all` leaves the count at 67 and passes. What it
   /// does catch outright is a copy-paste duplicate in `all` (the `Set` line).
   /// Per-alias coverage lives in `DesignTokensTests+DarkModeWiring`.

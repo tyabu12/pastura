@@ -1,4 +1,4 @@
-<!-- @dsCard group="Colors" name="§2.1/§2.3/§2.8 remainder — dark" subtitle="残り 10 トークンの night 対（ADR-028 gate 1 スライス4・gate 1 完了）" -->
+<!-- @dsCard group="Colors" name="§2.1/§2.2/§2.3/§2.8 remainder — dark" subtitle="残り 10 トークンの night 対（ADR-028 gate 1 スライス4・gate 1 完了）" -->
 <!doctype html>
 <html lang="ja">
 <head>
@@ -107,7 +107,7 @@
   <p class="card-title">Colors — §2.1/§2.3/§2.8 remainder (dark)</p>
 
   <div class="section night">
-    <p class="section-label">§2.1（page）/ §2.3（promoBackground・promoBorder・inkOnAccent・moss 4段）/ §2.8（link 3種）— gate 1 で残っていた 10 トークン。これで gate 1 は完了</p>
+    <p class="section-label">§2.1（page・promoBackground・promoBorder）/ §2.2（inkOnAccent）/ §2.3（moss 4段のうち dark・ink・soft — <code>moss</code> 自体は原初の 8 対で既にペア済み）/ §2.8（link 3種）— gate 1 で残っていた 10 トークン。これで gate 1 は完了</p>
     <div class="trow"><span class="sq" style="background:#F3EFE7"></span><span class="sq" style="background:#11130F"></span>
       <span><span class="tok">page</span><span class="hex">#F3EFE7</span></span>
       <span><span class="tok">nightPage</span><span class="hex">#11130F</span></span></div>
@@ -226,7 +226,7 @@
       <strong><code>page</code> は沈み、<code>promoBackground</code> は浮く。</strong>light では両方とも body 地よりわずかに below（1.099 / 1.047）で同じ向きだが、dark では <code>nightPage</code> が引き続き below（1.099）である一方 <code>nightPromoBackground</code> は body 地に対して above（1.195）に転じる — <code>page</code> は画面の奥に退く背景の役割を night でも保つのに対し、<code>promoBackground</code> はカードとして手前に浮く役割を night で強めて保つ、という向きの違いがそのまま比の違いになる。
     </p>
     <p class="section-note">
-      <strong><code>promoBorder</code> と <code>mossSoft</code> は方向が反転する。</strong>境界線は自分の乗るカードに対する量を light/dark 双方で 1.204 のまま持ち越したが、その等しい量が dark では地に対してわずか above 1.01 まで縮み、カード端でほぼ溶ける。<code>rule</code> → <code>nightRule</code>（1.324 below → 1.425 above）と同じ形の反転で、量を守ると向きが変わるという先例通りの挙動。
+      <strong><code>promoBorder</code> と <code>mossSoft</code> は方向が反転する。</strong>境界線は自分の乗るカードに対する量を light/dark 双方で 1.204 のまま持ち越すが、<em>向き</em>は反対にした。light の向き（カードより暗い）を保つと #1A1C17 になり、カードに対しては 1.207 で通る一方、<strong>背後の地に対して 1.010</strong> まで縮んでカード端が溶ける — 通したい面ではなく、通したくない面で落ちる。だから向きを反転させ、出荷値 <code>nightPromoBorder</code> は地に対して <strong>1.440 above</strong> に座る。<code>rule</code> → <code>nightRule</code>（1.324 below → 1.425 above）と同じ形で、原初の 8 対が既に踏んでいた反転。
     </p>
     <p class="section-note">
       <strong>§2.3 の 4 段は順序ごと反転する。</strong>light は ink &lt; dark &lt; moss &lt; soft の明度順だが、dark は soft &lt; moss &lt; dark &lt; ink に並び替わる。<code>nightMossDark</code>（body 地比 8.902）は <code>nightMoss</code>（7.999）より明るい — dark 側の「濃い moss」が「基準の moss」を追い越す。

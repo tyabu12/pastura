@@ -11,7 +11,7 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct PasturaPrimaryButtonStyleTests {
 
-  // The fill MUST be mossDark, not base moss: white-on-mossDark ≈ 4.76:1
+  // The fill MUST be mossDark, not base moss: white-on-mossDark ≈ 4.74:1
   // (AA pass) vs. white-on-moss ≈ 3.0:1 (fail). Pinning the token guards
   // the contrast contract against a "use the accent" regression.
   @Test func fillIsMossDark() {

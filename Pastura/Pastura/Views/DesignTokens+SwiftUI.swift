@@ -30,7 +30,7 @@ extension Color {
   // Read `PasturaPalette.<token>.color` directly instead of these aliases.
   // `HighlightShareCard` is the reference consumer. That is the sanctioned
   // explicit-appearance accessor — note the `Color.night*` aliases below now
-  // have ZERO consumers (this change moved their last one, that same card, to
+  // have ZERO consumers (#1319 moved their last one, that same card, to
   // the raw palette); they remain only as defined-ahead-of-need tokens, and are
   // not a second sanctioned route to a fixed appearance.
 

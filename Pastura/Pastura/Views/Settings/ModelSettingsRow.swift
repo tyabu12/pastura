@@ -249,7 +249,7 @@ private struct ActiveBadge: View {
         RoundedRectangle(cornerRadius: Radius.button / 2)
           // `mossDark`, not `moss`: `tagPhase` is 9.5pt, i.e. WCAG normal
           // text, and on-accent `inkOnAccent` is only ≈3.0:1 (light) /
-          // ≈6.40:1 (dark) over `moss` vs ≈4.76:1 (light) / ≈7.12:1 (dark)
+          // ≈6.40:1 (dark) over `moss` vs ≈4.74:1 (light) / ≈7.12:1 (dark)
           // over `mossDark` (§2.3 / `PasturaPrimaryButtonStyle`).
           .fill(Color.mossDark))
   }

@@ -1419,7 +1419,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// Pause/Resume — a filled `mossDark` circle + white glyph (see
+  /// Pause/Resume — a filled `mossDark` circle + `inkOnAccent` glyph (see
   /// ``SimulationPlayButtonMetrics``) rather than a bare glyph: the lone
   /// filled symbol used to read as a stray "black blob" on the frosted bar.
   /// `disabledText` fill when disabled. No circle shadow — the frosted bar

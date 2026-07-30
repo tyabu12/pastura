@@ -70,7 +70,11 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 - **テキストは `moss-dark` 上に限る**（≈4.7:1、AA 達成）。base `moss` 上は ≈3.03:1 で 4.5:1 に届かない。
 - **グリフ・図形は `moss` 上も可**。WCAG 1.4.11 の非テキスト 3:1 が適用され ≈3.03:1 は充足する（`CheckBadge` のチェック、share タブのシンボル — 後者は `moss`→`moss-dark` グラデ上なので最悪値が明側の `moss`）。ただし余裕は約 1% しかないので、`moss` の色を動かす際はこの 2 用途を確認すること。
 
-生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため。ダークでは `moss` が `night-moss`(#A8B888) になり白は ≈2.13:1 と 3:1 すら割る。これは**計算で確定済み**なので実機 QA（ADR-028 gate 4）では決められず、gate 1 のダーク値決定（`night-moss` を暗くするか、このトークンをペア化するか）で解く。**つまりこのトークンは「両外観で固定」ではなく、gate 1 が答えを負ったまま残る 10 個の一つ**。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
+生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため — そして **slice 4 でその判断が付いた（ADR-028 gate 1、達成）**。
+
+ダークでは `moss` が `night-moss`(#A8B888) になり、そこに白を置くと ≈2.13:1 で 3:1 すら割る。これは計算で確定していたので実機 QA では決められず、gate 1 の二択（`night-moss` を暗くするか、このトークンをペア化するか）だった。**ペア化を採った** — `night-moss` を暗くすると §2.7 の wash 4本（その RGB から作られている）、§2.4 のドット梯子（それを基準にしている）、§2.5 の body window（地に対する 8.00:1 を天井として読んでいる）の3スライスが無効になる。
+
+ダーク値は `--night-ink-on-accent`(#2C2F28) で、**白ではない**（Material 3 が primary を tone 40→80 に上げるとき on-primary を tone 100→20 に反転させるのと同じ動き）。`night-moss-dark` 上で 7.117:1、`night-moss` 上で 6.395:1。**上の適用範囲はダークでは緩む** — テキストも図形も両方の下地で AA を満たす（ただし AAA を満たすのは `night-moss-dark` 上だけ）。したがってこのトークンは「両外観で固定」ではなく **ペア済み**。§2.9 の対応表を参照。Source: `PasturaPrimaryButtonStyle` / `SharedScenariosListView+CategoryChips`。
 
 ### 2.3 Moss Accent（苔アクセント）
 
@@ -356,7 +360,7 @@ Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある�
 | `nightAvatarEar` | `#B8A88B` | `avatarEar`。**未描画**（下記） |
 | `nightAvatarEarInner` | `#A79471` | `avatarEarInner`。**未描画** |
 | `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス4 まで未ペアで、未決の値への前方依存になる） |
-| `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、パレット自身の near-black の床（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
+| `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、§2.5 自身の near-black の床（パレット全体の最暗値は slice 4 の `night-page` #11130F）（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
 | `nightAvatarHighlight` | `rgba(255,255,255,0.40)` | `avatarHighlight`。**alpha を下げる**（0.60 → 0.40）。§2.7 の wash が約 1.33 倍に上げたのと逆向きだが、矛盾ではない — wash は暗い面に載せる**淡い色**なので alpha が要る。こちらは面の上に置く**光の反射**で、面が暗くなった分だけ同じ alpha が*強い*段差になる。仕事が逆なので向きも逆 |
 | `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値） |
 | `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
@@ -652,7 +656,7 @@ ToolbarItem(placement: .primaryAction) {
 
 | 仕様項目 | 値 / 理由 |
 |---------|----------|
-| 塗り | `mossDark`（#6B7852）。白文字とのコントラスト ≈ 4.76:1（WCAG AA 達成）。base `moss`（#8A9A6C）の `.borderedProminent` は ≈ 3.0:1 で AA 未達のため不可 |
+| 塗り | `mossDark`（#6B7852）。白文字とのコントラスト ≈ 4.74:1（WCAG AA 達成）。base `moss`（#8A9A6C）の `.borderedProminent` は ≈ 3.0:1 で AA 未達のため不可 |
 | 文字色 | 白（text-on-accent。§1「純白を避ける」は背景の話で、アクセント上の文字は対象外） |
 | 角丸 | 12pt（14pt カードの内側で角が競合しないよう一段小さく） |
 | 押下 | `pressedOpacity` 0.7 で減光。capsule 展開・scale アニメーションなし（§1 静的 voice） |

@@ -16,7 +16,7 @@ import SwiftUI
 /// The old control used a lone `play.fill` / `pause.fill` glyph in
 /// `Color.ink` — the only filled, near-black element on the frosted control
 /// bar, so it read as a stray "black blob" rather than *the* primary action.
-/// A `mossDark` filled circle with a white glyph reads as a deliberate
+/// A `mossDark` filled circle with an `inkOnAccent` glyph (white in light) reads as a deliberate
 /// primary control and stays in-palette. No drop-shadow on the circle: the
 /// frosted bar already supplies one elevation layer, and design-system §1/§4.3
 /// limit the Sim screen to a single floating element (avoid double-lift).
@@ -25,10 +25,10 @@ enum SimulationPlayButtonMetrics {
   /// the 38pt first draft).
   static let diameter: CGFloat = 34
 
-  /// White glyph point size inside the circle (~0.41 × diameter).
+  /// `inkOnAccent` glyph point size inside the circle (~0.41 × diameter).
   static let glyphPointSize: CGFloat = 14
 
-  /// Enabled fill — `mossDark` (#6B7852); `inkOnAccent`-on-fill ≈ 4.76:1 in
+  /// Enabled fill — `mossDark` (#6B7852); `inkOnAccent`-on-fill ≈ 4.74:1 in
   /// light (WCAG AA) / ≈7.12:1 in dark (AAA).
   static let enabledFill: Color = .mossDark
 
@@ -38,7 +38,7 @@ enum SimulationPlayButtonMetrics {
   static let disabledFill: Color = .disabledText
 
   /// Glyph color. On `enabledFill` this is the sanctioned on-accent pair —
-  /// `inkOnAccent` over `mossDark` ≈ 4.76:1 in light / ≈7.12:1 in dark (§1's
+  /// `inkOnAccent` over `mossDark` ≈ 4.74:1 in light / ≈7.12:1 in dark (§1's
   /// "avoid pure white" concerns backgrounds, not glyphs on an accent fill;
   /// dark's `inkOnAccent` is a near-ground tone, not white, ADR-028). The
   /// disabled arm reuses it for visual continuity even though `disabledText`

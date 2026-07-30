@@ -31,7 +31,7 @@ extension SharedScenariosListView {
       Text(chipTitle(option))
         .font(.subheadline.weight(isSelected ? .semibold : .regular))
         // Selected uses `mossDark`, not base `moss`: `inkOnAccent`-on-mossDark
-        // clears WCAG AA (≈4.76:1 light / ≈7.12:1 dark) whereas
+        // clears WCAG AA (≈4.74:1 light / ≈7.12:1 dark) whereas
         // `inkOnAccent`-on-moss is only ≈3.0:1 light / ≈6.40:1 dark
         // (PasturaPrimaryButtonStyle §2.3). `inkOnAccent`-on-accent is the
         // contrast-passing pair — white in light, a near-ground tone in dark

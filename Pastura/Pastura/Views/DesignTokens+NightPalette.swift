@@ -153,14 +153,17 @@ extension PasturaPalette {
   // Amendment 2026-07-29 (the #1282 one — two headings share that date) means
   // by naming it the one item no formula covers.
   //
-  // Ground: `nightBubble`. That is **provisional** — the real render surface is
-  // `PromoCard`'s `promoBackground`, still unpaired until slice 4. The
-  // #2A2D26-#2F3229 band is the design *assumption* this ladder was placed
-  // under, not an asserted range: `nightMetaLadderStaysMonotonicAgainstTheCardSurface`
-  // in `DesignTokensTests+NightPalette` fires the moment `promoBackground` is
-  // paired at all, in-band or not, so the ladder gets re-measured against the
-  // real ground. A band check would pass by construction — the ladder stays
-  // monotone at both ends of that band.
+  // Ground: **`nightPromoBackground`**, the real render surface, since slice 4
+  // paired `promoBackground`. It was designed against `nightBubble` as a
+  // provisional stand-in, under the assumption that the real value would land in
+  // #2A2D26-#2F3229 — an assumption, never an asserted range, and it landed just
+  // outside. `nightMetaLadderStaysMonotonicAgainstTheCardSurface` carried a
+  // tripwire on `promoBackground`'s absence from the pair registry precisely so
+  // that pairing it would force a re-measurement; it fired, the ladder was
+  // re-measured against the real ground and holds. Figures and the discharged
+  // tripwire: `DesignTokensTests+NightMeta`. A band check would have passed by
+  // construction — the ladder stays monotone at both ends of that band — which
+  // is why slice 2 checked the registry instead.
   //
   // Design record and the rendered sign-off:
   // `docs/design/ds/colors-meta-header-dark.html`.
@@ -268,7 +271,7 @@ extension PasturaPalette {
   /// border is darker than the card, this one is lighter. The precedent is the
   /// original eight's own `rule` -> `nightRule` (light 1.324 *below* the ground,
   /// dark 1.425 *above* it), and the reason is measurable: a border holding 1.204
-  /// on the dark side of its card lands at Y=0.0127 against a ground at 0.0117,
+  /// on the dark side of its card lands at Y=0.0113 against a ground at 0.0117,
   /// a ratio of 1.01 — it would dissolve into the ground behind it exactly where
   /// the card edge needs to read.
   static let nightPromoBorder = PasturaColorValue(hex: 0x35392F)
@@ -279,8 +282,12 @@ extension PasturaPalette {
   // tone on a bright one. The flip is not a judgement call — it is what Material
   // 3 does when `primary` moves tone 40 -> 80 and `on-primary` follows tone
   // 100 -> 20, the move `moss` -> `nightMoss` makes. Within that band the value
-  // clears **WCAG AAA (1.4.6, 7:1 normal text)** because the smallest consumers
-  // are 9pt / 9.5pt mono labels: 7.117 on `nightMossDark`, 6.395 on `nightMoss`.
+  // is placed to clear **WCAG AAA (1.4.6, 7:1 normal text)** on the fill that
+  // carries on-accent *text*, because the smallest consumers are 9pt / 9.5pt mono
+  // labels: **7.117 on `nightMossDark`** clears it. On base `nightMoss` it is
+  // 6.395 — above the 4.5:1 AA bar and above 1.4.11's 3:1 shape bar, but **not**
+  // AAA. That asymmetry is deliberate and mirrors light's: `mossDark` is the fill
+  // for text, `moss` the fill for shapes.
   //
   // **Same hex as `nightBubble` — a consequence, not the reason.** Light carries
   // the same coincidence (both #FFFFFF), but slice 3's rule licenses carrying one
@@ -313,7 +320,7 @@ extension PasturaPalette {
   // direction inverts** — solving `mossDark`'s own 4.538 on the night ground
   // returns a value BELOW `nightMoss`, making the emphatic step the quiet one.
   // So `nightMossDark` holds its proportional HSL lightness position between
-  // `moss` and `mossInk` (0.401), the anchor-on-`nightMoss`-and-invert move
+  // `moss` and `mossInk` (0.400), the anchor-on-`nightMoss`-and-invert move
   // slice 2 used for the dot ladder. Arm 3 IS right for the other two, whose
   // jobs are legibility and quietness against a ground rather than ladder
   // membership.
@@ -339,10 +346,12 @@ extension PasturaPalette {
   static let nightMossInk = PasturaColorValue(hex: 0xC6CBB1)
   /// THINKING left-rule, gentle dividers under dark mode.
   ///
-  /// Direction inverted and magnitude held at 1.566 against the ground — and the
-  /// magnitude belongs to its **line/border** job, which is 5 of its 8 consumers
-  /// (`ChatBubble`'s 1.5pt rule, `ResultsView`'s timeline rail, three
-  /// `strokeBorder`s). Its other job is a tinted fill under `mossDark` text
+  /// Direction inverted and magnitude preserved against the ground (light 1.559,
+  /// dark 1.566) — and the magnitude belongs to its **line/border** job, which is
+  /// 7 of its 10 callsites (`ChatBubble`'s 1.5pt rule, `ResultsView`'s timeline
+  /// rail, and `strokeBorder`s in `HomePausedCard`, `HomeCompactScenarioRow`,
+  /// `ResultDetailView+ResumeBanner` and `ScenarioArtTile` twice). The other
+  /// three are a tinted fill under `mossDark` text
   /// (`ContradictionBadge`, `PredictionOutcomeBadge`,
   /// `HighlightCandidatesSection`), which lands at 5.685 against light's 2.911 —
   /// a §2.6-shaped Soft/Ink pair, and like those it gains contrast in dark

@@ -127,8 +127,10 @@ extension DesignTokensTests {
   /// against the ground — its job is telling a lit dot from an unlit one. The
   /// unlit dot is `moss` at 38%, and `moss` is already paired, so in dark that
   /// floor rises to `nightMoss` @38% composited over the card. Mirroring the
-  /// ground ratio instead would drop L1 to ~1.34:1 and the indicator stops
-  /// working; this pins the property that placement exists to protect.
+  /// ground ratio instead would drop L1 to ~1.32:1 and the indicator stops
+  /// working; this pins the property that placement exists to protect. (~1.34 was
+  /// the figure against the `nightBubble` stand-in — recomputed here because slice
+  /// 4 moved the ground this ratio is measured against.)
   ///
   /// **Both sides now composite over the same role.** The light leg always used
   /// `promoBackground`; the dark leg used `nightBubble` because
@@ -153,13 +155,19 @@ extension DesignTokensTests {
       PasturaPalette.metaDotOnL1, PasturaPalette.metaDotOnL2,
       PasturaPalette.metaDotOnL3, PasturaPalette.metaDotOnL4
     ].map { contrastRatio($0, lightUnlit) }
-    // Margins run [1.02, 1.02, 0.78, 0.30] against the real ground (they were
-    // [0.93, 0.91, 0.66, 0.16] against the `nightBubble` stand-in). L4 is still
-    // the tightest step and so the one an edit to `metaDotOnL4` or to light's
-    // ground flips first — but it is no longer "an order of magnitude" tighter as
-    // the stand-in figures made it look, only ~3.4x. Named so the next red is
-    // diagnosed, not re-derived; the claim is restated rather than just the
-    // numbers, because repointing the ground changed which of the two is true.
+    // Margins run [1.027, 1.025, 0.782, 0.313] against the real ground (they were
+    // [0.934, 0.918, 0.663, 0.172] against the `nightBubble` stand-in). Three
+    // decimals because two of these round ambiguously at two. L4 is still the
+    // tightest step and so the one an edit to `metaDotOnL4` or to light's ground
+    // flips first — by 3.28x against the widest margin, 2.50x against the
+    // next-tightest.
+    //
+    // The comment this replaces called L4 "an order of magnitude tighter", and
+    // that was **already false before the ground moved**: under the stand-in the
+    // same ratio was 5.42x. So repointing the ground did not change which claim
+    // was true — it changed the numbers, and the overstatement is retired rather
+    // than re-explained. Recorded because the tempting fix is to keep the
+    // characterisation and refresh the digits.
     for (measured, floor) in zip(lit, lightFloor) {
       #expect(measured >= floor)
     }

@@ -49,8 +49,8 @@ extension DesignTokensTests {
   /// §2.3's four steps run one way in light and the **other way** in dark. Light
   /// orders them ink < dark < moss < soft by luminance (ink darkest); dark orders
   /// them soft < moss < dark < ink (ink brightest). That inversion is the whole
-  /// reason arm 3 is degenerate for `mossDark` — see this file's sibling MARK in
-  /// `DesignTokens+NightPalette.swift`.
+  /// reason arm 3 is degenerate for `mossDark` — see the §2.3 MARK's
+  /// arm-3-is-degenerate paragraph in `DesignTokens+NightPalette.swift`.
   @Test func mossFamilyOrderingInvertsBetweenAppearances() {
     #expect(
       isStrictlyBrightening([
@@ -64,10 +64,14 @@ extension DesignTokensTests {
       ]))
   }
 
-  /// The control for the above: the dark family arranged in **light's** role
-  /// order must NOT be brightening. Without this the assertion could pass on a
-  /// family that had not inverted at all — four tokens in any monotone order
-  /// satisfy `isStrictlyBrightening` for *some* permutation.
+  /// The control for the above, with its job stated narrowly because the obvious
+  /// framing is wrong: this array is the exact **reverse** of the arm above, so
+  /// `!isStrictlyBrightening` is mathematically entailed by that arm passing and
+  /// **cannot fail on palette data**. It does not catch an uninverted family —
+  /// arm 2 pins the specific role order `soft < moss < dark < ink` and reddens on
+  /// that directly. What it does catch is the one thing the positive arm cannot:
+  /// a predicate that is **constant true**. That is a real residual job, and
+  /// worth a test, but not the one a reader would assume.
   @Test func mossFamilyOrderingControlRejectsTheUninvertedArrangement() {
     #expect(
       !isStrictlyBrightening([
@@ -197,6 +201,11 @@ extension DesignTokensTests {
     let light = contrastRatio(PasturaPalette.screenBackground, PasturaPalette.mossInk)
     let dark = contrastRatio(PasturaPalette.nightBackground, PasturaPalette.nightMossInk)
     #expect(abs(light - dark) < 0.05)
+    // The claim is the *equality* above (measured 0.0027 apart). This second leg
+    // is a change-detector, not a derived bound: it pins the pair to the ~10:1
+    // band so that a future edit moving BOTH tokens together — which the equality
+    // would not notice — still reddens. Stated so it is not fairly deleted as an
+    // arbitrary round number (`view-testing.md` § "Change-detector tripwire").
     #expect(light > 10.0)
   }
 
@@ -217,8 +226,12 @@ extension DesignTokensTests {
 
   /// `nightMossInk` and `nightMetaBaseL3` land within 1.002 of each other in
   /// contrast and are **not** to be merged. Arithmetic coincidence: the card sits
-  /// 1.251 above the ground, so "8.16 on the card" (where §2.4 renders) and
-  /// "10.19 on the ground" (where §2.3 renders) resolve to the same luminance.
+  /// 1.195 above the ground, so "8.54 on the card" (where §2.4 renders) and
+  /// "10.19 on the ground" (where §2.3 renders) resolve to the same luminance
+  /// (10.187 / 8.539 = 1.193). Both figures are against the **real** card
+  /// `nightPromoBackground`; the 1.251 / 8.16 pair belongs to the `nightBubble`
+  /// stand-in slice 4 retired, and being internally consistent with each other is
+  /// exactly why they read as verified.
   /// Light's pair is a clear 1.240 apart, so the convergence is a dark-side
   /// artifact rather than a drift.
   ///
@@ -258,15 +271,27 @@ func onAccentForegroundClearsItsBars(
   contrastRatio(foreground, emphaticFill) >= 4.5 && contrastRatio(foreground, baseFill) >= 3.0
 }
 
-/// True when a hairline is separable from the surface it is drawn on *and* from
-/// the ground behind that surface. The second clause is the load-bearing one on a
-/// dark palette: a line placed only against its own surface can land on top of
-/// the ground and vanish at the card edge.
+/// True when a hairline sits **lighter** than the surface it is drawn on and is
+/// separable from both that surface and the ground behind it.
+///
+/// The direction clause is not decoration: `contrastRatio` is symmetric, so the
+/// two separability clauses alone also admit a line *darker* than both (anything
+/// at Y <= 0.0061, i.e. `nightPage` territory) — which would pass a test whose
+/// name promises inversion. The ground clause is the one that matters on a dark
+/// palette: a line placed only against its own surface can land on top of the
+/// ground and vanish at the card edge.
+///
+/// The 1.1 bar is a floor, not a derived threshold, and it is near-binding —
+/// `nightRule` against `nightBubble` measures 1.139, i.e. 3.5% of headroom. It is
+/// set just under the quietest hairline the palette ships so that a *new* line
+/// quieter than any existing one fails; do not tighten it toward 1.139 (the
+/// existing token would sit on the boundary) or loosen it (it stops discriminating).
 @MainActor
 func lineSeparatesSurfaceFromGround(
   line: PasturaColorValue, surface: PasturaColorValue, ground: PasturaColorValue
 ) -> Bool {
-  contrastRatio(line, surface) >= 1.1 && contrastRatio(line, ground) >= 1.1
+  relativeLuminance(line) > relativeLuminance(surface)
+    && contrastRatio(line, surface) >= 1.1 && contrastRatio(line, ground) >= 1.1
 }
 
 /// The four §2.6 Ink-over-Soft badge pairs of one appearance.

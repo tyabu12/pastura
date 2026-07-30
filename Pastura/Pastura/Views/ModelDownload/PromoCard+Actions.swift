@@ -61,7 +61,7 @@ extension PromoCard {
           .background(
             RoundedRectangle(cornerRadius: Radius.button)
               // `mossDark`, not base `moss`: `metaLabel` is 9pt, i.e. WCAG normal text.
-              // `inkOnAccent` over `mossDark` is ≈4.76:1 in light and ≈7.12:1 in dark;
+              // `inkOnAccent` over `mossDark` is ≈4.74:1 in light and ≈7.12:1 in dark;
               // over base `moss` it is only ≈3.03:1 in light. Note it is NOT white in
               // dark — the token is paired (ADR-028 slice 4).
               .fill(Color.mossDark))

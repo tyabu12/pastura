@@ -69,7 +69,7 @@ struct DesignTokensTests {
   /// means the on-accent foreground drifted — confirm the change passed review
   /// before updating the expected value. The opacity assertion is load-bearing:
   /// a translucent on-accent foreground would let the accent bleed through and
-  /// silently drop below the ≈4.76:1 the design system claims for the pair.
+  /// silently drop below the ≈4.74:1 the design system claims for the pair.
   @Test func inkOnAccentIsOpaquePureWhite() {
     let token = PasturaPalette.inkOnAccent
     #expect(approxEqual(token.red, 1.0))
