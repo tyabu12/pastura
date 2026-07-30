@@ -7,11 +7,12 @@
 # the two curated transcripts from docs/marketing/launch-transcripts.md through
 # the real ResultDetailView timeline (seeded verbatim by StubResultSeeder).
 #
-# ja / light only: the app is pinned to light by Info.plist's
-# UIUserInterfaceStyle, so light is the only appearance it can render. (Eight
-# design tokens are trait-paired as of ADR-028, but the lock means dark never
-# resolves; revisit this script when #1274 lifts it.) Local-run only by
-# design — MarketingShotTests is CI-skipped (6.9"-pinned, UI-test flake class).
+# ja / light only, and light is now a CHOICE this script enforces rather than a
+# property of the app: #1284 removed Info.plist's UIUserInterfaceStyle, so the
+# app follows the device and all 67 ADR-028 pairs resolve. A dark marketing set
+# is deferred (#1274 discussion) — until someone decides to add one, this
+# captures light. Local-run only by design — MarketingShotTests is CI-skipped
+# (6.9"-pinned, UI-test flake class).
 # Output PNGs are gitignored; this is the single regeneration path.
 #
 # Usage: scripts/marketing-shots.sh
@@ -37,6 +38,23 @@ fi
 # The capture changes no source; skip the wrapper's xcstrings auto-sync so a
 # run never leaves an unexpected Localizable.xcstrings diff.
 export PASTURA_SKIP_XCSTRINGS_SYNC=1
+
+# Appearance pin. With the app no longer forcing light, the capture renders in
+# whatever appearance the SIMULATOR is set to — and that setting persists across
+# runs, so one session that flipped a device to dark would silently keep
+# producing dark shots. Pin it here instead of trusting operator state.
+# `simctl ui` needs a booted device (CoreSimulator error 405 on Shutdown), hence
+# the explicit boot; xcodebuild boots the same device moments later anyway.
+# Sourcing sim-dest.sh restores the caller's shell options on exit, which drops
+# errexit — the re-assert below is load-bearing (.claude/rules/xcodebuild-cli.md
+# § "Sourcing it in a script clears your `set -e`"; measured here by reading $-,
+# not `set -o` inside a command substitution, which reports "off" regardless).
+PASTURA_SKIP_SIM_WAIT=1 source "$REPO_ROOT/scripts/sim-dest.sh"
+set -euo pipefail
+SIM_UDID="${DEST##*id=}"
+xcrun simctl boot "$SIM_UDID" > /dev/null 2>&1 || true
+xcrun simctl bootstatus "$SIM_UDID" -b > /dev/null 2>&1 || true
+xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
 
 # xcodebuild refuses to write into a pre-existing result bundle.
 rm -rf "$RESULT_BUNDLE"

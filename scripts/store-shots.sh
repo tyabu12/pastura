@@ -43,6 +43,23 @@ fi
 # capture run never leaves an unexpected Localizable.xcstrings diff.
 export PASTURA_SKIP_XCSTRINGS_SYNC=1
 
+# Appearance pin. With the app no longer forcing light, the capture renders in
+# whatever appearance the SIMULATOR is set to — and that setting persists across
+# runs, so one session that flipped a device to dark would silently keep
+# producing dark shots. Pin it here instead of trusting operator state.
+# `simctl ui` needs a booted device (CoreSimulator error 405 on Shutdown), hence
+# the explicit boot; xcodebuild boots the same device moments later anyway.
+# Sourcing sim-dest.sh restores the caller's shell options on exit, which drops
+# errexit — the re-assert below is load-bearing (.claude/rules/xcodebuild-cli.md
+# § "Sourcing it in a script clears your `set -e`"; measured here by reading $-,
+# not `set -o` inside a command substitution, which reports "off" regardless).
+PASTURA_SKIP_SIM_WAIT=1 source "$REPO_ROOT/scripts/sim-dest.sh"
+set -euo pipefail
+SIM_UDID="${DEST##*id=}"
+xcrun simctl boot "$SIM_UDID" > /dev/null 2>&1 || true
+xcrun simctl bootstatus "$SIM_UDID" -b > /dev/null 2>&1 || true
+xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
+
 # xcodebuild refuses to write into a pre-existing result bundle.
 rm -rf "$RESULT_BUNDLE"
 
