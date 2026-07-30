@@ -1,0 +1,250 @@
+<!-- @dsCard group="Colors" name="§2.1/§2.3/§2.8 remainder — dark" subtitle="残り 10 トークンの night 対（ADR-028 gate 1 スライス4・gate 1 完了）" -->
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pastura DS — §2.1/§2.3/§2.8 remainder (dark)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="card.css">
+<style>
+  /* Same placement as the other colors-*-dark cards: the class goes on each
+     `.section`, because `card.css` sets `.section { background: var(--screen-bg) }`
+     and a card-level override would leave every swatch sitting on cream — the
+     one ground these values must NOT be judged against. */
+  .section.night {
+    background: var(--night-bg);
+    border-color: var(--night-rule);
+    color: var(--night-ink);
+  }
+  .night .section-label { color: var(--night-ink-2); }
+  .night .section-note { color: var(--night-muted); }
+  .night code { color: var(--night-ink-2); }
+
+  .trow {
+    display: grid;
+    grid-template-columns: 26px 26px 1fr 1fr;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+  }
+  .trow .sq { width: 26px; height: 26px; border-radius: 5px;
+              border: 1px solid rgba(232, 229, 216, 0.18); flex: none; }
+  .trow .tok { font-family: var(--font-mono); font-size: 10.5px; color: var(--night-ink); display: block; }
+  .trow .hex { font-family: var(--font-mono); font-size: 9.5px; color: var(--night-muted); display: block; }
+
+  .side { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-l); }
+  .ground { border-radius: 10px; padding: var(--sp-m) var(--sp-l) var(--sp-s); }
+  .ground .cap { font-size: 10px; letter-spacing: .06em; opacity: .7; margin-bottom: 8px; }
+
+  .mockgrid { display: flex; gap: var(--sp-l); align-items: flex-start; flex-wrap: wrap; }
+
+  /* --- mock 1: PromoCard DL progress --- */
+  .promo-mock {
+    width: 300px;
+    background: var(--night-promo-bg);
+    border: 1px solid var(--night-promo-border);
+    border-left: 3px solid var(--night-moss);
+    border-radius: var(--radius-promo);
+    padding: var(--sp-s) var(--sp-m);
+  }
+  .promo-mock .meta1 { display: flex; align-items: center; gap: 6px;
+                        font-family: var(--font-mono); font-size: 9px; }
+  .promo-mock .lbl { color: var(--night-meta-base-l3); }
+  .promo-mock .val { color: var(--night-meta-strong-l3); font-weight: 600; }
+  .promo-mock .dots { display: flex; gap: 3px; margin-left: 2px; }
+  .promo-mock .dots i { width: 4px; height: 4px; border-radius: 50%;
+                         background: rgba(168, 184, 136, .38); }
+  .promo-mock .dots i.on { background: var(--night-meta-dot-on-l3); }
+  .promo-mock .retry {
+    display: inline-block; margin-top: 10px;
+    font-family: var(--font-mono); font-size: 9px;
+    background: var(--night-moss-dark); color: var(--night-ink-on-accent);
+    padding: 5px 14px; border-radius: 20px;
+  }
+
+  /* --- mock 2: settings external-link rows --- */
+  .settings-mock { width: 320px; background: var(--night-bg); border-radius: 12px; }
+  .linkrow { display: flex; justify-content: space-between; align-items: center;
+             padding: 11px 2px; font-size: 13px; }
+  .linkrow.ruled { border-bottom: 1px solid var(--night-rule); }
+  .linkrow .arrow { font-size: 11px; opacity: .75; }
+  .linkrow .lbltag { font-size: 9px; font-family: var(--font-mono); opacity: .55; margin-left: 8px; }
+  .c-link { color: var(--night-link); }
+  .c-visited { color: var(--night-link-visited); }
+  .c-hover { color: var(--night-link-hover); }
+
+  /* --- mock 3: on-accent foregrounds, real sizes, light/dark parallel columns --- */
+  .oa-cols { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-l); }
+  .oa-col { display: flex; flex-direction: column; gap: 12px; padding: var(--sp-m); border-radius: 10px; }
+  .oa-col.day { background: var(--screen-bg); }
+  .oa-col.nite { background: var(--night-bg); }
+  .oa-col .cap { font-size: 10px; letter-spacing: .06em; opacity: .7; margin-bottom: 2px; }
+  .oa-btn { display: block; text-align: center; font-size: 16px; font-weight: 600;
+            padding: 12px 18px; border-radius: 12px; }
+  .oa-badge { display: inline-block; font-family: var(--font-mono); font-size: 9.5px;
+              text-transform: uppercase; letter-spacing: .22em;
+              padding: 4px 10px; border-radius: 10px; width: fit-content; }
+  .oa-retry { display: inline-block; font-family: var(--font-mono); font-size: 9px;
+              padding: 5px 14px; border-radius: 20px; width: fit-content; }
+  .oa-chip { display: inline-block; font-size: 15px; font-weight: 600;
+             padding: 8px 16px; border-radius: 20px; width: fit-content; }
+  .oa-check { width: 28px; height: 28px; border-radius: 50%; display: flex;
+              align-items: center; justify-content: center; }
+
+  table.ratio { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: var(--sp-s); }
+  table.ratio th, table.ratio td { padding: 4px 8px; text-align: left;
+                                    border-bottom: 1px solid var(--night-rule); }
+  table.ratio th { font-weight: 500; opacity: .7; font-size: 9.5px; letter-spacing: .05em; }
+  table.ratio td.num { font-family: var(--font-mono); text-align: right; }
+</style>
+</head>
+<body>
+<div class="card">
+  <p class="card-title">Colors — §2.1/§2.3/§2.8 remainder (dark)</p>
+
+  <div class="section night">
+    <p class="section-label">§2.1（page）/ §2.3（promoBackground・promoBorder・inkOnAccent・moss 4段）/ §2.8（link 3種）— gate 1 で残っていた 10 トークン。これで gate 1 は完了</p>
+    <div class="trow"><span class="sq" style="background:#F3EFE7"></span><span class="sq" style="background:#11130F"></span>
+      <span><span class="tok">page</span><span class="hex">#F3EFE7</span></span>
+      <span><span class="tok">nightPage</span><span class="hex">#11130F</span></span></div>
+    <div class="trow"><span class="sq" style="background:#FBFAF2"></span><span class="sq" style="background:#282C24"></span>
+      <span><span class="tok">promoBackground</span><span class="hex">#FBFAF2</span></span>
+      <span><span class="tok">nightPromoBackground</span><span class="hex">#282C24</span></span></div>
+    <div class="trow"><span class="sq" style="background:#E4E7D2"></span><span class="sq" style="background:#35392F"></span>
+      <span><span class="tok">promoBorder</span><span class="hex">#E4E7D2</span></span>
+      <span><span class="tok">nightPromoBorder</span><span class="hex">#35392F</span></span></div>
+    <div class="trow"><span class="sq" style="background:#FFFFFF"></span><span class="sq" style="background:#2C2F28"></span>
+      <span><span class="tok">inkOnAccent</span><span class="hex">#FFFFFF</span></span>
+      <span><span class="tok">nightInkOnAccent</span><span class="hex">#2C2F28</span></span></div>
+    <div class="trow"><span class="sq" style="background:#6B7852"></span><span class="sq" style="background:#B3C197"></span>
+      <span><span class="tok">mossDark</span><span class="hex">#6B7852</span></span>
+      <span><span class="tok">nightMossDark</span><span class="hex">#B3C197</span></span></div>
+    <div class="trow"><span class="sq" style="background:#3D4030"></span><span class="sq" style="background:#C6CBB1"></span>
+      <span><span class="tok">mossInk</span><span class="hex">#3D4030</span></span>
+      <span><span class="tok">nightMossInk</span><span class="hex">#C6CBB1</span></span></div>
+    <div class="trow"><span class="sq" style="background:#D4CBA8"></span><span class="sq" style="background:#384029"></span>
+      <span><span class="tok">mossSoft</span><span class="hex">#D4CBA8</span></span>
+      <span><span class="tok">nightMossSoft</span><span class="hex">#384029</span></span></div>
+    <div class="trow"><span class="sq" style="background:#5D7A4D"></span><span class="sq" style="background:#699054"></span>
+      <span><span class="tok">link</span><span class="hex">#5D7A4D</span></span>
+      <span><span class="tok">nightLink</span><span class="hex">#699054</span></span></div>
+    <div class="trow"><span class="sq" style="background:#6F6753"></span><span class="sq" style="background:#9B9075"></span>
+      <span><span class="tok">linkVisited</span><span class="hex">#6F6753</span></span>
+      <span><span class="tok">nightLinkVisited</span><span class="hex">#9B9075</span></span></div>
+    <div class="trow"><span class="sq" style="background:#4A6438"></span><span class="sq" style="background:#7FAA62"></span>
+      <span><span class="tok">linkHover</span><span class="hex">#4A6438</span></span>
+      <span><span class="tok">nightLinkHover</span><span class="hex">#7FAA62</span></span></div>
+    <p class="section-note">アプリは light 固定なので、このダーク値を見られる面はこのカードだけ。地の参照値: light <code>screenBackground</code> #FCFAF4 / <code>bubbleBackground</code> #FFFFFF、dark <code>nightBackground</code> #1B1D17 / <code>nightBubble</code> #2C2F28。</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">実画面モック 1 — PromoCard の DL progress を <code>nightPromoBackground</code> の地に置いた実物。スライス4 が最終的に確定させた地そのもの</p>
+    <div class="mockgrid">
+      <div class="promo-mock">
+        <div class="meta1">
+          <span class="lbl">DL</span>
+          <span class="dots"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span class="val">35%</span>
+          <span class="lbl">· 1.0 GB / 3.0 GB</span>
+        </div>
+        <div class="retry">Retry</div>
+      </div>
+    </div>
+    <p class="section-note">枠 1pt <code>nightPromoBorder</code> + 左 3pt <code>nightMoss</code>。ラベル <code>nightMetaBaseL3</code> / 値 <code>nightMetaStrongL3</code>（両方とも mono 9pt）。点灯ドット <code>nightMetaDotOnL3</code>、未点灯は <code>nightMoss</code> 38%。Retry ピルは <code>nightMossDark</code> 塗り + <code>nightInkOnAccent</code> ラベル（9pt mono）。</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">実画面モック 2 — Settings の外部リンク行を <code>nightBackground</code> の地に置いた実物。3 トークンすべてを可視化</p>
+    <div class="settings-mock">
+      <div class="linkrow ruled"><span class="c-link">プライバシーポリシー</span><span class="c-link arrow">↗</span></div>
+      <div class="linkrow ruled"><span class="c-link">利用規約</span><span class="c-link arrow">↗</span></div>
+      <div class="linkrow ruled"><span class="c-visited">訪問済みリンク（想定表示）<span class="lbltag">nightLinkVisited — 未消費</span></span><span class="c-visited arrow">↗</span></div>
+      <div class="linkrow"><span class="c-hover">ホバー/押下状態（想定表示）<span class="lbltag">nightLinkHover — 未消費</span></span><span class="c-hover arrow">↗</span></div>
+    </div>
+    <p class="section-note">上 2 行が現行の実消費 <code>nightLink</code>。区切りは <code>nightRule</code>。下 2 行は <code>nightLinkVisited</code> / <code>nightLinkHover</code> の想定表示 — ラベル通り、現時点で参照している画面コードはまだ無い。</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">実画面モック 3 — accent の上に乗る前景。5 つの実サイズを light / dark 並列で比較</p>
+    <div class="oa-cols">
+      <div class="oa-col day">
+        <div class="cap">light</div>
+        <span class="oa-btn" style="background:var(--moss-dark);color:var(--ink-on-accent)">Try this scenario</span>
+        <span class="oa-badge" style="background:var(--moss-dark);color:var(--ink-on-accent)">Active</span>
+        <span class="oa-retry" style="background:var(--moss-dark);color:var(--ink-on-accent)">Retry</span>
+        <span class="oa-chip" style="background:var(--moss-dark);color:var(--ink-on-accent)">選択中</span>
+        <span class="oa-check" style="background:var(--moss)">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" stroke="var(--ink-on-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+      <div class="oa-col nite">
+        <div class="cap">dark</div>
+        <span class="oa-btn" style="background:var(--night-moss-dark);color:var(--night-ink-on-accent)">Try this scenario</span>
+        <span class="oa-badge" style="background:var(--night-moss-dark);color:var(--night-ink-on-accent)">Active</span>
+        <span class="oa-retry" style="background:var(--night-moss-dark);color:var(--night-ink-on-accent)">Retry</span>
+        <span class="oa-chip" style="background:var(--night-moss-dark);color:var(--night-ink-on-accent)">選択中</span>
+        <span class="oa-check" style="background:var(--night-moss)">
+          <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M3.5 8.5 L6.5 11.5 L12.5 4.5" stroke="var(--night-ink-on-accent)" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </span>
+      </div>
+    </div>
+    <p class="section-note">上から PrimaryButton（16pt semibold）/ Active バッジ（9.5pt mono uppercase・letter-spacing .22em）/ Retry（9pt mono）/ 選択中ギャラリーチップ（15pt semibold）/ CheckBadge（<code>moss</code> / <code>nightMoss</code> 地に <code>inkOnAccent</code> / <code>nightInkOnAccent</code> のチェックマーク）。判断が乗るのはこの並びで、<strong>white</strong> のままだった dark 側が地に沈まないことが要点。</p>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">測定比 — 引用のみ、この場で再計算しない</p>
+    <table class="ratio">
+      <thead><tr><th>ペア</th><th>light</th><th>dark</th><th>note</th></tr></thead>
+      <tbody>
+        <tr><td><code>page</code> vs body 地</td><td class="num">1.099</td><td class="num">1.099</td><td>両方とも below</td></tr>
+        <tr><td><code>promoBackground</code> vs bubble/card</td><td class="num">1.047</td><td class="num">1.046</td><td>両方とも below</td></tr>
+        <tr><td><code>promoBackground</code> vs body 地</td><td class="num">1.003</td><td class="num">1.195</td><td>—</td></tr>
+        <tr><td><code>promoBorder</code> vs 自分のカード</td><td class="num">1.204 darker</td><td class="num">1.204 lighter</td><td>方向が反転</td></tr>
+        <tr><td><code>rule</code> → <code>nightRule</code>（先行）</td><td class="num">1.324 below</td><td class="num">1.425 above</td><td>同型の前例</td></tr>
+        <tr><td><code>mossSoft</code> vs body 地</td><td class="num">1.559 below</td><td class="num">1.566 above</td><td>方向が反転</td></tr>
+        <tr><td><code>mossDark</code> vs body 地</td><td class="num">4.538</td><td class="num">8.902</td><td><code>nightMoss</code> は 7.999</td></tr>
+        <tr><td>moss → mossDark ステップ</td><td class="num">1.561</td><td class="num">1.113</td><td>—</td></tr>
+        <tr><td><code>mossInk</code> vs body 地</td><td class="num">10.190</td><td class="num">10.187</td><td>—</td></tr>
+        <tr><td><code>inkOnAccent</code> over <code>mossDark</code></td><td class="num">4.737</td><td class="num">7.117</td><td>base <code>moss</code> 上は 3.035 → 6.395</td></tr>
+        <tr><td>CTA ラベル（screenBackground on mossInk → nightBackground on nightMossInk）</td><td class="num">10.190</td><td class="num">10.187</td><td>反転を超えてほぼ保存</td></tr>
+        <tr><td>moss バッジ（mossDark on mossSoft）</td><td class="num">2.911</td><td class="num">5.685</td><td>§2.6 の 4 ペアは 5.39–5.98 / 7.69–8.37 — 両外観で最も静か</td></tr>
+        <tr><td><code>link</code> vs body 地</td><td class="num">4.618</td><td class="num">4.631</td><td>—</td></tr>
+        <tr><td><code>linkVisited</code> vs body 地</td><td class="num">5.378</td><td class="num">5.378</td><td>—</td></tr>
+        <tr><td><code>linkHover</code> vs body 地</td><td class="num">6.345</td><td class="num">6.340</td><td>—</td></tr>
+        <tr><td>§2.4 ラダー（実地 #282C24 で再測定）</td><td class="num">—</td><td class="num">3.48 / 5.31 / 8.54 / 11.27</td><td><code>nightBubble</code> 代用測定は 3.33 / 5.08 / 8.16 / 10.77 だった</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section night">
+    <p class="section-label">設計判断</p>
+    <p class="section-note">
+      <strong><code>page</code> は沈み、<code>promoBackground</code> は浮く。</strong>light では両方とも body 地よりわずかに below（1.099 / 1.047）で同じ向きだが、dark では <code>nightPage</code> が引き続き below（1.099）である一方 <code>nightPromoBackground</code> は body 地に対して above（1.195）に転じる — <code>page</code> は画面の奥に退く背景の役割を night でも保つのに対し、<code>promoBackground</code> はカードとして手前に浮く役割を night で強めて保つ、という向きの違いがそのまま比の違いになる。
+    </p>
+    <p class="section-note">
+      <strong><code>promoBorder</code> と <code>mossSoft</code> は方向が反転する。</strong>境界線は自分の乗るカードに対する量を light/dark 双方で 1.204 のまま持ち越したが、その等しい量が dark では地に対してわずか above 1.01 まで縮み、カード端でほぼ溶ける。<code>rule</code> → <code>nightRule</code>（1.324 below → 1.425 above）と同じ形の反転で、量を守ると向きが変わるという先例通りの挙動。
+    </p>
+    <p class="section-note">
+      <strong>§2.3 の 4 段は順序ごと反転する。</strong>light は ink &lt; dark &lt; moss &lt; soft の明度順だが、dark は soft &lt; moss &lt; dark &lt; ink に並び替わる。<code>nightMossDark</code>（body 地比 8.902）は <code>nightMoss</code>（7.999）より明るい — dark 側の「濃い moss」が「基準の moss」を追い越す。
+    </p>
+    <p class="section-note">
+      <strong><code>inkOnAccent</code> は dark で白ではない。</strong>MD3 は primary が tone 40→80（moss → nightMoss 相当）に上がるとき on-primary の tone を 100→20 へ落とす。最小消費が 9pt/9.5pt のラベルであるため、置いた基準は白ではなく WCAG AAA 7:1（<code>mossDark</code> 上 7.117）。<code>nightBubble</code> と同値になったのは<strong>結果</strong>であって、継承して持ち越した一致ではない。
+    </p>
+    <p class="section-note">
+      <strong><code>mossSoft</code> の色相は moss ファミリへ移した。</strong>light の 47.7° というクリームがかった色相を dark でもそのまま保つと 5% 輝度ではアンバーに読め、<code>nightWarningSoft</code> と衝突する。<code>nightMossSoft</code> は 80.9° の moss 系へ寄せて回避した。
+    </p>
+    <p class="section-note">
+      <strong>設計せずに一致した 2 つの関係。</strong>CTA ラベルの比（screenBackground on mossInk → nightBackground on nightMossInk）は 10.190 → 10.187 とほぼそのまま生き残り、moss バッジ（mossDark on mossSoft, 2.911 → 5.685）は §2.6 の 4 ペア（light 5.39–5.98 / dark 7.69–8.37）の中で両外観とも最も静かなペアであり続けた。どちらも個別のトークンを追いかけて設計した帰結であって、比そのものを目標に置いたわけではない。
+    </p>
+  </div>
+
+  <div class="section night">
+    <p class="section-note"><code>nightPage</code> #11130F はパレット全体で最も暗いトークン。シートは持ち上がるという iOS の慣習に対し、その消費先はシートを一段暗くする側に置かれている — ADR-028 gate 4 の実機 QA でフラグを立てて確認する。</p>
+  </div>
+</div>
+</body>
+</html>
