@@ -504,7 +504,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       Text(String(localized: "Return to it to keep watching, or pause it before starting another."))
     } actions: {
       Button(String(localized: "Return to the running simulation")) { returnToLiveRun() }
-        .buttonStyle(.borderedProminent)
+        .buttonStyle(PasturaPrimaryButtonStyle())
     }
   }
 

@@ -324,6 +324,16 @@ private struct RootView: View {
           Button(String(localized: "Reset Database"), role: .destructive) {
             Task { await recoverDatabase() }
           }
+          // The ONE sanctioned `.borderedProminent`, and it is not the defect
+          // the rule below catches. `role: .destructive` replaces the tint fill
+          // with the system red, so this never resolves the moss tint that
+          // measures white-on-fill at 3.03:1 light / 2.13:1 dark — system red
+          // measures 3.55:1 / 3.41:1 and adapts on its own. Converting it to
+          // `PasturaPrimaryButtonStyle` would fill it `mossDark` and make a
+          // data-destroying action look like an ordinary primary CTA; the
+          // style has no destructive variant, and adding one to carry a single
+          // failure-screen button is not worth a new design-system branch.
+          // swiftlint:disable:next bordered_prominent_button_style
           .buttonStyle(.borderedProminent)
           // Retry is meaningful here even though only `.migrationFailed` reaches
           // this screen: a migration can fail transiently (disk full / lock at
@@ -371,7 +381,7 @@ private struct RootView: View {
           Button(String(localized: "Retry")) {
             appState = .initializing
           }
-          .buttonStyle(.borderedProminent)
+          .buttonStyle(PasturaPrimaryButtonStyle())
         }
         .padding()
       }

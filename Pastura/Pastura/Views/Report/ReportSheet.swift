@@ -140,8 +140,7 @@ struct ReportSheet: View {
         }
         .frame(maxWidth: .infinity)
       }
-      .buttonStyle(.borderedProminent)
-      .controlSize(.large)
+      .buttonStyle(PasturaPrimaryButtonStyle())
       .accessibilityIdentifier("reportSheet.openFormButton")
 
       Text(String(localized: "No account required."))
