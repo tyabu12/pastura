@@ -11,8 +11,8 @@ import Testing
 ///
 /// The load-bearing behavior under test is the empty-premise guard: an
 /// empty / whitespace-only premise must yield `nil` so the caller renders
-/// nothing (mirrors `ScenarioSummaryRow`'s `!description.isEmpty` guard),
-/// rather than an empty card box above the log.
+/// nothing — the same "absent text renders no element" posture the scenario
+/// rows take — rather than an empty card box above the log.
 @Suite(.timeLimit(.minutes(1)))
 struct ScenarioIntroCardTests {
   @Test("A non-empty premise yields a model preserving title and premise")

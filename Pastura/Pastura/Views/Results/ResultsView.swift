@@ -224,13 +224,13 @@ struct ResultsView: View {
 
       // The scenario's 1-line description (#747). Resolved snapshot-first by the
       // VM; absent (deleted / pre-v7 / empty) → no line, like the rest of the
-      // row's graceful degrade. Font / color / truncation mirror the shared
-      // `ScenarioSummaryRow` description line, but lineLimit is a deliberate
-      // hard 1 here (vs the shared row's Dynamic-Type-aware limit) to keep the
-      // results row compact — do not "restore" parity. Not String(localized:)-
-      // wrapped: dynamic scenario content, not UI chrome. `description` is
-      // already empty-normalized to nil by the resolver; the `!isEmpty` re-guard
-      // is harmless defense-in-depth for parity with `ScenarioSummaryRow`.
+      // row's graceful degrade. lineLimit is a deliberate hard 1 here — the
+      // other scenario rows compute a Dynamic-Type-aware limit
+      // (`HomeScenarioRowFormat.compactDescriptionLineLimit`), but the results
+      // row stays compact regardless of type size, so do not "restore" parity.
+      // Not String(localized:)-wrapped: dynamic scenario content, not UI chrome.
+      // `description` is already empty-normalized to nil by the resolver; the
+      // `!isEmpty` re-guard is harmless defense-in-depth.
       if let description = row.description, !description.isEmpty {
         Text(description)
           .font(.subheadline)
@@ -315,7 +315,8 @@ struct ResultsView: View {
   /// One sheep avatar per agent (clamped via ``ResultsRowFormat/rowSheepCount``).
   /// The sheep are decorative (``SheepAvatar`` is `.accessibilityHidden`); the
   /// true agent count is announced to VoiceOver via the group's `%lld agents`
-  /// label so the visual clamp never hides it (mirrors ``HomeScenarioMetaLine``).
+  /// label so the visual clamp never hides it. Browse's art tile takes the same
+  /// posture (``GalleryCatalogRowFormat/clusterSheepCount(agentCount:)``).
   private func sheepCluster(count: Int, agentCount: Int?) -> some View {
     HStack(spacing: 2) {
       ForEach(0..<count, id: \.self) { index in

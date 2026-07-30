@@ -50,10 +50,19 @@ rule 3 (no ViewInspector / snapshot) still holds. Frame the intent in the
 test's doc-comment, or the next contributor will (fairly) delete it as
 tautological.
 
-Only `Equatable` constants qualify: `SwiftUI.Font` / `AnyTransition` are
-not `Equatable`, so leave those inline and code-review-gate them. Canonical
-example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests` (the
-`.languageMismatch` drift toast; #456 / ADR-009 § Amendment 2026-06-23).
+`Equatable` is necessary but **not sufficient**. `SwiftUI.Font` /
+`AnyTransition` aren't `Equatable` at all — leave those inline and
+code-review-gate them. `Color` *is*, yet a `PasturaDynamicColor`-backed alias
+compares by provider instance, so asserting that two tokens **differ** passes
+and can never fire whenever either side is paired (two *fixed* aliases do
+compare by value). Pin *which token* a consumer reads
+(`style.fillToken == Color.moss` — one `static let` against itself); leave *what
+value* it carries to `DesignTokensTests`. Probe + the fixed-appearance exception:
+`ScenarioBadgeStyleTokenTests` (#1296) and `swiftui-traps.md` § "`ImageRenderer`
+does not inherit the ambient environment".
+
+Canonical example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests`
+(the `.languageMismatch` drift toast; #456 / ADR-009 § Amendment 2026-06-23).
 
 Full Why + alternatives + revisit triggers:
 [ADR-009](../../docs/decisions/ADR-009.md).

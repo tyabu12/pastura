@@ -1,29 +1,22 @@
 import Foundation
 
-/// Pure display-formatting helpers for the Home scenario list row
-/// (ADR-016 D3 row layout: name / sheep×agentCount · rounds / description).
+/// Pure display-formatting helpers for the Home scenario surfaces — the compact
+/// list row (icon tile / name / description / `provenance · N agents · N rounds`
+/// caption) and the paused resume card. Layout decision: ADR-016 D3.
 ///
 /// Kept `nonisolated` and side-effect-free so the row's non-trivial display
-/// logic — sheep-count clamping, the rounds label, meta-line visibility, and
-/// the Dynamic-Type description line limit — is unit-testable without
-/// rendering (ADR-009 / `.claude/rules/view-testing.md`: extract logic, never
-/// assert rendered output).
+/// logic — the rounds label, provenance classification, and the Dynamic-Type
+/// description line limits — is unit-testable without rendering (ADR-009 /
+/// `.claude/rules/view-testing.md`: extract logic, never assert rendered
+/// output).
+///
+/// The sheep-count clamp (`maxRowSheep` / `rowSheepCount`) and the meta-line
+/// visibility guard (`showsMetaLine`) were retired in #1296 along with their
+/// only caller, the shared summary row and its `HomeScenarioMetaLine`. The
+/// surfaces that still draw a sheep cluster own their own clamp —
+/// ``ResultsRowFormat/rowSheepCount(agentCount:)`` and
+/// ``GalleryCatalogRowFormat/clusterSheepCount(agentCount:)``.
 nonisolated enum HomeScenarioRowFormat {
-  /// Maximum sheep avatars drawn in one row before clamping. The exact agent
-  /// count is secondary garnish the user doesn't act on in the list, so a
-  /// clamp keeps the row legible and within width instead of overflowing for
-  /// large casts. VoiceOver still announces the true count (see the row's
-  /// `%lld agents` accessibility label).
-  static let maxRowSheep = 5
-
-  /// Number of sheep faces to draw for `agentCount`, clamped to
-  /// ``maxRowSheep``. Returns 0 when the count is unknown (name-only metadata
-  /// retrogression on a YAML parse failure) so the caller draws no faces.
-  static func rowSheepCount(agentCount: Int?) -> Int {
-    guard let agentCount, agentCount > 0 else { return 0 }
-    return min(agentCount, maxRowSheep)
-  }
-
   /// Localized "N rounds" label, or nil when the round count is unknown
   /// (metadata retrogression) so the caller hides the segment rather than
   /// rendering a dangling separator. Form B per `.claude/rules/i18n.md`.
@@ -32,17 +25,13 @@ nonisolated enum HomeScenarioRowFormat {
     return String(format: String(localized: "%lld rounds"), rounds)
   }
 
-  /// Whether the meta line (sheep + rounds) renders at all. Hidden when both
-  /// the agent count and round count are unknown — an otherwise-empty meta
-  /// line would still reserve vertical space and could leave a stray dot.
-  static func showsMetaLine(agentCount: Int?, rounds: Int?) -> Bool {
-    rowSheepCount(agentCount: agentCount) > 0 || roundsLabel(rounds: rounds) != nil
-  }
-
-  /// Description line limit: up to two truncated lines at normal Dynamic Type
-  /// sizes (aligned to the Shared Scenarios row), but unlimited so the text
-  /// wraps at accessibility sizes — clipping to two lines at AX5 would drop
-  /// most of it. `nil` means "no limit" to SwiftUI's `.lineLimit(_:)`.
+  /// Description line limit for the paused resume card (``HomePausedCard``, its
+  /// only caller): up to two truncated lines at normal Dynamic Type sizes, but
+  /// unlimited so the text wraps at accessibility sizes — clipping to two lines
+  /// at AX5 would drop most of it. `nil` means "no limit" to SwiftUI's
+  /// `.lineLimit(_:)`. Browse's flat `GalleryCatalogMetrics.descriptionLineLimit`
+  /// happens to be 2 as well but has no accessibility branch — not a parity
+  /// contract.
   static func descriptionLineLimit(isAccessibilitySize: Bool) -> Int? {
     isAccessibilitySize ? nil : 2
   }
@@ -88,8 +77,9 @@ nonisolated enum HomeScenarioRowFormat {
   /// The compact row's caption as ordered, already-localized segments the
   /// caller joins with `·`: `[provenance, "N agents"?, "N rounds"?]`. Provenance
   /// is always present; the agent and round halves drop out when unknown so the
-  /// caller never renders a dangling separator (same guard shape as
-  /// ``ScenarioSummaryRowFormat/captionSegments(leading:trailing:)``).
+  /// caller never renders a dangling separator — the caller joins whatever comes
+  /// back rather than deciding per-half, so an absent half can never leave a
+  /// stray `·`.
   ///
   /// The count halves are built through `String(format: String(localized:), n)`
   /// — **never** the bare `%lld …` catalog key, which would render the literal

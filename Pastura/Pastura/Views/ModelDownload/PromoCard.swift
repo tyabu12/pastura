@@ -118,7 +118,7 @@ struct PromoCard: View {
     }
   }
 
-  // MARK: - Meta row (DL progress OR inline retry)
+  // MARK: - Meta row (DL progress; delegates to inline retry when errored)
 
   @ViewBuilder
   private var metaRow: some View {
@@ -187,68 +187,6 @@ struct PromoCard: View {
     .padding(.bottom, 7)
     .accessibilityElement(children: .combine)
     .accessibilityAddTraits(.updatesFrequently)
-  }
-
-  /// Full-width "Stop download" action bar at the card's bottom edge, shown
-  /// only when `onCancel` is set. Its own fixed-geometry row (not the
-  /// per-progress-rebuilt meta row) keeps the hit region stable and the
-  /// full-width target easy to hit. Styled as a filled footer button (a plain
-  /// link didn't read as tappable on-device): `stop.fill` glyph + subtle
-  /// neutral fill (`rule` @0.45, so the full-opacity `rule` top hairline stays
-  /// visible) — still neutral per `design-system.md` §2.6 (never red; the fill
-  /// is a low-opacity neutral, not `danger`). Text self-describes; no a11y label.
-  private func cancelLinkRow(action: @escaping () -> Void) -> some View {
-    Button(action: action) {
-      HStack(spacing: 5) {
-        Image(systemName: "stop.fill")
-          .font(.system(size: 10))
-          .foregroundStyle(Color.inkSecondary)
-        Text(String(localized: "Stop download"))
-          .textStyle(Typography.metaLabel)
-          .foregroundStyle(Color.inkSecondary)
-      }
-      .frame(maxWidth: .infinity)
-      .padding(.vertical, 10)
-      .background(Color.rule.opacity(0.45))
-      .overlay(alignment: .top) {
-        Rectangle()
-          .fill(Color.rule)
-          .frame(height: 1)
-      }
-      .contentShape(Rectangle())
-    }
-    .buttonStyle(.plain)
-  }
-
-  @ViewBuilder
-  private func retryView(message: String) -> some View {
-    HStack(alignment: .center, spacing: Spacing.s) {
-      VStack(alignment: .leading, spacing: 2) {
-        Text(String(localized: "Download interrupted"))
-          .textStyle(Typography.metaEta)
-          .foregroundStyle(Color.metaStrongL3)
-        Text(message)
-          .textStyle(Typography.metaValue)
-          .foregroundStyle(Color.metaBaseL3)
-          .lineLimit(2)
-      }
-      Spacer(minLength: 0)
-      Button(action: onRetry) {
-        Text(String(localized: "Retry"))
-          .textStyle(Typography.metaLabel)
-          .foregroundStyle(Color.inkOnAccent)
-          .padding(.horizontal, 10)
-          .padding(.vertical, 5)
-          .background(
-            RoundedRectangle(cornerRadius: Radius.button)
-              // `mossDark`: `metaLabel` is 9pt text, white-on-`moss` ≈3.0:1.
-              .fill(Color.mossDark))
-      }
-      .buttonStyle(.plain)
-    }
-    .padding(.horizontal, 14)
-    .padding(.top, 8)
-    .padding(.bottom, 7)
   }
 
   // MARK: - Body row (dog mark + rotating copy)
@@ -396,5 +334,6 @@ extension PromoCard {
 
 // Pure helpers (`computeSlotState`, `computeEtaSeconds`, `isResumeJump`,
 // `slotCopy`, `formatEta`) live in `PromoCard+Helpers.swift`. `#Preview` blocks
-// live in `PromoCard+Previews.swift`. Both splits keep this file under
-// swiftlint's 400-line cap.
+// live in `PromoCard+Previews.swift`. The two action affordances
+// (`cancelLinkRow`, `retryView`) live in `PromoCard+Actions.swift`. All three
+// splits keep this file under swiftlint's 400-line cap.
