@@ -300,8 +300,8 @@ internal class PromptBuilder {
         state: SimulationState,
     ): String {
         val language = scenario.engineLanguage
-        // coerceIn: the THIRD site inheriting a Swift validator guarantee that does
-        // not exist on this side yet. `ScenarioValidator.swift:136-145` enforces
+        // coerceIn: one of several sites inheriting a Swift validator guarantee that
+        // does not exist on this side yet. `ScenarioValidator.swift:136-145` enforces
         // `max_sentences` in 1..6; that validator is a Stage-3 port, so nothing
         // rejects `max_sentences: 0` here — and un-clamped it renders "at most 0
         // sentences" / "0文以内", an unsatisfiable instruction handed to the model.

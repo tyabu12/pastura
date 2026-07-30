@@ -206,3 +206,13 @@ CI pair — `:shared:models:jvmTest :shared:engine:jvmTest` — before pushing.
 all-`false` for every agent, so `copy(eliminated = mapOf("Bob" to true))` leaves the others
 **absent** — the test can no longer tell `== true` from `!= null`, and a wrong-polarity check stays
 green against real state. Write the `false` entries explicitly, plus an absent-key case.
+
+**Test authoring: `ScriptedLLMBackend` exhaustion is a harness fault, not a backend failure.** Running
+out of scripts throws `IllegalStateException` by design, to flag an unintended extra call — so it is
+**not** failure injection (a 1:1 port of Swift's `MockLLMService(responses: [])` fails unless the
+handler's `catch` is widened, and a wide catch here swallows `CancellationException`, a JVM subclass of
+`IllegalStateException`; script `TerminalStatus.Failed` instead), and it **pre-empts assertions** — a
+`callCount` / `requests` assertion with no spare script is unreachable, so the test reddens without its
+own assertion ever running. Over-script (`MAX_RETRIES + 1`) so the written assertion is the detector.
+Decisive in §12 perturbation work, where "it reddened" IS the evidence: read *which* message fired.
+Worked example: `NarrateHandlerTests` (#1331).
