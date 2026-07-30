@@ -27,6 +27,20 @@ nonisolated extension PromptBuilder {
   /// `whisperRule` tells the agent to be candid and strategic with its partner,
   /// while this one forbids naming the secret. Field-test a secret × whisper
   /// scenario before any preset ships both (#914 follow-up).
+  ///
+  /// The closing sentence is **declarative**, matching the ja literal's close and
+  /// restoring the ja/en scope-parallel expectation the sibling rules in
+  /// `PromptBuilder.swift` document. It was chosen by measurement (#1301), and
+  /// what the measurement licenses is narrow. On **decisions** the sentence is
+  /// inert: an imperative arm, this declarative arm, and a control with the
+  /// sentence deleted all landed at the 50 % chance baseline, while a positive
+  /// control carrying an explicit directive reached 100 % — so the flatness
+  /// belongs to the sentence, not to the instrument. A blinded read of the inner
+  /// monologue ranked the deleted-sentence control lowest, which is why the
+  /// sentence stays at all; that arm separation is under-powered and supports
+  /// only "declarative is not worse", never "declarative is better". Only the
+  /// sentence's **mood** was measured — the clause before it was held constant
+  /// across every arm and remains unmeasured.
   func appendSecretSection(to sections: inout [String], persona: Persona, language: String) {
     // Non-nil implies non-empty (every ingest path normalizes empty → nil).
     guard let secret = persona.secret else { return }
@@ -39,7 +53,7 @@ nonisolated extension PromptBuilder {
       ja:
         "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
       en:
-        "Never reveal this secret in anything the other participants can hear (your statement). You may reference it freely in your inner_thought, and let it shape your decisions and demeanor."
+        "Never reveal this secret in anything the other participants can hear (your statement). You may reference it freely in your inner_thought. It shapes your judgement and attitude."
     )
     sections.append("\(header)\n\(secret)\n\(guidance)")
   }

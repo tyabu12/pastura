@@ -241,12 +241,18 @@ internal class PromptBuilder {
      * (`scripts/check-prompt-literal-parity.py`); the separator is *not* — see
      * that script's non-coverage list.
      *
-     * **This pin locks in a known ja/en mismatch, tracked on #1301.** The en text
-     * it replaced ("It shapes your judgement and attitude") rendered the ja's
-     * declarative last sentence more closely than the shipped imperative one
-     * does; Swift won on "a parity PR must not move shipped prompt text", not on
-     * translation quality. Neither form has been A/B'd — do not read this pin as
-     * an endorsement of the wording.
+     * The ja/en mismatch this pin once locked in is **resolved** (#1301): the en
+     * close is now declarative, matching the ja. It was settled by a harness A/B,
+     * and that A/B licenses less than it might appear. On **decisions** the
+     * sentence is inert — an imperative arm, the declarative arm, and a control
+     * with the sentence deleted all sat at the 50 % chance baseline, against a
+     * positive control that reached 100 %. A blinded read of the inner monologue
+     * put the deleted-sentence control lowest, which is why the sentence remains;
+     * that separation is under-powered and supports only "declarative is not
+     * worse". Only the sentence's **mood** was measured — the clause before it
+     * was held constant across arms and is still unmeasured, so the pre-#1295
+     * Kotlin text ("You may reflect on it frankly...") was not the arm that won
+     * and is not vindicated here.
      */
     private fun appendSecretSection(sections: MutableList<String>, persona: Persona, language: String) {
         val secret = persona.secret?.takeIf { it.isNotBlank() } ?: return
@@ -260,7 +266,7 @@ internal class PromptBuilder {
             ja = "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。" +
                 "心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
             en = "Never reveal this secret in anything the other participants can hear (your statement). " +
-                "You may reference it freely in your inner_thought, and let it shape your decisions and demeanor.",
+                "You may reference it freely in your inner_thought. It shapes your judgement and attitude.",
         )
         sections += "$header\n$secret\n$guidance"
     }

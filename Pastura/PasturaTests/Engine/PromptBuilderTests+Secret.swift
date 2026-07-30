@@ -59,6 +59,10 @@ extension PromptBuilderTests {
     // Channel-scoped guidance: statement is off-limits, inner_thought licensed.
     #expect(prompt.contains("発言（statement）では決して明かしてはいけません"))
     #expect(prompt.contains("心の声（inner_thought）では率直に触れてかまいません"))
+    // The closing sentence, pinned in BOTH languages (#1301). Until then neither
+    // was asserted, so the two A/B arms — which differ only here — both passed
+    // this suite unchanged. Its declarative mood is the ja/en scope-parallel.
+    #expect(prompt.contains("あなたの判断や態度はこの秘密に左右されます"))
   }
 
   @Test func systemPromptContainsSecretSectionWhenSetEN() {
@@ -67,6 +71,9 @@ extension PromptBuilderTests {
     #expect(prompt.contains(Self.aliceSecret))
     #expect(prompt.contains("Never reveal this secret in anything the other participants can hear"))
     #expect(prompt.contains("You may reference it freely in your inner_thought"))
+    // See the ja counterpart: the closing sentence is the #1301 A/B's variable
+    // and went unasserted until it was settled. Declarative, matching the ja.
+    #expect(prompt.contains("It shapes your judgement and attitude"))
   }
 
   /// Charlie has no secret. Checked in both languages — asserting the EN header
