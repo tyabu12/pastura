@@ -8,14 +8,22 @@ import Testing
 //
 // Its own file rather than an addition to `DesignTokensTests+NightPalette.swift`:
 // that file was at 170 lines after slice 4's stage-0 split and this block is
-// ~300, so the two together would cross swiftlint's 400-line `file_length` cap.
+// ~370, so the two together would cross swiftlint's 400-line `file_length` cap.
 // Same per-section axis the rest of slice 4 used.
 //
-// Every guard here is a **pure predicate plus a matched pair of tests** — the
-// shipped palette satisfies it, and a deliberately-broken input violates it. A
-// guard's success case alone proves nothing, because it may be constant. Where
-// the broken input is an alternative this slice actually rejected, that is said:
-// a control drawn from the real decision is worth more than an invented one.
+// The predicates themselves live in `DesignTokensTests+NightRemainderHelpers.swift`
+// — moved there during slice 4's review, when this file stood one line under the
+// cap and the review's own finding needed room. That file's header carries the
+// reasoning; re-measure both rather than trusting these figures.
+//
+// Every guard here is a **pure predicate plus matched controls** — the shipped
+// palette satisfies it, and a deliberately-broken input violates it. A guard's
+// success case alone proves nothing, because it may be constant. **A predicate
+// with N independent clauses needs N controls**, one failing each clause alone: a
+// single fixture that trips several at once is no evidence that any one of them is
+// separately enforced. Where the broken input is an alternative this slice
+// actually rejected, that is said: a control drawn from the real decision is worth
+// more than an invented one.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -86,6 +94,12 @@ extension DesignTokensTests {
   /// (3:1) over base `moss`, where only shapes sit. Both appearances must clear
   /// both — dark does so with more room (7.117 / 6.395 against light's
   /// 4.737 / 3.035), which is what placing it at WCAG AAA bought.
+  ///
+  /// **The light 3.035 leaves 0.035 of margin, and that is the tightest figure in
+  /// this file.** `moss` is a light token this slice did not touch, so a later
+  /// one-step adjustment to it can redden this assertion from an unrelated PR. That
+  /// is the bar doing its job — WCAG 1.4.11 is a real floor, not a change-detector —
+  /// so the fix is to re-derive `inkOnAccent`, not to loosen the predicate.
   @Test func onAccentForegroundClearsBothBarsInBothAppearances() {
     #expect(
       onAccentForegroundClearsItsBars(
@@ -112,6 +126,31 @@ extension DesignTokensTests {
         baseFill: PasturaPalette.nightMoss))
   }
 
+  /// The **second** control, and the one that makes the pair meaningful: the
+  /// rejection above fails *both* clauses (1.911 emphatic / 2.126 base), so on its
+  /// own it is no evidence that the base-fill clause is enforced at all — delete
+  /// `&& contrastRatio(foreground, baseFill) >= 3.0` and it still passes.
+  ///
+  /// `#FBFBFB` fails the base clause **alone**: 4.577 over `mossDark` clears the
+  /// 4.5 text bar, while 2.933 over `moss` misses the 3.0 non-text bar. This is
+  /// exactly the "passes on the label, fails on the shapes" value the two-bar
+  /// contract exists to reject.
+  ///
+  /// Light-side by necessity, not preference. The same fixture cannot be built in
+  /// dark: `contrastRatio` depends only on Y, so the achievable gap between the two
+  /// clauses is capped by the fills' own luminance ratio — and
+  /// `(Y_nightMossDark + 0.05) / (Y_nightMoss + 0.05)` is 1.113, well under the
+  /// 4.5 / 3.0 = 1.5 the two bars demand. No colour clears 4.5 over `nightMossDark`
+  /// while missing 3.0 over `nightMoss`; that is the §2.3 dark ladder's tight rungs
+  /// showing up as a limit on what can be tested, not a gap in coverage.
+  @Test func onAccentForegroundControlRejectsAValueThatClearsOnlyTheEmphaticBar() {
+    #expect(
+      !onAccentForegroundClearsItsBars(
+        foreground: PasturaColorValue(hex: 0xFBFBFB),
+        emphaticFill: PasturaPalette.mossDark,
+        baseFill: PasturaPalette.moss))
+  }
+
   /// A quiet line must read against **both** the surface it is drawn on and the
   /// ground behind that surface. In light such lines sit darker than their
   /// surface; in dark they must sit lighter, because holding the magnitude on the
@@ -121,7 +160,8 @@ extension DesignTokensTests {
   @Test func quietLinesInvertDirectionAndStaySeparableInDark() {
     // Light: darker than its surface, and that is fine because a near-white
     // ground affords the step.
-    #expect(relativeLuminance(PasturaPalette.rule) < relativeLuminance(PasturaPalette.screenBackground))
+    #expect(
+      relativeLuminance(PasturaPalette.rule) < relativeLuminance(PasturaPalette.screenBackground))
     #expect(
       relativeLuminance(PasturaPalette.promoBorder)
         < relativeLuminance(PasturaPalette.promoBackground))
@@ -196,6 +236,31 @@ extension DesignTokensTests {
         ground: PasturaPalette.nightBackground))
   }
 
+  /// A **third** control, for the one remaining clause with no evidence of its own.
+  /// The two above are rejected on direction and on the ground reading; neither
+  /// touches `contrastRatio(line, surface) >= 1.1`, so deleting that clause left
+  /// every quiet-line test green.
+  ///
+  /// #323232 closes it. Sitting just above `nightBubble` it satisfies the direction
+  /// clause, reads 1.327 against the ground — clearing that bar — and only **1.061
+  /// against the surface it is drawn on**: a hairline that separates from the page
+  /// behind the card while vanishing into the card itself.
+  ///
+  /// The fixture is mid-window on purpose. The clause admits a seven-grey band here
+  /// (`Y_surface < Y_line < 1.1 * Y_surface + 0.005`, #2E2E2E–#343434), so #323232
+  /// keeps margin on both sides rather than resting on either boundary.
+  @Test func quietLineControlRejectsALineTooCloseToItsSurface() {
+    let tooClose = PasturaColorValue(hex: 0x323232)
+    // Direction and ground both satisfied — the surface clause is the only one left.
+    #expect(relativeLuminance(tooClose) > relativeLuminance(PasturaPalette.nightBubble))
+    #expect(contrastRatio(tooClose, PasturaPalette.nightBackground) >= 1.1)
+    #expect(
+      !lineSeparatesSurfaceFromGround(
+        line: tooClose,
+        surface: PasturaPalette.nightBubble,
+        ground: PasturaPalette.nightBackground))
+  }
+
   /// `mossSoft` + `mossDark` form a §2.6-shaped Soft/Ink badge pair
   /// (`ContradictionBadge`, `PredictionOutcomeBadge`, `HighlightCandidatesSection`),
   /// and its designed property is *relative*: it is the quietest of the five in
@@ -210,11 +275,19 @@ extension DesignTokensTests {
   /// The control: substituting `nightInk` for `nightMossDark` lifts the moss
   /// badge into the §2.6 band and it stops being the quietest. Without this the
   /// assertion above could pass on a predicate that is simply always true.
+  ///
+  /// Injected **through `mossBadgeIsQuietest`** rather than into `isQuietestPair`
+  /// directly. Aimed at the inner predicate the control skipped the wrapper
+  /// entirely: collapsing `mossBadgeIsQuietest` to `return true`, or swapping its
+  /// two branches, left every test green. Routed through the wrapper both mutations
+  /// redden — the second because the branches disagree on the injected ink, which
+  /// the light-side assertion below pins.
   @Test func mossBadgeQuietestControlRejectsALiftedInk() {
-    #expect(
-      !isQuietestPair(
-        ink: PasturaPalette.nightInk, soft: PasturaPalette.nightMossSoft,
-        others: nightBadgePairs()))
+    #expect(!mossBadgeIsQuietest(dark: true, ink: PasturaPalette.nightInk))
+    // The branches must not be interchangeable: the same injected ink that stops
+    // being quietest against the dark pairs still is against the light ones, so a
+    // branch swap flips one of these two.
+    #expect(mossBadgeIsQuietest(dark: false, ink: PasturaPalette.nightInk))
   }
 
   /// `nightPage` **sinks** below the body ground, mirroring light's `page` sitting
@@ -289,111 +362,7 @@ extension DesignTokensTests {
     // Chroma proxy: the moss token keeps a wider channel spread than the neutral
     // meta one. Asserted as a range rather than an exact HSL saturation so the
     // test does not smuggle in a colour-space conversion of its own.
-    #expect(channelSpread(PasturaPalette.nightMossInk) > channelSpread(PasturaPalette.nightMetaBaseL3))
+    #expect(
+      channelSpread(PasturaPalette.nightMossInk) > channelSpread(PasturaPalette.nightMetaBaseL3))
   }
-}
-
-// MARK: - Slice-4 predicates
-//
-// Pure functions, so each has a matched control above. Kept separate from the
-// tests that use them for exactly that reason: a predicate inlined into its
-// success case cannot be handed a broken input.
-
-/// True when every token is strictly brighter than the one before it.
-@MainActor
-func isStrictlyBrightening(_ tokens: [PasturaColorValue]) -> Bool {
-  zip(tokens, tokens.dropFirst()).allSatisfy { relativeLuminance($0) < relativeLuminance($1) }
-}
-
-/// True when an on-accent foreground clears WCAG's text bar (4.5:1) over the
-/// emphatic fill AND the 1.4.11 non-text bar (3:1) over the base fill. Both bars
-/// together are the contract §2.3 documents; either alone would pass a value
-/// that fails in half the app.
-@MainActor
-func onAccentForegroundClearsItsBars(
-  foreground: PasturaColorValue, emphaticFill: PasturaColorValue, baseFill: PasturaColorValue
-) -> Bool {
-  contrastRatio(foreground, emphaticFill) >= 4.5 && contrastRatio(foreground, baseFill) >= 3.0
-}
-
-/// True when a hairline sits **lighter** than the surface it is drawn on and is
-/// separable from both that surface and the ground behind it.
-///
-/// The direction clause is not decoration: `contrastRatio` is symmetric, so the
-/// two separability clauses alone also admit a line *darker* than both — which
-/// would pass a test whose name promises inversion.
-/// `quietLineControlRejectsALineDarkerThanBothAtAdequateSeparation` constructs one
-/// and is the only evidence that direction is enforced.
-///
-/// **The `ground` clause cannot currently bind, and that is a property of the
-/// topology rather than of the values.** `contrastRatio` is monotone in Y, so once
-/// `line` is lighter than `surface` and the ground is *below* the surface —
-/// `nightBackground` sits under both `nightPromoBackground` and `nightBubble` — then
-/// `cr(line, ground) >= cr(line, surface) >= 1.1` is entailed. Every shipped call
-/// site has that sunken-ground shape. The clause is kept rather than deleted
-/// because it becomes load-bearing the moment a hairline is drawn on a surface that
-/// sits *below* its ground (a line on `nightPage` under `nightBackground`, say),
-/// and a future call site of that shape would otherwise lose the check silently.
-/// It is documented as inert-by-topology so nobody mistakes it for a guard that has
-/// been exercised.
-///
-/// The 1.1 bar is a floor, not a derived threshold. It sits **below** the quietest
-/// shipped hairline (`nightRule` against `nightBubble`, 1.139) with a deliberate
-/// margin so no existing token rests on the boundary — which means it rejects a
-/// line *substantially* quieter than anything shipped, not a marginally quieter
-/// one: a new line in [1.100, 1.139) still passes. Do not tighten it to 1.139
-/// (`nightRule` would sit exactly on it) or loosen it further.
-@MainActor
-func lineSeparatesSurfaceFromGround(
-  line: PasturaColorValue, surface: PasturaColorValue, ground: PasturaColorValue
-) -> Bool {
-  relativeLuminance(line) > relativeLuminance(surface)
-    && contrastRatio(line, surface) >= 1.1 && contrastRatio(line, ground) >= 1.1
-}
-
-/// The four §2.6 Ink-over-Soft badge pairs of one appearance.
-@MainActor
-func nightBadgePairs() -> [(ink: PasturaColorValue, soft: PasturaColorValue)] {
-  [
-    (PasturaPalette.nightInfoInk, PasturaPalette.nightInfoSoft),
-    (PasturaPalette.nightSuccessInk, PasturaPalette.nightSuccessSoft),
-    (PasturaPalette.nightWarningInk, PasturaPalette.nightWarningSoft),
-    (PasturaPalette.nightDangerInk, PasturaPalette.nightDangerSoft)
-  ]
-}
-
-/// True when `ink`-over-`soft` is quieter than every pair in `others`.
-@MainActor
-func isQuietestPair(
-  ink: PasturaColorValue, soft: PasturaColorValue,
-  others: [(ink: PasturaColorValue, soft: PasturaColorValue)]
-) -> Bool {
-  let subject = contrastRatio(ink, soft)
-  return others.allSatisfy { subject < contrastRatio($0.ink, $0.soft) }
-}
-
-/// The moss badge against its appearance's own four §2.6 pairs.
-@MainActor
-func mossBadgeIsQuietest(dark: Bool) -> Bool {
-  if dark {
-    return isQuietestPair(
-      ink: PasturaPalette.nightMossDark, soft: PasturaPalette.nightMossSoft,
-      others: nightBadgePairs())
-  }
-  return isQuietestPair(
-    ink: PasturaPalette.mossDark, soft: PasturaPalette.mossSoft,
-    others: [
-      (PasturaPalette.infoInk, PasturaPalette.infoSoft),
-      (PasturaPalette.successInk, PasturaPalette.successSoft),
-      (PasturaPalette.warningInk, PasturaPalette.warningSoft),
-      (PasturaPalette.dangerInk, PasturaPalette.dangerSoft)
-    ])
-}
-
-/// Max minus min sRGB channel — a chroma proxy that needs no colour-space
-/// conversion. Used only to discriminate a moss token from a neutral one at the
-/// same luminance.
-@MainActor
-func channelSpread(_ token: PasturaColorValue) -> Double {
-  max(token.red, max(token.green, token.blue)) - min(token.red, min(token.green, token.blue))
 }
