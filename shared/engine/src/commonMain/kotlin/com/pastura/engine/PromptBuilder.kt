@@ -242,17 +242,16 @@ internal class PromptBuilder {
      * that script's non-coverage list.
      *
      * The ja/en mismatch this pin once locked in is **resolved** (#1301): the en
-     * close is now declarative, matching the ja. It was settled by a harness A/B,
-     * and that A/B licenses less than it might appear. On **decisions** the
-     * sentence is inert — an imperative arm, the declarative arm, and a control
-     * with the sentence deleted all sat at the 50 % chance baseline, against a
-     * positive control that reached 100 %. A blinded read of the inner monologue
-     * put the deleted-sentence control lowest, which is why the sentence remains;
-     * that separation is under-powered and supports only "declarative is not
-     * worse". Only the sentence's **mood** was measured — the clause before it
-     * was held constant across arms and is still unmeasured, so the pre-#1295
-     * Kotlin text ("You may reflect on it frankly...") was not the arm that won
-     * and is not vindicated here.
+     * close is now declarative, matching the ja. It was settled on the ja/en
+     * scope-parallel convention, not on a measured behavioural gain — the full
+     * record of what the A/B does and does not license lives in ONE place, the
+     * Swift `appendSecretSection` doc comment, deliberately un-mirrored here so
+     * these two prose blocks cannot drift the way the en literal did in #1295.
+     *
+     * Worth stating on this side only: the arm that won is **not** the pre-#1295
+     * Kotlin text ("You may reflect on it frankly..."). That text differed in the
+     * preceding clause too, and that clause was held constant across every arm —
+     * so it was never tested and is not vindicated here.
      */
     private fun appendSecretSection(sections: MutableList<String>, persona: Persona, language: String) {
         val secret = persona.secret?.takeIf { it.isNotBlank() } ?: return

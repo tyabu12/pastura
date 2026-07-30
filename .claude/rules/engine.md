@@ -469,8 +469,8 @@ which is where a newly-found one gets added — read it there rather than trusti
 this paragraph to have stayed current. Note also that a wording change is a
 *behaviour* change: pair it with a harness A/B, and give that A/B a **deleted-text
 control arm** — without one, "the two wordings tie" cannot be told from "this text
-does nothing". #1301 ran that control and found a whole guidance sentence inert on
-its decision metric, against a positive control that reached 100 %.
+does nothing". #1301 ran that control and found a whole guidance sentence inert in
+`en` on its decision metric, against a positive control that reached 100 %.
 
 ## SimulationEvent & the projection contract
 

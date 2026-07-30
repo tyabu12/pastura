@@ -30,17 +30,29 @@ nonisolated extension PromptBuilder {
   ///
   /// The closing sentence is **declarative**, matching the ja literal's close and
   /// restoring the ja/en scope-parallel expectation the sibling rules in
-  /// `PromptBuilder.swift` document. It was chosen by measurement (#1301), and
-  /// what the measurement licenses is narrow. On **decisions** the sentence is
-  /// inert: an imperative arm, this declarative arm, and a control with the
-  /// sentence deleted all landed at the 50 % chance baseline, while a positive
-  /// control carrying an explicit directive reached 100 % — so the flatness
-  /// belongs to the sentence, not to the instrument. A blinded read of the inner
-  /// monologue ranked the deleted-sentence control lowest, which is why the
-  /// sentence stays at all; that arm separation is under-powered and supports
-  /// only "declarative is not worse", never "declarative is better". Only the
-  /// sentence's **mood** was measured — the clause before it was held constant
-  /// across every arm and remains unmeasured.
+  /// `PromptBuilder.swift` document. That convention — **not** a behavioural gain
+  /// — is what settled it (#1301); the A/B licenses far less than it may appear.
+  ///
+  /// On **decisions**, in **en**, on Gemma 4 E2B (Q4_K_M), on a purpose-built
+  /// probe whose personas carried bare `secret:` text, the sentence is inert: an
+  /// imperative arm, this declarative arm, and a control with the sentence
+  /// deleted all sat on the 50 % chance baseline (13/25 · 12/25 · 6/12 of the
+  /// vote turns that named a person; ~31 % named a proposal instead and were
+  /// dropped, evenly across arms, so the baseline is over that retained subset).
+  /// A positive control reached 100 %, but its directive sat in the scenario's
+  /// `secret:` text — that shows the *metric* is movable, which is not the same
+  /// as text in *this* slot being able to move it. The **ja** close was never an
+  /// arm and is entirely unmeasured.
+  ///
+  /// The sentence is kept as the **status quo**: no arm of the pre-registered
+  /// rule could have deleted it. A blinded inner-monologue read did rank the
+  /// deleted-sentence control lowest (12/12 · 10/12 · 8/12), but at n=12/arm the
+  /// scorer declined to reject a common distribution, so that ordering is not
+  /// evidence and is not the reason the sentence stays.
+  ///
+  /// Only the closing sentence's **formulation** varied — mood, segmentation and
+  /// word choice moved together, so none of the three is separately attributable.
+  /// The clause before it was held constant across every arm.
   func appendSecretSection(to sections: inout [String], persona: Persona, language: String) {
     // Non-nil implies non-empty (every ingest path normalizes empty → nil).
     guard let secret = persona.secret else { return }
