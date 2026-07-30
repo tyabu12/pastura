@@ -16,10 +16,17 @@ import SwiftUI
 // §2.5 hex literal — rename it out of that glob and the `tokens.css` mirror gate
 // goes blind with no signal.
 //
-// For §2.5 avatar colors the doc mirrors `demo-replay-reference.html`'s
-// `sheepAvatar()` — but that prototype is LIGHT-ONLY, so the exception covers
-// the light half alone; §2.9 is the origin of the §2.5 dark values. (Moved here
-// from `DesignTokens.swift`'s header along with the tokens it describes.)
+// Canonical source for the values below is `docs/design/design-system.md` §2 —
+// if a value here disagrees with that doc, the doc wins. §2.5 carries a narrow
+// exception: for avatar colors the doc itself mirrors
+// `docs/design/demo-replay-reference.html`'s `sheepAvatar()` — but that
+// prototype is LIGHT-ONLY, so the exception covers the light half alone; §2.9 is
+// the origin of the §2.5 dark values.
+//
+// (That note moved here from `DesignTokens.swift`'s header with the tokens it
+// describes. Its "the doc" was bound two lines above it there and the antecedent
+// did not move, so the doc is named explicitly now — a deliberate departure from
+// the move's byte-exactness, not a stray edit.)
 //
 // Every `nightAvatar*` token below is the dark half of a `PasturaDynamicPalette`
 // pair (`DesignTokens+DynamicPalette.swift`), reached through the repointed
