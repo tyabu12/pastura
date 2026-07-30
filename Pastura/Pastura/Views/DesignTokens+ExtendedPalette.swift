@@ -23,28 +23,24 @@ extension PasturaPalette {
   // token workflow puts a new raw token, not because §2.2 was full.
 
   /// Foreground for text / glyphs sitting **on an accent fill** (`moss`,
-  /// `mossDark`). Pure white: §2.3 sanctions white-on-accent, which is
-  /// distinct from §1's "avoid pure white surfaces" guidance — that one
-  /// concerns backgrounds.
+  /// `mossDark`). §2.3 sanctions white-on-accent in light, which is distinct
+  /// from §1's "avoid pure white surfaces" guidance — that one concerns
+  /// backgrounds.
   ///
-  /// The **light** value is settled: white over `mossDark` is ≈4.7:1 (AA).
+  /// **Resolved (ADR-028 gate 1)**: paired, not `nightMoss` darkened. Dark
+  /// value `nightInkOnAccent` #2C2F28 — a near-ground tone, not white
+  /// (Material 3 flips on-primary tone 100 → 20 when primary goes 40 → 80).
+  /// Darkening `nightMoss` instead would have invalidated three shipped
+  /// slices anchored on its current RGB: §2.7's four washes are built on it,
+  /// §2.4's dot ladder is anchored on it, and §2.5's body window reads its
+  /// 8.00:1 against `nightBackground` as a ceiling. Over `mossDark`,
+  /// `nightInkOnAccent` measures ≈7.12:1 (AAA); over base `moss`, ≈6.40:1.
   ///
-  /// The **dark** answer is not, so this alias is one of the 10 that still owe
-  /// ADR-028 gate 1 an answer — it is *not* "fixed in both appearances" (which
-  /// is a distinct, resolved state that `headerMetaSubdued` occupies). Over the lighter
-  /// `nightMoss` (#A8B888) that paired `moss` resolves to under dark mode,
-  /// white measures **≈2.13:1**, below AA and below even the 3:1 non-text bar.
-  /// That is settled by arithmetic, not pending observation, so gate 4's device
-  /// QA cannot decide it; the open choice is a gate 1 dark-value one — darken
-  /// `nightMoss` so white keeps working, or pair this token. Unreachable today
-  /// because `UIUserInterfaceStyle` pins the app to light. Having a token
-  /// rather than a `Color.white` literal at each callsite is what lets that
-  /// choice land in one place instead of ten.
-  ///
-  /// Scope: `mossDark` is the only fill where the pair clears AA for **text**.
-  /// On base `moss` it is ≈3.03:1, which clears WCAG 1.4.11's 3:1 non-text bar
-  /// for glyphs and shapes (`CheckBadge`, the share-tab symbols) but not the
-  /// 4.5:1 text bar — so text on an accent belongs on `mossDark`.
+  /// Scope: `mossDark` is the only fill where the pair clears AA for **text**
+  /// in both appearances (light ≈4.76:1, dark ≈7.12:1). On base `moss` it is
+  /// ≈3.03:1 in light / ≈6.40:1 in dark — light clears WCAG 1.4.11's 3:1
+  /// non-text bar for glyphs and shapes (`CheckBadge`, the share-tab symbols)
+  /// but not the 4.5:1 text bar, so text on an accent belongs on `mossDark`.
   static let inkOnAccent = PasturaColorValue(hex: 0xFFFFFF)
 
   // MARK: §2.6 Alert Family — 4-step temperature scale
@@ -111,9 +107,12 @@ extension PasturaPalette {
 
   // MARK: §2.8 Link / Action
   //
-  // Reserved for future user-tappable text links — none in the current
-  // app surface. Defined so the first link to land doesn't invent a
-  // one-off blue.
+  // `link` has 5 live consumers today (`SettingsView.swift:317,336` `.tint`;
+  // `SettingsView+Feedback.swift:79,82`; `ViewerPredictionSheet.swift:110`) —
+  // not reserved. `linkVisited` / `linkHover` genuinely have zero consumers;
+  // defined so the first hover/visited state to land doesn't invent a
+  // one-off blue. All three are paired (ADR-028): dark halves `nightLink` /
+  // `nightLinkVisited` / `nightLinkHover`.
 
   /// Link in its default (unvisited) state.
   static let link = PasturaColorValue(hex: 0x5D7A4D)

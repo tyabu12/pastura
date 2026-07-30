@@ -73,7 +73,12 @@ enum PasturaPalette {
 
   // MARK: §2.1 Backgrounds / Surfaces
 
-  /// Outside the app surface (workbench / outside Safe Area).
+  /// Outside the app surface (workbench / outside Safe Area). Recessed /
+  /// backdrop token — its dark counterpart `nightPage` deliberately sinks
+  /// below `nightBackground` to preserve that semantic. Its one live
+  /// consumer is a sheet fill (`ViewerPredictionSheet.swift:45`,
+  /// `.background(Color.page)`), which is why ADR-028 gate 4's device QA
+  /// carries that surface.
   static let page = PasturaColorValue(hex: 0xF3EFE7)
   /// App body background — crisp wool-color.
   static let screenBackground = PasturaColorValue(hex: 0xFCFAF4)

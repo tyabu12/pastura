@@ -28,18 +28,22 @@ enum SimulationPlayButtonMetrics {
   /// White glyph point size inside the circle (~0.41 × diameter).
   static let glyphPointSize: CGFloat = 14
 
-  /// Enabled fill — `mossDark` (#6B7852); white-on-fill ≈ 4.76:1 (WCAG AA).
+  /// Enabled fill — `mossDark` (#6B7852); `inkOnAccent`-on-fill ≈ 4.76:1 in
+  /// light (WCAG AA) / ≈7.12:1 in dark (AAA).
   static let enabledFill: Color = .mossDark
 
   /// Disabled fill — `disabledText` (#B5B0A2). Disabled controls are exempt
-  /// from the contrast target, so the muted tan + white glyph is intentional.
+  /// from the contrast target, so the muted tan + light-appearance-white glyph
+  /// is intentional.
   static let disabledFill: Color = .disabledText
 
   /// Glyph color. On `enabledFill` this is the sanctioned on-accent pair —
-  /// `inkOnAccent` over `mossDark` ≈ 4.7:1 (§1's "avoid pure white" concerns
-  /// backgrounds, not glyphs on an accent fill). The disabled arm reuses it for
-  /// visual continuity even though `disabledText` is **not** an accent and the
-  /// pair there is only ≈2.2:1 — §8 exempts disabled controls from the
-  /// contrast target (see `disabledFill` above).
+  /// `inkOnAccent` over `mossDark` ≈ 4.76:1 in light / ≈7.12:1 in dark (§1's
+  /// "avoid pure white" concerns backgrounds, not glyphs on an accent fill;
+  /// dark's `inkOnAccent` is a near-ground tone, not white, ADR-028). The
+  /// disabled arm reuses it for visual continuity even though `disabledText`
+  /// is **not** an accent and the pair there is only ≈2.2:1 in light — §8
+  /// exempts disabled controls from the contrast target (see `disabledFill`
+  /// above).
   static let glyphColor: Color = .inkOnAccent
 }
