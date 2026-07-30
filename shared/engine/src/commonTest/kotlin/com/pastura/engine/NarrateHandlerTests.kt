@@ -42,9 +42,11 @@ import kotlin.test.assertTrue
  * | Emitter swallowing | `emitter = {}` → `context.emitter` | [suppressesTheNarratorsAgentAttributedEvents] | none |
  * | Persists nothing | final `return state` → a `copy` writing a probe var | [narratorIsNotAParticipant] | none |
  * | Descriptor gate — **closed** | `if (trimmed.isNotEmpty())` → `if (false)` | [injectsNarratorDescriptorIntoSystemPrompt] | none |
- * | Descriptor gate — **open** | same → `if (true)` | [omitsTheDescriptorSectionWhenNarratorIsAbsent] | none |
+ * | Descriptor gate — **open** | same → `if (true)` | [omitsTheDescriptorSectionWhenNarratorIsBlank] | none |
+ * | `max_sentences` clamp (divergence 6) | `.coerceIn(1, 6)` deleted | [clampsMaxSentencesIntoTheSwiftValidatorRange], [clampsMaxSentencesToTheUpperBoundToo] | none |
+ * | Log grounding | `variables["conversation_log"] = …` dropped | [groundsTheUserPromptInTheConversationLog] | none |
  * | Engine-fixed schema | field `"commentary"` → `"comment"` | [requestsCommentarySchema] | 10 (every response then fails to parse) |
- * | One inference per round | a 2nd `call` **before** the real one | [singleInferenceRegardlessOfAgentCount] | 11 (it consumes script #1) |
+ * | One inference per round | a 2nd `call` immediately **before the `try`** | [singleInferenceRegardlessOfAgentCount] | 11 (it consumes script #1) |
  * | Empty-commentary guard | block **deleted** | *(none — expected green)* | none |
  *
  * Four things this table encodes that a first draft of it got wrong:
@@ -54,16 +56,28 @@ import kotlin.test.assertTrue
  *    [emptyCommentaryIsAbsorbedByTheCatchArmNotTheGuard].
  * 2. **Both gate polarities are measured.** `if (false)` removes the descriptor
  *    *append*; only `if (true)` breaks the *gate*, and that is what
- *    [omitsTheDescriptorSectionWhenNarratorIsAbsent] guards. Testing one polarity
+ *    [omitsTheDescriptorSectionWhenNarratorIsBlank] guards. Testing one polarity
  *    leaves the other test green by construction.
- * 3. **The mutation column is load-bearing.** The "one inference" row reddens 11
- *    others only because the extra call is inserted *before* the real one and eats
- *    script #1; inserted *after*, the two catch-arm tests would stay green. Without
- *    the site named, the row is not reproducible.
+ * 3. **The mutation column is load-bearing, down to the exact site.** The "one
+ *    inference" row's incidental count holds only for an extra call placed
+ *    *outside* the `try`, where its own `SimulationException` is unguarded and so
+ *    reddens the two catch-arm tests as well. Placed *inside* the `try` — which is
+ *    what the realistic regression, a per-persona loop, would look like — those two
+ *    stay green and the count is lower. "Before the real call" alone does not
+ *    identify the mutation.
  * 4. **A claimant must fail on its own assertion.** [requestsCommentarySchema] is
  *    scripted with the full retry budget precisely so a renamed field reddens it at
  *    `assertEquals`, not via the harness's script-exhaustion error — which would be
  *    the same failure mode as all 10 incidentals and therefore no evidence at all.
+ *
+ * **Coverage of the table itself**: 12 axes, 13 of the 16 tests are a dedicated
+ * claimant, and every mechanism named in the handler's "Divergences" list has a row —
+ * including the clamp, which was only ever *incidental* until this was checked. The
+ * three non-claimants are deliberate: [emitsNarrationOnSuccess] pins the happy path
+ * (it is the baseline the other rows perturb), [usesTheHandlersOwnDefaultWhenMaxSentencesIsAbsent]
+ * pins a value no mutation can isolate while both defaults are 3 (see its comment),
+ * and [emptyCommentaryIsAbsorbedByTheCatchArmNotTheGuard] is the *subject* of the
+ * expected-green row rather than a claimant for it — by construction it has none.
  *
  * What the "one inference" row does **not** establish: its assertion is
  * `callCount == 1`, which catches any multiplication of the call but does not by
@@ -177,10 +191,15 @@ class NarrateHandlerTests {
     @Test
     fun singleInferenceRegardlessOfAgentCount() = runTest {
         // 3 agents, but narrate must call the backend exactly ONCE: the narrator is
-        // not a participant, so cost is agent-count-independent. A per-persona loop
-        // would issue 3 calls and exhaust the single script.
+        // not a participant, so cost is agent-count-independent.
+        //
+        // Over-scripted on purpose (same reasoning as requestsCommentarySchema): with
+        // a single script an extra call throws the harness's exhaustion
+        // `IllegalStateException` before `assertEquals` runs, so the assertion below
+        // could never be the detector and the red would carry no count. Serving the
+        // extra call makes the failure message name the real one (`expected 1, got 2`).
         val s = scenario()
-        val backend = ScriptedLLMBackend(listOf(narrates("A tense round.")))
+        val backend = ScriptedLLMBackend(List(LLMCaller.MAX_RETRIES + 1) { narrates("A tense round.") })
 
         handler.execute(context(s, backend), stateWithLog(s))
 
@@ -237,10 +256,13 @@ class NarrateHandlerTests {
     fun skipsEmissionOnEmptyLog() = runTest {
         // Round 1 before any speak phase: nothing to narrate, so no inference and no
         // event — the hallucination edge is answered by skipping, not inventing.
-        // An empty script list is correct HERE precisely because zero calls are
-        // expected: any call at all trips the harness's exhaustion signal.
+        //
+        // Scripted with ONE response even though zero calls are expected, so that
+        // `assertEquals(0, …)` below is what detects a disabled guard rather than the
+        // harness's exhaustion throw. `emptyList()` would be the tighter expression of
+        // "no call" but would make the written assertion structurally unreachable.
         val s = scenario()
-        val backend = ScriptedLLMBackend(emptyList())
+        val backend = ScriptedLLMBackend(listOf(narrates("should not fire")))
         val events = mutableListOf<SimulationEvent>()
 
         handler.execute(context(s, backend, events), SimulationState.initial(s).copy(currentRound = 1))
@@ -351,7 +373,7 @@ class NarrateHandlerTests {
     }
 
     @Test
-    fun omitsTheDescriptorSectionWhenNarratorIsAbsent() = runTest {
+    fun omitsTheDescriptorSectionWhenNarratorIsBlank() = runTest {
         // Pins the GATE on the descriptor section, not merely its rendering: a blank
         // descriptor must not emit an empty "Commentator persona:" heading with
         // nothing after it. Claimant for the `if (true)` perturbation — forcing the
@@ -413,10 +435,11 @@ class NarrateHandlerTests {
 
     @Test
     fun usesTheHandlersOwnDefaultWhenMaxSentencesIsAbsent() = runTest {
-        // Pins DEFAULT_MAX_SENTENCES = 3. Without this, the handler's explicit "this
-        // is narrate's OWN constant, not PromptBuilder.DEFAULT_STATEMENT_MAX_SENTENCES"
-        // rationale is unobservable — the two values are both 3 today, so nothing
-        // would notice narrate silently starting to track the statement default.
+        // Pins the value 3. It CANNOT discriminate WHICH constant that 3 came from
+        // while PromptBuilder.DEFAULT_STATEMENT_MAX_SENTENCES is also 3 — refactoring
+        // narrate to read the statement constant leaves this green. It becomes a
+        // coupling detector for the handler's "narrate's OWN constant" rationale only
+        // once the two values diverge.
         val s = scenario(maxSentences = null)
         val backend = ScriptedLLMBackend(listOf(narrates("ok")))
 

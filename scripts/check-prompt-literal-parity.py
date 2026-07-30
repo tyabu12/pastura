@@ -134,6 +134,8 @@ MAX_UNPORTED_ROWS = 0
 # structural rather than an omission: a control that proved it would have to
 # delete checks, including itself. Verified out of band instead — raise the floor
 # above the real count and confirm it fires. Do that when changing it.
+# Re-verified 2026-07-30 on the 56 -> 57 bump: at 58 it fires ("only 57 checks ran
+# (floor 58)"), at 57 the suite passes.
 MIN_SELF_TEST_CHECKS = 57
 
 # The helper's own declaration in LanguageDispatch.{swift,kt}, whose `ja: String`
@@ -1091,8 +1093,7 @@ def self_test() -> int:
     )
     # 11. The dangling-`unported` arm — previously reachable but unexercised.
     #     `cap=1` so the dangling check is what fails, not the cap (see case 6).
-    #     Case 10 above needs no such override: an empty-reason row is rejected
-    #     before `unported.add`, so it never counts toward the cap at all.
+    #     Case 10 needs the override too, for a different reason — see its own comment.
     expect(
         "dangling unported row is caught",
         evaluate({}, {}, _HEADER + "unported\tGhost\t-\t-\twhy\n", cap=1),
