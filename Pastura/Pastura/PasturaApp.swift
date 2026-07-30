@@ -315,11 +315,11 @@ private struct RootView: View {
             )
           )
           .font(.subheadline)
-          .foregroundStyle(.secondary)
+          .foregroundStyle(Color.inkSecondary)
           .multilineTextAlignment(.center)
           Text(message)
             .font(.caption)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.muted)
             .multilineTextAlignment(.center)
           Button(String(localized: "Reset Database"), role: .destructive) {
             Task { await recoverDatabase() }
@@ -376,7 +376,7 @@ private struct RootView: View {
             .font(.headline)
           Text(message)
             .font(.subheadline)
-            .foregroundStyle(.secondary)
+            .foregroundStyle(Color.inkSecondary)
             .multilineTextAlignment(.center)
           Button(String(localized: "Retry")) {
             appState = .initializing
