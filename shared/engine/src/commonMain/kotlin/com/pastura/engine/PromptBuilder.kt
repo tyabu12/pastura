@@ -241,12 +241,17 @@ internal class PromptBuilder {
      * (`scripts/check-prompt-literal-parity.py`); the separator is *not* — see
      * that script's non-coverage list.
      *
-     * **This pin locks in a known ja/en mismatch, tracked on #1301.** The en text
-     * it replaced ("It shapes your judgement and attitude") rendered the ja's
-     * declarative last sentence more closely than the shipped imperative one
-     * does; Swift won on "a parity PR must not move shipped prompt text", not on
-     * translation quality. Neither form has been A/B'd — do not read this pin as
-     * an endorsement of the wording.
+     * The ja/en mismatch this pin once locked in is **resolved** (#1301): the en
+     * close is now declarative, matching the ja. It was settled on the ja/en
+     * scope-parallel convention, not on a measured behavioural gain — the full
+     * record of what the A/B does and does not license lives in ONE place, the
+     * Swift `appendSecretSection` doc comment, deliberately un-mirrored here so
+     * these two prose blocks cannot drift the way the en literal did in #1295.
+     *
+     * Worth stating on this side only: the arm that won is **not** the pre-#1295
+     * Kotlin text ("You may reflect on it frankly..."). That text differed in the
+     * preceding clause too, and that clause was held constant across every arm —
+     * so it was never tested and is not vindicated here.
      */
     private fun appendSecretSection(sections: MutableList<String>, persona: Persona, language: String) {
         val secret = persona.secret?.takeIf { it.isNotBlank() } ?: return
@@ -260,7 +265,7 @@ internal class PromptBuilder {
             ja = "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。" +
                 "心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
             en = "Never reveal this secret in anything the other participants can hear (your statement). " +
-                "You may reference it freely in your inner_thought, and let it shape your decisions and demeanor.",
+                "You may reference it freely in your inner_thought. It shapes your judgement and attitude.",
         )
         sections += "$header\n$secret\n$guidance"
     }

@@ -467,7 +467,9 @@ and prompt literals outside `pickLanguage` are invisible to it. The enumerated
 blind spots live in the checker's own `What this cannot see` docstring section,
 which is where a newly-found one gets added — read it there rather than trusting
 this paragraph to have stayed current. Note also that a wording change is a
-*behaviour* change: pair it with a harness A/B, not just with the other side.
+*behaviour* change: pair it with a harness A/B, and give that A/B a **deleted-text
+control arm** — without one, "the two wordings tie" cannot be told from "this text
+does nothing" (#1301 found a shipped guidance sentence inert in `en` exactly that way).
 
 ## SimulationEvent & the projection contract
 

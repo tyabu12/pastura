@@ -27,6 +27,33 @@ nonisolated extension PromptBuilder {
   /// `whisperRule` tells the agent to be candid and strategic with its partner,
   /// while this one forbids naming the secret. Field-test a secret × whisper
   /// scenario before any preset ships both (#914 follow-up).
+  ///
+  /// The closing sentence is **declarative**, matching the ja literal's close and
+  /// restoring the ja/en scope-parallel expectation the sibling rules in
+  /// `PromptBuilder.swift` document. That convention — **not** a behavioural gain
+  /// — is what settled it (#1301); the A/B licenses far less than it may appear.
+  ///
+  /// On **decisions**, in **en**, on Gemma 4 E2B (Q4_K_M), on a purpose-built
+  /// probe whose personas carried bare `secret:` text, the sentence is inert: an
+  /// imperative arm, this declarative arm, and a control with the sentence
+  /// deleted all sat on the 50 % chance baseline (imperative 13/25 · declarative
+  /// 12/25 · control 6/12 of the vote turns that named a person; ~31 % named a
+  /// proposal instead and were dropped, evenly across arms, so the baseline is
+  /// over that retained subset). A positive control reached 100 % (6/6, one run),
+  /// but its directive sat in the scenario's `secret:` text — that shows the
+  /// *metric* is movable, which is not the same as text in *this* slot being able
+  /// to move it. The **ja** close was never an arm and is entirely unmeasured.
+  ///
+  /// The sentence is kept as the **status quo**: no arm of the pre-registered
+  /// rule could have deleted it. A blinded inner-monologue read did rank the
+  /// deleted-sentence control lowest (declarative 12/12 · imperative 10/12 ·
+  /// control 8/12), but at n=12/arm the scorer declined to reject a common
+  /// distribution, so the pre-registered rule gave that ordering no role in the
+  /// decision; it supports "declarative is not worse", never "better".
+  ///
+  /// Only the closing sentence's **formulation** varied — mood, segmentation and
+  /// word choice moved together, so none of the three is separately attributable.
+  /// The clause before it was held constant across every arm.
   func appendSecretSection(to sections: inout [String], persona: Persona, language: String) {
     // Non-nil implies non-empty (every ingest path normalizes empty → nil).
     guard let secret = persona.secret else { return }
@@ -39,7 +66,7 @@ nonisolated extension PromptBuilder {
       ja:
         "この秘密は、他の参加者に聞こえる発言（statement）では決して明かしてはいけません。心の声（inner_thought）では率直に触れてかまいません。あなたの判断や態度はこの秘密に左右されます。",
       en:
-        "Never reveal this secret in anything the other participants can hear (your statement). You may reference it freely in your inner_thought, and let it shape your decisions and demeanor."
+        "Never reveal this secret in anything the other participants can hear (your statement). You may reference it freely in your inner_thought. It shapes your judgement and attitude."
     )
     sections.append("\(header)\n\(secret)\n\(guidance)")
   }
