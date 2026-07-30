@@ -369,3 +369,25 @@ any consumer list — pairing §2.5 silently un-pinned `HighlightShareCard`'s
 token" but "does one read a **view** that reads it".
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
+
+## A `shadow(color:)` must not read a paired `Color.*` alias
+
+A shadow is an occlusion cue, not a surface, so it wants a colour that stays
+dark in **both** appearances. A paired alias inverts instead: `Color.ink`
+resolves `nightInk` (#E8E5D8) in dark, `Color.moss` → `nightMoss`,
+`Color.mossInk` → `nightMossInk` (#C6CBB1) — the drop shadow becomes a pale
+**halo** under the element it should sit beneath. Silent: no diagnostic, and
+the light build looks correct.
+
+design-system §4.3 already takes this position — `PasturaShadows.tight` /
+`.soft` carry a fixed moss-tinted `rgba(90,100,60,…)` and do not pair. The three
+ad-hoc `shadow(color:)` sites were simply written before the aliases paired.
+
+**Apply**: read `PasturaPalette.<token>.color` inside `shadow(color:)`, never
+`Color.<token>`. Same raw-palette convention as the `ImageRenderer` trap above,
+for the opposite reason — there an export needs a *chosen* appearance, here the
+cue needs *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads
+*against* the surface, so it follows the appearance and keeps the alias.
+
+Enforced by the `shadow_color_paired_alias` custom SwiftLint rule. Reference:
+`ModelPickerView`, `InFlightSimulationIndicator`; ADR-028 § Amendment (#1284).

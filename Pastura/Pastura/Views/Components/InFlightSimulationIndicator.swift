@@ -79,7 +79,13 @@ struct InFlightSimulationIndicator: View {
       .padding(.vertical, 10)
       .background(.regularMaterial, in: Capsule())
       .overlay(Capsule().stroke(Color.ink.opacity(0.08)))
-      .shadow(color: Color.ink.opacity(0.12), radius: 8, y: 2)
+      // Raw `PasturaPalette`, NOT the `Color.ink` alias: a shadow must stay
+      // dark in both appearances, and the alias pairs — in dark it resolves
+      // `nightInk` (#E8E5D8) and the shadow inverts into a pale halo. Same
+      // position design-system §4.3 already takes, whose `PasturaShadows` are
+      // a fixed moss-tinted rgba. The stroke above is a different case: it is
+      // a hairline meant to read against the surface, so it follows it.
+      .shadow(color: PasturaPalette.ink.color.opacity(0.12), radius: 8, y: 2)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)
