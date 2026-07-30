@@ -57,25 +57,15 @@
 	<array>
 		<string>iphone-performance-gaming-tier</string>
 	</array>
-	<!-- Defensive light-mode lock (#1273). Without this, system dark mode
-	     flips the token-less default SwiftUI chrome (List/Form/sheet
-	     backgrounds, .primary labels, nav bars) plus the trait-paired tokens
-	     below, while the still-light-only tokens stay put — leaving
-	     unreadable mixed-appearance screens. Info.plist over
-	     `.preferredColorScheme(.light)` so the lock also covers
-	     UIKit-presented surfaces (share sheets) and the launch screen, not
-	     just the SwiftUI hierarchy.
-
-	     UPDATED (ADR-028, #1282): the §2.9 dark tokens are no longer unwired —
-	     26 pairs now resolve trait-based via `PasturaDynamicPalette`. Removal
-	     is still blocked, starting with the remaining light-only tokens
-	     having no dark counterpart. Do NOT delete this key just because the mechanism
-	     exists; ADR-028 § "Rollout" lists all 5 gate conditions. Two are met —
-	     `nightSurface` resolved (deleted, #1282) and raw-SwiftUI-color sites
-	     tokenized (#1283); the open three are the remaining 42 designed values,
-	     real-device QA, and the dark share-card re-verification.
-	     Tracked in #1274. -->
-	<key>UIUserInterfaceStyle</key>
-	<string>Light</string>
+	<!-- No `UIUserInterfaceStyle` key: the app follows the device appearance.
+	     It carried `Light` from #1273 until #1284 — a defensive lock, because
+	     dark mode would otherwise flip the token-less default SwiftUI chrome
+	     while the not-yet-paired tokens stayed put, leaving unreadable
+	     mixed-appearance screens. All five of ADR-028 § "Rollout"'s gate
+	     conditions are now met, the last two by real-device QA, so the lock is
+	     removed rather than updated. Re-adding it is not a small change: it
+	     would silently strand 67 designed dark token pairs, the paired
+	     `launchScreenBackground` / `AccentColor` colorsets and the dark
+	     share-card path. Read ADR-028 first. -->
 </dict>
 </plist>
