@@ -46,6 +46,15 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--promo-bg` | `#FBFAF2` | プロモ/バナー |
 | `--promo-border` | `#E4E7D2` | 同上のボーダー |
 
+§2.9 でダーク対を持つ（slice 4）。方向が2つに割れるので注意 —
+`page` は light で本体背景より**暗い**（引っ込んだ面）ので dark でも
+`nightBackground` より暗く**沈む**。`promoBackground` は**カード段**の面なので
+`nightBubble` に追随して地より**浮く**（light で `screenBackground` とほぼ同値
+なのは light 上端が圧縮されている副作用で、設計上の関係は `bubbleBackground`
+との 1.047 の差）。`promoBorder` は倍率を保ったまま**向きが反転**する — light
+ではカードより暗い線が、dark ではカードより明るい線になる（`rule` →
+`nightRule` と同じ。暗い地では面より暗い境界線は背後の地に溶ける）。
+
 ### 2.2 Ink（文字・輪郭）
 
 | トークン | Hex | 用途 |
@@ -73,6 +82,15 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `--moss-dark` | `#6B7852` | DL進捗ドット点灯・アクセントリンク・ステータスラベル（Completed 等） |
 | `--moss-ink` | `#3D4030` | 犬の輪郭・完了タイトル |
 | `--moss-soft` | `#D4CBA8` | THINKING 左線・やさしい区切り |
+
+§2.9 でダーク対を持つ（slice 4）。**4段の順序が反転する** — light は
+輝度で ink < dark < moss < soft（ink が最暗）だが、dark は
+soft < moss < dark < ink（ink が最明）。つまり `nightMossDark` は
+`nightMoss` より**明るい**。`nightMoss` がアーム1（+11L）で置かれて地に対し
+8.00:1 に座っているため、その上に乗る強調段は必然的に 8:1 を超える（light の
+4.538 に対し dark は 8.902）。moss → mossDark の段差も 1.561 → 1.113 に縮む。
+§2.4 で見つかった天井現象の §2.3 版で、`docs/decisions/ADR-028.md` の
+slice 4 Amendment に導出がある。
 
 ### 2.4 Meta Contrast Presets（DL進捗表示）
 
@@ -150,7 +168,20 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.8 Link / Action（テキストリンク）
 
-未使用予約。Pastura の現状画面にリンクは無いが、将来導入する際に "system blue" を発生させないために定義。Source: `§2.8 Link / Action`。
+"system blue" を発生させないために定義。**`link` は既に使われている** — Settings の
+外部リンク行（`SettingsView.swift:317,336` の `.tint`、
+`SettingsView+Feedback.swift:79,82`）と `ViewerPredictionSheet.swift:110` の計
+5 箇所 3 ファイル。`linkVisited` / `linkHover` は消費者ゼロの予約のまま
+（hover は iPadOS ポインタ専用）。3 つとも §2.9 でダーク対を持つ（slice 4）。
+Source: `§2.8 Link / Action`。
+
+ダーク値は3つともアーム3（目標コントラスト配置）で、それぞれ light の自比を
+地に対して保つ（4.618 / 5.378 / 6.345 → 4.631 / 5.378 / 6.340）。light の
+順序は直感に反していて `linkVisited`（5.378）が `link`（4.618）より
+コントラストが高い — 緑ではなく彩度を落とした茶であり、「訪問済み」を担うのが
+輝度ではなく色相だからで、比を保つとその奇妙さも保たれる。ADR-028 の #1282
+Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft の関係で
+あってこれらの目標ではない（slice 2 がアーム3を「light の比を解く」に精緻化した）。
 
 | Token | Hex | 用途 |
 |-------|-----|------|
@@ -160,15 +191,21 @@ Pastura 唯一のブランド色。用途別に4段階。
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（57 対）／値は未完。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 57 対が `Color.*` エイリアス経由で実 UI に
+**trait-based 配線済み（67 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 67 対が `Color.*` エイリアス経由で実 UI に
 届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
-18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対）。§2.1 / §2.2 / §2.3 / §2.8 / §2.12 の残り計 **11** トークンにはダーク対が無く、うち **10** は
-gate 1 に答えを負ったまま — 差の 1 は `headerMetaSubdued` で、**両外観で固定**という記録に
-よって解決済みだが対は持たない（gate 1 は designed dark value と同格の充足条件として
-これを認めている）。よってアプリは `Info.plist` の `UIUserInterfaceStyle = Light` で
-固定されたままで、実際にダークが描画されることはない。固定解除の条件は
-ADR-028 § "Rollout"（5 条件中 2 つ達成 — `nightSurface` 解消と生 SwiftUI 色のトークン化）。
+18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対
++ slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`）。
+**ダーク対を持たないトークンは `headerMetaSubdued` 1 つだけで、しかも未決ではなく解決済み**
+— **両外観で固定**という記録によるもので、gate 1 は designed dark value と同格の充足条件
+としてこれを認めている。したがって **gate 1 に答えを負ったトークンは 0**。
+「未ペア 1」と「未解決 0」は別の数なので、片方を述べた記述をもう片方として読まないこと。
+
+アプリは依然 `Info.plist` の `UIUserInterfaceStyle = Light` で固定されており、実際に
+ダークが描画されることはない — ただし**理由が変わった**。値の不足ではなく、
+ADR-028 § "Rollout" の残り 2 条件（gate 4 の実機ダーク QA と gate 5 のダーク共有カード
+経路の実機確認）待ちで、どちらもテストや測定が代行できない。5 条件のうち 3 つ
+（gate 1 の値完成・`nightSurface` 解消・生 SwiftUI 色のトークン化）は達成済み。
 Source: `§2.9 Dark Mode`。
 
 **ダーク値の視覚リファレンス**: [`ds/colors-states-dark.html`](ds/colors-states-dark.html)
@@ -176,9 +213,12 @@ Source: `§2.9 Dark Mode`。
 [`ds/colors-meta-header-dark.html`](ds/colors-meta-header-dark.html)
 （§2.4/§2.12 の 14 対 + 固定 1 + L1→L4 梯子の反転表示・DL 進捗メタ行・GameHeader のモック）、
 [`ds/colors-avatar-dark.html`](ds/colors-avatar-dark.html)
-（§2.5 の 17 対 + 4 体を両外観で並べた比較・会話行/Home 行/さがすタイル/共有カードのモック）。
+（§2.5 の 17 対 + 4 体を両外観で並べた比較・会話行/Home 行/さがすタイル/共有カードのモック）、
+[`ds/colors-remainder-dark.html`](ds/colors-remainder-dark.html)
+（§2.1/§2.2/§2.3/§2.8 の 10 対 + プロモカードの DL 進捗・Settings 外部リンク行・
+アクセント上の前景を最小文字サイズで並べたモック）。
 
-**ダーク固定色が要る場合はこの 57 対のエイリアスを読まない。** `Color.ink` 等は「端末の
+**ダーク固定色が要る場合はこの 67 対のエイリアスを読まない。** `Color.ink` 等は「端末の
 外観」を意味するようになったので、`ImageRenderer` 書き出しのように外観を固定したい
 呼び出し側は `PasturaPalette.<token>.color` を直接読む（参照実装:
 `HighlightShareCard`）。**同じ理屈は一段下にも及ぶ** — `SheepAvatar` はスライス3 以前、§2.5 の
@@ -318,6 +358,16 @@ Amendment 2026-07-29（#1282 の方 — 同じ日付の見出しが 2 つある�
 | `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス4 まで未ペアで、未決の値への前方依存になる） |
 | `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、パレット自身の near-black の床（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
 | `nightAvatarHighlight` | `rgba(255,255,255,0.40)` | `avatarHighlight`。**alpha を下げる**（0.60 → 0.40）。§2.7 の wash が約 1.33 倍に上げたのと逆向きだが、矛盾ではない — wash は暗い面に載せる**淡い色**なので alpha が要る。こちらは面の上に置く**光の反射**で、面が暗くなった分だけ同じ alpha が*強い*段差になる。仕事が逆なので向きも逆 |
+| `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値） |
+| `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
+| `nightPromoBorder` | `#35392F` | `promoBorder`（倍率保持・**向き反転**。`rule`→`nightRule` と同じ） |
+| `nightInkOnAccent` | `#2C2F28` | `inkOnAccent`（白ではない。`nightBubble` と同値だがそれは AAA 配置の**結果**） |
+| `nightMossDark` | `#B3C197` | `mossDark`（**`nightMoss` より明るい** — 強調段の向きが反転） |
+| `nightMossInk` | `#C6CBB1` | `mossInk`（アーム3、地に対し 10.19 保持） |
+| `nightMossSoft` | `#384029` | `mossSoft`（向き反転。色相は moss 族へ寄せた） |
+| `nightLink` | `#699054` | `link` |
+| `nightLinkVisited` | `#9B9075` | `linkVisited` |
+| `nightLinkHover` | `#7FAA62` | `linkHover` |
 
 **耳・耳内・鼻はどの実装も描かない。** §2.5 の完全性のためにペア化してあるが、
 `SheepAvatar.swift` の `Canvas` も SoT の `sheepAvatar()` も body / face / eye / horn しか
