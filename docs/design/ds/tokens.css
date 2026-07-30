@@ -99,8 +99,9 @@
   /* §2.9 Dark Mode — night pasture. All of these are wired trait-based in the
      app (ADR-028, extended by #1282, which also deleted --night-surface: it
      had no light partner). Slice 4 closed gate 1, so NO light token is waiting
-     on a dark value any more; the app stays pinned to light on ADR-028's gates
-     4/5 (real-device QA) instead, and dark never actually renders yet. */
+     on a dark value any more; gates 4/5 (real-device QA) closed too (#1284),
+     Info.plist's UIUserInterfaceStyle = Light lock is removed, and dark
+     renders on device. */
   --night-bg: #1B1D17;
   --night-bubble: #2C2F28;
   --night-whisper-bubble: #2F3626;
