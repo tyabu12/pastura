@@ -114,11 +114,17 @@ MIN_SWIFT_CALLSITE_FILES = 12
 
 # Cap on whole-file `unported` exemptions. Unlike the digest-keyed rows, these
 # never expire on their own, so an uncapped list is how "temporarily deferred"
-# becomes permanent. Kept AT the current count (one today: NarrateHandler) rather
-# than above it, so the budget ratchets down as the ADR-023 port lands instead of
-# leaving a free slot the next deferral can take unreviewed. Raising it is a
-# deliberate act with its reason recorded in the allowlist header.
-MAX_UNPORTED_ROWS = 1
+# becomes permanent. Kept AT the current count — which is now **zero**: the last
+# deferral (NarrateHandler) landed its Kotlin port in #1330, and the sole remaining
+# Wave-B handler, ConditionalHandler, has no `pickLanguage` literals at all, so no
+# planned port needs a row. This is the ratchet's terminus, not a temporary low:
+# closed by default, and a genuinely new deferral raises it deliberately with its
+# reason recorded in the allowlist header.
+#
+# The `unported` machinery below is deliberately kept (and still tested, via
+# `evaluate`'s `cap` parameter) rather than deleted — a future raise must find it
+# already verified.
+MAX_UNPORTED_ROWS = 0
 
 # Floor on the number of checks `--self-test` runs. The printed tally is derived,
 # so it never goes stale — but nothing stops a suite from silently shrinking, and
@@ -128,7 +134,7 @@ MAX_UNPORTED_ROWS = 1
 # structural rather than an omission: a control that proved it would have to
 # delete checks, including itself. Verified out of band instead — raise the floor
 # above the real count and confirm it fires. Do that when changing it.
-MIN_SELF_TEST_CHECKS = 56
+MIN_SELF_TEST_CHECKS = 57
 
 # The helper's own declaration in LanguageDispatch.{swift,kt}, whose `ja: String`
 # args are types, not literals. Excluding it is load-bearing: the literal parser
@@ -592,8 +598,20 @@ def evaluate(
     swift_sources: dict[str, str],
     kotlin_sources: dict[str, str],
     allowlist_text: str,
+    cap: int = MAX_UNPORTED_ROWS,
 ) -> list[str]:
-    """Return the list of problems; empty means the invariant holds."""
+    """Return the list of problems; empty means the invariant holds.
+
+    `cap` overrides `MAX_UNPORTED_ROWS` for one call. Production never passes it —
+    the default IS the production constant, and one `--self-test` arm asserts that
+    by relying on it. It exists because the cap and the `unported` *mechanism* are
+    orthogonal properties that a single global cannot exercise at once: with the cap
+    at its terminal 0, every one-row fixture would fail on the cap before reaching
+    the stale / dangling / dead-row / escape-hatch guard under test, so those cases
+    would pass for the wrong reason and go mutation-blind. Preferred over rebinding
+    the global in a context manager: no global mutation, no try/finally, and each
+    call site says which property it is measuring.
+    """
     divergences, unported, problems = parse_allowlist(allowlist_text)
     problems = list(problems)
 
@@ -649,9 +667,9 @@ def evaluate(
     # `unported` rows carry no digest, so each one exempts a whole file forever —
     # including literals added after it was approved. A prose "keep them scarce"
     # is advice nothing executes; this is the assertion.
-    if len(unported) > MAX_UNPORTED_ROWS:
+    if len(unported) > cap:
         problems.append(
-            f"{len(unported)} `unported` allowlist rows exceeds the cap of {MAX_UNPORTED_ROWS}. "
+            f"{len(unported)} `unported` allowlist rows exceeds the cap of {cap}. "
             "Each exempts an entire file with no digest to expire it — port one, or raise the "
             "cap deliberately with the reason in this file's header."
         )
@@ -1007,14 +1025,18 @@ def self_test() -> int:
 
     # 6. Swift file with no Kotlin counterpart at all — needs an `unported` row.
     expect("unported Swift file without a row fails", evaluate(sw, {}, _HEADER), False)
+    # `cap=1` on both: these measure the `unported` MECHANISM (escape hatch, then
+    # staleness), not the cap. MAX_UNPORTED_ROWS is 0 in production, so without the
+    # override the single fixture row would fail on the cap — turning the first arm
+    # red and making the second pass for the wrong reason. See `evaluate`'s docstring.
     expect(
         "unported Swift file with a row passes",
-        evaluate(sw, {}, _HEADER + "unported\tPromptBuilder\t-\t-\tStage-3 deferral\n"),
+        evaluate(sw, {}, _HEADER + "unported\tPromptBuilder\t-\t-\tStage-3 deferral\n", cap=1),
         True,
     )
     expect(
         "stale unported row is caught once the port lands",
-        evaluate(sw, kt, _HEADER + "unported\tPromptBuilder\t-\t-\tStage-3 deferral\n"),
+        evaluate(sw, kt, _HEADER + "unported\tPromptBuilder\t-\t-\tStage-3 deferral\n", cap=1),
         False,
     )
 
@@ -1059,9 +1081,12 @@ def self_test() -> int:
         False,
     )
     # 11. The dangling-`unported` arm — previously reachable but unexercised.
+    #     `cap=1` so the dangling check is what fails, not the cap (see case 6).
+    #     Case 10 above needs no such override: an empty-reason row is rejected
+    #     before `unported.add`, so it never counts toward the cap at all.
     expect(
         "dangling unported row is caught",
-        evaluate({}, {}, _HEADER + "unported\tGhost\t-\t-\twhy\n"),
+        evaluate({}, {}, _HEADER + "unported\tGhost\t-\t-\twhy\n", cap=1),
         False,
     )
     # 12. A `swift-only` row on an `unported` stem is dead — `_compare` never runs
@@ -1082,6 +1107,7 @@ def self_test() -> int:
             _HEADER
             + "unported\tPromptBuilder\t-\t-\tdeferral\n"
             + f"swift-only\tPromptBuilder\t{digest(real_pair)}\t{excerpt(real_pair)}\tdead\n",
+            cap=1,  # the dead-row check must be what fails, not the cap (case 6)
         ),
         False,
     )
@@ -1168,21 +1194,39 @@ def self_test() -> int:
         False,
     )
 
-    # 18b. The `unported` cap is an assertion, not advice.
+    # 18b. The `unported` cap is an assertion, not advice. TWO arms, because the
+    # production setting and the boundary behaviour are separate claims and the
+    # constant is now at its terminal 0.
+    #
     # Stems must be REAL and genuinely unported, or each row is also *dangling*
     # and that check satisfies the expectation with the cap removed.
-    capped_swift = {
-        f"Pastura/Pastura/Engine/Capped{n}.swift":
-        f'func f() {{ _ = pickLanguage(l, ja: "j{n}", en: "e{n}") }}\n'
-        for n in range(MAX_UNPORTED_ROWS + 1)
-    }
-    capped_rows = "".join(
-        f"unported\tCapped{n}\t-\t-\twhy\n" for n in range(MAX_UNPORTED_ROWS + 1)
+    def capped_swift(n: int) -> dict[str, str]:
+        return {
+            f"Pastura/Pastura/Engine/Capped{i}.swift":
+            f'func f() {{ _ = pickLanguage(l, ja: "j{i}", en: "e{i}") }}\n'
+            for i in range(n)
+        }
+
+    def capped_rows(n: int) -> str:
+        return _HEADER + "".join(f"unported\tCapped{i}\t-\t-\twhy\n" for i in range(n))
+
+    # (i) The PRODUCTION setting. Deliberately no `cap=` — this is the only arm that
+    #     exercises `evaluate`'s default argument, so it is what notices if
+    #     MAX_UNPORTED_ROWS is raised without a deliberate edit here. At the terminal
+    #     0 that means even one row is refused; raising the cap is supposed to break
+    #     this line and force the raiser to look at it.
+    expect(
+        "the production cap refuses one more row than MAX_UNPORTED_ROWS allows",
+        evaluate(capped_swift(MAX_UNPORTED_ROWS + 1), {}, capped_rows(MAX_UNPORTED_ROWS + 1)),
+        False,
     )
-    expect("rows at the cap are accepted", evaluate(
-        {k: v for k, v in list(capped_swift.items())[:MAX_UNPORTED_ROWS]}, {},
-        _HEADER + "".join(f"unported\tCapped{n}\t-\t-\twhy\n" for n in range(MAX_UNPORTED_ROWS))), True)
-    expect("the unported-row cap is not enforced", evaluate(capped_swift, {}, _HEADER + capped_rows), False)
+    # (ii) The boundary itself, measured independently of the production constant:
+    #      N rows accepted at cap N, refused at cap N-1. `range(MAX_UNPORTED_ROWS…)`
+    #      arithmetic cannot express this at 0 — the accept arm degenerated to
+    #      `evaluate({}, {}, header)`, i.e. "an empty repo has no problems", which
+    #      cannot redden on any cap regression. That vacuity is why `cap` exists.
+    expect("rows at the cap are accepted", evaluate(capped_swift(2), {}, capped_rows(2), cap=2), True)
+    expect("one row past the cap is refused", evaluate(capped_swift(2), {}, capped_rows(2), cap=1), False)
 
     # 18c. `collect`'s extraction-error report. The dangerous case is BOTH sides
     #      hitting the same unmodelled shape (likely — the literals are ported
