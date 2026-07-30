@@ -98,7 +98,7 @@ extension DesignTokensTests {
       (.metaDotOnL4, PasturaPalette.nightMetaDotOnL4),
       (.headerRule, PasturaPalette.nightHeaderRule),
       (.headerMetaInk, PasturaPalette.nightHeaderMetaInk)
-    ] + avatarDarkPairs()
+    ] + avatarDarkPairs() + remainderDarkPairs()
 
     // The list is hand-written on purpose — it is what proves the *alias* is
     // wired, which iterating `all` cannot show. This pins its size to the
@@ -154,7 +154,7 @@ extension DesignTokensTests {
       (.metaDotOnL4, PasturaPalette.metaDotOnL4),
       (.headerRule, PasturaPalette.headerRule),
       (.headerMetaInk, PasturaPalette.headerMetaInk)
-    ] + avatarLightPairs()
+    ] + avatarLightPairs() + remainderLightPairs()
 
     #expect(cases.count == PasturaDynamicPalette.all.count)
 
@@ -165,28 +165,29 @@ extension DesignTokensTests {
     }
   }
 
-  /// Smoke test that unpaired tokens stay scheme-invariant. Honest about its
-  /// strength: these are plain `Color(.sRGB, …)` values with no trait
-  /// dependency, so invariance holds by *type*, not by wiring — and none has a
-  /// `night*` counterpart, so no plausible edit to this feature reddens it. It
-  /// documents the intended light-only boundary; it does not police it. A real
-  /// control would need an over-application mechanism to exist first.
+  /// Smoke test that the one unpaired token stays scheme-invariant. Honest about
+  /// its strength: it is a plain `Color(.sRGB, …)` value with no trait dependency,
+  /// so invariance holds by *type*, not by wiring, and it has no `night*`
+  /// counterpart — so no plausible edit to this feature reddens it. It documents
+  /// the intended light-only boundary; it does not police it. A real control would
+  /// need an over-application mechanism to exist first.
   @Test func unpairedAliasesDoNotChangeAcrossColorSchemes() {
-    // Refilled three times as slices land: `.warning` / `.danger` left with
-    // #1282, `.metaBaseL3` with #1313, `.avatarBodyAlice` with #1319. Drawn
-    // from the 11 that remain unpaired, spread across §2.1/§2.3/§2.8 so a
-    // future slice removing one leaves the rest — §2.4 and §2.5 no longer have
-    // a representative here, because #1313 and #1319 paired every token in
-    // both.
+    // Refilled four times as slices landed — `.warning` / `.danger` left with
+    // #1282, `.metaBaseL3` with #1313, `.avatarBodyAlice` with #1319 — and slice
+    // 4 emptied it of that kind of member entirely: `.page`, `.promoBackground`,
+    // `.mossSoft`, `.inkOnAccent` and `.link` all became paired at once, which is
+    // what closing gate 1 means.
     //
-    // `.headerMetaSubdued` is a different kind of member and is listed last on
-    // purpose: it is unpaired *by decision* rather than by not-yet-designed
-    // (ADR-028 gate 1 admits a recorded fixed value), so unlike its neighbours
-    // it is not expected to leave this list. Why fixing is the right answer for
-    // it is asserted separately in `DesignTokensTests+NightPalette`.
-    let lightOnly: [Color] = [
-      .page, .promoBackground, .mossSoft, .inkOnAccent, .link, .headerMetaSubdued
-    ]
+    // What is left is the **other** kind, and it is the only member that was never
+    // expected to leave: `.headerMetaSubdued` is unpaired *by decision* rather
+    // than by not-yet-designed (ADR-028 gate 1 admits a recorded fixed value in
+    // place of a designed one). Why fixing is right for it is asserted separately
+    // in `DesignTokensTests+NightPalette`.
+    //
+    // So this list is now terminal rather than draining. If a future change pairs
+    // `headerMetaSubdued`, delete the test rather than emptying the array — an
+    // empty `for` loop asserts nothing while still passing.
+    let lightOnly: [Color] = [.headerMetaSubdued]
 
     for alias in lightOnly {
       let underLight = alias.resolve(in: lightEnvironment())
@@ -203,6 +204,41 @@ extension DesignTokensTests {
   // than driven from `PasturaDynamicPalette.all` — driving them from the
   // registry would make the wiring tests assert the registry against itself,
   // which is exactly the independence that makes them worth having.
+
+  /// §2.1/§2.2/§2.3/§2.8 rows, extracted for the same reason as the §2.5 ones
+  /// above: appending ten more rows inline pushes both table bodies past
+  /// swiftlint's `function_body_length`, and `build-traps.md` rules out the
+  /// disable-directive route on a declaration carrying a doc comment.
+  func remainderDarkPairs() -> [(alias: Color, dark: PasturaColorValue)] {
+    [
+      (.page, PasturaPalette.nightPage),
+      (.promoBackground, PasturaPalette.nightPromoBackground),
+      (.promoBorder, PasturaPalette.nightPromoBorder),
+      (.inkOnAccent, PasturaPalette.nightInkOnAccent),
+      (.mossDark, PasturaPalette.nightMossDark),
+      (.mossInk, PasturaPalette.nightMossInk),
+      (.mossSoft, PasturaPalette.nightMossSoft),
+      (.link, PasturaPalette.nightLink),
+      (.linkVisited, PasturaPalette.nightLinkVisited),
+      (.linkHover, PasturaPalette.nightLinkHover)
+    ]
+  }
+
+  /// Light halves of the same ten. See `remainderDarkPairs()`.
+  func remainderLightPairs() -> [(alias: Color, light: PasturaColorValue)] {
+    [
+      (.page, PasturaPalette.page),
+      (.promoBackground, PasturaPalette.promoBackground),
+      (.promoBorder, PasturaPalette.promoBorder),
+      (.inkOnAccent, PasturaPalette.inkOnAccent),
+      (.mossDark, PasturaPalette.mossDark),
+      (.mossInk, PasturaPalette.mossInk),
+      (.mossSoft, PasturaPalette.mossSoft),
+      (.link, PasturaPalette.link),
+      (.linkVisited, PasturaPalette.linkVisited),
+      (.linkHover, PasturaPalette.linkHover)
+    ]
+  }
 
   func avatarDarkPairs() -> [(alias: Color, dark: PasturaColorValue)] {
     [

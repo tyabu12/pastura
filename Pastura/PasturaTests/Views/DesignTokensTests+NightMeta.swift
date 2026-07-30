@@ -54,13 +54,11 @@ extension DesignTokensTests {
   /// gains contrast by getting brighter rather than darker.
   ///
   /// This is the executable form of the constraint slice 2 otherwise left as
-  /// prose. The ladder is designed against `nightBubble` as a **provisional**
-  /// ground — the real surface is `promoBackground`, unpaired until slice 4 —
-  /// so the companion assertion below reddens the moment slice 4 pairs
-  /// `promoBackground`, forcing the ladder to be re-measured against the real
-  /// ground instead of leaving that as an instruction. It does not check the
-  /// value against a band: the ladder stays monotone at both ends of the one
-  /// slice 2 named, so such a check would pass by construction.
+  /// prose. Slice 2 designed the ladder against `nightBubble` as a provisional
+  /// ground and armed a tripwire on the companion assertion below; slice 4 paired
+  /// `promoBackground`, the tripwire fired, and the ladder was re-measured
+  /// against the real ground. Ordering by channel is ground-independent, so this
+  /// test did not move — the companion one carries the re-measurement.
   @Test func nightMetaLadderRunsBrighterFromL1ToL4() {
     #expect(PasturaPalette.nightMetaBaseL1.red < PasturaPalette.nightMetaBaseL2.red)
     #expect(PasturaPalette.nightMetaBaseL2.red < PasturaPalette.nightMetaBaseL3.red)
@@ -84,25 +82,26 @@ extension DesignTokensTests {
   /// Nothing here pins a minimum gap, because no threshold could be derived
   /// rather than invented.
   ///
-  /// The ground is `nightBubble`, which is a **stand-in**: §2.4 actually renders
-  /// on `promoBackground`, unpaired until slice 4. The ladder was designed
-  /// against the assumption that its dark value lands near #2A2D26-#2F3229.
-  /// Nothing checks that band — the registry check below instead stops the
-  /// assumption going stale unnoticed, by failing when the ground is paired at
-  /// all. These ratios cannot do that job: they stay monotone against either
-  /// end of the band, so they would not notice a ground swap either way.
+  /// **The ground is now the real one.** Slice 2 measured this ladder against
+  /// `nightBubble` as a stand-in and left a tripwire here — an assertion that
+  /// `promoBackground` was absent from the pair registry — so that pairing it
+  /// would redden this test and force a re-measurement rather than leaving one as
+  /// an instruction. Slice 4 paired it, the tripwire fired, and the ground is
+  /// repointed at `PasturaDynamicPalette.promoBackground.dark`. The tripwire is
+  /// gone because it has been discharged; deleting it is the *point*, not a
+  /// silencing.
+  ///
+  /// What the re-measurement found: `promoBackground`'s dark value came out at
+  /// #282C24, **outside** the #2A2D26-#2F3229 band slice 2 assumed (Y 0.0238 vs
+  /// the band floor's 0.0251), and the ladder holds anyway — base ratios rose
+  /// 3.33/5.08/8.16/10.77 to 3.48/5.31/8.54/11.27, monotone, with L3 at 8.54
+  /// against the 4.5 the design system promises. That is the tripwire working as
+  /// designed: slice 2 deliberately did **not** check the band, on the grounds
+  /// that the ladder stays monotone at either end of it and such a check would
+  /// pass by construction while the ladder had never been measured against the
+  /// real surface.
   @Test func nightMetaLadderStaysMonotonicAgainstTheCardSurface() {
-    // Fires the moment slice 4 appends `promoBackground` to `all` — one hop off
-    // "pairs it", since the registry is hand-maintained (see `all`'s own doc).
-    // The wiring tests' `cases.count == all.count` closes that gap in practice.
-    // At that point the real ground exists, so repoint `ground` at
-    // `PasturaDynamicPalette.promoBackground.dark` and re-measure the ladder.
-    // This is deliberately a tripwire on the *next author's action* rather than
-    // on the value — a band check would pass for any in-band value while the
-    // ladder had never actually been re-measured against it.
-    #expect(!PasturaDynamicPalette.all.contains { $0.name == "promoBackground" })
-
-    let ground = PasturaPalette.nightBubble
+    let ground = PasturaPalette.nightPromoBackground
     let base = [
       PasturaPalette.nightMetaBaseL1, PasturaPalette.nightMetaBaseL2,
       PasturaPalette.nightMetaBaseL3, PasturaPalette.nightMetaBaseL4
@@ -130,8 +129,15 @@ extension DesignTokensTests {
   /// floor rises to `nightMoss` @38% composited over the card. Mirroring the
   /// ground ratio instead would drop L1 to ~1.34:1 and the indicator stops
   /// working; this pins the property that placement exists to protect.
+  ///
+  /// **Both sides now composite over the same role.** The light leg always used
+  /// `promoBackground`; the dark leg used `nightBubble` because
+  /// `promoBackground` was unpaired, so the two legs measured different surfaces.
+  /// Slice 4 closed that asymmetry — a latent one, since nothing asserted the
+  /// legs were comparable.
   @Test func nightLitDotsStayDistinguishableFromUnlitOnes() {
-    let unlit = composite(PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.38)
+    let unlit = composite(
+      PasturaPalette.nightMoss, over: PasturaPalette.nightPromoBackground, alpha: 0.38)
     let lit = [
       PasturaPalette.nightMetaDotOnL1, PasturaPalette.nightMetaDotOnL2,
       PasturaPalette.nightMetaDotOnL3, PasturaPalette.nightMetaDotOnL4
@@ -147,9 +153,13 @@ extension DesignTokensTests {
       PasturaPalette.metaDotOnL1, PasturaPalette.metaDotOnL2,
       PasturaPalette.metaDotOnL3, PasturaPalette.metaDotOnL4
     ].map { contrastRatio($0, lightUnlit) }
-    // Margins run [0.93, 0.92, 0.66, 0.17]: L4 is an order of magnitude tighter
-    // than the rest, so it is the step an edit to `metaDotOnL4` or to light's
-    // ground flips first. Named so the next red is diagnosed, not re-derived.
+    // Margins run [1.02, 1.02, 0.78, 0.30] against the real ground (they were
+    // [0.93, 0.91, 0.66, 0.16] against the `nightBubble` stand-in). L4 is still
+    // the tightest step and so the one an edit to `metaDotOnL4` or to light's
+    // ground flips first — but it is no longer "an order of magnitude" tighter as
+    // the stand-in figures made it look, only ~3.4x. Named so the next red is
+    // diagnosed, not re-derived; the claim is restated rather than just the
+    // numbers, because repointing the ground changed which of the two is true.
     for (measured, floor) in zip(lit, lightFloor) {
       #expect(measured >= floor)
     }
@@ -184,7 +194,7 @@ extension DesignTokensTests {
   ///
   /// This is the guard on that decision, on both halves of it. Changing the
   /// token breaks the measurement below; pairing it trips the registry check,
-  /// which is here rather than left to `exactlyFiftySevenPairsAreWired` so that the
+  /// which is here rather than left to `exactlySixtySevenPairsAreWired` so that the
   /// *reason* fixing is right is what reddens, not just an arithmetic count.
   @Test func headerMetaSubduedReadsTheSameOnBothGrounds() {
     #expect(!PasturaDynamicPalette.all.contains { $0.name == "headerMetaSubdued" })

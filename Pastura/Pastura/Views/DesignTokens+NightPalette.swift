@@ -2,9 +2,8 @@ import SwiftUI
 
 // The §2.9 dark half of the palette — every `night*` raw token **except §2.5's**,
 // which moved to `DesignTokens+AvatarPalette.swift` with its light half when
-// slice 4 landed. Read that file's header for the axis; the qualifier is here
-// because this header used to claim "in one file" and a reader looking for
-// `nightAvatarBodyAlice` needs to be told where it went.
+// slice 4 landed. The qualifier is here because this header used to claim "in one
+// file", and someone looking for `nightAvatarBodyAlice` needs telling.
 //
 // Split out of `DesignTokens+ExtendedPalette.swift` when ADR-028 gate 1's
 // slice 2 landed (#1313). The split axis is "the night data leaves the day
@@ -21,6 +20,11 @@ import SwiftUI
 // the prefix for the same reason) — rename either out of that glob and the
 // `tokens.css` mirror gate goes blind with no signal.
 //
+// **This file is effectively full** (a few lines under the 400-line cap), and
+// gate 1 closing means §2.9 takes no further tokens — an addition needs a split
+// first, chosen by what it touches, since "a completed section moves out whole"
+// stops discriminating once every section is complete.
+//
 // Every token here is the dark half of a `PasturaDynamicPalette` pair
 // (`DesignTokens+DynamicPalette.swift`), reached through the repointed light
 // `Color.*` alias rather than through `Color.night*`. Dark never actually
@@ -34,9 +38,11 @@ extension PasturaPalette {
   // cream replaced by warm dark surfaces. These are **wired**: every token
   // below is the dark half of a `PasturaDynamicPalette` pair, reached through
   // the repointed light `Color.*` alias rather than through `Color.night*`.
-  // Dark still never renders, because `Info.plist` pins the app to light
-  // until the 10 light tokens still owing gate 1 an answer have one
-  // (ADR-028 § Rollout).
+  // Dark still never renders, because `Info.plist` pins the app to light — but
+  // the reason has changed as of slice 4: **no light token owes gate 1 a dark
+  // value any more** (ADR-028 § Rollout gate 1, met). What the lock now waits on
+  // is gates 4 and 5 — real-device dark QA across the screens, and the dark
+  // share-card path — neither of which any test or measurement can stand in for.
 
   /// Outermost background under dark mode.
   static let nightBackground = PasturaColorValue(hex: 0x1B1D17)
@@ -232,6 +238,148 @@ extension PasturaPalette {
   /// grounds. That is §2.12's "evolves independently of §2.4, do not merge"
   /// claim coming true rather than a drift to fix.
   static let nightHeaderMetaInk = PasturaColorValue(hex: 0xB2B6A2)
+
+  // MARK: §2.9 Dark counterparts of the §2.1 surfaces
+  //
+  // Two treatments, opposite in direction. `nightPage` **sinks**, holding light's
+  // 1.099 step below the body ground — light's `page` is the dim one (the
+  // workbench under the app) and dark keeps it dim. `nightPromoBackground` is a
+  // **card-tier** surface and follows the card, holding light's 1.047 below
+  // `bubbleBackground`; light's near-identical 1.003 against `screenBackground`
+  // is an artifact of light's compressed top end, not the design relation, and
+  // reading it as one would leave the dark card flush with the dark ground.
+  //
+  // Two things the arithmetic does not settle. `nightPage` at HSL L=6.7% is the
+  // palette's darkest token and its one consumer is `ViewerPredictionSheet`'s
+  // fill, where iOS convention says a sheet *rises* — a **device-QA item**
+  // (ADR-028 gate 4). And `nightPromoBackground` is the ground slice 2 designed
+  // §2.4 against as a stand-in, landing just outside the band it assumed; the
+  // re-measurement is in `DesignTokensTests+NightMeta`, where the tripwire
+  // forced it. Full derivation: ADR-028 § Amendment for slice 4.
+
+  /// Outside the app surface (workbench) under dark mode — sinks below
+  /// `nightBackground`, mirroring light's `page` sitting below `screenBackground`.
+  static let nightPage = PasturaColorValue(hex: 0x11130F)
+  /// Promo / banner background under dark mode. The real §2.4 render ground.
+  static let nightPromoBackground = PasturaColorValue(hex: 0x282C24)
+  /// Promo / banner border under dark mode.
+  ///
+  /// Holds light's 1.204 against its own card but **inverts direction** — light's
+  /// border is darker than the card, this one is lighter. The precedent is the
+  /// original eight's own `rule` -> `nightRule` (light 1.324 *below* the ground,
+  /// dark 1.425 *above* it), and the reason is measurable: a border holding 1.204
+  /// on the dark side of its card lands at Y=0.0127 against a ground at 0.0117,
+  /// a ratio of 1.01 — it would dissolve into the ground behind it exactly where
+  /// the card edge needs to read.
+  static let nightPromoBorder = PasturaColorValue(hex: 0x35392F)
+
+  // MARK: §2.9 Dark counterpart of the §2.2 on-accent foreground
+  //
+  // Light's `inkOnAccent` is pure white on a mid accent; dark's is a near-ground
+  // tone on a bright one. The flip is not a judgement call — it is what Material
+  // 3 does when `primary` moves tone 40 -> 80 and `on-primary` follows tone
+  // 100 -> 20, the move `moss` -> `nightMoss` makes. Within that band the value
+  // clears **WCAG AAA (1.4.6, 7:1 normal text)** because the smallest consumers
+  // are 9pt / 9.5pt mono labels: 7.117 on `nightMossDark`, 6.395 on `nightMoss`.
+  //
+  // **Same hex as `nightBubble` — a consequence, not the reason.** Light carries
+  // the same coincidence (both #FFFFFF), but slice 3's rule licenses carrying one
+  // only when both tokens keep the same *job*, and a foreground and a surface do
+  // not. The AAA target picks the value; the equality is pinned by a test. Read
+  // in the other order it would imply `nightBubble` drags this along. It does not.
+
+  /// Foreground for text / glyphs on an accent fill under dark mode.
+  static let nightInkOnAccent = PasturaColorValue(hex: 0x2C2F28)
+
+  // MARK: §2.9 Dark counterparts of the §2.3 moss accent
+  //
+  // **The family compresses, and it inverts.** `nightMoss` was placed by arm 1
+  // (hue held, HSL lightness +11, saturation +7) and therefore sits at 7.999
+  // against `nightBackground`, where light's `moss` sits at only 2.908 against
+  // its own ground. Every sibling has to be consistent with *that anchor*, not
+  // with light's ratios — so `mossDark`, which is light's emphatic step and
+  // must stay emphatic, is necessarily ABOVE `nightMoss` and therefore
+  // necessarily above 8:1 (measured 8.902, against light's 4.538). This is the
+  // §2.3 instance of the ceiling slice 2 found in §2.4.
+  //
+  // Two consequences that look like defects and are not: the moss -> mossDark
+  // step narrows from 1.561 to **1.113** (the two never sit adjacent, and the
+  // functional requirement the step serves — an on-accent label clearing AAA on
+  // `mossDark` and the non-text bar on `moss` — holds), and `mossDark` reads
+  // louder against its ground than light's does. The second is the trade slice 2
+  // took for the progress dot: function over perceptual-weight parity.
+  //
+  // Arm 3 (target-contrast placement) is **degenerate for a ladder step whose
+  // direction inverts** — solving `mossDark`'s own 4.538 on the night ground
+  // returns a value BELOW `nightMoss`, making the emphatic step the quiet one.
+  // So `nightMossDark` holds its proportional HSL lightness position between
+  // `moss` and `mossInk` (0.401), the anchor-on-`nightMoss`-and-invert move
+  // slice 2 used for the dot ladder. Arm 3 IS right for the other two, whose
+  // jobs are legibility and quietness against a ground rather than ladder
+  // membership.
+
+  /// DL progress dot (lit), accent links under dark mode — the emphatic step,
+  /// which is ABOVE `nightMoss` here where light's is below `moss`.
+  static let nightMossDark = PasturaColorValue(hex: 0xB3C197)
+  /// Dog outline, completion title under dark mode. Arm 3: holds light's 10.190
+  /// against the body ground (measured 10.187).
+  ///
+  /// One relation falls out for free rather than being designed: `ModelPickerView`'s
+  /// CTA is a `mossInk` fill carrying a `screenBackground` label, and
+  /// `screenBackground` is already paired — so in dark it becomes
+  /// `nightBackground` on this token, at 10.187 against light's 10.190. Both
+  /// sides hold their ratio against their own appearance's extreme, so the
+  /// button's label contrast survives the flip without anyone placing it.
+  ///
+  /// Near-identical in luminance to `nightMetaBaseL3` (#C7CABC, contrast 1.002)
+  /// and **not** to be merged with it. Arithmetic coincidence: the card sits
+  /// 1.251 above the ground, so "8.16 on the card" and "10.19 on the ground"
+  /// land at the same luminance. The two differ in chroma (HSL saturation 20 vs
+  /// 11.7) and render on different grounds; light's pair is a clear 1.240 apart.
+  static let nightMossInk = PasturaColorValue(hex: 0xC6CBB1)
+  /// THINKING left-rule, gentle dividers under dark mode.
+  ///
+  /// Direction inverted and magnitude held at 1.566 against the ground — and the
+  /// magnitude belongs to its **line/border** job, which is 5 of its 8 consumers
+  /// (`ChatBubble`'s 1.5pt rule, `ResultsView`'s timeline rail, three
+  /// `strokeBorder`s). Its other job is a tinted fill under `mossDark` text
+  /// (`ContradictionBadge`, `PredictionOutcomeBadge`,
+  /// `HighlightCandidatesSection`), which lands at 5.685 against light's 2.911 —
+  /// a §2.6-shaped Soft/Ink pair, and like those it gains contrast in dark
+  /// rather than holding it. It stays the quietest badge of the five in both
+  /// appearances, which is the relation that matters and is asserted.
+  ///
+  /// **Hue moved to the moss family (80.9°), not held at light's 47.7°.** A pale
+  /// cream-moss is cream *because* it is pale; at 5% luminance the same hue
+  /// reads as amber and would collide in meaning with `nightWarningSoft`
+  /// (#383124, hue 39°). Slice 3's chroma lesson, applied downward.
+  static let nightMossSoft = PasturaColorValue(hex: 0x384029)
+
+  // MARK: §2.9 Dark counterparts of the §2.8 link / action tokens
+  //
+  // All three by arm 3, each holding its own light ratio against the body ground
+  // (4.618 / 5.378 / 6.345 -> 4.631 / 5.378 / 6.340). Links render on
+  // `screenBackground` (`SettingsView`'s external-link rows) and on `page`
+  // (`ViewerPredictionSheet`'s Skip), both of which are paired, so the ground is
+  // the appearance's own body surface in each case.
+  //
+  // **Not the "~7:1 band"** ADR-028's #1282 Amendment attached to `link` while
+  // predicting this slice. That band was slice 1's *Ink-over-Soft* placement
+  // (7.7-8.4:1 over a tinted fill), a different relation; slice 2 then refined
+  // arm 3 to "solve for the light ratio", which is what is done here. Recorded
+  // because the Amendment's sentence reads like a target for these tokens.
+  //
+  // Light's ordering is not intuitive and is carried across unchanged:
+  // `linkVisited` (5.378) has MORE contrast than `link` (4.618), because it is a
+  // desaturated brown rather than a green — hue, not luminance, is what makes it
+  // read as spent. Preserving each ratio preserves that, oddity included.
+
+  /// Link in its default (unvisited) state under dark mode.
+  static let nightLink = PasturaColorValue(hex: 0x699054)
+  /// Link after being followed at least once in this session, under dark mode.
+  static let nightLinkVisited = PasturaColorValue(hex: 0x9B9075)
+  /// Link while hovered (or on iPadOS pointer hover), under dark mode.
+  static let nightLinkHover = PasturaColorValue(hex: 0x7FAA62)
 
   // §2.9's §2.5 counterparts left with their light halves for
   // `DesignTokens+AvatarPalette.swift` — see this file's header.
