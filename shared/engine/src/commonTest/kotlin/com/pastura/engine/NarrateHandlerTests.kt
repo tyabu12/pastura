@@ -29,31 +29,47 @@ import kotlin.test.assertTrue
  *
  * Each mechanism was broken in isolation and the named **dedicated claimant**
  * confirmed to redden (a claimant that stayed green would be a measurement defect,
- * not a redundant test). Three mutations also break the happy path and so redden
- * most of the suite; that **incidental** breakage is listed separately, because a
- * wide red set is not evidence about the axis. Measured 2026-07-30, #1330.
+ * not a redundant test). Two mutations also break the happy path and so redden most
+ * of the suite; that **incidental** breakage is listed separately, because a wide red
+ * set is not evidence about the axis. Counts are measured, not derived —
+ * re-measure rather than reason if you change a fixture. Measured 2026-07-30, #1330.
  *
- * | Mechanism broken | Dedicated claimant | Incidental |
- * |---|---|---|
- * | Empty-log guard → `isNotEmpty()` | [skipsEmissionOnEmptyLog] | 12 others (inverting also skips the happy path) |
- * | Catch arm `return state` → `throw e` | [degradesByOmissionOnFailure] | 1 ([emptyCommentaryIsAbsorbedByTheCatchArmNotTheGuard], which routes through the same arm) |
- * | Catch breadth → `catch (e: Throwable)` | [aSystemicThrowEscapesRatherThanDegrading], [cancellationEscapesRatherThanBeingSwallowed] | none |
- * | `emitter = {}` → `context.emitter` | [suppressesTheNarratorsAgentAttributedEvents] | none |
- * | Final `return state` → a persisting `copy` | [narratorIsNotAParticipant] | none |
- * | Descriptor section dropped | [injectsNarratorDescriptorIntoSystemPrompt] | none |
- * | Schema field renamed | [requestsCommentarySchema] | 8 others (the parse then fails) |
- * | A second inference added | [singleInferenceRegardlessOfAgentCount] | 10 others (the script list runs out) |
- * | Empty-commentary guard **deleted** | *(none — expected green)* | none |
+ * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
+ * |---|---|---|---|
+ * | Empty-log guard | `if (…isEmpty())` → `if (false)` | [skipsEmissionOnEmptyLog] | none |
+ * | Catch arm degrades | `return state` → `error(…)` | [degradesByOmissionOnFailure] | 1 — [emptyCommentaryIsAbsorbedByTheCatchArmNotTheGuard] routes through the same arm |
+ * | Catch breadth | `SimulationException` → `Throwable` | [aSystemicThrowEscapesRatherThanDegrading], [cancellationEscapesRatherThanBeingSwallowed] | none |
+ * | Emitter swallowing | `emitter = {}` → `context.emitter` | [suppressesTheNarratorsAgentAttributedEvents] | none |
+ * | Persists nothing | final `return state` → a `copy` writing a probe var | [narratorIsNotAParticipant] | none |
+ * | Descriptor gate — **closed** | `if (trimmed.isNotEmpty())` → `if (false)` | [injectsNarratorDescriptorIntoSystemPrompt] | none |
+ * | Descriptor gate — **open** | same → `if (true)` | [omitsTheDescriptorSectionWhenNarratorIsAbsent] | none |
+ * | Engine-fixed schema | field `"commentary"` → `"comment"` | [requestsCommentarySchema] | 10 (every response then fails to parse) |
+ * | One inference per round | a 2nd `call` **before** the real one | [singleInferenceRegardlessOfAgentCount] | 11 (it consumes script #1) |
+ * | Empty-commentary guard | block **deleted** | *(none — expected green)* | none |
  *
- * The last row is the point of the exercise, not a gap: the guard is unreachable on
- * this side, so nothing can redden. Confirmed by measurement rather than asserted —
- * see [emptyCommentaryIsAbsorbedByTheCatchArmNotTheGuard].
+ * Four things this table encodes that a first draft of it got wrong:
  *
- * Note what the "one inference" row does **not** establish. Its assertion is
- * `callCount == 1`, so it catches any multiplication of the call but does not by
- * itself prove agent-count *independence*; that claim rests on `callCount == 1`
- * **together with** the 3-agent pin in [scenario], which is why the pin is asserted
- * in the test body rather than left implicit.
+ * 1. **The last row is the point, not a gap.** The guard is unreachable on this side,
+ *    so nothing can redden. Measured, not assumed — see
+ *    [emptyCommentaryIsAbsorbedByTheCatchArmNotTheGuard].
+ * 2. **Both gate polarities are measured.** `if (false)` removes the descriptor
+ *    *append*; only `if (true)` breaks the *gate*, and that is what
+ *    [omitsTheDescriptorSectionWhenNarratorIsAbsent] guards. Testing one polarity
+ *    leaves the other test green by construction.
+ * 3. **The mutation column is load-bearing.** The "one inference" row reddens 11
+ *    others only because the extra call is inserted *before* the real one and eats
+ *    script #1; inserted *after*, the two catch-arm tests would stay green. Without
+ *    the site named, the row is not reproducible.
+ * 4. **A claimant must fail on its own assertion.** [requestsCommentarySchema] is
+ *    scripted with the full retry budget precisely so a renamed field reddens it at
+ *    `assertEquals`, not via the harness's script-exhaustion error — which would be
+ *    the same failure mode as all 10 incidentals and therefore no evidence at all.
+ *
+ * What the "one inference" row does **not** establish: its assertion is
+ * `callCount == 1`, which catches any multiplication of the call but does not by
+ * itself prove agent-count *independence*. That claim rests on `callCount == 1`
+ * **together with** the 3-agent pin, which is why the pin is asserted in the test
+ * body rather than left implicit.
  *
  * Ported for the ADR-023 KMP Engine migration (#501, #1330).
  */
@@ -310,9 +326,13 @@ class NarrateHandlerTests {
         val s = scenario()
         val events = mutableListOf<SimulationEvent>()
 
-        assertFailsWith<CancellationException> {
+        // Asserting the message, not just the type: `CancellationException` is an
+        // `IllegalStateException` on JVM and so is `ScriptedLLMBackend`'s exhaustion
+        // signal, so pinning the text keeps this from ever passing on a harness fault.
+        val e = assertFailsWith<CancellationException> {
             handler.execute(context(s, NarrateCancellingBackend(), events), stateWithLog(s))
         }
+        assertEquals("cancelled mid-narration", e.message)
         assertTrue(narrations(events).isEmpty())
     }
 
@@ -332,8 +352,12 @@ class NarrateHandlerTests {
 
     @Test
     fun omitsTheDescriptorSectionWhenNarratorIsAbsent() = runTest {
-        // Guards the `isNotEmpty()` branch: a blank descriptor must not emit an empty
-        // "Commentator persona:" heading with nothing after it.
+        // Pins the GATE on the descriptor section, not merely its rendering: a blank
+        // descriptor must not emit an empty "Commentator persona:" heading with
+        // nothing after it. Claimant for the `if (true)` perturbation — forcing the
+        // gate open is what this catches, where forcing it CLOSED (`if (false)`) is
+        // caught by injectsNarratorDescriptorIntoSystemPrompt. Both polarities are
+        // measured; see the class KDoc.
         val s = scenario(narrator = "   ")
         val backend = ScriptedLLMBackend(listOf(narrates("ok")))
 
@@ -374,15 +398,51 @@ class NarrateHandlerTests {
     }
 
     @Test
-    fun requestsCommentarySchema() = runTest {
-        // Engine-fixed single-field `{ commentary }` schema — not author-declared, so
-        // the backend receives exactly that constraint regardless of the phase YAML.
-        val s = scenario()
+    fun clampsMaxSentencesToTheUpperBoundToo() = runTest {
+        // The floor alone would leave `coerceIn(1, 100)` green while the clamp's name
+        // promises the validator's 1..6 range. Pins the ceiling.
+        val s = scenario(maxSentences = 99)
         val backend = ScriptedLLMBackend(listOf(narrates("ok")))
 
         handler.execute(context(s, backend), stateWithLog(s))
 
-        val schema = backend.requests.single().schema
+        val system = backend.requests.single().system
+        assertContains(system, "at most 6 sentence(s)")
+        assertTrue("at most 99" !in system)
+    }
+
+    @Test
+    fun usesTheHandlersOwnDefaultWhenMaxSentencesIsAbsent() = runTest {
+        // Pins DEFAULT_MAX_SENTENCES = 3. Without this, the handler's explicit "this
+        // is narrate's OWN constant, not PromptBuilder.DEFAULT_STATEMENT_MAX_SENTENCES"
+        // rationale is unobservable — the two values are both 3 today, so nothing
+        // would notice narrate silently starting to track the statement default.
+        val s = scenario(maxSentences = null)
+        val backend = ScriptedLLMBackend(listOf(narrates("ok")))
+
+        handler.execute(context(s, backend), stateWithLog(s))
+
+        assertContains(backend.requests.single().system, "at most 3 sentence(s)")
+    }
+
+    @Test
+    fun requestsCommentarySchema() = runTest {
+        // Engine-fixed single-field `{ commentary }` schema — not author-declared, so
+        // the backend receives exactly that constraint regardless of the phase YAML.
+        //
+        // Scripted with the FULL retry budget, and reading `requests.first()` rather
+        // than `.single()`, so that a renamed schema field is caught by the assertion
+        // below rather than by the harness. With one script, renaming the field makes
+        // the parser reject every response, the retry loop asks for a second script,
+        // and `ScriptedLLMBackend` throws its exhaustion `IllegalStateException`
+        // *before* this test ever reads the request — reddening for the same reason
+        // as every unrelated test, which is not evidence about the schema.
+        val s = scenario()
+        val backend = ScriptedLLMBackend(List(LLMCaller.MAX_RETRIES + 1) { narrates("ok") })
+
+        handler.execute(context(s, backend), stateWithLog(s))
+
+        val schema = backend.requests.first().schema
         assertEquals(listOf("commentary"), schema?.fields?.map { it.name })
     }
 }

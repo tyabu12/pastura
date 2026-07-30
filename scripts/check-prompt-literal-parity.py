@@ -603,8 +603,9 @@ def evaluate(
     """Return the list of problems; empty means the invariant holds.
 
     `cap` overrides `MAX_UNPORTED_ROWS` for one call. Production never passes it —
-    the default IS the production constant, and one `--self-test` arm asserts that
-    by relying on it. It exists because the cap and the `unported` *mechanism* are
+    the default IS the production constant, and one `--self-test` arm (18b arm (i))
+    pins that value by hardcoding a fixture the default must refuse, rather than by
+    merely relying on the default. It exists because the cap and the `unported` *mechanism* are
     orthogonal properties that a single global cannot exercise at once: with the cap
     at its terminal 0, every one-row fixture would fail on the cap before reaching
     the stale / dangling / dead-row / escape-hatch guard under test, so those cases
@@ -1075,9 +1076,17 @@ def self_test() -> int:
     # file, and the case goes green. Keyed on a ghost stem instead (as it was
     # first written) the dangling-row check fires either way and the control
     # passes by construction, measuring nothing.
+    # `cap=1` for the same reason as case 6, and this case needed it MOST. The
+    # criterion is not what the row does on an unmutated run (there it is rejected
+    # before `unported.add`, so it never reaches the cap) but what it does under the
+    # mutation this control exists to catch: with the guard deleted the row parses as
+    # a valid `unported PromptBuilder` and IS counted, so at the production cap of 0
+    # the cap check appends a problem, `expect(..., False)` still passes, and the
+    # deleted guard goes undetected. Measured. At `cap=1` the mutated run returns no
+    # problems and reddens, which is the whole point of the case.
     expect(
         "empty reason is reported",
-        evaluate(sw, {}, _HEADER + "unported\tPromptBuilder\t-\t-\t\n"),
+        evaluate(sw, {}, _HEADER + "unported\tPromptBuilder\t-\t-\t\n", cap=1),
         False,
     )
     # 11. The dangling-`unported` arm — previously reachable but unexercised.
@@ -1210,14 +1219,17 @@ def self_test() -> int:
     def capped_rows(n: int) -> str:
         return _HEADER + "".join(f"unported\tCapped{i}\t-\t-\twhy\n" for i in range(n))
 
-    # (i) The PRODUCTION setting. Deliberately no `cap=` — this is the only arm that
-    #     exercises `evaluate`'s default argument, so it is what notices if
-    #     MAX_UNPORTED_ROWS is raised without a deliberate edit here. At the terminal
-    #     0 that means even one row is refused; raising the cap is supposed to break
-    #     this line and force the raiser to look at it.
+    # (i) The PRODUCTION setting, pinned to the literal 0. Deliberately no `cap=`, so
+    #     the default is load-bearing here — this is the only arm whose VERDICT
+    #     depends on the default's value (every other arm that omits `cap=` merely
+    #     uses it). The row count is hardcoded to 1 rather than derived from
+    #     MAX_UNPORTED_ROWS: a `MAX_UNPORTED_ROWS + 1` fixture always presents one row
+    #     past whatever the cap happens to be, so it passes at EVERY cap and pins
+    #     nothing but "the comparison exists". Hardcoded, raising the constant to 1
+    #     makes this line redden and forces the raiser to look at it.
     expect(
-        "the production cap refuses one more row than MAX_UNPORTED_ROWS allows",
-        evaluate(capped_swift(MAX_UNPORTED_ROWS + 1), {}, capped_rows(MAX_UNPORTED_ROWS + 1)),
+        "the production cap of 0 refuses a single unported row",
+        evaluate(capped_swift(1), {}, capped_rows(1)),
         False,
     )
     # (ii) The boundary itself, measured independently of the production constant:

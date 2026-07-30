@@ -46,8 +46,12 @@ import com.pastura.models.SimulationState
  * - **No [PhaseContext.turnGate].** The `try/catch` below replaces it (see § Grounding).
  * - **The catch is narrower than Swift's bare `catch` — see [execute].**
  * - **`emitter = {}` into [LLMCaller]**, suppressing the agent-attributed events.
- * - **Never copies state.** `execute` returns its input `state` on all four exits;
- *   narrate is the only handler in either engine that persists nothing at all.
+ * - **Never copies state.** `execute` returns its input `state` on all four exits.
+ *   Unique among the *LLM* handlers; [SummarizeHandler] is the code-phase precedent
+ *   for an emit-only handler, and documents the same posture.
+ * - **`max_sentences` is clamped, unlike Swift** — see [execute].
+ * - **Its own system prompt**, not [PromptBuilder.buildSystemPrompt] — see
+ *   [buildNarratorSystemPrompt].
  *
  * Swift original: `Pastura/Pastura/Engine/Phases/NarrateHandler.swift`.
  * Ported for the ADR-023 KMP Engine migration (#501, #1330).
@@ -143,7 +147,7 @@ internal class NarrateHandler : PhaseHandler {
                 emitter = {},
             )
             commentary = output.fields["commentary"] ?: ""
-        } catch (e: SimulationException) {
+        } catch (_: SimulationException) {
             // Degrade by omission (see type doc): no `Narration`, no `TurnSkipped`, no
             // breaker increment. `.debug`-level so no user content is logged.
             //
@@ -156,8 +160,17 @@ internal class NarrateHandler : PhaseHandler {
             // `Throwable` but re-throws anything non-degradable — see
             // `TurnFailureGate.kt` § `isTurnDegradable`. narrate has no gate, so it owes
             // the discipline itself. `SimulationException` is precisely the class
-            // `LLMCaller` throws for every failure mode it models, so this catches
-            // everything Swift's bare `catch` does except cancellation.
+            // `LLMCaller` throws for every failure mode it MODELS, so this catches
+            // everything Swift's bare `catch` does for those.
+            //
+            // It does not catch an *unmodelled* one: `LLMCaller` calls
+            // `backend.generateStream` un-guarded, so an adapter that violates the
+            // `LLMBackend` contract by throwing instead of reporting
+            // `TerminalStatus.Failed` propagates past here and aborts the run, where
+            // Swift's bare `catch` would absorb it as "no commentary". That is
+            // deliberate, not an oversight — it is the same posture
+            // `TurnFailureGate.attempt` takes for every other handler, catching
+            // `Throwable` and then re-throwing anything `isTurnDegradable` rejects.
             context.logger.log(
                 level = EngineLogLevel.DEBUG,
                 category = LOG_CATEGORY,
