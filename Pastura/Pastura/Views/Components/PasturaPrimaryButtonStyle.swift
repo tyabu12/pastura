@@ -2,18 +2,27 @@ import SwiftUI
 
 /// Filled primary-action button style for Pastura's browse surfaces.
 ///
-/// A `mossDark` (#6B7852, design-system §2.3) fill with white label, 12pt
-/// corners, and a pressed-state opacity dim — **no** capsule expansion or
-/// scale animation, keeping design-system §1's "static, observed" voice.
+/// A `mossDark` (#6B7852, design-system §2.3) fill with an `inkOnAccent`
+/// label — light: white; dark: `nightInkOnAccent`, a near-ground tone, not
+/// white (ADR-028) — 12pt corners, and a pressed-state opacity dim — **no**
+/// capsule expansion or scale animation, keeping design-system §1's
+/// "static, observed" voice.
 ///
 /// ## Why a custom style (not `.borderedProminent`)
 ///
-/// The system `.borderedProminent` tints with the app accent (`moss`
-/// #8A9A6C), giving white-on-moss ≈ 3.0:1 — below WCAG AA (4.5:1) and
-/// below Pastura's own §8 target. It also opts **into** iOS 26's Liquid
-/// Glass capsule, which §5.8 deliberately opts out of for every other
-/// custom control. `mossDark` fill lifts white-label contrast to ≈ 4.76:1
-/// (AA pass) and keeps the flat moss tone.
+/// The system `.borderedProminent` fills from the ambient `\.tint`, and
+/// `RootTabView` sets `.tint(Color.moss)` on the whole `TabView` — a **paired**
+/// token, so inside the tab hierarchy (where every consumer of this style lives)
+/// it resolves #8A9A6C in light and #A8B888 in dark. Its label is the system's
+/// own prominent-label colour, **not** `Color.inkOnAccent`, so pairing cannot
+/// help it: white measures ≈3.03:1 in light and **≈2.13:1 in dark**, i.e. the
+/// alternative gets *worse* under dark, dropping below even the 3:1 non-text bar.
+/// (`AccentColor.colorset` is a single `universal` #8A9A6C with no dark
+/// appearance, but that is only the fallback where nothing sets a tint — it is not
+/// what these call sites resolve.) `.borderedProminent` also opts **into** iOS
+/// 26's Liquid Glass capsule, which §5.8 deliberately opts out of for every other
+/// custom control. This style's `mossDark` fill lifts text contrast to ≈4.74:1 in
+/// light (AA) and ≈7.12:1 in dark (AAA), and keeps the flat moss tone.
 ///
 /// ## Scope
 ///
@@ -57,13 +66,17 @@ struct PasturaPrimaryButtonStyle: ButtonStyle {
   private var verticalPadding: CGFloat { size == .compact ? 9 : 15 }
   private var horizontalPadding: CGFloat { size == .compact ? 16 : 20 }
 
-  /// Fill color. `mossDark` (#6B7852) — white-on-fill ≈ 4.76:1 (AA pass),
-  /// vs. base `moss` (#8A9A6C) ≈ 3.0:1 from `.borderedProminent`.
+  /// Fill color. `mossDark` (#6B7852) — `inkOnAccent`-on-fill ≈4.74:1 in light
+  /// (AA) / ≈7.12:1 in dark (AAA). `.borderedProminent` fills from the inherited
+  /// `.tint(Color.moss)` with the system's white label: ≈3.03:1 in light and
+  /// ≈2.13:1 in dark. See the type's doc comment.
   static let fill: Color = .mossDark
 
-  /// Label color. `inkOnAccent` (white) on `mossDark` is the contrast-passing
-  /// pair; this is text-on-accent, distinct from the §1 "avoid pure white
-  /// surfaces" guidance which concerns backgrounds.
+  /// Label color. `inkOnAccent` — white in light, `nightInkOnAccent` (a
+  /// near-ground tone, not white) in dark — on `mossDark` is the
+  /// contrast-passing pair in both appearances; this is text-on-accent,
+  /// distinct from the §1 "avoid pure white surfaces" guidance which
+  /// concerns backgrounds.
   static let foreground: Color = .inkOnAccent
 
   /// Corner radius. Slightly tighter than the 14pt card so a CTA inside a

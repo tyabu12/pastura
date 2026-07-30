@@ -22,17 +22,24 @@ import SwiftUI
 
 /// The light↔dark token pairs wired into the app's `Color.*` aliases.
 ///
-/// **57 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
+/// **67 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
 /// §2.7 interactive states from slice 1 of gate 1 (#1282), plus the §2.4 meta
 /// presets and two of the three §2.12 header slots from slice 2 (#1313), plus
-/// the §2.5 character palette from slice 3 (#1319).
+/// the §2.5 character palette from slice 3 (#1319), plus the §2.1/§2.3/§2.8
+/// remainder and `inkOnAccent` from slice 4 — the last one, which **closed
+/// gate 1**.
 ///
-/// 11 light tokens remain unpaired, and gate 1 still owes an answer for **10**
-/// of them — the two counts differ because `headerMetaSubdued` is resolved but
-/// unpaired: slice 2 recorded it as fixed in both appearances, which gate 1
-/// admits as an equal alternative to a designed dark value. The app is pinned
-/// to light via `Info.plist`'s `UIUserInterfaceStyle` until the rest are
-/// designed, so no half-dark surface can render.
+/// Exactly **one** light token remains unpaired, and gate 1 owes an answer for
+/// **none**. `headerMetaSubdued` is that one: slice 2 recorded it as fixed in
+/// both appearances, which gate 1 admits as an equal alternative to a designed
+/// dark value. Until slice 4 those two counts diverged and a mirror stating one
+/// could not be read as stating the other; from here they are 1 and 0, so the
+/// distinction still matters but no longer hides a backlog.
+///
+/// The app is still pinned to light via `Info.plist`'s `UIUserInterfaceStyle`,
+/// and the reason is now different: not missing values, but ADR-028's gates 4
+/// and 5 — real-device dark QA and the dark share-card path. Neither is
+/// something this file can discharge.
 ///
 /// Unlike ``PasturaDynamicColor`` this namespace is deliberately NOT
 /// `nonisolated`: its static initializers read `PasturaPalette`, which is
@@ -225,14 +232,45 @@ enum PasturaDynamicPalette {
   static let avatarHighlight = PasturaDynamicColor(
     light: PasturaPalette.avatarHighlight, dark: PasturaPalette.nightAvatarHighlight)
 
+  /// §2.1 — outside the app surface (workbench).
+  static let page = PasturaDynamicColor(
+    light: PasturaPalette.page, dark: PasturaPalette.nightPage)
+  /// §2.1 — promo / banner background — §2.4's real ground.
+  static let promoBackground = PasturaDynamicColor(
+    light: PasturaPalette.promoBackground, dark: PasturaPalette.nightPromoBackground)
+  /// §2.1 — promo / banner border.
+  static let promoBorder = PasturaDynamicColor(
+    light: PasturaPalette.promoBorder, dark: PasturaPalette.nightPromoBorder)
+  /// §2.2 — foreground on an accent fill.
+  static let inkOnAccent = PasturaDynamicColor(
+    light: PasturaPalette.inkOnAccent, dark: PasturaPalette.nightInkOnAccent)
+  /// §2.3 — accent, emphatic step.
+  static let mossDark = PasturaDynamicColor(
+    light: PasturaPalette.mossDark, dark: PasturaPalette.nightMossDark)
+  /// §2.3 — accent, ink step.
+  static let mossInk = PasturaDynamicColor(
+    light: PasturaPalette.mossInk, dark: PasturaPalette.nightMossInk)
+  /// §2.3 — accent, quiet line / tint.
+  static let mossSoft = PasturaDynamicColor(
+    light: PasturaPalette.mossSoft, dark: PasturaPalette.nightMossSoft)
+  /// §2.8 — link, default state.
+  static let link = PasturaDynamicColor(
+    light: PasturaPalette.link, dark: PasturaPalette.nightLink)
+  /// §2.8 — link, visited.
+  static let linkVisited = PasturaDynamicColor(
+    light: PasturaPalette.linkVisited, dark: PasturaPalette.nightLinkVisited)
+  /// §2.8 — link, hovered.
+  static let linkHover = PasturaDynamicColor(
+    light: PasturaPalette.linkHover, dark: PasturaPalette.nightLinkHover)
+
   /// Every declared pair, keyed by its light-token name.
   ///
   /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
   /// does and does not catch: the registry is hand-maintained, so declaring a
-  /// 58th pair and *not* appending it here leaves `all.count == 57` and passes.
+  /// 68th pair and *not* appending it here leaves `all.count == 67` and passes.
   /// The count guards this list against its own documented size, nothing more —
   /// the real per-alias coverage is the wiring tests in
-  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 57 `Color.*`
+  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 67 `Color.*`
   /// aliases under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
@@ -291,6 +329,16 @@ enum PasturaDynamicPalette {
     ("avatarEarInner", avatarEarInner),
     ("avatarNose", avatarNose),
     ("avatarEye", avatarEye),
-    ("avatarHighlight", avatarHighlight)
+    ("avatarHighlight", avatarHighlight),
+    ("page", page),
+    ("promoBackground", promoBackground),
+    ("promoBorder", promoBorder),
+    ("inkOnAccent", inkOnAccent),
+    ("mossDark", mossDark),
+    ("mossInk", mossInk),
+    ("mossSoft", mossSoft),
+    ("link", link),
+    ("linkVisited", linkVisited),
+    ("linkHover", linkHover)
   ]
 }

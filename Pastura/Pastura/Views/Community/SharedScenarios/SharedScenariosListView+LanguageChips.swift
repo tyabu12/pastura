@@ -35,8 +35,9 @@ extension SharedScenariosListView {
     } label: {
       Text(languageChipTitle(option))
         .font(.subheadline.weight(isSelected ? .semibold : .regular))
-        // Same contrast-passing pair as the category chips: white-on-mossDark
-        // clears WCAG AA where white-on-moss does not (see +CategoryChips).
+        // Same contrast-passing pair as the category chips: `inkOnAccent`-on-
+        // mossDark clears WCAG AA where `inkOnAccent`-on-moss does not (see
+        // +CategoryChips).
         .foregroundStyle(isSelected ? Color.inkOnAccent : Color.ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)

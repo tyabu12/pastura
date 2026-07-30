@@ -9,49 +9,51 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
-  // The 57 aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // The 67 aliases sourced from `PasturaDynamicPalette` resolve light/dark
   // against the ambient interface style (§2.9 — ADR-028's original eight, the
   // §2.6/§2.7 slice in #1282, the §2.4 meta presets plus two §2.12 header
-  // slots in #1313, and the §2.5 character palette in #1319). Of the 11 light
-  // tokens still in pairing scope, 10 have no dark counterpart *yet* and
-  // `headerMetaSubdued` is fixed in both appearances by decision — see
+  // slots in #1313, the §2.5 character palette in #1319, and the §2.1/§2.3/§2.8
+  // remainder plus `inkOnAccent` in slice 4, which closed gate 1). **Exactly one
+  // light token is left in pairing scope and it is resolved, not pending**:
+  // `headerMetaSubdued`, fixed in both appearances by decision — see
   // `DesignTokens+NightPalette`'s §2.12 MARK. The remaining aliases below are
-  // outside that scope entirely: the 57 §2.9 `night*` ones are the dark halves
+  // outside that scope entirely: the 67 §2.9 `night*` ones are the dark halves
   // themselves (note `night` alone is §2.10, not one of them — grepping the
-  // prefix returns 58), and §2.10 time-of-day / §2.11 chart are decorative
+  // prefix returns 68), and §2.10 time-of-day / §2.11 chart are decorative
   // reservations that were never candidates for pairing. The app is pinned to
-  // light via `Info.plist`'s `UIUserInterfaceStyle`, so no half-dark surface
-  // can render while that is true.
+  // light via `Info.plist`'s `UIUserInterfaceStyle`, so no half-dark surface can
+  // render while that is true — and after slice 4 that lock waits on ADR-028's
+  // gates 4/5 (real-device QA) rather than on any missing value.
   //
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?
   // Read `PasturaPalette.<token>.color` directly instead of these aliases.
   // `HighlightShareCard` is the reference consumer. That is the sanctioned
   // explicit-appearance accessor — note the `Color.night*` aliases below now
-  // have ZERO consumers (this change moved their last one, that same card, to
+  // have ZERO consumers (#1319 moved their last one, that same card, to
   // the raw palette); they remain only as defined-ahead-of-need tokens, and are
   // not a second sanctioned route to a fixed appearance.
 
   // §2.1 Backgrounds
-  static let page = PasturaPalette.page.color
+  static let page = PasturaDynamicPalette.page.color
   static let screenBackground = PasturaDynamicPalette.screenBackground.color
   static let bubbleBackground = PasturaDynamicPalette.bubbleBackground.color
   static let whisperBubble = PasturaDynamicPalette.whisperBubble.color
-  static let promoBackground = PasturaPalette.promoBackground.color
-  static let promoBorder = PasturaPalette.promoBorder.color
+  static let promoBackground = PasturaDynamicPalette.promoBackground.color
+  static let promoBorder = PasturaDynamicPalette.promoBorder.color
 
   // §2.2 Ink
   static let ink = PasturaDynamicPalette.ink.color
   static let inkSecondary = PasturaDynamicPalette.inkSecondary.color
   static let muted = PasturaDynamicPalette.muted.color
   static let rule = PasturaDynamicPalette.rule.color
-  static let inkOnAccent = PasturaPalette.inkOnAccent.color
+  static let inkOnAccent = PasturaDynamicPalette.inkOnAccent.color
 
   // §2.3 Moss
   static let moss = PasturaDynamicPalette.moss.color
-  static let mossDark = PasturaPalette.mossDark.color
-  static let mossInk = PasturaPalette.mossInk.color
-  static let mossSoft = PasturaPalette.mossSoft.color
+  static let mossDark = PasturaDynamicPalette.mossDark.color
+  static let mossInk = PasturaDynamicPalette.mossInk.color
+  static let mossSoft = PasturaDynamicPalette.mossSoft.color
 
   // §2.4 Meta L1
   static let metaBaseL1 = PasturaDynamicPalette.metaBaseL1.color
@@ -120,9 +122,9 @@ extension Color {
   static let disabledBackground = PasturaDynamicPalette.disabledBackground.color
 
   // §2.8 Link / Action
-  static let link = PasturaPalette.link.color
-  static let linkVisited = PasturaPalette.linkVisited.color
-  static let linkHover = PasturaPalette.linkHover.color
+  static let link = PasturaDynamicPalette.link.color
+  static let linkVisited = PasturaDynamicPalette.linkVisited.color
+  static let linkHover = PasturaDynamicPalette.linkHover.color
 
   // §2.9 Dark mode (night pasture)
   static let nightBackground = PasturaPalette.nightBackground.color
@@ -182,6 +184,16 @@ extension Color {
   static let nightAvatarNose = PasturaPalette.nightAvatarNose.color
   static let nightAvatarEye = PasturaPalette.nightAvatarEye.color
   static let nightAvatarHighlight = PasturaPalette.nightAvatarHighlight.color
+  static let nightPage = PasturaPalette.nightPage.color
+  static let nightPromoBackground = PasturaPalette.nightPromoBackground.color
+  static let nightPromoBorder = PasturaPalette.nightPromoBorder.color
+  static let nightInkOnAccent = PasturaPalette.nightInkOnAccent.color
+  static let nightMossDark = PasturaPalette.nightMossDark.color
+  static let nightMossInk = PasturaPalette.nightMossInk.color
+  static let nightMossSoft = PasturaPalette.nightMossSoft.color
+  static let nightLink = PasturaPalette.nightLink.color
+  static let nightLinkVisited = PasturaPalette.nightLinkVisited.color
+  static let nightLinkHover = PasturaPalette.nightLinkHover.color
 
   // §2.10 Time-of-Day (decorative ambient)
   static let dawn = PasturaPalette.dawn.color

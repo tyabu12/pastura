@@ -123,12 +123,14 @@
     アプリは <code>UIUserInterfaceStyle = Light</code> 固定なので、この配色が実機に出るのは gate 1〜5 が
     すべて閉じてから。
     <br>
-    <strong>暫定の地</strong>: §2.4 の実描画面は <code>PromoCard</code> の
-    <code>--promo-bg</code> (#FBFAF2) だが、この light トークンはまだ未ペア（スライス4）。
-    ここでは <code>--night-bubble</code> (#2C2F28) を暫定地として設計している。
-    <strong>#2A2D26〜#2F3229 の帯</strong>はこの梯子を置いた際の設計上の前提で、
-    アサートされた範囲ではない。テストは <code>promoBackground</code> が
-    ペア化された時点で（帯の内外を問わず）赤くなり、実際の地に対する再検算を強制する。§2.12 の地は <code>screenBackground</code> がペア済みなので
+    <strong>暫定の地だった（slice 4 で確定）</strong>: §2.4 の実描画面は
+    <code>PromoCard</code> の <code>--promo-bg</code> (#FBFAF2) で、設計時この light
+    トークンは未ペアだったため <code>--night-bubble</code> (#2C2F28) を暫定地に置いた。
+    slice 4 が <code>--night-promo-bg</code> (#282C24) を与え、テストのトリップワイヤが
+    発火して再検算された — <strong>このカードの比はすべて暫定地に対する設計記録</strong>で、
+    実際の地では各段が上振れする（L3 base 8.16 → 8.54、白の天井 13.60 → 14.23）。
+    <strong>#2A2D26〜#2F3229 の帯</strong>は前提でありアサートではなく、導出値はその
+    わずか下に着地した。§2.12 の地は <code>screenBackground</code> がペア済みなので
     <code>--night-bg</code> (#1B1D17) で確定。
   </p>
 
@@ -280,7 +282,7 @@
       </div>
     </div>
     <p class="section-note">
-      ダーク側のカード地は暫定（<code>promoBackground</code> は未ペア）。点灯5・消灯3の
+      ダーク側のカード地はこのカードでは暫定値（実値は slice 4 の <code>--night-promo-bg</code>）。点灯5・消灯3の
       並びで点灯側が読めるか、ETA 行（<code>metaStrongL3</code>）が本文と同じ強さで
       浮きすぎないか、が見るべき点。
     </p>
@@ -315,10 +317,11 @@
       </div>
     </div>
     <p class="section-note">
-      破線で囲った <code>ROUND 3 / 5</code> は <code>mossDark</code> — <strong>まだ未ペア
-      （スライス4）</strong>なので light 値のまま暗地に乗っており、意図的に読みにくいまま
-      表示している。このスライスで直す対象ではないが、ヘッダー行の完成形はスライス4 を
-      待つ、ということがこのモックから見える。
+      破線で囲った <code>ROUND 3 / 5</code> は <code>mossDark</code> — このカードを
+      作った時点では未ペアだったので light 値のまま暗地に乗っており、意図的に読みにくいまま
+      表示している。<strong>slice 4 がペア化した</strong>（<code>--night-moss-dark</code>
+      #B3C197、地に対し 8.902）ので、ヘッダー行の完成形は
+      <a href="colors-remainder-dark.html">colors-remainder-dark.html</a> 側で見える。
       <br>
       <code>·</code> セパレータが行内で「レイアウト区切り」に見えず、
       <code>12.4 tok/s</code> が phase 名より一段引いて見えるか、が見るべき点。

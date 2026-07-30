@@ -30,10 +30,12 @@ extension SharedScenariosListView {
     } label: {
       Text(chipTitle(option))
         .font(.subheadline.weight(isSelected ? .semibold : .regular))
-        // Selected uses `mossDark`, not base `moss`: white-on-mossDark clears
-        // WCAG AA (≈4.76:1) whereas white-on-moss is only ≈3.0:1
-        // (PasturaPrimaryButtonStyle §2.3). White-on-accent is the
-        // contrast-passing pair, distinct from §1's avoid-white-surfaces rule.
+        // Selected uses `mossDark`, not base `moss`: `inkOnAccent`-on-mossDark
+        // clears WCAG AA (≈4.74:1 light / ≈7.12:1 dark) whereas
+        // `inkOnAccent`-on-moss is only ≈3.0:1 light / ≈6.40:1 dark
+        // (PasturaPrimaryButtonStyle §2.3). `inkOnAccent`-on-accent is the
+        // contrast-passing pair — white in light, a near-ground tone in dark
+        // (ADR-028) — distinct from §1's avoid-white-surfaces rule.
         .foregroundStyle(isSelected ? Color.inkOnAccent : Color.ink)
         .padding(.horizontal, 14)
         .padding(.vertical, 7)

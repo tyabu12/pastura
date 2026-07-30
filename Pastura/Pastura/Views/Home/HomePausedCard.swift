@@ -99,11 +99,13 @@ struct HomePausedCard: View {
           .foregroundStyle(Color.mossInk)
       }
       Spacer()
-      // Use the design-system primary style (mossDark + white label, AA pass),
-      // NOT raw `.borderedProminent`: on iOS 26 the latter opts into the Liquid
-      // Glass capsule, which renders the `play.fill` glyph into the fill so it
-      // vanishes (design-system §5.8 / PasturaPrimaryButtonStyle rationale).
-      // The explicit white `foregroundStyle` on the label restores the icon.
+      // Use the design-system primary style (mossDark + inkOnAccent label,
+      // AA pass in light / AAA in dark — white only in light, a near-ground
+      // tone in dark, ADR-028), NOT raw `.borderedProminent`: on iOS 26 the
+      // latter opts into the Liquid Glass capsule, which renders the
+      // `play.fill` glyph into the fill so it vanishes (design-system §5.8 /
+      // PasturaPrimaryButtonStyle rationale). The explicit `inkOnAccent`
+      // `foregroundStyle` on the label restores the icon.
       Button {
         router.push(Self.resumeRoute(for: summary))
       } label: {

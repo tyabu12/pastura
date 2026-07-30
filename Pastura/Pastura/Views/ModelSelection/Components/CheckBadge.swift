@@ -2,7 +2,8 @@ import SwiftUI
 
 /// The selection indicator at the trailing edge of each picker row.
 ///
-/// - `filled == true`: solid moss-colored circle with a white check.
+/// - `filled == true`: solid moss-colored circle with an `inkOnAccent` check
+///   (white in light, `nightInkOnAccent` in dark — see the stroke's own note).
 /// - `filled == false`: hairline-outline circle, transparent fill.
 ///
 /// Decoration of the row's `.accessibilityAddTraits(.isSelected)` state —
@@ -32,9 +33,10 @@ struct CheckBadge: View {
           // Deliberately on base `moss` (the `tint` default) rather than the
           // `mossDark` that on-accent *text* requires: a checkmark is a shape,
           // so WCAG 1.4.11's 3:1 non-text bar applies and ≈3.03:1 clears it —
-          // by ~1%, so re-measure if `moss` ever shifts. Under dark this
-          // becomes white on `nightMoss` ≈2.13:1 and fails; that is ADR-028
-          // gate 1's dark-value decision, unreachable while the light lock holds.
+          // by ~1%, so re-measure if `moss` ever shifts. Resolved by ADR-028
+          // gate 1: `inkOnAccent` was paired (not `nightMoss` darkened), so
+          // dark reads `nightInkOnAccent` on `nightMoss` at ≈6.40:1 — clears
+          // both the 3:1 shape bar and the 4.5:1 text bar with headroom.
           .stroke(
             Color.inkOnAccent,
             style: StrokeStyle(

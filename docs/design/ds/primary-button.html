@@ -34,7 +34,7 @@
   <p class="card-title">Components — Primary button (§5.10)</p>
 
   <div class="section">
-    <p class="section-label">ブラウズ系の主要 CTA（Gallery「Try this scenario」、Shared Scenarios の Retry）。mossDark 塗り + 白文字。raw .borderedProminent（iOS 26 Liquid Glass capsule に opt-in）は使わない。</p>
+    <p class="section-label">ブラウズ系の主要 CTA（Gallery「Try this scenario」、Shared Scenarios の Retry）。mossDark 塗り + <code>inkOnAccent</code> 文字（light では白、dark は #2C2F28）。raw .borderedProminent（iOS 26 Liquid Glass capsule に opt-in）は使わない。</p>
     <div class="field">
       <span class="pbtn">Try this scenario</span>
     </div>
@@ -42,17 +42,17 @@
   </div>
 
   <div class="section">
-    <p class="section-label">なぜ mossDark — 白文字とのコントラスト</p>
+    <p class="section-label">なぜ mossDark — <code>inkOnAccent</code> とのコントラスト（下表は light）</p>
     <table class="map">
-      <tr><th>塗り</th><th>白文字コントラスト</th><th>判定</th></tr>
+      <tr><th>塗り</th><th><code>inkOnAccent</code> コントラスト（light）</th><th>判定</th></tr>
       <tr><td><code>--moss #8A9A6C</code>（.borderedProminent の accent）</td><td>≈ 3.0:1</td><td>WCAG AA 未達 ✗</td></tr>
-      <tr><td><code>--moss-dark #6B7852</code>（採用）</td><td>≈ 4.76:1</td><td>AA 達成 ✓</td></tr>
+      <tr><td><code>--moss-dark #6B7852</code>（採用）</td><td>≈ 4.74:1</td><td>AA 達成 ✓</td></tr>
     </table>
     <div class="field" style="margin-top:10px; display:flex; gap:10px;">
       <span class="swatch s-moss">moss 3.0:1</span>
-      <span class="swatch s-mossdark">mossDark 4.76:1</span>
+      <span class="swatch s-mossdark">mossDark 4.74:1</span>
     </div>
-    <p class="section-note">角丸 12pt（14pt カードの内側で角が競合しないよう一段小さく）。fill↔token（mossDark / 白）は PasturaPrimaryButtonStyleTests で pin。</p>
+    <p class="section-note">角丸 12pt（14pt カードの内側で角が競合しないよう一段小さく）。fill↔token（<code>mossDark</code> / <code>inkOnAccent</code>）は PasturaPrimaryButtonStyleTests で pin。</p>
   </div>
 </div>
 </body>

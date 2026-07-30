@@ -28,12 +28,12 @@ enum PasturaCardMetrics {
 /// `UITableView.Style` / SwiftUI `ListStyle` vocabulary so the intent reads at
 /// a glance to any iOS engineer.
 ///
-/// - ``insetGrouped``: a rounded white pane inset from the screen edge with an
+/// - ``insetGrouped``: a rounded white-in-light pane inset from the screen edge with an
 ///   all-around hairline. The detail-screen / content-grouping form
 ///   (ScenarioDetail, GalleryScenarioDetail) — the default.
-/// - ``grouped``: a full-bleed white band reaching both screen edges, no corner
-///   radius, top + bottom hairlines only. The browse-list form (Home / Shared
-///   Scenarios / Past Results / Settings; #731).
+/// - ``grouped``: a full-bleed white-in-light band reaching both screen edges, no
+///   corner radius, top + bottom hairlines only. The browse-list form (Home /
+///   Shared Scenarios / Past Results / Settings; #731).
 ///
 /// The full-bleed zero-overrides live here, NOT on ``PasturaCardMetrics`` — the
 /// shared constants stay positive so a refactor can't silently collapse the
@@ -62,15 +62,15 @@ enum PasturaSectionStyle {
   }
 }
 
-/// The browse-side card container: wraps arbitrary content in a white
+/// The browse-side card container: wraps arbitrary content in a white-in-light
 /// (`bubbleBackground`) surface with a `rule` hairline and **no shadow**.
 ///
 /// Two forms, selected by ``PasturaSectionStyle``:
 /// - `.insetGrouped` — a `.continuous` rounded rectangle clipped + stroked on
 ///   all four sides (the chat/promo bubble of §5.2/§5.4 is a separate form with
 ///   a left moss border + shadow; this is the quiet browse pane of §5.9).
-/// - `.grouped` — a full-bleed band: white fill reaching both screen edges with
-///   top + bottom hairlines only, no radius, no side border. Against the warm
+/// - `.grouped` — a full-bleed band: white-in-light fill reaching both screen edges
+///   with top + bottom hairlines only, no radius, no side border. Against the warm
 ///   `screenBackground` field (only ~2% lighter than white) those two hairlines
 ///   are load-bearing — they, not elevation, define the band's edges (§1
 ///   "observation, not manipulation").

@@ -72,12 +72,17 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// 0.2 to read.
 ///
 /// Measured on the composited wash (`mossDark` over `moss` @0.2 over
-/// `bubbleBackground`): **≈3.92:1**, versus ≈2.51:1 if the label were `moss`.
-/// So the token split is what makes the badge legible, but at `caption2.bold`
-/// it does **not** reach the 4.5:1 text bar — a pre-existing property of the
-/// shipped design, unchanged by the hoist. Do not read § 2.2's ≈3.03 / ≈4.7
-/// figures as covering this: those are **white on a solid fill**, a different
-/// pairing. `secondary` measures ≈5.57:1.
+/// `bubbleBackground`), **light appearance**: **≈3.92:1**, versus ≈2.51:1 if the
+/// label were `moss`. So the token split is what makes the badge legible, but at
+/// `caption2.bold` it does **not** reach the 4.5:1 text bar — a pre-existing
+/// property of the shipped design, unchanged by the hoist. `secondary` measures
+/// ≈5.57:1, also light.
+///
+/// All four tokens in that composite are paired since ADR-028 slice 4, so these
+/// are light-appearance figures rather than absolutes; the dark composite is not
+/// measured here because the app is still lock-pinned to light. Do not read
+/// § 2.2's ≈3.03 / ≈4.74 figures as covering this either: those are
+/// `inkOnAccent` on a **solid** fill (white only in light), a different pairing.
 ///
 /// These are trait-resolving `Color.*` aliases on purpose: the badge renders
 /// live on-device, so it must follow the device appearance. A

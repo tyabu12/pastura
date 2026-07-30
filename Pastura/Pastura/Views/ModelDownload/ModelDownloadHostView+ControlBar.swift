@@ -58,7 +58,7 @@ extension ModelDownloadHostView {
   /// during BG anyway, but the boundary is meaningful for the
   /// transient redraw frame on FG return.
   ///
-  /// Filled `mossDark` circle + white glyph via the shared
+  /// Filled `mossDark` circle + `inkOnAccent` glyph (white in light) via the shared
   /// ``SimulationPlayButtonMetrics``, keeping parity with
   /// `SimulationView.controlBar` (#273). Always interactive (no disabled
   /// state — PR 1b / #290), so only the `enabledFill` is used.

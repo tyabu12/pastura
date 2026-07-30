@@ -98,8 +98,9 @@
 
   /* §2.9 Dark Mode — night pasture. All of these are wired trait-based in the
      app (ADR-028, extended by #1282, which also deleted --night-surface: it
-     had no light partner). The app stays pinned to light until the other 42
-     light tokens gain dark counterparts, so dark never actually renders yet. */
+     had no light partner). Slice 4 closed gate 1, so NO light token is waiting
+     on a dark value any more; the app stays pinned to light on ADR-028's gates
+     4/5 (real-device QA) instead, and dark never actually renders yet. */
   --night-bg: #1B1D17;
   --night-bubble: #2C2F28;
   --night-whisper-bubble: #2F3626;
@@ -201,6 +202,34 @@
   --night-avatar-nose: #2A2D1D;
   --night-avatar-eye: #16170F;
   --night-avatar-highlight: rgba(255, 255, 255, 0.4);
+
+  /* §2.9 dark counterparts of the §2.1 surfaces, §2.2's on-accent foreground,
+     §2.3's moss steps and §2.8's links — slice 4, which CLOSED gate 1.
+     Two things a reader should not have to re-derive:
+     - The §2.3 family INVERTS. Light runs ink < dark < moss < soft by
+       luminance; dark runs soft < moss < dark < ink. So --night-moss-dark is
+       BRIGHTER than --night-moss, where light's is darker than --moss.
+     - --night-ink-on-accent is NOT white. Material 3 flips on-primary tone
+       100 -> 20 when primary goes 40 -> 80, which is what moss -> night-moss
+       does. It is placed at WCAG AAA (7:1) over --night-moss-dark because the
+       smallest consumers are 9pt/9.5pt mono labels.
+     `--night-promo-bg` is §2.4's real render ground; the meta ladder was
+     designed against `--night-bubble` as a stand-in and re-measured against
+     this value. See design-system.md §2.9 and ds/colors-remainder-dark.html. */
+  --night-page: #11130F;
+  --night-promo-bg: #282C24;
+  --night-promo-border: #35392F;
+  --night-ink-on-accent: #2C2F28; /* == --night-bubble. CONSEQUENCE of the AAA
+     placement, not a carried coincidence — a foreground and a surface do not
+     share a job. The substring gate cannot see this row (the hex is already
+     present above), so it is diff-verified and pinned by
+     `nightInkOnAccentIntentionallyMatchesNightBubble` instead. */
+  --night-moss-dark: #B3C197;
+  --night-moss-ink: #C6CBB1;
+  --night-moss-soft: #384029;
+  --night-link: #699054;
+  --night-link-visited: #9B9075;
+  --night-link-hover: #7FAA62;
 
   /* §2.10 Time-of-Day (reserved, ambient) */
   --dawn: #F4E5CD;
