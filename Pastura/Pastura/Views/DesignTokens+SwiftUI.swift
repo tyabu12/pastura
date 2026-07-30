@@ -20,10 +20,10 @@ extension Color {
   // outside that scope entirely: the 67 §2.9 `night*` ones are the dark halves
   // themselves (note `night` alone is §2.10, not one of them — grepping the
   // prefix returns 68), and §2.10 time-of-day / §2.11 chart are decorative
-  // reservations that were never candidates for pairing. The app is pinned to
-  // light via `Info.plist`'s `UIUserInterfaceStyle`, so no half-dark surface can
-  // render while that is true — and after slice 4 that lock waits on ADR-028's
-  // gates 4/5 (real-device QA) rather than on any missing value.
+  // reservations that were never candidates for pairing. `Info.plist`'s
+  // `UIUserInterfaceStyle` lock has been removed (ADR-028 gates 4/5), so every
+  // half-dark surface now renders on a device set to dark appearance — nothing
+  // missing holds it back, since slice 4 already closed gate 1.
   //
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?

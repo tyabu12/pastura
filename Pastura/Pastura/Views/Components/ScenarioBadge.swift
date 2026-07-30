@@ -79,10 +79,14 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// ≈5.57:1, also light.
 ///
 /// All four tokens in that composite are paired since ADR-028 slice 4, so these
-/// are light-appearance figures rather than absolutes; the dark composite is not
-/// measured here because the app is still lock-pinned to light. Do not read
-/// § 2.2's ≈3.03 / ≈4.74 figures as covering this either: those are
-/// `inkOnAccent` on a **solid** fill (white only in light), a different pairing.
+/// are light-appearance figures rather than absolutes. Measured on the dark
+/// composite (`nightMossDark` label over a `nightMoss` wash at the same 0.2
+/// fill opacity, composited over `nightBubble` → composited wash #454A3B):
+/// **≈4.79:1** — unlike light, dark **passes** the 4.5:1 text bar, so the
+/// known light-mode contrast gap here (#1327 part 1) does not extend to dark.
+/// Do not read § 2.2's ≈3.03 / ≈4.74 figures as covering either appearance:
+/// those are `inkOnAccent` on a **solid** fill (white only in light), a
+/// different pairing.
 ///
 /// These are trait-resolving `Color.*` aliases on purpose: the badge renders
 /// live on-device, so it must follow the device appearance. A
