@@ -106,6 +106,7 @@ extension DesignTokensTests {
       relativeLuminance(PasturaPalette.nightDisabledBackground)
         < relativeLuminance(PasturaPalette.nightBubble))
   }
+
 }
 
 // MARK: - Helpers
