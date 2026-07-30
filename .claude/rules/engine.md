@@ -470,7 +470,8 @@ this paragraph to have stayed current. Note also that a wording change is a
 *behaviour* change: pair it with a harness A/B, and give that A/B a **deleted-text
 control arm** — without one, "the two wordings tie" cannot be told from "this text
 does nothing". #1301 ran that control and found a whole guidance sentence inert in
-`en` on its decision metric, against a positive control that reached 100 %.
+`en` on its decision metric; what that does and does not license is recorded on
+`appendSecretSection`'s doc comment.
 
 ## SimulationEvent & the projection contract
 

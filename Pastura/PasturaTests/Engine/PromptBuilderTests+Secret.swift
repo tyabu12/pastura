@@ -62,7 +62,8 @@ extension PromptBuilderTests {
     // The closing sentence, unasserted until #1301 and now pinned in BOTH
     // languages. The ja close was never an A/B arm — it was constant throughout —
     // so this pins it for symmetry with the en assertion, which is the one the
-    // arms actually differed on. Its declarative mood is the ja/en scope-parallel.
+    // arms actually differed on. The en close now matches this one's declarative
+    // mood, per the ja/en scope-parallel convention the sibling rules state.
     #expect(prompt.contains("あなたの判断や態度はこの秘密に左右されます"))
   }
 

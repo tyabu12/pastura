@@ -36,19 +36,20 @@ nonisolated extension PromptBuilder {
   /// On **decisions**, in **en**, on Gemma 4 E2B (Q4_K_M), on a purpose-built
   /// probe whose personas carried bare `secret:` text, the sentence is inert: an
   /// imperative arm, this declarative arm, and a control with the sentence
-  /// deleted all sat on the 50 % chance baseline (13/25 · 12/25 · 6/12 of the
-  /// vote turns that named a person; ~31 % named a proposal instead and were
-  /// dropped, evenly across arms, so the baseline is over that retained subset).
-  /// A positive control reached 100 %, but its directive sat in the scenario's
-  /// `secret:` text — that shows the *metric* is movable, which is not the same
-  /// as text in *this* slot being able to move it. The **ja** close was never an
-  /// arm and is entirely unmeasured.
+  /// deleted all sat on the 50 % chance baseline (imperative 13/25 · declarative
+  /// 12/25 · control 6/12 of the vote turns that named a person; ~31 % named a
+  /// proposal instead and were dropped, evenly across arms, so the baseline is
+  /// over that retained subset). A positive control reached 100 % (6/6, one run),
+  /// but its directive sat in the scenario's `secret:` text — that shows the
+  /// *metric* is movable, which is not the same as text in *this* slot being able
+  /// to move it. The **ja** close was never an arm and is entirely unmeasured.
   ///
   /// The sentence is kept as the **status quo**: no arm of the pre-registered
   /// rule could have deleted it. A blinded inner-monologue read did rank the
-  /// deleted-sentence control lowest (12/12 · 10/12 · 8/12), but at n=12/arm the
-  /// scorer declined to reject a common distribution, so that ordering is not
-  /// evidence and is not the reason the sentence stays.
+  /// deleted-sentence control lowest (declarative 12/12 · imperative 10/12 ·
+  /// control 8/12), but at n=12/arm the scorer declined to reject a common
+  /// distribution, so the pre-registered rule gave that ordering no role in the
+  /// decision; it supports "declarative is not worse", never "better".
   ///
   /// Only the closing sentence's **formulation** varied — mood, segmentation and
   /// word choice moved together, so none of the three is separately attributable.
