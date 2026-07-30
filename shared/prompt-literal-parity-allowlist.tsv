@@ -36,4 +36,3 @@
 # fails on a row that no longer matches anything — a healed divergence must drop
 # its row rather than linger as a standing exemption.
 side	stem	digest	excerpt	reason
-unported	NarrateHandler	-	-	ADR-023 Stage 3: narrate is not in the Wave B port set yet (#501).

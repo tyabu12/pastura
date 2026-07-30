@@ -80,6 +80,11 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheNarrateHandler() {
+        assertIs<NarrateHandler>(dispatcher.handler(PhaseType.NARRATE))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
@@ -95,9 +100,10 @@ class PhaseDispatcherTests {
     fun theErrorNamesThePhaseUsingItsWireNameNotItsKotlinCaseName() {
         // `conditional`, not `CONDITIONAL` — Swift interpolates `phaseType.rawValue`,
         // and a reader comparing the two engines' errors should see the same token.
-        // The exemplar is CONDITIONAL rather than the next handler in the port queue:
-        // it is LAST in the remaining Wave-B order (Narrate -> Conditional), so this
-        // repoint survives the longest.
+        // The exemplar is CONDITIONAL because it is the SOLE remaining unported
+        // handler (Wave B is 13/14), so no further repoint is possible: the next port
+        // to land is Conditional itself, and that PR retires this exemplar rather than
+        // moving it.
         val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
         assertTrue(message.contains("conditional"), "expected the wire name, got: $message")
@@ -117,7 +123,7 @@ class PhaseDispatcherTests {
             runCatching { dispatcher.handler(it) }.isFailure
         }
         assertEquals(14, PhaseType.entries.size, "the drift ledger's case count is now executable")
-        assertEquals(2, unported.size, "see the #501 drift ledger")
+        assertEquals(1, unported.size, "see the #501 drift ledger")
         for (type in unported) {
             val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
                 dispatcher.handler(type)
