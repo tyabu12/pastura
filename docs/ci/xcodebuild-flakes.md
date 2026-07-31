@@ -22,6 +22,47 @@ the lead claims + the key inline commands + a pointer to this file.
   → `xcrun simctl erase <UDID>` + retry **once**. Persistent failures
   are real bugs (signing / plist / app-state regression), not flakes.
 
+## Local full-suite flake: simulator infrastructure crash before app launch
+
+**Local only** — this class has nothing to do with `ci-retry.yml` or the GHA
+catalog below. It fires during a local `scripts/xcodebuild.sh test` full run and
+is filed here, next to § Recovery, because that is where a local debugging
+session arrives.
+
+Observed three times during #1334, and re-diagnosed all three — twice while
+suspecting a real regression, because the same test failed at the same point
+across consecutive full-suite runs, which § "When to escalate" gives as the
+signal to *stop* treating something as a flake.
+
+**Signature** (all five together; any one alone is not enough):
+
+- `EditorReloadTests.testEditorSavePopsAndReloadsHome` fails at **`t = 0.00s`**
+  with `[XPCErrors] [C:N] Error received: Connection interrupted` — *before the
+  app launches*, so no app-side change can reach it
+- followed by `Restarting after unexpected exit, crash, or test timeout`
+- **no `Pastura-*.ips`** in `~/Library/Logs/DiagnosticReports/`; instead
+  `SimRenderServer` (`EXC_BREAKPOINT` / `SIGTRAP`) and `testmanagerd` crash logs
+  at the same timestamp
+- passes in isolation: `scripts/xcodebuild.sh test -only-testing PasturaUITests/EditorReloadTests`
+- observed each time on the test that runs immediately after
+  `DeepLinkTabRoutingUITests` — a position, not a property of the test
+
+**Action**: re-run the full suite. Confirm with the `-only-testing` run above if
+you want a second data point first. Do **not** change `EditorReloadTests` — it is
+the position in the sequence that is being hit, so editing the test moves the
+failure rather than fixing it.
+
+**Why the recurrence rule does not apply.** § "When to escalate" and
+`.claude/rules/xcodebuild-cli.md` § "CI flake catalog" both say to escalate when
+the same message recurs at the same stage across reruns. Both are written about
+**CI reruns** (`run_attempt`, `gh run rerun --failed`), and every cause they
+enumerate is app-side — signing, `Info.plist`, app-init regressions. Generalizing
+that rule to a local full-suite run misfires when the failure *precedes* app
+launch: nothing app-side is running yet, so recurrence carries no information
+about the app. **Absence of a `Pastura-*.ips` is what settles it** — the mirror of
+the AttributeGraph render-crash class, where `.claude/rules/swiftui-traps.md`
+points at those same frames because the crash *is* in the app.
+
 ## CI flake catalog (auto-retried by `ci-retry.yml`)
 
 `.github/workflows/ci-retry.yml` auto-retries failed UI test jobs
