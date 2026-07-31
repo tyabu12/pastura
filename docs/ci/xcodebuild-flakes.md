@@ -26,15 +26,9 @@ extracted — it is the one local-only class in a doc otherwise about CI.
 
 ## Local full-suite flake: simulator infrastructure crash before app launch
 
-**Local only** — this class has nothing to do with `ci-retry.yml` or the GHA
-catalog below. It fires during a local `scripts/xcodebuild.sh test` full run and
-is filed here, next to § Recovery, because that is where a local debugging
-session arrives.
-
-Observed three times during #1334, and re-diagnosed all three — twice while
-suspecting a real regression, because the same test failed at the same point
-across consecutive full-suite runs, which § "When to escalate" gives as the
-signal to *stop* treating something as a flake.
+Fires during a local `scripts/xcodebuild.sh test` full run — nothing to do with
+`ci-retry.yml` or the GHA catalog below. Observed three times during #1334 and
+re-diagnosed all three, twice while suspecting a real regression.
 
 **Signature** (the first three together are the discriminator; 4–5 corroborate
 and are not observable on a first encounter):
@@ -56,15 +50,13 @@ the position in the sequence that is being hit, so editing the test moves the
 failure rather than fixing it.
 
 **Why the recurrence rule does not apply.** § "When to escalate" and
-`.claude/rules/xcodebuild-cli.md` § "CI flake catalog" both say to escalate when
-the same message recurs at the same stage across reruns. Both are written about
-**CI reruns** (`run_attempt`, `gh run rerun --failed`), and every cause they
-enumerate is app-side — signing, `Info.plist`, app-init regressions. Generalizing
-that rule to a local full-suite run misfires when the failure *precedes* app
-launch: nothing app-side is running yet, so recurrence carries no information
-about the app. **Absence of a `Pastura-*.ips` is what settles it** — the mirror of
-the AttributeGraph render-crash class, where `.claude/rules/swiftui-traps.md`
-points at those same frames because the crash *is* in the app.
+`.claude/rules/xcodebuild-cli.md` § "CI flake catalog" both escalate on the same
+message recurring at the same stage — but both are scoped to **CI reruns** and
+every cause they name is app-side (signing, `Info.plist`, app-init). Before app
+launch nothing app-side is running, so recurrence says nothing about the app.
+**Absence of a `Pastura-*.ips` is what settles it** — the mirror of the
+AttributeGraph render-crash class, where `.claude/rules/swiftui-traps.md` points
+at those same frames because the crash *is* in the app.
 
 ## CI flake catalog (auto-retried by `ci-retry.yml`)
 
