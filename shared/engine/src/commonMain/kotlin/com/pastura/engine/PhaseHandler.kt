@@ -50,8 +50,8 @@ import com.pastura.models.SimulationState
  * @property phase     The phase this handler is executing.
  * @property backend   The platform LLM backend (§5.2).
  * @property phasePath This handler's position in the scenario. Top-level handlers
- *   run with `[K]`; sub-phases inside a conditional would run with `[K, N]`. No
- *   nesting handler is in this slice, so it is always single-element here.
+ *   run with `[K]`; sub-phases inside a conditional run with `[K, N]`, built by
+ *   [ConditionalHandler] — the only nesting handler.
  */
 internal class PhaseContext(
     val scenario: Scenario,
@@ -83,9 +83,10 @@ internal class PhaseContext(
      * structurally impossible.
      *
      * Handlers that dispatch nested sub-phases must call this between each one so
-     * a pause is honoured at sub-phase granularity. No such handler exists in this
-     * slice, so nothing calls it yet — it is part of the contract the runner
-     * provides and Stage 3's `ConditionalHandler` consumes.
+     * a pause is honoured at sub-phase granularity. [ConditionalHandler] is the sole
+     * consumer, and relies on the throw above as its *only* cancellation check —
+     * it deliberately carries no `ensureActive()` of its own, so weakening this
+     * contract would silently make branch loops uncancellable.
      */
     val pauseCheck: suspend (phasePath: List<Int>) -> Unit,
     val phasePath: List<Int>,
