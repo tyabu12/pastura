@@ -2,17 +2,21 @@ id: detective_scene_v1_en
 language: en
 name: The Detective's Deduction
 description: >
-  A murder at a country manor. Four suspects and one detective trade alibis
-  and motives, and at the end the detective names the culprit — a short
-  deduction roleplay. If the vote splits, it branches into a rebuttal round.
-agents: 5
-rounds: 1
+  A murder at a country manor. Four suspects name and challenge one another
+  while a neutral detective guides the deduction — a short roleplay. If the
+  vote splits, it branches into a rebuttal round.
 
 context: >
   The setting is a 1920s Western manor. The wealthy Mr. Hamilton has been
   poisoned in his study. The four suspects who were present and an invited
-  private detective sit around a round table. Each reveals an alibi and a
-  motive, and the detective deduces the culprit at the end.
+  private detective, Holmes, sit around a round table.
+  [Rule of the investigation] Detective Holmes is a neutral investigator, not
+  a suspect. He must never be voted for as the culprit. The true culprit is
+  always one of the four suspects (Butler Wallace, Niece Eleanor,
+  Gardener Thomas, Doctor Carter).
+
+agents: 5
+rounds: 1
 
 personas:
   - name: Butler Wallace
@@ -20,37 +24,47 @@ personas:
       [Role] A loyal butler who served the master for thirty years.
       [Goal] Protests his innocence, but hides that the master had been about
       to dismiss him.
+      [Suspicion] Subtly hints at Niece Eleanor, who stood to inherit.
       Courteous and careful.
   - name: Niece Eleanor
     description: >
       [Role] The master's sole heir apparent.
       [Goal] Conceals her interest in the inheritance while professing her
       innocence. Grows talkative when flustered.
+      [Suspicion] Turns suspicion on Doctor Carter, who knows poisons.
   - name: Gardener Thomas
     description: >
       [Role] Has tended the manor's gardens for a few years. Usually quiet.
       [Goal] Claims he was in the greenhouse the night of the murder, but no
       one saw him.
+      [Suspicion] Eyes Butler Wallace, who could move freely through the manor.
       Blunt and terse.
   - name: Doctor Carter
     description: >
       [Role] The master's personal physician, with knowledge of poisons.
       [Goal] Explains the situation with professional insight while hiding
       that his own prescription could have been the weapon.
+      [Suspicion] Probes the gap in Gardener Thomas's unwitnessed alibi.
       Cool and logical.
   - name: Detective Holmes
     description: >
-      [Role] A renowned private detective.
-      [Goal] Presses on the contradictions in each testimony and identifies
-      the true culprit.
+      [Role] A renowned private detective. Not a suspect, but the neutral
+      investigator who judges the case.
+      [Goal] Presses on the contradictions in each testimony and narrows the
+      true culprit down among the four suspects. Never lets himself be
+      suspected.
       Sharp, with an occasional streak of irony.
 
 phases:
   - type: speak_each
     prompt: >
       What the others have said: {conversation_log}
-      From your standpoint, state your alibi for the night of the murder or
-      something you observed, in 1-2 sentences.
+      From your standpoint, state (1) your alibi for the night of the murder
+      in one sentence, and (2) name one other suspect and give one specific,
+      concrete reason they are suspicious. Do not repeat what others have
+      already said — give an observation only you could make.
+      Detective Holmes judges the suspects, so he must not let himself be
+      suspected.
     output:
       statement: string
       inner_thought: string
@@ -60,7 +74,11 @@ phases:
       Statements so far:
       {conversation_log}
 
-      Who do you think is the culprit? Choose the most suspicious person.
+      Who do you deduce is the true culprit? Choose the single most suspicious
+      person.
+      [Strict] Detective Holmes is the investigator, not a suspect. Never vote
+      for Holmes; choose only from the four suspects (Butler Wallace,
+      Niece Eleanor, Gardener Thomas, Doctor Carter).
       Your vote must be exactly one of these names: {candidates}
     exclude_self: false
     output:
@@ -75,15 +93,16 @@ phases:
     then:
       - type: summarize
         template: >
-          🔎 Decisive evidence! The votes converged ({vote_results}).
-          By majority agreement, the top-voted suspect is declared
-          the culprit.
+          🔎 Decisive evidence! Suspicion converged on one person
+          ({vote_results}). Detective Holmes names the top-voted suspect as
+          the true culprit. The case is solved.
     else:
       - type: speak_each
         prompt: >
           The vote was split: {vote_results}
-          If you were accused, offer a rebuttal; otherwise add one more
-          observation, in 1-2 sentences.
+          If you were accused, rebut by name; otherwise add one decisive extra
+          observation, in 1-2 sentences. Detective Holmes must not let himself
+          be suspected.
         output:
           statement: string
           inner_thought: string
