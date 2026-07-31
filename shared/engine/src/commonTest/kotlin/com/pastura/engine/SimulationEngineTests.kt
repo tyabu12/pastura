@@ -246,20 +246,14 @@ class SimulationEngineTests {
         assertFalse(c.snapshot().any { it is SimulationEvent.SimulationCompleted })
     }
 
-    @Test
-    fun anUnportedPhaseTypeSurfacesAsAValidationError() = runBlockingTest {
-        // A Stage-3 gap must read as a gap at runtime, not as a crash. Uses
-        // CONDITIONAL — last in the remaining Wave-B port order, so this exemplar
-        // outlives the ones ported next (CHOOSE now resolves).
-        val s = scenario().copy(phases = listOf(Phase(type = PhaseType.CONDITIONAL, condition = "1 == 1")))
-        val c = Collector()
-        SimulationEngine().run(s, ScriptedLLMBackend(emptyList())) { c.record(it) }
-        awaitTerminal(c)
-
-        val error = assertIs<SimulationEvent.ErrorEvent>(c.snapshot().last())
-        val failed = assertIs<SimulationError.ScenarioValidationFailed>(error.error)
-        assertTrue(failed.message.contains("conditional"))
-    }
+    // `anUnportedPhaseTypeSurfacesAsAValidationError` lived here, using CONDITIONAL
+    // as the last-to-be-ported exemplar. Wave B completed at 14/14 (#1342), so no
+    // PhaseType is unported and the case had no subject left. Not repointed: the
+    // dispatcher's throw is unreachable through the public API, and it is covered at
+    // the unit level via the seam (`PhaseDispatcherTests`). Its engine-level claim —
+    // that a phase error ends the run with an ErrorEvent rather than a crash — is
+    // already carried by `aPhaseErrorEndsTheRunWithAnErrorEvent` above, since the
+    // dispatch call sits inside the same `try` as handler execution.
 
     // MARK: - §5.1 pause / resume
 

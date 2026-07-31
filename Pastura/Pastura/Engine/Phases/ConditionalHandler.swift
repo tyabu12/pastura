@@ -3,11 +3,14 @@ import Foundation
 /// Handles `conditional` phases — evaluates a DSL expression against the
 /// current simulation state and dispatches to `thenPhases` or `elsePhases`.
 ///
-/// Owns a private ``PhaseDispatcher`` so the outer runner's dispatcher is
-/// not threaded through ``PhaseContext``. ``SimulationRunner`` remains the
-/// sole emitter of `.simulationPaused`; this handler invokes
-/// `context.pauseCheck` between each sub-phase so the user's pause request
-/// is honored at sub-phase granularity.
+/// Owns a private sub-handler dictionary (``subHandlers``) rather than a
+/// ``PhaseDispatcher``, so the outer runner's dispatcher is not threaded
+/// through ``PhaseContext``. The distinction matters: a `PhaseDispatcher`
+/// contains every handler including this one, so holding one here would
+/// recurse forever at initialization — see ``subHandlers``.
+/// ``SimulationRunner`` remains the sole emitter of `.simulationPaused`;
+/// this handler invokes `context.pauseCheck` between each sub-phase so the
+/// user's pause request is honored at sub-phase granularity.
 ///
 /// Nested lifecycle events (`phaseStarted` / `phaseCompleted`) are emitted
 /// with paths of the form `[outerK, innerN]` so consumers can tell a nested
@@ -30,10 +33,16 @@ nonisolated struct ConditionalHandler: PhaseHandler {
   /// handler, including `ConditionalHandler`, which would build another
   /// `PhaseDispatcher` in turn, forever.
   ///
-  /// Also omits `.reflect` and `.whisper` — both are private-channel LLM
-  /// phases that are not supported inside a conditional branch in v1
-  /// (`ScenarioValidator.validateBranch` rejects them at load time; the
-  /// omission here is the runtime backstop).
+  /// Also omits four phase types that are not supported inside a conditional
+  /// branch: `.reflect` and `.whisper` (private-channel LLM phases),
+  /// `.relationshipUpdate`, and `.narrate`. For all four,
+  /// `ScenarioValidator.validateBranch` rejects at load time and the omission
+  /// here is the runtime backstop.
+  ///
+  /// Counting `.conditional` above, this dictionary registers 9 of the 14
+  /// phase types. Neither this dictionary nor `validateBranch` is exhaustive
+  /// over `PhaseType`, so a newly added phase is NOT compiler-caught here —
+  /// see `.claude/rules/engine.md` § "Adding a new `PhaseType`".
   ///
   /// `event_inject` is included so curators can gate event injection on
   /// scenario state (e.g., "only inject in round 3+"). The validator
@@ -89,9 +98,13 @@ nonisolated struct ConditionalHandler: PhaseHandler {
 
       // Resolve the handler BEFORE emitting `phaseStarted` so a
       // missing-handler throw doesn't leave a dangling started-without-
-      // completed event in the stream (the outer `.phaseStarted(.conditional)`
-      // / `.phaseCompleted(.conditional)` pair from the runner still brackets
-      // the whole failure path).
+      // completed event in the stream.
+      //
+      // The outer pair does NOT rescue this: on a throw, `executePhases`
+      // emits `.error` and returns without emitting
+      // `.phaseCompleted(.conditional)`, so the outer `phaseStarted` dangles
+      // too. Ordering here is therefore the only thing keeping the INNER
+      // events paired on the rejection path.
       guard let handler = subHandlers[subPhase.type] else {
         throw SimulationError.scenarioValidationFailed(
           "Phase type '\(subPhase.type.rawValue)' is not allowed inside a "

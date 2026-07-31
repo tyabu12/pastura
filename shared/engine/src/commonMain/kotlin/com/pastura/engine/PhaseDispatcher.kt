@@ -7,13 +7,10 @@ import kotlinx.serialization.serializer
 /**
  * Routes [PhaseType] values to their [PhaseHandler] implementations.
  *
- * ## Scope: the ADR-023 Stage-3 port, in progress
+ * ## Scope: all 14 phase types are registered
  *
- * **`SPEAK_ALL`, `ELIMINATE`, `SUMMARIZE`, `ASSIGN`, `EVENT_INJECT`, `SCORE_CALC`,
- * `RELATIONSHIP_UPDATE`, `REFLECT`, `VOTE`, `WHISPER`, `CHOOSE`, `SPEAK_EACH` and
- * `NARRATE` are registered.** Swift registers all 14; the remaining 1 is the
- * mechanical bulk of Stage 3 ("mechanical after the Stage-2 slice", §4), ported
- * handler-by-handler.
+ * Wave B completed with `CONDITIONAL` (#1342), so this map now covers every
+ * [PhaseType] case, matching Swift.
  *
  * Unlike Swift's `PhaseDispatcher`, this is **not** exhaustive over [PhaseType] —
  * so an unregistered phase fails at dispatch with a clear error rather than at
@@ -22,33 +19,33 @@ import kotlinx.serialization.serializer
  * projection contract demands lives on the *Swift* enum switches, which are
  * unaffected by this port.
  *
+ * **That throw is not dead code now that the map is complete.** It defends the
+ * recurring state this migration keeps producing: a new case lands in
+ * `shared/models` (needed for wire parity) *before* its handler is ported, and
+ * until it is, dispatch must fail as a legible gap rather than crash. Converting
+ * the lookup to an exhaustive `when` would instead hard-compile-break
+ * `shared/engine` for the whole of every such window.
+ *
  * Swift original: `Pastura/Pastura/Engine/PhaseDispatcher.swift`.
+ *
+ * @param handlers **Test seam.** Production always uses the default — the two
+ *   construction sites are `SimulationEngine`'s `RunLoop` and the tests. Injecting
+ *   a partial map is the only way to reach the throw arm below (and, through it,
+ *   [serialName]) now that every real [PhaseType] resolves; without it the
+ *   negative control for the error contract would be unreachable and its test
+ *   would pass vacuously. Registration itself must still be asserted against a
+ *   default-constructed dispatcher.
  */
-internal class PhaseDispatcher {
-
-    private val handlers: Map<PhaseType, PhaseHandler> = mapOf(
-        PhaseType.SPEAK_ALL to SpeakAllHandler(),
-        PhaseType.ELIMINATE to EliminateHandler(),
-        PhaseType.SUMMARIZE to SummarizeHandler(),
-        PhaseType.ASSIGN to AssignHandler(),
-        PhaseType.EVENT_INJECT to EventInjectHandler(),
-        PhaseType.SCORE_CALC to ScoreCalcHandler(),
-        PhaseType.RELATIONSHIP_UPDATE to RelationshipUpdateHandler(),
-        PhaseType.REFLECT to ReflectHandler(),
-        PhaseType.VOTE to VoteHandler(),
-        PhaseType.WHISPER to WhisperHandler(),
-        PhaseType.CHOOSE to ChooseHandler(),
-        PhaseType.SPEAK_EACH to SpeakEachHandler(),
-        PhaseType.NARRATE to NarrateHandler(),
-    )
+internal class PhaseDispatcher(
+    private val handlers: Map<PhaseType, PhaseHandler> = defaultHandlers(),
+) {
 
     /**
      * The handler for [phaseType].
      *
      * @throws SimulationException wrapping [SimulationError.ScenarioValidationFailed]
-     *   when no handler is registered — including for a phase Swift *does* support
-     *   but this slice has not ported yet. The message names the phase so a
-     *   Stage-3 gap reads as a gap rather than as a mystery.
+     *   when no handler is registered. The message names the phase so a registration
+     *   gap reads as a gap rather than as a mystery.
      */
     fun handler(phaseType: PhaseType): PhaseHandler =
         handlers[phaseType] ?: throw SimulationException(
@@ -59,8 +56,36 @@ internal class PhaseDispatcher {
 }
 
 /**
+ * The full production handler registration — one entry per [PhaseType].
+ *
+ * A function, not a shared constant, so each dispatcher keeps constructing its own
+ * handler instances exactly as it did before the seam was added.
+ */
+private fun defaultHandlers(): Map<PhaseType, PhaseHandler> = mapOf(
+    PhaseType.SPEAK_ALL to SpeakAllHandler(),
+    PhaseType.ELIMINATE to EliminateHandler(),
+    PhaseType.SUMMARIZE to SummarizeHandler(),
+    PhaseType.ASSIGN to AssignHandler(),
+    PhaseType.EVENT_INJECT to EventInjectHandler(),
+    PhaseType.SCORE_CALC to ScoreCalcHandler(),
+    PhaseType.RELATIONSHIP_UPDATE to RelationshipUpdateHandler(),
+    PhaseType.REFLECT to ReflectHandler(),
+    PhaseType.VOTE to VoteHandler(),
+    PhaseType.WHISPER to WhisperHandler(),
+    PhaseType.CHOOSE to ChooseHandler(),
+    PhaseType.SPEAK_EACH to SpeakEachHandler(),
+    PhaseType.NARRATE to NarrateHandler(),
+    PhaseType.CONDITIONAL to ConditionalHandler(),
+)
+
+/**
  * The phase type's YAML/wire name (`speak_all`), not its Kotlin case name
  * (`SPEAK_ALL`).
+ *
+ * `internal` rather than file-private so [ConditionalHandler] can build its own
+ * branch-rejection message from the same source — both messages interpolate what
+ * Swift writes as `phaseType.rawValue`, and deriving them separately is how the two
+ * drift.
  *
  * Swift's message interpolates `phaseType.rawValue`, so this keeps the two
  * engines' error text aligned for a reader comparing them.
@@ -73,5 +98,5 @@ internal class PhaseDispatcher {
  * the port boundary; reading the descriptor keeps that literally true instead of
  * re-deriving it from a naming convention.
  */
-private fun PhaseType.serialName(): String =
+internal fun PhaseType.serialName(): String =
     PhaseType.serializer().descriptor.getElementName(ordinal)

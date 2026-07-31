@@ -180,6 +180,10 @@ neither compiler nor CI catches:
   and a branch-nested use passes every load gate then throws mid-run at dispatch
   (deferred failure). reflect / whisper / relationship_update / narrate all
   **reject** (#909); add a `ConditionalValidatorTests+<Phase>` test either way.
+  ⚠️ **Mirror the same verdict into two Kotlin maps** — `PhaseDispatcher`'s
+  `defaultHandlers()` and `ConditionalHandler.subHandlers` (`shared/engine`,
+  ADR-023) — where it is likewise not compiler-caught, and where no validator
+  exists to double-enforce it. Details: `.claude/rules/kmp-interop.md` Pattern 4.
 - **Web format-spec coverage** — the public reference at
   `web/src/content/scenario-format.{en,ja}.md` must list the new phase as a
   backtick token, or `scripts/check-scenario-format-coverage.py` fails the

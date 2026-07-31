@@ -10,8 +10,12 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
- * Kotlin sibling of Swift's `PhaseDispatcherTests`, scoped to the handlers this
- * port has registered so far.
+ * Kotlin sibling of Swift's `PhaseDispatcherTests`.
+ *
+ * All 14 phase types are registered as of Wave B's completion (#1342), so the tests
+ * that used `CONDITIONAL` as the "not ported yet" exemplar are gone. The two that
+ * exercise the *error* contract now drive an empty-map dispatcher through the
+ * production seam instead — see [anUnregisteredPhaseTypeFailsCleanlyRatherThanCrashing].
  *
  * Ported for the ADR-023 §6 Stage-2 gate slice (#501).
  */
@@ -85,51 +89,61 @@ class PhaseDispatcherTests {
     }
 
     @Test
+    fun resolvesTheConditionalHandler() {
+        assertIs<ConditionalHandler>(dispatcher.handler(PhaseType.CONDITIONAL))
+    }
+
+    @Test
     fun returnsAStableHandlerInstance() {
         // Handlers are stateless values; the dispatcher builds its map once.
         assertTrue(dispatcher.handler(PhaseType.SPEAK_ALL) === dispatcher.handler(PhaseType.SPEAK_ALL))
     }
 
     @Test
-    fun throwsForAPhaseTypeThisSliceHasNotPorted() {
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
-        assertIs<SimulationError.ScenarioValidationFailed>(error.error)
+    fun everyPhaseTypeResolvesToAHandler() {
+        // Wave B completed at 14/14 (#1342), so this flipped from "exactly 1
+        // unported" to "none". It keeps its value in the new polarity: the set is
+        // still DERIVED from the dispatcher rather than hand-listed, so it fires on
+        // BOTH enum growth (a new PhaseType with no handler) and an accidental
+        // de-registration. A hand list cannot disagree with itself and would silently
+        // stop guarding registration.
+        //
+        // Asserted against a DEFAULT-constructed dispatcher on purpose: the seam
+        // exercised below could otherwise satisfy this with an injected map, which
+        // would measure the fixture instead of the production registration.
+        val unported = PhaseType.entries.filter {
+            runCatching { dispatcher.handler(it) }.isFailure
+        }
+        assertEquals(14, PhaseType.entries.size, "the drift ledger's case count is now executable")
+        assertEquals(0, unported.size, "unregistered after Wave B completed: $unported")
+    }
+
+    @Test
+    fun anUnregisteredPhaseTypeFailsCleanlyRatherThanCrashing() {
+        // The throw survives 14/14 registration because it defends the recurring
+        // window where a PhaseType lands in shared/models before its handler is
+        // ported. No real PhaseType reaches it today, so the seam supplies the
+        // negative control — without one this guard would be asserted only by its
+        // own success case, which proves nothing.
+        val empty = PhaseDispatcher(handlers = emptyMap())
+        for (type in PhaseType.entries) {
+            val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
+                empty.handler(type)
+            }
+            assertIs<SimulationError.ScenarioValidationFailed>(error.error)
+        }
     }
 
     @Test
     fun theErrorNamesThePhaseUsingItsWireNameNotItsKotlinCaseName() {
         // `conditional`, not `CONDITIONAL` — Swift interpolates `phaseType.rawValue`,
         // and a reader comparing the two engines' errors should see the same token.
-        // The exemplar is CONDITIONAL because it is the SOLE remaining unported
-        // handler (Wave B is 13/14), so no further repoint is possible: the next port
-        // to land is Conditional itself, and that PR retires this exemplar rather than
-        // moving it.
-        val error = assertFailsWith<SimulationException> { dispatcher.handler(PhaseType.CONDITIONAL) }
+        val error = assertFailsWith<SimulationException> {
+            PhaseDispatcher(handlers = emptyMap()).handler(PhaseType.CONDITIONAL)
+        }
         val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
         assertTrue(message.contains("conditional"), "expected the wire name, got: $message")
         assertTrue(!message.contains("CONDITIONAL"), "the Kotlin case name must not leak: $message")
-    }
-
-    @Test
-    fun everyUnportedPhaseTypeFailsCleanlyRatherThanCrashing() {
-        // A Stage-3 gap must read as a gap. Iterating allCases also means a NEW
-        // PhaseType added to Models cannot silently reach dispatch unhandled.
-        // DERIVED from the dispatcher, not a hand-written exclusion list. A hand
-        // list cannot disagree with itself, so it silently stops guarding
-        // registration: de-registering a ported handler just moves that case into
-        // the excluded set, leaving this test green. Deriving makes the count below
-        // fire on BOTH enum growth and an accidental de-registration.
-        val unported = PhaseType.entries.filter {
-            runCatching { dispatcher.handler(it) }.isFailure
-        }
-        assertEquals(14, PhaseType.entries.size, "the drift ledger's case count is now executable")
-        assertEquals(1, unported.size, "see the #501 drift ledger")
-        for (type in unported) {
-            val error = assertFailsWith<SimulationException>("$type must fail cleanly") {
-                dispatcher.handler(type)
-            }
-            assertIs<SimulationError.ScenarioValidationFailed>(error.error)
-        }
     }
 
     @Test
@@ -138,9 +152,14 @@ class PhaseDispatcherTests {
         // earlier version asserted the lowercase derivation — i.e. exactly the
         // coincidence the implementation deliberately rejects — so it passed
         // identically against a `name.lowercase()` impl and pinned nothing.
+        //
+        // It also used to `continue` past every registered type, so at 14/14 it would
+        // have checked NOTHING while still reporting green. Driving the empty-map
+        // dispatcher turns that vacuum into full coverage: all 14 cases now throw, so
+        // all 14 wire names are actually asserted.
+        val empty = PhaseDispatcher(handlers = emptyMap())
         for (type in PhaseType.entries) {
-            val error = runCatching { dispatcher.handler(type) }.exceptionOrNull()
-            if (error !is SimulationException) continue // SPEAK_ALL resolves
+            val error = assertFailsWith<SimulationException> { empty.handler(type) }
             val message = assertIs<SimulationError.ScenarioValidationFailed>(error.error).message
             val fromDescriptor = PhaseType.serializer().descriptor.getElementName(type.ordinal)
             assertTrue(
