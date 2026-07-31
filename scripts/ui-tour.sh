@@ -12,14 +12,40 @@
 # (-skip-testing in ci.yml) because it gates nothing and UI-test jobs
 # on GHA runners carry known infrastructure flakes.
 #
-# Usage: scripts/ui-tour.sh
+# Usage: scripts/ui-tour.sh [--light | --dark]
+#   --light (default) → docs/design/screenshots/
+#   --dark            → docs/design/screenshots/dark/
+# The simulator's prior appearance is restored on exit either way.
 # Requires: jq (brew install jq)
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUT_DIR="$REPO_ROOT/docs/design/screenshots"
 RESULT_BUNDLE="$REPO_ROOT/Pastura/DerivedData/ui-tour.xcresult"
+
+# Appearance to capture. Opt-in rather than a both-appearances default: each
+# pass is a full xcodebuild test run, so making dark automatic would double
+# every routine regeneration for a set that reaches none of the dark risk
+# classes (see docs/design/screenshots/README.md § Dark set).
+APPEARANCE="light"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --dark) APPEARANCE="dark" ;;
+    --light) APPEARANCE="light" ;;
+    *) echo "ERROR: unknown argument '$1' (expected --dark or --light)" >&2; exit 1 ;;
+  esac
+  shift
+done
+
+# The dark set lives in its own directory rather than carrying a filename
+# suffix: the light set's NN-name.png filenames are referenced by name from
+# this repo's docs and from .claude/skills/ui-refine, so they stay put. The
+# per-run wipe and the duplicate-basename guard below are both non-recursive,
+# so each set refreshes independently without touching the other.
+OUT_DIR="$REPO_ROOT/docs/design/screenshots"
+if [ "$APPEARANCE" = "dark" ]; then
+  OUT_DIR="$OUT_DIR/dark"
+fi
 
 if ! command -v jq > /dev/null 2>&1; then
   echo "ERROR: jq is required (brew install jq)" >&2
@@ -35,7 +61,11 @@ export PASTURA_SKIP_XCSTRINGS_SYNC=1
 # Appearance pin. #1284 removed Info.plist's UIUserInterfaceStyle, so the tour
 # renders in whatever appearance the SIMULATOR is set to — and that setting
 # persists across runs, so one session that flipped a device to dark would keep
-# producing dark review screenshots. `simctl ui` needs a booted device
+# producing dark review screenshots. That persistence is also why this script
+# RESTORES the prior appearance on exit (see cleanup below): `--dark` would
+# otherwise leave the device dark for the next unrelated run, and
+# scripts/motion-capture.sh is deliberately device-following — it would silently
+# start recording dark filmstrips nobody asked for. `simctl ui` needs a booted device
 # (CoreSimulator error 405 on Shutdown); xcodebuild boots the same one moments
 # later anyway. Sourced WITH the concurrent-session gate: appearance is
 # device-global, so writing it while another session holds the simulator would
@@ -48,7 +78,36 @@ set -euo pipefail
 SIM_UDID="${DEST##*,id=}"
 SIM_UDID="${SIM_UDID%%,*}"
 xcrun simctl bootstatus "$SIM_UDID" -b > /dev/null 2>&1 || true
-xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
+
+# Save the prior appearance so the trap can put it back. `simctl ui <dev>
+# appearance` with no value prints the current style, but it can also print
+# `unsupported` / `unknown`. Anything that is not light/dark is left EMPTY and
+# the restore is skipped: defaulting to `light` would make a failed read on a
+# genuinely-dark device *flip* it, which is the one outcome this trap exists to
+# prevent. Not restoring leaves the tour's own pin in place, which is no worse
+# than the sibling capture scripts already are.
+PRIOR_APPEARANCE="$(xcrun simctl ui "$SIM_UDID" appearance 2> /dev/null || true)"
+case "$PRIOR_APPEARANCE" in
+  light | dark) ;;
+  *) PRIOR_APPEARANCE="" ;;
+esac
+
+# ONE cleanup handler: bash replaces a trap rather than chaining, so a second
+# `trap … EXIT` further down would silently drop this restore (or leak the
+# mktemp dir, depending on order). Same save/restore shape as
+# scripts/motion-capture.sh's Reduce Motion handling. EXPORT_DIR does not exist
+# yet — the guard is what lets the trap be armed here, immediately after the
+# pin, so an early failure still restores the appearance.
+cleanup() {
+  if [ -n "$PRIOR_APPEARANCE" ]; then
+    xcrun simctl ui "$SIM_UDID" appearance "$PRIOR_APPEARANCE" > /dev/null 2>&1 || true
+  fi
+  [ -n "${EXPORT_DIR:-}" ] && rm -rf "$EXPORT_DIR"
+  return 0
+}
+trap cleanup EXIT INT TERM
+
+xcrun simctl ui "$SIM_UDID" appearance "$APPEARANCE" > /dev/null
 
 # xcodebuild refuses to write into a pre-existing result bundle; pre-clean
 # so re-runs are idempotent.
@@ -59,7 +118,6 @@ rm -rf "$RESULT_BUNDLE"
   -resultBundlePath "$RESULT_BUNDLE"
 
 EXPORT_DIR="$(mktemp -d)"
-trap 'rm -rf "$EXPORT_DIR"' EXIT
 
 xcrun xcresulttool export attachments \
   --path "$RESULT_BUNDLE" --output-path "$EXPORT_DIR"
@@ -72,8 +130,8 @@ fi
 
 mkdir -p "$OUT_DIR"
 # Full refresh: drop stale PNGs from screens that no longer exist in the
-# tour. Only generated files live here (the directory is gitignored except
-# for README.md).
+# tour. Only generated files live here (both directories are gitignored; the
+# light one also tracks its README.md).
 rm -f "$OUT_DIR"/*.png
 
 # The exporter assigns opaque on-disk filenames; the XCTAttachment name we
