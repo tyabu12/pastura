@@ -58,6 +58,51 @@ Add a tour stop in
 `capture(app, name: "NN-name", anchorId: ...)` on an element that only
 exists once the screen has loaded), then add a row to the table above.
 
+## Dark set
+
+```bash
+scripts/ui-tour.sh --dark     # → docs/design/screenshots/dark/
+```
+
+Same tour, same filenames, second directory — the light set's names are
+referenced by name from this README, `../navigation-map.md` and the
+`ui-refine` skill, so they stay put. Opt-in rather than automatic: each
+appearance is a full `xcodebuild test` pass. The simulator's prior
+appearance is restored on exit, so a `--dark` run does not leave the
+device dark for `scripts/motion-capture.sh`, which is deliberately
+device-following.
+
+**What the dark set is for, and what it is not.** It is for reviewing
+typography, spacing and overall mood in the dark palette. It is **not**
+dark-mode QA coverage. Against the five classes in
+`../../qa/dark-mode-qa.md` § "What is actually at risk":
+
+| Class | On this tour? |
+|---|---|
+| A. Fixed tokens (`GameHeader` meta row) | No — Simulation and Demo replay are both off-tour |
+| B. Materials | **2 of §3's 11 sites**: the ScenarioDetail action bar (stop `02`) and the Editor capsule (stop `03`). A material re-rendering wrong in dark is a static property, so these two captures do show it |
+| C. Fixed-appearance exports (share card) | No — never rendered by the tour |
+| D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
+| E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
+
+So class B is partially covered and the other four are not. Everything
+else the dark set shows is the ordinary paired-token surfaces, which gate 1
+closed by measurement and `DesignTokensTests` asserts for all 67 pairs.
+Treat a finding here as a design observation, not as a defect the device
+walkthrough would have caught.
+
+**The two sets drift independently.** Each is refreshed only by its own
+invocation, both are gitignored so no diff reveals staleness, and they
+share filenames — `01-home.png` exists in both. Re-run both before any
+side-by-side comparison, or you may be attributing a months-old delta to
+the appearance.
+
+**`ui-refine` does not read the dark set** — the skill runs the bare
+(light) tour and reviews `docs/design/screenshots/*.png`, a single-level
+glob. Making that cycle dark-aware needs decisions about the lens
+rotation and the proposal ledger, so it is tracked separately in
+[#1345](https://github.com/tyabu12/pastura/issues/1345).
+
 ## Deferred (not yet captured)
 
 - **ModelSelection / ModelDownload** — `--ui-test` mode bypasses the
@@ -67,11 +112,6 @@ exists once the screen has loaded), then add a row to the table above.
   response queue under `--ui-test`, so a running simulation errors on
   first inference; capturing a live turn needs canned-response seeding
   via a launch argument.
-- **Dark mode variant** — `scripts/ui-tour.sh` (this tour) deliberately
-  pins the simulator to light appearance so captures stay deterministic,
-  as do the store and marketing shot scripts; a dark set is deferred by
-  choice, not blocked (dark itself renders now — the ADR-028 lock is
-  gone).
 - **Dynamic Type / ja locale variants** — single configuration only
   for now; variants multiply runtime and can be added per-screen when
   a review needs them.
