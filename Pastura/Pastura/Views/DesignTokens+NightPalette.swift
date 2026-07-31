@@ -28,8 +28,9 @@ import SwiftUI
 //
 // Every token here is the dark half of a `PasturaDynamicPalette` pair
 // (`DesignTokens+DynamicPalette.swift`), reached through the repointed light
-// `Color.*` alias rather than through `Color.night*`. Dark never actually
-// renders while `Info.plist` pins `UIUserInterfaceStyle` to Light.
+// `Color.*` alias rather than through `Color.night*`. Dark now renders on any
+// device set to that appearance, since `Info.plist`'s `UIUserInterfaceStyle`
+// lock was removed (ADR-028 gates 4/5).
 
 extension PasturaPalette {
 
@@ -39,11 +40,11 @@ extension PasturaPalette {
   // cream replaced by warm dark surfaces. These are **wired**: every token
   // below is the dark half of a `PasturaDynamicPalette` pair, reached through
   // the repointed light `Color.*` alias rather than through `Color.night*`.
-  // Dark still never renders, because `Info.plist` pins the app to light — but
-  // the reason has changed as of slice 4: **no light token owes gate 1 a dark
-  // value any more** (ADR-028 § Rollout gate 1, met). What the lock now waits on
-  // is gates 4 and 5 — real-device dark QA across the screens, and the dark
-  // share-card path — neither of which any test or measurement can stand in for.
+  // Dark now renders on any device set to that appearance: `Info.plist`'s
+  // `UIUserInterfaceStyle` lock is gone, and by slice 4 **no light token owed
+  // gate 1 a dark value any more** (ADR-028 § Rollout gate 1, met). What
+  // remained for the lock to wait on was gates 4 and 5 — real-device dark QA
+  // across the screens, and the dark share-card path — and both are now met.
 
   /// Outermost background under dark mode.
   static let nightBackground = PasturaColorValue(hex: 0x1B1D17)

@@ -22,8 +22,8 @@ import SwiftUI
 //
 // Every token here is the dark half of a `PasturaDynamicPalette` pair
 // (`DesignTokens+DynamicPalette.swift`), reached through the repointed light
-// `Color.*` alias. Dark never renders while `Info.plist` pins
-// `UIUserInterfaceStyle` to Light (ADR-028 gates 4/5).
+// `Color.*` alias. Dark now renders on any device set to that appearance —
+// `Info.plist`'s `UIUserInterfaceStyle` lock is gone (ADR-028 gates 4/5).
 
 extension PasturaPalette {
 

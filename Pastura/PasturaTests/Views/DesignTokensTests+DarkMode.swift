@@ -15,6 +15,22 @@ import UIKit
 // assertions — `swift-isolation.md` Pattern 5) and `.timeLimit(.minutes(1))`.
 extension DesignTokensTests {
 
+  // MARK: - §4.3-adjacent occlusion scrim
+
+  /// The scrim's value. Lives here rather than in the parent suite because
+  /// `DesignTokensTests` sits at the `type_body_length` cap, and here because
+  /// the token's whole point is appearance behaviour: it is the one token that
+  /// must NOT resolve against the trait. `SimulationScrimStyleTests` asserts
+  /// the requirement that value serves (darker than every ground) and which
+  /// consumer reads it.
+  @Test func scrimMatchesSpec() {
+    let token = PasturaPalette.scrim
+    #expect(approxEqual(token.red, 0x0B / 255.0))
+    #expect(approxEqual(token.green, 0x0C / 255.0))
+    #expect(approxEqual(token.blue, 0x0A / 255.0))
+    #expect(approxEqual(token.opacity, 0.4))
+  }
+
   // MARK: - Mechanism gate (UIColor dynamic provider)
   //
   // This is the load-bearing observation of ADR-028's mechanism claim. It goes

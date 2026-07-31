@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Design tokens and easing-curve factories for the app-launch animation.
 ///
@@ -50,15 +51,38 @@ nonisolated public enum LaunchAnimationConfig {
 
   // MARK: - Color tokens
 
-  /// Splash background — design-handoff "cream" (`#F1ECDC`).
+  /// Splash background — design-handoff "cream" (`#F1ECDC`) in light,
+  /// `nightBubble` (`#2C2F28`) in dark.
   ///
-  /// Slightly more saturated than the runtime ``Color/page`` token
-  /// (`#F3EFE7`). The launch experience pivots on this specific value
-  /// matching the asset-catalog `launchScreenBackground` ColorSet read by
-  /// the Info.plist `UILaunchScreen` dict — keep the literal RGB and the
-  /// catalog entry in lock-step.
+  /// The light value is slightly more saturated than the runtime
+  /// ``Color/page`` token (`#F3EFE7`). The launch experience pivots on these
+  /// values matching the asset-catalog `launchScreenBackground` ColorSet read
+  /// by the Info.plist `UILaunchScreen` dict: the static launch screen hands
+  /// off to this SwiftUI splash at the 0 % frame, so a mismatch flashes.
+  /// Keep the literal RGB and the catalog entry in lock-step **in both
+  /// appearances** — `DesignTokensTests+AssetCatalog` asserts that in both
+  /// directions, and pins the dark literal to `nightBubble` so this
+  /// duplication cannot drift from the token it was chosen from.
+  ///
+  /// Written as raw components rather than `PasturaDynamicColor` +
+  /// `PasturaPalette.nightBubble` because this enum is `nonisolated` (see the
+  /// type doc comment) and there is nothing nonisolated to hand that type:
+  /// `PasturaPalette`'s statics and `PasturaColorValue`'s initializers are both
+  /// MainActor-isolated, so neither the token nor a freshly-built
+  /// `PasturaColorValue` can be read from a `static let` initializer here —
+  /// `swift-isolation.md` Pattern 5's "Main actor-isolated default value in a
+  /// nonisolated context". ``PasturaDynamicColor`` itself is `nonisolated` and
+  /// would be usable; the blocker is its *arguments*.
+  ///
+  /// That same type-level `nonisolated` is what keeps the provider closure
+  /// below off the main actor — Pattern 8's requirement, satisfied here for
+  /// free rather than by an annotation.
   public static let backgroundColor = Color(
-    red: 241.0 / 255.0, green: 236.0 / 255.0, blue: 220.0 / 255.0)
+    UIColor { traitCollection in
+      traitCollection.userInterfaceStyle == .dark
+        ? UIColor(red: 44.0 / 255.0, green: 47.0 / 255.0, blue: 40.0 / 255.0, alpha: 1.0)
+        : UIColor(red: 241.0 / 255.0, green: 236.0 / 255.0, blue: 220.0 / 255.0, alpha: 1.0)
+    })
 
   // MARK: - Layout tokens
 

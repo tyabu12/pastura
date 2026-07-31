@@ -106,3 +106,59 @@ custom_rules:
       - 'Pastura/Pastura/LLM/LlamaCppService\+Lifecycle\.swift'
     severity: error
     message: "tryClaim/forceClaimGeneratingGuard are the private contract for acquireGenerateGuard (LlamaCppService+Lifecycle.swift). Use acquireGenerateGuard(caller:) instead — see ADR-002 §12."
+
+  # ADR-028 dark-mode pairing (#1284) — a shadow is an occlusion cue, not a
+  # surface, so its colour must be fixed in BOTH appearances. A paired
+  # `Color.*` alias inverts: `Color.mossInk` is #3D4030 in light (a correct
+  # shadow) but resolves `nightMossInk` #C6CBB1 in dark, turning the shadow
+  # into a pale halo. Silent — no diagnostic, and the light build looks right.
+  # Read `PasturaPalette.<token>.color` instead; design-system §4.3's
+  # `PasturaShadows` already fix their tint for the same reason. A `.stroke` /
+  # `.overlay` hairline is the opposite case (it reads AGAINST the surface, so
+  # it follows the appearance) and is deliberately not matched.
+  #
+  # The regex stops at the alias name, before `radius:` / `.opacity(0.22)`:
+  # `match_kinds` drops a match that spans a kind not listed, so reaching a
+  # numeric literal would make the rule fail OPEN.
+  #
+  # `Color` is optional because the implicit-member form
+  # `.shadow(color: .mossInk.opacity(0.45))` is valid Swift and the natural
+  # thing to write; requiring the explicit type left it passing silently. The
+  # lowercase class after the dot is what keeps `PasturaPalette.` /
+  # `PasturaShadows.` — uppercase, and with no leading dot — unmatched.
+  shadow_color_paired_alias:
+    name: "Shadow colour reads a paired alias"
+    regex: '\.shadow\(\s*color:\s*(Color)?\.[a-z]'
+    match_kinds:
+      - identifier
+      - typeidentifier
+    included:
+      - 'Pastura/Pastura/.*\.swift'
+    severity: error
+    message: "A shadow must be fixed in both appearances — the Color.* aliases pair, so in dark this inverts into a pale halo. Use PasturaPalette.<token>.color. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must not read a paired Color.* alias'."
+
+  # ADR-028 dark-mode pairing (#1284) — `.borderedProminent` fills from the
+  # ambient `\.tint` with the system's own white prominent label. `RootTabView`
+  # tints the TabView `Color.moss`, a paired token, so the label measures
+  # ≈3.03:1 in light and ≈2.13:1 in dark — below even the 3:1 non-text bar, and
+  # WORSE under dark. Outside the tab hierarchy it falls back to `AccentColor`,
+  # the same moss. Use `PasturaPrimaryButtonStyle` (`mossDark` fill +
+  # `inkOnAccent` label: ≈4.74:1 light / ≈7.12:1 dark), which also opts out of
+  # iOS 26's Liquid Glass capsule that §5.8 avoids for every other control.
+  #
+  # One sanctioned exemption, carrying `swiftlint:disable:next` + its rationale:
+  # `PasturaApp.swift`'s destructive "Reset Database". `role: .destructive`
+  # replaces the tint fill with the system red, so it never had this defect.
+  # `match_kinds` keeps the rule off comments and string literals that quote
+  # the full call shape. (The doc comments that argue for this rule are not
+  # instances — they write the modifier name alone, which the regex cannot
+  # match with or without `match_kinds`.)
+  bordered_prominent_button_style:
+    name: "System prominent button style"
+    regex: '\.buttonStyle\(\s*\.borderedProminent\s*\)'
+    match_kinds:
+      - identifier
+    included:
+      - 'Pastura/Pastura/.*\.swift'
+    severity: error
+    message: "`.borderedProminent` fills from the moss tint with a white system label — ≈3.03:1 light, ≈2.13:1 dark. Use PasturaPrimaryButtonStyle. A destructive-role button is the one exemption — see the rationale at PasturaApp.swift's .databaseRecovery case."

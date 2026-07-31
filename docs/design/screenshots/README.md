@@ -67,9 +67,14 @@ exists once the screen has loaded), then add a row to the table above.
   response queue under `--ui-test`, so a running simulation errors on
   first inference; capturing a live turn needs canned-response seeding
   via a launch argument.
-- **Dark mode / Dynamic Type / ja locale variants** — single
-  configuration only for now; variants multiply runtime and can be
-  added per-screen when a review needs them.
+- **Dark mode variant** — `scripts/ui-tour.sh` (this tour) deliberately
+  pins the simulator to light appearance so captures stay deterministic,
+  as do the store and marketing shot scripts; a dark set is deferred by
+  choice, not blocked (dark itself renders now — the ADR-028 lock is
+  gone).
+- **Dynamic Type / ja locale variants** — single configuration only
+  for now; variants multiply runtime and can be added per-screen when
+  a review needs them.
 
 ## Animations
 

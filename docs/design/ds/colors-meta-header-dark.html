@@ -120,8 +120,8 @@
     ADR-028 § Rollout gate 1 のスライス2（15 トークン ＝ ダーク対 14 + 両外観固定 1）。左が light、右がそのダーク対。
     <strong>正典は <code>design-system.md</code> §2.9</strong>、このカードはその視覚ミラー。
     設計時はサインオフ面として値の確定に先行したが、確定後は §2.9 が上位 — 食い違ったら §2.9 が正しい。
-    アプリは <code>UIUserInterfaceStyle = Light</code> 固定なので、この配色が実機に出るのは gate 1〜5 が
-    すべて閉じてから。
+    <code>UIUserInterfaceStyle = Light</code> の固定は削除済み
+    （ADR-028 gate 1〜5 完了、#1284）— この配色は端末をダークにすれば実機にそのまま出る。
     <br>
     <strong>暫定の地だった（slice 4 で確定）</strong>: §2.4 の実描画面は
     <code>PromoCard</code> の <code>--promo-bg</code> (#FBFAF2) で、設計時この light

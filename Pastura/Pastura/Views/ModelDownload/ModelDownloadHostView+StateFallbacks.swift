@@ -162,8 +162,7 @@ extension ModelDownloadHostView {
           Label(String(localized: "Try Again"), systemImage: "arrow.clockwise")
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(PasturaPrimaryButtonStyle())
       }
     }
   }
@@ -238,8 +237,7 @@ extension ModelDownloadHostView {
           Label(String(localized: "Retry"), systemImage: "arrow.clockwise")
             .frame(maxWidth: .infinity)
         }
-        .buttonStyle(.borderedProminent)
-        .controlSize(.large)
+        .buttonStyle(PasturaPrimaryButtonStyle())
       }
     }
   }

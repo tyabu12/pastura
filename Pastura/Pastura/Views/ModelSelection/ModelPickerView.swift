@@ -185,7 +185,12 @@ struct ModelPickerView: View {
     // handoff's `0 18px 36px -22px rgba(...)` is approximated as a
     // single softer shadow. Acceptable per the handoff "近似 OK" carve-out
     // for soft-glow-with-spread on iOS.
-    .shadow(color: Color.moss.opacity(0.22), radius: 14, x: 0, y: 12)
+    //
+    // Raw `PasturaPalette`, NOT the `Color.moss` alias: the alias pairs, so in
+    // dark it resolves `nightMoss` (#A8B888) and this drop shadow inverts into
+    // a pale halo. design-system §4.3's `PasturaShadows` already fix their
+    // tint for the same reason.
+    .shadow(color: PasturaPalette.moss.color.opacity(0.22), radius: 14, x: 0, y: 12)
     .accessibilityElement(children: .contain)
   }
 
@@ -212,7 +217,13 @@ struct ModelPickerView: View {
           RoundedRectangle(cornerRadius: 14, style: .continuous)
             .fill(Color.mossInk)
         )
-        .shadow(color: Color.mossInk.opacity(0.45), radius: 8, x: 0, y: 6)
+        // Raw `PasturaPalette`, NOT the `Color.mossInk` alias. `mossInk` is a
+        // dark ink-green (#3D4030) in light — a correct shadow — but it pairs,
+        // and in dark resolves `nightMossInk` (#C6CBB1), turning the CTA's
+        // shadow into a pale halo under a pale button. The fill above keeps
+        // the alias on purpose: the button surface follows the appearance,
+        // only its shadow is fixed.
+        .shadow(color: PasturaPalette.mossInk.color.opacity(0.45), radius: 8, x: 0, y: 6)
       }
       .buttonStyle(.plain)
       .accessibilityElement(children: .ignore)

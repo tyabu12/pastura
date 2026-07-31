@@ -28,10 +28,10 @@ struct PhaseBlockRow: View {
     .padding(.vertical, 8)
     .padding(.horizontal, 12)
     // `bubbleBackground`, not the `.background` ShapeStyle it replaced: both
-    // are #FFFFFF in light, so no visual delta today. The ShapeStyle already
-    // adapts — this is about *which* dark value it adapts to. The token is
-    // trait-paired (ADR-028), so once the light lock lifts the card will
-    // land on the warm `nightBubble` (#2C2F28), not the ShapeStyle's system black.
+    // are #FFFFFF in light, so no visual delta there. The ShapeStyle already
+    // adapts — this was about *which* dark value it adapts to. The token is
+    // trait-paired (ADR-028), and with the light lock lifted the card now
+    // lands on the warm `nightBubble` (#2C2F28), not the ShapeStyle's system black.
     .background(Color.bubbleBackground, in: RoundedRectangle(cornerRadius: 10))
   }
 

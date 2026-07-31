@@ -134,8 +134,8 @@
     <strong>正典は <code>design-system.md</code> §2.9</strong>、このカードはその視覚ミラー
     （<code>ds/README.md</code> のレイヤリング）。設計時はサインオフ面として値の確定に
     先行したが、確定後は §2.9 が上位 — 値が食い違ったら §2.9 が正しい。
-    アプリは <code>UIUserInterfaceStyle = Light</code> で固定されているため、
-    この配色が実機に出るのは gate 1〜5 がすべて閉じてから。
+    <code>UIUserInterfaceStyle = Light</code> の固定は削除済み
+    （ADR-028 gate 1〜5 完了、#1284）— この配色は端末をダークにすれば実機にそのまま出る。
   </p>
 
   <div class="section night">

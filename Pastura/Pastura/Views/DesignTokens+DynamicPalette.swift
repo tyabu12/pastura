@@ -36,10 +36,11 @@ import SwiftUI
 /// could not be read as stating the other; from here they are 1 and 0, so the
 /// distinction still matters but no longer hides a backlog.
 ///
-/// The app is still pinned to light via `Info.plist`'s `UIUserInterfaceStyle`,
-/// and the reason is now different: not missing values, but ADR-028's gates 4
-/// and 5 — real-device dark QA and the dark share-card path. Neither is
-/// something this file can discharge.
+/// `Info.plist`'s `UIUserInterfaceStyle` lock is gone: ADR-028 gates 4 and 5 —
+/// real-device dark QA and the dark share-card path — are what the lock was
+/// waiting on, and both are now met, so dark renders on any device set to that
+/// appearance. Neither was something this file could discharge; it only ever
+/// owed values.
 ///
 /// Unlike ``PasturaDynamicColor`` this namespace is deliberately NOT
 /// `nonisolated`: its static initializers read `PasturaPalette`, which is
