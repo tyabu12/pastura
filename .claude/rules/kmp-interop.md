@@ -199,15 +199,11 @@ counterpart". The tracked directory is **`Phases/` with a capital P** (`KT_PHASE
 authority); macOS's case-insensitive filesystem lets a lowercase path work locally and fail the gate.
 
 **A new `PhaseType` must be dispositioned in TWO Kotlin maps, neither compiler-caught.**
-`PhaseDispatcher`'s `defaultHandlers()` decides whether the phase runs at all; `ConditionalHandler`'s
-`subHandlers` decides whether it may run *inside a conditional branch*. Both are `Map` literals, so
-omitting a case compiles — the failure is a mid-run throw, not a build error. Give the branch
-decision the same allow/reject verdict as the Swift pair (`ScenarioValidator.validateBranch` +
-`ConditionalHandler.subHandlers`), and remember that on this side there is **no `ScenarioValidator`**,
-so `subHandlers` is the sole enforcement rather than a runtime backstop. The Swift-side cost axis —
-which is where a phase is usually *introduced* — is `engine.md` § "Adding a new `PhaseType`"; that
-rule's `paths:` never reaches a `shared/**`-only session, which is why the Kotlin half is restated
-here rather than cross-referenced.
+`PhaseDispatcher.defaultHandlers()` decides whether the phase runs at all; `ConditionalHandler`'s
+`subHandlers` decides whether it may run *inside a conditional branch*. Both are `Map` literals, so an
+omission compiles and fails as a mid-run throw. Match the Swift pair's allow/reject verdict
+(`engine.md` § "Adding a new `PhaseType`" — path-scoped to Swift, so it never loads here), and note
+that with no `ScenarioValidator` on this side `subHandlers` is the sole enforcement, not a backstop.
 
 **A Models change can break `shared/engine`.** Adding a `SimulationError` case broke
 `SimulationException`'s exhaustive `when`, and `:shared:models:jvmTest` alone is blind to it. Run the
