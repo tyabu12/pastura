@@ -106,12 +106,18 @@ Run the tour to refresh the screenshots:
 scripts/ui-tour.sh
 ```
 
-This runs `ScreenshotTourTests` on the UDID-pinned simulator and writes the 8
+This runs `ScreenshotTourTests` on the UDID-pinned simulator and writes the 14
 fixture-driven PNGs to `docs/design/screenshots/` (takes several minutes incl.
 the build; subject to the concurrent-session simulator gate per
 `.claude/rules/xcodebuild-cli.md`). After it succeeds, confirm the expected PNGs
 are present and freshly written (`docs/design/screenshots/*.png`). The covered
 screens are listed in `docs/design/screenshots/README.md`.
+
+**Light appearance only, deliberately.** `scripts/ui-tour.sh --dark` also
+produces a dark set under `docs/design/screenshots/dark/`, which this glob is
+single-level and so does not reach. Reviewing it needs decisions about the lens
+rotation and the proposal ledger — see #1345. Until that lands, a cycle
+critiques the light appearance and should not claim otherwise in its digest.
 
 ### L4 (Motion & feedback) — motion filmstrips
 
@@ -162,7 +168,7 @@ those are the principles a proposal under this lens must cite.
 
 ## Step 3 — Generate quota-capped proposals
 
-Read the relevant capture artifacts with vision — the static screenshots (all 8,
+Read the relevant capture artifacts with vision — the static screenshots (all 14,
 or the `screen:` arg subset) for default lenses, or the motion filmstrip frames
 under `docs/design/motion/<variant>/` for **L4** — read the lens's anchor
 sections in `docs/design/design-system.md`, then generate candidates **strictly

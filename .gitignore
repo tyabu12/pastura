@@ -108,7 +108,10 @@ data/worktree-prune.log
 
 # Design-review screenshots — generated on demand by scripts/ui-tour.sh
 # (see docs/design/screenshots/README.md). Only the README is tracked.
+# The first pattern is single-level, so the `--dark` set needs its own line —
+# without it those PNGs surface as untracked and can be committed by accident.
 docs/design/screenshots/*.png
+docs/design/screenshots/dark/
 
 # App Store submission screenshots — captured locally per docs/store/screenshot-plan.md.
 # Never committed (large binaries; regenerated per submission).
