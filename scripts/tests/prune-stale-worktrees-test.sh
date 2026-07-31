@@ -91,6 +91,7 @@ age_wt_path() {
     [ -e "$gitdir/index" ] && touch -t 200001010000 "$gitdir/index" 2>/dev/null
     [ -e "$gitdir/HEAD" ] && touch -t 200001010000 "$gitdir/HEAD" 2>/dev/null
     [ -e "$gitdir/logs" ] && touch -t 200001010000 "$gitdir/logs" 2>/dev/null
+    [ -e "$gitdir/logs/HEAD" ] && touch -t 200001010000 "$gitdir/logs/HEAD" 2>/dev/null
   fi
   return 0
 }
@@ -117,12 +118,26 @@ run_prune() {
 # below would pass against a script that never removes anything.
 printf '== positive control ==\n'
 make_wt "adoring-jepsen-80fef5"
+AJ="$REPO/.claude/worktrees/adoring-jepsen-80fef5"
+# Carry an unpushed commit through the removal. This is the script header's
+# central safety claim, and its sibling claim about detached HEADs turned out to
+# be false — so pin this one rather than trusting a one-off measurement.
+echo carried > "$AJ/carried.txt"
+sgit -C "$AJ" add -A
+sgit -C "$AJ" commit -qm "unpushed work that must survive removal"
+AJ_SHA="$(sgit -C "$AJ" rev-parse HEAD)"
+age_wt_path "$AJ"
 assert_aged "adoring-jepsen-80fef5"
 out="$(run_prune)"
 if exists "adoring-jepsen-80fef5"; then
   bad "clean, aged, unnamed worktree should have been removed — got: $out"
 else
   ok "clean + aged + unnamed worktree is removed"
+fi
+if [ "$(sgit -C "$REPO" rev-parse b-adoring-jepsen-80fef5 2>/dev/null)" = "$AJ_SHA" ]; then
+  ok "the removed worktree's branch and its unpushed commit survive"
+else
+  bad "removal destroyed the branch's unpushed commit ($AJ_SHA)"
 fi
 
 # --- negative controls --------------------------------------------------------
@@ -189,12 +204,56 @@ fi
 sgit -C "$REPO" worktree unlock "$REPO/.claude/worktrees/dreamy-swirles-0d6c1c" 2>/dev/null
 sgit -C "$REPO" worktree remove --force "$REPO/.claude/worktrees/dreamy-swirles-0d6c1c" 2>/dev/null
 
+# (g) detached HEAD. Unlike (c) and (d) this guard has NO backstop: measured,
+# git removes a clean detached worktree without --force and the commit is then
+# reachable from zero refs and zero reflogs. So the assertion is not just "kept"
+# — it re-resolves the object afterwards to prove nothing was orphaned.
+DET="$REPO/.claude/worktrees/laughing-shtern-427042"
+sgit -C "$REPO" worktree add -q --detach "$DET" >/dev/null 2>&1
+echo detached-work > "$DET/orphan-me.txt"
+sgit -C "$DET" add -A
+sgit -C "$DET" commit -qm "commit reachable from no branch"
+DET_SHA="$(sgit -C "$DET" rev-parse HEAD)"
+age_wt_path "$DET"
+if [ -n "$(find "$DET" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
+  bad "fixture setup: the detached worktree was not aged, so the (g) case tests nothing"
+fi
+if [ -n "$(sgit -C "$DET" --no-optional-locks status --porcelain)" ]; then
+  bad "(g) precondition broken: fixture is not clean, so the case tests (d) not (g)"
+fi
+out="$(run_prune)"
+if [ ! -d "$DET" ]; then
+  bad "(g) detached-HEAD worktree was removed — commit $DET_SHA is now reachable from no ref"
+else
+  case "$out" in
+    *"laughing-shtern-427042 — detached HEAD"*)
+      if [ "$(sgit -C "$REPO" cat-file -t "$DET_SHA" 2>/dev/null)" = "commit" ]; then
+        ok "(g) detached-HEAD worktree is kept, and its unreferenced commit is intact"
+      else
+        bad "(g) kept, but the detached commit $DET_SHA is gone"
+      fi
+      ;;
+    *) bad "(g) kept for the wrong reason — got: $out" ;;
+  esac
+fi
+sgit -C "$REPO" worktree remove --force "$DET" 2>/dev/null
+
 # (d) uncommitted change
 make_wt "epic-grothendieck-0b8abc"
 echo dirty >> "$REPO/.claude/worktrees/epic-grothendieck-0b8abc/a.txt"
 age_wt "epic-grothendieck-0b8abc"
 assert_aged "epic-grothendieck-0b8abc"
+# This case is also the observable for --no-optional-locks: it is aged, so it
+# reaches the status call, and a plain `git status` there would rewrite the
+# worktree index — making the worktree look freshly active on every subsequent
+# run and deferring it forever. Capture the index mtime across the call.
+EG_GITDIR="$(sgit -C "$REPO/.claude/worktrees/epic-grothendieck-0b8abc" rev-parse --git-dir 2>/dev/null)"
 out="$(run_prune)"
+if [ -n "$(find "$EG_GITDIR/index" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
+  bad "the status call rewrote the worktree index — --no-optional-locks was dropped, so the age guard would never fire again"
+else
+  ok "status calls leave the worktree index mtime untouched (--no-optional-locks)"
+fi
 if exists "epic-grothendieck-0b8abc"; then
   case "$out" in
     *"epic-grothendieck-0b8abc — uncommitted changes"*) ok "(d) dirty worktree is kept, as dirty" ;;
@@ -247,7 +306,14 @@ fi
 # (a) a worktree outside .claude/worktrees/
 mkdir -p "$REPO/elsewhere"
 sgit -C "$REPO" worktree add -q "$REPO/elsewhere/quirky-wing-ab02d1" -b b-outside >/dev/null 2>&1
-touch -t 200001010000 "$REPO/elsewhere/quirky-wing-ab02d1"
+# Age the git METADATA too, not just the root. Ageing the root alone leaves
+# index/HEAD freshly written by `git worktree add`, so condition (f) keeps this
+# worktree no matter what (a) does — and the case then passes against a script
+# with no containment check at all. Verified by mutation.
+age_wt_path "$REPO/elsewhere/quirky-wing-ab02d1"
+if [ -n "$(find "$REPO/elsewhere/quirky-wing-ab02d1" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
+  bad "fixture setup: the outside worktree was not aged, so the (a) case tests nothing"
+fi
 out="$(run_prune)"
 if [ -d "$REPO/elsewhere/quirky-wing-ab02d1" ]; then
   ok "(a) worktree outside .claude/worktrees/ is untouched"
@@ -337,6 +403,22 @@ if [ -e "$TMP/prune-idle.log" ]; then
   bad "an idle run wrote to the log: $(cat "$TMP/prune-idle.log")"
 else
   ok "an idle run writes nothing to the log"
+fi
+
+# --- invariants ---------------------------------------------------------------
+printf '== invariants ==\n'
+# Passing --force would dissolve the backstop conditions (c) and (d) rest on:
+# git's own refusal to remove a dirty or locked worktree. This is a TEXTUAL
+# check deliberately — behaviourally it is unobservable while (c)/(d) work,
+# since they return before a removal is ever attempted. Verified by mutation:
+# adding --force to the removal leaves every behavioural case green.
+# Comment lines are filtered first: the header's own sentence "`git worktree
+# remove` is ALWAYS called without `--force`" contains both tokens, so an
+# unfiltered grep fires on the documentation of the very invariant it checks.
+if grep 'git worktree remove' "$SCRIPT" | grep -vE '^[[:space:]]*#' | grep -q -- '--force'; then
+  bad "the pruner passes --force to git worktree remove, dissolving git's own dirty/locked refusal"
+else
+  ok "the pruner never passes --force to git worktree remove"
 fi
 
 # --- exec bit -----------------------------------------------------------------

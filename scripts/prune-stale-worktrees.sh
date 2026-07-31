@@ -9,13 +9,15 @@
 # such as queue-consumer-nightly — has nobody to answer that prompt, so its
 # worktree is kept and residue accumulates one directory per night.
 #
-# WHAT IT REMOVES (all six conditions must hold)
+# WHAT IT REMOVES (all seven conditions must hold)
 #   a. path is under <main-checkout>/.claude/worktrees/
 #   b. basename matches ^[a-z]+-[a-z]+-[0-9a-f]{6}$
 #   c. the worktree is not `locked`
 #   d. `git status --porcelain` is empty
 #   e. ignored content is limited to build output (DISPOSABLE_COMPONENTS below)
 #   f. nothing in the worktree or its git metadata changed in the last 12h
+#   g. HEAD is attached to a branch (a detached HEAD's commits are reachable
+#      from no ref, so removal would orphan them)
 #
 # `git worktree remove` is ALWAYS called without `--force`.
 #
@@ -40,9 +42,16 @@
 #     limitation, in the safe direction: a crashed session can leave a stale
 #     lock, and that worktree is then never pruned. The dry-run log names
 #     `locked` as the reason, so it is diagnosable rather than silent.
-#   - Removing a worktree does NOT delete its branch: a branch carrying an
-#     unpushed commit kept its ref, SHA and full content afterwards. Committed
-#     work is therefore unreachable by this script by construction.
+#   - Removing a BRANCH-ATTACHED worktree does not delete its branch: a branch
+#     carrying an unpushed commit kept its ref, SHA and full content afterwards.
+#   - A DETACHED-HEAD worktree is the exception, and it is why condition (g)
+#     exists. Measured: a clean, detached worktree carrying a fresh commit is
+#     removed without `--force`, and afterwards that commit is reachable from
+#     ZERO refs and ZERO reflogs — only `git fsck --unreachable` finds it, until
+#     gc prunes it for good. A crashed session left mid-rebase or on a detached
+#     HEAD is exactly that shape: unlocked, clean, and aged. So do not restate
+#     the property above as "committed work is safe by construction"; it is safe
+#     only because (g) refuses the detached case outright.
 #   - Without `--force`, git itself refuses a dirty or a locked worktree
 #     ("contains modified or untracked files"). So (c) and (d) are defense in
 #     depth, not the only guard — a bug in either still cannot destroy
@@ -73,12 +82,18 @@
 #
 # TUNING THE DISPOSABLE SET
 # Anything ignored-but-not-disposable blocks removal (safe direction: residue
-# stays, nothing is lost). `.claude/settings.local.json` is deliberately NOT
-# disposable — it holds per-session permission grants and no measurement yet
-# says a routine worktree accumulates one. The dry-run log names the exact
-# blocking entry for each KEEP, which is how this set is meant to be tuned:
-# run dry for a few nights, read the log, then add what is provably build
-# output.
+# stays, nothing is lost). The dry-run log names the exact blocking entry for
+# each KEEP, which is how this set is meant to be tuned: run dry for a few
+# nights, read the log, then add only what is provably build output.
+# Two entries to expect FIRST in that log, both deliberately not disposable:
+#   - `.claude/settings.local.json` — Claude Code writes permission grants
+#     there, so a session that granted anything leaves one behind.
+#   - `data/` — the repository tracks no file under it at all, so git collapses
+#     the whole directory to a single `!! data/` entry the moment a routine
+#     writes its digest there.
+# If either turns out to dominate the log, that is a finding about what a
+# routine worktree actually accumulates, not a reason to widen the set
+# reflexively: widening it is what makes a removal unrecoverable.
 #
 # USAGE
 #   scripts/prune-stale-worktrees.sh              # dry run (default)
@@ -89,9 +104,11 @@
 #   scripts/prune-stale-worktrees.sh --age-minutes N   # test lever only
 #
 # stdout defaults to on when it is a TTY and off otherwise, because the wired
-# caller is a `SessionStart` hook whose stdout is a context-injection channel
-# (see .claude/settings.json) — printing there would cost every session, every
-# turn. Decisions always go to the log file instead.
+# caller is a `SessionStart` hook whose stdout is a context-injection channel —
+# printing there would cost every session, every turn. Decisions always go to
+# the log file instead. Nothing in this repository wires that hook: see
+# CLAUDE.md § "Automated hooks", which directs it to your own untracked
+# .claude/settings.local.json.
 #
 # This script exits 0 on every non-fatal path for the same reason: a
 # SessionStart hook that exits non-zero surfaces an error on every session for
@@ -127,10 +144,27 @@ while [ $# -gt 0 ]; do
     --apply) APPLY=1 ;;
     --verbose) VERBOSE=1 ;;
     --quiet) QUIET=1 ;;
-    --log) shift; LOG_FILE="${1:-}" ;;
-    --age-minutes) shift; AGE_MINUTES="${1:-720}" ;;
+    --log)
+      shift
+      case "${1:-}" in
+        ""|-*) printf 'prune-stale-worktrees: --log needs a path\n' >&2; exit 0 ;;
+      esac
+      LOG_FILE="$1"
+      ;;
+    --age-minutes)
+      shift
+      # Must be a plain integer: `find -mmin -<garbage>` errors, is_fresh then
+      # reports "not fresh", and the age guard silently disappears for every
+      # candidate in the run. Fail closed instead.
+      case "${1:-}" in
+        *[!0-9]*|"") printf 'prune-stale-worktrees: --age-minutes needs an integer\n' >&2; exit 0 ;;
+      esac
+      AGE_MINUTES="$1"
+      ;;
     -h|--help)
-      sed -n '2,140p' "$0" | sed 's/^#\{0,1\} \{0,1\}//'
+      # Print the header block only, and stop at its end rather than at a line
+      # number that drifts as the code below grows.
+      awk 'NR > 1 { if (!/^#/) exit; sub(/^# ?/, ""); print }' "$0"
       exit 0
       ;;
     *)
@@ -195,10 +229,15 @@ record_actionable() {
 # Modified within AGE_MINUTES? `find -mmin -N` is the one age primitive that
 # behaves identically under BSD and GNU find.
 is_fresh() {
-  local p hit
+  local p hit rc
   for p in "$@"; do
     [ -e "$p" ] || continue
     hit="$(find "$p" -maxdepth 0 -mmin "-${AGE_MINUTES}" 2>/dev/null)"
+    rc=$?
+    # A failed `find` must read as FRESH. Treating it as "not fresh" would make
+    # every failure mode of this check argue for deletion — the opposite of the
+    # posture everywhere else in this script.
+    [ "$rc" -ne 0 ] && return 0
     [ -n "$hit" ] && return 0
   done
   return 1
@@ -247,7 +286,7 @@ removed=0
 kept=0
 
 evaluate() {
-  local wt="$1" locked="$2"
+  local wt="$1" locked="$2" detached="$3"
   local name gitdir_raw gitdir fresh blocker status_out
 
   # (a) under the worktree base directory
@@ -273,7 +312,9 @@ evaluate() {
   gitdir="$(resolve_dir "${gitdir_raw:-/nonexistent}")" || gitdir=""
   fresh=0
   if [ -n "$gitdir" ]; then
-    is_fresh "$wt" "$gitdir/index" "$gitdir/HEAD" "$gitdir/logs" && fresh=1
+    # logs/HEAD, not logs/: appending to an existing reflog does not change the
+    # containing directory's mtime, so the directory would under-report activity.
+    is_fresh "$wt" "$gitdir/index" "$gitdir/HEAD" "$gitdir/logs/HEAD" && fresh=1
   else
     is_fresh "$wt" && fresh=1
   fi
@@ -281,6 +322,17 @@ evaluate() {
     kept=$((kept + 1))
     record "KEEP  $name — active within the last ${AGE_MINUTES}m"
     [ "$VERBOSE" -eq 1 ] && say "keep  $name — active within the last ${AGE_MINUTES}m"
+    return 0
+  fi
+
+  # (g) detached HEAD — its commits belong to no ref, so removing the worktree
+  # orphans them. git does NOT refuse this on its own (measured: removed without
+  # --force, 0 refs and 0 reflogs afterwards), so unlike (c) and (d) this guard
+  # has no backstop underneath it.
+  if [ "$detached" -eq 1 ]; then
+    kept=$((kept + 1))
+    record_actionable "KEEP  $name — detached HEAD (commits would be orphaned)"
+    [ "$VERBOSE" -eq 1 ] && say "keep  $name — detached HEAD (commits would be orphaned)"
     return 0
   fi
 
@@ -332,21 +384,27 @@ evaluate() {
 
 current=""
 locked=0
+detached=0
 while IFS= read -r line; do
   case "$line" in
     "worktree "*)
       current="${line#worktree }"
       locked=0
+      detached=0
       ;;
     "locked"|"locked "*)
       locked=1
       ;;
+    "detached")
+      detached=1
+      ;;
     "")
       if [ -n "$current" ]; then
-        evaluate "$current" "$locked"
+        evaluate "$current" "$locked" "$detached"
       fi
       current=""
       locked=0
+      detached=0
       ;;
   esac
 done < "$TMP_LIST"
