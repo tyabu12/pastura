@@ -7,7 +7,7 @@ fixed-appearance export.
 
 **The simulator is not load-bearing here.** `.claude/rules/swiftui-traps.md`
 rules it out for iOS 26 visual work, and `ImageRenderer` does not inherit the
-ambient environment, so no automated test observes the share card at all
+ambient environment, so no automated test observes the *rendered* share card at all
 (ADR-009 rules out the snapshot test that would be the alternative). Run this
 on a device, set to Dark in Settings → Display & Brightness.
 

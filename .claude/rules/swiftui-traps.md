@@ -355,10 +355,19 @@ subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
 simulator misleads.
 
 **What catches a regression here**: the token tests assert `PasturaPalette`
-components *and* the aliases' own resolution, and `HighlightShareCardPaletteTests`
-pins the reference consumer's two families to raw palette values — so an alias
-creeping back into that palette reddens. ADR-009 rules out snapshots, so any
-*new* fixed-appearance consumer needs its own equivalent pin or it is unguarded.
+components *and* the aliases' own resolution, and both consumers carry a pin —
+`HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`. Since #1337 the *invariance*
+arm of each derives its slots by **reflection**, not a hand list (the mapping
+assertions still name slots, correctly — a mapping needs the name), so a stored property added
+later reading a paired alias reddens; before that it did not, measured. Two pins
+keep the reflection honest: an expected slot count (a computed-property refactor
+would otherwise make it vacuous) and `colors.count == childCount` (a slot typed
+`AnyShapeStyle` / `LinearGradient` / `UIColor` is invisible to `as? Color`).
+
+ADR-009 rules out snapshots, so any *new* fixed-appearance consumer still needs
+its own equivalent pin or it is unguarded — **nothing detects its absence**. An
+enumeration guard for that was designed and refused (ADR-028 § "Revisit trigger"
+bullet 1): it cannot redden on the shape that actually happened, below.
 Reference consumers: `HighlightCardPalette`, and `SheepAvatarPalette` for the
 avatar that card draws.
 
