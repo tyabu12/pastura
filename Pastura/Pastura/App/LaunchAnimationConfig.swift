@@ -66,12 +66,17 @@ nonisolated public enum LaunchAnimationConfig {
   ///
   /// Written as raw components rather than `PasturaDynamicColor` +
   /// `PasturaPalette.nightBubble` because this enum is `nonisolated` (see the
-  /// type doc comment) while both of those are default-MainActor: reading them
-  /// from a `static let` initializer here is `swift-isolation.md` Pattern 5's
-  /// "Main actor-isolated default value in a nonisolated context". That same
-  /// `nonisolated` is what keeps the provider closure below off the main actor
-  /// — Pattern 8's requirement, satisfied here for free rather than by an
-  /// annotation.
+  /// type doc comment) and there is nothing nonisolated to hand that type:
+  /// `PasturaPalette`'s statics and `PasturaColorValue`'s initializers are both
+  /// MainActor-isolated, so neither the token nor a freshly-built
+  /// `PasturaColorValue` can be read from a `static let` initializer here —
+  /// `swift-isolation.md` Pattern 5's "Main actor-isolated default value in a
+  /// nonisolated context". ``PasturaDynamicColor`` itself is `nonisolated` and
+  /// would be usable; the blocker is its *arguments*.
+  ///
+  /// That same type-level `nonisolated` is what keeps the provider closure
+  /// below off the main actor — Pattern 8's requirement, satisfied here for
+  /// free rather than by an annotation.
   public static let backgroundColor = Color(
     UIColor { traitCollection in
       traitCollection.userInterfaceStyle == .dark

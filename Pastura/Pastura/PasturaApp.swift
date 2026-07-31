@@ -318,8 +318,12 @@ private struct RootView: View {
           .foregroundStyle(Color.inkSecondary)
           .multilineTextAlignment(.center)
           Text(message)
-            .font(.caption)
-            .foregroundStyle(Color.muted)
+            // `inkSecondary`, not `muted`: design-system §8 makes `muted` a
+            // deliberately sub-AA (≈3.3:1) quietude tier and says not to put
+            // information that must be read there. This is the migration
+            // failure text the user weighs before choosing a data-destroying
+            // reset. `.caption` keeps it below the body copy in hierarchy.
+            .foregroundStyle(Color.inkSecondary)
             .multilineTextAlignment(.center)
           Button(String(localized: "Reset Database"), role: .destructive) {
             Task { await recoverDatabase() }
@@ -333,6 +337,11 @@ private struct RootView: View {
           // data-destroying action look like an ordinary primary CTA; the
           // style has no destructive variant, and adding one to carry a single
           // failure-screen button is not worth a new design-system branch.
+          // §5.8's second objection to this style — that it opts into iOS 26's
+          // Liquid Glass capsule — was considered and does not bite: the label
+          // is text-only, so there is no glyph to be rendered into the fill
+          // (the failure `HomePausedCard` records), and a system-red capsule on
+          // a failure screen is the platform-conventional shape.
           // swiftlint:disable:next bordered_prominent_button_style
           .buttonStyle(.borderedProminent)
           // Retry is meaningful here even though only `.migrationFailed` reaches

@@ -12,7 +12,9 @@ import UIKit
 // source under `Views/` + `App/`. `Assets.xcassets` is in neither, so a
 // colorset with no dark appearance ships unflagged — which is how the launch
 // ground and `AccentColor` both reached the lock-removal PR unpaired. These
-// tests are the missing predicate.
+// tests are the missing predicate: two pin the values of the colorsets that
+// exist, and `everyColorSetCarriesADarkAppearanceOrIsRecordedAsFixed` covers
+// the class, so a colorset added later cannot repeat the failure silently.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -64,6 +66,13 @@ extension DesignTokensTests {
       sRGBMatches(splash.resolvedColor(with: UITraitCollection(userInterfaceStyle: .light)), light))
     #expect(
       sRGBMatches(splash.resolvedColor(with: UITraitCollection(userInterfaceStyle: .dark)), dark))
+    // The splash provider is a second, hand-rolled copy of
+    // `PasturaDynamicColor.uiColor`'s `== .dark` branch, so it needs its own
+    // pin for the `.unspecified` fallback — `DesignTokensTests+DarkMode`'s
+    // covers the shared type only. An inverted condition surfaces here.
+    #expect(
+      sRGBMatches(
+        splash.resolvedColor(with: UITraitCollection(userInterfaceStyle: .unspecified)), light))
   }
 
   // MARK: - System tint
@@ -84,13 +93,51 @@ extension DesignTokensTests {
     #expect(dark == PasturaPalette.nightMoss)
   }
 
+  // MARK: - The class, not just the two instances
+
+  /// Colorsets deliberately fixed in both appearances. Empty today — a new
+  /// entry needs the reason written next to it, the same way gate 1's second
+  /// branch admits "recorded as fixed" as an answer equal to a designed value.
+  private static let colorSetsFixedInBothAppearances: Set<String> = []
+
+  /// EVERY colorset must carry a dark appearance or be named as fixed.
+  ///
+  /// The two tests above pin the two colorsets that exist; this one is what
+  /// makes the file's opening claim — that it is the predicate the ADR-028
+  /// gates never had over `Assets.xcassets` — true of the *class*. Without it a
+  /// third colorset added later reproduces the original failure exactly: it
+  /// ships unpaired with nothing to notice.
+  @Test func everyColorSetCarriesADarkAppearanceOrIsRecordedAsFixed() throws {
+    let catalog = Self.repoRoot.appending(path: "Pastura/Pastura/Assets.xcassets")
+    let names = try FileManager.default.contentsOfDirectory(atPath: catalog.path())
+      .filter { $0.hasSuffix(".colorset") }
+      .map { String($0.dropLast(".colorset".count)) }
+      .sorted()
+
+    // Guards the scan itself: a rename or a moved catalog would otherwise make
+    // this test vacuously green.
+    #expect(names.count >= 2, "found only \(names.count) colorsets — did the scan break?")
+
+    for name in names where !Self.colorSetsFixedInBothAppearances.contains(name) {
+      let entries = try Self.colorSetEntries(named: name)
+      #expect(
+        entries.dark != nil,
+        """
+        \(name).colorset has no `luminosity: dark` entry. The app follows the \
+        device appearance since #1284, so it renders its light value on a dark \
+        device. Add a dark entry, or add the name to \
+        `colorSetsFixedInBothAppearances` with the reason.
+        """)
+    }
+  }
+
   // MARK: - Helpers
 
   /// Light (`universal`, no `appearances`) and dark (`luminosity: dark`)
   /// entries of a colorset, read from the repo rather than the built bundle —
   /// the compiled asset catalog exposes only the *resolved* colour, which
   /// cannot distinguish "no dark entry" from "dark entry equal to light".
-  fileprivate static func colorSetEntries(named name: String) throws -> (
+  private static func colorSetEntries(named name: String) throws -> (
     light: PasturaColorValue?, dark: PasturaColorValue?
   ) {
     let url = repoRoot.appending(
@@ -108,9 +155,18 @@ extension DesignTokensTests {
         appearance["appearance"] as? String == "luminosity"
           && appearance["value"] as? String == "dark"
       }
+      let isExplicitLight = appearances.contains { appearance in
+        appearance["appearance"] as? String == "luminosity"
+          && appearance["value"] as? String == "light"
+      }
       if isDark {
         dark = value
-      } else if appearances.isEmpty {
+      } else if appearances.isEmpty || isExplicitLight {
+        // Xcode emits a bare universal entry for a colorset authored from a
+        // light base, and an explicit `luminosity: light` one when both
+        // appearances are checked. Accept either, or a catalog authored the
+        // second way fails with "has no universal entry" — a message pointing
+        // at the wrong cause.
         light = value
       }
     }
@@ -137,7 +193,7 @@ extension DesignTokensTests {
   }
 
   /// `…/Pastura/PasturaTests/Views/<this file>` → four levels up.
-  fileprivate static var repoRoot: URL {
+  private static var repoRoot: URL {
     URL(fileURLWithPath: #filePath)
       .deletingLastPathComponent()  // Views
       .deletingLastPathComponent()  // PasturaTests

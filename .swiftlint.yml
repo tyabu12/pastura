@@ -120,9 +120,15 @@ custom_rules:
   # The regex stops at the alias name, before `radius:` / `.opacity(0.22)`:
   # `match_kinds` drops a match that spans a kind not listed, so reaching a
   # numeric literal would make the rule fail OPEN.
+  #
+  # `Color` is optional because the implicit-member form
+  # `.shadow(color: .mossInk.opacity(0.45))` is valid Swift and the natural
+  # thing to write; requiring the explicit type left it passing silently. The
+  # lowercase class after the dot is what keeps `PasturaPalette.` /
+  # `PasturaShadows.` — uppercase, and with no leading dot — unmatched.
   shadow_color_paired_alias:
     name: "Shadow colour reads a paired alias"
-    regex: '\.shadow\(\s*color:\s*Color\.[a-zA-Z]'
+    regex: '\.shadow\(\s*color:\s*(Color)?\.[a-z]'
     match_kinds:
       - identifier
       - typeidentifier
@@ -143,8 +149,10 @@ custom_rules:
   # One sanctioned exemption, carrying `swiftlint:disable:next` + its rationale:
   # `PasturaApp.swift`'s destructive "Reset Database". `role: .destructive`
   # replaces the tint fill with the system red, so it never had this defect.
-  # `match_kinds` keeps the rule off the doc comments that argue for it
-  # (`PasturaPrimaryButtonStyle.swift`, `HomePausedCard.swift`).
+  # `match_kinds` keeps the rule off comments and string literals that quote
+  # the full call shape. (The doc comments that argue for this rule are not
+  # instances — they write the modifier name alone, which the regex cannot
+  # match with or without `match_kinds`.)
   bordered_prominent_button_style:
     name: "System prominent button style"
     regex: '\.buttonStyle\(\s*\.borderedProminent\s*\)'
@@ -153,4 +161,4 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "`.borderedProminent` fills from the moss tint with a white system label — ≈3.03:1 light, ≈2.13:1 dark. Use PasturaPrimaryButtonStyle. A destructive-role button is the documented exemption; see PasturaPrimaryButtonStyle's doc comment."
+    message: "`.borderedProminent` fills from the moss tint with a white system label — ≈3.03:1 light, ≈2.13:1 dark. Use PasturaPrimaryButtonStyle. A destructive-role button is the one exemption — see the rationale at PasturaApp.swift's .databaseRecovery case."

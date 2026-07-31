@@ -26,11 +26,23 @@ import SwiftUI
 ///
 /// ## Scope
 ///
-/// The single primary call-to-action on a browse screen — currently the
-/// gallery "Try this scenario" install action and the Shared Scenarios
-/// empty/error-state "Retry". Width is left to the callsite (apply
-/// `.frame(maxWidth: .infinity)` for a full-width CTA); the style only
-/// owns fill, label color, padding, corners, and press feedback.
+/// The primary call-to-action on a screen. It began as a browse-screen CTA
+/// (the gallery "Try this scenario" install action, the Shared Scenarios
+/// empty/error-state "Retry") and #1284 widened it to every prominent action
+/// that must clear contrast in both appearances — including failure screens
+/// and a `ContentUnavailableView` action. Ten callsites; `git grep
+/// 'buttonStyle(PasturaPrimaryButtonStyle'` is the current list, deliberately
+/// not enumerated here so this comment cannot go stale again.
+///
+/// Width is left to the callsite (apply `.frame(maxWidth: .infinity)` for a
+/// full-width CTA); the style only owns fill, label color, padding, corners,
+/// and press feedback. It ignores `.controlSize` — the metrics come from its
+/// own `Size` enum, so pairing the two is dead code.
+///
+/// The one sanctioned `.borderedProminent` left in the app is
+/// `PasturaApp.swift`'s destructive "Reset Database"; the `bordered_prominent_button_style`
+/// SwiftLint rule bars the rest. See that callsite for why a destructive role
+/// is exempt.
 ///
 /// ```swift
 /// Button("Try this scenario") { ... }
