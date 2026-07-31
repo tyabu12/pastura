@@ -66,6 +66,31 @@ set -euo pipefail
 SIM_UDID="${DEST##*,id=}"
 SIM_UDID="${SIM_UDID%%,*}"
 xcrun simctl bootstatus "$SIM_UDID" -b > /dev/null 2>&1 || true
+
+# Restore the operator's appearance on exit. Without this the light pin below
+# persists — appearance is device-global — and scripts/motion-capture.sh, which
+# is deliberately device-following, would then record light filmstrips for an
+# operator who had deliberately set dark. `simctl ui <dev> appearance` with no
+# value prints the current style but can also print `unsupported` / `unknown`;
+# anything else is left empty and the restore skipped, because defaulting to a
+# value would flip a device rather than leave it as found. Same shape and same
+# single-trap constraint as scripts/ui-tour.sh — see its cleanup() for why the
+# two handlers must be one (bash replaces a trap, it does not chain).
+PRIOR_APPEARANCE="$(xcrun simctl ui "$SIM_UDID" appearance 2> /dev/null || true)"
+case "$PRIOR_APPEARANCE" in
+  light | dark) ;;
+  *) PRIOR_APPEARANCE="" ;;
+esac
+
+cleanup() {
+  if [ -n "$PRIOR_APPEARANCE" ]; then
+    xcrun simctl ui "$SIM_UDID" appearance "$PRIOR_APPEARANCE" > /dev/null 2>&1 || true
+  fi
+  [ -n "${EXPORT_DIR:-}" ] && rm -rf "$EXPORT_DIR"
+  return 0
+}
+trap cleanup EXIT INT TERM
+
 xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
 
 # xcodebuild refuses to write into a pre-existing result bundle.
@@ -76,7 +101,6 @@ rm -rf "$RESULT_BUNDLE"
   -resultBundlePath "$RESULT_BUNDLE"
 
 EXPORT_DIR="$(mktemp -d)"
-trap 'rm -rf "$EXPORT_DIR"' EXIT
 
 xcrun xcresulttool export attachments \
   --path "$RESULT_BUNDLE" --output-path "$EXPORT_DIR"

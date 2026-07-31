@@ -140,12 +140,9 @@ BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/I
 # Deliberately NOT appearance-pinned, unlike ui-tour.sh / store-shots.sh /
 # marketing-shots.sh (#1284): those capture colour for review, this records
 # motion, and an operator recording a dark-mode animation should get one.
-# ui-tour.sh alone honours that: its `--dark` mode (#1338) saves and restores
-# the prior appearance in its own trap, so it cannot hand this script an
-# appearance the operator did not choose. store-shots.sh / marketing-shots.sh
-# still pin light and never restore, so running either one first silently
-# leaves the device light — check the appearance before recording if you set it
-# deliberately. If a recording's appearance ever needs
+# All three now honour that (#1338): each saves the prior appearance and
+# restores it in its own trap, so none of them can hand this script an
+# appearance the operator did not choose. If a recording's appearance ever needs
 # to be deterministic, add the same `xcrun simctl ui "$UDID" appearance …` line
 # and restore it in the trap below, next to the Reduce Motion save/restore.
 echo "Booting simulator $UDID..."
