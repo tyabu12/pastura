@@ -163,6 +163,47 @@ extension DesignTokensTests {
     }
   }
 
+  /// Negative control for the **reflection path** used by
+  /// ``HighlightShareCardPaletteTests`` and ``SheepAvatarPaletteTests``.
+  ///
+  /// Those suites now derive their slots from `Mirror` rather than a hand list.
+  /// That removes the maintenance hole, but it also removes the only thing that
+  /// previously fixed the slot count — so the arm must be shown to *reach* a
+  /// leaked alias, not merely to iterate. This plants one and requires it to be
+  /// reported as varying. If this test ever passes trivially, the invariance
+  /// arms in those suites are iterating an empty list.
+  @Test func reflectionReportsAPairedAliasSlotAsVarying() {
+    let reflected = reflectedColorSlots(of: AliasLeakFixture())
+    #expect(reflected.childCount == 2)
+    #expect(reflected.colors.count == 2)
+    #expect(reflected.colors.filter { !resolvesIdenticallyAcrossSchemes($0) }.count == 1)
+  }
+
+  /// Control for the *other* way the reflection arm can under-report: a slot
+  /// that carries colour in a type `as? Color` cannot see.
+  ///
+  /// `compactMap` drops such a slot silently, so a palette that moved a value
+  /// to `AnyShapeStyle` would shrink the checked set with nothing to notice.
+  /// The consuming suites guard against that by pinning `childCount ==
+  /// colors.count`; this proves that comparison can actually differ.
+  @Test func reflectionDoesNotSilentlySkipANonColorSlot() {
+    let reflected = reflectedColorSlots(of: NonColorSlotFixture())
+    #expect(reflected.childCount == 2)
+    #expect(reflected.colors.count == 1)
+  }
+
+  /// Control for the `expectedSlotCount` pin the two palette suites carry.
+  ///
+  /// Reflection reports stored children only, so a palette whose slots became
+  /// computed would hand those suites an empty list and pass every invariance
+  /// assertion in it. That is not hypothetical — computing slots from a stored
+  /// `ColorScheme` is precisely how ambient resolution would return. This builds
+  /// the state and shows the count is what notices: one stored child, no colours.
+  @Test func reflectionSeesNothingOnAComputedOnlyType() {
+    let reflected = reflectedColorSlots(of: ComputedOnlySlotFixture())
+    #expect(reflected.colors.isEmpty)
+    #expect(reflected.childCount == 1)
+  }
 }
 
 // MARK: - Helpers
@@ -194,6 +235,60 @@ func resolvesIdenticallyAcrossSchemes(_ color: Color) -> Bool {
     && underLight.green == underDark.green
     && underLight.blue == underDark.blue
     && underLight.opacity == underDark.opacity
+}
+
+/// Every stored slot of a fixed-appearance palette, by reflection, plus the
+/// total child count.
+///
+/// Why reflection rather than a hand list: both palette suites used to
+/// enumerate their slots by name, so a stored property added later — reading a
+/// paired `Color.*` alias — passed every assertion in both. A hand list is a
+/// claim about the slots someone remembered, not about the type.
+///
+/// The count is returned alongside so a caller can distinguish "this type has
+/// no non-`Color` slot" from "its non-`Color` slots were silently skipped".
+/// That second case is real: a colour-bearing slot typed `AnyShapeStyle` /
+/// `LinearGradient` / `UIColor` is invisible to `as? Color`, and
+/// ``ShareDestinationFill`` is exactly that shape.
+func reflectedColorSlots(of palette: Any) -> (colors: [Color], childCount: Int) {
+  let children = Mirror(reflecting: palette).children
+  return (children.compactMap { $0.value as? Color }, children.count)
+}
+
+/// Fixture for ``DesignTokensTests/reflectionReportsAPairedAliasSlotAsVarying``
+/// — a palette-shaped type with one raw slot and one paired alias.
+///
+/// `@MainActor` for the reason `sRGBComponentsMatch` below documents: these
+/// default values read `PasturaPalette`'s MainActor-isolated statics, and the
+/// `let`-read exemption that lets the production palettes do this unannotated
+/// is module-local (`.claude/rules/swift-isolation.md` § Pattern 5).
+@MainActor
+struct AliasLeakFixture {
+  let raw: Color = PasturaPalette.ink.color
+  let leaked: Color = .ink
+}
+
+/// Fixture for ``DesignTokensTests/reflectionDoesNotSilentlySkipANonColorSlot``
+/// — a palette-shaped type carrying colour in a non-`Color` slot.
+/// `@MainActor` for the same reason as ``AliasLeakFixture``.
+@MainActor
+struct NonColorSlotFixture {
+  let tint: Color = PasturaPalette.ink.color
+  let fill: AnyShapeStyle = AnyShapeStyle(Color.moss)
+}
+
+/// Fixture for ``DesignTokensTests/reflectionSeesNothingOnAComputedOnlyType``
+/// — the shape that would make the consuming suites' slot loops vacuous.
+///
+/// This is the refactor that would let ambient resolution back in: slots become
+/// computed from a stored `ColorScheme` instead of being resolved up front.
+/// `Mirror` reports only *stored* children, so every invariance assertion would
+/// then iterate an empty list and pass. Constructed rather than argued, so the
+/// `expectedSlotCount` pin the consuming suites carry has a control too.
+@MainActor
+struct ComputedOnlySlotFixture {
+  let scheme: ColorScheme = .light
+  var ink: Color { scheme == .dark ? PasturaPalette.nightInk.color : PasturaPalette.ink.color }
 }
 
 /// `EnvironmentValues` pinned to dark, for `Color.resolve(in:)`.

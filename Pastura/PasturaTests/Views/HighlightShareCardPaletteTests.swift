@@ -58,14 +58,24 @@ struct HighlightShareCardPaletteTests {
   /// raw palette value resolves identically under either scheme, unlike its
   /// paired alias. This is the assertion with a real trigger — alias creep
   /// resolves differently across schemes and reddens here.
+  ///
+  /// Slots come from `Mirror`, not a hand list: the previous version named the
+  /// six by hand, so a seventh stored property reading `Color.ink` passed every
+  /// assertion in this file. The two pins below are what keep the reflection
+  /// honest — `expectedSlotCount` so the arm cannot go vacuous if the slots
+  /// ever become computed, and the `childCount` comparison so a colour-bearing
+  /// slot typed `AnyShapeStyle` / `LinearGradient` reddens instead of being
+  /// dropped by `as? Color`. Both are exercised by
+  /// ``DesignTokensTests/reflectionReportsAPairedAliasSlotAsVarying`` and
+  /// ``DesignTokensTests/reflectionDoesNotSilentlySkipANonColorSlot``.
   @Test func rawPaletteValuesAreAppearanceInvariant() {
+    let expectedSlotCount = 6
     let families = [HighlightCardPalette.light, HighlightCardPalette.dark]
     for family in families {
-      let slots = [
-        family.background, family.ink, family.inkSecondary,
-        family.muted, family.rule, family.moss
-      ]
-      for slot in slots {
+      let reflected = reflectedColorSlots(of: family)
+      #expect(reflected.childCount == expectedSlotCount)
+      #expect(reflected.colors.count == reflected.childCount)
+      for slot in reflected.colors {
         #expect(resolvesIdenticallyAcrossSchemes(slot))
       }
     }
