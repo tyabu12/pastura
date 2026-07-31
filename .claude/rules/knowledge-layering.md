@@ -122,7 +122,7 @@ A **why-comment you write** asserts runtime or library behaviour as the reason a
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
-Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314.
+Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314; PR #1334.
 
 ### A rules file created mid-session never injects in that session
 
