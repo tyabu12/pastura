@@ -191,7 +191,10 @@ if all are yours, `pkill -f "xcodebuild test"` then
 `xcrun simctl shutdown "$(echo "$DEST" | sed -n 's/.*id=//p')"`. UI-test
 `FBSOpenApplicationServiceErrorDomain Code=1` → `xcrun simctl erase <UDID>`
 + retry **once** (persistent = real signing / plist / app-state bug).
-Full walkthrough: [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md) § Recovery.
+A local full-suite UI-test failure at `t = 0.00s` with no `Pastura-*.ips` is
+simulator infrastructure, not the app — re-run rather than diagnose.
+Full walkthrough: [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md)
+§ Recovery / § Local full-suite flake.
 
 ## "Executed 0 tests" in the XCTest stanza is cosmetic for Swift-Testing suites
 
