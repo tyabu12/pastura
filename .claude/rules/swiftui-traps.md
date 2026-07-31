@@ -370,7 +370,7 @@ token" but "does one read a **view** that reads it".
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
 
-## A `shadow(color:)` must not read a paired `Color.*` alias
+## An occlusion layer — shadow or scrim — must not read a paired `Color.*` alias
 
 A shadow is an occlusion cue, not a surface, so it wants a colour that stays
 dark in **both** appearances. A paired alias inverts instead: `Color.ink`
@@ -389,5 +389,22 @@ for the opposite reason — there an export needs a *chosen* appearance, here th
 cue needs *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads
 *against* the surface, so it follows the appearance and keeps the alias.
 
-Enforced by the `shadow_color_paired_alias` custom SwiftLint rule. Reference:
-`ModelPickerView`, `InFlightSimulationIndicator`; ADR-028 § Amendment (#1284).
+**A full-bleed dimming scrim is the same trap wearing different clothes**, and it
+is louder: `Color.ink.opacity(0.4)` behind the model-load overlay composited to
+**#6D6D64** over the #1B1D17 night ground — *lighter* than what it covers, so it
+washed the screen pale instead of dimming it. Fixed it is #A9A8A2 in light and
+#22241D in dark, darker than its ground in both. The distinction to hold: the
+scrim is the occluder and is fixed; the card it fronts (`.regularMaterial`, its
+`Color.ink` title, its `Color.muted` subtitle) is a *surface* and stays paired.
+Same test for any new full-bleed fill — does it occlude, or is it a surface?
+
+`Color.<paired>.opacity(n)` used as a **wash under a surface** — `GameHeader`'s
+and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
+tints — is the surface case and correctly stays paired. Do not sweep those.
+
+Enforced by the `shadow_color_paired_alias` custom SwiftLint rule — **for the
+shadow half only**. The scrim shape has no mechanical guard: it has one instance
+and no stable syntax to key on, so a rule would be over-fitted. That is an
+acknowledged gap, not coverage. Reference: `ModelPickerView`,
+`InFlightSimulationIndicator`, `SimulationView.loadingScrim`; ADR-028 § Amendment
+(#1284).
