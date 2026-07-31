@@ -5,6 +5,8 @@ On-demand reference extracted from `.claude/rules/xcodebuild-cli.md`
 catalog are human-debugging reference, not next-decision material, so
 they live here rather than in the always-loaded rule). The rule keeps
 the lead claims + the key inline commands + a pointer to this file.
+§ Local full-suite flake was recorded directly here rather than
+extracted — it is the one local-only class in a doc otherwise about CI.
 
 ## Recovery (hang or stalled retry)
 
@@ -34,7 +36,8 @@ suspecting a real regression, because the same test failed at the same point
 across consecutive full-suite runs, which § "When to escalate" gives as the
 signal to *stop* treating something as a flake.
 
-**Signature** (all five together; any one alone is not enough):
+**Signature** (the first three together are the discriminator; 4–5 corroborate
+and are not observable on a first encounter):
 
 - `EditorReloadTests.testEditorSavePopsAndReloadsHome` fails at **`t = 0.00s`**
   with `[XPCErrors] [C:N] Error received: Connection interrupted` — *before the

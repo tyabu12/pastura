@@ -194,7 +194,7 @@ if all are yours, `pkill -f "xcodebuild test"` then
 A local full-suite UI-test failure at `t = 0.00s` with no `Pastura-*.ips` is
 simulator infrastructure, not the app — re-run rather than diagnose.
 Full walkthrough: [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md)
-§ Recovery / § "Local full-suite flake".
+§ Recovery / § Local full-suite flake.
 
 ## "Executed 0 tests" in the XCTest stanza is cosmetic for Swift-Testing suites
 
