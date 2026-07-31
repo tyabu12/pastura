@@ -333,7 +333,7 @@ same change:
 | `docs/models/onboarding.md`           | Model onboarding two-gate procedure (Stage-0 harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration; intake #979) |
 | `docs/models/eval-log.md`             | Model-eval 判定台帳 — 候補評価の verdict を committed に記録(judgment-only; 生スコアは gitignore の data/models/eval-digest.md; ADR-011 表が追跡する 6GB/1B級以外の候補が対象; #979 intake) |
 | `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
-| `docs/qa/dark-mode-qa.md`             | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5; the four risk classes no test can reach — fixed tokens, materials, fixed-appearance exports, non-SwiftUI surfaces) |
+| `docs/qa/dark-mode-qa.md`             | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5; the five risk classes no test can reach — fixed tokens, materials, fixed-appearance exports, non-SwiftUI surfaces, occlusion layers) |
 | `docs/ci/xcodebuild-flakes.md`        | CI UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
 
