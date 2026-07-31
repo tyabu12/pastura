@@ -87,14 +87,21 @@ struct SheepAvatarPaletteTests {
   /// The fixed-appearance contract itself: every slot of both appearances
   /// resolves identically whichever scheme it is asked about. Alias creep
   /// reddens here, because a paired alias does not.
+  ///
+  /// Slots come from `Mirror`, not a hand list — see the same note on
+  /// ``HighlightShareCardPaletteTests/rawPaletteValuesAreAppearanceInvariant``.
+  /// `expectedSlotCount` is five because `avatarEar`, `avatarEarInner` and
+  /// `avatarNose` are tokens no renderer draws, which this palette's own doc
+  /// comment records; adding one here must be a deliberate edit, not a silent
+  /// widening.
   @Test func everySlotIsAppearanceInvariant() {
+    let expectedSlotCount = 5
     for character in Self.characters {
       for scheme in [ColorScheme.light, .dark] {
-        let resolved = palette(character, scheme)
-        let slots = [
-          resolved.body, resolved.face, resolved.horn, resolved.eye, resolved.highlight
-        ]
-        for slot in slots {
+        let reflected = reflectedColorSlots(of: palette(character, scheme))
+        #expect(reflected.childCount == expectedSlotCount)
+        #expect(reflected.colors.count == reflected.childCount)
+        for slot in reflected.colors {
           #expect(resolvesIdenticallyAcrossSchemes(slot))
         }
       }
