@@ -92,6 +92,20 @@ data/factory/lessons-inbox.md
 data/models/eval-runs/
 data/models/eval-digest.md
 
+# Per-user Claude Code settings — permission grants and opt-in hooks such as
+# the worktree pruner (CLAUDE.md § Automated hooks). Machine-local by design:
+# the tracked .claude/settings.json is the shared configuration. Ignored here
+# rather than relying on a contributor's global gitignore, so the CLAUDE.md
+# instruction to wire opt-in hooks there is safe for everyone.
+.claude/settings.local.json
+
+# Worktree-pruner decision log — appended by scripts/prune-stale-worktrees.sh
+# when it removes (or would remove) something, or when an unrecognized ignored
+# file blocks a removal. Local-only: which worktrees this machine accumulated
+# is machine state, and the pruner is opt-in per user (CLAUDE.md § Automated
+# hooks). Absent until the first non-idle run; the script creates it.
+data/worktree-prune.log
+
 # Design-review screenshots — generated on demand by scripts/ui-tour.sh
 # (see docs/design/screenshots/README.md). Only the README is tracked.
 docs/design/screenshots/*.png
