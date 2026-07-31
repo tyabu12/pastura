@@ -84,9 +84,12 @@ internal class PhaseContext(
      *
      * Handlers that dispatch nested sub-phases must call this between each one so
      * a pause is honoured at sub-phase granularity. [ConditionalHandler] is the sole
-     * consumer, and relies on the throw above as its *only* cancellation check —
-     * it deliberately carries no `ensureActive()` of its own, so weakening this
-     * contract would silently make branch loops uncancellable.
+     * consumer, and relies on the throw above as its *only* cancellation check — it
+     * deliberately carries no `ensureActive()` of its own. Weakening this contract
+     * would therefore leave a branch of **code phases** with no cancellation check
+     * at all; a branch containing an LLM sub-phase would still unwind at
+     * [LLMCaller]'s own suspension points, and that asymmetry is exactly what would
+     * make the gap easy to miss.
      */
     val pauseCheck: suspend (phasePath: List<Int>) -> Unit,
     val phasePath: List<Int>,

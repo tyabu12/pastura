@@ -198,6 +198,17 @@ so an **untracked** new handler reads as "marked [x] but no ported .kt exists" /
 counterpart". The tracked directory is **`Phases/` with a capital P** (`KT_PHASES_DIR` is the
 authority); macOS's case-insensitive filesystem lets a lowercase path work locally and fail the gate.
 
+**A new `PhaseType` must be dispositioned in TWO Kotlin maps, neither compiler-caught.**
+`PhaseDispatcher`'s `defaultHandlers()` decides whether the phase runs at all; `ConditionalHandler`'s
+`subHandlers` decides whether it may run *inside a conditional branch*. Both are `Map` literals, so
+omitting a case compiles — the failure is a mid-run throw, not a build error. Give the branch
+decision the same allow/reject verdict as the Swift pair (`ScenarioValidator.validateBranch` +
+`ConditionalHandler.subHandlers`), and remember that on this side there is **no `ScenarioValidator`**,
+so `subHandlers` is the sole enforcement rather than a runtime backstop. The Swift-side cost axis —
+which is where a phase is usually *introduced* — is `engine.md` § "Adding a new `PhaseType`"; that
+rule's `paths:` never reaches a `shared/**`-only session, which is why the Kotlin half is restated
+here rather than cross-referenced.
+
 **A Models change can break `shared/engine`.** Adding a `SimulationError` case broke
 `SimulationException`'s exhaustive `when`, and `:shared:models:jvmTest` alone is blind to it. Run the
 CI pair — `:shared:models:jvmTest :shared:engine:jvmTest` — before pushing.

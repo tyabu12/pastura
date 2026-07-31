@@ -10,10 +10,11 @@ import com.pastura.models.SimulationState
  * Handles `conditional` phases — evaluates a DSL expression against the current
  * simulation state and dispatches to `thenPhases` or `elsePhases`.
  *
- * The only handler that nests. That makes it the first and only consumer of three
+ * The only handler that nests. That makes it the first and only consumer of two
  * [PhaseContext] mechanisms the runner has provided since the Stage-2 gate slice
- * with nothing calling them: [PhaseContext.pauseCheck], a `[outerK, innerN]`
- * [PhaseContext.phasePath], and handler-emitted lifecycle events.
+ * with nothing calling them — [PhaseContext.pauseCheck] and a `[outerK, innerN]`
+ * [PhaseContext.phasePath] — and the only handler that emits lifecycle events of
+ * its own (a convention over the shared `emitter`, not a third field).
  *
  * ## Sub-dispatch
  *

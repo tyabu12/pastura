@@ -45,7 +45,7 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
 | Wave B — 14 phase handlers | ✅ 14/14 | checklist ↓ |
 | code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
-| Loader / validator port + `detector`·`logger` wiring | ⬜ not started | why Stage 3 stays 🔄 · [ADR-023](decisions/ADR-023.md) §6 · #501 |
+| Loader / validator port + `detector`·`logger` wiring | ⬜ not started | remaining Stage-3 units, not the full list · [ADR-023](decisions/ADR-023.md) §4 · #501 |
 
 ### Wave B handler checklist
 

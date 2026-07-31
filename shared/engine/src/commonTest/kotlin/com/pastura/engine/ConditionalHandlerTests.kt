@@ -391,13 +391,21 @@ class ConditionalHandlerTests {
         val s = scenario(then = listOf(speakAll()))
         val events = mutableListOf<SimulationEvent>()
 
-        assertFailsWith<IllegalStateException> {
+        val thrown = assertFailsWith<IllegalStateException> {
             handler.execute(
                 context(s, ScriptedLLMBackend(emptyList()), events),
                 SimulationState.initial(s),
             )
         }
 
+        // The type alone is too loose to carry the claim: on JVM
+        // `kotlinx.coroutines.CancellationException` IS an `IllegalStateException`
+        // subclass, so this would also pass on a cancellation that never reached the
+        // catch at all. Read WHICH throwable fired, per kmp-interop.md Pattern 4.
+        assertTrue(
+            thrown.message?.contains("ScriptedLLMBackend exhausted") == true,
+            "expected script exhaustion, got: ${thrown.message}",
+        )
         assertEquals(listOf(listOf(2, 0)), started(events).map { it.phasePath })
         assertEquals(listOf(listOf(2, 0)), completed(events).map { it.phasePath })
     }
@@ -485,9 +493,11 @@ class ConditionalHandlerTests {
     @Test
     fun threadsTheDetectorIntoSubPhaseContexts() = runTest {
         // `detector` is DEFAULTED on PhaseContext, so dropping it from the sub-context
-        // compiles clean and leaves every other test green. The adherence check needs
-        // the joined output to clear LLMCaller.MIN_DETECTION_LENGTH, hence the long
-        // statement.
+        // compiles clean and leaves every other test green. The adherence check runs
+        // only once the joined output clears LLMCaller's minimum detection length —
+        // 12 scalars, quoted here as prose because that constant is `private` and
+        // cannot be referenced (unlike MAX_RETRIES below, which is). Hence the
+        // deliberately long statement.
         val spy = SpyLanguageDetector(canned = "en")
         val s = scenario(then = listOf(speakAll()), agents = listOf("Alice"))
         val backend = ScriptedLLMBackend(
@@ -508,10 +518,15 @@ class ConditionalHandlerTests {
         // attempt guarantees LLMCaller logs, then the retry succeeds.
         val spy = SpyEngineLogger()
         val s = scenario(then = listOf(speakAll()), agents = listOf("Alice"))
+        // Over-scripted by one. The flow consumes exactly two calls today, but an
+        // exactly-fitting script list makes any future extra call redden on the
+        // harness's exhaustion error BEFORE `spy.messages` is asserted, which would
+        // misattribute the failure to the logger seam.
         val backend = ScriptedLLMBackend(
             listOf(
                 ScriptedLLMBackend.Script.completing("not json at all"),
                 speaks("Recovered on retry."),
+                speaks("Spare, so the assertion below stays the detector."),
             ),
         )
 
@@ -560,6 +575,11 @@ class ConditionalHandlerTests {
                 agents = listOf("Alice"),
                 extraData = mapOf("pool" to AnyCodableValue.ArrayValue(listOf("E"))),
             )
+            // Scripts are supplied generously rather than exactly: the allowed
+            // handlers have different call counts and some throw for their own
+            // reasons under this bare fixture. That is fine — an exhaustion
+            // IllegalStateException is not a SimulationException, so it classifies
+            // as "allowed", which is the correct verdict for a registered handler.
             val thrown = runCatching {
                 handler.execute(
                     context(s, ScriptedLLMBackend(List(8) { speaks("Something said here.") })),
