@@ -96,14 +96,26 @@ age_wt_path() {
   return 0
 }
 
-# The aging mutation must be asserted, not assumed — see the header.
-assert_aged() {
-  local name="$1" wt="$REPO/.claude/worktrees/$1"
-  if [ -n "$(find "$wt" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
-    bad "fixture setup: $name was not aged (touch -t had no effect)"
-    return 1
-  fi
+# The aging mutation must be asserted, not assumed — see the header. It checks
+# every path is_fresh reads, not just the root: a silently-failed `touch -t` on
+# $gitdir/index would otherwise leave the fixture fresh while the assertion
+# passed, which is precisely how the (a) control shipped as a false pass.
+assert_aged_path() {
+  local wt="$1" label="$2" gitdir p
+  gitdir="$(sgit -C "$wt" rev-parse --git-dir 2>/dev/null)"
+  for p in "$wt" "$gitdir/index" "$gitdir/HEAD" "$gitdir/logs/HEAD"; do
+    case "$p" in /index|/HEAD|/logs/HEAD) continue ;; esac
+    [ -e "$p" ] || continue
+    if [ -n "$(find "$p" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
+      bad "fixture setup: $label — $p was not aged (touch -t had no effect)"
+      return 1
+    fi
+  done
   return 0
+}
+
+assert_aged() {
+  assert_aged_path "$REPO/.claude/worktrees/$1" "$1"
 }
 
 exists() { [ -d "$REPO/.claude/worktrees/$1" ]; }
@@ -215,9 +227,7 @@ sgit -C "$DET" add -A
 sgit -C "$DET" commit -qm "commit reachable from no branch"
 DET_SHA="$(sgit -C "$DET" rev-parse HEAD)"
 age_wt_path "$DET"
-if [ -n "$(find "$DET" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
-  bad "fixture setup: the detached worktree was not aged, so the (g) case tests nothing"
-fi
+assert_aged_path "$DET" "detached worktree ((g) case)"
 if [ -n "$(sgit -C "$DET" --no-optional-locks status --porcelain)" ]; then
   bad "(g) precondition broken: fixture is not clean, so the case tests (d) not (g)"
 fi
@@ -237,6 +247,70 @@ else
   esac
 fi
 sgit -C "$REPO" worktree remove --force "$DET" 2>/dev/null
+
+# --- git-failure paths --------------------------------------------------------
+# The script must not read a FAILED git call as the removable answer. Both
+# states below are real: a corrupted worktree link and an unreadable index are
+# what a crashed session or a half-finished disk operation actually leaves.
+# Skipped as root, where the permission arm cannot be constructed at all —
+# announced rather than silently passing.
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  skip running as root: the git-failure permission arm cannot be built\n'
+else
+  # Unresolvable git directory. Without a guard the age check would silently
+  # degrade to the worktree root's mtime — the proxy measured days stale.
+  BROKEN="$REPO/.claude/worktrees/relaxed-davinci-aa7c27"
+  make_wt "relaxed-davinci-aa7c27"
+  printf 'gitdir: /nonexistent/path\n' > "$BROKEN/.git"
+  out="$(run_prune)"
+  if [ ! -d "$BROKEN" ]; then
+    bad "a worktree with an unresolvable git directory was removed"
+  else
+    case "$out" in
+      *"relaxed-davinci-aa7c27 — could not resolve its git directory"*)
+        ok "an unresolvable git directory keeps the worktree, rather than falling back to root mtime" ;;
+      *) bad "unresolvable git directory kept for the wrong reason — got: $out" ;;
+    esac
+  fi
+  rm -rf "$BROKEN"
+  sgit -C "$REPO" worktree prune 2>/dev/null
+
+  # A failing `git status` must not read as "clean". Verified constructible:
+  # with the index unreadable, `rev-parse --git-dir` still exits 0 while
+  # `status` exits 128, which isolates this branch from the one above.
+  UNREAD="$REPO/.claude/worktrees/wizardly-almeida-2dbfda"
+  make_wt "wizardly-almeida-2dbfda"
+  assert_aged "wizardly-almeida-2dbfda"
+  UA_GITDIR="$(sgit -C "$UNREAD" rev-parse --git-dir 2>/dev/null)"
+  chmod 000 "$UA_GITDIR/index"
+  if sgit -C "$UNREAD" --no-optional-locks status --porcelain >/dev/null 2>&1; then
+    bad "fixture setup: git status still succeeds with an unreadable index, so this case tests nothing"
+  fi
+  out="$(run_prune)"
+  chmod 644 "$UA_GITDIR/index" 2>/dev/null
+  if [ ! -d "$UNREAD" ]; then
+    bad "a worktree whose git status FAILED was removed — a failed check read as clean"
+  else
+    case "$out" in
+      *"wizardly-almeida-2dbfda — git status failed"*)
+        ok "a failing git status keeps the worktree, rather than reading as clean" ;;
+      *) bad "failing git status kept for the wrong reason — got: $out" ;;
+    esac
+  fi
+  sgit -C "$REPO" worktree remove --force "$UNREAD" 2>/dev/null
+fi
+
+# NOTE on the three failure-path guards above — they back each other up, which
+# mutation makes visible rather than obvious. Removing the (d) return-code check
+# still keeps the unreadable-index fixture, via (e)'s enumeration-failure guard;
+# removing the gitdir guard still keeps the corrupted-link fixture, via (d)'s.
+# Both fixtures redden either way, so each case constrains the layer as a whole
+# rather than one specific arm — the reason its assertion reads "kept for the
+# wrong reason" instead of accepting any KEEP. What is NOT separately
+# constructible is a state that reaches (e) with only the ignored-enumeration
+# broken: it runs the same `git status` family as (d), which is checked first.
+# That branch is exercised only through the (d) mutation above; stating the
+# limit beats a case that would silently be re-testing (d).
 
 # (d) uncommitted change
 make_wt "epic-grothendieck-0b8abc"
@@ -311,14 +385,18 @@ sgit -C "$REPO" worktree add -q "$REPO/elsewhere/quirky-wing-ab02d1" -b b-outsid
 # worktree no matter what (a) does — and the case then passes against a script
 # with no containment check at all. Verified by mutation.
 age_wt_path "$REPO/elsewhere/quirky-wing-ab02d1"
-if [ -n "$(find "$REPO/elsewhere/quirky-wing-ab02d1" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
-  bad "fixture setup: the outside worktree was not aged, so the (a) case tests nothing"
-fi
+assert_aged_path "$REPO/elsewhere/quirky-wing-ab02d1" "outside worktree ((a) case)"
 out="$(run_prune)"
-if [ -d "$REPO/elsewhere/quirky-wing-ab02d1" ]; then
-  ok "(a) worktree outside .claude/worktrees/ is untouched"
-else
+if [ ! -d "$REPO/elsewhere/quirky-wing-ab02d1" ]; then
   bad "(a) worktree outside .claude/worktrees/ was removed"
+elif printf '%s' "$out" | grep -q 'quirky-wing-ab02d1'; then
+  # Condition (a) returns before any record is written, so the worktree must
+  # not appear in verbose output at all. Without this the case would pass on
+  # a script that merely kept it for some other reason — the shape that let
+  # the original version of this case survive deleting (a) outright.
+  bad "(a) outside worktree was evaluated rather than skipped by the path check — got: $out"
+else
+  ok "(a) worktree outside .claude/worktrees/ is never evaluated"
 fi
 
 # --- self-gate ----------------------------------------------------------------
@@ -338,9 +416,7 @@ VICTIM="$OUTER/.claude/worktrees/nested-victim-a1b2c3"
 mkdir -p "$OUTER/.claude/worktrees"
 sgit -C "$REPO" worktree add -q "$VICTIM" -b b-nested >/dev/null 2>&1
 age_wt_path "$VICTIM"
-if [ -n "$(find "$VICTIM" -maxdepth 0 -mmin -720 2>/dev/null)" ]; then
-  bad "fixture setup: the nested victim was not aged, so the self-gate case tests nothing"
-fi
+assert_aged_path "$VICTIM" "nested victim (self-gate case)"
 
 # Invoke the pruner with a worktree as cwd. It must no-op rather than start
 # removing the nested worktree — or itself.
@@ -415,8 +491,14 @@ printf '== invariants ==\n'
 # Comment lines are filtered first: the header's own sentence "`git worktree
 # remove` is ALWAYS called without `--force`" contains both tokens, so an
 # unfiltered grep fires on the documentation of the very invariant it checks.
-if grep 'git worktree remove' "$SCRIPT" | grep -vE '^[[:space:]]*#' | grep -q -- '--force'; then
-  bad "the pruner passes --force to git worktree remove, dissolving git's own dirty/locked refusal"
+NONCOMMENT="$(grep -vE '^[[:space:]]*#' "$SCRIPT")"
+if ! printf '%s\n' "$NONCOMMENT" | grep -q 'git worktree remove'; then
+  # Positive control. Without it the guard reports success on a script whose
+  # removal call vanished entirely — verified: the pipeline simply finds
+  # nothing and the else-branch fires.
+  bad "no removal call outside comments — this invariant guard has nothing to check"
+elif printf '%s\n' "$NONCOMMENT" | grep -q -- '--force'; then
+  bad "the pruner passes --force, dissolving git's own dirty/locked refusal"
 else
   ok "the pruner never passes --force to git worktree remove"
 fi

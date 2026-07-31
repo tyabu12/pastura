@@ -28,8 +28,9 @@
 # passes a branch-shaped name (which becomes `<type>+<slug>`), and that is what
 # separates the two classes — validated across 52 historical worktree names:
 # 29/29 random names matched, 0/23 orchestrate names matched. The safety
-# argument therefore rests on (c)-(f), not on provenance. Read (b) as "nobody
-# named this", not as "a routine made this".
+# argument therefore rests on (c)-(g), not on provenance. Read (b) as "nobody
+# named this", not as "a routine made this". Within that set (g) is the only
+# member with no git-side backstop underneath it — see below.
 #
 # MEASURED SAFETY PROPERTIES (verified against synthetic repos, #1335)
 #   - Claude Code LOCKS a worktree for the lifetime of the session living in
@@ -67,7 +68,7 @@
 #     the next run and defers it forever — the check would quietly never fire.
 #     Hence `--no-optional-locks` on every status call, measured to leave the
 #     index mtime untouched. Do not drop that flag.
-#   - Age is read from git metadata (index/HEAD/logs) as well as the worktree
+#   - Age is read from git metadata (index/HEAD/logs/HEAD) as well as the worktree
 #     root, because a directory's mtime only moves when entries in that
 #     directory itself change. Work under Pastura/Pastura/Views/ never touches
 #     the root — measured 9-20 days staler than the git index on a real
@@ -106,9 +107,9 @@
 # stdout defaults to on when it is a TTY and off otherwise, because the wired
 # caller is a `SessionStart` hook whose stdout is a context-injection channel —
 # printing there would cost every session, every turn. Decisions always go to
-# the log file instead. Nothing in this repository wires that hook: see
-# CLAUDE.md § "Automated hooks", which directs it to your own untracked
-# .claude/settings.local.json.
+# the log file instead. Nothing in this repository wires that hook: see the
+# "Automated hooks" bullet under CLAUDE.md's "Swift Coding Conventions", which
+# directs it to your own untracked .claude/settings.local.json.
 #
 # This script exits 0 on every non-fatal path for the same reason: a
 # SessionStart hook that exits non-zero surfaces an error on every session for
@@ -156,8 +157,11 @@ while [ $# -gt 0 ]; do
       # Must be a plain integer: `find -mmin -<garbage>` errors, is_fresh then
       # reports "not fresh", and the age guard silently disappears for every
       # candidate in the run. Fail closed instead.
+      # 0 passes a bare digit test yet `find -mmin -0` matches nothing, which
+      # would disable condition (f) for the whole run — the exact failure this
+      # validation exists to prevent.
       case "${1:-}" in
-        *[!0-9]*|"") printf 'prune-stale-worktrees: --age-minutes needs an integer\n' >&2; exit 0 ;;
+        *[!0-9]*|""|0) printf 'prune-stale-worktrees: --age-minutes needs an integer >= 1\n' >&2; exit 0 ;;
       esac
       AGE_MINUTES="$1"
       ;;
@@ -234,9 +238,9 @@ is_fresh() {
     [ -e "$p" ] || continue
     hit="$(find "$p" -maxdepth 0 -mmin "-${AGE_MINUTES}" 2>/dev/null)"
     rc=$?
-    # A failed `find` must read as FRESH. Treating it as "not fresh" would make
-    # every failure mode of this check argue for deletion — the opposite of the
-    # posture everywhere else in this script.
+    # A failed `find` must read as FRESH: every failure mode of this check has
+    # to argue for keeping, never for deleting. The (d) and (e) git calls below
+    # carry the same return-code handling, for the same reason.
     [ "$rc" -ne 0 ] && return 0
     [ -n "$hit" ] && return 0
   done
@@ -259,8 +263,18 @@ is_disposable() {
 }
 
 # First ignored entry that is not build output, or empty when there is none.
+# Returns 2 when the enumeration itself failed, so the caller cannot read a
+# git error as "nothing irreplaceable here". This one matters more than the
+# others: `git worktree remove` is blind to ignored files, so (e) has no
+# git-side backstop — a swallowed error here destroys exactly the class the
+# condition exists to protect. A temp file rather than a pipeline because the
+# producer's exit status has to survive, and `$(...)` cannot carry NUL bytes.
 blocking_ignored_entry() {
   local wt="$1" line path
+  if ! git -C "$wt" --no-optional-locks status --porcelain -z --ignored \
+       > "$TMP_IGNORED" 2>/dev/null; then
+    return 2
+  fi
   while IFS= read -r -d '' line; do
     case "$line" in
       '!! '*) path="${line#!! }" ;;
@@ -269,7 +283,7 @@ blocking_ignored_entry() {
     is_disposable "$path" && continue
     printf '%s' "$path"
     return 0
-  done < <(git -C "$wt" --no-optional-locks status --porcelain -z --ignored 2>/dev/null)
+  done < "$TMP_IGNORED"
   return 0
 }
 
@@ -279,7 +293,8 @@ WORKTREE_LIST="$(git worktree list --porcelain 2>/dev/null)" || exit 0
 [ -n "$WORKTREE_LIST" ] || exit 0
 
 TMP_LIST="$(mktemp)" || exit 0
-trap 'rm -f "$TMP_LIST"' EXIT
+TMP_IGNORED="$(mktemp)" || exit 0
+trap 'rm -f "$TMP_LIST" "$TMP_IGNORED"' EXIT
 printf '%s\n\n' "$WORKTREE_LIST" > "$TMP_LIST"
 
 removed=0
@@ -287,7 +302,7 @@ kept=0
 
 evaluate() {
   local wt="$1" locked="$2" detached="$3"
-  local name gitdir_raw gitdir fresh blocker status_out
+  local name gitdir_raw gitdir fresh blocker blocker_rc status_out
 
   # (a) under the worktree base directory
   case "$wt" in
@@ -316,7 +331,14 @@ evaluate() {
     # containing directory's mtime, so the directory would under-report activity.
     is_fresh "$wt" "$gitdir/index" "$gitdir/HEAD" "$gitdir/logs/HEAD" && fresh=1
   else
-    is_fresh "$wt" && fresh=1
+    # Falling back to the worktree root alone is the proxy this script exists
+    # not to trust — measured days staler than the git metadata. An
+    # unresolvable git linkage is the state where caution matters most, so
+    # refuse rather than degrade.
+    kept=$((kept + 1))
+    record_actionable "KEEP  $name — could not resolve its git directory"
+    [ "$VERBOSE" -eq 1 ] && say "keep  $name — could not resolve its git directory"
+    return 0
   fi
   if [ "$fresh" -eq 1 ]; then
     kept=$((kept + 1))
@@ -345,7 +367,12 @@ evaluate() {
   fi
 
   # (d) clean working tree
-  status_out="$(git -C "$wt" --no-optional-locks status --porcelain 2>/dev/null)"
+  if ! status_out="$(git -C "$wt" --no-optional-locks status --porcelain 2>/dev/null)"; then
+    kept=$((kept + 1))
+    record_actionable "KEEP  $name — git status failed"
+    [ "$VERBOSE" -eq 1 ] && say "keep  $name — git status failed"
+    return 0
+  fi
   if [ -n "$status_out" ]; then
     kept=$((kept + 1))
     record_actionable "KEEP  $name — uncommitted changes"
@@ -355,6 +382,13 @@ evaluate() {
 
   # (e) no irreplaceable ignored content
   blocker="$(blocking_ignored_entry "$wt")"
+  blocker_rc=$?
+  if [ "$blocker_rc" -ne 0 ]; then
+    kept=$((kept + 1))
+    record_actionable "KEEP  $name — could not enumerate ignored content"
+    [ "$VERBOSE" -eq 1 ] && say "keep  $name — could not enumerate ignored content"
+    return 0
+  fi
   if [ -n "$blocker" ]; then
     kept=$((kept + 1))
     record_actionable "KEEP  $name — ignored content that is not build output: $blocker"
@@ -408,6 +442,14 @@ while IFS= read -r line; do
       ;;
   esac
 done < "$TMP_LIST"
+
+if [ "$VERBOSE" -eq 1 ] && [ $((removed + kept)) -gt 0 ]; then
+  if [ "$APPLY" -eq 1 ]; then
+    say "-- $removed removed, $kept kept"
+  else
+    say "-- $removed would be removed, $kept kept"
+  fi
+fi
 
 # --- log ---------------------------------------------------------------------
 # Written only when a candidate was actually considered, so an idle run leaves
