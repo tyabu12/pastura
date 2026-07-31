@@ -19,6 +19,12 @@
 #   g. HEAD is attached to a branch (a detached HEAD's commits are reachable
 #      from no ref, so removal would orphan them)
 #
+# Plus one KEEP ground outside that list: a worktree whose git directory will
+# not resolve is kept outright, because the age check would otherwise fall back
+# to the root mtime alone. It is reported as its own reason, and it is checked
+# before (g) and (c) — so a locked worktree with a broken linkage reports the
+# linkage, not the lock.
+#
 # `git worktree remove` is ALWAYS called without `--force`.
 #
 # WHAT THE PREDICATE ACTUALLY SELECTS
@@ -157,13 +163,18 @@ while [ $# -gt 0 ]; do
       # Must be a plain integer: `find -mmin -<garbage>` errors, is_fresh then
       # reports "not fresh", and the age guard silently disappears for every
       # candidate in the run. Fail closed instead.
-      # 0 passes a bare digit test yet `find -mmin -0` matches nothing, which
-      # would disable condition (f) for the whole run — the exact failure this
-      # validation exists to prevent.
+      # A bare digit test is not enough: `0`, `00` and `08` all pass it, and
+      # `find -mmin -00` matches nothing — condition (f) would be disabled for
+      # the whole run, the exact failure this validation exists to prevent.
+      # `10#` normalises the value and stops `08`/`09` reading as bad octal.
       case "${1:-}" in
-        *[!0-9]*|""|0) printf 'prune-stale-worktrees: --age-minutes needs an integer >= 1\n' >&2; exit 0 ;;
+        *[!0-9]*|"") printf 'prune-stale-worktrees: --age-minutes needs an integer >= 1\n' >&2; exit 0 ;;
       esac
-      AGE_MINUTES="$1"
+      if [ "$((10#$1))" -lt 1 ]; then
+        printf 'prune-stale-worktrees: --age-minutes needs an integer >= 1\n' >&2
+        exit 0
+      fi
+      AGE_MINUTES="$((10#$1))"
       ;;
     -h|--help)
       # Print the header block only, and stop at its end rather than at a line
@@ -270,11 +281,16 @@ is_disposable() {
 # condition exists to protect. A temp file rather than a pipeline because the
 # producer's exit status has to survive, and `$(...)` cannot carry NUL bytes.
 blocking_ignored_entry() {
-  local wt="$1" line path
+  local wt="$1" tmpfile="$2" line path
   if ! git -C "$wt" --no-optional-locks status --porcelain -z --ignored \
-       > "$TMP_IGNORED" 2>/dev/null; then
+       > "$tmpfile" 2>/dev/null; then
     return 2
   fi
+  # Same posture on the read side. Practically unreachable — the write above
+  # just succeeded — but an unreadable scratch file would yield an empty loop
+  # and hence "nothing irreplaceable", which is the reading this whole function
+  # exists to prevent.
+  [ -r "$tmpfile" ] || return 2
   while IFS= read -r -d '' line; do
     case "$line" in
       '!! '*) path="${line#!! }" ;;
@@ -283,7 +299,7 @@ blocking_ignored_entry() {
     is_disposable "$path" && continue
     printf '%s' "$path"
     return 0
-  done < "$TMP_IGNORED"
+  done < "$tmpfile"
   return 0
 }
 
@@ -381,7 +397,7 @@ evaluate() {
   fi
 
   # (e) no irreplaceable ignored content
-  blocker="$(blocking_ignored_entry "$wt")"
+  blocker="$(blocking_ignored_entry "$wt" "$TMP_IGNORED")"
   blocker_rc=$?
   if [ "$blocker_rc" -ne 0 ]; then
     kept=$((kept + 1))

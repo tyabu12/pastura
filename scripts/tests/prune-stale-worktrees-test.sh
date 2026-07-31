@@ -31,6 +31,9 @@ SCRIPT="$ROOT/scripts/prune-stale-worktrees.sh"
 
 fail=0
 pass_count=0
+# Decremented by any branch that legitimately skips a case; see the check at
+# the end of the file.
+EXPECTED_PASSES=20
 
 ok() {
   pass_count=$((pass_count + 1))
@@ -252,29 +255,33 @@ sgit -C "$REPO" worktree remove --force "$DET" 2>/dev/null
 # The script must not read a FAILED git call as the removable answer. Both
 # states below are real: a corrupted worktree link and an unreadable index are
 # what a crashed session or a half-finished disk operation actually leaves.
-# Skipped as root, where the permission arm cannot be constructed at all —
-# announced rather than silently passing.
-if [ "$(id -u)" -eq 0 ]; then
-  printf '  skip running as root: the git-failure permission arm cannot be built\n'
-else
-  # Unresolvable git directory. Without a guard the age check would silently
-  # degrade to the worktree root's mtime — the proxy measured days stale.
-  BROKEN="$REPO/.claude/worktrees/relaxed-davinci-aa7c27"
-  make_wt "relaxed-davinci-aa7c27"
-  printf 'gitdir: /nonexistent/path\n' > "$BROKEN/.git"
-  out="$(run_prune)"
-  if [ ! -d "$BROKEN" ]; then
-    bad "a worktree with an unresolvable git directory was removed"
-  else
-    case "$out" in
-      *"relaxed-davinci-aa7c27 — could not resolve its git directory"*)
-        ok "an unresolvable git directory keeps the worktree, rather than falling back to root mtime" ;;
-      *) bad "unresolvable git directory kept for the wrong reason — got: $out" ;;
-    esac
-  fi
-  rm -rf "$BROKEN"
-  sgit -C "$REPO" worktree prune 2>/dev/null
+# Only the chmod arm needs a non-root uid; the corrupted-link arm is a plain
+# text write. The uid guard therefore wraps that arm alone — wrapping both
+# would silently drop the ONLY coverage of the gitdir early-return whenever
+# this runs as root.
 
+# Unresolvable git directory. Without a guard the age check would silently
+# degrade to the worktree root's mtime — the proxy measured days stale.
+BROKEN="$REPO/.claude/worktrees/relaxed-davinci-aa7c27"
+make_wt "relaxed-davinci-aa7c27"
+printf 'gitdir: /nonexistent/path\n' > "$BROKEN/.git"
+out="$(run_prune)"
+if [ ! -d "$BROKEN" ]; then
+  bad "a worktree with an unresolvable git directory was removed"
+else
+  case "$out" in
+    *"relaxed-davinci-aa7c27 — could not resolve its git directory"*)
+      ok "an unresolvable git directory keeps the worktree, rather than falling back to root mtime" ;;
+    *) bad "unresolvable git directory kept for the wrong reason — got: $out" ;;
+  esac
+fi
+rm -rf "$BROKEN"
+sgit -C "$REPO" worktree prune 2>/dev/null
+
+if [ "$(id -u)" -eq 0 ]; then
+  printf '  skip running as root: chmod cannot make the index unreadable\n'
+  EXPECTED_PASSES=$((EXPECTED_PASSES - 1))
+else
   # A failing `git status` must not read as "clean". Verified constructible:
   # with the index unreadable, `rev-parse --git-dir` still exits 0 while
   # `status` exits 128, which isolates this branch from the one above.
@@ -310,7 +317,10 @@ fi
 # constructible is a state that reaches (e) with only the ignored-enumeration
 # broken: it runs the same `git status` family as (d), which is checked first.
 # That branch is exercised only through the (d) mutation above; stating the
-# limit beats a case that would silently be re-testing (d).
+# limit beats a case that would silently be re-testing (d). The limit is about
+# the GIT arm specifically: blocking_ignored_entry also returns 2 when its
+# redirect to the scratch file fails (unwritable TMPDIR, ENOSPC), which has no
+# (d) counterpart and IS independently reachable — that arm is uncovered here.
 
 # (d) uncommitted change
 make_wt "epic-grothendieck-0b8abc"
@@ -511,5 +521,12 @@ else
   bad "the script is missing its exec bit"
 fi
 
-printf '\n%s passed, exit=%s\n' "$pass_count" "$fail"
+# A skipped case lowers pass_count, and a lower-but-consistent number reads as
+# fine — the blind spot subagent-usage.md §2 describes. Pin the expected total
+# so a case that silently stops running FAILS instead of just counting less.
+if [ "$pass_count" -ne "$EXPECTED_PASSES" ]; then
+  bad "expected $EXPECTED_PASSES passing cases, counted $pass_count — a case stopped running"
+fi
+
+printf '\n%s passed (expected %s), exit=%s\n' "$pass_count" "$EXPECTED_PASSES" "$fail"
 exit "$fail"
