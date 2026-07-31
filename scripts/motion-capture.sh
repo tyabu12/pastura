@@ -137,6 +137,12 @@ if [ ! -d "$APP_PATH" ]; then
 fi
 BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Info.plist")"
 
+# Deliberately NOT appearance-pinned, unlike ui-tour.sh / store-shots.sh /
+# marketing-shots.sh (#1284): those capture colour for review, this records
+# motion, and an operator recording a dark-mode animation should get one. If a
+# recording's appearance ever needs to be deterministic, add the same
+# `xcrun simctl ui "$UDID" appearance …` line and restore it in the trap below,
+# next to the Reduce Motion save/restore.
 echo "Booting simulator $UDID..."
 xcrun simctl boot "$UDID" > /dev/null 2>&1 || true
 xcrun simctl bootstatus "$UDID" > /dev/null 2>&1 || true

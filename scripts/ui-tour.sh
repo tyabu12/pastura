@@ -32,6 +32,24 @@ fi
 # the same reason).
 export PASTURA_SKIP_XCSTRINGS_SYNC=1
 
+# Appearance pin. #1284 removed Info.plist's UIUserInterfaceStyle, so the tour
+# renders in whatever appearance the SIMULATOR is set to — and that setting
+# persists across runs, so one session that flipped a device to dark would keep
+# producing dark review screenshots. `simctl ui` needs a booted device
+# (CoreSimulator error 405 on Shutdown); xcodebuild boots the same one moments
+# later anyway. Sourced WITH the concurrent-session gate: appearance is
+# device-global, so writing it while another session holds the simulator would
+# flip that run's appearance mid-suite. Sourcing drops errexit, hence both the
+# explicit `||` and the re-assert (.claude/rules/xcodebuild-cli.md).
+# shellcheck source=/dev/null
+source "$REPO_ROOT/scripts/sim-dest.sh" \
+  || { echo "ERROR: simulator resolution failed" >&2; exit 1; }
+set -euo pipefail
+SIM_UDID="${DEST##*,id=}"
+SIM_UDID="${SIM_UDID%%,*}"
+xcrun simctl bootstatus "$SIM_UDID" -b > /dev/null 2>&1 || true
+xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
+
 # xcodebuild refuses to write into a pre-existing result bundle; pre-clean
 # so re-runs are idempotent.
 rm -rf "$RESULT_BUNDLE"

@@ -45,14 +45,22 @@ export PASTURA_SKIP_XCSTRINGS_SYNC=1
 # producing dark shots. Pin it here instead of trusting operator state.
 # `simctl ui` needs a booted device (CoreSimulator error 405 on Shutdown), hence
 # the explicit boot; xcodebuild boots the same device moments later anyway.
-# Sourcing sim-dest.sh restores the caller's shell options on exit, which drops
-# errexit — the re-assert below is load-bearing (.claude/rules/xcodebuild-cli.md
-# § "Sourcing it in a script clears your `set -e`"; measured here by reading $-,
-# not `set -o` inside a command substitution, which reports "off" regardless).
-PASTURA_SKIP_SIM_WAIT=1 source "$REPO_ROOT/scripts/sim-dest.sh"
+# Sourced WITHOUT PASTURA_SKIP_SIM_WAIT: appearance is device-global state, so
+# writing it must happen inside the concurrent-session gate — skipping the wait
+# would flip the appearance of another session's in-flight `xcodebuild test` on
+# the same simulator. `scripts/motion-capture.sh` sources with the gate for the
+# same reason. Sourcing restores the caller's shell options on exit, which drops
+# errexit — hence both the explicit `||` on the source itself (errexit is
+# provably off at the instant it returns) and the re-assert below
+# (.claude/rules/xcodebuild-cli.md § "Sourcing it in a script clears your
+# `set -e`"; measured by reading $-, not `set -o` inside a command substitution,
+# which reports "off" regardless).
+# shellcheck source=/dev/null
+source "$REPO_ROOT/scripts/sim-dest.sh" \
+  || { echo "ERROR: simulator resolution failed (PASTURA_SIM_NAME=$PASTURA_SIM_NAME)" >&2; exit 1; }
 set -euo pipefail
-SIM_UDID="${DEST##*id=}"
-xcrun simctl boot "$SIM_UDID" > /dev/null 2>&1 || true
+SIM_UDID="${DEST##*,id=}"
+SIM_UDID="${SIM_UDID%%,*}"
 xcrun simctl bootstatus "$SIM_UDID" -b > /dev/null 2>&1 || true
 xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
 

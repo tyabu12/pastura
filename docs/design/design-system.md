@@ -207,11 +207,17 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 
 `Info.plist` の `UIUserInterfaceStyle = Light` は削除され、アプリは端末の外観設定に
 従う。ADR-028 § "Rollout" の 5 条件は全て達成済み — gate 4（Home / ScenarioDetail /
-Editor / Simulation / Results と共有カード・Settings・ModelPicker・Demo replay・
-DL 完了オーバーレイ・ナビバータイトルの外観追従を含む実機ダーク QA）と gate 5
+Demo / Simulation / Results / Settings の実機ダーク QA。実際には Editor・
+ModelPicker・DL 完了オーバーレイ・ナビバータイトルの外観追従も歩いた）と gate 5
 （ダーク共有カード経路の実機確認）が、先に達成済みだった gate 1（値の完成）・
 `nightSurface` の解消・生 SwiftUI 色のトークン化に続いて閉じた。ダークは実際に
-実機で描画される。Source: `§2.9 Dark Mode`。
+実機で描画される。
+
+**ただし 2 点は未確認のまま残っている** — §2.1 の `nightPage` を
+`ViewerPredictionSheet` に当てた見え方（このファイルが持つ値であり、唯一
+プラットフォーム慣習に逆らって選んだもの）と、ゲートを閉じた QA より後に入った
+4 面の修正。ADR-028 § "What is NOT confirmed" と `docs/qa/dark-mode-qa.md` の
+再走リストが正本。Source: `§2.9 Dark Mode`。
 
 **ダーク値の視覚リファレンス**: [`ds/colors-states-dark.html`](ds/colors-states-dark.html)
 （§2.6/§2.7 の 18 対 + トースト・設定・DL 進捗のモック）、

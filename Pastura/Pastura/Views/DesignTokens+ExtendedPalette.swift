@@ -73,6 +73,27 @@ extension PasturaPalette {
   static let warningSoft = PasturaColorValue(hex: 0xF2EAD3)
   static let warningInk = PasturaColorValue(hex: 0x6F5C2D)
 
+  /// Full-bleed occlusion scrim — the dimming layer behind a blocking
+  /// overlay (`SimulationView.loadingScrim`). Opacity is part of the token, so
+  /// the callsite reads it whole.
+  ///
+  /// **Fixed in both appearances, and deliberately has no `Color.*` alias** —
+  /// same family as ``PasturaShadows``. An occluder's requirement is not "match
+  /// the appearance" but "be darker than whatever it covers", and a paired
+  /// alias inverts: `Color.ink` resolved `nightInk` and composited *lighter*
+  /// than the night ground, so the scrim brightened the screen instead of
+  /// dimming it (#1284). A fixed value only satisfies the requirement when it
+  /// sits below every ground, which is why this is near-black rather than
+  /// `ink` — `ink` #2D2E26 over `nightBackground` #1B1D17 composites to
+  /// #22241D, *lighter* than its ground, and over `nightBubble` it moves one
+  /// channel by one step. Warm near-black rather than #000000 to stay in the
+  /// palette's register; §2.2's "not pure black" concerns text, not occluders.
+  ///
+  /// Being alias-less puts it outside ADR-028 gate 1's predicate, which reads
+  /// the `Color` extension. Recorded here and in ADR-028 as fixed-in-both, the
+  /// same answer gate 1's second branch accepts.
+  static let scrim = PasturaColorValue(hex: 0x0B0C0A, opacity: 0.4)
+
   /// Destructive / irrevocable action — primary button of a confirmation
   /// dialog ("会話を削除しますか？"). Not for plain Cancel buttons.
   static let danger = PasturaColorValue(hex: 0xB57870)

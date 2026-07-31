@@ -138,7 +138,7 @@
     <div class="trow"><span class="sq" style="background:#4A6438"></span><span class="sq" style="background:#7FAA62"></span>
       <span><span class="tok">linkHover</span><span class="hex">#4A6438</span></span>
       <span><span class="tok">nightLinkHover</span><span class="hex">#7FAA62</span></span></div>
-    <p class="section-note">ADR-028 gate 1〜5 完了（#1284）でこのダーク値は実機に出るが、両外観を並べて見せる比較モックとしてはこのカードが正典。地の参照値: light <code>screenBackground</code> #FCFAF4 / <code>bubbleBackground</code> #FFFFFF、dark <code>nightBackground</code> #1B1D17 / <code>nightBubble</code> #2C2F28。</p>
+    <p class="section-note">ADR-028 gate 1〜5 完了（#1284）でこのダーク値は実機に出るが、両外観を並べて見せる比較は依然このカードだけ。地の参照値: light <code>screenBackground</code> #FCFAF4 / <code>bubbleBackground</code> #FFFFFF、dark <code>nightBackground</code> #1B1D17 / <code>nightBubble</code> #2C2F28。</p>
   </div>
 
   <div class="section night">
@@ -243,7 +243,7 @@
   </div>
 
   <div class="section night">
-    <p class="section-note"><code>nightPage</code> #11130F はパレット全体で最も暗いトークン。シートは持ち上がるという iOS の慣習に対し、その消費先はシートを一段暗くする側に置かれている — ADR-028 gate 4 の実機 QA でフラグを立てて確認する。</p>
+    <p class="section-note"><code>nightPage</code> #11130F はパレット全体で最も暗いトークン。シートは持ち上がるという iOS の慣習に対し、その消費先はシートを一段暗くする側に置かれている — gate 4 の実機 QA では確認されないまま残っている（ADR-028 § "What is NOT confirmed"）。再走時に確認する。</p>
   </div>
 </div>
 </body>

@@ -389,22 +389,34 @@ for the opposite reason — there an export needs a *chosen* appearance, here th
 cue needs *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads
 *against* the surface, so it follows the appearance and keeps the alias.
 
-**A full-bleed dimming scrim is the same trap wearing different clothes**, and it
-is louder: `Color.ink.opacity(0.4)` behind the model-load overlay composited to
-**#6D6D64** over the #1B1D17 night ground — *lighter* than what it covers, so it
-washed the screen pale instead of dimming it. Fixed it is #A9A8A2 in light and
-#22241D in dark, darker than its ground in both. The distinction to hold: the
-scrim is the occluder and is fixed; the card it fronts (`.regularMaterial`, its
-`Color.ink` title, its `Color.muted` subtitle) is a *surface* and stays paired.
-Same test for any new full-bleed fill — does it occlude, or is it a surface?
+**A full-bleed dimming scrim is the same trap wearing different clothes**, and
+it is louder — but it also corrects the rule above. `Color.ink.opacity(0.4)`
+behind the model-load overlay composited to **#6D6D64** over the #1B1D17 night
+ground, *lighter* than what it covers, so it washed the screen pale. Swapping in
+the raw palette fixes the direction and **still fails the requirement**: `ink`
+#2D2E26 over that ground gives #22241D, lighter again, and over `nightBubble` it
+moves one channel by one step. `0.4·C + 0.6·ground` cannot fall below `ground`
+when `C` is lighter than it.
+
+So the requirement is not "fixed" — it is **darker than every ground it covers**.
+Fixed is merely how you satisfy that when one value sits below all of them, which
+is why `PasturaPalette.scrim` is a warm near-black (#0B0C0A at 0.4: #979692 in
+light, #10110E in dark) rather than `ink`. A shadow gets away with `ink` because
+it is drawn against local surfaces, not the app ground.
+
+The distinction to hold: the scrim is the **occluder**; the card it fronts
+(`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a
+**surface** and stays paired. Same test for any new full-bleed fill — does it
+occlude, or is it a surface?
 
 `Color.<paired>.opacity(n)` used as a **wash under a surface** — `GameHeader`'s
 and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
 tints — is the surface case and correctly stays paired. Do not sweep those.
 
 Enforced by the `shadow_color_paired_alias` custom SwiftLint rule — **for the
-shadow half only**. The scrim shape has no mechanical guard: it has one instance
-and no stable syntax to key on, so a rule would be over-fitted. That is an
-acknowledged gap, not coverage. Reference: `ModelPickerView`,
-`InFlightSimulationIndicator`, `SimulationView.loadingScrim`; ADR-028 § Amendment
-(#1284).
+shadow half only**. The scrim shape has no lint guard: one instance, no stable
+syntax to key on, so a rule would be over-fitted. It is guarded instead by
+`SimulationScrimStyleTests`, which pins which token the fill reads AND asserts
+the darker-than-every-ground requirement — the second is what a value pin alone
+would miss. Reference: `ModelPickerView`, `InFlightSimulationIndicator`,
+`SimulationScrimStyle`; ADR-028 § Amendment (#1284).

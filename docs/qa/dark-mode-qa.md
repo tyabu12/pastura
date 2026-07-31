@@ -18,15 +18,16 @@ still has it, that is why dark does not appear.)
 
 ## What is actually at risk
 
-67 tokens invert. The token system is not where breakage shows up — these four
+67 pairs invert. The token system is not where breakage shows up — these five
 classes are:
 
 | Class | Why it can break | Where |
 |---|---|---|
-| A. Deliberately fixed tokens | `headerMetaSubdued` does not invert (gate 1's second branch: recorded fixed in both appearances) but sits beside two that do | `GameHeader.swift` meta row — Simulation and Demo replay |
-| B. Materials | `.ultraThinMaterial` / `.regularMaterial` / `glassEffect` re-render themselves, independently of every token underneath | 11 sites, §2 |
-| C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` |
-| D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §4 |
+| A. Deliberately fixed tokens | `headerMetaSubdued` does not invert (gate 1's second branch: recorded fixed in both appearances) but sits beside two that do | `GameHeader.swift` meta row — Simulation and Demo replay (§2) |
+| B. Materials | `.ultraThinMaterial` / `.regularMaterial` / `glassEffect` re-render themselves, independently of every token underneath | 11 surfaces (12 call lines — the action bar has two OS branches), §3 |
+| C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
+| D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
+| E. Occlusion layers | A shadow or scrim must be **darker than what it covers**; a paired alias inverts and brightens instead. No lint rule reaches the scrim shape | §6 — the class that produced the fourth defect |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
 but do not go token-hunting — that is gate 1's closed work.
@@ -77,15 +78,22 @@ washed-out control — as opposed to merely *different*?
 
 Not separate navigation — just look when the screen is already open.
 
-| Screen | file:line |
+Re-derive rather than trust the line numbers below — they drift on every edit
+to these files:
+
+```bash
+grep -rn 'ultraThinMaterial\|regularMaterial\|glassEffect' Pastura/Pastura/Views --include='*.swift'
+```
+
+| Screen | Sites |
 |---|---|
-| Simulation | `SimulationView.swift:919, 959, 1152, 1494` |
-| Simulation / Demo replay | `GameHeader.swift:202` |
-| ScenarioDetail | `ScenarioDetailActionBar.swift:143` (glass) / `:145` (fallback) |
-| Demo replay | `ModelDownloadHostView+ControlBar.swift:46`, `DLCompleteOverlay.swift:41` |
-| ModelSelection | `ModelPickerView.swift:202, 232` |
-| Editor | `ScenarioEditorView.swift:193` |
-| Any tab (overlay) | `InFlightSimulationIndicator.swift:80` |
+| Simulation | `SimulationView.swift` ×4 (a capsule, the loading card, two overlays) |
+| Simulation / Demo replay | `GameHeader.swift` ×1 |
+| ScenarioDetail | `ScenarioDetailActionBar.swift` ×1 — `glassEffect` on iOS 26, `.regularMaterial` below; one surface, two branches |
+| Demo replay | `ModelDownloadHostView+ControlBar.swift` ×1, `DLCompleteOverlay.swift` ×1 |
+| ModelSelection | `ModelPickerView.swift` ×1 (sticky CTA backing) |
+| Editor | `ScenarioEditorView.swift` ×1 |
+| Any tab (overlay) | `InFlightSimulationIndicator.swift` ×1 |
 
 The in-flight pill needs the keep-running Setting on to appear. If it is off,
 record that it was not exercised rather than marking it passed.
@@ -117,14 +125,44 @@ record that it was not exercised rather than marking it passed.
       `RootTabView`'s `.tint(Color.moss)`. Since #1284 that colorset is paired,
       so they should read `nightMoss`, not light moss.
 
+## 6. Occlusion layers (class E)
+
+The class that produced the fourth defect, and the one with the weakest
+automated cover: `shadow_color_paired_alias` reaches `shadow(color:)` only, and
+the scrim is guarded by `SimulationScrimStyleTests` rather than by lint.
+
+- [ ] **Model-load scrim** — start a simulation and watch the wait overlay. The
+      background behind the card must be **darker** than the surrounding UI, not
+      lighter. This is the exact defect found post-QA: a paired alias made it
+      brighten the screen in dark.
+- [ ] **ModelPicker card glow and CTA shadow** — both fixed in both appearances;
+      confirm neither reads as a pale halo.
+- [ ] **In-flight pill shadow** — same check, if the keep-running Setting is on.
+
+## 7. Open items carried forward
+
+Not defects — questions this walkthrough has not answered yet.
+
+- [ ] **`nightPage` on `ViewerPredictionSheet`** — ADR-028 slice 4 chose
+      `nightPage` against the iOS convention that a sheet *rises*: it makes this
+      sheet the darkest surface in the palette. The gate-4 pass did not report on
+      it, and the sheet appears only when a scenario drives a prediction prompt,
+      so run one that does. If it reads as a hole rather than a recessed panel,
+      the fix is a §2.1 value change, not a mechanism change. Recorded in
+      `docs/design/ds/colors-remainder-dark.html` and ADR-028 § "What is NOT
+      confirmed".
+
 ## Record of the gate-4 / gate-5 pass
 
 The pass that closed both gates covered every screen above and found three
-defects, all fixed in the same PR: the launch ground had no dark variant (and
-the splash would have flashed cream), five `.borderedProminent` buttons measured
-≈2.13:1 in dark, and three shadows inverted into pale halos. Everything else
-passed on first look.
+defects: the launch ground had no dark variant (and the splash would have
+flashed cream), five `.borderedProminent` buttons measured ≈2.13:1 in dark, and
+three shadows inverted into pale halos. Everything else passed on first look.
 
-Three surfaces changed *after* that pass and are the first thing to re-check on
-any repeat run: the splash composite, the ModelPicker shadows, and the five
-restyled buttons.
+Re-QA of those three fixes then found a **fourth** — the model-load scrim,
+§6 — which is why that class has its own section: the sweep that found the
+shadows keyed on `shadow(color:)`, the syntax, and could not have found a scrim.
+
+The four fixed surfaces post-date the pass that authorized closing the gates, so
+they are the first thing to re-check on any repeat run: the splash composite, the
+ModelPicker shadows, the five restyled buttons, and the scrim.

@@ -135,7 +135,7 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "A shadow must be fixed in both appearances — the Color.* aliases pair, so in dark this inverts into a pale halo. Use PasturaPalette.<token>.color. See .claude/rules/swiftui-traps.md § 'A shadow(color:) must not read a paired Color.* alias'."
+    message: "A shadow must be fixed in both appearances — the Color.* aliases pair, so in dark this inverts into a pale halo. Use PasturaPalette.<token>.color. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must not read a paired Color.* alias'."
 
   # ADR-028 dark-mode pairing (#1284) — `.borderedProminent` fills from the
   # ambient `\.tint` with the system's own white prominent label. `RootTabView`

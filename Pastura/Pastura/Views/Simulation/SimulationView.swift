@@ -942,16 +942,18 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
   /// the progress view's position. (#825)
   private func loadingScrim(_ label: SimulationDisplayState.ScrimLabel) -> some View {
     ZStack {
-      // Raw `PasturaPalette`, NOT the `Color.ink` alias. A scrim dims what is
-      // behind it, so like a shadow it must be dark in BOTH appearances — but
-      // the alias pairs, and `nightInk` (#E8E5D8) at 0.4 over the night ground
-      // composites to #6D6D64, *lighter* than the #1B1D17 it covers. The scrim
-      // stopped dimming and started washing the screen pale. Fixed, it
-      // composites to #A9A8A2 in light and #22241D in dark — darker than its
-      // ground in both. The card's `.regularMaterial` and its `Color.ink` /
-      // `Color.muted` label do keep their aliases on purpose: those are the
+      // `PasturaPalette.scrim`, NOT a `Color.*` alias. An occluder's
+      // requirement is "darker than whatever it covers", and this covers the
+      // app ground: `Color.ink` resolved `nightInk` in dark and composited to
+      // #6D6D64 over #1B1D17 — *lighter* than the ground, so the scrim washed
+      // the screen pale instead of dimming it. Raw `ink` fixes the direction
+      // but not the requirement (#22241D is still lighter than #1B1D17, and
+      // over `nightBubble` it moves one channel by one step), which is why the
+      // token is near-black: #979692 in light, #10110E in dark, darker than
+      // its ground in both. The card's `.regularMaterial` and its `Color.ink`
+      // / `Color.muted` label keep their aliases on purpose — those are the
       // surface and its text, which should follow the appearance.
-      PasturaPalette.ink.color.opacity(0.4).ignoresSafeArea()
+      SimulationScrimStyle.fill.ignoresSafeArea()
       VStack(spacing: 12) {
         IdleFriendlyProgressView()
           .scaleEffect(1.2)

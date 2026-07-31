@@ -267,6 +267,11 @@
   --radius-dot: 50%;
 
   /* §4.3 Shadow — max 2 layers per element, moss-tinted */
+  /* §4.3-adjacent: the full-bleed occlusion scrim. Fixed in both
+     appearances — an occluder must be darker than every ground it covers,
+     which a paired token cannot guarantee. See ADR-028 (#1284). */
+  --scrim: rgba(11, 12, 10, 0.4);
+
   --shadow-tint-tight: rgba(90, 100, 60, 0.04);
   --shadow-tint-soft: rgba(90, 100, 60, 0.2);
   --shadow-card:
