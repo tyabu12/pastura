@@ -112,6 +112,7 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           .transition(.opacity)
       }
     }
+    .background(Color.screenBackground.ignoresSafeArea())
     // Animate the scrim's appear/disappear, keyed on its PRESENCE (a Bool) —
     // not the label, not the full state. Consequences (#825, critic Axis 2):
     //   • awaitingScenario→loadingModel: presence stays true → NO transaction,
