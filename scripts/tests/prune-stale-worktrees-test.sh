@@ -33,7 +33,7 @@ fail=0
 pass_count=0
 # Decremented by any branch that legitimately skips a case; see the check at
 # the end of the file.
-EXPECTED_PASSES=20
+EXPECTED_PASSES=26
 
 ok() {
   pass_count=$((pass_count + 1))
@@ -60,15 +60,32 @@ REPO="$(cd "$TMP" && pwd -P)/repo"
 mkdir -p "$REPO"
 sgit init -q -b main "$REPO"
 printf 'DerivedData/\nbuild/\n.gradle/\nnode_modules/\nkeepme.local\n' > "$REPO/.gitignore"
+# Ignore patterns the FILE arm is tested against. `*.bak` and the nested/`data/`
+# paths are ignored on purpose: an entry that is merely untracked would be
+# stopped by condition (d) and the case would silently be testing (d) instead
+# of the file arm.
+printf '.claude/settings.local.json\n.DS_Store\n*.bak\nsub/.claude/settings.local.json\ndata/queue/digest.md\n' >> "$REPO/.gitignore"
 echo seed > "$REPO/a.txt"
-# `Pastura/` and `shared/models/` must be TRACKED, mirroring the real repo.
-# git collapses a wholly-ignored *untracked* directory up to its topmost
-# untracked parent, so an untracked `Pastura/` would be reported as `!! Pastura/`
-# instead of `!! Pastura/DerivedData/` — and the fixture would then exercise a
-# path shape that cannot occur in this repository.
-mkdir -p "$REPO/Pastura" "$REPO/shared/models"
+# Every directory an ignored entry sits under must be TRACKED, mirroring the
+# real repo. git collapses a wholly-ignored *untracked* directory up to its
+# topmost untracked parent, so an untracked `Pastura/` would be reported as
+# `!! Pastura/` instead of `!! Pastura/DerivedData/` — and the fixture would
+# then exercise a path shape that cannot occur in this repository. The same
+# applies to `.claude/`, `sub/.claude/` and `data/queue/`: without an anchor
+# there, every file-arm case below would pass by construction because
+# is_disposable would never see the path it is supposed to match.
+mkdir -p "$REPO/Pastura" "$REPO/shared/models" "$REPO/.claude/rules" "$REPO/.claude/skills" "$REPO/sub/.claude" "$REPO/data/queue"
 echo anchor > "$REPO/Pastura/tracked.txt"
 echo anchor > "$REPO/shared/models/tracked.txt"
+echo anchor > "$REPO/.claude/rules/anchor.md"
+# `.claude/skills/` needs its own anchor: the real repo tracks skill files
+# there, so a `.DS_Store` inside it is reported at full path. Anchoring only
+# `.claude/` leaves `skills/` untracked and git collapses it to
+# `!! .claude/skills/` — a shape this repository cannot produce. The
+# precondition assertion in the file-arm cases is what caught that.
+echo anchor > "$REPO/.claude/skills/anchor.md"
+echo anchor > "$REPO/sub/.claude/anchor.md"
+echo anchor > "$REPO/data/queue/anchor.md"
 sgit -C "$REPO" add -A
 sgit -C "$REPO" commit -qm "init"
 mkdir -p "$REPO/.claude/worktrees"
@@ -362,7 +379,7 @@ fi
 out="$(run_prune)"
 if exists "fervent-kepler-6c3aa2"; then
   case "$out" in
-    *"fervent-kepler-6c3aa2 — ignored content that is not build output: keepme.local"*)
+    *"fervent-kepler-6c3aa2 — ignored content that is not disposable: keepme.local"*)
       ok "(e) irreplaceable ignored file is kept, and the blocking entry is named" ;;
     *) bad "(e) kept for the wrong reason — got: $out" ;;
   esac
@@ -386,6 +403,138 @@ if exists "goofy-hypatia-62c51e"; then
 else
   ok "(e) nested build output alone does not block removal"
 fi
+
+# --- file arm ------------------------------------------------------------------
+# Machine-local files that regenerate are disposable; everything else still
+# blocks. Each case asserts FIRST that the exact entry string reached the
+# pruner: git collapses a wholly-ignored untracked directory up to its topmost
+# untracked parent, and a collapsed entry never reaches is_disposable at all, so
+# without that precondition every case here would pass by construction.
+printf '== file arm ==\n'
+
+# Reads the `-z` stream, which is what blocking_ignored_entry consumes. The
+# non-`-z` form C-quotes paths containing spaces or specials, so asserting
+# against it would be checking a different string than the pruner sees.
+assert_ignored_entry() {
+  local wt="$1" want="$2" got
+  got="$(sgit -C "$wt" --no-optional-locks status --porcelain -z --ignored | tr '\0' '\n' | sed -n 's/^!! //p' | tr '\n' ' ')"
+  case " $got " in
+    *" $want "*) return 0 ;;
+  esac
+  bad "fixture setup: git reported [$got], not '$want' — this case never reaches is_disposable"
+  return 1
+}
+
+# P1 / P2 — positive controls, one per list. Kept separate so a mutation that
+# drops ONE list is reported by a case that names it; a single fixture holding
+# both reddens either way but cannot say which list broke.
+make_wt "jovial-allen-fb692b"
+JA="$REPO/.claude/worktrees/jovial-allen-fb692b"
+printf '{}\n' > "$JA/.claude/settings.local.json"
+age_wt_path "$JA"
+assert_aged "jovial-allen-fb692b"
+assert_ignored_entry "$JA" ".claude/settings.local.json"
+out="$(run_prune)"
+if exists "jovial-allen-fb692b"; then
+  bad "(P1) a worktree holding only DISPOSABLE_FILES content was kept — got: $out"
+else
+  ok "(P1) an exact-path machine-local file does not block removal"
+fi
+
+make_wt "sleepy-mahavira-e64867"
+SM="$REPO/.claude/worktrees/sleepy-mahavira-e64867"
+mkdir -p "$SM/.claude/skills"
+printf 'finder junk\n' > "$SM/.claude/skills/.DS_Store"
+age_wt_path "$SM"
+assert_aged "sleepy-mahavira-e64867"
+assert_ignored_entry "$SM" ".claude/skills/.DS_Store"
+out="$(run_prune)"
+if exists "sleepy-mahavira-e64867"; then
+  bad "(P2) a worktree holding only DISPOSABLE_BASENAMES content was kept — got: $out"
+else
+  ok "(P2) a basename-matched file does not block removal"
+fi
+
+# N1 — near-miss name. Reddens if any prefix/suffix globbing creeps in.
+make_wt "silly-zhukovsky-d58f0f"
+LS="$REPO/.claude/worktrees/silly-zhukovsky-d58f0f"
+printf 'not the real thing\n' > "$LS/.claude/settings.local.json.bak"
+age_wt_path "$LS"
+assert_ignored_entry "$LS" ".claude/settings.local.json.bak"
+out="$(run_prune)"
+if ! exists "silly-zhukovsky-d58f0f"; then
+  bad "(N1) a near-miss filename was treated as disposable"
+else
+  case "$out" in
+    *"silly-zhukovsky-d58f0f — ignored content that is not disposable: .claude/settings.local.json.bak"*)
+      ok "(N1) a near-miss filename still blocks, and is named" ;;
+    *) bad "(N1) kept for the wrong reason — got: $out" ;;
+  esac
+fi
+sgit -C "$REPO" worktree remove --force "$LS" 2>/dev/null
+
+# N2 — same basename, different directory. Reddens if the full-path entry is
+# matched by basename.
+make_wt "musing-feistel-75f689"
+MF="$REPO/.claude/worktrees/musing-feistel-75f689"
+printf '{}\n' > "$MF/sub/.claude/settings.local.json"
+age_wt_path "$MF"
+assert_ignored_entry "$MF" "sub/.claude/settings.local.json"
+out="$(run_prune)"
+if ! exists "musing-feistel-75f689"; then
+  bad "(N2) a copy at a different path was treated as disposable — the full-path entry is being matched by basename"
+else
+  case "$out" in
+    *"musing-feistel-75f689 — ignored content that is not disposable: sub/.claude/settings.local.json"*)
+      ok "(N2) the same basename elsewhere still blocks" ;;
+    *) bad "(N2) kept for the wrong reason — got: $out" ;;
+  esac
+fi
+sgit -C "$REPO" worktree remove --force "$MF" 2>/dev/null
+
+# N3 — a DIRECTORY named .DS_Store. Reddens if the file arm leaks past the
+# trailing-slash selector and reaches the basename rule.
+make_wt "nice-booth-cc6294"
+NB="$REPO/.claude/worktrees/nice-booth-cc6294"
+mkdir -p "$NB/.DS_Store"
+printf 'payload\n' > "$NB/.DS_Store/inside.txt"
+age_wt_path "$NB"
+assert_ignored_entry "$NB" ".DS_Store/"
+out="$(run_prune)"
+if ! exists "nice-booth-cc6294"; then
+  bad "(N3) a DIRECTORY named .DS_Store was treated as disposable — the basename rule is reachable from the directory arm"
+else
+  case "$out" in
+    *"nice-booth-cc6294 — ignored content that is not disposable: .DS_Store/"*)
+      ok "(N3) a directory named .DS_Store still blocks" ;;
+    *) bad "(N3) kept for the wrong reason — got: $out" ;;
+  esac
+fi
+sgit -C "$REPO" worktree remove --force "$NB" 2>/dev/null
+
+# N4 — the widening must not disable (e) wholesale. Holds every allowed entry
+# PLUS one irreplaceable file, and requires that irreplaceable one to be named:
+# this is the control for the "allowing one entry just promotes the next"
+# ordering the change is built on.
+make_wt "pensive-montalcini-9c660f"
+PM="$REPO/.claude/worktrees/pensive-montalcini-9c660f"
+printf '{}\n' > "$PM/.claude/settings.local.json"
+mkdir -p "$PM/.claude/skills"
+printf 'finder junk\n' > "$PM/.claude/skills/.DS_Store"
+printf 'irreplaceable local journal\n' > "$PM/data/queue/digest.md"
+age_wt_path "$PM"
+assert_ignored_entry "$PM" "data/queue/digest.md"
+out="$(run_prune)"
+if ! exists "pensive-montalcini-9c660f"; then
+  bad "(N4) a worktree holding data/queue/digest.md was removed — widening the set disabled condition (e)"
+else
+  case "$out" in
+    *"pensive-montalcini-9c660f — ignored content that is not disposable: data/queue/digest.md"*)
+      ok "(N4) disposable entries are skipped and the irreplaceable one still blocks, by name" ;;
+    *) bad "(N4) kept for the wrong reason — got: $out" ;;
+  esac
+fi
+sgit -C "$REPO" worktree remove --force "$PM" 2>/dev/null
 
 # (a) a worktree outside .claude/worktrees/
 mkdir -p "$REPO/elsewhere"
@@ -445,7 +594,12 @@ fi
 # sits under .claude/worktrees/ too, so it would otherwise be a live candidate
 # and contaminate the idle-run assertion below.
 sgit -C "$REPO" worktree remove --force "$VICTIM" 2>/dev/null
-rm -rf "$OUTER/.claude"
+# Only the directory this case created. `.claude/` also holds the fixture's
+# TRACKED anchors, so removing it wholesale leaves this worktree permanently
+# dirty — after which the idle-log assertion below survives only because
+# condition (f) short-circuits before (d), an ordering dependency the comment
+# there does not describe and which would invert if evaluate() were reordered.
+rm -rf "$OUTER/.claude/worktrees"
 
 # --- dry-run default ----------------------------------------------------------
 # Its own fixture: hungry-goldberg is reserved for the idle case below, and the
