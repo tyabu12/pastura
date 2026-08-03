@@ -142,6 +142,27 @@ that extraction required, aborting every `gallery-scripts-test.sh` case whose
 fixture builder (`mk_factory` / `mk_gallery_yaml`) predated it. `check-gallery-entry.sh`
 never runs the extraction, so it was green locally, red in CI.
 
+### Synthetic git fixtures: anchor every directory an ignored entry sits under
+
+git collapses a wholly-ignored **untracked** directory up to its topmost untracked
+parent, so `status --porcelain --ignored` reports `!! Pastura/` rather than
+`!! Pastura/DerivedData/` unless something under `Pastura/` is tracked. A fixture
+repo built with `git init` + one commit has almost nothing tracked, so it silently
+produces path shapes this repository cannot produce.
+
+Why it matters more than a wrong fixture usually does: the **positive** case fails
+loudly and gets fixed, while every **negative** control passes *for the wrong
+reason* — the parent collapsed, so the predicate under test was never consulted at
+all. That is a false-green guard, the shape `knowledge-layering.md` § "Claims you
+author are assertions too" warns about.
+
+**Apply**: in the fixture's initial commit, put a tracked file under every
+directory an ignored entry will sit in; then assert per case that the **exact**
+entry string reached the code under test, reading the same `-z`/non-`-z` form the
+code consumes (they differ in C-quoting). Worked example:
+`scripts/tests/prune-stale-worktrees-test.sh` (`assert_ignored_entry`). Hit twice —
+`Pastura/` in #1340, `.claude/skills/` in #1352 — each time costing a review round.
+
 ### Skill-local harnesses are NOT auto-wired — each needs a `scripts/tests/` shim
 
 The Shell-gate glob is `scripts/tests/*-test.sh` **only**, so a skill's own
