@@ -33,7 +33,7 @@ fail=0
 pass_count=0
 # Decremented by any branch that legitimately skips a case; see the check at
 # the end of the file.
-EXPECTED_PASSES=25
+EXPECTED_PASSES=26
 
 ok() {
   pass_count=$((pass_count + 1))
@@ -412,9 +412,12 @@ fi
 # without that precondition every case here would pass by construction.
 printf '== file arm ==\n'
 
+# Reads the `-z` stream, which is what blocking_ignored_entry consumes. The
+# non-`-z` form C-quotes paths containing spaces or specials, so asserting
+# against it would be checking a different string than the pruner sees.
 assert_ignored_entry() {
   local wt="$1" want="$2" got
-  got="$(sgit -C "$wt" --no-optional-locks status --porcelain --ignored | sed -n 's/^!! //p' | tr '\n' ' ')"
+  got="$(sgit -C "$wt" --no-optional-locks status --porcelain -z --ignored | tr '\0' '\n' | sed -n 's/^!! //p' | tr '\n' ' ')"
   case " $got " in
     *" $want "*) return 0 ;;
   esac
@@ -422,35 +425,48 @@ assert_ignored_entry() {
   return 1
 }
 
-# P — the positive control. Reddens if the file arm is removed.
+# P1 / P2 — positive controls, one per list. Kept separate so a mutation that
+# drops ONE list is reported by a case that names it; a single fixture holding
+# both reddens either way but cannot say which list broke.
 make_wt "jovial-allen-fb692b"
 JA="$REPO/.claude/worktrees/jovial-allen-fb692b"
 printf '{}\n' > "$JA/.claude/settings.local.json"
-mkdir -p "$JA/.claude/skills"
-printf 'finder junk\n' > "$JA/.claude/skills/.DS_Store"
 age_wt_path "$JA"
 assert_aged "jovial-allen-fb692b"
 assert_ignored_entry "$JA" ".claude/settings.local.json"
-assert_ignored_entry "$JA" ".claude/skills/.DS_Store"
 out="$(run_prune)"
 if exists "jovial-allen-fb692b"; then
-  bad "(P) a worktree holding only machine-local files was kept — got: $out"
+  bad "(P1) a worktree holding only DISPOSABLE_FILES content was kept — got: $out"
 else
-  ok "(P) machine-local files alone do not block removal"
+  ok "(P1) an exact-path machine-local file does not block removal"
+fi
+
+make_wt "sleepy-mahavira-e64867"
+SM="$REPO/.claude/worktrees/sleepy-mahavira-e64867"
+mkdir -p "$SM/.claude/skills"
+printf 'finder junk\n' > "$SM/.claude/skills/.DS_Store"
+age_wt_path "$SM"
+assert_aged "sleepy-mahavira-e64867"
+assert_ignored_entry "$SM" ".claude/skills/.DS_Store"
+out="$(run_prune)"
+if exists "sleepy-mahavira-e64867"; then
+  bad "(P2) a worktree holding only DISPOSABLE_BASENAMES content was kept — got: $out"
+else
+  ok "(P2) a basename-matched file does not block removal"
 fi
 
 # N1 — near-miss name. Reddens if any prefix/suffix globbing creeps in.
-make_wt "laughing-shtern-427042"
-LS="$REPO/.claude/worktrees/laughing-shtern-427042"
+make_wt "silly-zhukovsky-d58f0f"
+LS="$REPO/.claude/worktrees/silly-zhukovsky-d58f0f"
 printf 'not the real thing\n' > "$LS/.claude/settings.local.json.bak"
 age_wt_path "$LS"
 assert_ignored_entry "$LS" ".claude/settings.local.json.bak"
 out="$(run_prune)"
-if ! exists "laughing-shtern-427042"; then
+if ! exists "silly-zhukovsky-d58f0f"; then
   bad "(N1) a near-miss filename was treated as disposable"
 else
   case "$out" in
-    *"laughing-shtern-427042 — ignored content that is not disposable: .claude/settings.local.json.bak"*)
+    *"silly-zhukovsky-d58f0f — ignored content that is not disposable: .claude/settings.local.json.bak"*)
       ok "(N1) a near-miss filename still blocks, and is named" ;;
     *) bad "(N1) kept for the wrong reason — got: $out" ;;
   esac
@@ -578,7 +594,12 @@ fi
 # sits under .claude/worktrees/ too, so it would otherwise be a live candidate
 # and contaminate the idle-run assertion below.
 sgit -C "$REPO" worktree remove --force "$VICTIM" 2>/dev/null
-rm -rf "$OUTER/.claude"
+# Only the directory this case created. `.claude/` also holds the fixture's
+# TRACKED anchors, so removing it wholesale leaves this worktree permanently
+# dirty — after which the idle-log assertion below survives only because
+# condition (f) short-circuits before (d), an ordering dependency the comment
+# there does not describe and which would invert if evaluate() were reordered.
+rm -rf "$OUTER/.claude/worktrees"
 
 # --- dry-run default ----------------------------------------------------------
 # Its own fixture: hungry-goldberg is reserved for the idle case below, and the

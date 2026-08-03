@@ -120,9 +120,13 @@
 # instances, while this rule matches on PATH, unconditionally, with no runtime
 # content check. A session that grants a permission inside a worktree diverges
 # its copy, and this deletes it anyway.
-# What licenses the entry is BOUNDED LOSS: worst case, a grant made inside a
-# stale worktree is lost and re-prompts. Contrast `data/queue/digest.md`, which
-# is unrecoverable. Do NOT restate this as "it dies with the worktree anyway" —
+# What licenses the entry is BOUNDED LOSS: worst case, any local settings edit
+# made inside a STALE worktree is lost — a permission grant re-prompts, and
+# hook wiring / env / plugin enablement there governed only that dead worktree's
+# sessions. The main checkout's copy is never a candidate: this script
+# self-gates to the main checkout and only ever removes paths under
+# `.claude/worktrees/`. Contrast `data/queue/digest.md`, which is
+# unrecoverable. Do NOT restate this as "it dies with the worktree anyway" —
 # condition (e) exists precisely to stop a worktree dying while it holds
 # content, so that reasoning is circular.
 #
@@ -167,6 +171,13 @@ LOG_FILE=""
 # Three exact-match lists, never globs, so anything unrecognized fails toward
 # KEEP. Which list applies is decided by the trailing slash git puts on
 # directories in `--ignored` porcelain output — see is_disposable.
+#
+# "Never globs" rests on the QUOTING at those match sites, not on the strings
+# happening to be plain: `case " $LIST " in *" $entry "*)` interpolates
+# untrusted path text into a glob pattern, and only the double quotes keep it
+# literal (verified on bash 3.2 with `entry` set to `*` and to a `?`-bearing
+# path). Unquoting `$entry`, or moving to an unquoted `[[ == ]]`, silently
+# turns an observed filename into a wildcard.
 #
 # Directories, matched on the final path component, mirroring the bare-pattern
 # semantics of .gitignore's own `build/`, `DerivedData/` and `.build/` rules
