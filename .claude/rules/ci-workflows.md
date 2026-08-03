@@ -145,23 +145,16 @@ never runs the extraction, so it was green locally, red in CI.
 ### Synthetic git fixtures: anchor every directory an ignored entry sits under
 
 git collapses a wholly-ignored **untracked** directory up to its topmost untracked
-parent, so `status --porcelain --ignored` reports `!! Pastura/` rather than
-`!! Pastura/DerivedData/` unless something under `Pastura/` is tracked. A fixture
-repo built with `git init` + one commit has almost nothing tracked, so it silently
-produces path shapes this repository cannot produce.
+parent — `status --ignored` reports `!! Pastura/`, not `!! Pastura/DerivedData/`,
+unless something under `Pastura/` is tracked. A fixture repo tracks almost nothing,
+so it silently produces path shapes this repo cannot.
 
-Why it matters more than a wrong fixture usually does: the **positive** case fails
-loudly and gets fixed, while every **negative** control passes *for the wrong
-reason* — the parent collapsed, so the predicate under test was never consulted at
-all. That is a false-green guard, the shape `knowledge-layering.md` § "Claims you
-author are assertions too" warns about.
-
-**Apply**: in the fixture's initial commit, put a tracked file under every
-directory an ignored entry will sit in; then assert per case that the **exact**
-entry string reached the code under test, reading the same `-z`/non-`-z` form the
-code consumes (they differ in C-quoting). Worked example:
-`scripts/tests/prune-stale-worktrees-test.sh` (`assert_ignored_entry`). Hit twice —
-`Pastura/` in #1340, `.claude/skills/` in #1352 — each time costing a review round.
+**Apply**: track a file under every directory an ignored entry will sit in, and
+assert per case that the exact entry string reached the code under test. Skip it
+and the positive case still fails loudly while every negative control passes for
+the wrong reason — the same false-green shape § "Gate scripts" flags for
+`mktemp -d` fixtures, from a different cause. Worked example (recurred #1340,
+#1352): `scripts/tests/prune-stale-worktrees-test.sh` § `assert_ignored_entry`.
 
 ### Skill-local harnesses are NOT auto-wired — each needs a `scripts/tests/` shim
 
