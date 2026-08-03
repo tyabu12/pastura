@@ -14,7 +14,8 @@
 #   b. basename matches ^[a-z]+-[a-z]+-[0-9a-f]{6}$
 #   c. the worktree is not `locked`
 #   d. `git status --porcelain` is empty
-#   e. ignored content is limited to build output (DISPOSABLE_COMPONENTS below)
+#   e. all of its ignored content is disposable — build output, or a
+#      machine-local file that simply regenerates (three lists below)
 #   f. nothing in the worktree or its git metadata changed in the last 12h
 #   g. HEAD is attached to a branch (a detached HEAD's commits are reachable
 #      from no ref, so removal would orphan them)
@@ -90,17 +91,40 @@
 # TUNING THE DISPOSABLE SET
 # Anything ignored-but-not-disposable blocks removal (safe direction: residue
 # stays, nothing is lost). The dry-run log names the exact blocking entry for
-# each KEEP, which is how this set is meant to be tuned: run dry for a few
-# nights, read the log, then add only what is provably build output.
-# Two entries to expect FIRST in that log, both deliberately not disposable:
-#   - `.claude/settings.local.json` — Claude Code writes permission grants
-#     there, so a session that granted anything leaves one behind.
-#   - `data/` — the repository tracks no file under it at all, so git collapses
-#     the whole directory to a single `!! data/` entry the moment a routine
-#     writes its digest there.
-# If either turns out to dominate the log, that is a finding about what a
-# routine worktree actually accumulates, not a reason to widen the set
-# reflexively: widening it is what makes a removal unrecoverable.
+# each KEEP, which is how these lists are tuned: run dry for a few nights, read
+# the log, then add only what is provably build output OR provably machine-local
+# and regenerable. Widening is what makes a removal unrecoverable, so a blocker
+# that dominates the log is a finding about what routine worktrees accumulate,
+# not licence to widen reflexively.
+#
+# That procedure has now run once. Recording what it produced, because the
+# previous version of this section predicted the wrong things:
+#   - The first blocker was `.claude/probe-instructions-hook.sh`, unanticipated
+#     here. It was dead residue from a one-off probe, ignored only through one
+#     clone's `.git/info/exclude` — cleaned up at the source rather than
+#     allowlisted, because on any other clone it is not ignored at all and
+#     condition (d) stops the worktree instead. Prefer that resolution: residue
+#     is temporary, an allowlist entry is permanent.
+#   - `data/` was predicted and never appeared. `queue-consumer`'s
+#     `append_digest.py` resolves its digest to the MAIN checkout via
+#     `--git-common-dir`, so a worktree's `data/` stays empty. That is specific
+#     to routines resolving that way — `scenario-factory`'s takes `--digest`
+#     from its caller — so a factory worktree blocking on `data/` later is
+#     expected, not a contradiction.
+#
+# WHY `.claude/settings.local.json` IS DISPOSABLE — and what that is NOT saying
+# Claude Code writes permission grants there, which is why an earlier version of
+# this section listed it as deliberately non-disposable. The correction is to
+# the inference, not to that fact. The three observed worktree copies measured
+# byte-identical to the main checkout's — but that is evidence about three
+# instances, while this rule matches on PATH, unconditionally, with no runtime
+# content check. A session that grants a permission inside a worktree diverges
+# its copy, and this deletes it anyway.
+# What licenses the entry is BOUNDED LOSS: worst case, a grant made inside a
+# stale worktree is lost and re-prompts. Contrast `data/queue/digest.md`, which
+# is unrecoverable. Do NOT restate this as "it dies with the worktree anyway" —
+# condition (e) exists precisely to stop a worktree dying while it holds
+# content, so that reasoning is circular.
 #
 # USAGE
 #   scripts/prune-stale-worktrees.sh              # dry run (default)
@@ -140,11 +164,22 @@ VERBOSE=0
 QUIET=0
 LOG_FILE=""
 
-# Exact final-path-component match, mirroring the bare-pattern semantics of
-# .gitignore's own `build/`, `DerivedData/` and `.build/` rules (which match at
-# any depth). Exact rather than glob so a new, unrecognized artifact directory
-# fails toward KEEP.
+# Three exact-match lists, never globs, so anything unrecognized fails toward
+# KEEP. Which list applies is decided by the trailing slash git puts on
+# directories in `--ignored` porcelain output — see is_disposable.
+#
+# Directories, matched on the final path component, mirroring the bare-pattern
+# semantics of .gitignore's own `build/`, `DerivedData/` and `.build/` rules
+# (which match at any depth).
 DISPOSABLE_COMPONENTS="build DerivedData .build .gradle node_modules PasturaShared.xcframework"
+# Files, matched on the full repo-relative path. Deliberately not by basename:
+# a copy of this filename somewhere else in the tree is not the same file and
+# must keep blocking. See § "WHY .claude/settings.local.json IS DISPOSABLE".
+DISPOSABLE_FILES=".claude/settings.local.json"
+# Files matched on basename alone, for names that legitimately appear at any
+# depth. `.DS_Store` is Finder metadata and is unanchored in .gitignore too, so
+# the semantics agree; it cannot hold anything a human would miss.
+DISPOSABLE_BASENAMES=".DS_Store"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -258,22 +293,35 @@ is_fresh() {
   return 1
 }
 
-# A git-status path such as "Pastura/DerivedData/" is disposable when it is a
-# directory whose final component is in DISPOSABLE_COMPONENTS.
+# Is a git-status path such as "Pastura/DerivedData/" or ".claude/skills/.DS_Store"
+# disposable? The trailing slash is the ONLY arm selector — git's `--ignored`
+# porcelain guarantees it on directories — so a directory that happens to be
+# named `.DS_Store/` takes the directory arm and can never reach the basename
+# rule below.
 is_disposable() {
   local entry="$1" last
   case "$entry" in
-    */) entry="${entry%/}" ;;
-    *) return 1 ;;
+    */)
+      entry="${entry%/}"
+      last="${entry##*/}"
+      case " $DISPOSABLE_COMPONENTS " in
+        *" $last "*) return 0 ;;
+      esac
+      return 1
+      ;;
+  esac
+
+  case " $DISPOSABLE_FILES " in
+    *" $entry "*) return 0 ;;
   esac
   last="${entry##*/}"
-  case " $DISPOSABLE_COMPONENTS " in
+  case " $DISPOSABLE_BASENAMES " in
     *" $last "*) return 0 ;;
   esac
   return 1
 }
 
-# First ignored entry that is not build output, or empty when there is none.
+# First ignored entry that is not disposable, or empty when there is none.
 # Returns 2 when the enumeration itself failed, so the caller cannot read a
 # git error as "nothing irreplaceable here". This one matters more than the
 # others: `git worktree remove` is blind to ignored files, so (e) has no
@@ -407,8 +455,8 @@ evaluate() {
   fi
   if [ -n "$blocker" ]; then
     kept=$((kept + 1))
-    record_actionable "KEEP  $name — ignored content that is not build output: $blocker"
-    [ "$VERBOSE" -eq 1 ] && say "keep  $name — ignored content that is not build output: $blocker"
+    record_actionable "KEEP  $name — ignored content that is not disposable: $blocker"
+    [ "$VERBOSE" -eq 1 ] && say "keep  $name — ignored content that is not disposable: $blocker"
     return 0
   fi
 

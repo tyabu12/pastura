@@ -362,7 +362,7 @@ fi
 out="$(run_prune)"
 if exists "fervent-kepler-6c3aa2"; then
   case "$out" in
-    *"fervent-kepler-6c3aa2 — ignored content that is not build output: keepme.local"*)
+    *"fervent-kepler-6c3aa2 — ignored content that is not disposable: keepme.local"*)
       ok "(e) irreplaceable ignored file is kept, and the blocking entry is named" ;;
     *) bad "(e) kept for the wrong reason — got: $out" ;;
   esac
