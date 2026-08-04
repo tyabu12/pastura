@@ -1,7 +1,7 @@
 ---
 name: release
 description: Cut a Pastura release — version bump, TestFlight and App Store release notes, then a gated scripts/release.sh archive/upload/tag. Use when asked to cut or ship a release, upload a build to TestFlight, or run the release pipeline.
-allowed-tools: Read, Grep, Glob, Bash
+allowed-tools: Read, Grep, Glob, Bash, Write, Agent, AskUserQuestion
 argument-hint: "[X.Y]"
 ---
 
@@ -185,8 +185,10 @@ in `Localizable.xcstrings`, not internal identifiers: `whisper` is 密談,
 
 `--notes-file` reaches **TestFlight only** (see the `--notes-file` paragraph
 below). The App Store "What's New" is a separate App Store Connect field,
-entered by hand **per locale** — Pastura ships **ja + en-US** — at submission
-time (Step 7); `release.sh` never touches it. Write both from one shared body:
+entered by hand **per locale** — Pastura ships **ja + en-US** — in App Store
+Connect when the build is submitted. No step of this skill performs that
+submission; the text is signed off at the Step 5 gate below, and
+`release.sh` never touches it. Write both from one shared body:
 TestFlight adds internal-behaviour detail and a "確認してほしいこと" list covering
 every new feature group; the App Store text drops both, since to a general user
 they read as instructions, or as defect reports. **Both texts go to the Step 5
@@ -281,10 +283,10 @@ and that the build is processing on TestFlight.
 > into `scripts/release.sh` — most TestFlight builds never go public, so a
 > Release per build would be pre-release clutter.
 >
-> **Not yet exercised.** This procedure is defined ahead of Pastura's first
-> App Store publish — a Phase 3 event (ADR-014's scope covers TestFlight
-> upload only). It becomes live once a build is actually approved; until
-> then it is documentation, not an expected per-version deliverable.
+> **Exercised twice** — `v1.0+522` and `v1.1+671`. ADR-014's scope still
+> covers TestFlight upload only, so nothing here is automated. Read
+> `v1.1+671` as the reference shape; `v1.0+522` predates this spec (its own
+> sections, no `## Features` / `## Fixes`) and is voice reference only.
 
 **Trigger:** a build has been **approved and released on the App Store** (an
 App Store Connect–side event this repo does not observe). Each `/release`
@@ -293,56 +295,147 @@ GitHub Release to the tag of the build that went live — titled `Pastura
 <version>` (the public marketing version, no build suffix), marked `--latest`,
 never a pre-release.
 
-**Changelog source.** The GitHub Release carries the developer-facing
-changelog — merged PRs, contributor handles, issue numbers — deliberately
-kept *out* of the tester-facing "What to Test" notes (Step 3). Its base is
-the **previous public release**: because public releases are the only
-GitHub Releases in this design, `gh release list` returns them directly, so
-"previous GitHub Release" == "previous public release" automatically even
+### What the body is
+
+**A curated, user-facing highlights document — not a changelog.** The
+`--generate-notes` PR list is **material the author reads, never text that
+gets published**: for 1.1 it ran to 149 lines of commit subjects, which no
+one reads. Nothing of it survives into the body except the facts you rewrite
+by hand; the `## What's Changed` list is not kept at all, because the
+`**Full Changelog**` compare link already reaches every PR.
+
+Its base is the **previous public release**: because public releases are the
+only GitHub Releases in this design, `gh release list` returns them directly,
+so "previous GitHub Release" == "previous public release" automatically even
 though many TestFlight tags sit in between. Pass `--exclude-drafts` so a
 leftover draft from an aborted run (below) cannot become the base.
 
-**Recipe — draft first, review, then publish.** The draft is both a
-body-assembly mechanism (so the hand-written intro lands *above* the
-auto-generated "What's Changed") and a review pause — a public Release is
-notified to watchers and indexed, so it inherits this skill's
-confirmation-gate discipline (Step 5): never flip `--draft=false` on an
-unreviewed auto-changelog.
+### Body structure
 
-```bash
-TAG="v<version>+<build>"                   # the approved build's tag
-PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
+In this order. Omit a section that has no qualifying items — a fixes-only
+release carries no `## Features`, and vice versa.
 
-# 1. Create as a DRAFT with the auto-generated changelog. Build the
-#    optional flag as an array — an unquoted ${PREV:+--notes-start-tag …}
-#    is NOT word-split under zsh (the default macOS shell) and would
-#    collapse into one bad argument that gh rejects.
-notes_args=()
-[ -n "$PREV" ] && notes_args=(--notes-start-tag "$PREV")
-gh release create "$TAG" --title "Pastura <version>" --latest --draft \
-  --generate-notes "${notes_args[@]}"
+1. **Opening line**, italic. One or two sentences, written fresh for this
+   release (see below).
+2. `This is the X.Y release of Pastura, <one clause placing it>.` followed by
+   a short factual summary paragraph naming the two or three things the
+   release is actually about. For a hotfix `X.Y.Z`, say what it fixes instead
+   of placing it in the sequence.
+3. `## Features`
+4. `## Fixes`
+5. `**Full Changelog**: https://github.com/<owner>/<repo>/compare/<PREV>...<TAG>`
+6. `## Get it` — fixed boilerplate, unchanged every release (the App Store URL
+   is the one in `README.md`):
+   ```markdown
+   - Download on the App Store: https://apps.apple.com/app/pastura-local-llms-simulator/id6788409688
+   - Product story, design, and FAQ: https://pastura.app
+   - Source and docs: this repository's [README.md](./README.md).
+   ```
+7. **Closing line**, italic. Written fresh, same as the opener.
 
-# 2. Prepend a hand-written 2–3 line intro (the release headline) above
-#    the generated "What's Changed". (gh resolves a draft by tag via a
-#    list-and-match fallback, so view/edit by "$TAG" work here — confirm
-#    on the first live run, since this flow is not yet exercised.)
-BODY="$(mktemp)"
-{ printf '%s\n\n' "<hand-written 2–3 line intro>"; \
-  gh release view "$TAG" --json body -q '.body'; } > "$BODY"
-gh release edit "$TAG" --notes-file "$BODY"
+**Bullet format** inside a section:
 
-# 3. Review the draft in the GitHub UI (Releases → the draft). Only once
-#    the intro + generated changelog read correctly:
-gh release edit "$TAG" --latest --draft=false
-rm -f "$BODY"
+```markdown
+- **Bold lead:** One or two factual sentences. (#1070, #1078, #1081)
 ```
 
-**First public release** (no prior Release exists): `--generate-notes` would
-otherwise pick the most recent *git tag* as its base and truncate the log to
-one build's worth of commits. Instead **drop `--generate-notes`** and
-hand-write the whole body — a short app intro + notable first-release
-capabilities (mirroring the Step 3 first-build guidance) — passing it via
-`--notes-file` at create time. `PREV` is empty, so no base tag is involved.
+**The lead differs by section.** In `## Features` it is a noun phrase naming
+the thing itself — the phase, the field, the screen — followed by a colon, not
+a headline written about it. In `## Fixes` it is the symptom instead, stated as
+a clause that ends its own sentence rather than taking a colon: what broke is
+what a reader recognises. The v1.1 body is the worked example of both.
+
+Order bullets by impact **within** the section: what a user touches first, then
+correctness, then the rest. Fold every low-impact item into a single trailing
+`- **Smaller fixes:**` bullet carrying their numbers, rather than giving each
+its own line.
+
+### What goes in
+
+**Only what reached users.** Work merged but not wired into the shipping app —
+an in-progress port, an evaluated-but-unshipped backend spike — is invisible
+to every reader of this page and is omitted entirely, along with docs, chore,
+CI and dependency commits. This is Step 3's **Cut 1** (judge by what the
+update delivers, not by where the file lives) applied to this surface.
+
+Inheritance from Step 3 is partial — name it exactly:
+
+| Step 3 rule | Applies here? |
+|---|---|
+| **Write plainly** (no marketing adjectives, no effusive openers/closers, no AI-tell rhythms) | **Yes** — and it is the rule most easily lost. The sole exception is the two authored lines below. |
+| **Cut 1** — by what the update delivers | **Yes**, as above. |
+| **Cut 3** — fold by likelihood of encounter | **Yes** — it is what the trailing "Smaller fixes" bullet implements. |
+| **Drop all PR/issue numbers** | **No.** That rule exists because tester notes are not a changelog; here the numbers are the point. |
+
+Verify a claim before writing it, the same as Step 3's cuts: a bullet
+paraphrasing a commit subject is a claim about behaviour, and a subject can be
+shorthand for something narrower.
+
+### The two authored lines
+
+They carry the release's voice; the body between them is deliberately flat.
+Both are **written fresh each release** — no line is reused, including 1.0's
+tagline, which belongs to 1.0. Set both in italics so they read as distinct
+from the factual body.
+
+Because they matter out of proportion to their length, **offer to delegate them
+to a Fable subagent** — the operator's global rules require explicit approval
+before any Fable spawn, so it is an ask, never a default. If the operator
+declines, draft them in-session and say so at the draft review so they can be
+rewritten. Give the subagent the finished
+body plus the previous releases' opening and closing lines as **voice
+reference**, and withhold your own candidates so its output stays independent.
+Ask for several options of each rather than one.
+
+### Recipe — draft, review, publish
+
+The draft is the review pause. A public Release notifies watchers and is
+indexed, so it inherits this skill's confirmation-gate discipline (Step 5):
+the operator reviews the **rendered** draft — links and emphasis included —
+and only then is it published.
+
+**The three blocks below are separate Bash calls** — the Write tool sits
+between 1 and 2, the operator's review between 2 and 3 — so **substitute the
+tag, title and body path concretely** in each, exactly as Step 1 requires of
+Steps 4/6. `gh api` expands `{owner}`/`{repo}` itself, so no repo variable is
+needed. The literal `/REPLACE-WITH-BODY-PATH` fails `--notes-file`'s existence
+check rather than binding an empty value.
+
+```bash
+# 1. Material only. Read-only — creates nothing, so there is no throwaway
+#    draft to clean up if you stop here.
+PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
+gh api -X POST "repos/{owner}/{repo}/releases/generate-notes" \
+  -f tag_name="v<version>+<build>" -f previous_tag_name="$PREV" --jq '.body'
+```
+
+```bash
+# 2. Write the body per the structure above with the Write tool, to a path
+#    OUTSIDE the checkout ($TMPDIR / `mktemp -t pastura-release-body`) — this
+#    step runs on a tree that equals origin/main, where a stray file can be
+#    swept into an unrelated commit. Then create the DRAFT from it. gh
+#    resolves a draft by tag for later view/edit even though its URL shows
+#    `untagged-…` (confirmed on the 1.1 run).
+gh release create "v<version>+<build>" --title "Pastura <version>" \
+  --latest --draft --notes-file /REPLACE-WITH-BODY-PATH
+```
+
+```bash
+# 3. Operator reviews the rendered draft in the GitHub UI. Only then:
+gh release edit "v<version>+<build>" --latest --draft=false
+```
+
+Confirm the publish landed with
+`gh release list --exclude-drafts --limit 1 --json tagName,isLatest` —
+`isLatest` exists there but **not** on `gh release view`, which fails with
+`Unknown JSON field`.
+
+(Step 3 keeps its shorter notes file in an inline heredoc; this body is long
+and multi-section, which is what CLAUDE.md § Git Conventions routes to a file
+written with the Write tool.)
+
+`PREV` is non-empty from 1.1 onward, so `previous_tag_name` always has a base;
+1.0 was hand-written with no prior release and is not a case that recurs.
 
 **Aborted run:** if the flow dies between create and publish, a draft
 Release lingers (and `gh release list` without `--exclude-drafts` would see
