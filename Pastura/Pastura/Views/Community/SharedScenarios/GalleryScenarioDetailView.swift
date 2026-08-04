@@ -32,6 +32,13 @@ struct GalleryScenarioDetailView: View {
         ProgressView()
       }
     }
+    // Ground on the container, not the loaded arm — the `ProgressView()` arm
+    // covers a network load and has to render on it too. Frame first:
+    // `.background` sizes to the primary view, so a small-intrinsic arm would
+    // otherwise get a patch behind its spinner rather than a screen.
+    // ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(scenario.title)
     // The scenario name is a proper-noun title, so it reads as a large
     // heading like ScenarioDetail — not the `.inline` it would otherwise
@@ -100,7 +107,6 @@ struct GalleryScenarioDetailView: View {
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .background(Color.screenBackground.ignoresSafeArea())
   }
 
   private var deepLinkBanner: some View {

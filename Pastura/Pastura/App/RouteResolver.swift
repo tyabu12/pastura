@@ -62,6 +62,14 @@ private struct ScenarioEditorHost: View {
         ProgressView()
       }
     }
+    // Ground on the container so the pre-load `ProgressView()` arm renders on it
+    // rather than the system colour. `ScenarioEditorView` keeps its own ground
+    // deliberately — it is a separate view whose correctness as a standalone
+    // screen must not depend on this host; under the loaded arm the two are the
+    // same opaque colour, so the overlap is inert. Frame first: `.background`
+    // sizes to the primary view. ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.screenBackground.ignoresSafeArea())
     .task {
       guard viewModel == nil else { return }
       let newViewModel = ScenarioEditorViewModel(repository: repository)

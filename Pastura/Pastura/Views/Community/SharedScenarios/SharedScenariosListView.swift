@@ -16,6 +16,13 @@ struct SharedScenariosListView: View {
         ProgressView()
       }
     }
+    // Ground on the container, not the loaded arm — `loadingView` and the
+    // `emptyState` (which persists whenever the gallery is unreachable) have to
+    // render on it too. Frame first: `.background` sizes to the primary view, so
+    // a small-intrinsic arm would otherwise get a patch behind its spinner
+    // rather than a screen. ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Browse Shared Scenarios"))
     // Inline title to match the other tab roots (design-system § 5.11).
     .navigationBarTitleDisplayMode(.inline)
@@ -118,7 +125,6 @@ struct SharedScenariosListView: View {
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .background(Color.screenBackground.ignoresSafeArea())
     .refreshable {
       await viewModel.refresh()
     }
