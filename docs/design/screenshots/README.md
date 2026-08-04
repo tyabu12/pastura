@@ -74,7 +74,7 @@ device-following.
 
 **What the dark set is for, and what it is not.** It is for reviewing
 typography, spacing and overall mood in the dark palette. It is **not**
-dark-mode QA coverage. Against the five classes in
+dark-mode QA coverage. Against the six classes in
 `../../qa/dark-mode-qa.md` § "What is actually at risk":
 
 | Class | On this tour? |
@@ -84,9 +84,11 @@ dark-mode QA coverage. Against the five classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
+| F. A **rendered state** with no ground behind it | **Surfaces yes, defects no.** Stops `10`–`14` are the **empty / error** branches this class concerns (`../../qa/dark-mode-qa.md` § 2b "The non-loaded branches") — and a static capture is what found the class in the first place, since the failure is an **absent** modifier that light hides and dark exposes. Its *loading* arms are not on tour: `capture` waits on an anchor that exists only once the state resolves, so a transient `ProgressView` is unreachable by construction. Even so the class is **swept** as of #1354 / #1365, and these sets carry no baseline to diff a later regression against. Its one open edge, presented sheets, is never on tour |
 
-So class B is partially covered and the other four are not. Everything
-else the dark set shows is the ordinary paired-token surfaces, which gate 1
+So B is partially covered, F's *empty / error* surfaces are on tour with the
+class already swept, and the other four are not covered. Everything else
+the dark set shows is the ordinary paired-token surfaces, which gate 1
 closed by measurement and `DesignTokensTests` asserts for all 67 pairs.
 Treat a finding here as a design observation, not as a defect the device
 walkthrough would have caught.
@@ -97,11 +99,29 @@ share filenames — `01-home.png` exists in both. Re-run both before any
 side-by-side comparison, or you may be attributing a months-old delta to
 the appearance.
 
-**`ui-refine` does not read the dark set** — the skill runs the bare
-(light) tour and reviews `docs/design/screenshots/*.png`, a single-level
-glob. Making that cycle dark-aware needs decisions about the lens
-rotation and the proposal ledger, so it is tracked separately in
-[#1345](https://github.com/tyabu12/pastura/issues/1345).
+**`ui-refine` stays light-only — decided, not pending**
+([#1345](https://github.com/tyabu12/pastura/issues/1345)). Its capture glob is
+single-level, so it never reaches `dark/`. Wiring it up was planned, reviewed
+and declined: six of the seven lenses cite a § 2 anchor, but only **L1** cites
+a *dark-specific* one (§ 2.9), and L4 is excluded outright since
+`motion-capture.sh` exposes no appearance flag. The rest read their colour
+anchors through questions that resolve the same once the paired tokens invert
+(`../ui-refine/lenses.md` has the per-lens anchors), so a dark arm would
+restate the light finding on six runs in seven — the repetition that skill's
+ledger exists to stop. The one appearance-specific failure, a token that fails
+to invert, is a **defect**, which ui-refine declares a Non-goal
+(`../ui-refine/README.md` § "What it is — and is NOT"); it belongs to
+`DesignTokensTests` and the device walkthrough.
+
+**Re-arm** on either, both countable:
+
+1. A human skims the current dark set and files a finding that is not already
+   tracked and that cites a `../design-system.md` anchor
+   (`../../qa/dark-mode-qa.md` § "While you are here: skim the dark review
+   set" hosts that step — nothing else fires this condition).
+2. The lens catalog gains, or re-scopes an existing lens into, an
+   appearance-bound lens other than L1 (`../ui-refine/lenses.md`
+   § "Adding / reordering lenses" points back here).
 
 ## Deferred (not yet captured)
 

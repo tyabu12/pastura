@@ -113,11 +113,15 @@ the build; subject to the concurrent-session simulator gate per
 are present and freshly written (`docs/design/screenshots/*.png`). The covered
 screens are listed in `docs/design/screenshots/README.md`.
 
-**Light appearance only, deliberately.** `scripts/ui-tour.sh --dark` also
-produces a dark set under `docs/design/screenshots/dark/`, which this glob is
-single-level and so does not reach. Reviewing it needs decisions about the lens
-rotation and the proposal ledger — see #1345. Until that lands, a cycle
-critiques the light appearance and should not claim otherwise in its digest.
+**Light appearance only — decided, not pending.** `scripts/ui-tour.sh --dark`
+also produces a dark set under `docs/design/screenshots/dark/`, which this glob
+is single-level and so does not reach. Consuming it was planned, reviewed and
+**declined** (#1345): only L1 has a dark-specific anchor, so a dark arm would
+restate the light finding on six runs in seven — the repetition Step 5's ledger
+exists to stop. Do **not** re-derive this. The decision, its two countable
+re-arm conditions, and the coverage measurement behind it live in
+`docs/design/screenshots/README.md` § "Dark set". A cycle critiques the light
+appearance and should not claim otherwise in its digest.
 
 ### L4 (Motion & feedback) — motion filmstrips
 

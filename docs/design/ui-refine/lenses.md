@@ -95,3 +95,9 @@ invariant.
 If **Motion** ever moves off **L4**, also update the capture-branch literals in
 `SKILL.md` Step 0/1/3 — the L4-only `motion-capture.sh` path keys off that
 number (the rest of the lenses share the static `ui-tour.sh` path).
+
+If a new or re-scoped lens is **appearance-bound** — it names § 2.9 Dark Mode,
+or asks a question whose answer differs between light and dark — it fires
+condition 2 of the decision that `ui-refine` stays light-only
+([`../screenshots/README.md`](../screenshots/README.md) § "Dark set"), which
+assumes L1 is the only such lens.

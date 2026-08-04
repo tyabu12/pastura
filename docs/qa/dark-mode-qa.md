@@ -255,3 +255,14 @@ The six fixes post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
 ModelPicker shadows, the five restyled buttons, the scrim, the two missing
 screen grounds, and the seven-site sweep of their non-loaded branches.
+
+## While you are here: skim the dark review set
+
+`scripts/ui-tour.sh --dark` is a simulator artifact and no part of this walk —
+but note what found the fifth defect above, and do this while a device pass is
+fresh. Coverage and caveats: `../design/screenshots/README.md` § "Dark set".
+
+- [ ] Regenerate and skim once. File anything untracked that cites a
+      `../design/design-system.md` anchor — worth doing on its own merits, and
+      it is **re-arm condition 1** for the decision that `ui-refine` stays
+      light-only (#1345); nothing else fires that.
