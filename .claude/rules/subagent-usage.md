@@ -62,6 +62,11 @@ budget (derived — tighten at the call site, don't edit; see the header):
 When numbers fall between soft and hard, prefer splitting. If splitting
 is impractical, see **§3. Sonnet override**.
 
+**A split leaves a seam no shard owns.** Each invocation sees only its own
+slice, so anything spanning the split — a mirrored count, a cross-reference,
+a claim one shard makes about another's files — is unreviewed by
+construction. Name the seam's owner, or add a final pass over the whole.
+
 **What exhaustion looks like.** *Not* a missing summary: review agents
 are built to emit their verdict/summary **first** under cap pressure, so
 it survives exactly when the run is truncated. Look instead for **detail
