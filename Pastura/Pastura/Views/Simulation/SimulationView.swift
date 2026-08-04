@@ -112,6 +112,11 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
           .transition(.opacity)
       }
     }
+    // Pin the frame before the ground: `.background` sizes to the primary view,
+    // and the `.error` / `.alreadyRunning` arms are the ZStack's only child, so
+    // without this the ground's extent depends on whether those views happen to
+    // be greedy. Pinned, it does not.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     // Animate the scrim's appear/disappear, keyed on its PRESENCE (a Bool) —
     // not the label, not the full state. Consequences (#825, critic Axis 2):

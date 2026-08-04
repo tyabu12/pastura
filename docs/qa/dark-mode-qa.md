@@ -28,7 +28,7 @@ classes are:
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
 | E. Occlusion layers | A shadow or scrim must be **darker than what it covers**; a paired alias inverts and brightens instead. No lint rule reaches the scrim shape | §6 — the class that produced the fourth defect |
-| F. A screen with no ground at all | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier | §2 — found on Simulation, and on ResultDetail by enumerating the class; both fixed in #1336 |
+| F. A screen with no ground at all | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier | §2 — Simulation and ResultDetail fixed in #1336; the loading / empty / error arms of five *other* roots are still system-coloured, deferred to #1354 — do not re-report |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
 but do not go token-hunting — that is gate 1's closed work.
@@ -167,16 +167,17 @@ whenever §2.1, the sheet, or the Simulation ground changes — the margin is 1.
 so it is the first surface a dimming change would flatten.
 
 Getting it on screen is the hard part. It presents **once per run**, at the first
-vote phase, and five preconditions must all hold. Two of them — 3 and 4 — silently
-spend the run's one opportunity if they fail, because the latch is set before their
-guards; the rest simply return early:
+vote phase. Set the device to **dark** for this walkthrough — the sheet itself
+presents in either appearance — and four in-app preconditions must then hold. Two of
+them, 2 and 3, silently spend the run's one opportunity if they fail, because the
+latch is set before their guards. 1 returns before the latch, and 4 is not a guard at
+that site at all — it governs whether the latch was reset for this run:
 
-1. Device appearance **dark**.
-2. Settings → viewer-prediction toggle **on** (defaults on).
-3. The simulation screen stays **foreground-visible** — parking it (ADR-017
+1. Settings → viewer-prediction toggle **on** (defaults on).
+2. The simulation screen stays **foreground-visible** — parking it (ADR-017
    Phase B) or backgrounding latches `hasAttemptedPrediction` for that run.
-4. At least **two** non-eliminated agents.
-5. A **fresh run**, not a resume.
+3. At least **two** non-eliminated agents.
+4. A **fresh run**, not a resume.
 
 - [ ] **Fastest route: 先取りゲーム** (`target_score_race.yaml`) — it *starts*
       `speak_all → vote`, so the sheet appears once three agents have spoken.
@@ -203,7 +204,7 @@ which had covered Simulation twice, but *measuring a screenshot's pixels*. Every
 earlier defect announced itself as wrong-looking; this one looked like a dark
 screen.
 
-The five fixed surfaces post-date the pass that authorized closing the gates, so
+The five fixes post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
 ModelPicker shadows, the five restyled buttons, the scrim, and the two missing
 screen grounds.
