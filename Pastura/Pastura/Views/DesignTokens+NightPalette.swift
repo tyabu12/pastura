@@ -186,8 +186,12 @@ extension PasturaPalette {
   //
   // Two things the arithmetic does not settle. `nightPage` at HSL L=6.7% is the
   // palette's darkest token and its one consumer is `ViewerPredictionSheet`'s
-  // fill, where iOS convention says a sheet *rises* — a **device-QA item**
-  // (ADR-028 gate 4). And `nightPromoBackground` is the ground slice 2 designed
+  // fill, where iOS convention says a sheet *rises*. Settled on a device: the
+  // sinking does not reach the screen, because the presentation dims the
+  // backdrop and not the sheet — 1.099 below the ground by design, 1.031 above
+  // its own backdrop when rendered. The arithmetic was comparing the wrong two
+  // surfaces, which is the reusable half (ADR-028 § Amendment 2026-08-05). And
+  // `nightPromoBackground` is the ground slice 2 designed
   // §2.4 against as a stand-in, landing just outside the band it assumed; the
   // re-measurement is in `DesignTokensTests+NightMeta`, where the tripwire
   // forced it. Full derivation: ADR-028 § Amendment for slice 4.
