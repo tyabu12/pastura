@@ -74,7 +74,7 @@ device-following.
 
 **What the dark set is for, and what it is not.** It is for reviewing
 typography, spacing and overall mood in the dark palette. It is **not**
-dark-mode QA coverage. Against the five classes in
+dark-mode QA coverage. Against the six classes in
 `../../qa/dark-mode-qa.md` § "What is actually at risk":
 
 | Class | On this tour? |
@@ -84,9 +84,11 @@ dark-mode QA coverage. Against the five classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
+| F. A screen with no ground at all | **Yes — stops `11`, `13`, `14`**: the empty / error arms of `ResultsView` and `SharedScenariosListView`, two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks. The one class a static capture *does* reach, because the failure is an **absent** modifier — no syntax for a lint rule, and light hides it (#FFFFFF against #FCFAF4) where dark separates it (#000000 against #1B1D17). The reachable instances are already filed — **do not re-report** |
 
-So class B is partially covered and the other four are not. Everything
-else the dark set shows is the ordinary paired-token surfaces, which gate 1
+So B and F are the covered classes — B partially, F only at stops whose
+defects are already tracked — and the other four are not. Everything else
+the dark set shows is the ordinary paired-token surfaces, which gate 1
 closed by measurement and `DesignTokensTests` asserts for all 67 pairs.
 Treat a finding here as a design observation, not as a defect the device
 walkthrough would have caught.
