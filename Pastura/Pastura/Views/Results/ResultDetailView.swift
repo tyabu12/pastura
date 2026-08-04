@@ -106,6 +106,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         timelineLog
       }
     }
+    // `.frame(maxWidth:maxHeight:)` before the ground, because the loading and
+    // empty arms report a small intrinsic size and `.background` sizes to the
+    // primary view — without it the ground would be a patch behind the spinner
+    // rather than the screen. `SimulationView` needs no equivalent: its `ZStack`
+    // always contains a filling child.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Result Detail"))
     .navigationBarTitleDisplayMode(.inline)

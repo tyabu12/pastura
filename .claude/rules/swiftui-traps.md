@@ -426,9 +426,6 @@ The distinction to hold: the scrim is the **occluder**; the card it fronts
 **surface** and stays paired. Same test for any new full-bleed fill — does it
 occlude, or is it a surface?
 
-Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
-"what does it composite over" question of a *presented surface* rather than an occluder.
-
 `Color.<paired>.opacity(n)` used as a **wash under a surface** — `GameHeader`'s
 and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
 tints — is the surface case and correctly stays paired. Do not sweep those.
@@ -440,3 +437,7 @@ syntax to key on, so a rule would be over-fitted. It is guarded instead by
 the darker-than-every-ground requirement — the second is what a value pin alone
 would miss. Reference: `ModelPickerView`, `InFlightSimulationIndicator`,
 `SimulationScrimStyle`; ADR-028 § Amendment (#1284).
+
+Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
+"what does it composite over" question of a *presented surface* rather than an
+occluder; keep the two pointing at each other.

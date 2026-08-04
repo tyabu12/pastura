@@ -68,13 +68,20 @@ washed-out control — as opposed to merely *different*?
       (**class F**): it must be the warm #1B1D17, not system black. Compare it
       against Home in the same appearance — side by side the difference is
       obvious, alone it is not. Then look at the **header and control-bar
-      frosted strips**: they are `screenBackground.opacity(0.78)` over that
-      ground, so raising it from black narrowed their step against the chat
-      stream (measured ≈#2C2E2A over #1B1D17). Delineation now rests on the
-      material and the 1pt hairline — confirm the bars still read as bars.
+      frosted strips**: each is a `screenBackground.opacity(0.78)` tint with
+      `.ultraThinMaterial` above it, and the material is what lifts the result
+      clear of the tint (in dark the tint alone is the ground, so it would be
+      invisible). Raising the ground from black narrowed their step against the
+      chat stream — measured ≈#2C2E2A over #1B1D17, ≈1.39 → ≈1.25. Delineation
+      now rests on the material and the 1pt hairline; confirm the bars still
+      read as bars.
 - [ ] **Results** — list and detail, plus the delete flow's `danger` family. The
       **detail** screen is the second class-F site: its ground must be #1B1D17
-      too, same comparison against Home.
+      too, same comparison against Home. Its **resume banner** is the surface
+      that ground change touched — `moss.opacity(0.08)` over it, so its step
+      narrowed ~16% (the opaque `nightMossSoft` stroke still carries the edge).
+      It renders only for a `.failed` resumable run, which incidental QA never
+      hits: use the `#if DEBUG` "Force .failed" menu item to reach it.
 - [ ] **Settings** — the `link` tint, the "Active" model badge
       (`inkOnAccent` on `mossDark`, ≈7.12:1 in dark), past results, orphaned-model
       rows.
@@ -160,8 +167,9 @@ whenever §2.1, the sheet, or the Simulation ground changes — the margin is 1.
 so it is the first surface a dimming change would flatten.
 
 Getting it on screen is the hard part. It presents **once per run**, at the first
-vote phase, and five preconditions must all hold or the run silently spends its
-one opportunity:
+vote phase, and five preconditions must all hold. Two of them — 3 and 4 — silently
+spend the run's one opportunity if they fail, because the latch is set before their
+guards; the rest simply return early:
 
 1. Device appearance **dark**.
 2. Settings → viewer-prediction toggle **on** (defaults on).

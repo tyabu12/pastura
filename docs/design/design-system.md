@@ -214,8 +214,8 @@ ModelPicker・DL 完了オーバーレイ・ナビバータイトルの外観追
 実機で描画される。
 
 **ただし 1 点は未確認のまま残っている** — ゲートを閉じた QA より後に入った
-5 面の修正。件数は ADR-028 § "What is NOT confirmed"、再走手順は
-`docs/qa/dark-mode-qa.md` の再走リストが正本。
+5 面の修正。この 5 という数は ADR-028 § "What is NOT confirmed" の列挙、
+再走手順は `docs/qa/dark-mode-qa.md` の再走リストが正本。
 
 §2.1 の `nightPage` を `ViewerPredictionSheet` に当てた見え方（このファイルが
 持つ値であり、唯一プラットフォーム慣習に逆らって選んだもの）は実機で決着した。
