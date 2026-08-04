@@ -84,7 +84,7 @@ dark-mode QA coverage. Against the six classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
-| F. A screen with no ground at all | **Yes — stops `11`, `13`, `14`**: the empty / error arms of `ResultsView` and `SharedScenariosListView`, two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks. The one class a static capture *does* reach, because the failure is an **absent** modifier — no syntax for a lint rule, and light hides it (#FFFFFF against #FCFAF4) where dark separates it (#000000 against #1B1D17). The reachable instances are already filed — **do not re-report** |
+| F. A screen with no ground at all | **Yes — stops `11` and `14`**: `ResultsView`'s `results.emptyState` (ground is on the outer `.background`, which that branch sits outside of) and `SharedScenariosListView`'s `emptyState` — two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks. Stops `12` and `13` look like F and are **not**: both capture `sharedScenarios.emptyResultsCard`, which renders inside `scenarioList`, and that *does* carry the ground. F is the one class a static capture reaches at all, because the failure is an **absent** modifier — no syntax for a lint rule to key on, and light hides it (#FFFFFF against #FCFAF4) where dark separates it (#000000 against #1B1D17). Both reachable instances are already filed — **do not re-report** |
 
 So B and F are the covered classes — B partially, F only at stops whose
 defects are already tracked — and the other four are not. Everything else
@@ -108,7 +108,8 @@ reviewed and declined.
 The reason is not that the lenses ignore colour — **six of the seven** cite a
 § 2 colour anchor (`../ui-refine/lenses.md`; only L6, copy & tone, does not).
 It is that only **L1** cites a *dark-specific* one (§ 2.9 Dark Mode). Of the
-remaining five, L4 is excluded outright — `motion-capture.sh` has no `--dark`
+remaining five, L4 is excluded outright — `motion-capture.sh` exposes no
+appearance flag for a cycle to pass, following the device instead, by design
 — and the other four read their colour anchors through a question that
 resolves the same in either appearance: type weight (§ 2.2 Ink), component
 reuse and token drift (§ 2), alert family (§ 2.6), link affordance

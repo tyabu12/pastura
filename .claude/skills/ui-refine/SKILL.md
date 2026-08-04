@@ -118,7 +118,8 @@ also produces a dark set under `docs/design/screenshots/dark/`, which this glob
 is single-level and so does not reach. Consuming it was planned, reviewed and
 **declined** (#1345). Six of the seven lenses do cite a § 2 colour anchor, but
 only **L1** cites a dark-specific one (§ 2.9); L4 is excluded outright
-(`motion-capture.sh` has no `--dark`), and the other four read theirs through
+(`motion-capture.sh` exposes no appearance flag — it follows the device by
+design), and the other four read theirs through
 questions that resolve identically once the paired tokens invert. So a dark arm
 would restate the light finding on six runs in seven — the repetition Step 5's
 ledger exists to stop — while the one genuinely appearance-specific failure, a
