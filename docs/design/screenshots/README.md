@@ -84,10 +84,10 @@ dark-mode QA coverage. Against the six classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
-| F. A screen with no ground at all | **Yes — stops `11` and `14`**, the empty arms of `ResultsView` and `SharedScenariosListView`: two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks, which owns the per-site mechanism. Stops `10`, `12` and `13` look like F and are not — each renders under a ground. F is the one class a static capture reaches at all, since the failure is an **absent** modifier that light hides and dark exposes. Both reachable instances are already filed — **do not re-report** |
+| F. A **rendered state** with no ground behind it | **Surfaces yes, defects no.** Stops `10`–`14` are loading / empty / error branches, which is exactly what this class concerns (`../../qa/dark-mode-qa.md` § 2b) — and a static capture is what found the class in the first place, since the failure is an **absent** modifier that light hides and dark exposes. But the class is **swept** as of #1354 / #1365, and these sets carry no baseline to diff a later regression against. Its one open edge, presented sheets, is never on tour |
 
-So B and F are the covered classes — B partially, F only at stops whose
-defects are already tracked — and the other four are not. Everything else
+So B is partially covered, F's surfaces are on tour with the class already
+swept, and the other four are not covered. Everything else
 the dark set shows is the ordinary paired-token surfaces, which gate 1
 closed by measurement and `DesignTokensTests` asserts for all 67 pairs.
 Treat a finding here as a design observation, not as a defect the device
@@ -111,7 +111,7 @@ restate the light finding on six runs in seven — the repetition that skill's
 ledger exists to stop. The one appearance-specific failure, a token that fails
 to invert, is a **defect**, which ui-refine declares a Non-goal
 (`../ui-refine/README.md` § "What it is — and is NOT"); it belongs to
-`DesignTokensTests`, the device walkthrough and #1354.
+`DesignTokensTests` and the device walkthrough.
 
 **Re-arm** on either, both countable:
 
