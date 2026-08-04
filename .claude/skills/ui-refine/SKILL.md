@@ -116,16 +116,10 @@ screens are listed in `docs/design/screenshots/README.md`.
 **Light appearance only — decided, not pending.** `scripts/ui-tour.sh --dark`
 also produces a dark set under `docs/design/screenshots/dark/`, which this glob
 is single-level and so does not reach. Consuming it was planned, reviewed and
-**declined** (#1345). Six of the seven lenses do cite a § 2 colour anchor, but
-only **L1** cites a dark-specific one (§ 2.9); L4 is excluded outright
-(`motion-capture.sh` exposes no appearance flag — it follows the device by
-design), and the other four read theirs through
-questions that resolve identically once the paired tokens invert. So a dark arm
-would restate the light finding on six runs in seven — the repetition Step 5's
-ledger exists to stop — while the one genuinely appearance-specific failure, a
-token that fails to invert, is a *defect* and therefore a Non-goal of this
-skill. Do **not** re-derive this: the decision, its two countable re-arm
-conditions, and the coverage measurement behind it live in
+**declined** (#1345): only L1 has a dark-specific anchor, so a dark arm would
+restate the light finding on six runs in seven — the repetition Step 5's ledger
+exists to stop. Do **not** re-derive this. The decision, its two countable
+re-arm conditions, and the coverage measurement behind it live in
 `docs/design/screenshots/README.md` § "Dark set". A cycle critiques the light
 appearance and should not claim otherwise in its digest.
 

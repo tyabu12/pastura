@@ -84,7 +84,7 @@ dark-mode QA coverage. Against the six classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
-| F. A screen with no ground at all | **Yes — stops `11` and `14`**: `ResultsView`'s `results.emptyState` (the ground sits on the *loaded* branches — `:132`, `+Timeline.swift:39` — which this branch is a sibling of, not inside; contrast `HomeView.swift:44`, genuinely on the outer `Group`, which is why stop `10` is **not** F) and `SharedScenariosListView`'s `emptyState` — two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks. Stops `12` and `13` look like F and are **not**: both capture `sharedScenarios.emptyResultsCard`, which renders inside `scenarioList`, and that *does* carry the ground. F is the one class a static capture reaches at all, because the failure is an **absent** modifier — no syntax for a lint rule to key on, and light hides it (#FFFFFF against #FCFAF4) where dark separates it (#000000 against #1B1D17). Both reachable instances are already filed — **do not re-report** |
+| F. A screen with no ground at all | **Yes — stops `11` and `14`**, the empty arms of `ResultsView` and `SharedScenariosListView`: two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks, which owns the per-site mechanism. Stops `10`, `12` and `13` look like F and are not — each renders under a ground. F is the one class a static capture reaches at all, since the failure is an **absent** modifier that light hides and dark exposes. Both reachable instances are already filed — **do not re-report** |
 
 So B and F are the covered classes — B partially, F only at stops whose
 defects are already tracked — and the other four are not. Everything else
@@ -100,43 +100,27 @@ side-by-side comparison, or you may be attributing a months-old delta to
 the appearance.
 
 **`ui-refine` stays light-only — decided, not pending**
-([#1345](https://github.com/tyabu12/pastura/issues/1345)). The skill runs
-the bare (light) tour and reviews `docs/design/screenshots/*.png`, a
-single-level glob that does not reach `dark/`. Wiring it up was planned,
-reviewed and declined.
+([#1345](https://github.com/tyabu12/pastura/issues/1345)). Its capture glob is
+single-level, so it never reaches `dark/`. Wiring it up was planned, reviewed
+and declined: six of the seven lenses cite a § 2 anchor, but only **L1** cites
+a *dark-specific* one (§ 2.9), and L4 is excluded outright since
+`motion-capture.sh` exposes no appearance flag. The rest read their colour
+anchors through questions that resolve the same once the paired tokens invert
+(`../ui-refine/lenses.md` has the per-lens anchors), so a dark arm would
+restate the light finding on six runs in seven — the repetition that skill's
+ledger exists to stop. The one appearance-specific failure, a token that fails
+to invert, is a **defect**, which ui-refine declares a Non-goal; it belongs to
+`DesignTokensTests`, the device walkthrough and #1354.
 
-The reason is not that the lenses ignore colour — **six of the seven** cite a
-§ 2 colour anchor (`../ui-refine/lenses.md`; only L6, copy & tone, does not).
-It is that only **L1** cites a *dark-specific* one (§ 2.9 Dark Mode). Of the
-remaining five, L4 is excluded outright — `motion-capture.sh` exposes no
-appearance flag for a cycle to pass, following the device instead, by design
-— and the other four read their colour anchors through a question that
-resolves the same in either appearance: type weight (§ 2.2 Ink), component
-reuse and token drift (§ 2), alert family (§ 2.6), link affordance
-(§ 2.8 / § 2.7). The tokens are paired, so the judgement does not move when
-they invert. A dark arm would therefore restate the light finding on six runs
-in seven, which is the repetition the skill's ledger exists to stop.
+**Re-arm** on either, both countable:
 
-The one thing that *is* appearance-specific — a token that fails to invert —
-is a **defect**, and ui-refine declares itself not to be regression detection
-(`../ui-refine/README.md` § "What it is — and is NOT"). That class is owned by
-`DesignTokensTests`, the device walkthrough, and #1354. The table above is the
-same conclusion from the coverage side.
-
-**Re-arm** — reopen the question when either becomes true, both countable:
-
-1. A human eyeballs the current dark set and at least one finding that is
-   *not* already tracked, and that can cite a design-system anchor, is
-   actually filed. That is measured yield beating the projection above, and
-   it is the evidence that would overturn the decision.
-2. The lens catalog gains — **or re-scopes an existing lens into** — an
-   appearance-bound lens other than L1 (`../ui-refine/lenses.md`, whose
-   § "Adding / reordering lenses" points back here). Re-scoping is the likelier
-   path, since that file also prefers keeping the catalog at exactly seven.
-
-Until then the dark set's consumer is a **human** running the command above
-and looking, plus the device walkthrough in `../../qa/dark-mode-qa.md`
-§ "While you are here: skim the dark review set", which hosts condition 1.
+1. A human skims the current dark set and files a finding that is not already
+   tracked and that cites a design-system anchor
+   (`../../qa/dark-mode-qa.md` § "While you are here: skim the dark review
+   set" hosts that step — nothing else fires this condition).
+2. The lens catalog gains, or re-scopes an existing lens into, an
+   appearance-bound lens other than L1 (`../ui-refine/lenses.md`
+   § "Adding / reordering lenses" points back here).
 
 ## Deferred (not yet captured)
 
