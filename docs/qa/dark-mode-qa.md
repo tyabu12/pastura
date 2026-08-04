@@ -18,7 +18,7 @@ still has it, that is why dark does not appear.)
 
 ## What is actually at risk
 
-67 pairs invert. The token system is not where breakage shows up — these five
+67 pairs invert. The token system is not where breakage shows up — these six
 classes are:
 
 | Class | Why it can break | Where |
@@ -28,6 +28,7 @@ classes are:
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
 | E. Occlusion layers | A shadow or scrim must be **darker than what it covers**; a paired alias inverts and brightens instead. No lint rule reaches the scrim shape | §6 — the class that produced the fourth defect |
+| F. A screen with no ground at all | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier | §2 — found on Simulation, fixed in #1336 |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
 but do not go token-hunting — that is gate 1's closed work.
@@ -63,7 +64,10 @@ washed-out control — as opposed to merely *different*?
       body is deliberately white; confirm it still reads as one mark against the
       inverted `promoBackground`.
 - [ ] **Simulation** — bubbles, the `GameHeader` meta row (**class A**), the
-      scoreboard sheet, four material capsules/overlays.
+      scoreboard sheet, four material capsules/overlays. Also the **ground**
+      (**class F**): it must be the warm #1B1D17, not system black. Compare it
+      against Home in the same appearance — side by side the difference is
+      obvious, alone it is not.
 - [ ] **Results** — list and detail, plus the delete flow's `danger` family.
 - [ ] **Settings** — the `link` tint, the "Active" model badge
       (`inkOnAccent` on `mossDark`, ≈7.12:1 in dark), past results, orphaned-model
@@ -139,18 +143,33 @@ the scrim is guarded by `SimulationScrimStyleTests` rather than by lint.
       confirm neither reads as a pale halo.
 - [ ] **In-flight pill shadow** — same check, if the keep-running Setting is on.
 
-## 7. Open items carried forward
+## 7. Viewer-prediction sheet
 
-Not defects — questions this walkthrough has not answered yet.
+`nightPage` is the darkest token in the palette and this sheet is its only
+consumer — the one value ADR-028 chose against a platform convention rather than
+with it. Answered on a device (ADR-028 § Amendment 2026-08-05): it reads **flush**
+with its dimmed backdrop, carried by the grabber, the corner radius and its own
+candidate cards rather than by a step in lightness. Not a hole. Re-check it
+whenever §2.1, the sheet, or the Simulation ground changes — the margin is 1.031,
+so it is the first surface a dimming change would flatten.
 
-- [ ] **`nightPage` on `ViewerPredictionSheet`** — ADR-028 slice 4 chose
-      `nightPage` against the iOS convention that a sheet *rises*: it makes this
-      sheet the darkest surface in the palette. The gate-4 pass did not report on
-      it, and the sheet appears only when a scenario drives a prediction prompt,
-      so run one that does. If it reads as a hole rather than a recessed panel,
-      the fix is a §2.1 value change, not a mechanism change. Recorded in
-      `docs/design/ds/colors-remainder-dark.html` and ADR-028 § "What is NOT
-      confirmed".
+Getting it on screen is the hard part. It presents **once per run**, at the first
+vote phase, and five preconditions must all hold or the run silently spends its
+one opportunity:
+
+1. Device appearance **dark**.
+2. Settings → viewer-prediction toggle **on** (defaults on).
+3. The simulation screen stays **foreground-visible** — parking it (ADR-017
+   Phase B) or backgrounding latches `hasAttemptedPrediction` for that run.
+4. At least **two** non-eliminated agents.
+5. A **fresh run**, not a resume.
+
+- [ ] **Fastest route: 先取りゲーム** (`target_score_race.yaml`) — its phases are
+      `speak_all → vote`, so the sheet appears once three agents have spoken.
+      Any preset with a vote phase works; `prisoners_dilemma` is the only bundled
+      one without. It auto-skips after 15 s and carries
+      `.interactiveDismissDisabled()`, so **screenshot it on appearance and judge
+      from the image** rather than deciding in 15 seconds.
 
 ## Record of the gate-4 / gate-5 pass
 
@@ -163,6 +182,12 @@ Re-QA of those three fixes then found a **fourth** — the model-load scrim,
 §6 — which is why that class has its own section: the sweep that found the
 shadows keyed on `shadow(color:)`, the syntax, and could not have found a scrim.
 
-The four fixed surfaces post-date the pass that authorized closing the gates, so
+A **fifth** arrived later still, from the § 7 run: the Simulation screen had no
+ground at all (class F, #1336). Note what found it — not the walk, which had
+covered that screen twice, but *measuring a screenshot's pixels*. Every earlier
+defect announced itself as wrong-looking; this one looked like a dark screen.
+
+The five fixed surfaces post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
-ModelPicker shadows, the five restyled buttons, and the scrim.
+ModelPicker shadows, the five restyled buttons, the scrim, and the Simulation
+ground.

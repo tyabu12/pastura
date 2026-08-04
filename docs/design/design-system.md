@@ -213,11 +213,15 @@ ModelPicker・DL 完了オーバーレイ・ナビバータイトルの外観追
 `nightSurface` の解消・生 SwiftUI 色のトークン化に続いて閉じた。ダークは実際に
 実機で描画される。
 
-**ただし 2 点は未確認のまま残っている** — §2.1 の `nightPage` を
-`ViewerPredictionSheet` に当てた見え方（このファイルが持つ値であり、唯一
-プラットフォーム慣習に逆らって選んだもの）と、ゲートを閉じた QA より後に入った
-4 面の修正。ADR-028 § "What is NOT confirmed" と `docs/qa/dark-mode-qa.md` の
-再走リストが正本。Source: `§2.9 Dark Mode`。
+**ただし 1 点は未確認のまま残っている** — ゲートを閉じた QA より後に入った
+5 面の修正。`docs/qa/dark-mode-qa.md` の再走リストが正本。
+
+§2.1 の `nightPage` を `ViewerPredictionSheet` に当てた見え方（このファイルが
+持つ値であり、唯一プラットフォーム慣習に逆らって選んだもの）は実機で決着した。
+**設計上の上下関係は描画時に反転する** — 暗幕は背後だけにかかりシートには
+かからないため、`nightBackground` の 1.099 下にあるはずのシートが画面上では
+背後の 1.031 上に来る。穴には見えず、ほぼ面一。ADR-028 § Amendment 2026-08-05。
+Source: `§2.9 Dark Mode`。
 
 **ダーク値の視覚リファレンス**: [`ds/colors-states-dark.html`](ds/colors-states-dark.html)
 （§2.6/§2.7 の 18 対 + トースト・設定・DL 進捗のモック）、
