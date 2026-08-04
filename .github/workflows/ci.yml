@@ -1144,12 +1144,9 @@ jobs:
   # is SHA-pinned and that one repository resolves to one SHA. Ungated and cheap
   # (pure stdlib, seconds) per .claude/rules/ci-workflows.md invariant 3.
   #
-  # This is the only executable check on the codeql-action pair: codeql.yml runs
-  # on schedule + workflow_dispatch only, so a divergent pin merges green and
-  # the repo silently stops being scanned until the next 18:05 UTC run (#1359).
-  # The Dependabot grouping that prevents the common cause cannot self-verify —
-  # a `groups:` pattern matching nothing looks exactly like "no updates
-  # available" — so this guard keys on the consequence instead.
+  # For Dependabot's PRs this is the ONLY gate — those commits never run local
+  # hooks. Why the invariant needs a gate rather than a comment:
+  # .claude/rules/ci-workflows.md § "One repo, many sub-actions".
   action-pin-consistency:
     name: Action pin consistency guard (#1359)
     runs-on: ubuntu-latest

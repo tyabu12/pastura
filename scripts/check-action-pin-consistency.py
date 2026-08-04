@@ -24,7 +24,17 @@ grouping cannot be trusted to enforce itself.
 
 Non-remote `uses:` values — local composite actions (`./.github/actions/x`) and
 container steps (`docker://…`) — take no SHA and are skipped. The repo has none
-today; they are handled so adding one does not fail this gate spuriously.
+today; they are handled so adding one does not fail this gate spuriously. Note
+the *scope* limit that follows: only `.github/workflows/` is scanned, so a
+composite action's own `action.yml` would go unchecked if `.github/actions/**`
+is ever added — widen `WORKFLOW_DIR` then.
+
+Invariant 2 is deliberately absolute — no allowlist. A legitimate violation is
+conceivable (canarying a new SHA in one workflow first, or a repo consumed both
+as an action and as a reusable workflow), but each is a conscious edit whose
+author sees this gate go red at edit time, which is a far cheaper failure than
+the silent scanning outage it defends. If such a case arrives, add a reviewed
+exemption here rather than loosening the regex.
 
 Usage:
     check-action-pin-consistency.py [--check]   # default: gate the real workflows
@@ -39,16 +49,20 @@ import sys
 REPO = pathlib.Path(__file__).resolve().parent.parent
 WORKFLOW_DIR = REPO / ".github" / "workflows"
 
-# A regex rather than a YAML parse: `uses:` values are always a single scalar on
-# one line, and this keeps the gate stdlib-only on the ubuntu runner (no PyYAML).
-# Captures the value, then splits it below. `#`-comments after the value (the
-# `# v7.0.0` version marker Dependabot maintains) are excluded by \S+.
+# A regex rather than a YAML parse: `uses:` values sit on one line, and this
+# keeps the gate stdlib-only on the ubuntu runner (no PyYAML). Captures the
+# value, then splits it below. `#`-comments after the value (the `# v7.0.0`
+# version marker Dependabot maintains) are excluded by \S+; surrounding quotes
+# are stripped in parse_refs, since \S+ would otherwise swallow them into the
+# ref and report a genuinely-pinned action as unpinned.
 _USES_RE = re.compile(r"^\s*(?:-\s*)?uses:\s*(\S+)")
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 # Floor guarding against silent regex drift: if a future YAML shape stops
-# matching, an empty parse would otherwise report a clean gate. Well below the
-# current count (52) so ordinary workflow churn never trips it.
+# matching, an empty (or badly thinned) parse would otherwise report a clean
+# gate. Set well below the real count so ordinary workflow churn never trips it
+# — this is a drift tripwire, not a maintained inventory, so it is deliberately
+# NOT kept in step with the true total (`--check` prints that).
 _MIN_REFS = 20
 
 
@@ -64,7 +78,7 @@ def parse_refs(text: str, source: str) -> list[tuple[str, str, str, str]]:
         match = _USES_RE.match(line)
         if not match:
             continue
-        value = match.group(1)
+        value = match.group(1).strip("\"'")
         if value.startswith("./") or value.startswith("docker://"):
             continue
         name, _, ref = value.partition("@")
@@ -98,18 +112,31 @@ def find_problems(refs: list[tuple[str, str, str, str]]) -> list[str]:
     return problems
 
 
+def workflow_files() -> list[pathlib.Path]:
+    """Every workflow file GitHub would read. Both suffixes are valid to GitHub,
+    and `_MIN_REFS` cannot catch a missed one — the other files still parse — so
+    dropping `.yaml` here would let the gate pass over an unscanned workflow."""
+    return sorted(set(WORKFLOW_DIR.glob("*.yml")) | set(WORKFLOW_DIR.glob("*.yaml")))
+
+
+def floor_problem(refs: list[tuple[str, str, str, str]]) -> str | None:
+    """Return a message when too few refs parsed to trust a clean verdict."""
+    if len(refs) < _MIN_REFS:
+        return (
+            f"parsed only {len(refs)} action references (expected >={_MIN_REFS}) — "
+            "the regex or workflow shape drifted; refusing to pass silently."
+        )
+    return None
+
+
 def check() -> int:
     refs: list[tuple[str, str, str, str]] = []
-    for path in sorted(WORKFLOW_DIR.glob("*.yml")):
+    for path in workflow_files():
         refs += parse_refs(path.read_text(encoding="utf-8"), path.name)
 
-    if len(refs) < _MIN_REFS:
-        print(
-            f"action-pin gate: parsed only {len(refs)} action references (expected "
-            f">={_MIN_REFS}) — the regex or workflow shape drifted; refusing to pass "
-            "silently.",
-            file=sys.stderr,
-        )
+    drift = floor_problem(refs)
+    if drift:
+        print(f"action-pin gate: {drift}", file=sys.stderr)
         return 1
 
     problems = find_problems(refs)
@@ -144,17 +171,20 @@ def self_test() -> int:
 
     clean = (
         f"      - uses: actions/checkout@{sha_a} # v7.0.0\n"
+        f'      - uses: "actions/cache@{sha_a}"\n'
         f"      - uses: github/codeql-action/init@{sha_b} # v4.37.6\n"
         f"      - uses: github/codeql-action/analyze@{sha_b} # v4.37.6\n"
         f"      - uses: ./.github/actions/local-thing\n"
         f"      - uses: docker://alpine:3.20\n"
     )
     refs = parse_refs(clean, "clean.yml")
-    if len(refs) != 3:
-        print(f"self-test: expected 3 remote refs (local/docker skipped), got {len(refs)}", file=sys.stderr)
+    if len(refs) != 4:
+        print(f"self-test: expected 4 remote refs (local/docker skipped), got {len(refs)}", file=sys.stderr)
         return 1
     problems = find_problems(refs)
     if problems:
+        # A quoted value lands here if strip() regressed: `sha"` fails _SHA_RE
+        # and reports "not pinned" on an action that is in fact pinned.
         print(f"self-test: clean fixture reported false positives: {problems}", file=sys.stderr)
         return 1
 
@@ -178,7 +208,18 @@ def self_test() -> int:
         print(f"self-test: floating tag not detected as expected; got {problems}", file=sys.stderr)
         return 1
 
-    print("self-test: passed (clean fixture + divergence control + floating-tag control).")
+    # Negative control 3 — the drift floor. Total regex failure is caught by the
+    # clean arm's exact ref count, so the case worth constructing is a PARTIAL
+    # parse: enough refs to look like a real run, too few to trust.
+    one = ("thin.yml", f"actions/checkout@{sha_a}", "actions/checkout", sha_a)
+    if floor_problem([one] * _MIN_REFS) is not None:
+        print(f"self-test: floor fired at exactly {_MIN_REFS} refs, which it must accept", file=sys.stderr)
+        return 1
+    if floor_problem([one] * (_MIN_REFS - 1)) is None:
+        print(f"self-test: floor did not fire at {_MIN_REFS - 1} refs (< {_MIN_REFS})", file=sys.stderr)
+        return 1
+
+    print("self-test: passed (clean fixture + divergence, floating-tag and drift-floor controls).")
     return 0
 
 

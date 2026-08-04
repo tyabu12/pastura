@@ -14,9 +14,15 @@
 # hand-edit; CI keeps its own copy for the Dependabot path (defense in depth).
 #
 # Trigger paths mirror the check's real inputs (WORKFLOW_DIR glob + the checker
-# script itself). Note .github/dependabot.yml is deliberately NOT a trigger: the
-# check reads workflow files only, and grouping config cannot make the pins
+# script itself), including .yaml — GitHub accepts either suffix, and the
+# checker scans both. Note .github/dependabot.yml is deliberately NOT a trigger:
+# the check reads workflow files only, and grouping config cannot make the pins
 # diverge on its own.
+#
+# The selection is on STAGED paths but --check reads the WORKING TREE, so a
+# partial stage (git add -p) could stage a divergent pin while the worktree
+# holds the fix, and this gate would pass. The sibling gates share that shape;
+# CI re-runs the same check against the pushed tree, which is what closes it.
 #
 # bash 3.2 portable — ships to dev macOS via the pre-commit hook. NO
 # mapfile/readarray, declare -A, ${var^^}, or <<< here-strings.
@@ -26,7 +32,7 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-TRIGGER='(^\.github/workflows/.*\.yml$)|(^scripts/check-action-pin-consistency\.py$)'
+TRIGGER='(^\.github/workflows/.*\.ya?ml$)|(^scripts/check-action-pin-consistency\.py$)'
 
 if ! git diff --cached --name-only | grep -qE "$TRIGGER"; then
   exit 0
