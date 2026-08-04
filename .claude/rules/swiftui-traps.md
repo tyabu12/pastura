@@ -262,6 +262,14 @@ it — only the new `night*` hex needs a `tokens.css` row. Keep every `DesignTok
 inside `check_design_tokens_css.py`'s glob; renaming one out blinds the gate silently (each
 file's own header says so). See ADR-028.
 
+**Choosing the value: a token-pair ratio is not a prediction about a *presented* surface.** For a
+sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
+behind and not the surface itself, which can flip the sign. `nightPage` sits 1.099 *below*
+`nightBackground` by design and renders 1.031 *above* its own backdrop. Judge such a value against a
+device screenshot, not the pair. ADR-028 § Amendment 2026-08-05. Sibling of § "An occlusion layer"
+below — same "what does it actually composite over" question, asked of a surface rather than an
+occluder; keep the two pointing at each other.
+
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
 For `.sheet(item: $binding)`, pass the **model itself** as `Optional<Model>`. Never wrap an
@@ -429,3 +437,7 @@ syntax to key on, so a rule would be over-fitted. It is guarded instead by
 the darker-than-every-ground requirement — the second is what a value pin alone
 would miss. Reference: `ModelPickerView`, `InFlightSimulationIndicator`,
 `SimulationScrimStyle`; ADR-028 § Amendment (#1284).
+
+Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
+"what does it composite over" question of a *presented surface* rather than an
+occluder; keep the two pointing at each other.

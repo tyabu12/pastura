@@ -295,8 +295,12 @@ extension DesignTokensTests {
   /// appearances rather than inverting into an elevated one. Pinned because the
   /// tempting dark-UI move is the opposite, and because at HSL L=6.7% this is the
   /// palette's darkest token, which reads like an error unless the intent is
-  /// recorded. `ViewerPredictionSheet` renders it, so ADR-028 gate 4 carries the
-  /// visual half of this decision.
+  /// recorded. `ViewerPredictionSheet` renders it, and a device pass has since
+  /// carried the visual half: the relation asserted here holds between the
+  /// *tokens* but inverts once composited, since the presentation dims the
+  /// backdrop and not the sheet (ADR-028 § Amendment 2026-08-05). That is a
+  /// fact about rendering, not about these two values — this assertion is
+  /// unaffected.
   @Test func nightPageSinksBelowTheBodyGround() {
     #expect(
       relativeLuminance(PasturaPalette.page) < relativeLuminance(PasturaPalette.screenBackground))

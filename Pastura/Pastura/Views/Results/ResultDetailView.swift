@@ -106,6 +106,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         timelineLog
       }
     }
+    // Pin the frame before the ground: `.background` sizes to the primary view,
+    // so without this the ground's extent depends on whether each arm happens to
+    // be greedy — `ProgressView` is not. Pinned, it does not. `SimulationView`
+    // carries the same pair for the same reason.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Result Detail"))
     .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)
