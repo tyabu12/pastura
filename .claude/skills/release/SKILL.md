@@ -1,7 +1,7 @@
 ---
 name: release
 description: Cut a Pastura release — version bump, TestFlight and App Store release notes, then a gated scripts/release.sh archive/upload/tag. Use when asked to cut or ship a release, upload a build to TestFlight, or run the release pipeline.
-allowed-tools: Read, Grep, Glob, Bash, Write, Agent
+allowed-tools: Read, Grep, Glob, Bash, Write, Agent, AskUserQuestion
 argument-hint: "[X.Y]"
 ---
 
@@ -284,8 +284,9 @@ and that the build is processing on TestFlight.
 > Release per build would be pre-release clutter.
 >
 > **Exercised twice** — `v1.0+522` and `v1.1+671`. ADR-014's scope still
-> covers TestFlight upload only, so nothing here is automated; read the two
-> published bodies as the reference shape before writing a third.
+> covers TestFlight upload only, so nothing here is automated. Read
+> `v1.1+671` as the reference shape; `v1.0+522` predates this spec (its own
+> sections, no `## Features` / `## Fixes`) and is voice reference only.
 
 **Trigger:** a build has been **approved and released on the App Store** (an
 App Store Connect–side event this repo does not observe). Each `/release`
@@ -338,11 +339,16 @@ release carries no `## Features`, and vice versa.
 - **Bold lead:** One or two factual sentences. (#1070, #1078, #1081)
 ```
 
-The bold lead names the thing itself (`` `narrate` phase ``), not a headline
-about it. Order bullets by impact **within** the section — what a user touches
-first, then correctness, then the rest. Fold every low-impact item into a
-single trailing `- **Smaller fixes:**` bullet carrying their numbers, rather
-than giving each its own line.
+**The lead differs by section.** In `## Features` it is a noun phrase naming
+the thing itself — the phase, the field, the screen — followed by a colon, not
+a headline written about it. In `## Fixes` it is the symptom instead, stated as
+a clause that ends its own sentence rather than taking a colon: what broke is
+what a reader recognises. The v1.1 body is the worked example of both.
+
+Order bullets by impact **within** the section: what a user touches first, then
+correctness, then the rest. Fold every low-impact item into a single trailing
+`- **Smaller fixes:**` bullet carrying their numbers, rather than giving each
+its own line.
 
 ### What goes in
 
@@ -372,10 +378,11 @@ Both are **written fresh each release** — no line is reused, including 1.0's
 tagline, which belongs to 1.0. Set both in italics so they read as distinct
 from the factual body.
 
-Because they matter out of proportion to their length, **delegate them to a
-Fable subagent**. Per the operator's global rules a Fable spawn needs explicit
-approval, so ask first; if the operator declines, draft them in-session and say
-so at the draft review so they can be rewritten. Give the subagent the finished
+Because they matter out of proportion to their length, **offer to delegate them
+to a Fable subagent** — the operator's global rules require explicit approval
+before any Fable spawn, so it is an ask, never a default. If the operator
+declines, draft them in-session and say so at the draft review so they can be
+rewritten. Give the subagent the finished
 body plus the previous releases' opening and closing lines as **voice
 reference**, and withhold your own candidates so its output stays independent.
 Ask for several options of each rather than one.
@@ -387,30 +394,45 @@ indexed, so it inherits this skill's confirmation-gate discipline (Step 5):
 the operator reviews the **rendered** draft — links and emphasis included —
 and only then is it published.
 
-```bash
-OWNER_REPO=$(gh repo view --json nameWithOwner -q '.nameWithOwner')
-TAG="v<version>+<build>"                   # the approved build's tag
-PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
+**The three blocks below are separate Bash calls** — the Write tool sits
+between 1 and 2, the operator's review between 2 and 3 — so **substitute the
+tag, title and body path concretely** in each, exactly as Step 1 requires of
+Steps 4/6. `gh api` expands `{owner}`/`{repo}` itself, so no repo variable is
+needed. The literal `/REPLACE-WITH-BODY-PATH` fails `--notes-file`'s existence
+check rather than binding an empty value.
 
+```bash
 # 1. Material only. Read-only — creates nothing, so there is no throwaway
 #    draft to clean up if you stop here.
-gh api -X POST "repos/${OWNER_REPO}/releases/generate-notes" \
-  -f tag_name="$TAG" -f previous_tag_name="$PREV" --jq '.body'
-
-# 2. Write the body per the structure above with the Write tool (not an
-#    inline heredoc — CLAUDE.md § Git Conventions), then create the DRAFT
-#    from it. gh resolves a draft by tag for later view/edit even though
-#    its URL shows `untagged-…` (confirmed on the 1.1 run).
-BODY="<path you wrote the body to>"
-gh release create "$TAG" --title "Pastura <version>" --latest --draft \
-  --notes-file "$BODY"
-
-# 3. Operator reviews the rendered draft in the GitHub UI. Only then:
-gh release edit "$TAG" --latest --draft=false
+PREV=$(gh release list --exclude-drafts --limit 1 --json tagName -q '.[0].tagName')
+gh api -X POST "repos/{owner}/{repo}/releases/generate-notes" \
+  -f tag_name="v<version>+<build>" -f previous_tag_name="$PREV" --jq '.body'
 ```
 
-To confirm the publish landed, read `gh api "repos/${OWNER_REPO}/releases/latest"
---jq '.tag_name'` — `gh release view --json isLatest` is not a field and fails.
+```bash
+# 2. Write the body per the structure above with the Write tool, to a path
+#    OUTSIDE the checkout ($TMPDIR / `mktemp -t pastura-release-body`) — this
+#    step runs on a tree that equals origin/main, where a stray file can be
+#    swept into an unrelated commit. Then create the DRAFT from it. gh
+#    resolves a draft by tag for later view/edit even though its URL shows
+#    `untagged-…` (confirmed on the 1.1 run).
+gh release create "v<version>+<build>" --title "Pastura <version>" \
+  --latest --draft --notes-file /REPLACE-WITH-BODY-PATH
+```
+
+```bash
+# 3. Operator reviews the rendered draft in the GitHub UI. Only then:
+gh release edit "v<version>+<build>" --latest --draft=false
+```
+
+Confirm the publish landed with
+`gh release list --exclude-drafts --limit 1 --json tagName,isLatest` —
+`isLatest` exists there but **not** on `gh release view`, which fails with
+`Unknown JSON field`.
+
+(Step 3 keeps its shorter notes file in an inline heredoc; this body is long
+and multi-section, which is what CLAUDE.md § Git Conventions routes to a file
+written with the Write tool.)
 
 `PREV` is non-empty from 1.1 onward, so `previous_tag_name` always has a base;
 1.0 was hand-written with no prior release and is not a case that recurs.
