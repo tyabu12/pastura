@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Nine concern families when editing CI workflow YAML or supporting scripts on this repo: the CI wall-clock budget per PR, shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, grep's line-boundedness in call-shape guards, and gate scripts' annotation paths and tracked-only scope.
+Ten concern families when editing CI workflow YAML or supporting scripts on this repo: the CI wall-clock budget per PR, shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, grep's line-boundedness in call-shape guards, gate scripts' annotation paths and tracked-only scope, and sub-action pin consistency within one action repository.
 
 ## CI wall-clock budget per PR
 
@@ -250,6 +250,27 @@ test must force each: an annotation assertion needs a fixture **inside** the rep
 (under a gitignored path, e.g. `Pastura/DerivedData/`, removed immediately) —
 one built in `mktemp -d` never takes the relativizing branch and the assertion
 silently exempts every case it sees. See #1171 for both incidents.
+
+## One repo, many sub-actions — Dependabot splits them, the runtime does not
+
+A multi-action repository referenced by sub-path (`github/codeql-action/init` and
+`github/codeql-action/analyze`) is **one runtime but several Dependabot
+dependencies**. Dependabot opens a PR per sub-action, so two halves can merge at
+different versions; codeql-action then refuses to run at all. `.github/dependabot.yml`
+groups the family to prevent the common cause, but grouping cannot verify itself —
+a `patterns:` glob that stops matching is indistinguishable from "no updates
+available" on a monthly cadence.
+
+So the invariant is asserted executably instead, keyed on the **consequence**
+rather than any one cause: `scripts/check-action-pin-consistency.py` requires every
+`uses:` to pin a 40-hex SHA and every `owner/repo` to resolve to a single SHA. It
+runs in CI (`action-pin-consistency`) and as pre-commit sub-gate 13.
+
+**Apply** — adding a reference to a *new* multi-action repo means adding a
+`groups:` entry for it in `.github/dependabot.yml`; the pin gate will catch the
+drift either way, but only after it happens. Motivating incident: #1359, where
+the CodeQL workflow — schedule-only, so nothing fails at merge — stopped scanning
+the repository entirely and stayed green-looking for a day.
 
 ## Related
 
