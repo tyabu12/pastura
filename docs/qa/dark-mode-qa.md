@@ -99,6 +99,9 @@ washed-out control — as opposed to merely *different*?
       rows.
 - [ ] **Editor** — the warning / danger / success banner family
       (`ScenarioEditorView+Banners.swift`), the densest alert-family surface.
+- [ ] **ModelPicker + download progress** — the sticky CTA reverses roles
+      (`screenBackground` text on a `mossInk` fill; both invert), and its card
+      glow and button shadow are deliberately *fixed* in both appearances.
 
 ### 2b. The non-loaded branches (class F, #1354)
 
@@ -124,9 +127,6 @@ same appearance, since alone a dark screen looks like a dark screen.
       fast device this is brief; a scenario id that fails to load holds
       ScenarioDetail's **error** `ContentUnavailableView` open indefinitely,
       which is the one worth reaching.
-- [ ] **ModelPicker + download progress** — the sticky CTA reverses roles
-      (`screenBackground` text on a `mossInk` fill; both invert), and its card
-      glow and button shadow are deliberately *fixed* in both appearances.
 
 ## 3. Material sites
 

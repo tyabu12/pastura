@@ -74,7 +74,6 @@ struct SharedScenariosListView: View {
 
   private var loadingView: some View {
     ProgressView(String(localized: "Loading gallery…"))
-      .frame(maxWidth: .infinity, maxHeight: .infinity)
   }
 
   private func emptyState(viewModel: SharedScenariosViewModel) -> some View {
