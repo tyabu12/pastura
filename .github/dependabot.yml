@@ -53,3 +53,34 @@ updates:
     open-pull-requests-limit: 5
     commit-message:
       prefix: "⬆️ chore(ci)"
+    groups:
+      # github/codeql-action/init and .../analyze are separate Dependabot
+      # dependencies but the action refuses to run them at different versions.
+      # Ungrouped they drift: #1349 and #1351 were both opened for 4.37.3, only
+      # #1349 was rebased onto 4.37.4 before merge, and CodeQL then failed on
+      # every scheduled run (#1359). Grouping makes one PR move both.
+      #
+      # `patterns` takes globs, not the exact dependency names the `ignore:`
+      # block above needs — but it shares that block's silent-no-op failure
+      # mode: a pattern matching nothing is indistinguishable from "no updates
+      # available" on a monthly cadence. The names this must match, as they
+      # appear in merged PR titles, are `github/codeql-action/init` and
+      # `github/codeql-action/analyze` (and the pre-split `github/codeql-action`
+      # of #486). Re-check them before editing the glob.
+      #
+      # Two entries because `applies-to` defaults to version-updates; without
+      # the second, a security update would still split into per-sub-action PRs
+      # and could re-create the mixed-version state. Security updates are
+      # configured outside this file (see the header), so nothing else guards
+      # that path.
+      #
+      # codeql-action is currently the only sub-action family needing lockstep
+      # (`gradle/actions/wrapper-validation` is a single dependency, used twice).
+      # Adding another such family means adding another group here.
+      codeql-action:
+        patterns:
+          - "github/codeql-action*"
+      codeql-action-security:
+        applies-to: security-updates
+        patterns:
+          - "github/codeql-action*"
