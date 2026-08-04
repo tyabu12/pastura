@@ -109,7 +109,7 @@ Load-bearing invariants when adding/changing such gating:
 3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
-6. **A new guard job is advisory until the ruleset lists it — and registering it has an ordering hazard.** Required checks live in the `main` ruleset (`gh api repos/tyabu12/pastura/rulesets/<id>`), not in any tracked file, so nothing in-repo prompts this and a fresh guard merges as a red-but-non-blocking check. Register it **after** the guard's PR merges: add the check name while another PR is open and that PR — whose branch predates the job — reports the check never, which is the pending-forever trap invariant 1 warns about, until it rebases.
+6. **A new guard job is advisory until the `main` ruleset lists it as required**, and the ruleset is not a tracked file (`gh api repos/tyabu12/pastura/rulesets/<id>`), so nothing in-repo prompts you. Register it **after** the guard's PR merges — doing it while another PR is open strands that PR on a check its branch cannot produce (invariant 1's pending-forever trap).
 
 ## Step-level `if:` — the implicit `success()` can be load-bearing
 
@@ -254,24 +254,19 @@ silently exempts every case it sees. See #1171 for both incidents.
 
 ## One repo, many sub-actions — Dependabot splits them, the runtime does not
 
-A multi-action repository referenced by sub-path (`github/codeql-action/init` and
-`github/codeql-action/analyze`) is **one runtime but several Dependabot
-dependencies**. Dependabot opens a PR per sub-action, so two halves can merge at
-different versions; codeql-action then refuses to run at all. `.github/dependabot.yml`
-groups the family to prevent the common cause, but grouping cannot verify itself —
-a `patterns:` glob that stops matching is indistinguishable from "no updates
-available" on a monthly cadence.
+A multi-action repo referenced by sub-path (`github/codeql-action/init` and
+`.../analyze`) is **one runtime but several Dependabot dependencies** — a PR per
+sub-action, so the halves can merge at different versions and the action then
+refuses to run. `.github/dependabot.yml` groups the family to prevent that; the
+invariant is *also* asserted executably, because a `groups:` glob that stops
+matching looks exactly like "no updates available".
+`scripts/check-action-pin-consistency.py` (CI `action-pin-consistency` +
+pre-commit sub-gate 13) requires every `uses:` to pin a 40-hex SHA and every
+`owner/repo` to resolve to one SHA.
 
-So the invariant is asserted executably instead, keyed on the **consequence**
-rather than any one cause: `scripts/check-action-pin-consistency.py` requires every
-`uses:` to pin a 40-hex SHA and every `owner/repo` to resolve to a single SHA. It
-runs in CI (`action-pin-consistency`) and as pre-commit sub-gate 13.
-
-**Apply** — adding a reference to a *new* multi-action repo means adding a
-`groups:` entry for it in `.github/dependabot.yml`; the pin gate will catch the
-drift either way, but only after it happens. Motivating incident: #1359, where
-the CodeQL workflow — schedule-only, so nothing fails at merge — stopped scanning
-the repository entirely and stayed green-looking for a day.
+**Apply** — referencing a *new* multi-action repo means adding a `groups:` entry
+for it; the gate catches the drift either way, but only after it happens. See
+#1359 for why a schedule-only workflow makes this class invisible.
 
 ## Related
 
