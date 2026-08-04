@@ -99,11 +99,40 @@ share filenames — `01-home.png` exists in both. Re-run both before any
 side-by-side comparison, or you may be attributing a months-old delta to
 the appearance.
 
-**`ui-refine` does not read the dark set** — the skill runs the bare
-(light) tour and reviews `docs/design/screenshots/*.png`, a single-level
-glob. Making that cycle dark-aware needs decisions about the lens
-rotation and the proposal ledger, so it is tracked separately in
-[#1345](https://github.com/tyabu12/pastura/issues/1345).
+**`ui-refine` stays light-only — decided, not pending**
+([#1345](https://github.com/tyabu12/pastura/issues/1345)). The skill runs
+the bare (light) tour and reviews `docs/design/screenshots/*.png`, a
+single-level glob that does not reach `dark/`. Wiring it up was planned,
+reviewed and declined.
+
+The reason is not that the lenses ignore colour — **six of the seven** cite a
+§ 2 colour anchor (`../ui-refine/lenses.md`; only L6, copy & tone, does not).
+It is that only **L1** cites a *dark-specific* one (§ 2.9 Dark Mode). Of the
+remaining five, L4 is excluded outright — `motion-capture.sh` has no `--dark`
+— and the other four read their colour anchors through a question that
+resolves the same in either appearance: type weight (§ 2.2 Ink), component
+reuse and token drift (§ 2), alert family (§ 2.6), link affordance
+(§ 2.8 / § 2.7). The tokens are paired, so the judgement does not move when
+they invert. A dark arm would therefore restate the light finding on six runs
+in seven, which is the repetition the skill's ledger exists to stop.
+
+The one thing that *is* appearance-specific — a token that fails to invert —
+is a **defect**, and ui-refine declares itself not to be regression detection
+(`../ui-refine/README.md` § "What it is — and is NOT"). That class is owned by
+`DesignTokensTests`, the device walkthrough, and #1354. The table above is the
+same conclusion from the coverage side.
+
+**Re-arm** — reopen the question when either becomes true, both countable:
+
+1. A human eyeballs the current dark set and at least one finding that is
+   *not* already tracked, and that can cite a design-system anchor, is
+   actually filed. That is measured yield beating the projection above, and
+   it is the evidence that would overturn the decision.
+2. The lens catalog gains an appearance-bound lens other than L1
+   (`../ui-refine/lenses.md`).
+
+Until then the dark set's consumer is a **human** running the command above
+and looking, plus the device walkthrough in `../../qa/dark-mode-qa.md`.
 
 ## Deferred (not yet captured)
 
