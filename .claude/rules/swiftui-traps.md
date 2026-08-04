@@ -266,7 +266,9 @@ file's own header says so). See ADR-028.
 sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
 behind and not the surface itself, which can flip the sign. `nightPage` sits 1.099 *below*
 `nightBackground` by design and renders 1.031 *above* its own backdrop. Judge such a value against a
-device screenshot, not the pair. ADR-028 § Amendment 2026-08-05.
+device screenshot, not the pair. ADR-028 § Amendment 2026-08-05. Sibling of § "An occlusion layer"
+below — same "what does it actually composite over" question, asked of a surface rather than an
+occluder; keep the two pointing at each other.
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
@@ -423,6 +425,9 @@ The distinction to hold: the scrim is the **occluder**; the card it fronts
 (`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a
 **surface** and stays paired. Same test for any new full-bleed fill — does it
 occlude, or is it a surface?
+
+Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
+"what does it composite over" question of a *presented surface* rather than an occluder.
 
 `Color.<paired>.opacity(n)` used as a **wash under a surface** — `GameHeader`'s
 and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status

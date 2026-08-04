@@ -214,7 +214,8 @@ ModelPicker・DL 完了オーバーレイ・ナビバータイトルの外観追
 実機で描画される。
 
 **ただし 1 点は未確認のまま残っている** — ゲートを閉じた QA より後に入った
-5 面の修正。`docs/qa/dark-mode-qa.md` の再走リストが正本。
+5 面の修正。件数は ADR-028 § "What is NOT confirmed"、再走手順は
+`docs/qa/dark-mode-qa.md` の再走リストが正本。
 
 §2.1 の `nightPage` を `ViewerPredictionSheet` に当てた見え方（このファイルが
 持つ値であり、唯一プラットフォーム慣習に逆らって選んだもの）は実機で決着した。
@@ -385,7 +386,7 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス3 の時点で未ペアで、未決の値への前方依存になるため。slice 4 でペア済み） |
 | `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、§2.5 自身の near-black の床（パレット全体の最暗値は slice 4 の `night-page` #11130F）（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
 | `nightAvatarHighlight` | `rgba(255,255,255,0.40)` | `avatarHighlight`。**alpha を下げる**（0.60 → 0.40）。§2.7 の wash が約 1.33 倍に上げたのと逆向きだが、矛盾ではない — wash は暗い面に載せる**淡い色**なので alpha が要る。こちらは面の上に置く**光の反射**で、面が暗くなった分だけ同じ alpha が*強い*段差になる。仕事が逆なので向きも逆 |
-| `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値） |
+| `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値。ただし唯一の消費先であるシート上では暗幕により画面上は反転する — ADR-028 § Amendment 2026-08-05） |
 | `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
 | `nightPromoBorder` | `#35392F` | `promoBorder`（倍率保持・**向き反転**。`rule`→`nightRule` と同じ） |
 | `nightInkOnAccent` | `#2C2F28` | `inkOnAccent`（白ではない。`nightBubble` と同値だがそれは AAA 配置の**結果**） |

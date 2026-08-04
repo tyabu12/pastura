@@ -106,6 +106,7 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         timelineLog
       }
     }
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Result Detail"))
     .navigationBarTitleDisplayMode(.inline)
     .navigationBarBackButtonHidden(true)

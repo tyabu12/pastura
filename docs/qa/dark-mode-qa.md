@@ -28,7 +28,7 @@ classes are:
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
 | E. Occlusion layers | A shadow or scrim must be **darker than what it covers**; a paired alias inverts and brightens instead. No lint rule reaches the scrim shape | §6 — the class that produced the fourth defect |
-| F. A screen with no ground at all | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier | §2 — found on Simulation, fixed in #1336 |
+| F. A screen with no ground at all | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier | §2 — found on Simulation, and on ResultDetail by enumerating the class; both fixed in #1336 |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
 but do not go token-hunting — that is gate 1's closed work.
@@ -67,8 +67,14 @@ washed-out control — as opposed to merely *different*?
       scoreboard sheet, four material capsules/overlays. Also the **ground**
       (**class F**): it must be the warm #1B1D17, not system black. Compare it
       against Home in the same appearance — side by side the difference is
-      obvious, alone it is not.
-- [ ] **Results** — list and detail, plus the delete flow's `danger` family.
+      obvious, alone it is not. Then look at the **header and control-bar
+      frosted strips**: they are `screenBackground.opacity(0.78)` over that
+      ground, so raising it from black narrowed their step against the chat
+      stream (measured ≈#2C2E2A over #1B1D17). Delineation now rests on the
+      material and the 1pt hairline — confirm the bars still read as bars.
+- [ ] **Results** — list and detail, plus the delete flow's `danger` family. The
+      **detail** screen is the second class-F site: its ground must be #1B1D17
+      too, same comparison against Home.
 - [ ] **Settings** — the `link` tint, the "Active" model badge
       (`inkOnAccent` on `mossDark`, ≈7.12:1 in dark), past results, orphaned-model
       rows.
@@ -164,10 +170,10 @@ one opportunity:
 4. At least **two** non-eliminated agents.
 5. A **fresh run**, not a resume.
 
-- [ ] **Fastest route: 先取りゲーム** (`target_score_race.yaml`) — its phases are
+- [ ] **Fastest route: 先取りゲーム** (`target_score_race.yaml`) — it *starts*
       `speak_all → vote`, so the sheet appears once three agents have spoken.
-      Any preset with a vote phase works; `prisoners_dilemma` is the only bundled
-      one without. It auto-skips after 15 s and carries
+      Any preset with a vote phase works; `prisoners_dilemma` (ja and en) is the
+      only bundled scenario without one. It auto-skips after 15 s and carries
       `.interactiveDismissDisabled()`, so **screenshot it on appearance and judge
       from the image** rather than deciding in 15 seconds.
 
@@ -183,11 +189,13 @@ Re-QA of those three fixes then found a **fourth** — the model-load scrim,
 shadows keyed on `shadow(color:)`, the syntax, and could not have found a scrim.
 
 A **fifth** arrived later still, from the § 7 run: the Simulation screen had no
-ground at all (class F, #1336). Note what found it — not the walk, which had
-covered that screen twice, but *measuring a screenshot's pixels*. Every earlier
-defect announced itself as wrong-looking; this one looked like a dark screen.
+ground at all (class F, #1336), and enumerating the class rather than the instance
+found `ResultDetailView` in the same state. Note what found it — not the walk,
+which had covered Simulation twice, but *measuring a screenshot's pixels*. Every
+earlier defect announced itself as wrong-looking; this one looked like a dark
+screen.
 
 The five fixed surfaces post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
-ModelPicker shadows, the five restyled buttons, the scrim, and the Simulation
-ground.
+ModelPicker shadows, the five restyled buttons, the scrim, and the two missing
+screen grounds.

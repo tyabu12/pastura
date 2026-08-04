@@ -79,8 +79,9 @@ enum PasturaPalette {
   /// consumer is a sheet fill (`ViewerPredictionSheet.swift:45`,
   /// `.background(Color.page)`), where that sinking does **not** survive
   /// compositing: the presentation dims the backdrop and not the sheet, so
-  /// the pair's 1.099 step below lands on screen as 1.031 above. Measured,
-  /// not derived — ADR-028 § Amendment 2026-08-05.
+  /// in **dark** the pair's 1.099 step below lands on screen as 1.031 above.
+  /// Measured in dark only — the light composite was not — ADR-028
+  /// § Amendment 2026-08-05.
   static let page = PasturaColorValue(hex: 0xF3EFE7)
   /// App body background — crisp wool-color.
   static let screenBackground = PasturaColorValue(hex: 0xFCFAF4)
