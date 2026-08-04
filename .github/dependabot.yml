@@ -16,8 +16,11 @@
 #
 # Cadence is monthly. With a single maintainer, weekly PRs create more
 # review noise than security benefit. CVE patches still flow through
-# Dependabot security updates, which are configured separately under
-# Settings > Code security and analysis and are not gated by this file.
+# Dependabot security updates, which are ENABLED separately under
+# Settings > Code security and analysis — this file cannot gate whether
+# they run, and the cadence above does not apply to them. It can still
+# shape them: an `applies-to: security-updates` group below governs how
+# they are batched.
 
 version: 2
 updates:
@@ -69,10 +72,14 @@ updates:
       # of #486). Re-check them before editing the glob.
       #
       # Two entries because `applies-to` defaults to version-updates; without
-      # the second, a security update would still split into per-sub-action PRs
-      # and could re-create the mixed-version state. Security updates are
-      # configured outside this file (see the header), so nothing else guards
-      # that path.
+      # the second, a security update would still split into per-sub-action PRs.
+      #
+      # Grouping only batches updates Dependabot finds co-available in one run
+      # — it does not *enforce* equal versions. The sub-actions share one tag
+      # stream (so version updates are always co-stale) and one advisory scope
+      # (so a GHSA flags both), which is what makes the batch a lockstep in
+      # practice. That is an inherited property, not something this block
+      # guarantees; the invariant itself is asserted in codeql.yml.
       #
       # codeql-action is currently the only sub-action family needing lockstep
       # (`gradle/actions/wrapper-validation` is a single dependency, used twice).
