@@ -84,10 +84,10 @@ dark-mode QA coverage. Against the six classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
-| F. A **rendered state** with no ground behind it | **Surfaces yes, defects no.** Stops `10`–`14` are loading / empty / error branches, which is exactly what this class concerns (`../../qa/dark-mode-qa.md` § 2b) — and a static capture is what found the class in the first place, since the failure is an **absent** modifier that light hides and dark exposes. But the class is **swept** as of #1354 / #1365, and these sets carry no baseline to diff a later regression against. Its one open edge, presented sheets, is never on tour |
+| F. A **rendered state** with no ground behind it | **Surfaces yes, defects no.** Stops `10`–`14` are the **empty / error** branches this class concerns (`../../qa/dark-mode-qa.md` § 2b "The non-loaded branches") — and a static capture is what found the class in the first place, since the failure is an **absent** modifier that light hides and dark exposes. Its *loading* arms are not on tour: `capture` waits on an anchor that exists only once the state resolves, so a transient `ProgressView` is unreachable by construction. Even so the class is **swept** as of #1354 / #1365, and these sets carry no baseline to diff a later regression against. Its one open edge, presented sheets, is never on tour |
 
-So B is partially covered, F's surfaces are on tour with the class already
-swept, and the other four are not covered. Everything else
+So B is partially covered, F's *empty / error* surfaces are on tour with the
+class already swept, and the other four are not covered. Everything else
 the dark set shows is the ordinary paired-token surfaces, which gate 1
 closed by measurement and `DesignTokensTests` asserts for all 67 pairs.
 Treat a finding here as a design observation, not as a defect the device
