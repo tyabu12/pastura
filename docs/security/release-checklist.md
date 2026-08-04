@@ -176,7 +176,11 @@ land. Three buckets:
   bumps can include large upstream movement.
 * **GitHub Actions bumps**: verify the bumped action is still SHA-pinned
   by Dependabot's PR (Dependabot preserves the comment-style version
-  marker); skim release notes for breaking changes.
+  marker); skim release notes for breaking changes. `codeql-action`
+  arrives as one grouped PR moving `init` and `analyze` together — if you
+  ever see them in separate PRs the grouping has broken, so merge both or
+  neither. A mismatched pair fails every scheduled CodeQL run and is
+  invisible until the next 18:05 UTC schedule (#1359).
 
 ### 3.2 CodeQL findings
 

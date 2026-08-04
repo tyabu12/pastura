@@ -6,7 +6,7 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Nine concern families when editing CI workflow YAML or supporting scripts on this repo: the CI wall-clock budget per PR, shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, grep's line-boundedness in call-shape guards, and gate scripts' annotation paths and tracked-only scope.
+Ten concern families when editing CI workflow YAML or supporting scripts on this repo: the CI wall-clock budget per PR, shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, grep's line-boundedness in call-shape guards, gate scripts' annotation paths and tracked-only scope, and sub-action pin consistency within one action repository.
 
 ## CI wall-clock budget per PR
 
@@ -109,6 +109,7 @@ Load-bearing invariants when adding/changing such gating:
 3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
 4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
 5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
+6. **A new guard job is advisory until the `main` ruleset lists it as required**, and the ruleset is not a tracked file (`gh api repos/tyabu12/pastura/rulesets/<id>`), so nothing in-repo prompts you. Register it **after** the guard's PR merges — doing it while another PR is open strands that PR on a check its branch cannot produce (invariant 1's pending-forever trap).
 
 ## Step-level `if:` — the implicit `success()` can be load-bearing
 
@@ -250,6 +251,22 @@ test must force each: an annotation assertion needs a fixture **inside** the rep
 (under a gitignored path, e.g. `Pastura/DerivedData/`, removed immediately) —
 one built in `mktemp -d` never takes the relativizing branch and the assertion
 silently exempts every case it sees. See #1171 for both incidents.
+
+## One repo, many sub-actions — Dependabot splits them, the runtime does not
+
+A multi-action repo referenced by sub-path (`github/codeql-action/init` and
+`.../analyze`) is **one runtime but several Dependabot dependencies** — a PR per
+sub-action, so the halves can merge at different versions and the action then
+refuses to run. `.github/dependabot.yml` groups the family to prevent that; the
+invariant is *also* asserted executably, because a `groups:` glob that stops
+matching looks exactly like "no updates available".
+`scripts/check-action-pin-consistency.py` (CI `action-pin-consistency` +
+pre-commit sub-gate 13) requires every `uses:` to pin a 40-hex SHA and every
+`owner/repo` to resolve to one SHA.
+
+**Apply** — referencing a *new* multi-action repo means adding a `groups:` entry
+for it; the gate catches the drift either way, but only after it happens. See
+#1359 for why a schedule-only workflow makes this class invisible.
 
 ## Related
 

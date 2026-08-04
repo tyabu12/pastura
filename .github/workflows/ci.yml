@@ -1140,6 +1140,27 @@ jobs:
       - name: Run SuspendController drift guard
         run: tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh
 
+  # Job-only guard like the drift siblings above. Asserts every workflow `uses:`
+  # is SHA-pinned and that one repository resolves to one SHA. Ungated and cheap
+  # (pure stdlib, seconds) per .claude/rules/ci-workflows.md invariant 3.
+  #
+  # For Dependabot's PRs this is the ONLY gate — those commits never run local
+  # hooks. Why the invariant needs a gate rather than a comment:
+  # .claude/rules/ci-workflows.md § "One repo, many sub-actions".
+  action-pin-consistency:
+    name: Action pin consistency guard (#1359)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Run checker self-test
+        run: python3 scripts/check-action-pin-consistency.py --self-test
+
+      - name: Verify action pins are SHA-pinned and consistent
+        run: python3 scripts/check-action-pin-consistency.py --check
+
   # Job-only guard like the drift siblings above. Keeps ds/tokens.css (the
   # CSS mirror consumed by the claude.ai Design System project) faithful to
   # DesignTokens*.swift, and validates @dsCard markers. Pure stdlib.

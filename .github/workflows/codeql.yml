@@ -52,8 +52,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
+      # ⚠️ init and analyze MUST stay on the same version — the action refuses a
+      # mixed pair ("Loaded a configuration file for version 'X', but running
+      # version 'Y'"), and the failure only surfaces on the next scheduled run.
+      # Dependabot tracks the two sub-actions separately, so `.github/dependabot.yml`
+      # groups them into one PR to keep them in lockstep.
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@e4fba868fa4b1b91e1fdab776edc8cfbe6e9fb81 # v4.37.3
+        uses: github/codeql-action/init@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           languages: swift
           build-mode: manual
@@ -66,7 +71,8 @@ jobs:
         # gate, so sourcing scripts/sim-dest.sh is unnecessary here.
         run: scripts/xcodebuild.sh build
 
+      # Version must match the init step above — see the note there.
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@f205ea1c3313d32999d8d6a48b4f6530d4437b38 # v4.37.4
+        uses: github/codeql-action/analyze@5595ccaf912efad79be6eef63a5619ff05969be3 # v4.37.6
         with:
           category: "/language:swift"

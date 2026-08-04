@@ -107,3 +107,9 @@ bash ./scripts/kmp-status-precommit-gate.sh
 # side's source, the allowlist, or the checker; fails-fast inside. Mirrors the
 # CI shell-tests "Prompt-literal parity check" step locally.
 bash ./scripts/prompt-literal-parity-precommit-gate.sh
+
+# 13. GitHub Actions pin-consistency gate (#1359) — self-gates on any workflow
+# YAML or the checker; fails-fast inside. Mirrors the CI action-pin-consistency
+# job locally. Worth catching here specifically: codeql.yml is schedule-only, so
+# a divergent pin merges green and stays invisible until the next 18:05 UTC run.
+bash ./scripts/action-pin-consistency-precommit-gate.sh
