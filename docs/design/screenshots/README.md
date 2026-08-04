@@ -84,7 +84,7 @@ dark-mode QA coverage. Against the six classes in
 | C. Fixed-appearance exports (share card) | No — never rendered by the tour |
 | D. Non-SwiftUI | No. §1's launch/splash precede the tour; §5's `UINavigationBar` proxy *is* on screen at stops `02`/`03`/`05`/`08`, but it bakes at launch under the pinned appearance, and its failure mode needs background → switch → return, which no fresh-launch capture reaches |
 | E. Occlusion layers (scrim) | No — the model-load scrim is Simulation-only |
-| F. A screen with no ground at all | **Yes — stops `11` and `14`**: `ResultsView`'s `results.emptyState` (ground is on the outer `.background`, which that branch sits outside of) and `SharedScenariosListView`'s `emptyState` — two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks. Stops `12` and `13` look like F and are **not**: both capture `sharedScenarios.emptyResultsCard`, which renders inside `scenarioList`, and that *does* carry the ground. F is the one class a static capture reaches at all, because the failure is an **absent** modifier — no syntax for a lint rule to key on, and light hides it (#FFFFFF against #FCFAF4) where dark separates it (#000000 against #1B1D17). Both reachable instances are already filed — **do not re-report** |
+| F. A screen with no ground at all | **Yes — stops `11` and `14`**: `ResultsView`'s `results.emptyState` (the ground sits on the *loaded* branches — `:132`, `+Timeline.swift:39` — which this branch is a sibling of, not inside; contrast `HomeView.swift:44`, genuinely on the outer `Group`, which is why stop `10` is **not** F) and `SharedScenariosListView`'s `emptyState` — two of the five sites [#1354](https://github.com/tyabu12/pastura/issues/1354) tracks. Stops `12` and `13` look like F and are **not**: both capture `sharedScenarios.emptyResultsCard`, which renders inside `scenarioList`, and that *does* carry the ground. F is the one class a static capture reaches at all, because the failure is an **absent** modifier — no syntax for a lint rule to key on, and light hides it (#FFFFFF against #FCFAF4) where dark separates it (#000000 against #1B1D17). Both reachable instances are already filed — **do not re-report** |
 
 So B and F are the covered classes — B partially, F only at stops whose
 defects are already tracked — and the other four are not. Everything else
@@ -129,11 +129,14 @@ same conclusion from the coverage side.
    *not* already tracked, and that can cite a design-system anchor, is
    actually filed. That is measured yield beating the projection above, and
    it is the evidence that would overturn the decision.
-2. The lens catalog gains an appearance-bound lens other than L1
-   (`../ui-refine/lenses.md`).
+2. The lens catalog gains — **or re-scopes an existing lens into** — an
+   appearance-bound lens other than L1 (`../ui-refine/lenses.md`, whose
+   § "Adding / reordering lenses" points back here). Re-scoping is the likelier
+   path, since that file also prefers keeping the catalog at exactly seven.
 
 Until then the dark set's consumer is a **human** running the command above
-and looking, plus the device walkthrough in `../../qa/dark-mode-qa.md`.
+and looking, plus the device walkthrough in `../../qa/dark-mode-qa.md`
+§ "While you are here: skim the dark review set", which hosts condition 1.
 
 ## Deferred (not yet captured)
 
