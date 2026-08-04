@@ -212,9 +212,10 @@ screen grounds.
 ## While you are here: skim the dark review set
 
 `scripts/ui-tour.sh --dark` is a simulator artifact and no part of this walk —
-but the fifth defect above was found by measuring a screenshot's pixels, not by
-walking. Coverage and caveats: `../design/screenshots/README.md` § "Dark set".
+but note what found the fifth defect above, and do this while a device pass is
+fresh. Coverage and caveats: `../design/screenshots/README.md` § "Dark set".
 
-- [ ] Regenerate and skim once. Filing an untracked, anchor-citing finding is
-      **re-arm condition 1** for the decision that `ui-refine` stays
-      light-only (#1345); nothing else fires it.
+- [ ] Regenerate and skim once. File anything untracked that cites a
+      `../design/design-system.md` anchor — worth doing on its own merits, and
+      it is **re-arm condition 1** for the decision that `ui-refine` stays
+      light-only (#1345); nothing else fires that.

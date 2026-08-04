@@ -109,13 +109,14 @@ anchors through questions that resolve the same once the paired tokens invert
 (`../ui-refine/lenses.md` has the per-lens anchors), so a dark arm would
 restate the light finding on six runs in seven — the repetition that skill's
 ledger exists to stop. The one appearance-specific failure, a token that fails
-to invert, is a **defect**, which ui-refine declares a Non-goal; it belongs to
+to invert, is a **defect**, which ui-refine declares a Non-goal
+(`../ui-refine/README.md` § "What it is — and is NOT"); it belongs to
 `DesignTokensTests`, the device walkthrough and #1354.
 
 **Re-arm** on either, both countable:
 
 1. A human skims the current dark set and files a finding that is not already
-   tracked and that cites a design-system anchor
+   tracked and that cites a `../design-system.md` anchor
    (`../../qa/dark-mode-qa.md` § "While you are here: skim the dark review
    set" hosts that step — nothing else fires this condition).
 2. The lens catalog gains, or re-scopes an existing lens into, an
