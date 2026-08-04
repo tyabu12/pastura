@@ -41,6 +41,11 @@ struct HomeView: View {
         ProgressView()
       }
     }
+    // Frame before the ground: the ground was already on this container, but
+    // `.background` sizes to the primary view, so the `ProgressView()` arm was
+    // getting a patch behind the spinner while the loaded arm — a greedy
+    // `ScrollView` — filled. ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     // `.navigationTitle("Pastura")` is kept deliberately even though the
     // visible center is replaced by the `.principal` brand lockup below.

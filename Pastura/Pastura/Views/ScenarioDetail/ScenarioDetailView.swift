@@ -47,6 +47,13 @@ struct ScenarioDetailView: View {
         ProgressView()
       }
     }
+    // Ground on the container, not the loaded arm — the loading arm and the
+    // error `ContentUnavailableView` (which persists) have to render on it too.
+    // Frame first: `.background` sizes to the primary view, so a
+    // small-intrinsic arm would otherwise get a patch behind its spinner rather
+    // than a screen. ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.screenBackground.ignoresSafeArea())
     // 3-tier fallback (ADR-008): loaded scenario name (authoritative,
     // wins after VM load completes) → push-time `initialName` hint
     // (covers the ~30–80ms load window when callers supplied it) →
@@ -148,7 +155,6 @@ struct ScenarioDetailView: View {
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .background(Color.screenBackground.ignoresSafeArea())
     // Post-load anchor: this ScrollView only exists once the scenario
     // content has resolved, so ScreenshotTourTests / NavigationRegressionTests
     // can wait on it instead of sleeping. MUST come before `.safeAreaInset`:

@@ -79,6 +79,13 @@ extension ModelDownloadHostView {
   /// Common chrome around plain-state UI: `NavigationStack` + centered
   /// `VStack` + "Model Setup" navigation title — matches what
   /// `ModelDownloadView` used to provide before absorption (#191).
+  ///
+  /// The screen ground belongs here rather than on each caller: all six plain
+  /// states route through this one container, and `checking` is the first thing
+  /// a fresh install renders. Without it they fell through to the system colour
+  /// — black in dark. Frame before the ground because `.background` sizes to the
+  /// primary view and the centred `VStack` is not greedy on its own.
+  /// ADR-028 § Amendment 2026-08-05.
   @ViewBuilder
   private func plainContainer<Content: View>(
     @ViewBuilder content: () -> Content
@@ -90,6 +97,8 @@ extension ModelDownloadHostView {
         Spacer()
       }
       .padding()
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
+      .background(Color.screenBackground.ignoresSafeArea())
       .navigationTitle(String(localized: "Model Setup"))
     }
   }
