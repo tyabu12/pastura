@@ -21,7 +21,9 @@ extension ResultsView {
 
   /// Aggregate-root timeline list: record count → date sections on a rail →
   /// load-more sentinel. Mirrors ``resultsList``'s ScrollView host (same
-  /// `results.list` anchor the ScreenshotTour waits on, same background).
+  /// `results.list` anchor the ScreenshotTour waits on). Neither carries the
+  /// screen ground — it lives on the `body`'s container so the loading and
+  /// empty arms get it too.
   func timelineList(viewModel: ResultsViewModel) -> some View {
     ScrollView {
       LazyVStack(alignment: .leading, spacing: 0) {
@@ -36,7 +38,6 @@ extension ResultsView {
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .background(Color.screenBackground.ignoresSafeArea())
     .accessibilityIdentifier("results.list")
   }
 

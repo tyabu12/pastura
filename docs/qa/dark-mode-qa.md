@@ -28,10 +28,22 @@ classes are:
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
 | E. Occlusion layers | A shadow or scrim must be **darker than what it covers**; a paired alias inverts and brightens instead. No lint rule reaches the scrim shape | §6 — the class that produced the fourth defect |
-| F. A screen with no ground at all | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier | §2 — Simulation and ResultDetail fixed in #1336; the loading / empty / error arms of five *other* roots are still system-coloured, deferred to #1354 — do not re-report |
+| F. A **rendered state** with no ground behind it | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier — and the question is a layout one ("does every branch have a ground behind it"), not a syntactic one, so no gate is available either | §2 — the whole class is swept as of #1354; **walk the loading / empty / error branch of a screen, not just its loaded state**. Presented sheets are out of class — see the note under the table |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
 but do not go token-hunting — that is gate 1's closed work.
+
+**Class F's edge at presented sheets is open, deliberately.** Six sheets set no
+screen-level ground: `LicensesSheet`, `ScoreboardSheet`, `PhaseEditorSheet` and
+`PersonaEditorSheet` sit on `List` / `Form`, which supplies its own grouped
+background; `PersonaDetailSheet` and `ReportSheet` are plain `ScrollView`s and
+fall through to the sheet's system surface. `ViewerPredictionSheet` sets
+`Color.page` — so "a sheet inherits the system ground on purpose" is **not** an
+established convention here, and the class edge was never decided. It is recorded
+as unresolved rather than swept, because #1354 measured full screens and a
+presented surface composites differently (§ Amendment 2026-08-05's whole point).
+Note a groundless sheet if one looks wrong on a dark device; do not file it as a
+class-F regression.
 
 ## 1. Launch → splash (class D)
 
@@ -90,6 +102,31 @@ washed-out control — as opposed to merely *different*?
 - [ ] **ModelPicker + download progress** — the sticky CTA reverses roles
       (`screenBackground` text on a `mossInk` fill; both invert), and its card
       glow and button shadow are deliberately *fixed* in both appearances.
+
+### 2b. The non-loaded branches (class F, #1354)
+
+The walk above lands on each screen's **loaded** state, which is exactly the
+state that was never broken — every one of these carried its ground already. The
+defect lived in the branches a walk does not reach, so reach them deliberately.
+Each must show the warm #1B1D17, not system black; compare against Home in the
+same appearance, since alone a dark screen looks like a dark screen.
+
+- [ ] **Past Results — empty.** The sharpest one: a tab root, what a fresh
+      install sees, and it does not clear on its own. Needs a build with no past
+      results (delete them via Settings → past results, or a fresh install).
+- [ ] **Model Setup — the plain states.** Six route through one container, and
+      `checking` is the first screen a fresh install renders. `plainProgress` is
+      on screen for the whole multi-GB download; `wifiRequired` is reachable by
+      starting a download on cellular and declining; `error` by killing the
+      network mid-download.
+- [ ] **Browse — gallery unreachable.** Turn the network off and open the Search
+      tab: `loadingView` then the `Gallery Unavailable` empty state, which
+      persists.
+- [ ] **ScenarioDetail / GalleryScenarioDetail / Editor / Home — the transient
+      arms.** Each shows a bare `ProgressView` before its load resolves. On a
+      fast device this is brief; a scenario id that fails to load holds
+      ScenarioDetail's **error** `ContentUnavailableView` open indefinitely,
+      which is the one worth reaching.
 
 ## 3. Material sites
 
@@ -204,7 +241,17 @@ which had covered Simulation twice, but *measuring a screenshot's pixels*. Every
 earlier defect announced itself as wrong-looking; this one looked like a dark
 screen.
 
-The five fixes post-date the pass that authorized closing the gates, so
+A **sixth** is that same class swept properly (#1354), and it is the one worth
+carrying forward as method. Each of the three enumerations narrowed the predicate
+without saying so: "this screen has no ground" found one site, "no ground at all"
+found two, "the ground is on the loaded arm" found five more — and re-deriving
+from the predicate the class was *actually* stated in, "a rendered state shows the
+system colour", found two beyond that, one of them the first screen a fresh
+install renders. **A list enumerated from where the fix already exists cannot see
+a file that has none**; only re-deriving from the defect can. §2b walks the
+branches this produced.
+
+The six fixes post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
-ModelPicker shadows, the five restyled buttons, the scrim, and the two missing
-screen grounds.
+ModelPicker shadows, the five restyled buttons, the scrim, the two missing
+screen grounds, and the seven-site sweep of their non-loaded branches.

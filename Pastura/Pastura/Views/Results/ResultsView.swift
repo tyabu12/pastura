@@ -49,6 +49,13 @@ struct ResultsView: View {
         ProgressView()
       }
     }
+    // Ground on the container, not the loaded arm — the loading and empty arms
+    // above have to render on it too, and this is the History tab root, so the
+    // empty state is what a fresh install sees. Frame first: `.background` sizes
+    // to the primary view, so a small-intrinsic arm would otherwise get a patch
+    // behind its spinner rather than a screen. ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Past Results"))
     // Inline title for both the History-tab root and the pushed detail, matching
     // the other tab roots (design-system § 5.11). The timeline's identity comes
@@ -129,7 +136,6 @@ struct ResultsView: View {
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
     }
-    .background(Color.screenBackground.ignoresSafeArea())
     // Post-load anchor: only rendered once groups resolve non-empty, so
     // ScreenshotTourTests can wait on it instead of sleeping.
     .accessibilityIdentifier("results.list")

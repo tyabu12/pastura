@@ -51,6 +51,12 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
         yamlEditor
       }
     }
+    // Frame before the ground, as everywhere else the ground is set: today this
+    // `VStack` always holds a greedy editor, so the pin changes nothing — but
+    // that is a fact about the current arms, and `.background` sizes to the
+    // primary view regardless. Pinning states the mechanism instead of resting
+    // on the arms. ADR-028 § Amendment 2026-08-05.
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(
       viewModel.scenarioName.isEmpty ? String(localized: "New Scenario") : viewModel.scenarioName
