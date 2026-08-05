@@ -223,10 +223,14 @@ record that it was not exercised rather than marking it passed.
 The class with the weakest automated cover, and it has now produced two defects
 rather than one. `shadow_color_occluder_family` — named `shadow_color_paired_alias`
 until #1377 — used to catch a *paired alias* and nothing else, blind to the three
-shadows that were fixed-but-lighter (#1373). #1377 inverted it to an allowlist, so
-it now reaches **every** shadow tint that does not name a sanctioned family. The scrim and the occluder family
-are guarded by `SimulationScrimStyleTests` and `PasturaOccluderShadowsTests`,
-both against hand-maintained ground lists.
+shadows that were fixed-but-lighter (#1373). #1377 inverted it to an allowlist,
+closing that gap: it reaches every `.shadow(color:` tint whose value follows the
+label directly. **Two syntactic shapes stay out of reach** — an intervening
+comment between `.shadow(` and `color:`, and the `ShapeStyle` form
+`.shadow(.drop(color:))` — both measured at 0 violations, neither present in the
+tree today. The scrim and the occluder family are guarded by
+`SimulationScrimStyleTests` and `PasturaOccluderShadowsTests`, both against
+hand-maintained ground lists.
 
 **A green lint run still says little about this class, and nothing about the
 scrim.** It certifies that a shadow tint comes from a sanctioned family — and
@@ -328,9 +332,11 @@ also *moved* the ground off the loaded sub-view onto the container, so their
 loaded states changed too: Results, Browse, ScenarioDetail and — again —
 GalleryScenarioDetail, which is in both groups. § 2 was not re-walked, and it
 carried **no Browse and no GalleryScenarioDetail item** — the two that needed a
-new entry rather than a repeat. Those entries now exist (#1376), but **writing
-them is not walking them**: all four of those relocated loaded grounds, and the
-three transient arms above, are still owed a device pass. And the pass that is
+new entry rather than a repeat — and its `Results` item routed only to the
+aggregate timeline and `ResultDetailView`, not to the `scope.isPushedDetail` list
+that also lost its inner ground. #1376 wrote all three, but **writing them is not
+walking them**: all four of those relocated loaded grounds, and the three
+transient arms above, are still owed a device pass. And the pass that is
 recorded was a walk, not a pixel sample — which is what missed the fifth defect
 twice.
 

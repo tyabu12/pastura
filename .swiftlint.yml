@@ -133,8 +133,9 @@ custom_rules:
   # where "not PasturaShadows" is trivially true and the match succeeds.
   # Requiring one non-space character after the lookahead kills every such
   # position — measured, not reasoned: before adding it, linting the eight
-  # sanctioned sites was 8/8 red. The control pair is recorded in #1377's PR
-  # and ADR-028 § "What the guard does and does not certify".
+  # sanctioned sites was 8/8 red. The control pair — both arms, and the two
+  # syntactic shapes this regex still does NOT reach — is recorded in ADR-028
+  # § "What the guard does and does not certify".
   #
   # `excluded_match_kinds` rather than `match_kinds`, deliberately: the match
   # is short (`.shadow(` + `color:` + one value character), so an allowlist of

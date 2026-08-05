@@ -266,9 +266,11 @@ file's own header says so). See ADR-028.
 sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
 behind and not the surface itself, which can flip the sign. `nightPage` sits 1.099 *below*
 `nightBackground` by design and renders 1.031 *above* its own backdrop. Judge such a value against a
-device screenshot, not the pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of § "An occlusion layer"
-below — same "what does it actually composite over" question, asked of a surface rather than an
-occluder; keep the two pointing at each other.
+device screenshot, not the pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
+§ "An occlusion layer ... must be darker than every ground it covers" below — same "what does it
+actually composite over" question, asked of a surface rather than an occluder; keep the two
+pointing at each other. (Quoted with an ellipsis, not truncated, so a grep for the heading finds
+this pointer too.)
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
@@ -404,7 +406,9 @@ ad-hoc `shadow(color:)` sites were simply written before the aliases paired.
 `shadow(color:)`. Never `Color.<token>` — and since #1377, **a raw
 `PasturaPalette.<token>.color` is not sufficient either** and is flagged at
 `severity: error`: dropping the alias fixes the inversion but not the direction,
-which is the #1373 defect and the whole subject of the paragraphs below. Reach
+which is the #1373 defect and the whole subject of the paragraphs below.
+(`PasturaShadows` also passes lint — that is the #1378 debt, not an
+endorsement; do not reach for it on a new ground-floating element.) Reach
 for the raw palette only where an export needs a *chosen* appearance (the
 `ImageRenderer` trap above) — the opposite reason, since an occlusion cue needs
 *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads *against*
