@@ -438,13 +438,10 @@ Two consequences worth carrying:
   tint onto a new ground-floating element. Measurements and the four consumers:
   **#1378**.
 
-**Ask what the element can actually sit on, not what the palette contains.** The
-first value chosen here was rejected for failing against `nightPage` #11130F — a
-ground no member of the family can reach, since its only consumer is a sheet
-presented from `SimulationView`, where the pill that supposedly met it is
-suppressed. The replacement is fine and strictly safer, but it was picked for a
-constraint that does not exist. A "floats over everything" component still only
-covers the grounds its visibility predicate lets it reach.
+**Ask what the element can actually sit on, not what the palette contains.** A
+"floats over everything" component still only covers the grounds its visibility
+predicate lets it reach — the first value here was rejected against a ground no
+member could ever meet. Worked instance: ADR-028 § Amendment 2026-08-05 (#1373).
 
 The distinction to hold: the scrim is the **occluder**; the card it fronts
 (`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a

@@ -270,16 +270,16 @@ install renders. **A list enumerated from where the fix already exists cannot se
 a file that has none**; only re-deriving from the defect can. §2b walks the
 branches this produced.
 
-The seven fixes post-date the pass that authorized closing the gates, so
+The six fixes post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
-ModelPicker shadows, the five restyled buttons, the scrim, the two missing
-screen grounds, the seven-site sweep of their non-loaded branches, and the
-occluder-shadow family (#1373). That last one **supersedes** the "ModelPicker
-shadows" entry above it — the 2026-07-31 repair left all three tints lighter than
-the ground, so re-check the current values rather than that fix.
+**occluder-shadow family** (#1373), the five restyled buttons, the scrim, the two
+missing screen grounds, and the seven-site sweep of their non-loaded branches.
+The occluder entry was "the ModelPicker shadows" until #1373 **superseded** that
+2026-07-31 repair — it had left all three tints lighter than the ground — and
+widened it to the in-flight pill. Re-check the current values, not that fix.
 
-**One of those seven has had its re-check** — § 2b walked 2026-08-05 on an
-iPhone 16e (iOS 26.5, dark), nothing on system black. The other six are still
+**One of those six has had its re-check** — § 2b walked 2026-08-05 on an
+iPhone 16e (iOS 26.5, dark), nothing on system black. The other five are still
 owed theirs. Three gaps inside even that one, worth knowing before you decide
 this section is done. Three of #1354's seven sites are **not** covered by it —
 Home, GalleryScenarioDetail and the editor host, whose new exposure is a

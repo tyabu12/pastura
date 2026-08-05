@@ -43,7 +43,11 @@ struct PasturaOccluderShadowsTests {
   }
 
   @Test func tintIsDarkerThanEveryGroundTheFamilyCanCover() {
-    #expect(entries.count == 3, "A member was added without extending `all`.")
+    // Fires when `all` changes, which is the *correct* edit — bump it and
+    // confirm the new member was meant to join the family. It cannot catch the
+    // omission the suite doc names (enum member added, `all` not extended):
+    // `entries` IS `all`, so that case leaves the count at 3 and passes.
+    #expect(entries.count == 3, "`all` changed — bump this pin deliberately.")
     for entry in entries {
       for ground in grounds {
         #expect(entry.color.red < ground.red)

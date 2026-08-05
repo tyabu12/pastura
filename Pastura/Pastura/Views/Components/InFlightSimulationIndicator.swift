@@ -79,12 +79,14 @@ struct InFlightSimulationIndicator: View {
       .padding(.vertical, 10)
       .background(.regularMaterial, in: Capsule())
       .overlay(Capsule().stroke(Color.ink.opacity(0.08)))
-      // Occluder — §4.3.1's fixed near-black, not a paired alias and not a
-      // raw light token either. This pill is a root `.overlay` on
-      // `RootTabView`, so its ground is *every* screen including `nightPage`;
-      // `PasturaPalette.ink` was fixed but still composited above the night
-      // ground. The stroke above is a different case: a hairline meant to read
-      // against the surface, so it follows the appearance.
+      // Occluder — §4.3.1's fixed near-black, not a paired alias and not a raw
+      // light token either: `PasturaPalette.ink` was fixed and still composited
+      // *above* the night ground. This pill floats over whichever tab is
+      // showing, and every one of those carries `nightBackground`, so #1B1D17 is
+      // the binding constraint — see ``PasturaOccluderShadows`` for why that is
+      // the whole ground set despite the pill being a root overlay. The stroke
+      // above is a different case: a hairline meant to read against the surface,
+      // so it follows the appearance.
       .shadow(
         color: PasturaOccluderShadows.inFlightPill.color.color,
         radius: PasturaOccluderShadows.inFlightPill.radius,
