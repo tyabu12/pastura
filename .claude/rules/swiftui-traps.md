@@ -418,8 +418,31 @@ when `C` is lighter than it.
 So the requirement is not "fixed" — it is **darker than every ground it covers**.
 Fixed is merely how you satisfy that when one value sits below all of them, which
 is why `PasturaPalette.scrim` is a warm near-black (#0B0C0A at 0.4: #979692 in
-light, #10110E in dark) rather than `ink`. A shadow gets away with `ink` because
-it is drawn against local surfaces, not the app ground.
+light, #10110E in dark) rather than `ink`.
+
+**A shadow does not get away with a lighter value either** — an earlier revision
+of this section said it did, on the grounds that shadows are drawn against local
+surfaces rather than the app ground. That premise is false for any element that
+*floats on* the ground: the ModelPicker list card and the in-flight pill both do,
+and the pill is a root `.overlay` on `RootTabView`, so its ground is every screen
+including `nightPage` #11130F. Measured directly under that card, `moss` at 0.22
+rendered **#2B2F24** on a #1B1D17 ground — a green glow, from a tint that was
+already raw and fixed. The three sites now read `PasturaOccluderShadows`
+(design-system §4.3.1), which reuses the scrim's #0B0C0A for the same reason the
+scrim needed it (#1373).
+
+Two consequences worth carrying:
+
+- **The moss tint cannot survive the fix.** Matching the light-mode composite's
+  G−B at the new alpha needs a tint with G−B ≈ 94; a near-black tops out near 24.
+  §4.3's "彩度は苔系" is now explicitly excepted for this family, not silently
+  violated.
+- **`PasturaShadows.tight` / `.soft` share the defect** — `rgba(90,100,60)` is
+  likewise above the night ground — at an order of magnitude lower alpha, across
+  five consumers (`PromoCard`, `ResultsView+Timeline`, `ScenarioArtTile`,
+  `GalleryCatalogRow`). Left alone **deliberately**: changing them re-opens §4.3
+  itself and wants its own ADR amendment. Do not read their survival as
+  endorsement, and do not copy their tint onto a new ground-floating element.
 
 The distinction to hold: the scrim is the **occluder**; the card it fronts
 (`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a
@@ -431,12 +454,21 @@ and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
 tints — is the surface case and correctly stays paired. Do not sweep those.
 
 Enforced by the `shadow_color_paired_alias` custom SwiftLint rule — **for the
-shadow half only**. The scrim shape has no lint guard: one instance, no stable
-syntax to key on, so a rule would be over-fitted. It is guarded instead by
-`SimulationScrimStyleTests`, which pins which token the fill reads AND asserts
-the darker-than-every-ground requirement — the second is what a value pin alone
-would miss. Reference: `ModelPickerView`, `InFlightSimulationIndicator`,
-`SimulationScrimStyle`; ADR-028 § Amendment (#1284).
+paired-alias half of the shadow half only**. Its regex keys on a leading-dot
+`Color.*`, so it never saw the shape that actually shipped three times: a raw
+`PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground. That
+gap is open and tracked in **#1377**; until it closes, the lint passing means
+only "no paired alias", never "this shadow is dark enough". The scrim shape has
+no lint guard at all: one instance, no stable syntax to key on, so a rule would
+be over-fitted.
+
+Tests carry what lint cannot — `SimulationScrimStyleTests` and
+`PasturaOccluderShadowsTests` each assert the darker-than-every-ground
+requirement against a **hand-maintained** ground list, which is the residual
+weakness: a night ground added later and darker than #0B0C0A would not be
+covered automatically. Reference: `ModelPickerView`,
+`InFlightSimulationIndicator`, `SimulationScrimStyle`,
+`PasturaOccluderShadows`; ADR-028 § Amendment (#1284, #1373).
 
 Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
 "what does it composite over" question of a *presented surface* rather than an
