@@ -25,7 +25,7 @@ import SwiftUI
 ///
 /// `PasturaShadows` shares the defect at an order of magnitude lower alpha and
 /// is **deliberately** left alone — changing it re-opens §4.3's moss-tint rule
-/// for five consumers and needs its own ADR amendment. See #1373.
+/// across its four consumers and needs its own ADR amendment. See #1373.
 ///
 /// ## What this buys in dark, honestly
 ///

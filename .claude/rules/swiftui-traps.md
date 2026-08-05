@@ -439,10 +439,11 @@ Two consequences worth carrying:
   violated.
 - **`PasturaShadows.tight` / `.soft` share the defect** — `rgba(90,100,60)` is
   likewise above the night ground — at an order of magnitude lower alpha, across
-  five consumers (`PromoCard`, `ResultsView+Timeline`, `ScenarioArtTile`,
-  `GalleryCatalogRow`). Left alone **deliberately**: changing them re-opens §4.3
-  itself and wants its own ADR amendment. Do not read their survival as
-  endorsement, and do not copy their tint onto a new ground-floating element.
+  four consumers carrying five shadow layers (`PromoCard` ×2,
+  `ResultsView+Timeline`, `ScenarioArtTile`, `GalleryCatalogRow`). Left alone
+  **deliberately**: changing them re-opens §4.3 itself and wants its own ADR
+  amendment. Do not read their survival as endorsement, and do not copy their
+  tint onto a new ground-floating element.
 
 The distinction to hold: the scrim is the **occluder**; the card it fronts
 (`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a
