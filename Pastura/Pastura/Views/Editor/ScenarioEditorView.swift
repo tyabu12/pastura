@@ -320,7 +320,10 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       }
     } header: {
       HStack {
+        // §2.2: `--ink-2` label / `--muted` meta. Only the count-bearing
+        // headers qualify; rationale + `PasturaSection` divergence in §2.2.
         Text(String(localized: "Personas"))
+          .foregroundStyle(Color.inkSecondary)
         Spacer()
         Text(String(format: String(localized: "%lld agents"), viewModel.personas.count))
           .font(.caption)
@@ -353,7 +356,9 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       }
     } header: {
       HStack {
+        // Same §2.2 label/meta pairing as `personasSection` above.
         Text(String(localized: "Phases"))
+          .foregroundStyle(Color.inkSecondary)
         Spacer()
         Text(String(format: String(localized: "%lld steps"), viewModel.phases.count))
           .font(.caption)

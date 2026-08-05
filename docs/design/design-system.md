@@ -65,10 +65,14 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--rule` | `#E0DBCE` | 罫線 |
 | `--ink-on-accent` | `#FFFFFF` | アクセント塗り（`moss` / `moss-dark`）の上に載る文字・グリフ |
 
+**`--ink-2` のセクションラベル用途には既知の未適用がある。** 自前のセクションヘッダー `PasturaSection` はヘッダーを `--muted` で描いており、この表と一致しない。対象は設定 / 観察履歴 / さがす といったタブ配下に限らず、ScenarioDetail / GalleryScenarioDetail などの push 先も含む。掃引対象の正は**呼び出し形**の grep — `rg -l 'PasturaSection\(' Pastura/Pastura/Views/`（8画面 + 定義ファイル自身の `#Preview`）。型名だけの grep は `PasturaSectionStyle` の言及も拾って広く出るので使わないこと。#1298 では `ScenarioEditorView` の Personas / Phases ヘッダーだけを表どおり `--ink-2` に揃えた — 隣に `--muted` のカウントが並び、明度がほぼ同じで色相だけ違う組み合わせになっていたため。`PasturaSection` 側はパレット掃引の担当として残す。掃引時に「表に寄せる」か「表を `PasturaSection` に合わせる」かをまとめて決めること — アプリ内には現在この2種類に加えてシステム `secondaryLabel` のままのヘッダーも残っている。
+
 `--ink-on-accent` は §2.3 が認めるアクセント上の前景（**light では白**、dark は `night-ink-on-accent`）。§1 の「純白の面を避ける」は**背景**の話なので抵触しない。適用範囲は下地で変わる:
 
 - **テキストは `moss-dark` 上に限る**（≈4.7:1、AA 達成）。base `moss` 上は ≈3.03:1 で 4.5:1 に届かない。
 - **グリフ・図形は `moss` 上も可**。WCAG 1.4.11 の非テキスト 3:1 が適用され ≈3.03:1 は充足する（`CheckBadge` のチェック、share タブのシンボル — 後者は `moss`→`moss-dark` グラデ上なので最悪値が明側の `moss`）。ただし余裕は約 1% しかないので、`moss` の色を動かす際はこの 2 用途を確認すること。
+
+`CheckBadge` の `filled` 塗りを `moss-dark`（≈4.74:1、見た目のコストなし）に上げる案は #1298 で検討し**退けた**。上の分類が図形を base `moss` 上で明示的に認めている以上、その代表例である `CheckBadge` を余裕の薄さだけを理由に個別例外にすると、分類そのものが空文化する。約 1% の余裕は上の但し書きが引き受ける前提であり、gate 1 後のダークでは `night-ink-on-accent` on `night-moss` が 6.395:1 で余裕がある。
 
 生の `Color.white` を各所に書かずトークンにしてあるのは、ダーク時のアクセント前景の判断が 1 箇所で済むようにするため — そして **slice 4 でその判断が付いた（ADR-028 gate 1、達成）**。
 
@@ -83,7 +87,7 @@ Pastura 唯一のブランド色。用途別に4段階。
 | トークン | Hex | 用途 |
 |---------|-----|------|
 | `--moss` | `#8A9A6C` | リーフアイコン・プロモ左ボーダー（3pt） |
-| `--moss-dark` | `#6B7852` | DL進捗ドット点灯・アクセントリンク・ステータスラベル（Completed 等） |
+| `--moss-dark` | `#6B7852` | DL進捗ドット点灯・ホーム更新バッジドット・アクセントリンク・ステータスラベル（Completed 等） |
 | `--moss-ink` | `#3D4030` | 犬の輪郭・完了タイトル |
 | `--moss-soft` | `#D4CBA8` | THINKING 左線・やさしい区切り |
 
@@ -95,6 +99,8 @@ soft < moss < dark < ink（ink が最明）。つまり `nightMossDark` は
 4.538 に対し dark は 8.902）。moss → mossDark の段差も 1.561 → 1.113 に縮む。
 §2.4 で見つかった天井現象の §2.3 版で、`docs/decisions/ADR-028.md` の
 slice 4 Amendment に導出がある。
+
+**ホーム更新バッジドットが `--moss-dark` なのは light 側の測定による**（#1298）。base `moss` はドットの `screen-background` リングに対し 2.908:1 で WCAG 1.4.11 の非テキスト 3:1 に届かない。**測定が制約し、先例が選ぶ。** 測定は `moss`（2.908）と `moss-soft`（地に対し 1.559）を落とし、残るのは `--moss-dark`（4.538）と `--moss-ink`（10.190）の2段。そこから選んだのは DL進捗ドット — 同じ「点灯した小さな指標」という役割 — が既に `--moss-dark` を使っている先例による。dark 側は元々 7.999:1 で不足が無く、上の反転により 8.902:1 と**むしろ目立つ方向**に動く — slice 2 が DL ドットで取ったのと同じ「機能 > 知覚重みの同等性」のトレードとして受け入れている。実装は `HomeCompactRowLayout.updateBadgeDotFill`（`HomeCompactRowLayoutTests` が読むトークンを pin）。
 
 ### 2.4 Meta Contrast Presets（DL進捗表示）
 

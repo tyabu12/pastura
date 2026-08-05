@@ -20,11 +20,13 @@ import Testing
 /// most likely in an unrelated refactor or an ADR-028 pairing slice. Confirm the
 /// change was intended and passed review, then update the expectation.
 ///
-/// **Why assert the alias, not the hex.** `Color.moss` and `Color.inkSecondary`
-/// are trait-resolving (`PasturaDynamicPalette`); `Color.mossDark` is still
-/// fixed. Comparing against the alias keeps this suite green when ADR-028 pairs
-/// `mossDark`, while still reddening if a token is swapped for a *different*
-/// one — which is the actual drift being guarded.
+/// **Why assert the alias, not the hex.** All three of `Color.moss`,
+/// `Color.inkSecondary` and `Color.mossDark` are trait-resolving
+/// (`PasturaDynamicPalette`). `mossDark` was the one still fixed when this
+/// suite landed, and ADR-028 gate 1 slice 4 (#1325) paired it without a line
+/// changing here — which was the point of comparing against the alias. It
+/// still reddens if a token is swapped for a *different* one, the actual
+/// drift being guarded.
 ///
 /// `@MainActor` is required twice over, which is why it is not removable: this
 /// suite reads the `Color.*` statics directly, and the token members it calls

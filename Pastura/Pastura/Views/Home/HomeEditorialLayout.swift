@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Layout tokens for the editorial ホーム (Home) tab — the resume **hero**
 /// (``HomePausedCard``) and the **compact icon rows** (``HomeCompactScenarioRow``)
@@ -21,6 +22,13 @@ import Foundation
 /// alongside the other rendered-appearance concerns. Only the few **fixed
 /// point sizes** that have no semantic-font equivalent (the mono eyebrow /
 /// progress / caption) are kept here as `CGFloat` so they remain assertable.
+///
+/// **A `Color` token qualifies on those same grounds** and so the enums are not
+/// strictly layout-only: `Color` *is* `Equatable`, and a `static let` alias has
+/// a stable provider instance, so pinning which token a consumer reads is the
+/// positive shape `view-testing.md` sanctions rather than the vacuous
+/// differ-assertion it warns about. Today that is
+/// ``HomeCompactRowLayout/updateBadgeDotFill``.
 ///
 /// Neither enum conforms to `Equatable`: a constant-only namespace doesn't need
 /// it for a value-comparison change-detector (`#expect(HomeHeroLayout.x == 18)`
@@ -115,4 +123,31 @@ enum HomeCompactRowLayout {
   /// Screen-background ring around the update dot so it reads as a badge over
   /// the moss-wash tile.
   static let updateBadgeDotStrokeWidth: CGFloat = 1.5
+
+  /// Fill of the update dot — `mossDark`, not base `moss`.
+  ///
+  /// The load-bearing argument is the **light** measurement: `moss` on the
+  /// `screenBackground` ring reads 2.908:1, under WCAG 1.4.11's 3:1 non-text
+  /// bar; `mossDark` reads 4.538:1. §2.3 assigns the analogous *DL-progress*
+  /// dot to `--moss-dark`, which corroborates but does not by itself prescribe
+  /// this dot — see design-system §2.3, whose 用途 cell now names both.
+  ///
+  /// **The dark side is a trade, not a gain.** `moss` already sat at 7.999:1
+  /// against `nightBackground` with no deficit, and §2.3's ladder inverts in
+  /// dark (`nightMossDark` #B3C197 is *lighter* than `nightMoss` #A8B888), so
+  /// this moves the dot to 8.902:1 and makes it read louder on an otherwise
+  /// quiet row. Accepted as the same function-over-perceptual-weight-parity
+  /// trade ADR-028 slice 2 took for the DL dot.
+  ///
+  /// **`.accessibilityHidden` does not exempt it.** 1.4.11 is a
+  /// visual-perception criterion, so the row's `.accessibilityValue("Update")`
+  /// is an orthogonal channel that discharges nothing — and since the inline
+  /// "Update" text badge was retired (see ``updateBadgeDotSize``), this dot is
+  /// the signal's only *visual* carrier.
+  ///
+  /// Tokenised rather than left inline because the dot renders only when
+  /// `hasGalleryUpdate` is true — `HomeViewModelGalleryBadgeTests` builds that
+  /// state, but nothing renders it: no UI test and no `ui-tour` stop reaches
+  /// the dot on screen, so `HomeCompactRowLayoutTests` is its only observer.
+  static let updateBadgeDotFill: Color = .mossDark
 }
