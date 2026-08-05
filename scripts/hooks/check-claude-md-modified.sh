@@ -45,11 +45,14 @@
 #      pass recorded as a `Context-economy:` line in the PR body. Size is a
 #      trigger, not a verdict. Threshold rationale: #1361.
 #
-#   4. Footprint nudge — if the branch touched any ALWAYS-LOADED instruction
-#      file and the repo-wide always-loaded byte total exceeds a ceiling,
-#      surface the aggregate and suggest a slim campaign. Only fires when the
-#      operator is already editing that tier, so it is advice at the moment
-#      it is actionable rather than a standing alarm.
+#   4. Footprint nudge — if the branch ADDED lines to any ALWAYS-LOADED
+#      instruction file and the repo-wide always-loaded byte total exceeds a
+#      ceiling, surface the aggregate and suggest a slim campaign. Only fires
+#      when the operator is already growing that tier, so it is advice at the
+#      moment it is actionable rather than a standing alarm.
+#
+#   5. Compose + emit — the applicable sections 2-4 join into the one JSON
+#      document per the EMIT CONTRACT above.
 #
 # Mirror detection is SECTION-RANGE overlap, not "any CLAUDE.md change": a
 # change confined to a non-mirrored section (Current Phase, the ADR index,
@@ -90,8 +93,10 @@ CHANGED=$(git diff main...HEAD --name-only 2>/dev/null || true)
 # --- 1. convention nudge ----------------------------------------------------
 # Early emit + exit. Mutually exclusive with sections 2-4 by construction: no
 # agent-instruction file changed => no mirror-relevant CLAUDE.md edit and zero
-# instruction growth, so nothing below could have fired anyway.
-if ! printf '%s\n' "$CHANGED" | grep -qE 'CLAUDE\.md|\.claude/rules/|\.claude/agents/'; then
+# instruction growth, so nothing below could have fired anyway. Anchored to
+# match section 3's root-exact pathspec — a stray `docs/foo/CLAUDE.md` must
+# not silence this nudge while contributing nothing to the tier sums.
+if ! printf '%s\n' "$CHANGED" | grep -qE '^CLAUDE\.md$|^\.claude/(rules|agents)/'; then
   jq -n '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -188,9 +193,12 @@ fi
 
 # --- 3. trim nudge (#1361 proposal A) ---------------------------------------
 # Calibrated on 16 weeks of numstat (#1361): the path-scoped 20 is pinned by
-# the acceptance criterion (it must catch #1360's +22-line addition), and the
-# always-loaded 10 follows from the issue's ~2x-stricter tiering for the
-# bytes paid on every turn. Sums are per tier, per branch.
+# the acceptance criterion — it must catch #1360's +22-line addition AS IT
+# STOOD AT PR-CREATE TIME, which is when this hook fires (the merged commit
+# shows +18/-1 only because a review round then compacted it, so re-deriving
+# the margin from `git show 15a744c0 --numstat` understates it by exactly that
+# round). The always-loaded 10 follows from the issue's ~2x-stricter tiering
+# for the bytes paid on every turn. Sums are per tier, per branch.
 AL_TRIM_THRESHOLD=10
 PS_TRIM_THRESHOLD=20
 
@@ -217,10 +225,12 @@ while IFS=$'\t' read -r added _removed path; do
   tier="always"
   case "$path" in
     .claude/rules/*)
-      # A file deleted on this branch has no worktree copy, so `head` fails and
+      # Classify from HEAD, the same side of the diff the added lines land on.
+      # A file deleted on this branch has no HEAD copy, so `git show` fails and
       # we fail open to the stricter (always-loaded) tier — harmless, since a
-      # deletion contributes 0 ADDED lines either way.
-      if head -n 14 "$path" 2>/dev/null | grep -q '^paths:'; then
+      # deletion contributes 0 ADDED lines and the footprint gate below arms
+      # only on added > 0.
+      if git show "HEAD:$path" 2>/dev/null | head -n 14 | grep -q '^paths:'; then
         tier="scoped"
       fi
       ;;
@@ -229,7 +239,12 @@ while IFS=$'\t' read -r added _removed path; do
     PS_ADD=$((PS_ADD + added))
   else
     AL_ADD=$((AL_ADD + added))
-    TOUCHED_ALWAYS_LOADED=1
+    # Arm the footprint gate only on real growth: a deletion-only touch (or a
+    # deleted path-scoped rule fail-opening into this branch) must not turn a
+    # shrinking PR into a "consider slimming" alarm.
+    if [ "$added" -gt 0 ]; then
+      TOUCHED_ALWAYS_LOADED=1
+    fi
   fi
 done <<EOF
 $NUMSTAT
@@ -240,7 +255,7 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
   # The `Context-economy:` token is fixed on purpose: it makes compliance
   # grep-able from `gh pr list` later, which is the data source for the
   # deferred reflection-hook-backstop decision (#1361).
-  TRIM_MSG="This branch grows agent-instruction files by +${AL_ADD} always-loaded / +${PS_ADD} path-scoped added lines (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale')."
+  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale')."
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------
@@ -250,6 +265,11 @@ fi
 # permanent wallpaper that everyone scrolls past. The env var exists so the
 # test harness can force the firing branch.
 FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-96000}"
+# The one external input; a non-numeric value would make the -gt test below
+# spray `[: illegal number` on stderr, so guard it like $added and $n.
+case "$FOOTPRINT_CEILING" in
+  ''|*[!0-9]*) FOOTPRINT_CEILING=96000 ;;
+esac
 
 # echoes the total byte size of every tracked always-loaded instruction file,
 # else nothing. `set +e` (this always runs in a `$()` subshell) makes every

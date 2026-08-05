@@ -16,8 +16,8 @@
 #   - mirror-sync nudge: fires when CLAUDE.md changed inside a MIRRORED section
 #     (per the Reference Documents table) AND README/CONTRIBUTING did not.
 #   - trim nudge: fires when per-tier ADDED instruction lines cross a threshold.
-#   - footprint nudge: fires when an always-loaded file was touched AND the
-#     repo-wide always-loaded byte total exceeds the ceiling.
+#   - footprint nudge: fires when an always-loaded file GREW (added lines > 0)
+#     AND the repo-wide always-loaded byte total exceeds the ceiling.
 # The convention nudge is mutually exclusive with the other three; those three
 # can co-fire, and the hook must then still emit exactly ONE JSON document.
 #
@@ -313,6 +313,9 @@ assert_rc0 m
 assert_contains m "$out" "$TRIM"
 assert_contains m "$out" "+22 path-scoped"
 assert_absent m "$out" "$CONV"
+assert_absent m "$out" "$MIRROR"
+assert_absent m "$out" "$FOOT"
+assert_single_json m "$out"
 
 # --- (n) below-threshold instruction change → no nudge ---------------------
 # foo.md has no `paths:` frontmatter → always-loaded tier, and 3 < 10.
@@ -345,6 +348,35 @@ assert_contains p "$out" "$FOOT"
 assert_absent p "$out" "$TRIM"
 assert_absent p "$out" "$MIRROR"
 assert_single_json p "$out"
+
+# --- (q) no-`paths:` rule growth → ALWAYS-LOADED tier (#1361 positive control) ---
+# The classifier's "no frontmatter → always-loaded" arm: foo.md has no
+# `paths:` block, so its 10 added lines must land in the always-loaded sum —
+# the tier-labelled substring is what proves the classification, not $TRIM.
+d="$TMP/q"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10; do printf 'unscoped rule line %d\n' "$i" >> .claude/rules/foo.md; done
+  git commit -qam "unscoped rule growth" )
+out="$(run_hook "$d")"
+assert_rc0 q
+assert_contains q "$out" "+10 always-loaded"
+assert_absent q "$out" "$CONV"
+
+# --- (r) path-scoped-only growth + forced ceiling → footprint stays silent ---
+# Negative control for the TOUCHED_ALWAYS_LOADED gate: this branch is over the
+# forced ceiling and over the path-scoped trim threshold, but grew NO
+# always-loaded file, so the gate is the only thing suppressing $FOOT here —
+# deleting the gate reddens exactly this case.
+d="$TMP/r"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22; do
+    printf 'scoped line %d\n' "$i" >> .claude/rules/scoped.md
+  done
+  git commit -qam "scoped-only growth" )
+out="$(run_hook "$d" 10)"
+assert_rc0 r
+assert_contains r "$out" "$TRIM"
+assert_absent r "$out" "$FOOT"
 
 if [ "$fail" -eq 0 ]; then
   echo "check-claude-md-modified: all cases passed"
