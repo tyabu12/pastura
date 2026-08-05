@@ -245,7 +245,7 @@ ZStack(alignment: .top) {
 - 位置: bottom 22pt, leading/trailing 14pt
 - 背景: `#fbfaf2` / ボーダー 1pt `#e4e7d2` / **左ボーダー 3pt `#8a9a6c`**（アクセント）
 - 角丸: 14pt
-- シャドウ: `0 1 2 rgba(90,100,60,0.04), 0 12 26 rgba(90,100,60,0.2)`（複数レイヤー）
+- シャドウ: `0 1 2 rgba(11,12,10,0.03), 0 12 26 rgba(11,12,10,0.13)`（複数レイヤー）
 
 **構造（VStack, spacing: 0）**:
 

@@ -230,28 +230,10 @@ struct DesignTokensTests {
     #expect(!approxEqual(token.green, publicBubble.green))
   }
 
-  // MARK: - §4.3 Shadow
-
-  @Test func softShadowIsMossTinted() {
-    let shadow = PasturaShadows.soft
-    // rgba(90,100,60,.2): moss-tinted, not neutral black
-    #expect(approxEqual(shadow.color.red, 90 / 255.0))
-    #expect(approxEqual(shadow.color.green, 100 / 255.0))
-    #expect(approxEqual(shadow.color.blue, 60 / 255.0))
-    #expect(approxEqual(shadow.color.opacity, 0.2))
-    #expect(shadow.y == 12)
-    #expect(shadow.radius == 26)
-  }
-
-  @Test func tightShadowIsMossTinted() {
-    let shadow = PasturaShadows.tight
-    #expect(approxEqual(shadow.color.red, 90 / 255.0))
-    #expect(approxEqual(shadow.color.green, 100 / 255.0))
-    #expect(approxEqual(shadow.color.blue, 60 / 255.0))
-    #expect(approxEqual(shadow.color.opacity, 0.04))
-    #expect(shadow.y == 1)
-    #expect(shadow.radius == 2)
-  }
+  // §4.3's shadow recipe is asserted in `PasturaShadowsTests`, alongside
+  // `PasturaOccluderShadowsTests` — both families now carry a darker-than-
+  // every-ground requirement that needs a ground list, which is more than a
+  // value assertion in this file.
 
   // MARK: - §3 Typography
 

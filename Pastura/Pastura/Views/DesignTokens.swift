@@ -42,9 +42,11 @@ struct PasturaColorValue: Sendable, Equatable {
     self.opacity = opacity
   }
 
-  /// Build a token from raw 0...1 sRGB components. Used for §4.3 shadow tints
-  /// specified as `rgba(90, 100, 60, ...)` where a hex literal would obscure
-  /// the source numbers.
+  /// Build a token from raw 0...1 sRGB components. Used for tokens the design
+  /// system specifies as `rgba(138, 154, 108, ...)` — the interaction-state
+  /// washes in `DesignTokens+ExtendedPalette` / `+NightStatePalette` — where a
+  /// hex literal would obscure the source numbers. §4.3's shadows used this
+  /// form until #1378 retinted them to a near-black written as `hex:opacity:`.
   init(red: Double, green: Double, blue: Double, opacity: Double) {
     self.red = red
     self.green = green

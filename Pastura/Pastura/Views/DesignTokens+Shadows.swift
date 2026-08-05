@@ -35,7 +35,8 @@ struct PasturaShadow: Sendable, Equatable {
 
 // swiftlint:enable identifier_name
 
-/// Two-layer moss-tinted shadow recipe from `design-system.md` §4.3.
+/// Two-layer drop-shadow recipe from `design-system.md` §4.3 — the app's
+/// general card elevation.
 ///
 /// Apply by stacking both `.shadow(...)` modifiers on the same view:
 /// ```
@@ -51,15 +52,39 @@ struct PasturaShadow: Sendable, Equatable {
 ///     x: PasturaShadows.soft.x,
 ///     y: PasturaShadows.soft.y)
 /// ```
+///
+/// ## Why the tint is a near-black and not moss
+///
+/// It was `rgba(90,100,60)` until #1378. A shadow's requirement is that its
+/// tint be **darker than every ground it covers** — `a·C + (1−a)·ground`
+/// cannot fall below `ground` when `C` is lighter than it, whatever `a` is —
+/// and moss is lighter than every dark-mode surface in the palette, so all
+/// four consumers rendered a green glow rather than a shadow. This is the
+/// same conclusion `PasturaPalette/scrim` and ``PasturaOccluderShadows``
+/// reached; the value is shared with them so the palette carries **one**
+/// occluder near-black, not three.
+///
+/// A near-black cannot carry a moss cast at these alphas, so the light-mode
+/// shadow is now neutral. Light *lightness* is preserved instead — the alphas
+/// were re-solved on the red channel over `screenBackground`. The arithmetic
+/// and the per-consumer measurements live in design-system §4.3 and ADR-028
+/// § Amendment; do not restate them here.
+///
+/// The tints are written as `PasturaColorValue(hex:opacity:)` rather than
+/// built from a bare token, because that is the shape
+/// `check_design_tokens_css.py` converts to `rgba(...)` — it keeps the alphas,
+/// the drift-prone half, inside the mirror gate.
 enum PasturaShadows {
-  /// Inner tight layer — `0 1px 2px rgba(90,100,60,.04)`.
+  /// Inner tight layer — `0 1px 2px rgba(11,12,10,.03)`.
   static let tight = PasturaShadow(
-    color: PasturaColorValue(
-      red: 90.0 / 255.0, green: 100.0 / 255.0, blue: 60.0 / 255.0, opacity: 0.04),
+    color: PasturaColorValue(hex: 0x0B0C0A, opacity: 0.03),
     radius: 2, x: 0, y: 1)
-  /// Outer soft layer — `0 12px 26px -12px rgba(90,100,60,.2)` (spread dropped).
+  /// Outer soft layer — `0 12px 26px -12px rgba(11,12,10,.13)` (spread dropped).
   static let soft = PasturaShadow(
-    color: PasturaColorValue(
-      red: 90.0 / 255.0, green: 100.0 / 255.0, blue: 60.0 / 255.0, opacity: 0.2),
+    color: PasturaColorValue(hex: 0x0B0C0A, opacity: 0.13),
     radius: 26, x: 0, y: 12)
+
+  /// Every member, for the tests to iterate. A layer added above and not
+  /// listed here is covered by nothing.
+  static let all: [PasturaShadow] = [tight, soft]
 }
