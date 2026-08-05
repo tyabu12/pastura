@@ -158,7 +158,7 @@ jobs:
       # Supply-chain guard on the checked-in gradle-wrapper.jar (mirrors the
       # per-PR job — "author fresh" must not drop it).
       - name: Validate Gradle wrapper integrity
-        uses: gradle/actions/wrapper-validation@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # The full native rung, one Gradle invocation (no second cold start):
       #   :shared:engine:build ............ compiles engine on every target
