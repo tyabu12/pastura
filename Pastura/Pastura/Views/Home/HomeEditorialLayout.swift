@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Layout tokens for the editorial ホーム (Home) tab — the resume **hero**
 /// (``HomePausedCard``) and the **compact icon rows** (``HomeCompactScenarioRow``)
@@ -115,4 +116,24 @@ enum HomeCompactRowLayout {
   /// Screen-background ring around the update dot so it reads as a badge over
   /// the moss-wash tile.
   static let updateBadgeDotStrokeWidth: CGFloat = 1.5
+
+  /// Fill of the update dot — `mossDark`, not base `moss`.
+  ///
+  /// The load-bearing argument is the **light** measurement: `moss` on the
+  /// `screenBackground` ring reads 2.908:1, under WCAG 1.4.11's 3:1 non-text
+  /// bar; `mossDark` reads 4.538:1. §2.3 assigns the analogous *DL-progress*
+  /// dot to `--moss-dark`, which corroborates but does not by itself prescribe
+  /// this dot — see design-system §2.3, whose 用途 cell now names both.
+  ///
+  /// **The dark side is a trade, not a gain.** `moss` already sat at 7.999:1
+  /// against `nightBackground` with no deficit, and §2.3's ladder inverts in
+  /// dark (`nightMossDark` #B3C197 is *lighter* than `nightMoss` #A8B888), so
+  /// this moves the dot to 8.902:1 and makes it read louder on an otherwise
+  /// quiet row. Accepted as the same function-over-perceptual-weight-parity
+  /// trade ADR-028 slice 2 took for the DL dot.
+  ///
+  /// Tokenised rather than left inline because the dot renders only when
+  /// `hasGalleryUpdate` is true — no test, UI test or `ui-tour` stop reaches
+  /// it, so `HomeCompactRowLayoutTests` is its only observer.
+  static let updateBadgeDotFill: Color = .mossDark
 }

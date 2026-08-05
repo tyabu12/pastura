@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 import Testing
 
 @testable import Pastura
@@ -76,5 +77,20 @@ struct HomeCompactRowLayoutTests {
   @Test func updateBadgeDotUnchanged() {
     #expect(HomeCompactRowLayout.updateBadgeDotSize == 9)
     #expect(HomeCompactRowLayout.updateBadgeDotStrokeWidth == 1.5)
+  }
+
+  /// Pins *which token* the update dot reads, not what value it carries —
+  /// `DesignTokensTests` owns the value. Per `.claude/rules/view-testing.md`
+  /// § "Change-detector tripwire", asserting that two `PasturaDynamicColor`-
+  /// backed aliases **differ** can never fire (they compare by provider
+  /// instance), so the sanctioned shape is one `static let` against itself.
+  ///
+  /// The dot renders only when a row has `hasGalleryUpdate` — no UI test and
+  /// no `ui-tour` stop reaches that state — so this is the change-detector's
+  /// only coverage of it. A failure is not a bug: confirm the swap passed code
+  /// review, then update the expectation. `mossDark` over base `moss` is the
+  /// WCAG 1.4.11 call recorded on ``HomeCompactRowLayout/updateBadgeDotFill``.
+  @Test func updateBadgeDotReadsMossDark() {
+    #expect(HomeCompactRowLayout.updateBadgeDotFill == Color.mossDark)
   }
 }
