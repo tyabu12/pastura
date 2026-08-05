@@ -560,9 +560,11 @@ box-shadow:
 これより暗い `nightPage` #11130F はこのファミリのどのメンバーからも到達不能
 （唯一の消費者 `ViewerPredictionSheet` は `SimulationView` から presented され、
 その間ピルは `isSimulationOnTop` で抑止される）。`#0B0C0A` が #11130F をも下回るのは
-余裕であって要件ではない。§4.3 の2レイヤーは `nightBubble` #2C2F28 の上にも乗る
-（`ResultsView` のタイムラインカード、`GalleryCatalogRow` 内のアートタイルのバッジ）が、
-同じ tint がそちらも下回るので追加の制約にはならない。
+余裕であって要件ではない。§4.3 の2レイヤーも拘束する地は同じ #1B1D17 — 4消費者の
+うち `ResultsView` のタイムラインカードと `GalleryCatalogRow` は `bubbleBackground`
+のカードだが、radius 2 / y 1 の影はカードの**外**に落ちるので、合成先は自分の面では
+なく画面の地。`nightBubble` #2C2F28 の上に乗るのは `GalleryCatalogRow` 内の
+アートタイルのバッジ1件だけで、同じ tint がそちらも下回るので追加の制約にはならない。
 
 ---
 

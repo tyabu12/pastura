@@ -13,7 +13,9 @@ import SwiftUI
 
 // `x` / `y` mirror SwiftUI's own `.shadow(color:radius:x:y:)` parameter names,
 // so they stay one character. `DesignTokens.swift` carries the same file-level
-// exemption for the same reason; the directive sits ahead of the doc comment
+// exemption for the same class of reason — short domain identifiers, though
+// there they are `hexString`'s `r`/`g`/`b` and `Spacing.s`/`m`/`l` rather than
+// framework parameter mirrors. The directive sits ahead of the doc comment
 // rather than between it and the declaration, which would orphan it
 // (`.claude/rules/build-traps.md`).
 // swiftlint:disable identifier_name
@@ -65,8 +67,10 @@ struct PasturaShadow: Sendable, Equatable {
 /// occluder near-black, not three.
 ///
 /// A near-black cannot carry a moss cast at these alphas, so the light-mode
-/// shadow is now neutral. Light *lightness* is preserved instead — the alphas
-/// were re-solved on the red channel over `screenBackground`. The arithmetic
+/// shadow is now neutral. Light *lightness* is preserved instead, to within one
+/// sRGB step — the alphas were re-solved on the red channel over
+/// `screenBackground` and then rounded (0.0269 → 0.03, 0.1344 → 0.13), which
+/// moves light red by −0.75 and +1.07 respectively. The arithmetic
 /// and the per-consumer measurements live in design-system §4.3 and ADR-028
 /// § Amendment; do not restate them here.
 ///
