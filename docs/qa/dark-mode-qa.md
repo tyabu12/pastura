@@ -27,7 +27,7 @@ classes are:
 | B. Materials | `.ultraThinMaterial` / `.regularMaterial` / `glassEffect` re-render themselves, independently of every token underneath | 11 surfaces (12 call lines — the action bar has two OS branches), §3 |
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
-| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. The lint rule catches only the first, and reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
+| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. Since #1377 the lint rule reaches both shadow shapes, but it certifies only that the tint names a sanctioned family — one of which is itself too light (#1378) — and it reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
 | F. A **rendered state** with no ground behind it | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier — and the question is a layout one ("does every branch have a ground behind it"), not a syntactic one, so no gate is available either | §2 — the whole class is swept as of #1354; **walk the loading / empty / error branch of a screen, not just its loaded state**. Presented sheets are out of class — see the note under the table |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
@@ -61,10 +61,12 @@ the transition flashes. `launchScreenBackground` and
 - [ ] The sky / pasture layers (`LaunchIconSky`, `LaunchIconPasture`) are
       light-grounded tiles by design — confirm they still read as one mark.
 
-## 2. Six-screen walk (gate 4)
+## 2. The loaded-state walk (gate 4)
 
 For each: does anything read as *broken* — invisible text, a light-mode slab, a
-washed-out control — as opposed to merely *different*?
+washed-out control — as opposed to merely *different*? The heading carried a
+count until 2026-08-05 and was wrong by two before anyone added anything — the
+list grows whenever a screen gains exposure, so it no longer states one.
 
 - [ ] **Home** — cards, `ActiveModelChip` (including its warning / danger states
       if reachable), scenario rows. Avatars invert through
@@ -87,7 +89,41 @@ washed-out control — as opposed to merely *different*?
       chat stream — measured ≈#2C2E2A over #1B1D17, ≈1.39 → ≈1.25. Delineation
       now rests on the material and the 1pt hairline; confirm the bars still
       read as bars.
-- [ ] **Results** — list and detail, plus the delete flow's `danger` family. The
+- [ ] **Browse** — the Search tab root. #1354 moved its ground onto the
+      container (`SharedScenariosListView`'s `.background(Color.screenBackground)`
+      wraps the `Group`, not `scenarioList`), so the **loaded** state changed
+      here too, not only the branches § 2b reaches. Then the catalog cards
+      (**class E**): each `GalleryCatalogRow` carries a `PasturaShadows.tight`
+      drop shadow and the `ScenarioArtTile` inside it carries a second — the
+      family ADR-028 measured as *lighter* than the night ground and deferred on
+      blast radius (#1378), so this is the screen where that deferral is most
+      visible. Lint is green on both by design; judge whether the cards read as
+      lifted or as haloed. Also the filter chips
+      (`+CategoryChips` / `+LanguageChips`): selected is `inkOnAccent` on
+      `mossDark`, unselected `Color.ink` on `bubbleBackground` behind a
+      `Color.rule` hairline — and each card's inline `categoryChip` is a
+      *different* pair (`mossDark` on `Color.selected`) wearing the same accent,
+      so compare the two. An engine-incompatible card is the same surfaces at
+      `incompatibleCardOpacity`; confirm it still reads as dimmed rather than as
+      absent.
+- [ ] **GalleryScenarioDetail** — reached by tapping a Browse card. Its ground
+      moved onto the container too (`GalleryScenarioDetailView`), and it is the
+      one screen in **both** of #1354's groups: a relocated loaded ground *and* a
+      newly-exposed transient arm (the `ProgressView()` covering the network
+      load). The action button — "Try this scenario" / "Update" / "Open local
+      copy" — is `PasturaPrimaryButtonStyle`, one of the five restyled in the
+      gate pass. The recommended-model section
+      (`+RecommendedModel.swift`) is the densest surface: a `Color.warning`
+      mismatch glyph over `inkSecondary` copy, and a `.bordered` switch button
+      that takes the system tint rather than a Pastura token. Toolbar carries
+      `PasturaToolbarButtonStyle(variant: .secondary)` beside `PasturaBackButton`.
+- [ ] **Results** — list and detail, plus the delete flow's `danger` family.
+      "List and detail" means the aggregate timeline and `ResultDetailView`;
+      **there is a third arm** — the pushed per-scenario list (`ResultsView`'s
+      `resultsList` under `scope.isPushedDetail`, a grouped list rather than the
+      tab root's timeline), reached from a scenario's own results entry. It is
+      the other loaded arm whose inner ground #1354 relocated, so walk it as
+      well as the timeline. The
       **detail** screen is the second class-F site: its ground must be #1B1D17
       too, same comparison against Home. Its **resume banner** is the surface
       that ground change touched — `moss.opacity(0.08)` over it, so its step
@@ -185,13 +221,21 @@ record that it was not exercised rather than marking it passed.
 ## 6. Occlusion layers (class E)
 
 The class with the weakest automated cover, and it has now produced two defects
-rather than one. `shadow_color_paired_alias` catches a *paired alias* and
-nothing else — it was blind to the three shadows that were fixed-but-lighter
-(#1373), and remains blind after that fix; widening it is tracked in **#1377**.
-The scrim and the occluder family are guarded by `SimulationScrimStyleTests` and
-`PasturaOccluderShadowsTests`, both against hand-maintained ground lists.
+rather than one. `shadow_color_occluder_family` — named `shadow_color_paired_alias`
+until #1377 — used to catch a *paired alias* and nothing else, blind to the three
+shadows that were fixed-but-lighter (#1373). #1377 inverted it to an allowlist,
+closing that gap: it reaches every `.shadow(color:` tint whose value follows the
+label directly. **Two syntactic shapes stay out of reach** — an intervening
+comment between `.shadow(` and `color:`, and the `ShapeStyle` form
+`.shadow(.drop(color:))` — both measured at 0 violations, neither present in the
+tree today. The scrim and the occluder family are guarded by
+`SimulationScrimStyleTests` and `PasturaOccluderShadowsTests`, both against
+hand-maintained ground lists.
 
-**A green lint run says nothing about this class.** Walk it.
+**A green lint run still says little about this class, and nothing about the
+scrim.** It certifies that a shadow tint comes from a sanctioned family — and
+`PasturaShadows`, one of the two, is itself measured above the night ground
+(#1378). The scrim has no lint guard at all. Walk it.
 
 - [ ] **Model-load scrim** — start a simulation and watch the wait overlay. The
       background behind the card must be **darker** than the surrounding UI, not
@@ -287,9 +331,14 @@ transient spinner a fast device does not hold open. At four screens the sweep
 also *moved* the ground off the loaded sub-view onto the container, so their
 loaded states changed too: Results, Browse, ScenarioDetail and — again —
 GalleryScenarioDetail, which is in both groups. § 2 was not re-walked, and it
-carries **no Browse and no GalleryScenarioDetail item**, so two of those four
-need a new § 2 entry rather than a repeat. And it was a walk, not a pixel
-sample — which is what missed the fifth defect twice.
+carried **no Browse and no GalleryScenarioDetail item** — the two that needed a
+new entry rather than a repeat — and its `Results` item routed only to the
+aggregate timeline and `ResultDetailView`, not to the `scope.isPushedDetail` list
+that also lost its inner ground. #1376 wrote all three, but **writing them is not
+walking them**: all four of those relocated loaded grounds, and the three
+transient arms above, are still owed a device pass. And the pass that is
+recorded was a walk, not a pixel sample — which is what missed the fifth defect
+twice.
 
 ## While you are here: skim the dark review set
 

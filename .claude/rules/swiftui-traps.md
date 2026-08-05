@@ -266,9 +266,11 @@ file's own header says so). See ADR-028.
 sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
 behind and not the surface itself, which can flip the sign. `nightPage` sits 1.099 *below*
 `nightBackground` by design and renders 1.031 *above* its own backdrop. Judge such a value against a
-device screenshot, not the pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of § "An occlusion layer"
-below — same "what does it actually composite over" question, asked of a surface rather than an
-occluder; keep the two pointing at each other.
+device screenshot, not the pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
+§ "An occlusion layer ... must be darker than every ground it covers" below — same "what does it
+actually composite over" question, asked of a surface rather than an occluder; keep the two
+pointing at each other. (Quoted with an ellipsis, not truncated, so a grep for the heading finds
+this pointer too.)
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
@@ -387,7 +389,7 @@ token" but "does one read a **view** that reads it".
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
 
-## An occlusion layer — shadow or scrim — must not read a paired `Color.*` alias
+## An occlusion layer — shadow or scrim — must be darker than every ground it covers
 
 A shadow is an occlusion cue, not a surface, so it wants a colour that stays
 dark in **both** appearances. A paired alias inverts instead: `Color.ink`
@@ -400,11 +402,17 @@ design-system §4.3 already takes this position — `PasturaShadows.tight` /
 `.soft` carry a fixed moss-tinted `rgba(90,100,60,…)` and do not pair. The three
 ad-hoc `shadow(color:)` sites were simply written before the aliases paired.
 
-**Apply**: read `PasturaPalette.<token>.color` inside `shadow(color:)`, never
-`Color.<token>`. Same raw-palette convention as the `ImageRenderer` trap above,
-for the opposite reason — there an export needs a *chosen* appearance, here the
-cue needs *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads
-*against* the surface, so it follows the appearance and keeps the alias.
+**Apply**: read `PasturaOccluderShadows` (design-system §4.3.1) inside
+`shadow(color:)`. Never `Color.<token>` — and since #1377, **a raw
+`PasturaPalette.<token>.color` is not sufficient either** and is flagged at
+`severity: error`: dropping the alias fixes the inversion but not the direction,
+which is the #1373 defect and the whole subject of the paragraphs below.
+(`PasturaShadows` also passes lint — that is the #1378 debt, not an
+endorsement; do not reach for it on a new ground-floating element.) Reach
+for the raw palette only where an export needs a *chosen* appearance (the
+`ImageRenderer` trap above) — the opposite reason, since an occlusion cue needs
+*none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads *against*
+the surface, so it follows the appearance and keeps the alias.
 
 **A full-bleed dimming scrim is the same trap wearing different clothes**, and
 it is louder — but it also corrects the rule above. `Color.ink.opacity(0.4)`
@@ -452,14 +460,20 @@ occlude, or is it a surface?
 and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
 tints — is the surface case and correctly stays paired. Do not sweep those.
 
-Enforced by the `shadow_color_paired_alias` custom SwiftLint rule — **for the
-paired-alias half of the shadow half only**. Its regex keys on a leading-dot
-`Color.*`, so it never saw the shape that actually shipped three times: a raw
-`PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground. That
-gap is open and tracked in **#1377**; until it closes, the lint passing means
-only "no paired alias", never "this shadow is dark enough". The scrim shape has
-no lint guard at all: one instance, no stable syntax to key on, so a rule would
-be over-fitted.
+Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — **for the
+shadow half only**. As first written (then named `shadow_color_paired_alias`) it
+was a denylist keyed on a leading-dot `Color.*` and so never saw the shape that
+actually shipped three times: a raw
+`PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground.
+#1377 inverted it to an **allowlist** — a shadow tint must name
+`PasturaOccluderShadows` or `PasturaShadows`, and anything else is flagged — so
+the syntactic gap is closed.
+
+**A green run still does not mean "this shadow is dark enough."** `PasturaShadows`
+is on that allowlist while measured *above* the night ground (#1378, in the
+consequences above), so the rule certifies family membership and nothing more.
+The scrim shape has no lint guard at all: one instance, no stable syntax to key
+on, so a rule would be over-fitted.
 
 Tests carry what lint cannot — `SimulationScrimStyleTests` and
 `PasturaOccluderShadowsTests` each assert the darker-than-every-ground

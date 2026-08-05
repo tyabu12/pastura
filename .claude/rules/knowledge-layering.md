@@ -55,6 +55,12 @@ repo-tracked file (CLAUDE.md, CONTRIBUTING.md, ADRs, source comments,
 script header docs) is a **dead link** for everyone except the
 maintainer who wrote the memory.
 
+**This is also why a repo-tracked rule must stay self-contained** — do not
+slim a project's `.claude/rules/` down to "see the maintainer's global
+rule": that global file does not exist for other contributors or in CI.
+Global rules *add* a personal baseline; they never *replace* what a shared
+repo needs to carry itself.
+
 **Apply** — for rationale in any repo-tracked file, prefer inline summary
 + PR / issue / ADR pointer (`#410`, `ADR-007`, etc.). Memory refs are
 acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,

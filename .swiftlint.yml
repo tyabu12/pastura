@@ -107,35 +107,70 @@ custom_rules:
     severity: error
     message: "tryClaim/forceClaimGeneratingGuard are the private contract for acquireGenerateGuard (LlamaCppService+Lifecycle.swift). Use acquireGenerateGuard(caller:) instead — see ADR-002 §12."
 
-  # ADR-028 dark-mode pairing (#1284) — a shadow is an occlusion cue, not a
-  # surface, so its colour must be fixed in BOTH appearances. A paired
-  # `Color.*` alias inverts: `Color.mossInk` is #3D4030 in light (a correct
-  # shadow) but resolves `nightMossInk` #C6CBB1 in dark, turning the shadow
-  # into a pale halo. Silent — no diagnostic, and the light build looks right.
-  # Read `PasturaPalette.<token>.color` instead; design-system §4.3's
-  # `PasturaShadows` already fix their tint for the same reason. A `.stroke` /
-  # `.overlay` hairline is the opposite case (it reads AGAINST the surface, so
-  # it follows the appearance) and is deliberately not matched.
+  # ADR-028 dark-mode pairing (#1284, widened #1377) — a shadow is an occlusion
+  # cue, not a surface, so it must be DARKER THAN EVERY GROUND IT COVERS. The
+  # predecessor rule keyed on a leading-dot `Color.*` alias, which catches only
+  # the inverting half of that requirement: `Color.mossInk` is #3D4030 in light
+  # and resolves `nightMossInk` #C6CBB1 in dark, a pale halo. It was blind to
+  # the shape that actually shipped three times — a raw
+  # `PasturaPalette.moss.color.opacity(0.22)`, fixed in both appearances and
+  # still lighter than the #1B1D17 night ground it floated on (#1373).
   #
-  # The regex stops at the alias name, before `radius:` / `.opacity(0.22)`:
-  # `match_kinds` drops a match that spans a kind not listed, so reaching a
-  # numeric literal would make the rule fail OPEN.
+  # So this is an ALLOWLIST, not a denylist: a shadow tint must name one of the
+  # two sanctioned families, and anything else is flagged. A denylist can only
+  # ever enumerate the wrong shapes already seen.
   #
-  # `Color` is optional because the implicit-member form
-  # `.shadow(color: .mossInk.opacity(0.45))` is valid Swift and the natural
-  # thing to write; requiring the explicit type left it passing silently. The
-  # lowercase class after the dot is what keeps `PasturaPalette.` /
-  # `PasturaShadows.` — uppercase, and with no leading dot — unmatched.
-  shadow_color_paired_alias:
-    name: "Shadow colour reads a paired alias"
-    regex: '\.shadow\(\s*color:\s*(Color)?\.[a-z]'
-    match_kinds:
-      - identifier
-      - typeidentifier
+  # `PasturaShadows` is allowlisted despite NOT meeting the requirement —
+  # measured above the night ground, deferred on blast radius across its four
+  # consumers and tracked as #1378. So a green run here means "the tint comes
+  # from a sanctioned family", never "this shadow is dark enough"; the
+  # `message` is worded to claim only the former. Remove `PasturaShadows` from
+  # the lookahead when #1378 lands.
+  #
+  # The trailing `\S` is LOAD-BEARING and is not cosmetic. Without it the rule
+  # flags all eight sanctioned call sites: `\s*` backtracks, so the engine
+  # retries the negative lookahead at a position still inside the whitespace,
+  # where "not PasturaShadows" is trivially true and the match succeeds.
+  # Requiring one non-space character after the lookahead kills every such
+  # position — measured, not reasoned: before adding it, linting the eight
+  # sanctioned sites was 8/8 red. The control pair — both arms, and the two
+  # syntactic shapes this regex still does NOT reach — is recorded in ADR-028
+  # § "What the guard does and does not certify".
+  #
+  # `excluded_match_kinds` rather than `match_kinds`, deliberately: the match
+  # is short (`.shadow(` + `color:` + one value character), so an allowlist of
+  # kinds would have to anticipate exactly which kinds that span carries — and
+  # `match_kinds` drops a match spanning an unlisted kind SILENTLY, i.e. it
+  # fails OPEN. Excluding comments and strings expresses the only thing that
+  # was ever wanted (`DesignTokens.swift`'s doc comment writes
+  # `.shadow(color:radius:x:y:)`, which this regex matches) and cannot fail
+  # open on a kind nobody anticipated.
+  #
+  # A `.stroke` / `.overlay` hairline is the opposite case (it reads AGAINST
+  # the surface, so it follows the appearance) and is deliberately not matched.
+  # The scrim shape has no lint guard at all — one instance, no stable syntax
+  # to key on. `SimulationScrimStyleTests` / `PasturaOccluderShadowsTests`
+  # carry what lint cannot.
+  #
+  # An allowlist also flags legitimate INDIRECTION, which a denylist did not: a
+  # reusable modifier taking `shadow(color: someLocal, …)` cannot name a family
+  # at the callsite. No such site exists today. When one arrives, hoist the
+  # value into `PasturaOccluderShadows` and pass the member (preferred — it also
+  # brings the tint under `PasturaOccluderShadowsTests`); only if the indirection
+  # is genuinely dynamic, `// swiftlint:disable:next shadow_color_occluder_family`
+  # with the ground it covers named in the rationale.
+  shadow_color_occluder_family:
+    name: "Shadow colour outside the occluder families"
+    regex: '\.shadow\(\s*color:\s*(?!PasturaOccluderShadows\b|PasturaShadows\b)\S'
+    excluded_match_kinds:
+      - comment
+      - doccomment
+      - doccomment.field
+      - string
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "A shadow must be fixed in both appearances — the Color.* aliases pair, so in dark this inverts into a pale halo. Use PasturaPalette.<token>.color. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must not read a paired Color.* alias'."
+    message: "A shadow tint must come from a sanctioned occluder family — PasturaOccluderShadows (design-system §4.3.1), or PasturaShadows pending #1378. Anything else, including a raw PasturaPalette.<token>.color, is unchecked against the grounds it covers. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must be darker than every ground it covers'."
 
   # ADR-028 dark-mode pairing (#1284) — `.borderedProminent` fills from the
   # ambient `\.tint` with the system's own white prominent label. `RootTabView`
