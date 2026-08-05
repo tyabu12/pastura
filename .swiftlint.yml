@@ -120,12 +120,24 @@ custom_rules:
   # two sanctioned families, and anything else is flagged. A denylist can only
   # ever enumerate the wrong shapes already seen.
   #
-  # `PasturaShadows` is allowlisted despite NOT meeting the requirement —
-  # measured above the night ground, deferred on blast radius across its four
-  # consumers and tracked as #1378. So a green run here means "the tint comes
-  # from a sanctioned family", never "this shadow is dark enough"; the
-  # `message` is worded to claim only the former. Remove `PasturaShadows` from
-  # the lookahead when #1378 lands.
+  # `PasturaShadows` was allowlisted despite NOT meeting the requirement, and
+  # this comment said to remove it from the lookahead when #1378 landed. #1378
+  # has landed and that instruction is WRONG in both directions: the concession
+  # is gone (the family now carries #0B0C0A and meets the requirement, so the
+  # allowlist is semantically clean for the first time), and removing the name
+  # would flag its five legitimate call sites — measured 0 -> 5 -> 0.
+  #
+  # Re-running that control, or any control on this file, needs
+  # `swiftlint lint --config .swiftlint.yml --no-cache`: an /orchestrate
+  # worktree lives at `<repo>/.claude/worktrees/<name>/`, so SwiftLint's parent
+  # walk also picks up the MAIN checkout's copy of this file and a bare run
+  # measures the union of two configs. It bites only while editing lint rules,
+  # which is exactly when a control is being taken.
+  #
+  # A green run STILL does not mean "this shadow is dark enough". The rule
+  # matches a family NAME, so a member added to either family with a too-light
+  # tint passes it; `PasturaShadowsTests` / `PasturaOccluderShadowsTests` are
+  # what check the value. The `message` is worded to claim only membership.
   #
   # The trailing `\S` is LOAD-BEARING and is not cosmetic. Without it the rule
   # flags all eight sanctioned call sites: `\s*` backtracks, so the engine
@@ -170,7 +182,7 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "A shadow tint must come from a sanctioned occluder family — PasturaOccluderShadows (design-system §4.3.1), or PasturaShadows pending #1378. Anything else, including a raw PasturaPalette.<token>.color, is unchecked against the grounds it covers. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must be darker than every ground it covers'."
+    message: "A shadow tint must come from a sanctioned family — PasturaShadows (design-system §4.3) or PasturaOccluderShadows (§4.3.1); both carry #0B0C0A and differ only in geometry. Anything else, including a raw PasturaPalette.<token>.color, is unchecked against the grounds it covers. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must be darker than every ground it covers'."
 
   # ADR-028 dark-mode pairing (#1284) — `.borderedProminent` fills from the
   # ambient `\.tint` with the system's own white prominent label. `RootTabView`

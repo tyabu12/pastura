@@ -17,14 +17,19 @@ import SwiftUI
 ///
 /// ## Why these are not `PasturaShadows`
 ///
-/// §4.3's `PasturaShadows.tight` / `.soft` are moss-tinted — `rgba(90,100,60)`
-/// — which reads correctly on the cream ground but composites *lighter* than
-/// the #1B1D17 night ground, i.e. as a glow. Naming a shadow's colour "fixed in
-/// both appearances" is not enough: `a·C + (1−a)·ground` cannot fall below
-/// `ground` when `C` is lighter than it, whatever `a` is. **The requirement is
-/// that the tint be darker than every ground the element can cover**, which is
-/// the same conclusion `PasturaPalette/scrim` reached for the full-bleed
-/// occluder (ADR-028).
+/// **Geometry, and only geometry** — since #1378 both families carry the same
+/// #0B0C0A. §4.3's `PasturaShadows` is a fixed two-layer recipe stacked on a
+/// card; this is a per-site registry, one entry per surface that needs its own
+/// radius / offset. Reach for whichever fits and do not merge them: flattening
+/// a reusable recipe into a site registry loses that distinction.
+///
+/// Both were moss-tinted once — `rgba(90,100,60)`, which reads correctly on the
+/// cream ground but composites *lighter* than the #1B1D17 night ground, i.e. as
+/// a glow. Naming a shadow's colour "fixed in both appearances" is not enough:
+/// `a·C + (1−a)·ground` cannot fall below `ground` when `C` is lighter than it,
+/// whatever `a` is. **The requirement is that the tint be darker than every
+/// ground the element can cover**, which is the same conclusion
+/// `PasturaPalette/scrim` reached for the full-bleed occluder (ADR-028).
 ///
 /// **The binding ground is `nightBackground` #1B1D17** — every screen carries it
 /// since the #1354 sweep, and the one darker token, `nightPage` #11130F, is
@@ -36,12 +41,9 @@ import SwiftUI
 /// what is needed is free — the light composites differ by at most one sRGB step
 /// from a value solved against the binding ground alone.
 ///
-/// `PasturaShadows` shares the defect and is **deliberately** left alone — but
-/// not because it is negligible. Measured on `nightBackground`, `.soft` (0.2)
-/// lifts +12.6/+14.2/+7.4 and `.tight` (0.04) +2.5/+2.8/+1.5, against the
-/// +24.4/+27.5/+18.7 this family's worst site produced: **half the error, not a
-/// tenth of it.** It is deferred because correcting it re-opens §4.3's moss-tint
-/// rule across four consumers and wants its own ADR amendment. See #1378.
+/// `PasturaShadows` shared the defect and was fixed the same way in #1378, so
+/// the moss tint is gone from §4.3 entirely and there is no longer a "which
+/// family is correct" question — only the geometry one above.
 ///
 /// ## What this buys in dark
 ///

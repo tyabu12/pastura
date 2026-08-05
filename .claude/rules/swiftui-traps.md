@@ -398,17 +398,16 @@ resolves `nightInk` (#E8E5D8) in dark, `Color.moss` → `nightMoss`,
 **halo** under the element it should sit beneath. Silent: no diagnostic, and
 the light build looks correct.
 
-design-system §4.3 already takes this position — `PasturaShadows.tight` /
-`.soft` carry a fixed moss-tinted `rgba(90,100,60,…)` and do not pair. The three
-ad-hoc `shadow(color:)` sites were simply written before the aliases paired.
+design-system §4.3 already takes this position — every shadow token is fixed and
+none pairs. The three ad-hoc `shadow(color:)` sites were simply written before
+the aliases paired.
 
-**Apply**: read `PasturaOccluderShadows` (design-system §4.3.1) inside
-`shadow(color:)`. Never `Color.<token>` — and since #1377, **a raw
+**Apply**: read `PasturaShadows` (design-system §4.3) or `PasturaOccluderShadows`
+(§4.3.1) inside `shadow(color:)` — since #1378 both carry #0B0C0A and differ only
+in geometry, so pick on that. Never `Color.<token>` — and since #1377, **a raw
 `PasturaPalette.<token>.color` is not sufficient either** and is flagged at
 `severity: error`: dropping the alias fixes the inversion but not the direction,
-which is the #1373 defect and the whole subject of the paragraphs below.
-(`PasturaShadows` also passes lint — that is the #1378 debt, not an
-endorsement; do not reach for it on a new ground-floating element.) Reach
+which is the #1373 defect and the whole subject of the paragraphs below. Reach
 for the raw palette only where an export needs a *chosen* appearance (the
 `ImageRenderer` trap above) — the opposite reason, since an occlusion cue needs
 *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads *against*
@@ -438,13 +437,17 @@ reuses the scrim's #0B0C0A (#1373).
 
 Two consequences worth carrying:
 
-- **A near-black cannot keep the moss tint**, so §4.3's "彩度は苔系" is explicitly
-  excepted for this family rather than silently violated. Arithmetic: §4.3.1.
-- **`PasturaShadows.tight` / `.soft` share the defect** and are deferred on blast
-  radius, **not** because it is small — `.soft` lifts about half what the glow
-  above did. Do not read their survival as endorsement, and do not copy their
-  tint onto a new ground-floating element. Measurements and the four consumers:
-  **#1378**.
+- **A near-black cannot keep the moss tint**, so §4.3's "彩度は苔系" is gone
+  rather than silently violated — it was scoped to an exception for the occluder
+  family by #1373, then dropped outright by #1378 when the general recipe took
+  the same tint. Arithmetic: §4.3.
+- **`PasturaShadows.tight` / `.soft` carried the same defect** and were fixed the
+  same way (#1378), so **every** §4.3 shadow is now #0B0C0A and the two families
+  differ only in geometry — reach for whichever geometry fits. What generalises
+  is the trap, not the split: pairing a shadow tint looks like it preserves
+  light's hue for free, but the dark half is a near-black regardless, so the
+  choice is only ever about light. Measurements: ADR-028 § Amendment 2026-08-05
+  (#1378).
 
 **Ask what the element can actually sit on, not what the palette contains.** A
 "floats over everything" component still only covers the grounds its visibility
@@ -469,17 +472,17 @@ actually shipped three times: a raw
 `PasturaOccluderShadows` or `PasturaShadows`, and anything else is flagged — so
 the syntactic gap is closed.
 
-**A green run still does not mean "this shadow is dark enough."** `PasturaShadows`
-is on that allowlist while measured *above* the night ground (#1378, in the
-consequences above), so the rule certifies family membership and nothing more.
-The scrim shape has no lint guard at all: one instance, no stable syntax to key
-on, so a rule would be over-fitted.
+**A green run still does not mean "this shadow is dark enough."** The rule matches
+a family **name**, so a member added to either family with a too-light tint passes
+it — which is what `PasturaShadows` itself was until #1378, and what the next
+addition could be. The scrim shape has no lint guard at all: one instance, no
+stable syntax to key on, so a rule would be over-fitted.
 
-Tests carry what lint cannot — `SimulationScrimStyleTests` and
-`PasturaOccluderShadowsTests` each assert the darker-than-every-ground
-requirement against a **hand-maintained** ground list, which is the residual
-weakness: a night ground added later and darker than #0B0C0A would not be
-covered automatically. Reference: `ModelPickerView`,
+Tests carry what lint cannot — `SimulationScrimStyleTests`,
+`PasturaOccluderShadowsTests` and `PasturaShadowsTests` each assert the
+darker-than-every-ground requirement against a **hand-maintained** ground list,
+which is the residual weakness: a night ground added later and darker than
+#0B0C0A would not be covered automatically. Reference: `ModelPickerView`,
 `InFlightSimulationIndicator`, `SimulationScrimStyle`,
 `PasturaOccluderShadows`; ADR-028 § Amendment (#1284, #1373).
 
