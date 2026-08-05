@@ -8,13 +8,15 @@ import SwiftUI
 // §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
 // the doc wins — fix this file, not the doc.
 //
-// **One exception, and it runs the other way**: `PasturaOccluderShadows`
-// (§4.3.1, `DesignTokens+OccluderShadows.swift`) is canonical in Swift, because
+// **The §4.3 shadows are the exception, and they run the other way**: both
+// `PasturaShadows` (`DesignTokens+Shadows.swift`) and `PasturaOccluderShadows`
+// (§4.3.1, `DesignTokens+OccluderShadows.swift`) are canonical in Swift, because
 // `check_design_tokens_css.py` gates those literals against `tokens.css` — the
-// mirror is Swift → CSS, and §4.3.1 restates the values as a copy.
+// mirror is Swift → CSS, and the doc restates the values as a copy.
 //
 // Organized in layered namespaces (see individual doc comments below):
-//   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
+//   - PasturaPalette                  — structural tokens (test-readable).
+//   - PasturaShadows (sibling file)   — §4.3's two-layer card shadow.
 //   - Typography + Spacing + Radius   — layout + type scales.
 //   - Color extension                 — SwiftUI-facing flat aliases.
 
