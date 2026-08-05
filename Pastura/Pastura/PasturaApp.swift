@@ -882,6 +882,12 @@ private struct RootView: View {
     /// shipped unseen, and `docs/qa/dark-mode-qa.md`'s ModelPicker walk needs
     /// this flag to be runnable at all outside a real first install. It seeds
     /// no download — the picker's CTA is the only thing that starts one.
+    ///
+    /// Deliberately **not** added to `splashKind`'s suppression list, unlike
+    /// `--capture-demo`: that one suppresses the splash so it cannot clip a
+    /// *recording* window, whereas this drives a manual QA walk where seeing the
+    /// real cold-launch sequence is the point. Revisit if the walk is ever
+    /// scripted through the capture tooling, which would race the 1.6 s splash.
     private func handleDebugLaunchOverride() async -> Bool {
       if CommandLine.arguments.contains("--capture-demo") {
         setupCaptureDemoState()

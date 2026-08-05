@@ -88,6 +88,7 @@ struct InFlightSimulationIndicator: View {
       .shadow(
         color: PasturaOccluderShadows.inFlightPill.color.color,
         radius: PasturaOccluderShadows.inFlightPill.radius,
+        x: PasturaOccluderShadows.inFlightPill.x,
         y: PasturaOccluderShadows.inFlightPill.y)
     }
     .buttonStyle(.plain)

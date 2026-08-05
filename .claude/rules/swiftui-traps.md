@@ -266,7 +266,7 @@ file's own header says so). See ADR-028.
 sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
 behind and not the surface itself, which can flip the sign. `nightPage` sits 1.099 *below*
 `nightBackground` by design and renders 1.031 *above* its own backdrop. Judge such a value against a
-device screenshot, not the pair. ADR-028 § Amendment 2026-08-05. Sibling of § "An occlusion layer"
+device screenshot, not the pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of § "An occlusion layer"
 below — same "what does it actually composite over" question, asked of a surface rather than an
 occluder; keep the two pointing at each other.
 
@@ -423,27 +423,28 @@ light, #10110E in dark) rather than `ink`.
 **A shadow does not get away with a lighter value either** — an earlier revision
 of this section said it did, on the grounds that shadows are drawn against local
 surfaces rather than the app ground. That premise is false for any element that
-*floats on* the ground: the ModelPicker list card and the in-flight pill both do,
-and the pill is a root `.overlay` on `RootTabView`, so its ground is every screen
-including `nightPage` #11130F. Measured directly under that card, `moss` at 0.22
-rendered **#2B2F24** on a #1B1D17 ground — a green glow, from a tint that was
-already raw and fixed. The three sites now read `PasturaOccluderShadows`
-(design-system §4.3.1), which reuses the scrim's #0B0C0A for the same reason the
-scrim needed it (#1373).
+*floats on* the ground. Measured directly under the ModelPicker card, a raw,
+fixed `moss` at 0.22 rendered **#2B2F24** on a #1B1D17 ground: a green glow. The
+three such sites now read `PasturaOccluderShadows` (design-system §4.3.1), which
+reuses the scrim's #0B0C0A (#1373).
 
 Two consequences worth carrying:
 
-- **The moss tint cannot survive the fix.** Matching the light-mode composite's
-  G−B at the new alpha needs a tint with G−B ≈ 94; a near-black tops out near 24.
-  §4.3's "彩度は苔系" is now explicitly excepted for this family, not silently
-  violated.
-- **`PasturaShadows.tight` / `.soft` share the defect** — `rgba(90,100,60)` is
-  likewise above the night ground — at an order of magnitude lower alpha, across
-  four consumers carrying five shadow layers (`PromoCard` ×2,
-  `ResultsView+Timeline`, `ScenarioArtTile`, `GalleryCatalogRow`). Left alone
-  **deliberately**: changing them re-opens §4.3 itself and wants its own ADR
-  amendment. Do not read their survival as endorsement, and do not copy their
-  tint onto a new ground-floating element.
+- **A near-black cannot keep the moss tint**, so §4.3's "彩度は苔系" is explicitly
+  excepted for this family rather than silently violated. Arithmetic: §4.3.1.
+- **`PasturaShadows.tight` / `.soft` share the defect** and are deferred on blast
+  radius, **not** because it is small — `.soft` lifts about half what the glow
+  above did. Do not read their survival as endorsement, and do not copy their
+  tint onto a new ground-floating element. Measurements and the four consumers:
+  **#1378**.
+
+**Ask what the element can actually sit on, not what the palette contains.** The
+first value chosen here was rejected for failing against `nightPage` #11130F — a
+ground no member of the family can reach, since its only consumer is a sheet
+presented from `SimulationView`, where the pill that supposedly met it is
+suppressed. The replacement is fine and strictly safer, but it was picked for a
+constraint that does not exist. A "floats over everything" component still only
+covers the grounds its visibility predicate lets it reach.
 
 The distinction to hold: the scrim is the **occluder**; the card it fronts
 (`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a

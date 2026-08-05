@@ -41,7 +41,7 @@ fall through to the sheet's system surface. `ViewerPredictionSheet` sets
 `Color.page` — so "a sheet inherits the system ground on purpose" is **not** an
 established convention here, and the class edge was never decided. It is recorded
 as unresolved rather than swept, because #1354 measured full screens and a
-presented surface composites differently (§ Amendment 2026-08-05's whole point).
+presented surface composites differently (§ Amendment 2026-08-05 (#1336)'s whole point).
 Note a groundless sheet if one looks wrong on a dark device; do not file it as a
 class-F regression.
 
@@ -201,17 +201,22 @@ The scrim and the occluder family are guarded by `SimulationScrimStyleTests` and
       `--capture-model-picker` (DEBUG). Neither may read as a glow. Fixed on the
       simulator in #1373 and measured there (#303527 → #1E2119 under the card);
       what a device adds is the judgement of whether the card still reads as
-      *elevated* now that its shadow is a ~1-step no-op in dark — the surface
-      and hairline are what carry it.
+      *elevated* now that its shadow only darkens ~1.6 sRGB steps in dark — the
+      surface and hairline are what carry it.
 - [ ] **In-flight pill shadow** — same check, if the keep-running Setting is on.
-      This one floats over every screen, so check it above a **`nightPage`**
-      surface (the viewer-prediction sheet, §7) as well as above a tab root.
+      Walk it above **two different tab roots** (Home and Past Results, say).
+      Every screen ground is `nightBackground`, so one is arguably enough; two
+      costs nothing and catches a screen that lost its ground. The pill's tint
+      also clears `nightBubble` and `nightPage`, but **do not go looking for
+      those** — `nightPage` belongs to the viewer-prediction sheet, which is
+      presented from `SimulationView`, where the pill is suppressed. That margin
+      is arithmetic only and is asserted in the tests, not walkable here.
 
 ## 7. Viewer-prediction sheet
 
 `nightPage` is the darkest token in the palette and this sheet is its only
 consumer — the one value ADR-028 chose against a platform convention rather than
-with it. Answered on a device (ADR-028 § Amendment 2026-08-05): it reads **flush**
+with it. Answered on a device (ADR-028 § Amendment 2026-08-05 (#1336)): it reads **flush**
 with its dimmed backdrop, carried by the grabber, the corner radius and its own
 candidate cards rather than by a step in lightness. Not a hole. Re-check it
 whenever §2.1, the sheet, or the Simulation ground changes — the margin is 1.031,
@@ -265,13 +270,16 @@ install renders. **A list enumerated from where the fix already exists cannot se
 a file that has none**; only re-deriving from the defect can. §2b walks the
 branches this produced.
 
-The six fixes post-date the pass that authorized closing the gates, so
+The seven fixes post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
 ModelPicker shadows, the five restyled buttons, the scrim, the two missing
-screen grounds, and the seven-site sweep of their non-loaded branches.
+screen grounds, the seven-site sweep of their non-loaded branches, and the
+occluder-shadow family (#1373). That last one **supersedes** the "ModelPicker
+shadows" entry above it — the 2026-07-31 repair left all three tints lighter than
+the ground, so re-check the current values rather than that fix.
 
-**The last of those six has had its re-check** — § 2b walked 2026-08-05 on an
-iPhone 16e (iOS 26.5, dark), nothing on system black. The other five are still
+**One of those seven has had its re-check** — § 2b walked 2026-08-05 on an
+iPhone 16e (iOS 26.5, dark), nothing on system black. The other six are still
 owed theirs. Three gaps inside even that one, worth knowing before you decide
 this section is done. Three of #1354's seven sites are **not** covered by it —
 Home, GalleryScenarioDetail and the editor host, whose new exposure is a
