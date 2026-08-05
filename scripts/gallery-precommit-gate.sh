@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # gallery-precommit-gate.sh — Pre-commit gate for the gallery drift
 # check. Runs `check-gallery-entry.sh --all` only when the staged diff
-# touches docs/gallery/<id>.yaml or docs/gallery/gallery.json.
+# touches a .yaml/.json under docs/gallery/ — <id>.yaml, gallery.json, or
+# highlights/<id>.json (ADR-029).
 #
 # README.md and shared-scenario-reports.md edits in the same directory are
 # intentionally NOT triggers — they are not the published manifest and
@@ -17,12 +18,13 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-# Strict regex: only the flat docs/gallery/ directory triggers. If a
-# future contributor adds a subdirectory under docs/gallery/ (e.g.
-# archive/), the gate will silently skip it — relax to
-# `^docs/gallery/.*\.(yaml|json)$` then, and let check-gallery-entry.sh
-# ignore irrelevant siblings. Today the directory is flat by design.
-if ! git diff --cached --name-only | grep -qE '^docs/gallery/([^/]+\.yaml|gallery\.json)$'; then
+# Relaxed per this header's own pre-authorization: ADR-029 added the
+# docs/gallery/highlights/ subdirectory, so the previous flat-directory regex
+# would have silently skipped a highlight-only commit. Any .yaml/.json under
+# docs/gallery/ now triggers; check-gallery-entry.sh ignores irrelevant
+# siblings. Non-manifest siblings (README.md,
+# shared-scenario-reports.md) stay untriggered — they are not .yaml/.json.
+if ! git diff --cached --name-only | grep -qE '^docs/gallery/.*\.(yaml|json)$'; then
   exit 0
 fi
 
