@@ -27,7 +27,7 @@ classes are:
 | B. Materials | `.ultraThinMaterial` / `.regularMaterial` / `glassEffect` re-render themselves, independently of every token underneath | 11 surfaces (12 call lines — the action bar has two OS branches), §3 |
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
-| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. Since #1377 the lint rule reaches both shadow shapes, but it certifies only that the tint names a sanctioned family — one of which is itself too light (#1378) — and it reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
+| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. Since #1377 the lint rule reaches both shadow shapes, but it certifies only that the tint names a sanctioned family, never that the value is dark enough — `PasturaShadows` passed it throughout while being too light (#1378) — and it reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
 | F. A **rendered state** with no ground behind it | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier — and the question is a layout one ("does every branch have a ground behind it"), not a syntactic one, so no gate is available either | §2 — the whole class is swept as of #1354; **walk the loading / empty / error branch of a screen, not just its loaded state**. Presented sheets are out of class — see the note under the table |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
@@ -95,10 +95,10 @@ list grows whenever a screen gains exposure, so it no longer states one.
       here too, not only the branches § 2b reaches. Then the catalog cards
       (**class E**): each `GalleryCatalogRow` carries a `PasturaShadows.tight`
       drop shadow and the `ScenarioArtTile` inside it carries a second — the
-      family ADR-028 measured as *lighter* than the night ground and deferred on
-      blast radius (#1378), so this is the screen where that deferral is most
-      visible. Lint is green on both by design; judge whether the cards read as
-      lifted or as haloed. Also the filter chips
+      family ADR-028 measured as *lighter* than the night ground and retinted in
+      #1378, so this is the screen where two of the four fixed sites live. Lint
+      was green on both throughout, before and after, which is the point: judge
+      whether the cards read as lifted rather than haloed. Also the filter chips
       (`+CategoryChips` / `+LanguageChips`): selected is `inkOnAccent` on
       `mossDark`, unselected `Color.ink` on `bubbleBackground` behind a
       `Color.rule` hairline — and each card's inline `categoryChip` is a
@@ -137,8 +137,9 @@ list grows whenever a screen gains exposure, so it no longer states one.
       (`ScenarioEditorView+Banners.swift`), the densest alert-family surface.
 - [ ] **ModelPicker + download progress** — the sticky CTA reverses roles
       (`screenBackground` text on a `mossInk` fill; both invert). Its card and
-      button shadows read §4.3.1's occluder tint since #1373; the shadow check
-      itself lives in §6. Reachable on the simulator only via
+      button shadows read §4.3.1's occluder tint since #1373 — as, since #1378,
+      does every other §4.3 shadow; the shadow check itself lives in §6.
+      Reachable on the simulator only via
       `--capture-model-picker` (DEBUG) — otherwise this screen needs a real
       first install, which is how #1373 stayed invisible.
 
@@ -220,22 +221,24 @@ record that it was not exercised rather than marking it passed.
 
 ## 6. Occlusion layers (class E)
 
-The class with the weakest automated cover, and it has now produced two defects
-rather than one. `shadow_color_occluder_family` — named `shadow_color_paired_alias`
-until #1377 — used to catch a *paired alias* and nothing else, blind to the three
-shadows that were fixed-but-lighter (#1373). #1377 inverted it to an allowlist,
-closing that gap: it reaches every `.shadow(color:` tint whose value follows the
-label directly. **Two syntactic shapes stay out of reach** — an intervening
-comment between `.shadow(` and `color:`, and the `ShapeStyle` form
+The class with the weakest automated cover, and it has now produced three defects
+rather than one — the scrim (#1284), three ad-hoc occluder sites (#1373), and
+§4.3's own two layers (#1378). `shadow_color_occluder_family` — named
+`shadow_color_paired_alias` until #1377 — used to catch a *paired alias* and
+nothing else, blind to the shapes that were fixed-but-lighter. #1377 inverted it
+to an allowlist, closing that gap: it reaches every `.shadow(color:` tint whose
+value follows the label directly. **Two syntactic shapes stay out of reach** — an
+intervening comment between `.shadow(` and `color:`, and the `ShapeStyle` form
 `.shadow(.drop(color:))` — both measured at 0 violations, neither present in the
-tree today. The scrim and the occluder family are guarded by
-`SimulationScrimStyleTests` and `PasturaOccluderShadowsTests`, both against
-hand-maintained ground lists.
+tree today. The scrim and both shadow families are guarded by
+`SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and
+`PasturaShadowsTests`, all against hand-maintained ground lists.
 
 **A green lint run still says little about this class, and nothing about the
-scrim.** It certifies that a shadow tint comes from a sanctioned family — and
-`PasturaShadows`, one of the two, is itself measured above the night ground
-(#1378). The scrim has no lint guard at all. Walk it.
+scrim.** It certifies only that a shadow tint *names* a sanctioned family, never
+that the value is dark enough for what it covers — which is exactly what
+`PasturaShadows` failed to be until #1378, while passing the lint throughout. The
+scrim has no lint guard at all. Walk it.
 
 - [ ] **Model-load scrim** — start a simulation and watch the wait overlay. The
       background behind the card must be **darker** than the surrounding UI, not
@@ -255,6 +258,23 @@ scrim.** It certifies that a shadow tint comes from a sanctioned family — and
       those** — `nightPage` belongs to the viewer-prediction sheet, which is
       presented from `SimulationView`, where the pill is suppressed. That margin
       is arithmetic only and is asserted in the tests, not walkable here.
+- [ ] **PromoCard's two-layer shadow (#1378)** — launch with `--capture-demo`
+      (DEBUG), which routes to `ModelDownloadHostView` and mounts the card in
+      the bottom safe area. It is the **only** `.soft` consumer, so it carries
+      the whole visible part of the retint; the other three §4.3 sites are
+      `.tight` alone at ≤ 1.5 sRGB steps. Check both appearances: dark must show
+      no green lift under the card, light must still read as a shadow now that
+      it is neutral rather than moss. Signed off on the simulator at the retint;
+      what a device adds is the same elevation judgement as the ModelPicker row
+      above.
+- [ ] **The three `.tight`-only §4.3 sites** — `GalleryCatalogRow` and its
+      nested `ScenarioArtTile` badge (Browse tab), and the `ResultsView`
+      timeline cards (Past Results). Their change is below one sRGB step in
+      light and below two in dark, so this is a **glance, not a measurement** —
+      it is here so the enumeration is complete, not because a defect is
+      expected. `scripts/ui-tour.sh` reaches both screens but is largely blind
+      to token changes: a zero pixel-diff there means "not exercised", not
+      "unchanged".
 
 ## 7. Viewer-prediction sheet
 
