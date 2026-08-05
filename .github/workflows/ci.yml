@@ -801,7 +801,7 @@ jobs:
       # Supply-chain guard on the checked-in gradle-wrapper.jar. "Author fresh"
       # must not drop this.
       - name: Validate Gradle wrapper integrity
-        uses: gradle/actions/wrapper-validation@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
       # Step-level path promotion (#501 D-B). A PR that touches the KMP build
       # config (Gradle build scripts / version catalog / wrapper / cinterop
