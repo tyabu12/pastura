@@ -112,17 +112,18 @@ A 30-second self-check prevents 1–2 extra critic / code-reviewer rounds. Motiv
 
 ### Claims you author are assertions too
 
-A **why-comment you write** asserts runtime or library behaviour as the reason a mechanism exists — the same kind of claim as the table's, but authored at implementation *or review-fix* time and executed by nobody. Reviewers check whether the *code* is correct, not whether the *stated reason* is true, so a false one ships and the next reader inherits it as fact. Three shapes, none expressible as a `Verify by` lookup:
+A **why-comment you write** asserts runtime or library behaviour as the reason a mechanism exists — the same kind of claim as the table's, but authored at implementation *or review-fix* time and executed by nobody. Reviewers check whether the *code* is correct, not whether the *stated reason* is true, so a false one ships and the next reader inherits it as fact. Four shapes, none expressible as a `Verify by` lookup:
 
 - **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is false, or the tests never covered it.
 - **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A guard's success case proves nothing; only a negative control does. Scope it to the claim it defends: a check narrower than that claim (a files-only loop behind a files-and-directories completeness claim), or one that silently skips its exemptions instead of declaring them, passes by construction. And a control whose fixture a **sibling arm** can also reach reddens for the wrong reason — read *which* message fired, not the exit code, and re-key the fixture until only the guard can reach it.
 - **A classification or count built on an earlier claim** → when you fix that claim, grep what cited it. Fixing one authored claim can *invalidate* another you authored earlier, and nothing points back at it; a concessive clause propping up a category ("it belongs here, just differently") is the tell that it already broke.
+- **A gap list — and the remedy you prescribe for it** → each is an enumeration, inheriting the blind spot of whatever it was drawn from. A residue record drawn from the section naming one *kind* of gap cannot see the other kinds, and "re-run §X" is unpayable when §X never listed half the items. Re-derive from what changed, then check the remedy actually reaches it. Two sets written in sequence also read as a **partition** — state the overlap, or the reader does the arithmetic wrong, in the direction that understates residue.
 
 **A probe's outcome gets misread in both directions.** Assert that the mutation's anchor matched — a `replace` that silently no-ops leaves the original behaviour and reads as verified. And treat a probe that stays **green** as a finding about the *fixtures*, not a redundant guard: a suite only reddens on states its fixtures build, so name the state the guard defends and confirm something constructs it before concluding anything.
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
-Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314; PR #1334.
+Motivating incidents: PR #1152 round-1 review; PR #1299 rounds 1–3; #1312 rounds 1–4; PR #1303 rounds 1–3; PR #1314; PR #1334; PR #1365 / #1370.
 
 ### A rules file created mid-session never injects in that session
 
