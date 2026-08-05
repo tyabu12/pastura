@@ -298,7 +298,7 @@ extension DesignTokensTests {
   /// recorded. `ViewerPredictionSheet` renders it, and a device pass has since
   /// carried the visual half: the relation asserted here holds between the
   /// *tokens* but inverts once composited, since the presentation dims the
-  /// backdrop and not the sheet (ADR-028 § Amendment 2026-08-05). That is a
+  /// backdrop and not the sheet (ADR-028 § Amendment 2026-08-05 (#1336)). That is a
   /// fact about rendering, not about these two values — this assertion is
   /// unaffected.
   @Test func nightPageSinksBelowTheBodyGround() {

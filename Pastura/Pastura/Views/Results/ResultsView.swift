@@ -53,7 +53,7 @@ struct ResultsView: View {
     // above have to render on it too, and this is the History tab root, so the
     // empty state is what a fresh install sees. Frame first: `.background` sizes
     // to the primary view, so a small-intrinsic arm would otherwise get a patch
-    // behind its spinner rather than a screen. ADR-028 § Amendment 2026-08-05.
+    // behind its spinner rather than a screen. ADR-028 § Amendment 2026-08-05 (#1336).
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Past Results"))

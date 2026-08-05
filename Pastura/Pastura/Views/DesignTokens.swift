@@ -81,7 +81,7 @@ enum PasturaPalette {
   /// compositing: the presentation dims the backdrop and not the sheet, so
   /// in **dark** the pair's 1.099 step below lands on screen as 1.031 above.
   /// Measured in dark only — the light composite was not — ADR-028
-  /// § Amendment 2026-08-05.
+  /// § Amendment 2026-08-05 (#1336).
   static let page = PasturaColorValue(hex: 0xF3EFE7)
   /// App body background — crisp wool-color.
   static let screenBackground = PasturaColorValue(hex: 0xFCFAF4)

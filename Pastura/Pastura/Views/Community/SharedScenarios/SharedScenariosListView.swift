@@ -20,7 +20,7 @@ struct SharedScenariosListView: View {
     // `emptyState` (which persists whenever the gallery is unreachable) have to
     // render on it too. Frame first: `.background` sizes to the primary view, so
     // a small-intrinsic arm would otherwise get a patch behind its spinner
-    // rather than a screen. ADR-028 § Amendment 2026-08-05.
+    // rather than a screen. ADR-028 § Amendment 2026-08-05 (#1336).
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(String(localized: "Browse Shared Scenarios"))
