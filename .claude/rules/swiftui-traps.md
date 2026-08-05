@@ -483,8 +483,8 @@ Tests carry what lint cannot — `SimulationScrimStyleTests`,
 darker-than-every-ground requirement against a **hand-maintained** ground list,
 which is the residual weakness: a night ground added later and darker than
 #0B0C0A would not be covered automatically. Reference: `ModelPickerView`,
-`InFlightSimulationIndicator`, `SimulationScrimStyle`,
-`PasturaOccluderShadows`; ADR-028 § Amendment (#1284, #1373).
+`InFlightSimulationIndicator`, `SimulationScrimStyle`, `PasturaOccluderShadows`,
+`PasturaShadows`; ADR-028 § Amendment (#1284, #1373, #1378).
 
 Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
 "what does it composite over" question of a *presented surface* rather than an

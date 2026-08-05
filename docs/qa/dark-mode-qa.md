@@ -96,7 +96,8 @@ list grows whenever a screen gains exposure, so it no longer states one.
       (**class E**): each `GalleryCatalogRow` carries a `PasturaShadows.tight`
       drop shadow and the `ScenarioArtTile` inside it carries a second — the
       family ADR-028 measured as *lighter* than the night ground and retinted in
-      #1378, so this is the screen where two of the four fixed sites live. Lint
+      #1378, so this is the screen where two of the four fixed consumers live
+      (four consumers, five layers — this screen holds two `.tight`). Lint
       was green on both throughout, before and after, which is the point: judge
       whether the cards read as lifted rather than haloed. Also the filter chips
       (`+CategoryChips` / `+LanguageChips`): selected is `inkOnAccent` on
@@ -262,19 +263,21 @@ scrim has no lint guard at all. Walk it.
       (DEBUG), which routes to `ModelDownloadHostView` and mounts the card in
       the bottom safe area. It is the **only** `.soft` consumer, so it carries
       the whole visible part of the retint; the other three §4.3 sites are
-      `.tight` alone at ≤ 1.5 sRGB steps. Check both appearances: dark must show
+      `.tight` alone, moving a fifth as far. Check both appearances: dark must show
       no green lift under the card, light must still read as a shadow now that
       it is neutral rather than moss. Signed off on the simulator at the retint;
       what a device adds is the same elevation judgement as the ModelPicker row
       above.
 - [ ] **The three `.tight`-only §4.3 sites** — `GalleryCatalogRow` and its
       nested `ScenarioArtTile` badge (Browse tab), and the `ResultsView`
-      timeline cards (Past Results). Their change is below one sRGB step in
-      light and below two in dark, so this is a **glance, not a measurement** —
-      it is here so the enumeration is complete, not because a defect is
-      expected. `scripts/ui-tour.sh` reaches both screens but is largely blind
-      to token changes: a zero pixel-diff there means "not exercised", not
-      "unchanged".
+      timeline cards (Past Results). Their change is ≤ 1.1 sRGB steps in light
+      and ≤ 3.4 in dark, confined to a 2 px halo at α 0.03. A **glance, not a
+      measurement** — but on that argument, not on the magnitude being tiny:
+      `PromoCard`'s `.soft`, which moves ~5× as far, was captured and signed off
+      as removing a glow without costing elevation, and these move the same way
+      by a fifth as much. `scripts/ui-tour.sh` reaches both screens but is
+      largely blind to token changes: a zero pixel-diff there means "not
+      exercised", not "unchanged".
 
 ## 7. Viewer-prediction sheet
 
