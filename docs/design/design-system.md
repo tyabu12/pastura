@@ -228,7 +228,7 @@ ModelPicker・DL 完了オーバーレイ・ナビバータイトルの外観追
 持つ値であり、唯一プラットフォーム慣習に逆らって選んだもの）は実機で決着した。
 **設計上の上下関係は描画時に反転する** — 暗幕は背後だけにかかりシートには
 かからないため、`nightBackground` の 1.099 下にあるはずのシートが画面上では
-背後の 1.031 上に来る。穴には見えず、ほぼ面一。ADR-028 § Amendment 2026-08-05。
+背後の 1.031 上に来る。穴には見えず、ほぼ面一。ADR-028 § Amendment 2026-08-05 (#1336)。
 Source: `§2.9 Dark Mode`。
 
 **ダーク値の視覚リファレンス**: [`ds/colors-states-dark.html`](ds/colors-states-dark.html)
@@ -393,7 +393,7 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightAvatarNose` | `#2A2D1D` | `avatarNose`。**未描画**。目に対する light の比（1.29:1 → 1.28:1）で配置している — 顔の族に乗せると目より暗くなり線画の順序が反転した。light 値は `mossInk` と同 hex だが**継承しない**（`mossInk` はスライス3 の時点で未ペアで、未決の値への前方依存になるため。slice 4 でペア済み） |
 | `nightAvatarEye` | `#16170F` | `avatarEye` — 両外観で羊の**最暗点**。light 値は `ink` と同 hex だが継承すると**目が白くなる**。#2D2E26 のまま固定するのも不可で、`nightAvatarHornDave` のほうが暗いため狼の角が瞳より暗くなる。よってペア化し、§2.5 自身の near-black の床（パレット全体の最暗値は slice 4 の `night-page` #11130F）（**HSL L** = 7.5%、light 最暗の `metaStrongL4` の HSL L = 9.4% のすぐ下）に置いた。§2.9 の他の数値は WCAG コントラスト比なので、ここだけ量が違うことに注意。純黒を採らないのは `nightMetaStrongL4` が純白を採らないのと同じ理由 |
 | `nightAvatarHighlight` | `rgba(255,255,255,0.40)` | `avatarHighlight`。**alpha を下げる**（0.60 → 0.40）。§2.7 の wash が約 1.33 倍に上げたのと逆向きだが、矛盾ではない — wash は暗い面に載せる**淡い色**なので alpha が要る。こちらは面の上に置く**光の反射**で、面が暗くなった分だけ同じ alpha が*強い*段差になる。仕事が逆なので向きも逆 |
-| `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値。ただし唯一の消費先であるシート上では暗幕により画面上は反転する — ADR-028 § Amendment 2026-08-05） |
+| `nightPage` | `#11130F` | `page`（引っ込んだ面なので dark でも地より**沈む**。パレット最暗値。ただし唯一の消費先であるシート上では暗幕により画面上は反転する — ADR-028 § Amendment 2026-08-05 (#1336)） |
 | `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
 | `nightPromoBorder` | `#35392F` | `promoBorder`（倍率保持・**向き反転**。`rule`→`nightRule` と同じ） |
 | `nightInkOnAccent` | `#2C2F28` | `inkOnAccent`（白ではない。`nightBubble` と同値だがそれは AAA 配置の**結果**） |
@@ -523,6 +523,46 @@ box-shadow:
   0 1px 2px rgba(90,100,60,.04),
   0 12px 26px -12px rgba(90,100,60,.2);
 ```
+
+#### 4.3.1 オクルージョンシャドウ（苔系の例外）
+
+**地（app ground）の上に直接浮く要素**の影は、上の苔系ではなく `#0B0C0A`
+（`--scrim` と同値）を使う。**正本は `PasturaOccluderShadows`**（Swift）で、
+`check_design_tokens_css.py` が Swift → `tokens.css` の向きで照合する。以下は
+その写し:
+
+```css
+/* card (ModelPicker のモデル一覧カード) */ box-shadow: 0 12px 14px rgba(11,12,10,.10);
+/* cta  (ModelPicker の固定ダウンロードボタン) */ box-shadow: 0  6px  8px rgba(11,12,10,.36);
+/* pill (InFlightSimulationIndicator) */ box-shadow: 0  2px  8px rgba(11,12,10,.10);
+```
+
+理由は色ではなく**向き**。`a·C + (1−a)·ground` は `C` が `ground` より明るい限り
+`ground` を下回れないので、苔系 `rgba(90,100,60)` はダークの地 `nightBackground`
+（#1B1D17）の上で影ではなく**発光**になる。「両モードで固定」では足りず、
+**覆いうるすべての地より暗い**ことが要件。同じ結論に先に到達したのが full-bleed の
+`--scrim`（ADR-028）で、値を共有しているのは「オクルーダ用の near-black を
+パレットに2つ持たない」ため。
+
+**拘束する地は `nightBackground` #1B1D17 だけ**。#1354 以降どの画面もこれを持ち、
+これより暗い `nightPage` #11130F はこのファミリのどのメンバーからも到達不能
+（唯一の消費者 `ViewerPredictionSheet` は `SimulationView` から presented され、
+その間ピルは `isSimulationOnTop` で抑止される）。`#0B0C0A` が #11130F をも下回るのは
+余裕であって要件ではない。
+
+**彩度が苔系にならないのは避けられない**: α 0.10 でライトの色味（合成の G−B ≈ 14.8）を
+保つには tint の **G−B = 94** が要る。一方この tint は #1B1D17 の各チャネルを下回る
+必要があり、G ≤ 28 / B ≥ 0 なので **G−B は理論上限でも 28** — 実現可能な最大値を
+取っても3倍以上足りない。ライト側の影がニュートラルになるのは選択ではなく帰結。
+
+ダークでの沈み込みは α 0.10 で ~1.6 sRGB 段、α 0.36 で ~5.8 段（地の相対輝度
+0.0117 に対して下の余地が少ない）。ダークの浮き上がりは主に「面が地より明るい」
+＋ヘアラインが担う。
+
+上の苔系2レイヤー（`PasturaShadows`）は同じ向きの問題を抱える — `.soft` は
+`nightBackground` 上で +12.6/+14.2/+7.4 と、今回直した glow の約半分。**軽微だから
+ではなく**、4消費者・5レイヤーに及び §4.3 の苔ルール自体の再定義になるため
+**意図的に据え置き**（#1378）。
 
 ---
 

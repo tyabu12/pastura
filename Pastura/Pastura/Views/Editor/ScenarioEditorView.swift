@@ -55,7 +55,7 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
     // `VStack` always holds a greedy editor, so the pin changes nothing — but
     // that is a fact about the current arms, and `.background` sizes to the
     // primary view regardless. Pinning states the mechanism instead of resting
-    // on the arms. ADR-028 § Amendment 2026-08-05.
+    // on the arms. ADR-028 § Amendment 2026-08-05 (#1336).
     .frame(maxWidth: .infinity, maxHeight: .infinity)
     .background(Color.screenBackground.ignoresSafeArea())
     .navigationTitle(

@@ -8,6 +8,11 @@ import SwiftUI
 // §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
 // the doc wins — fix this file, not the doc.
 //
+// **One exception, and it runs the other way**: `PasturaOccluderShadows`
+// (§4.3.1, `DesignTokens+OccluderShadows.swift`) is canonical in Swift, because
+// `check_design_tokens_css.py` gates those literals against `tokens.css` — the
+// mirror is Swift → CSS, and §4.3.1 restates the values as a copy.
+//
 // Organized in layered namespaces (see individual doc comments below):
 //   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
 //   - Typography + Spacing + Radius   — layout + type scales.
@@ -81,7 +86,7 @@ enum PasturaPalette {
   /// compositing: the presentation dims the backdrop and not the sheet, so
   /// in **dark** the pair's 1.099 step below lands on screen as 1.031 above.
   /// Measured in dark only — the light composite was not — ADR-028
-  /// § Amendment 2026-08-05.
+  /// § Amendment 2026-08-05 (#1336).
   static let page = PasturaColorValue(hex: 0xF3EFE7)
   /// App body background — crisp wool-color.
   static let screenBackground = PasturaColorValue(hex: 0xFCFAF4)

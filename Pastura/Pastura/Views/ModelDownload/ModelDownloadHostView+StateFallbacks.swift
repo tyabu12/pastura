@@ -85,7 +85,7 @@ extension ModelDownloadHostView {
   /// a fresh install renders. Without it they fell through to the system colour
   /// — black in dark. Frame before the ground because `.background` sizes to the
   /// primary view and the centred `VStack` is not greedy on its own.
-  /// ADR-028 § Amendment 2026-08-05.
+  /// ADR-028 § Amendment 2026-08-05 (#1336).
   @ViewBuilder
   private func plainContainer<Content: View>(
     @ViewBuilder content: () -> Content

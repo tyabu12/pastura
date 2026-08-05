@@ -79,13 +79,19 @@ struct InFlightSimulationIndicator: View {
       .padding(.vertical, 10)
       .background(.regularMaterial, in: Capsule())
       .overlay(Capsule().stroke(Color.ink.opacity(0.08)))
-      // Raw `PasturaPalette`, NOT the `Color.ink` alias: a shadow must stay
-      // dark in both appearances, and the alias pairs — in dark it resolves
-      // `nightInk` (#E8E5D8) and the shadow inverts into a pale halo. Same
-      // position design-system §4.3 already takes, whose `PasturaShadows` are
-      // a fixed moss-tinted rgba. The stroke above is a different case: it is
-      // a hairline meant to read against the surface, so it follows it.
-      .shadow(color: PasturaPalette.ink.color.opacity(0.12), radius: 8, y: 2)
+      // Occluder — §4.3.1's fixed near-black, not a paired alias and not a raw
+      // light token either: `PasturaPalette.ink` was fixed and still composited
+      // *above* the night ground. This pill floats over whichever tab is
+      // showing, and every one of those carries `nightBackground`, so #1B1D17 is
+      // the binding constraint — see ``PasturaOccluderShadows`` for why that is
+      // the whole ground set despite the pill being a root overlay. The stroke
+      // above is a different case: a hairline meant to read against the surface,
+      // so it follows the appearance.
+      .shadow(
+        color: PasturaOccluderShadows.inFlightPill.color.color,
+        radius: PasturaOccluderShadows.inFlightPill.radius,
+        x: PasturaOccluderShadows.inFlightPill.x,
+        y: PasturaOccluderShadows.inFlightPill.y)
     }
     .buttonStyle(.plain)
     .accessibilityLabel(label)

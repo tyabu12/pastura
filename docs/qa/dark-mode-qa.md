@@ -27,7 +27,7 @@ classes are:
 | B. Materials | `.ultraThinMaterial` / `.regularMaterial` / `glassEffect` re-render themselves, independently of every token underneath | 11 surfaces (12 call lines — the action bar has two OS branches), §3 |
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
-| E. Occlusion layers | A shadow or scrim must be **darker than what it covers**; a paired alias inverts and brightens instead. No lint rule reaches the scrim shape | §6 — the class that produced the fourth defect |
+| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. The lint rule catches only the first, and reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
 | F. A **rendered state** with no ground behind it | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier — and the question is a layout one ("does every branch have a ground behind it"), not a syntactic one, so no gate is available either | §2 — the whole class is swept as of #1354; **walk the loading / empty / error branch of a screen, not just its loaded state**. Presented sheets are out of class — see the note under the table |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
@@ -41,7 +41,7 @@ fall through to the sheet's system surface. `ViewerPredictionSheet` sets
 `Color.page` — so "a sheet inherits the system ground on purpose" is **not** an
 established convention here, and the class edge was never decided. It is recorded
 as unresolved rather than swept, because #1354 measured full screens and a
-presented surface composites differently (§ Amendment 2026-08-05's whole point).
+presented surface composites differently (§ Amendment 2026-08-05 (#1336)'s whole point).
 Note a groundless sheet if one looks wrong on a dark device; do not file it as a
 class-F regression.
 
@@ -100,8 +100,11 @@ washed-out control — as opposed to merely *different*?
 - [ ] **Editor** — the warning / danger / success banner family
       (`ScenarioEditorView+Banners.swift`), the densest alert-family surface.
 - [ ] **ModelPicker + download progress** — the sticky CTA reverses roles
-      (`screenBackground` text on a `mossInk` fill; both invert), and its card
-      glow and button shadow are deliberately *fixed* in both appearances.
+      (`screenBackground` text on a `mossInk` fill; both invert). Its card and
+      button shadows read §4.3.1's occluder tint since #1373; the shadow check
+      itself lives in §6. Reachable on the simulator only via
+      `--capture-model-picker` (DEBUG) — otherwise this screen needs a real
+      first install, which is how #1373 stayed invisible.
 
 ### 2b. The non-loaded branches (class F, #1354)
 
@@ -181,23 +184,39 @@ record that it was not exercised rather than marking it passed.
 
 ## 6. Occlusion layers (class E)
 
-The class that produced the fourth defect, and the one with the weakest
-automated cover: `shadow_color_paired_alias` reaches `shadow(color:)` only, and
-the scrim is guarded by `SimulationScrimStyleTests` rather than by lint.
+The class with the weakest automated cover, and it has now produced two defects
+rather than one. `shadow_color_paired_alias` catches a *paired alias* and
+nothing else — it was blind to the three shadows that were fixed-but-lighter
+(#1373), and remains blind after that fix; widening it is tracked in **#1377**.
+The scrim and the occluder family are guarded by `SimulationScrimStyleTests` and
+`PasturaOccluderShadowsTests`, both against hand-maintained ground lists.
+
+**A green lint run says nothing about this class.** Walk it.
 
 - [ ] **Model-load scrim** — start a simulation and watch the wait overlay. The
       background behind the card must be **darker** than the surrounding UI, not
       lighter. This is the exact defect found post-QA: a paired alias made it
       brighten the screen in dark.
-- [ ] **ModelPicker card glow and CTA shadow** — both fixed in both appearances;
-      confirm neither reads as a pale halo.
+- [ ] **ModelPicker card and CTA shadows** — launch with
+      `--capture-model-picker` (DEBUG). Neither may read as a glow. Fixed on the
+      simulator in #1373 and measured there (#303527 → #1E2119 under the card);
+      what a device adds is the judgement of whether the card still reads as
+      *elevated* now that its shadow only darkens ~1.6 sRGB steps in dark — the
+      surface and hairline are what carry it.
 - [ ] **In-flight pill shadow** — same check, if the keep-running Setting is on.
+      Walk it above **two different tab roots** (Home and Past Results, say).
+      Every screen ground is `nightBackground`, so one is arguably enough; two
+      costs nothing and catches a screen that lost its ground. The pill's tint
+      also clears `nightBubble` and `nightPage`, but **do not go looking for
+      those** — `nightPage` belongs to the viewer-prediction sheet, which is
+      presented from `SimulationView`, where the pill is suppressed. That margin
+      is arithmetic only and is asserted in the tests, not walkable here.
 
 ## 7. Viewer-prediction sheet
 
 `nightPage` is the darkest token in the palette and this sheet is its only
 consumer — the one value ADR-028 chose against a platform convention rather than
-with it. Answered on a device (ADR-028 § Amendment 2026-08-05): it reads **flush**
+with it. Answered on a device (ADR-028 § Amendment 2026-08-05 (#1336)): it reads **flush**
 with its dimmed backdrop, carried by the grabber, the corner radius and its own
 candidate cards rather than by a step in lightness. Not a hole. Re-check it
 whenever §2.1, the sheet, or the Simulation ground changes — the margin is 1.031,
@@ -253,10 +272,13 @@ branches this produced.
 
 The six fixes post-date the pass that authorized closing the gates, so
 they are the first thing to re-check on any repeat run: the splash composite, the
-ModelPicker shadows, the five restyled buttons, the scrim, the two missing
-screen grounds, and the seven-site sweep of their non-loaded branches.
+**occluder-shadow family** (#1373), the five restyled buttons, the scrim, the two
+missing screen grounds, and the seven-site sweep of their non-loaded branches.
+The occluder entry was "the ModelPicker shadows" until #1373 **superseded** that
+2026-07-31 repair — it had left all three tints lighter than the ground — and
+widened it to the in-flight pill. Re-check the current values, not that fix.
 
-**The last of those six has had its re-check** — § 2b walked 2026-08-05 on an
+**One of those six has had its re-check** — § 2b walked 2026-08-05 on an
 iPhone 16e (iOS 26.5, dark), nothing on system black. The other five are still
 owed theirs. Three gaps inside even that one, worth knowing before you decide
 this section is done. Three of #1354's seven sites are **not** covered by it —
