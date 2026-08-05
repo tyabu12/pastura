@@ -259,10 +259,10 @@ screen grounds, and the seven-site sweep of their non-loaded branches.
 **The last of those six has had its re-check** — § 2b walked 2026-08-05 on an
 iPhone 16e (iOS 26.5, dark), nothing on system black. The other five are still
 owed theirs. Two gaps inside even that one, both worth knowing before you decide
-this section is done: the transient spinner arms of Home, GalleryScenarioDetail
-and Editor resolve too fast to have been held open (Home's fix is a frame pin
-visible *only* there), and it was a walk, not a pixel sample — which is what
-missed the fifth defect twice.
+this section is done. Three of #1354's seven sites are **not** covered by it:
+Home, GalleryScenarioDetail and the editor host each changed only what a
+transient spinner shows, and a fast device does not hold those open. And it was
+a walk, not a pixel sample — which is what missed the fifth defect twice.
 
 ## While you are here: skim the dark review set
 
