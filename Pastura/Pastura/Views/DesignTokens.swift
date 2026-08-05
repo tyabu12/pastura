@@ -151,51 +151,9 @@ enum PasturaPalette {
   // file under the 400-line `file_length` cap while slice 4 added to §2.1/§2.3.
 }
 
-// MARK: - §4.3 Shadow tokens
-
-/// A single shadow layer matching SwiftUI's `.shadow(color:radius:x:y:)` shape.
-///
-/// CSS source (`design-system.md` §4.3) uses a negative spread on the second
-/// layer (`-12px`). SwiftUI's built-in `.shadow` has no spread parameter, so
-/// the spread is dropped; the visual approximation is close enough for the
-/// soft-shadow use case. If the exact spread matters for a specific surface,
-/// reach for a custom `.background { ... }` mask — but do not add spread
-/// handling to this token type without revisiting design-system.md §4.3 first.
-struct PasturaShadow: Sendable, Equatable {
-  let color: PasturaColorValue
-  let radius: CGFloat
-  let x: CGFloat
-  let y: CGFloat
-}
-
-/// Two-layer moss-tinted shadow recipe from `design-system.md` §4.3.
-///
-/// Apply by stacking both `.shadow(...)` modifiers on the same view:
-/// ```
-/// view
-///   .shadow(
-///     color: PasturaShadows.tight.color.color,
-///     radius: PasturaShadows.tight.radius,
-///     x: PasturaShadows.tight.x,
-///     y: PasturaShadows.tight.y)
-///   .shadow(
-///     color: PasturaShadows.soft.color.color,
-///     radius: PasturaShadows.soft.radius,
-///     x: PasturaShadows.soft.x,
-///     y: PasturaShadows.soft.y)
-/// ```
-enum PasturaShadows {
-  /// Inner tight layer — `0 1px 2px rgba(90,100,60,.04)`.
-  static let tight = PasturaShadow(
-    color: PasturaColorValue(
-      red: 90.0 / 255.0, green: 100.0 / 255.0, blue: 60.0 / 255.0, opacity: 0.04),
-    radius: 2, x: 0, y: 1)
-  /// Outer soft layer — `0 12px 26px -12px rgba(90,100,60,.2)` (spread dropped).
-  static let soft = PasturaShadow(
-    color: PasturaColorValue(
-      red: 90.0 / 255.0, green: 100.0 / 255.0, blue: 60.0 / 255.0, opacity: 0.2),
-    radius: 26, x: 0, y: 12)
-}
+// §4.3's shadow recipe (`PasturaShadow` / `PasturaShadows`) lives in
+// `DesignTokens+Shadows.swift`, alongside `DesignTokens+OccluderShadows.swift`
+// — moved out to keep this file under the 400-line `file_length` cap.
 
 // MARK: - §3 Typography tokens
 
