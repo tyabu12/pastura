@@ -272,6 +272,13 @@
      which a paired token cannot guarantee. See ADR-028 (#1284). */
   --scrim: rgba(11, 12, 10, 0.4);
 
+  /* §4.3 Occlusion shadows — same #0B0C0A as --scrim, for the same reason:
+     an element sitting on the app ground needs a tint darker than every
+     ground it covers, which the moss tints below are not. Geometry is
+     per-site; only the tint is shared. See ADR-028 (#1373). */
+  --shadow-tint-occluder-card: rgba(11, 12, 10, 0.1);
+  --shadow-tint-occluder-cta: rgba(11, 12, 10, 0.36);
+
   --shadow-tint-tight: rgba(90, 100, 60, 0.04);
   --shadow-tint-soft: rgba(90, 100, 60, 0.2);
   --shadow-card:
