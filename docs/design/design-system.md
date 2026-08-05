@@ -65,7 +65,7 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--rule` | `#E0DBCE` | 罫線 |
 | `--ink-on-accent` | `#FFFFFF` | アクセント塗り（`moss` / `moss-dark`）の上に載る文字・グリフ |
 
-**`--ink-2` のセクションラベル用途には既知の未適用がある。** 自前のセクションヘッダー `PasturaSection` はヘッダーを `--muted` で描いており、この表と一致しない。対象は四タブに限らず ScenarioDetail / GalleryScenarioDetail などの push 先も含む（`rg -l PasturaSection Pastura/Pastura/Views/` が正）。#1298 では `ScenarioEditorView` の Personas / Phases ヘッダーだけを表どおり `--ink-2` に揃えた — 隣に `--muted` のカウントが並び、明度がほぼ同じで色相だけ違う組み合わせになっていたため。`PasturaSection` 側はパレット掃引の担当として残す。掃引時に「表に寄せる」か「表を `PasturaSection` に合わせる」かをまとめて決めること — アプリ内には現在この2種類に加えてシステム `secondaryLabel` のままのヘッダーも残っている。
+**`--ink-2` のセクションラベル用途には既知の未適用がある。** 自前のセクションヘッダー `PasturaSection` はヘッダーを `--muted` で描いており、この表と一致しない。対象は設定 / 観察履歴 / さがす といったタブ配下に限らず、ScenarioDetail / GalleryScenarioDetail などの push 先も含む。掃引対象の正は**呼び出し形**の grep — `rg -l 'PasturaSection\(' Pastura/Pastura/Views/`（8画面 + 定義ファイル自身の `#Preview`）。型名だけの grep は `PasturaSectionStyle` の言及も拾って広く出るので使わないこと。#1298 では `ScenarioEditorView` の Personas / Phases ヘッダーだけを表どおり `--ink-2` に揃えた — 隣に `--muted` のカウントが並び、明度がほぼ同じで色相だけ違う組み合わせになっていたため。`PasturaSection` 側はパレット掃引の担当として残す。掃引時に「表に寄せる」か「表を `PasturaSection` に合わせる」かをまとめて決めること — アプリ内には現在この2種類に加えてシステム `secondaryLabel` のままのヘッダーも残っている。
 
 `--ink-on-accent` は §2.3 が認めるアクセント上の前景（**light では白**、dark は `night-ink-on-accent`）。§1 の「純白の面を避ける」は**背景**の話なので抵触しない。適用範囲は下地で変わる:
 

@@ -320,8 +320,8 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       }
     } header: {
       HStack {
-        // §2.2: `--ink-2` label / `--muted` meta. Rationale and the known
-        // `PasturaSection` divergence live in design-system §2.2.
+        // §2.2: `--ink-2` label / `--muted` meta. Only the count-bearing
+        // headers qualify; rationale + `PasturaSection` divergence in §2.2.
         Text(String(localized: "Personas"))
           .foregroundStyle(Color.inkSecondary)
         Spacer()
