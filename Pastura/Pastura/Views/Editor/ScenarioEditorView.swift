@@ -320,11 +320,8 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       }
     } header: {
       HStack {
-        // §2.2 assigns `--ink-2` to section labels and `--muted` to the meta
-        // beside them, so the two read as a hierarchy rather than the hue clash
-        // an untokenized (cool, system) label made against the warm count.
-        // `PasturaSection` still renders its own header `muted` — a known
-        // divergence recorded in §2.2, pending the wider palette sweep.
+        // §2.2: `--ink-2` label / `--muted` meta. Rationale and the known
+        // `PasturaSection` divergence live in design-system §2.2.
         Text(String(localized: "Personas"))
           .foregroundStyle(Color.inkSecondary)
         Spacer()

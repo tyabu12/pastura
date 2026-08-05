@@ -80,10 +80,11 @@ struct HomeCompactRowLayoutTests {
   }
 
   /// Pins *which token* the update dot reads, not what value it carries —
-  /// `DesignTokensTests` owns the value. Per `.claude/rules/view-testing.md`
-  /// § "Change-detector tripwire", asserting that two `PasturaDynamicColor`-
-  /// backed aliases **differ** can never fire (they compare by provider
-  /// instance), so the sanctioned shape is one `static let` against itself.
+  /// `DesignTokensTests` owns the value. `.claude/rules/view-testing.md`
+  /// § "Change-detector tripwire" prescribes exactly this shape — one
+  /// `static let` against itself — and separately warns off the inverse:
+  /// asserting that two `PasturaDynamicColor`-backed aliases **differ** can
+  /// never fire, since they compare by provider instance.
   ///
   /// The dot renders only when a row has `hasGalleryUpdate` — no UI test and
   /// no `ui-tour` stop reaches that state — so this is the change-detector's
