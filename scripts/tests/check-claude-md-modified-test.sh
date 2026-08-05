@@ -10,11 +10,16 @@
 # the hook from that repo and asserts on its emitted additionalContext.
 # Modeled on p8-precommit-gate-test.sh / navigation-map-precommit-gate-test.sh.
 #
-# Two nudges are covered:
-#   - convention nudge: fires when NEITHER CLAUDE.md NOR .claude/rules/ changed.
+# Four sections are covered:
+#   - convention nudge: fires when NO agent-instruction file (CLAUDE.md,
+#     .claude/rules/, .claude/agents/) changed.
 #   - mirror-sync nudge: fires when CLAUDE.md changed inside a MIRRORED section
 #     (per the Reference Documents table) AND README/CONTRIBUTING did not.
-# They are mutually exclusive on the CLAUDE.md dimension.
+#   - trim nudge: fires when per-tier ADDED instruction lines cross a threshold.
+#   - footprint nudge: fires when an always-loaded file GREW (added lines > 0)
+#     AND the repo-wide always-loaded byte total exceeds the ceiling.
+# The convention nudge is mutually exclusive with the other three; those three
+# can co-fire, and the hook must then still emit exactly ONE JSON document.
 #
 # CI-wired via the `*-test.sh` glob (.github/workflows/ci.yml "Shell gate
 # tests", ubuntu/bash-5). That runner CANNOT catch a bash-3.2 regression in
@@ -98,8 +103,18 @@ new_repo() {
     git config user.name test
     git config commit.gpgsign false
     write_claude_md "$d"
-    mkdir -p .claude/rules Sources
+    mkdir -p .claude/rules .claude/agents Sources
     printf 'rule body\n' > .claude/rules/foo.md
+    printf 'agent def body\n' > .claude/agents/reviewer.md
+    # A real path-scoped rule: its `paths:` frontmatter must put its added
+    # lines in the path-scoped tier, not the always-loaded one.
+    cat > .claude/rules/scoped.md <<'SCOPED_RULE'
+---
+paths:
+  - "Sources/**"
+---
+scoped rule body
+SCOPED_RULE
     printf 'let x = 1\n' > Sources/Code.swift
     printf '# README\n\nArchitecture and Tech stack live here.\n' > README.md
     printf '# Contributing\n\nWorkflow and Design principles live here.\n' > CONTRIBUTING.md
@@ -110,12 +125,14 @@ new_repo() {
 }
 
 # Run the hook from inside repo $1, print its stdout, and record exit code
-# into the global RC (for the fail-open / exit-0 assertion).
+# into the global RC (for the fail-open / exit-0 assertion). Optional $2 sets
+# PASTURA_FOOTPRINT_CEILING for that run (fixture repos are far below the
+# default ceiling, so the footprint section needs the override to fire).
 RC=0
 run_hook() {
   local out
   set +e
-  out="$( cd "$1" && bash "$HOOK" )"
+  out="$( cd "$1" && PASTURA_FOOTPRINT_CEILING="${2:-96000}" bash "$HOOK" )"
   RC=$?
   set -e
   printf '%s' "$out"
@@ -143,9 +160,22 @@ assert_empty() {
 assert_rc0() {
   if [ "$RC" -ne 0 ]; then echo "FAIL [$1]: hook exited $RC (must be 0)" >&2; fail=1; fi
 }
+# assert_single_json LABEL HAYSTACK — the emit contract is ONE JSON object.
+# `jq -e 'has(...)'` alone cannot detect a violation: jq streams concatenated
+# documents and exits 0 on each, so two docs would pass. Slurping (`-s`) and
+# asserting length==1 is what actually reddens on a second document (verified
+# against a hand-built two-doc input).
+assert_single_json() {
+  if ! printf '%s' "$2" | jq -es 'length == 1 and (.[0] | has("hookSpecificOutput"))' >/dev/null 2>&1; then
+    echo "FAIL [$1]: expected exactly one JSON object with hookSpecificOutput, got: $2" >&2
+    fail=1
+  fi
+}
 
-CONV="Neither CLAUDE.md nor .claude/rules/"
+CONV="No agent-instruction file"
 MIRROR="Reference Documents"
+TRIM="Context-economy"
+FOOT="Always-loaded instruction footprint"
 
 # --- (a) code-only change → convention nudge -------------------------------
 d="$TMP/a"; new_repo "$d"
@@ -154,6 +184,7 @@ out="$(run_hook "$d")"
 assert_rc0 a
 assert_contains a "$out" "$CONV"
 assert_absent a "$out" "$MIRROR"
+assert_absent a "$out" "$TRIM"
 
 # --- (b) non-mirrored CLAUDE.md section only → no nudge --------------------
 d="$TMP/b"; new_repo "$d"
@@ -211,6 +242,11 @@ out="$(run_hook "$d")"
 assert_rc0 g
 assert_contains g "$out" "$MIRROR"
 assert_contains g "$out" "README.md"
+# +11 always-loaded added lines (10 filler + the Tech Stack edit) legitimately
+# co-fires the trim nudge here. Asserting both, plus single-JSON, locks in the
+# composed-emit contract: sections concatenate, they never emit twice.
+assert_contains g "$out" "$TRIM"
+assert_single_json g "$out"
 
 # --- (h) ### Git Conventions edit w/o CONTRIBUTING → mirror nudge (CONTRIBUTING) ---
 d="$TMP/h"; new_repo "$d"
@@ -250,6 +286,97 @@ out="$(run_hook "$d")"
 assert_rc0 k
 assert_contains k "$out" "$MIRROR"
 assert_contains k "$out" "README.md"
+
+# --- (l) always-loaded growth in a NON-mirrored section → trim nudge only ---
+d="$TMP/l"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do printf -- "- ADR-%03d summary.\n" "$i" >> CLAUDE.md; done
+  git commit -qam "adr index growth" )
+out="$(run_hook "$d")"
+assert_rc0 l
+assert_contains l "$out" "$TRIM"
+assert_contains l "$out" "+12 always-loaded"
+assert_absent l "$out" "$MIRROR"
+assert_absent l "$out" "$CONV"
+assert_absent l "$out" "$FOOT"
+assert_single_json l "$out"
+
+# --- (m) path-scoped rule growth → trim nudge on the path-scoped tier -------
+d="$TMP/m"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22; do
+    printf 'scoped line %d\n' "$i" >> .claude/rules/scoped.md
+  done
+  git commit -qam "scoped rule growth" )
+out="$(run_hook "$d")"
+assert_rc0 m
+assert_contains m "$out" "$TRIM"
+assert_contains m "$out" "+22 path-scoped"
+assert_absent m "$out" "$CONV"
+assert_absent m "$out" "$MIRROR"
+assert_absent m "$out" "$FOOT"
+assert_single_json m "$out"
+
+# --- (n) below-threshold instruction change → no nudge ---------------------
+# foo.md has no `paths:` frontmatter → always-loaded tier, and 3 < 10.
+d="$TMP/n"; new_repo "$d"
+( cd "$d"
+  printf 'extra one\nextra two\nextra three\n' >> .claude/rules/foo.md
+  git commit -qam "small rule edit" )
+out="$(run_hook "$d")"
+assert_rc0 n
+assert_empty n "$out"
+
+# --- (o) agents-only growth → trim nudge, convention nudge silenced --------
+# Positive control for the widened convention guard: before it included
+# `.claude/agents/`, this branch took the convention branch and exited early.
+d="$TMP/o"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do printf 'agent line %d\n' "$i" >> .claude/agents/reviewer.md; done
+  git commit -qam "agent growth" )
+out="$(run_hook "$d")"
+assert_rc0 o
+assert_absent o "$out" "$CONV"
+assert_contains o "$out" "$TRIM"
+
+# --- (p) footprint nudge (forced ceiling) → footprint only ------------------
+d="$TMP/p"; new_repo "$d"
+( cd "$d"; sed -i.bak 's/ADR-001 summary./ADR-001 revised./' CLAUDE.md; rm -f CLAUDE.md.bak; git commit -qam "adr" )
+out="$(run_hook "$d" 10)"
+assert_rc0 p
+assert_contains p "$out" "$FOOT"
+assert_absent p "$out" "$TRIM"
+assert_absent p "$out" "$MIRROR"
+assert_single_json p "$out"
+
+# --- (q) no-`paths:` rule growth → ALWAYS-LOADED tier (#1361 positive control) ---
+# The classifier's "no frontmatter → always-loaded" arm: foo.md has no
+# `paths:` block, so its 10 added lines must land in the always-loaded sum —
+# the tier-labelled substring is what proves the classification, not $TRIM.
+d="$TMP/q"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10; do printf 'unscoped rule line %d\n' "$i" >> .claude/rules/foo.md; done
+  git commit -qam "unscoped rule growth" )
+out="$(run_hook "$d")"
+assert_rc0 q
+assert_contains q "$out" "+10 always-loaded"
+assert_absent q "$out" "$CONV"
+
+# --- (r) path-scoped-only growth + forced ceiling → footprint stays silent ---
+# Negative control for the TOUCHED_ALWAYS_LOADED gate: this branch is over the
+# forced ceiling and over the path-scoped trim threshold, but grew NO
+# always-loaded file, so the gate is the only thing suppressing $FOOT here —
+# deleting the gate reddens exactly this case.
+d="$TMP/r"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22; do
+    printf 'scoped line %d\n' "$i" >> .claude/rules/scoped.md
+  done
+  git commit -qam "scoped-only growth" )
+out="$(run_hook "$d" 10)"
+assert_rc0 r
+assert_contains r "$out" "$TRIM"
+assert_absent r "$out" "$FOOT"
 
 if [ "$fail" -eq 0 ]; then
   echo "check-claude-md-modified: all cases passed"
