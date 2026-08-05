@@ -256,6 +256,19 @@ they are the first thing to re-check on any repeat run: the splash composite, th
 ModelPicker shadows, the five restyled buttons, the scrim, the two missing
 screen grounds, and the seven-site sweep of their non-loaded branches.
 
+**The last of those six has had its re-check** — § 2b walked 2026-08-05 on an
+iPhone 16e (iOS 26.5, dark), nothing on system black. The other five are still
+owed theirs. Three gaps inside even that one, worth knowing before you decide
+this section is done. Three of #1354's seven sites are **not** covered by it —
+Home, GalleryScenarioDetail and the editor host, whose new exposure is a
+transient spinner a fast device does not hold open. At four screens the sweep
+also *moved* the ground off the loaded sub-view onto the container, so their
+loaded states changed too: Results, Browse, ScenarioDetail and — again —
+GalleryScenarioDetail, which is in both groups. § 2 was not re-walked, and it
+carries **no Browse and no GalleryScenarioDetail item**, so two of those four
+need a new § 2 entry rather than a repeat. And it was a walk, not a pixel
+sample — which is what missed the fifth defect twice.
+
 ## While you are here: skim the dark review set
 
 `scripts/ui-tour.sh --dark` is a simulator artifact and no part of this walk —
