@@ -181,16 +181,18 @@ struct ModelPickerView: View {
         .stroke(Color.ink.opacity(0.10), lineWidth: 1)
     )
     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-    // Soft "glow" approximation — SwiftUI shadow lacks `spread`, so the
-    // handoff's `0 18px 36px -22px rgba(...)` is approximated as a
-    // single softer shadow. Acceptable per the handoff "近似 OK" carve-out
-    // for soft-glow-with-spread on iOS.
-    //
-    // Raw `PasturaPalette`, NOT the `Color.moss` alias: the alias pairs, so in
-    // dark it resolves `nightMoss` (#A8B888) and this drop shadow inverts into
-    // a pale halo. design-system §4.3's `PasturaShadows` already fix their
-    // tint for the same reason.
-    .shadow(color: PasturaPalette.moss.color.opacity(0.22), radius: 14, x: 0, y: 12)
+    // The card floats on the app ground, so its shadow is an occluder and
+    // reads §4.3.1's fixed near-black rather than a moss tint — see
+    // `PasturaOccluderShadows`. A raw `PasturaPalette.moss` here was fixed in
+    // both appearances and still composited *lighter* than #1B1D17 (#2B2F24
+    // measured), i.e. a glow; "fixed" is not the requirement, "darker than
+    // every ground it covers" is.
+    .shadow(
+      color: PasturaOccluderShadows.modelPickerCard.color.color,
+      radius: PasturaOccluderShadows.modelPickerCard.radius,
+      x: PasturaOccluderShadows.modelPickerCard.x,
+      y: PasturaOccluderShadows.modelPickerCard.y
+    )
     .accessibilityElement(children: .contain)
   }
 
@@ -217,13 +219,15 @@ struct ModelPickerView: View {
           RoundedRectangle(cornerRadius: 14, style: .continuous)
             .fill(Color.mossInk)
         )
-        // Raw `PasturaPalette`, NOT the `Color.mossInk` alias. `mossInk` is a
-        // dark ink-green (#3D4030) in light — a correct shadow — but it pairs,
-        // and in dark resolves `nightMossInk` (#C6CBB1), turning the CTA's
-        // shadow into a pale halo under a pale button. The fill above keeps
-        // the alias on purpose: the button surface follows the appearance,
-        // only its shadow is fixed.
-        .shadow(color: PasturaPalette.mossInk.color.opacity(0.45), radius: 8, x: 0, y: 6)
+        // Occluder, same as the list card above — see §4.3.1. The fill keeps
+        // its paired alias on purpose: the button *surface* follows the
+        // appearance, only the shadow is fixed. `mossInk` read correctly in
+        // light and still composited lighter than every night ground.
+        .shadow(
+          color: PasturaOccluderShadows.modelPickerCTA.color.color,
+          radius: PasturaOccluderShadows.modelPickerCTA.radius,
+          x: PasturaOccluderShadows.modelPickerCTA.x,
+          y: PasturaOccluderShadows.modelPickerCTA.y)
       }
       .buttonStyle(.plain)
       .accessibilityElement(children: .ignore)

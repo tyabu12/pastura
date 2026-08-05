@@ -53,6 +53,11 @@ enum PasturaOccluderShadows {
   /// `ModelPickerView`'s model-list card, which floats directly on
   /// `screenBackground` / `nightBackground`. Alpha solved to leave the
   /// light-mode composite where `moss` at 0.22 put it (#E3E5D6 → #E4E2DD).
+  ///
+  /// One layer, not the handoff's `0 18px 36px -22px`: SwiftUI's `shadow`
+  /// has no `spread`, so the negative-spread soft glow is approximated by a
+  /// single softer shadow — the "近似 OK" carve-out in
+  /// `design_handoff_model_select/`.
   static let modelPickerCard = PasturaShadow(
     color: PasturaColorValue(hex: 0x0B0C0A, opacity: 0.1),
     radius: 14, x: 0, y: 12)
