@@ -874,6 +874,14 @@ private struct RootView: View {
     /// `--capture-demo` must be handled before `initialize()`'s `#if
     /// targetEnvironment(simulator)` branch, which otherwise goes straight to
     /// `.ready` on the simulator and never reaches `.needsModelDownload`.
+    ///
+    /// `--capture-model-picker` exists for the same reason, one screen further
+    /// out: `shouldShowInitialModelPicker` is only consulted in the **device**
+    /// branch, so `ModelPickerView` is unreachable on the simulator no matter
+    /// what state you seed. That blind spot is why #1373's dark-mode glow
+    /// shipped unseen, and `docs/qa/dark-mode-qa.md`'s ModelPicker walk needs
+    /// this flag to be runnable at all outside a real first install. It seeds
+    /// no download — the picker's CTA is the only thing that starts one.
     private func handleDebugLaunchOverride() async -> Bool {
       if CommandLine.arguments.contains("--capture-demo") {
         setupCaptureDemoState()
@@ -881,6 +889,10 @@ private struct RootView: View {
       }
       if CommandLine.arguments.contains("--ui-test") {
         await setupUITestState()
+        return true
+      }
+      if CommandLine.arguments.contains("--capture-model-picker") {
+        appState = .needsModelSelection
         return true
       }
       return false
