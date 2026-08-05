@@ -27,7 +27,7 @@ classes are:
 | B. Materials | `.ultraThinMaterial` / `.regularMaterial` / `glassEffect` re-render themselves, independently of every token underneath | 11 surfaces (12 call lines — the action bar has two OS branches), §3 |
 | C. Fixed-appearance exports | The share card and avatar palettes bypass the alias system and take `colorScheme` explicitly | `HighlightShareCard`, `SheepAvatarPalette`, `StoryShareSheet` (§4) |
 | D. Non-SwiftUI surfaces | Launch screen, splash and the UIKit nav-bar appearance proxy sit outside the token mechanism | §1 and §5 |
-| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. The lint rule catches only the first, and reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
+| E. Occlusion layers | A shadow or scrim must be **darker than what it covers** — a paired alias inverts, and a *fixed* tint that is merely lighter than the ground brightens too. Since #1377 the lint rule reaches both shadow shapes, but it certifies only that the tint names a sanctioned family — one of which is itself too light (#1378) — and it reaches the scrim shape not at all | §6 — the class that produced the fourth defect, and the seventh (#1373) |
 | F. A **rendered state** with no ground behind it | An **absent** background falls through to the system colour. Light hides it (#FFFFFF vs #FCFAF4); dark does not (#000000 vs #1B1D17). Nothing greps for a missing modifier — and the question is a layout one ("does every branch have a ground behind it"), not a syntactic one, so no gate is available either | §2 — the whole class is swept as of #1354; **walk the loading / empty / error branch of a screen, not just its loaded state**. Presented sheets are out of class — see the note under the table |
 
 Everything else is a paired token doing what it was designed to do. Look at it,
@@ -221,13 +221,17 @@ record that it was not exercised rather than marking it passed.
 ## 6. Occlusion layers (class E)
 
 The class with the weakest automated cover, and it has now produced two defects
-rather than one. `shadow_color_paired_alias` catches a *paired alias* and
-nothing else — it was blind to the three shadows that were fixed-but-lighter
-(#1373), and remains blind after that fix; widening it is tracked in **#1377**.
-The scrim and the occluder family are guarded by `SimulationScrimStyleTests` and
-`PasturaOccluderShadowsTests`, both against hand-maintained ground lists.
+rather than one. `shadow_color_occluder_family` used to catch a *paired alias*
+and nothing else — blind to the three shadows that were fixed-but-lighter
+(#1373). #1377 inverted it to an allowlist, so it now reaches **every** shadow
+tint that does not name a sanctioned family. The scrim and the occluder family
+are guarded by `SimulationScrimStyleTests` and `PasturaOccluderShadowsTests`,
+both against hand-maintained ground lists.
 
-**A green lint run says nothing about this class.** Walk it.
+**A green lint run still says little about this class, and nothing about the
+scrim.** It certifies that a shadow tint comes from a sanctioned family — and
+`PasturaShadows`, one of the two, is itself measured above the night ground
+(#1378). The scrim has no lint guard at all. Walk it.
 
 - [ ] **Model-load scrim** — start a simulation and watch the wait overlay. The
       background behind the card must be **darker** than the surrounding UI, not

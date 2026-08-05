@@ -452,14 +452,19 @@ occlude, or is it a surface?
 and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
 tints — is the surface case and correctly stays paired. Do not sweep those.
 
-Enforced by the `shadow_color_paired_alias` custom SwiftLint rule — **for the
-paired-alias half of the shadow half only**. Its regex keys on a leading-dot
-`Color.*`, so it never saw the shape that actually shipped three times: a raw
-`PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground. That
-gap is open and tracked in **#1377**; until it closes, the lint passing means
-only "no paired alias", never "this shadow is dark enough". The scrim shape has
-no lint guard at all: one instance, no stable syntax to key on, so a rule would
-be over-fitted.
+Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — **for the
+shadow half only**. It was a denylist keyed on a leading-dot `Color.*` and so
+never saw the shape that actually shipped three times: a raw
+`PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground.
+#1377 inverted it to an **allowlist** — a shadow tint must name
+`PasturaOccluderShadows` or `PasturaShadows`, and anything else is flagged — so
+the syntactic gap is closed.
+
+**A green run still does not mean "this shadow is dark enough."** `PasturaShadows`
+is on that allowlist while measured *above* the night ground (#1378, below), so
+the rule certifies family membership and nothing more. The scrim shape has no
+lint guard at all: one instance, no stable syntax to key on, so a rule would be
+over-fitted.
 
 Tests carry what lint cannot — `SimulationScrimStyleTests` and
 `PasturaOccluderShadowsTests` each assert the darker-than-every-ground

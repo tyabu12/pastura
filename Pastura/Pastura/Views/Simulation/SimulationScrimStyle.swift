@@ -3,8 +3,10 @@ import SwiftUI
 /// The fill of `SimulationView`'s full-bleed loading scrim.
 ///
 /// Hoisted out of the View body for one reason: the value is code-review-gated
-/// only. The `shadow_color_paired_alias` SwiftLint rule does not reach a bare
-/// `ZStack` fill, and no test can render the overlay (ADR-009 rules out
+/// only. The `shadow_color_occluder_family` SwiftLint rule keys on
+/// `shadow(color:)` and so does not reach a bare `ZStack` fill — widening it in
+/// #1377 did not change that, and a scrim rule was refused as over-fitted at
+/// one instance. No test can render the overlay either (ADR-009 rules out
 /// snapshots), so an edit back to a paired `Color.*` alias would silently
 /// re-land the regression device QA caught in #1284 — the scrim brightening the
 /// screen in dark instead of dimming it. `SimulationScrimStyleTests` pins which

@@ -54,13 +54,17 @@ import SwiftUI
 ///
 /// ## Why the values are hoisted out of the view bodies
 ///
-/// They are code-review-gated only. The `shadow_color_paired_alias` SwiftLint
-/// rule fires on a leading-dot `Color.*` alias, so it never saw the shape that
-/// actually shipped here — a raw `PasturaPalette` token that is fixed but too
-/// light — and ADR-009 rules out the snapshot test that would.
-/// `PasturaOccluderShadowsTests` asserts the direction requirement and pins the
-/// geometry as a change-detector. It iterates ``all`` — keep new members in that
-/// list, or the suite silently stops covering them.
+/// Because the requirement they carry is not one lint can state. The
+/// `shadow_color_occluder_family` SwiftLint rule reaches every `shadow(color:)`
+/// tint since #1377, but it is an **allowlist over family names** — it
+/// certifies that a tint names this family, never that the value is dark enough
+/// for the ground it covers. (Its predecessor keyed on a leading-dot `Color.*`
+/// alias and never saw the shape that actually shipped here: a raw
+/// `PasturaPalette` token, fixed but too light.) ADR-009 rules out the snapshot
+/// test that would close the difference, so `PasturaOccluderShadowsTests`
+/// asserts the direction requirement and pins the geometry as a
+/// change-detector. It iterates ``all`` — keep new members in that list, or the
+/// suite silently stops covering them.
 ///
 /// The tints are written as `PasturaColorValue(hex:opacity:)` rather than
 /// built from a bare token, because that is the shape
