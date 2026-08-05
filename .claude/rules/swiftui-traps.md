@@ -387,7 +387,7 @@ token" but "does one read a **view** that reads it".
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
 
-## An occlusion layer — shadow or scrim — must not read a paired `Color.*` alias
+## An occlusion layer — shadow or scrim — must be darker than every ground it covers
 
 A shadow is an occlusion cue, not a surface, so it wants a colour that stays
 dark in **both** appearances. A paired alias inverts instead: `Color.ink`
@@ -400,11 +400,15 @@ design-system §4.3 already takes this position — `PasturaShadows.tight` /
 `.soft` carry a fixed moss-tinted `rgba(90,100,60,…)` and do not pair. The three
 ad-hoc `shadow(color:)` sites were simply written before the aliases paired.
 
-**Apply**: read `PasturaPalette.<token>.color` inside `shadow(color:)`, never
-`Color.<token>`. Same raw-palette convention as the `ImageRenderer` trap above,
-for the opposite reason — there an export needs a *chosen* appearance, here the
-cue needs *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads
-*against* the surface, so it follows the appearance and keeps the alias.
+**Apply**: read `PasturaOccluderShadows` (design-system §4.3.1) inside
+`shadow(color:)`. Never `Color.<token>` — and since #1377, **a raw
+`PasturaPalette.<token>.color` is not sufficient either** and is flagged at
+`severity: error`: dropping the alias fixes the inversion but not the direction,
+which is the #1373 defect and the whole subject of the paragraphs below. Reach
+for the raw palette only where an export needs a *chosen* appearance (the
+`ImageRenderer` trap above) — the opposite reason, since an occlusion cue needs
+*none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads *against*
+the surface, so it follows the appearance and keeps the alias.
 
 **A full-bleed dimming scrim is the same trap wearing different clothes**, and
 it is louder — but it also corrects the rule above. `Color.ink.opacity(0.4)`
@@ -453,18 +457,19 @@ and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
 tints — is the surface case and correctly stays paired. Do not sweep those.
 
 Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — **for the
-shadow half only**. It was a denylist keyed on a leading-dot `Color.*` and so
-never saw the shape that actually shipped three times: a raw
+shadow half only**. As first written (then named `shadow_color_paired_alias`) it
+was a denylist keyed on a leading-dot `Color.*` and so never saw the shape that
+actually shipped three times: a raw
 `PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground.
 #1377 inverted it to an **allowlist** — a shadow tint must name
 `PasturaOccluderShadows` or `PasturaShadows`, and anything else is flagged — so
 the syntactic gap is closed.
 
 **A green run still does not mean "this shadow is dark enough."** `PasturaShadows`
-is on that allowlist while measured *above* the night ground (#1378, below), so
-the rule certifies family membership and nothing more. The scrim shape has no
-lint guard at all: one instance, no stable syntax to key on, so a rule would be
-over-fitted.
+is on that allowlist while measured *above* the night ground (#1378, in the
+consequences above), so the rule certifies family membership and nothing more.
+The scrim shape has no lint guard at all: one instance, no stable syntax to key
+on, so a rule would be over-fitted.
 
 Tests carry what lint cannot — `SimulationScrimStyleTests` and
 `PasturaOccluderShadowsTests` each assert the darker-than-every-ground

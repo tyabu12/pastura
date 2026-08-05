@@ -221,10 +221,10 @@ record that it was not exercised rather than marking it passed.
 ## 6. Occlusion layers (class E)
 
 The class with the weakest automated cover, and it has now produced two defects
-rather than one. `shadow_color_occluder_family` used to catch a *paired alias*
-and nothing else — blind to the three shadows that were fixed-but-lighter
-(#1373). #1377 inverted it to an allowlist, so it now reaches **every** shadow
-tint that does not name a sanctioned family. The scrim and the occluder family
+rather than one. `shadow_color_occluder_family` — named `shadow_color_paired_alias`
+until #1377 — used to catch a *paired alias* and nothing else, blind to the three
+shadows that were fixed-but-lighter (#1373). #1377 inverted it to an allowlist, so
+it now reaches **every** shadow tint that does not name a sanctioned family. The scrim and the occluder family
 are guarded by `SimulationScrimStyleTests` and `PasturaOccluderShadowsTests`,
 both against hand-maintained ground lists.
 

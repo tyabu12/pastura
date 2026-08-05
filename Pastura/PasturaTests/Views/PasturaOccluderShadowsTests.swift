@@ -23,8 +23,8 @@ import Testing
 ///
 /// Arm 2 (`geometryMatchesCodeReviewGatedValues`) is a change-detector, not a
 /// correctness check: these values are code-review-gated only (no test
-/// renders them — see `swiftui-traps.md` § "An occlusion layer ... must not
-/// read a paired `Color.*` alias"), so a failure here is not a bug. It means
+/// renders them — see `swiftui-traps.md` § "An occlusion layer ... must be
+/// darker than every ground it covers"), so a failure here is not a bug. It means
 /// the token drifted, typically in an unrelated refactor — confirm the
 /// change passed review, then update the expected value.
 @MainActor

@@ -132,8 +132,9 @@ custom_rules:
   # retries the negative lookahead at a position still inside the whitespace,
   # where "not PasturaShadows" is trivially true and the match succeeds.
   # Requiring one non-space character after the lookahead kills every such
-  # position — measured, not reasoned: before adding it the silence arm below
-  # was 8/8 red.
+  # position — measured, not reasoned: before adding it, linting the eight
+  # sanctioned sites was 8/8 red. The control pair is recorded in #1377's PR
+  # and ADR-028 § "What the guard does and does not certify".
   #
   # `excluded_match_kinds` rather than `match_kinds`, deliberately: the match
   # is short (`.shadow(` + `color:` + one value character), so an allowlist of
@@ -149,6 +150,14 @@ custom_rules:
   # The scrim shape has no lint guard at all — one instance, no stable syntax
   # to key on. `SimulationScrimStyleTests` / `PasturaOccluderShadowsTests`
   # carry what lint cannot.
+  #
+  # An allowlist also flags legitimate INDIRECTION, which a denylist did not: a
+  # reusable modifier taking `shadow(color: someLocal, …)` cannot name a family
+  # at the callsite. No such site exists today. When one arrives, hoist the
+  # value into `PasturaOccluderShadows` and pass the member (preferred — it also
+  # brings the tint under `PasturaOccluderShadowsTests`); only if the indirection
+  # is genuinely dynamic, `// swiftlint:disable:next shadow_color_occluder_family`
+  # with the ground it covers named in the rationale.
   shadow_color_occluder_family:
     name: "Shadow colour outside the occluder families"
     regex: '\.shadow\(\s*color:\s*(?!PasturaOccluderShadows\b|PasturaShadows\b)\S'
@@ -160,7 +169,7 @@ custom_rules:
     included:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
-    message: "A shadow tint must come from a sanctioned occluder family — PasturaOccluderShadows (design-system §4.3.1), or PasturaShadows pending #1378. Anything else, including a raw PasturaPalette.<token>.color, is unchecked against the grounds it covers. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must not read a paired Color.* alias'."
+    message: "A shadow tint must come from a sanctioned occluder family — PasturaOccluderShadows (design-system §4.3.1), or PasturaShadows pending #1378. Anything else, including a raw PasturaPalette.<token>.color, is unchecked against the grounds it covers. See .claude/rules/swiftui-traps.md § 'An occlusion layer — shadow or scrim — must be darker than every ground it covers'."
 
   # ADR-028 dark-mode pairing (#1284) — `.borderedProminent` fills from the
   # ambient `\.tint` with the system's own white prominent label. `RootTabView`
