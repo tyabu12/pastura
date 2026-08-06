@@ -353,8 +353,11 @@ environment's** `colorScheme` — the value you inject, or **light** when you in
 nothing, even on an ambient-dark device. Ambient state reaches the renderer
 through neither channel: with an injection present an explicit
 `UITraitCollection` flip moves not one byte, and this holds for `GraphicsContext`
-inside a `Canvas` exactly as it does for plain `View` content. Arms and figures:
-ADR-028 § Amendment 2026-08-06 (#1337).
+inside a `Canvas` exactly as it does for plain `View` content. Measured on the
+iOS 26.5 **simulator**, which is adequate here because the claim is about which
+trait the provider is handed — plumbing, not appearance — and does **not** relax
+the real-device requirement below. Arms, controls and figures: ADR-028
+§ Amendment 2026-08-06 (#1337).
 
 **So the hazard is a consumer that omits the injection, not one that reads an
 alias.** A fixed-appearance export with no `.environment(\.colorScheme, …)`
