@@ -11,7 +11,9 @@
 // `web/src/pages/index.astro` keeps five inline copies of the same SVG rather
 // than importing this component. That is deliberate residue, not an oversight:
 // swapping them would edit the flagship LP for no functional gain. If the
-// geometry ever changes, update the LP copies too.
+// geometry ever changes, update the LP copies too — no page renders both, so
+// nothing mechanical catches a divergence. `.claude/rules/lp-content.md` §4
+// carries the same warning for whoever arrives from the LP side instead.
 //
 // Decorative by design — identity is carried by the adjacent agent name, so the
 // SVG is aria-hidden and never announced.

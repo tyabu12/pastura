@@ -223,7 +223,11 @@ const headLabel = highlight
                 {highlight.excerpt.map((line, index) => (
                   <li>
                     {index > 0 && line.round !== highlight.excerpt[index - 1].round && (
-                      <div class="round-divider">{t.roundLabel(line.round, scenario.rounds)}</div>
+                      /* The list carries the scenario's language for the agent
+                         names and their lines, but this divider is page chrome,
+                         so it declares the page's locale. ADR-029 D5 renders a
+                         ja highlight under en chrome, where the two differ. */
+                      <div class="round-divider" lang={locale}>{t.roundLabel(line.round, scenario.rounds)}</div>
                     )}
                     <div class="bubble-row">
                       <SheepAvatar tone={toneFor(line.agent)} />
@@ -299,12 +303,12 @@ const headLabel = highlight
   .scenario-eyebrow {
     font-size: 0.85rem;
     letter-spacing: 0.02em;
-    color: var(--ink-secondary, #5b6152);
+    color: var(--ink-2, #5a5a55);
     margin-bottom: 0.5rem;
   }
   .scenario-meta {
     font-size: 0.9rem;
-    color: var(--ink-secondary, #5b6152);
+    color: var(--ink-2, #5a5a55);
     margin-top: -0.25rem;
   }
   .open-cta-row {
@@ -314,14 +318,14 @@ const headLabel = highlight
     display: inline-block;
     padding: 0.7rem 1.4rem;
     border-radius: 999px;
-    background: var(--moss, #4f6d3a);
+    background: var(--moss, #8a9a6c);
     color: #fff;
     font-weight: 600;
     text-decoration: none;
   }
   .open-cta:hover,
   .open-cta:focus-visible {
-    background: var(--moss-dark, #3d5a2b);
+    background: var(--moss-dark, #6b7852);
   }
 
   /* Highlight section (ADR-029) — static curated excerpt of a real run.
@@ -330,12 +334,12 @@ const headLabel = highlight
   .highlight {
     margin: 2.5rem 0 0;
     padding-top: 1.5rem;
-    border-top: 1px solid var(--rule, #e2e4dd);
+    border-top: 1px solid var(--rule, #e0dbce);
   }
   .highlight-note,
   .yaml-hook-caption {
     font-size: 0.85rem;
-    color: var(--ink-secondary, #5b6152);
+    color: var(--ink-2, #5a5a55);
   }
   /* The excerpt is drawn as the app draws a run: sheep avatar, name, bubble.
      `.bubble-row` / `.sheep` / `.bubble` / `.bubble-name` come from base.css,
@@ -382,7 +386,13 @@ const headLabel = highlight
   /* The LP's twin of this pill reads SIMULATING against a pulsing moss dot.
      An excerpt is an archived run, so the dot stays still and the colour drops
      to muted. Faking liveness here would be the one dishonest pixel on a page
-     whose whole claim is that these lines really happened. */
+     whose whole claim is that these lines really happened.
+
+     The pill is aria-hidden where the round divider is not, which looks
+     inconsistent until you check what each one carries: `highlightNote` already
+     states in readable prose that these lines come from a recorded run, so the
+     pill only restates it visually, whereas a round boundary appears nowhere
+     else and would otherwise read as two agents talking past each other. */
   .run-figure-head .rec {
     margin-left: auto;
     font-family: "JetBrains Mono", ui-monospace, monospace;
@@ -435,7 +445,7 @@ const headLabel = highlight
   }
   .inner-voice-note {
     font-size: 0.85rem;
-    color: var(--ink-secondary, #5b6152);
+    color: var(--ink-2, #5a5a55);
   }
   .yaml-hook-h {
     font-size: 1rem;
@@ -448,6 +458,12 @@ const headLabel = highlight
      overflow-x: auto) still comes from page.css `.page-prose pre`, which this
      block sits inside, so long YAML lines scroll within the block and the page
      body never gains a horizontal scrollbar on narrow screens.
+
+     The surface colour needs a second rule, not that one. Shiki writes an
+     inline `background-color` on the `<pre>` it emits, and only page.css's
+     `.page-prose pre.astro-code { background: var(--page) !important }`
+     overrides it. That rule reads as a /docs/scenario/ concern; it now has a
+     second consumer, and dropping it would leave this panel a white slab.
 
      The wrapper exists because `<Code>` emits its own `<pre>`, which carries no
      scope attribute from this component — hence the `:global()` reach to pull
@@ -464,6 +480,6 @@ const headLabel = highlight
   }
   .highlight-invite {
     font-size: 0.9rem;
-    color: var(--ink-secondary, #5b6152);
+    color: var(--ink-2, #5a5a55);
   }
 </style>

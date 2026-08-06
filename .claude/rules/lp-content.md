@@ -40,4 +40,12 @@ Three ways `.astro` source diverges from rendered output. Each fails silently �
 
 - **A wrapped JA sentence becomes a visible mid-sentence space.** A Japanese sentence split across source lines collapses each newline + indent into a rendered space (Latin-token spaces are unaffected). Keep every JA sentence on one source line. Applies to any JA `.astro` prose, not only the LP.
 - **`{...}` is evaluated as JS even inside `<pre>`.** A code sample containing `{placeholder}` breaks or mis-renders when hand-written into markup. Pass code through the `<Code code={...}>` component, which HTML-escapes the string prop at build time (Shiki). Reference: `web/src/pages/docs/scenario.astro`.
-- **Pin the code highlight theme so fences match `<Code>`.** `<Code>` sets `theme="github-light"` explicitly, but Markdown fences rendered via `<Content />` inherit Shiki's `github-dark` default unless `astro.config.mjs` sets `markdown.shikiConfig.theme`. Both must be `github-light`; the background is already forced to `--page` by `page.css` `.page-prose pre.astro-code`. See #1120 / #1124.
+- **Pin the code highlight theme so fences match `<Code>`.** `<Code>` sets `theme="github-light"` explicitly, but Markdown fences rendered via `<Content />` inherit Shiki's `github-dark` default unless `astro.config.mjs` sets `markdown.shikiConfig.theme`. Both must be `github-light`; the background is already forced to `--page` by `page.css` `.page-prose pre.astro-code` — that `!important` rule is what defeats Shiki's inline `background-color`, and it now has consumers outside `/docs/`. See #1120 / #1124.
+
+## 4. The sheep SVG ships twice, and nothing guards the pair
+
+The hero figure inlines `<svg class="sheep">` five times; `src/components/SheepAvatar.astro` carries a sixth copy for the share landing pages. They are byte-identical apart from the `data-tone` value, and only prose notes keep them that way — no page renders both, so no build or diff check can catch a divergence.
+
+Geometry source of truth is `Pastura/Pastura/Views/Components/SheepAvatar.swift`; the per-tone fills live in `base.css` `.sheep[data-tone]` and are shared. **Editing the geometry means editing both places.**
+
+The LP was left on inline copies deliberately (#1389) rather than switched to the component. Switching it is the cleanup that removes this trap, and it is verifiable: build `dist/index.html` before and after with dependencies held constant and require byte-identity. Do that rather than hand-checking, if you take it on.
