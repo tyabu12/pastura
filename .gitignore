@@ -84,6 +84,12 @@ data/factory/audit-digest.md
 data/queue/digest.md
 data/factory/lessons-inbox.md
 
+# Harness transcripts backing gallery highlights (ADR-029) — local-only by
+# decision: the pre-commit human sign-off is the sole durable record of a
+# highlight's provenance (#1384), so the JSONLs referenced by each
+# highlight's source.run_id stay out of the repo.
+data/highlight-runs/
+
 # /model-eval raw run logs and scorecard journal — local-only, same
 # untracked-output-channel rationale as the scenario-factory/-refine block
 # above (the skill never commits or pushes; a stray write stays a dirty
