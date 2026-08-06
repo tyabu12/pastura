@@ -340,7 +340,10 @@ body {
 /* ----- Sheep avatar (SVG) -----
    Mirrors Pastura/Pastura/Views/Components/SheepAvatar.swift — 28-unit
    viewBox, five wool circles, face oval, two eyes, highlight dot, two
-   horns. Decorative; names are conveyed by the adjacent .bubble-name. */
+   horns. Decorative; names are conveyed by the adjacent .bubble-name.
+   The geometry ships in two places under web/: five inline copies in the
+   LP hero (src/pages/index.astro) and src/components/SheepAvatar.astro,
+   which the share landing pages use. Change one, change the others. */
 .sheep {
   width: 48px;
   height: 48px;
