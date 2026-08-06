@@ -97,8 +97,11 @@ already be the `MARKETING_VERSION` on `main`.
   **separate `/orchestrate` PR**, merge it, and wait for `main` CI to go
   green, *then* return here. Bump **only the app target's two
   `MARKETING_VERSION` entries** (Debug + Release, the ones near
-  `PRODUCT_BUNDLE_IDENTIFIER = app.pastura.Pastura`) — not the
-  `PasturaTests` / `PasturaUITests` entries. The build number
+  `PRODUCT_BUNDLE_IDENTIFIER = "app.pastura.Pastura$(BUNDLE_ID_SUFFIX)"`) —
+  not the `PasturaTests` / `PasturaUITests` entries. That locator matches
+  exactly those two blocks: only the app target routes its bundle ID through
+  the suffix variable (Debug `.dev`, Release empty), so the test targets'
+  plain `app.pastura.PasturaTests` / `…UITests` cannot match it. The build number
   (`git rev-list --count HEAD`) advances automatically with the bump
   commit, so the release.sh build-number guard is satisfied for free.
 

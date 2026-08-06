@@ -15,6 +15,11 @@ import Testing
 //
 // The test target is app-hosted, so `Bundle.main` is the real host app and this reads
 // the *built* configuration's expanded values rather than the source templates.
+//
+// Named for the invariant rather than for a source file (CLAUDE.md's
+// `<SourceFileName>Tests.swift` convention) on purpose: the subject spans
+// `BackgroundSimulationManager.swift`, `Info.plist` and the build settings, and no one
+// of those owns it.
 @Suite(.timeLimit(.minutes(1)))
 struct BackgroundTaskIdentifierTests {
   private static let permittedIdentifiersKey = "BGTaskSchedulerPermittedIdentifiers"

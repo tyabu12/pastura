@@ -45,6 +45,12 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
   /// `BGTaskScheduler` rejects an unpermitted identifier, so the divergence would ship
   /// as a silently dead background-continuation feature rather than a build failure.
   /// `BackgroundTaskIdentifierTests` pins the two together.
+  ///
+  /// The `??` fallback is unreachable in practice — `bundleIdentifier` is non-nil for
+  /// any bundled app, including the app-hosted test target. It is spelled out rather
+  /// than force-unwrapped per Hard Rule 1, and it deliberately names the *Release*
+  /// identifier: if it ever did fire on Debug it would reproduce exactly the
+  /// divergence this derivation removes, which only the test above would catch.
   public static let taskIdentifier =
     "\(Bundle.main.bundleIdentifier ?? "app.pastura.Pastura").simulation-continuation"
 

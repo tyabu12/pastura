@@ -17,7 +17,12 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>app.pastura.Pastura.scenario</string>
+			<!-- Substituted for the same reason as the BGTask identifier above, so
+			     the file has no bundle-ID-shaped literal left. This is the URL
+			     type's abstract *name*, not the scheme — the scheme below stays
+			     `pastura` in both configurations, and which of two installed apps
+			     opens a `pastura://` URL is a deliberately accepted ambiguity. -->
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).scenario</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>pastura</string>
