@@ -252,14 +252,13 @@ const headLabel = highlight
           </section>
         )}
 
-        <p class="open-cta-row">
+        <div class="cta-row">
           <a class="open-cta" href={openURL}>{t.openInApp}</a>
-        </p>
-
-        <div class="badges">
-          <a href="https://apps.apple.com/app/pastura-local-llms-simulator/id6788409688" target="_blank" rel="noopener" class="appstore-cta" aria-label={t.badgeAria}>
-            <img class="appstore-img" src={t.badgeImg} alt="" aria-hidden="true" width="120" height="40" />
-          </a>
+          <div class="badges">
+            <a href="https://apps.apple.com/app/pastura-local-llms-simulator/id6788409688" target="_blank" rel="noopener" class="appstore-cta" aria-label={t.badgeAria}>
+              <img class="appstore-img" src={t.badgeImg} alt="" aria-hidden="true" width="120" height="40" />
+            </a>
+          </div>
         </div>
       </div>
     </main>
@@ -311,7 +310,16 @@ const headLabel = highlight
     color: var(--ink-2, #5a5a55);
     margin-top: -0.25rem;
   }
-  .open-cta-row {
+  /* The two calls to action are one choice, not a sequence: install the app, or
+     open it if you already have it. Stacked they read as steps. `align-items:
+     center` carries the height difference between the 40px badge image and the
+     taller pill, and the wrap keeps them from being squeezed on a narrow
+     screen. `.badges` is base.css's inline-flex wrapper, unchanged. */
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
     margin: 1.75rem 0 0.75rem;
   }
   .open-cta {
