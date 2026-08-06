@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-07-31._
+_Last updated: 2026-08-06._
 
 ## Stages
 
@@ -32,7 +32,7 @@ _Last updated: 2026-07-31._
 | 1 | `shared/models` + CI infrastructure | ✅ done | #1052 #1055 #1059 |
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | 🔄 in progress | ↓ Stage 3 breakdown |
-| 4 | Cross-language parity harness | 🟡 partial | `macosArm64` rung + nightly live |
+| 4 | Cross-language parity harness | 🔄 in progress | slice 1a landed; 1b next · [#1387](https://github.com/tyabu12/pastura/issues/1387) |
 | 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
@@ -72,7 +72,10 @@ machine-checked — see the maintenance invariant above.
 
 ## Stages 4–5 — remaining integration
 
-- **Stage 4** (parity harness): 🟡 partial — `macosArm64` rung + nightly native run live; per-PR JVM
-  rung + full harness pending. See [ADR-023](decisions/ADR-023.md) §6 Stage 4.
+- **Stage 4** (parity harness): 🔄 in progress — slice 1a (Swift emitter, goldens, ledger,
+  comparator) landed; slice 1b (Kotlin mapper mirror, dual-engine run, CI drift gate) next.
+  **Neither parity rung is live yet**: what Stage 2 pulled forward was the `macosArm64` *target
+  registration*, not the harness (ADR-023 §6). See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
+  [#1387](https://github.com/tyabu12/pastura/issues/1387).
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.
