@@ -7,10 +7,17 @@ package com.pastura.engine
  * ## Why this is data a test reads, not a prose table
  *
  * "Known divergences" maintained in prose drift silently until they absorb a
- * real regression. Every claim here is executable: the comparator fails if a
- * diff is not covered by an entry, **and** fails if an entry does not fire. The
- * second half is what stops the ledger widening — a stale entry is a build
- * failure rather than a permanent licence.
+ * real regression. The mechanism here is executable instead: the comparator
+ * fails if a diff is not covered by an entry, **and** fails if an entry does not
+ * fire. The second half is what stops the ledger widening — a stale entry is a
+ * build failure rather than a permanent licence.
+ *
+ * **Nothing is wired to a real transcript yet.** No `List<LedgerEntry>` instance
+ * exists, and `ParityGolden` is read by nothing; the schema, the comparator and
+ * the golden are three unconnected pieces until slice 1b (#1387) joins them. So
+ * this file describes a guard that is proven against synthetic transcripts and
+ * not yet against either engine — read the paragraphs below as the contract 1b
+ * inherits, not as a gate now running.
  *
  * ## Why entries pin values instead of listing fields to ignore
  *
@@ -38,6 +45,15 @@ internal object DivergenceLedger {
      * Adding a case is the deliberate act that widening requires. Each carries
      * the source that documents it, so an entry cannot cite something that was
      * never written down.
+     *
+     * **Two gaps this does not close, both for slice 1b.** Nothing requires a
+     * case to be *used*, so a case that outlives its entries becomes a
+     * pre-approved licence a later author can attach to with no enum diff at
+     * all — close it with a test asserting every case is cited once a real
+     * ledger exists. And an entry with a typo'd `fixture` is silently out of
+     * scope rather than unfired, so it vanishes with no signal when the
+     * divergence it covered also closes; assert every `fixture` against the
+     * known fixture names once they are enumerable.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
         /**

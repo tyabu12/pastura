@@ -72,8 +72,8 @@ machine-checked — see the maintenance invariant above.
 
 ## Stages 4–5 — remaining integration
 
-- **Stage 4** (parity harness): 🔄 in progress — slice 1a landed; 1b (Kotlin mirror, dual-engine
-  run, CI gate) next. Neither rung live. See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
+- **Stage 4** (parity harness): 🔄 in progress — slice 1a landed; 1b next. Neither *parity* rung
+  live (the KMP test rungs are a separate thing). See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
   [#1387](https://github.com/tyabu12/pastura/issues/1387).
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.

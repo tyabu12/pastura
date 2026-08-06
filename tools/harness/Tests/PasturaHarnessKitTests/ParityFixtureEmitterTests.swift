@@ -5,15 +5,21 @@ import Testing
 @testable import PasturaHarnessKit
 
 /// `.serialized` because every emitter case constructs a `SimulationRunner`,
-/// which spawns `Task` + `AsyncStream` and crashes the test process on
-/// concurrent teardown.
+/// which spawns `Task` + `AsyncStream` — the shape
+/// `.claude/rules/swift-testing-parallelism.md` says to serialize.
 ///
-/// **This orders cases within this suite only.** Per
-/// `.claude/rules/swift-testing-parallelism.md`, separate top-level suites still
-/// run concurrently, and `HarnessRunnerTests` / `HarnessLanguageDetectorTests`
-/// reach the same types in the same target. CI invokes a bare `swift test` with
-/// no `--no-parallel`, so cross-suite isolation is **not** enforced — stated
-/// here rather than implied, so the annotation is not read as more than it is.
+/// **The mitigation is intra-suite only, and the residual is real.** That rule
+/// also says separate top-level suites still run concurrently, and
+/// `HarnessRunnerTests` / `HarnessLanguageDetectorTests` construct the same
+/// types in this target without `.serialized`. CI runs a bare `swift test` with
+/// no `--no-parallel`, so cross-suite overlap is unaddressed here — this
+/// annotation reduces the exposure, it does not remove it. Recorded rather than
+/// glossed: a comment that names a hazard and implies it is handled is worse
+/// than none. Closing it means `--no-parallel` in CI (a separate change, since
+/// it slows every suite) or merging the runner-constructing suites.
+///
+/// Paths in these cases resolve against the current directory, so the suite
+/// must run from the repository root — the same contract the CLI documents.
 @Suite(.serialized, .timeLimit(.minutes(1)))
 struct ParityFixtureEmitterTests {
 
@@ -44,8 +50,11 @@ struct ParityFixtureEmitterTests {
     let first = try await responder.generate(system: "", user: "", schema: schema)
     let second = try await responder.generate(system: "", user: "", schema: schema)
 
-    #expect(first.contains("アオイ"))
-    #expect(second.contains("ハルト"))
+    // Offset by one (see `RecordingResponder.value(for:)`), so call 0 votes for
+    // persona 1 rather than persona 0 — which for a real scenario is the
+    // difference between a counted vote and a self-vote `exclude_self` drops.
+    #expect(first.contains("ハルト"))
+    #expect(second.contains("リオ"))
   }
 
   @Test("an override replaces the derived answer at exactly its call index")
@@ -122,7 +131,16 @@ struct ParityFixtureEmitterTests {
     // `HarnessLanguageDetector` wraps an OS-version-dependent classifier, and
     // the responder answers a `ja` scenario with ASCII — so an injected detector
     // would trip ADR-010 retries, change `callCount`, and make the golden vary
-    // by host. Silent today; this makes re-adding one loud.
+    // by host.
+    //
+    // **Be precise about what this proves.** With no detector wired, zero
+    // `language_mismatch` events is true *by construction*, so this passes today
+    // for a reason that has nothing to do with the assertion. It is an omission
+    // guard: it reddens if a detector is re-added AND fires. It deliberately has
+    // no positive control, because the only one available — running with a real
+    // detector and asserting a mismatch appears — would depend on the same OS
+    // classifier this omission exists to keep out of the golden.
+
     for spec in ParityFixtureEmitter.specs {
       let fixture = try await ParityFixtureEmitter.run(spec)
       #expect(!fixture.transcript.contains { $0.contains("language_mismatch") }, "\(spec.name)")
@@ -151,11 +169,60 @@ struct ParityFixtureEmitterTests {
     let divergentRun = try await ParityFixtureEmitter.run(divergent)
 
     // Exactly two extra attempts — which is what makes calls 0-2 a single turn.
+    // Reddens on a retry-budget change.
     #expect(divergentRun.callCount == nominalRun.callCount + 2)
     // And the value divergence rides the very next call.
-    #expect(divergentRun.responses.count > 3)
+    #expect(divergentRun.responses.count > 4)
     #expect(divergentRun.responses[3].contains("confidence"))
     #expect(divergentRun.transcript.contains { $0.contains("\"confidence\":\"1\"") })
+    // Phase order, which the two assertions above do NOT defend: the override is
+    // applied at call index 3 whatever phase that is, and an unexpected key
+    // survives into `agent_output` regardless of schema. These key on the
+    // *derived* neighbours' schemas instead, so either reddens if `speak_all`
+    // stops being phase 0.
+    #expect(
+      nominalRun.responses[3].contains("\"vote\""), "call 3 should be the nominal run's first vote")
+    #expect(
+      divergentRun.responses[4].contains("\"statement\""),
+      "call 4 should still be a speak_all turn once the retry window shifts it")
+  }
+
+  @Test("the nominal run exercises voting, not just its shape")
+  func nominalRunExercisesVotingNotJustItsShape() async throws {
+    // The contract `RecordingResponder.value(for:)`'s offset cannot state for
+    // itself: the responder never sees which agent is calling, so it cannot
+    // exclude a self-vote by construction. An earlier draft used a bare
+    // `callIndex % count`, which for this scenario made EVERY vote a self-vote —
+    // all tallies empty, all scores 0, `max_score >= 3` false in all four
+    // evaluations. The run still had the right shape and the right event count,
+    // so nothing else here would have caught it.
+    guard let nominal = ParityFixtureEmitter.specs.first else {
+      Issue.record("no fixture specs declared")
+      return
+    }
+    let fixture = try await ParityFixtureEmitter.run(nominal)
+
+    #expect(
+      fixture.transcript.contains {
+        $0.contains("\"vote_results\"") && !$0.contains("\"tallies\":{}")
+      },
+      "every tally is empty — the votes are being dropped, probably as self-votes")
+    // Scoped to the `scores` object. An earlier draft searched the whole line
+    // for `:0,` and could never pass — every EventLine carries `"attempt":0,`,
+    // so the assertion was false regardless of the scores. A guard that cannot
+    // pass is as useless as one that cannot fail.
+    #expect(
+      fixture.transcript.contains { line in
+        guard line.contains("\"score_update\""),
+          let scores = line.range(of: "\"scores\":{").map({ line[$0.upperBound...] }),
+          let end = scores.firstIndex(of: "}")
+        else { return false }
+        return !scores[..<end].contains(":0")
+      },
+      "no score ever moved off zero")
+    #expect(
+      fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
+      "the conditional's then-branch is never taken — the node runs but decides nothing")
   }
 
   // MARK: - Raw-string safety guard

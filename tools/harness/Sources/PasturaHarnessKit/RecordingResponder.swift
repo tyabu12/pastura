@@ -22,11 +22,15 @@ import Synchronization
 /// Unlike ``MockLLMService``, which replays a flat list supplied up front, this
 /// type *derives* each answer, so a scenario's call count does not have to be
 /// predicted by hand before the run.
-/// Plain `Sendable`, not `@unchecked`: every stored property is a `let`, and
-/// `Mutex<State>` is `Sendable` because `State` is. Keeping the checked
-/// conformance means a later unguarded `var` fails the build instead of quietly
-/// re-opening a race (`.claude/rules/swift-isolation.md` Pattern 7's pairing
-/// advice).
+///
+/// Plain `Sendable`, not `@unchecked` — but be exact about what that buys.
+/// `Mutex` is declared `@unchecked Sendable` unconditionally, **not**
+/// conditionally on its value, so the checked conformance here polices this
+/// class's own stored properties only: a later unguarded `var` on the class
+/// fails the build, while a non-`Sendable` mutable member added inside `State`
+/// still compiles. Keep `State`'s members `Sendable` by hand.
+/// (`.claude/rules/swift-isolation.md` Pattern 7's pairing advice, narrowed to
+/// what it actually covers here.)
 package final class RecordingResponder: LLMService, Sendable {
 
   /// Answers recorded so far, in call order.
@@ -106,15 +110,27 @@ package final class RecordingResponder: LLMService, Sendable {
 
   /// The value for one field.
   ///
-  /// `vote` resolves to a persona so the tally counts it. Every other field
+  /// `vote` resolves to a persona so the tally can count it. Every other field
   /// gets a call-indexed string, which makes the transcript discriminating: two
   /// turns that should differ cannot compare equal by accident.
+  ///
+  /// **The `+ 1` offset is not a guarantee, and the guarantee lives elsewhere.**
+  /// This responder deliberately cannot see *which* agent is calling — it reads
+  /// the schema only — so it cannot exclude a self-vote by construction. The
+  /// offset merely avoids the alignment that a bare `callIndex % count` happens
+  /// to produce for a scenario whose per-round call count is a multiple of the
+  /// persona count: every vote lands on the voter, `exclude_self` drops all of
+  /// them, and the tally, the scoreboard and the conditional's taken branch are
+  /// all frozen in their degenerate state while the fixture still looks like a
+  /// full run. Whether the offset actually works for a given scenario is
+  /// asserted in `nominalRunExercisesVotingNotJustItsShape`, which reddens if it
+  /// stops — the arithmetic here is a heuristic, that test is the contract.
   private static func value(
     for field: OutputSchema.Field, callIndex: Int, personas: [String]
   ) -> String {
     guard field.name == "vote", !personas.isEmpty else {
       return "\(field.name) \(callIndex)"
     }
-    return personas[callIndex % personas.count]
+    return personas[(callIndex + 1) % personas.count]
   }
 }

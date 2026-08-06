@@ -97,6 +97,14 @@ package enum ParityFixtureEmitter {
   /// deterministic — neither engine injects RNG, and both rely on degenerate
   /// inputs rather than seeding — and it is the only one of those three that
   /// exercises `conditional`.
+  ///
+  /// "Exercises `conditional`" means the **branch**, not merely the node: an
+  /// earlier draft of the responder made every vote a self-vote, so every tally
+  /// was empty, every score stayed 0, and `max_score >= 3` was false in all four
+  /// evaluations — the phase ran and decided nothing. A fixture can look like a
+  /// full run while its whole scoring half is frozen, so
+  /// `nominalRunExercisesVotingNotJustItsShape` asserts the non-degenerate
+  /// outcome rather than leaving it to the responder's arithmetic.
   package static let specs: [FixtureSpec] = [
     FixtureSpec(
       name: "targetScoreRaceNominal",
@@ -245,9 +253,16 @@ package enum ParityFixtureEmitter {
       lines.append(contentsOf: kdoc(fixture.purpose))
       lines.append("    internal val \(fixture.name): Fixture = Fixture(")
       lines.append("        name = \"\(fixture.name)\",")
+      // `.trimIndent()` because Kotlin — unlike a Java text block — keeps the
+      // newline after the opening `"""` and the one before the closing one.
+      // Without it this one field's bytes would be `"\n" + <what Swift emitted>
+      // + "\n"` while `responses` and `transcript` are exact, and slice 1b's
+      // consumer would have to know which fields to trim. `trimIndent` strips
+      // the blank first/last lines and finds no common indentation to remove,
+      // since the JSON sits at column 0.
       lines.append("        scenarioJson = \"\"\"")
       lines.append(fixture.scenarioJSON)
-      lines.append("\"\"\",")
+      lines.append("\"\"\".trimIndent(),")
       lines.append(contentsOf: stringList("responses", fixture.responses))
       lines.append(contentsOf: stringList("transcript", fixture.transcript))
       lines.append("        callCount = \(fixture.callCount),")
@@ -302,6 +317,20 @@ package enum ParityFixtureEmitter {
       if payload.hasSuffix("\"") {
         throw ParityFixtureError.rawStringUnsafe(fixture.name, "a trailing quote")
       }
+      // Same defect at the other end: `"""\(value)"""` with a leading quote
+      // yields `""""value`. Listed separately rather than folded in, because
+      // "the guard should be as wide as its claim" applies to both ends equally
+      // and an asymmetric guard invites the reader to assume one was considered.
+      if payload.hasPrefix("\"") {
+        throw ParityFixtureError.rawStringUnsafe(fixture.name, "a leading quote")
+      }
+    }
+    // The name is interpolated as a Kotlin *identifier* (`internal val <name>`),
+    // not into a string, so it has its own way to produce a file that does not
+    // compile.
+    if !fixture.name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }) {
+      throw ParityFixtureError.rawStringUnsafe(
+        fixture.name, "a non-identifier character in its name")
     }
     // `purpose` is not a raw-string payload but IS emitted into a KDoc block, so
     // it has its own way to break the build.

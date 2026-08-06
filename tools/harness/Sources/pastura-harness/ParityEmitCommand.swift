@@ -26,10 +26,11 @@ enum ParityEmitCommand {
   static func run(args: [String]) async -> Never {
     // Reject an unknown flag BEFORE running the fixtures: each drives a full
     // Engine run, and a usage error that costs one reads as a hang.
-    switch args.first {
-    case nil, "--write", "--check":
-      break
-    default:
+    // `args.count > 1` too: this subcommand takes no operand, and silently
+    // ignoring `parity-emit --write some/path` would write the hardcoded path
+    // while the caller believes otherwise.
+    let flagIsKnown = args.first == nil || args.first == "--write" || args.first == "--check"
+    guard args.count <= 1, flagIsKnown else {
       FileHandle.standardError.write(Data((usage + "\n").utf8))
       exit(2)
     }

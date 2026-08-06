@@ -123,11 +123,11 @@ class TranscriptComparatorTests {
     }
 
     @Test
-    fun anUpstreamInsertionDoesNotShiftLaterOrdinals() {
-        // The cascade an absolute-index key would cause: an extra event early
-        // would renumber every later entry. Ordinals count per kind, and the
-        // inserted event is a different kind, so the ledgered agent_output keeps
-        // ordinal 1.
+    fun ordinalsCountPerKindNotPerTranscriptPosition() {
+        // The cascade an absolute-index key would cause. Note the interleaved
+        // `round_started` is present on BOTH sides — this proves per-kind rather
+        // than per-position numbering, not one-sided insertion resilience. The
+        // genuinely one-sided case is `aResyncedPairCanItselfBeLedgered`.
         val swift = listOf(output("Alice", "a"), roundStarted(2), output("Bob", "1"))
         val kotlin = listOf(output("Alice", "a"), roundStarted(2), output("Bob", "1.0"))
         val report = compare(swift, kotlin, listOf(valueEntry(ordinal = 1, swift = "1", kotlin = "1.0")))

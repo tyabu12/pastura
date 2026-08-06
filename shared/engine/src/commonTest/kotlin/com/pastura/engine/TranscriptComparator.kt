@@ -32,6 +32,10 @@ import kotlinx.serialization.json.JsonPrimitive
  * not of how far the two happened to stay paired, and an upstream structural
  * divergence does not renumber later entries.
  *
+ * The two counters key different things, and after a one-sided structural
+ * divergence they genuinely differ: [LedgerEntry.Structural] keys on **its own
+ * side's** counter, while [LedgerEntry.Value] always keys on **Swift's**.
+ *
  * ## Reading a failure
  *
  * The first uncovered structural difference desynchronizes the walk — it has no
@@ -159,6 +163,12 @@ internal object TranscriptComparator {
         // so the second could never be reached and the first could be consumed
         // twice.
         for (index in scoped.indices) {
+            // Defensive only — no state reaches this today. A successful match
+            // advances the side's ordinal, so every entry pinned to that ordinal
+            // stops matching forever after, and the loop returns at the first
+            // match within a call. Deleting this line leaves every test green;
+            // it is kept as a cheap invariant rather than as a live mechanism,
+            // and is labelled so the next reader does not inherit it as one.
             if (fired[index]) continue
             val entry = scoped[index] as? LedgerEntry.Structural ?: continue
             if (entry.side != side || entry.event != eventKind) continue
@@ -224,7 +234,12 @@ internal object TranscriptComparator {
     private fun kindOf(line: String, uncovered: MutableList<UncoveredDiff>): String {
         val event = parse(line)
         if (event == null) {
-            uncovered += malformed(line)
+            // De-duplicated: when a structural entry consumes the *other* side,
+            // only one pointer advances, so a surviving line is re-read on the
+            // next iteration. Appending unconditionally would inflate
+            // `uncovered.size`, which these tests assert on directly.
+            val diff = malformed(line)
+            if (diff !in uncovered) uncovered += diff
             return "<unparseable>"
         }
         return (event["event"] as? JsonPrimitive)?.content ?: "<no event key>"
