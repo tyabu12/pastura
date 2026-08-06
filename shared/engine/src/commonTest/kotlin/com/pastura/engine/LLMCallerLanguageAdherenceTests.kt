@@ -1,6 +1,7 @@
 package com.pastura.engine
 
 import com.pastura.models.OutputSchema
+import com.pastura.models.PhaseType
 import com.pastura.models.SimulationEvent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
@@ -82,6 +83,7 @@ class LLMCallerLanguageAdherenceTests {
         system = "sys",
         user = "usr",
         agentName = "Alice",
+        phaseType = PhaseType.SPEAK_ALL,
         schema = schema,
         detector = detector,
         expectedLanguage = expectedLanguage,

@@ -109,6 +109,7 @@ internal class ReflectHandler : PhaseHandler {
                 system = systemPrompt,
                 user = userPrompt,
                 agentName = persona.name,
+                phaseType = context.phase.type,
                 schema = OutputSchema.from(context.phase),
                 detector = context.detector,
                 expectedLanguage = context.scenario.engineLanguage,
@@ -140,12 +141,14 @@ internal class ReflectHandler : PhaseHandler {
         // the first write (Swift threads two sequential `inout` mutations instead).
         //
         // The `note.isNotEmpty()` guard is **defensive parity** with Swift, not a
-        // reachable path here: the parser rejects a present-but-empty expected key
-        // (`hasAllExpectedKeys` requires non-empty content), so an all-empty
-        // inference exhausts the retry budget and is absorbed as a turn skip
-        // upstream (the `?: return state` arm above) rather than arriving here as
-        // `note == ""`. Kept so the write stays correct if that upstream guarantee
-        // ever changes — and to mirror the Swift handler verbatim.
+        // reachable path here — but the reason changed under ADR-021
+        // § Amendment 2026-08-06. It used to be the parser rejecting a
+        // present-but-empty expected key; that guard is gone. Now `note` is the
+        // canonical primary for REFLECT, and a phase that declares it gets the
+        // empty-primary skip in `LLMCaller`, so an all-empty inference is still
+        // absorbed upstream (the `?: return state` arm above) rather than arriving
+        // here as `note == ""`. Reachable only for a schema that does NOT declare
+        // `note`, where the skip rule is off by design.
         val nextVariables = state.variables.toMutableMap()
         val note = output.fields["note"] ?: ""
         if (note.isNotEmpty()) {

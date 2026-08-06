@@ -236,32 +236,39 @@ class JSONResponseParserTests {
         assertFailsWith<SimulationException> { parser.parse("""["a", "b"]""") }
     }
 
-    // MARK: - expectedKeys guard
+    // MARK: - expectedKeys is inert here (ADR-021 § Amendment 2026-08-06)
+    //
+    // These three used to pin a post-parse guard that rejected a missing or empty
+    // expected key on EVERY successful parse. That guard was the
+    // `SCHEMA_GUARD_POSITION` divergence: Swift consults its equivalent only on the
+    // salvage and post-repair paths, neither of which this parser has, so the
+    // Amendment deleted it rather than relocating it. The rejection now lives one
+    // layer up — `LLMCallerTests.anEmptyDeclaredPrimaryOnTheLastAttemptThrows` and
+    // its siblings — where it is scoped to the canonical primary. Kept (inverted)
+    // rather than deleted so a Stage-3 porter re-adding the guard here reddens.
 
     @Test
-    fun expectedKeysGuardAcceptsACompleteObject() {
+    fun aCompleteObjectParses() {
         val (out, repair) = parser.parse("""{"statement": "hi"}""", expectedKeys = setOf("statement"))
         assertEquals("hi", out.fields["statement"])
         assertNull(repair, "the repair pipeline is Stage-3 freight — this must stay null")
     }
 
     @Test
-    fun expectedKeysGuardRejectsAMissingKey() {
-        // Preserves the throw rather than fabricating a half-formed TurnOutput.
-        assertFailsWith<SimulationException> {
-            parser.parse("""{"other": "hi"}""", expectedKeys = setOf("statement"))
-        }
+    fun aMissingExpectedKeyIsAcceptedNotRejected() {
+        val (out, _) = parser.parse("""{"other": "hi"}""", expectedKeys = setOf("statement"))
+        assertNull(out.fields["statement"], "the parser no longer judges expected keys")
+        assertEquals("hi", out.fields["other"])
     }
 
     @Test
-    fun expectedKeysGuardRejectsAnEmptyValue() {
-        assertFailsWith<SimulationException> {
-            parser.parse("""{"statement": ""}""", expectedKeys = setOf("statement"))
-        }
+    fun anEmptyExpectedValueIsAcceptedNotRejected() {
+        val (out, _) = parser.parse("""{"statement": ""}""", expectedKeys = setOf("statement"))
+        assertEquals("", out.fields["statement"], "emptiness is LLMCaller's call, not the parser's")
     }
 
     @Test
-    fun emptyExpectedKeysDisablesTheGuard() {
+    fun emptyExpectedKeysBehavesTheSameWay() {
         val (out, _) = parser.parse("""{"anything": "x"}""", expectedKeys = emptySet())
         assertEquals("x", out.fields["anything"])
     }

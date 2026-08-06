@@ -134,6 +134,12 @@ internal class NarrateHandler : PhaseHandler {
                 system = systemPrompt,
                 user = userPrompt,
                 agentName = NARRATOR_AGENT_NAME,
+                // `primaryField(NARRATE)` is null (Engine-fixed `{ commentary }`
+                // schema, not author-declared), so the ADR-021 Amendment
+                // 2026-08-06 skip rule cannot fire here. Load-bearing: this is
+                // the one LLM call site outside the turn gate, so a throw would
+                // abort the run rather than skip the turn.
+                phaseType = context.phase.type,
                 schema = schema,
                 detector = context.detector,
                 expectedLanguage = language,
@@ -180,15 +186,16 @@ internal class NarrateHandler : PhaseHandler {
             return state
         }
 
-        // **Defensive parity, not a reachable path here.** Kotlin's
-        // `JSONResponseParser` applies `hasAllExpectedKeys` on every successful parse
-        // when the schema declares keys, and narrate always declares `{ commentary }`,
-        // so `{"commentary": ""}` throws `JsonParseFailed` on each attempt and arrives
-        // as `RetriesExhausted` at the catch above — never here as `commentary == ""`.
-        // Swift's parser returns the empty output instead, so there the guard IS the
-        // live path. Kept to mirror the Swift handler verbatim and to stay correct if
-        // that upstream divergence is ever reconciled (same posture as
-        // `ReflectHandler`'s `note.isNotEmpty()` guard).
+        // **The live path — and the guard both engines rely on.** This comment used
+        // to record the opposite, because the parser's post-parse guard rejected a
+        // present-but-empty declared key and `{"commentary": ""}` arrived as
+        // `RetriesExhausted` instead. ADR-021 § Amendment 2026-08-06 reconciled that
+        // divergence (the guard is gone; `LLMCaller` now decides), which is exactly
+        // the reconciliation the old comment said this guard was kept for.
+        //
+        // Narrate is NOT covered by the new skip rule — `primaryField(NARRATE)` is
+        // null — so an all-empty commentary now reaches here as `commentary == ""`,
+        // matching Swift. Deleting this guard would emit an empty narration line.
         if (commentary.isEmpty()) {
             context.logger.log(
                 level = EngineLogLevel.DEBUG,

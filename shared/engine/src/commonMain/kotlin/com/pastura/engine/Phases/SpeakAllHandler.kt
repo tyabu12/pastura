@@ -108,6 +108,7 @@ internal class SpeakAllHandler : PhaseHandler {
                 system = systemPrompt,
                 user = userPrompt,
                 agentName = persona.name,
+                phaseType = context.phase.type,
                 schema = OutputSchema.from(context.phase),
                 detector = context.detector,
                 expectedLanguage = context.scenario.engineLanguage,

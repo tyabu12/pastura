@@ -249,6 +249,7 @@ internal class WhisperHandler : PhaseHandler {
                 system = systemPrompt,
                 user = userPrompt,
                 agentName = speaker.name,
+                phaseType = context.phase.type,
                 schema = OutputSchema.from(context.phase),
                 detector = context.detector,
                 expectedLanguage = context.scenario.engineLanguage,
