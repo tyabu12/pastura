@@ -29,6 +29,7 @@ struct LLMCallerStreamingTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "s", user: "u", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -66,6 +67,7 @@ struct LLMCallerStreamingTests {
     let collector = EventCollector()
     _ = try await caller.call(
       llm: mock, system: "s", user: "u", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -101,6 +103,7 @@ struct LLMCallerStreamingTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "s", user: "u", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )

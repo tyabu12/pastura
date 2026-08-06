@@ -127,6 +127,13 @@ struct ReflectHandlerTests {
   // An empty note (LLM returned "" after exhausting the empty-field retry
   // budget) must NOT overwrite the previous round's memo. Three identical
   // empty responses cover maxRetries (2) + the initial attempt.
+  //
+  // The MECHANISM changed under ADR-021 § Amendment 2026-08-06 while the
+  // outcome did not: `note` is the canonical primary for `.reflect` and the
+  // phase declares it, so exhaustion now throws and `TurnFailureGate` skips
+  // the turn — the handler never reaches its non-empty save guard. The
+  // `.turnSkipped` assertion below is what pins that; without it this test
+  // would keep passing off the old guard and could not tell the two apart.
   @Test func emptyNoteDoesNotErasePreExistingNote() async throws {
     let mock = MockLLMService(responses: [
       #"{"note": ""}"#,
@@ -148,5 +155,14 @@ struct ReflectHandlerTests {
     try await handler.execute(context: context, state: &state)
 
     #expect(state.variables["notes_Alice"] == "prior round memo")
+
+    let skipped = collector.events.compactMap { event -> String? in
+      if case .turnSkipped(let agent, _, _) = event { return agent }
+      return nil
+    }
+    #expect(skipped == ["Alice"], "exhausted empty primary skips the turn")
+    #expect(
+      !collector.events.contains { if case .agentOutput = $0 { return true } else { return false } }
+    )
   }
 }

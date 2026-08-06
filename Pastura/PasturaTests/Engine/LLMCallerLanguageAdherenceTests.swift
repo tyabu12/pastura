@@ -76,6 +76,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       schema: speakAllSchema(),
       detector: detector, expectedLanguage: "en",
       suspendController: SuspendController(),
@@ -106,6 +107,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       schema: speakAllSchema(),
       detector: detector, expectedLanguage: "en",
       suspendController: SuspendController(),
@@ -139,6 +141,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       schema: speakAllSchema(),
       detector: detector, expectedLanguage: "en",
       suspendController: SuspendController(),
@@ -160,6 +163,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     _ = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       schema: speakAllSchema(),
       detector: detector, expectedLanguage: nil,
       suspendController: SuspendController(),
@@ -178,6 +182,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     _ = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       schema: speakAllSchema(),
       detector: nil, expectedLanguage: "en",
       suspendController: SuspendController(),
@@ -201,6 +206,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .vote,
       schema: voteSchema,
       detector: detector, expectedLanguage: "en",
       suspendController: SuspendController(),
@@ -231,6 +237,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       schema: OutputSchema(fields: [
         OutputSchema.Field(name: "statement", kind: .string),
         OutputSchema.Field(name: "inner_thought", kind: .string)
@@ -269,6 +276,7 @@ struct LLMCallerLanguageAdherenceTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .choose,
       schema: chooseSchemaWithEnOptions(),
       detector: detector, expectedLanguage: "ja",
       suspendController: SuspendController(),

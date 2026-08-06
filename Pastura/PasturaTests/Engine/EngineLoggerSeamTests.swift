@@ -43,6 +43,7 @@ struct EngineLoggerSeamTests {
 
     _ = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(), emitter: collector.emit)
 
     let retry = spy.entries.first { $0.message.hasPrefix("retryCause") }
@@ -71,6 +72,7 @@ struct EngineLoggerSeamTests {
 
     _ = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Bob",
+      phaseType: .speakAll,
       suspendController: SuspendController(), emitter: collector.emit)
 
     let empty = spy.entries.first { $0.message.hasPrefix("Empty fields detected") }
