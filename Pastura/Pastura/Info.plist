@@ -2,9 +2,16 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Build-setting substitution, not a literal: the Debug configuration suffixes
+	     PRODUCT_BUNDLE_IDENTIFIER (app.pastura.Pastura.dev) so a dev build can be
+	     installed alongside the App Store build. BackgroundSimulationManager.taskIdentifier
+	     derives the same way; BGTaskScheduler.register only logs when it rejects an
+	     unpermitted identifier, so a divergence here is silent at build AND run time.
+	     Sole source for this key — the duplicate INFOPLIST_KEY_ build setting was
+	     removed so precedence between the two is not something anything relies on. -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>app.pastura.Pastura.simulation-continuation</string>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).simulation-continuation</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>

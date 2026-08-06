@@ -34,8 +34,19 @@ import os
 nonisolated public final class BackgroundSimulationManager: @unchecked Sendable {
   // @unchecked Sendable: internal state protected by OSAllocatedUnfairLock.
 
-  /// The BG task identifier, must match `BGTaskSchedulerPermittedIdentifiers` in Info.plist.
-  public static let taskIdentifier = "app.pastura.Pastura.simulation-continuation"
+  /// The BG task identifier, derived from the running bundle so it always matches
+  /// `BGTaskSchedulerPermittedIdentifiers` in Info.plist.
+  ///
+  /// Derived rather than hardcoded because the Debug configuration suffixes the bundle
+  /// ID (`app.pastura.Pastura.dev`) so a locally-installed dev build can coexist with the
+  /// App Store build on one device. Info.plist declares the permitted identifier as
+  /// `$(PRODUCT_BUNDLE_IDENTIFIER).simulation-continuation`, so a literal here would
+  /// disagree with it on Debug — and `register()` below only *logs* when
+  /// `BGTaskScheduler` rejects an unpermitted identifier, so the divergence would ship
+  /// as a silently dead background-continuation feature rather than a build failure.
+  /// `BackgroundTaskIdentifierTests` pins the two together.
+  public static let taskIdentifier =
+    "\(Bundle.main.bundleIdentifier ?? "app.pastura.Pastura").simulation-continuation"
 
   private let logger = Logger(subsystem: "app.pastura.Pastura", category: "BGSimManager")
   private let state = OSAllocatedUnfairLock(initialState: State())

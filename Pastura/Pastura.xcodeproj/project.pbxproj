@@ -437,7 +437,6 @@
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pastura/Info.plist;
-				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "app.pastura.Pastura.simulation-continuation";
 				INFOPLIST_KEY_CFBundleDisplayName = Pastura;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
@@ -478,7 +477,6 @@
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pastura/Info.plist;
-				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "app.pastura.Pastura.simulation-continuation";
 				INFOPLIST_KEY_CFBundleDisplayName = Pastura;
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
