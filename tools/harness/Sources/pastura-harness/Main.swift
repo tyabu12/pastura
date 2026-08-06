@@ -26,6 +26,13 @@ enum Main {
     if args.first == "emit-golden" {
       runEmitGolden(args: Array(args.dropFirst()))
     }
+    // `parity-emit` runs the Engine, but with a schema-keyed scripted responder
+    // rather than a model (ADR-023 Stage 4) — so it needs no --model and
+    // branches before the run-mode parse like its two siblings. Unlike them it
+    // is async, because the Engine's event stream is.
+    if args.first == "parity-emit" {
+      await ParityEmitCommand.run(args: Array(args.dropFirst()))
+    }
 
     let config: HarnessConfig
     do {
