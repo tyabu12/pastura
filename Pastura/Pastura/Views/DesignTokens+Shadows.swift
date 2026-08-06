@@ -14,8 +14,8 @@ import SwiftUI
 // `x` / `y` mirror SwiftUI's own `.shadow(color:radius:x:y:)` parameter names,
 // so they stay one character. `DesignTokens.swift` carries the same file-level
 // exemption for the same class of reason — short domain identifiers, though
-// there they are `hexString`'s `r`/`g`/`b` and `Spacing.s`/`m`/`l` rather than
-// framework parameter mirrors. The directive sits ahead of the doc comment
+// there they are e.g. `hexString`'s `r`/`g`/`b` and the `Spacing` scale rather
+// than framework parameter mirrors. The directive sits ahead of the doc comment
 // rather than between it and the declaration, which would orphan it
 // (`.claude/rules/build-traps.md`).
 // swiftlint:disable identifier_name

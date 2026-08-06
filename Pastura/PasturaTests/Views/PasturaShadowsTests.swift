@@ -19,12 +19,14 @@ import Testing
 /// **The ground list is hand-maintained**, so a future `night*` token darker
 /// than #0B0C0A would not be picked up. Its membership, with the overlap stated
 /// rather than left to arithmetic: `screenBackground` / `nightBackground` are
-/// the binding grounds for **all four** consumers — `ResultsView`'s timeline
-/// card and `GalleryCatalogRow` are `bubbleBackground` cards, but a radius-2 /
-/// y-1 shadow falls *outside* the card onto the screen ground, so their own
-/// fill is not what they composite over. `nightBubble` covers the **one**
-/// genuinely nested case, `ScenarioArtTile`'s badge overhanging onto the row
-/// card, and is margin for the rest. The art tile's own `moss`-wash fill is
+/// the binding grounds for **three of the four** consumers — `PromoCard`, plus
+/// `ResultsView`'s timeline card and `GalleryCatalogRow`, which are
+/// `bubbleBackground` cards but whose radius-2 / y-1 shadow falls *outside* the
+/// card onto the screen ground, so their own fill is not what they composite
+/// over. `nightBubble` is the **fourth's** ground: `ScenarioArtTile`'s badge
+/// overhangs the tile by 6pt against the row card's 13pt padding, so it stays
+/// inside that card. It is margin for the other three. The art tile's own
+/// `moss`-wash fill, which the badge partly overlaps, is
 /// *lighter* than `nightBubble` on every channel, so a tint below `nightBubble`
 /// is below the wash a fortiori and needs no separate entry — which is just as
 /// well, since a composite cannot be written as a palette-token reference.

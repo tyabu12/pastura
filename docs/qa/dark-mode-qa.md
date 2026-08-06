@@ -262,20 +262,21 @@ scrim has no lint guard at all. Walk it.
 - [ ] **PromoCard's two-layer shadow (#1378)** — launch with `--capture-demo`
       (DEBUG), which routes to `ModelDownloadHostView` and mounts the card in
       the bottom safe area. It is the **only** `.soft` consumer, so it carries
-      the whole visible part of the retint; the other three §4.3 sites are
+      the whole visible part of the retint; the other three §4.3 consumers are
       `.tight` alone, moving a fifth as far. Check both appearances: dark must show
       no green lift under the card, light must still read as a shadow now that
       it is neutral rather than moss. Signed off on the simulator at the retint;
       what a device adds is the same elevation judgement as the ModelPicker row
       above.
-- [ ] **The three `.tight`-only §4.3 sites** — `GalleryCatalogRow` and its
+- [ ] **The three `.tight`-only §4.3 consumers** — `GalleryCatalogRow` and its
       nested `ScenarioArtTile` badge (Browse tab), and the `ResultsView`
       timeline cards (Past Results). Their change is ≤ 1.1 sRGB steps in light
       and ≤ 3.4 in dark, confined to a 2 px halo at α 0.03. A **glance, not a
-      measurement** — but on that argument, not on the magnitude being tiny:
-      `PromoCard`'s `.soft`, which moves ~5× as far, was captured and signed off
-      as removing a glow without costing elevation, and these move the same way
-      by a fifth as much. `scripts/ui-tour.sh` reaches both screens but is
+      measurement**, and the reason is not that the number is small: pre-fix
+      these shadows *lifted* in dark (+2.5/+2.8/+1.5), so the shadow was never
+      carrying elevation on them and cannot regress. Both cards keep
+      `bubbleBackground` over the ground plus a `Color.rule` hairline — the pair
+      that actually carries it. `scripts/ui-tour.sh` reaches both screens but is
       largely blind to token changes: a zero pixel-diff there means "not
       exercised", not "unchanged".
 
