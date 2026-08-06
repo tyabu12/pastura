@@ -57,6 +57,12 @@
       }
       return yaml
     }
+
+    public func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
+      // No UI test flow exercises highlights yet — no network access, so
+      // this always fails like an unfetchable URL.
+      throw GalleryServiceError.unexpectedStatus(404)
+    }
   }
 
   // MARK: - UI test fixture

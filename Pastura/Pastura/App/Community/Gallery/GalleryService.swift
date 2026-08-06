@@ -34,6 +34,13 @@ nonisolated public protocol GalleryService: Sendable {
   /// matches `expectedSHA256` (lowercase hex). Throws
   /// `GalleryServiceError.hashMismatch` on mismatch.
   func fetchScenarioYAML(from url: URL, expectedSHA256: String) async throws -> String
+
+  /// Downloads a highlight excerpt file from `url`, verifying the bytes'
+  /// SHA-256 matches `expectedSHA256` (lowercase hex). Throws
+  /// `GalleryServiceError.hashMismatch` on mismatch. Returns the raw
+  /// verified bytes — decoding into `GalleryHighlight` is the caller's job,
+  /// so a parse failure can be distinguished from a fetch failure.
+  func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data
 }
 
 /// Errors produced by conforming `GalleryService` implementations.

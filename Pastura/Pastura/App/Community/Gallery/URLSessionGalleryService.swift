@@ -27,6 +27,11 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   /// Maximum accepted size of a single scenario YAML, in bytes.
   public static let yamlSizeLimit = 262_144  // 256 KiB
 
+  /// Maximum accepted size of a single highlight excerpt file, in bytes.
+  /// An excerpt is a few KB; this is a defense bound, not a design target
+  /// (ADR-029 Decision 4).
+  public static let highlightSizeLimit = 65_536  // 64 KiB
+
   /// Default remote URL for the gallery index.
   ///
   /// In Debug builds, the `PASTURA_GALLERY_BASE_URL` environment variable
@@ -179,6 +184,29 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
       throw GalleryServiceError.invalidResponse
     }
     return yaml
+  }
+
+  public func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
+    // Resolve against `indexURL` so `gallery.json` can reference siblings
+    // with relative paths (e.g. `"highlight_url": "highlights/asch_v1.json"`).
+    // Absolute URLs pass through untouched because URL resolution prefers
+    // the string's own scheme when present.
+    let resolved = URL(string: url.relativeString, relativeTo: indexURL) ?? url
+    var request = URLRequest(url: resolved)
+    request.httpMethod = "GET"
+    let (data, response) = try await performDataRequest(request, limit: Self.highlightSizeLimit)
+    guard let http = response as? HTTPURLResponse else {
+      throw GalleryServiceError.invalidResponse
+    }
+    guard http.statusCode == 200 else {
+      throw GalleryServiceError.unexpectedStatus(http.statusCode)
+    }
+    let actual = Self.sha256Hex(data)
+    let expected = expectedSHA256.lowercased()
+    guard actual == expected else {
+      throw GalleryServiceError.hashMismatch(expected: expected, actual: actual)
+    }
+    return data
   }
 
   // MARK: - Private

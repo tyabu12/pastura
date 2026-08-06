@@ -95,4 +95,7 @@ private final class StubGalleryService: GalleryService, @unchecked Sendable {
   func fetchScenarioYAML(from url: URL, expectedSHA256: String) async throws -> String {
     throw GalleryServiceError.unexpectedStatus(404)
   }
+  func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
+    throw GalleryServiceError.unexpectedStatus(404)
+  }
 }

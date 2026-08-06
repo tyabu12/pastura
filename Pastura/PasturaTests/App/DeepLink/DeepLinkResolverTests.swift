@@ -143,4 +143,9 @@ private final class MockGalleryService: GalleryService, @unchecked Sendable {
     // Resolver does not fetch YAML; placeholder for protocol conformance.
     throw GalleryServiceError.unexpectedStatus(404)
   }
+
+  func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
+    // Resolver does not fetch highlights; placeholder for protocol conformance.
+    throw GalleryServiceError.unexpectedStatus(404)
+  }
 }
