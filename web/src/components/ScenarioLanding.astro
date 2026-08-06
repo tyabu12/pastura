@@ -18,7 +18,9 @@
 // web build — it exists for the app's index-anchored fetch (ADR-029 D5).
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { Code } from 'astro:components';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import SheepAvatar from './SheepAvatar.astro';
 import type { GalleryScenario, ScenarioHighlight } from '../types/gallery';
 
 interface Props {
@@ -62,6 +64,34 @@ function loadHighlight(id: string): ScenarioHighlight | null {
 
 const highlight = loadHighlight(scenario.id);
 
+// The four avatar colour slots, in the order of `SheepAvatar.Character.allCases`
+// (Pastura/Pastura/Views/Components/SheepAvatar.swift). The app resolves an
+// agent's slot as `allCases[agentPosition % 4]`, where `agentPosition` is the
+// agent's index in the scenario's persona list. A highlight file carries no
+// persona index, so the order of first appearance in the excerpt stands in for
+// it. Measured on both shipped highlights (chin_jimaku_v1, asch_conformity_v1):
+// the two orders are identical, so a reader sees the same colours here as in
+// the app. That includes asch_conformity_v1's collision, where five agents
+// share four slots and 被験者ナオキ lands on サクラA's. The app collides the
+// same way, so reproducing it is fidelity rather than a defect to route around.
+const SHEEP_TONES = ['alice', 'bob', 'carol', 'dave'] as const;
+
+const excerpt = highlight?.excerpt ?? [];
+
+const agentSlots = new Map<string, number>();
+for (const line of excerpt) {
+  if (!agentSlots.has(line.agent)) agentSlots.set(line.agent, agentSlots.size);
+}
+const toneFor = (agent: string) =>
+  SHEEP_TONES[(agentSlots.get(agent) ?? 0) % SHEEP_TONES.length];
+
+// The panel head names the phase only when every line shares one, mirroring
+// GameHeader's meta row, where each fragment renders or collapses on its own.
+// ADR-029 Decision 3 allows an excerpt to mix phases, and labelling a mixed one
+// after its first entry would be silently wrong.
+const excerptPhases = new Set(excerpt.map((line) => line.phase));
+const uniformPhase = excerptPhases.size === 1 ? [...excerptPhases][0] : null;
+
 const enPath = `/s/${scenario.id}/`;
 const jaPath = `/ja/s/${scenario.id}/`;
 
@@ -93,6 +123,14 @@ const t = isJa
       highlightNote: `実際に端末で動かした結果から抜き出した会話です（${highlight?.source?.model ?? ''}）。`,
       yamlHookH: 'この会話を生んだYAML',
       editInvite: 'このYAMLはアプリで開いてそのまま書き換えられます。設定を変えて、自分だけの展開を確かめてみてください。',
+      recorded: '記録',
+      roundLabel: (round: number, total: number) => `ラウンド ${round} / ${total}`,
+      // Mirrors PhaseDisplayName.swift. ADR-029 Decision 3 limits excerpts to
+      // the two speak phases, so anything else is unexpected and drops the
+      // fragment rather than guessing a label for it.
+      phaseLabel: (phase: string): string | null =>
+        phase === 'speak_all' ? '発言' : phase === 'speak_each' ? '個別発言' : null,
+      innerVoiceNote: 'アプリでは、発言の裏でそれぞれが何を考えていたかも読めます。',
     }
   : {
       titleSuffix: ' · Pastura',
@@ -115,7 +153,27 @@ const t = isJa
       highlightNote: `Lines taken from a real on-device run (${highlight?.source?.model ?? ''}).`,
       yamlHookH: 'The YAML behind these lines',
       editInvite: 'Open this YAML in the app and rewrite it in place. Change the setup and see where your own run goes.',
+      recorded: 'RECORDED',
+      roundLabel: (round: number, total: number) => `ROUND ${round} / ${total}`,
+      // Mirrors PhaseDisplayName.swift. ADR-029 Decision 3 limits excerpts to
+      // the two speak phases, so anything else is unexpected and drops the
+      // fragment rather than guessing a label for it.
+      phaseLabel: (phase: string): string | null =>
+        phase === 'speak_all' ? 'Speak' : phase === 'speak_each' ? 'Speak Each' : null,
+      innerVoiceNote: 'In the app you can also read what each agent was thinking behind the line it spoke.',
     };
+
+// Built after `t` so the head can use the locale's own strings. The phase
+// fragment collapses when the excerpt mixes phases (see `uniformPhase` above)
+// or carries one this component has no label for.
+const headLabel = highlight
+  ? [
+      t.roundLabel(excerpt[0].round, scenario.rounds),
+      uniformPhase ? t.phaseLabel(uniformPhase) : null,
+    ]
+      .filter((fragment): fragment is string => Boolean(fragment))
+      .join(' · ')
+  : '';
 ---
 
 <BaseLayout
@@ -154,20 +212,38 @@ const t = isJa
             <h2 id="highlight-h">{t.highlightH}</h2>
             <p class="highlight-note">{t.highlightNote}</p>
 
-            <ol class="excerpt" lang={scenario.language}>
-              {highlight.excerpt.map((line) => (
-                <li class="excerpt-line">
-                  <span class="excerpt-agent">{line.agent}</span>
-                  <span class="excerpt-text">{line.text}</span>
-                </li>
-              ))}
-            </ol>
+            <div class="run-figure">
+              <div class="run-figure-head">
+                <span class="leaf" aria-hidden="true"></span>
+                <span class="label">{headLabel}</span>
+                <span class="rec" aria-hidden="true"><span class="rec-dot"></span>{t.recorded}</span>
+              </div>
+
+              <ol class="excerpt" lang={scenario.language}>
+                {highlight.excerpt.map((line, index) => (
+                  <li>
+                    {index > 0 && line.round !== highlight.excerpt[index - 1].round && (
+                      <div class="round-divider">{t.roundLabel(line.round, scenario.rounds)}</div>
+                    )}
+                    <div class="bubble-row">
+                      <SheepAvatar tone={toneFor(line.agent)} />
+                      <div class="bubble-stack">
+                        <div class="bubble-name">{line.agent}</div>
+                        <div class="bubble"><blockquote>{line.text}</blockquote></div>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <p class="inner-voice-note">{t.innerVoiceNote}</p>
+            <p class="highlight-teaser" lang={scenario.language}>{highlight.teaser}</p>
 
             <h3 class="yaml-hook-h">{t.yamlHookH}</h3>
-            <pre class="yaml-hook"><code>{highlight.yaml_hook.fragment}</code></pre>
+            <div class="yaml-hook"><Code code={highlight.yaml_hook.fragment} lang="yaml" theme="github-light" /></div>
             <p class="yaml-hook-caption" lang={scenario.language}>{highlight.yaml_hook.caption}</p>
 
-            <p class="highlight-teaser" lang={scenario.language}>{highlight.teaser}</p>
             <p class="highlight-invite">{t.editInvite}</p>
           </section>
         )}
@@ -261,43 +337,127 @@ const t = isJa
     font-size: 0.85rem;
     color: var(--ink-secondary, #5b6152);
   }
+  /* The excerpt is drawn as the app draws a run: sheep avatar, name, bubble.
+     `.bubble-row` / `.sheep` / `.bubble` / `.bubble-name` come from base.css,
+     which is loaded on prose pages too, so only the surrounding panel is new.
+
+     That panel repeats the LP hero figure's vocabulary (`.lp-hero-figure` in
+     lp.css) instead of sharing it. lp.css is not loaded on a prose page, and
+     lifting the chrome into base.css would put new selectors on the LP's
+     cascade to serve a single consumer. Keeping the rules scoped also settles
+     the specificity question: page.css loads AFTER base.css, so a global
+     `.run-figure ol` would tie with `.page-prose ol` and lose, whereas Astro's
+     scoping puts these at two classes and they win. */
+  .run-figure {
+    background: var(--page, #f3efe7);
+    border: 1px solid var(--rule, #e0dbce);
+    border-radius: 18px;
+    padding: 22px 18px;
+    margin: 1.25rem 0 1.5rem;
+  }
+  @media (min-width: 48rem) {
+    .run-figure {
+      padding: 26px 24px;
+    }
+  }
+  .run-figure-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .run-figure-head .leaf {
+    width: 8px;
+    height: 8px;
+    background: var(--moss, #8a9a6c);
+    transform: rotate(45deg);
+    display: inline-block;
+  }
+  .run-figure-head .label {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: var(--ink-2, #5a5a55);
+  }
+  /* The LP's twin of this pill reads SIMULATING against a pulsing moss dot.
+     An excerpt is an archived run, so the dot stays still and the colour drops
+     to muted. Faking liveness here would be the one dishonest pixel on a page
+     whose whole claim is that these lines really happened. */
+  .run-figure-head .rec {
+    margin-left: auto;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--muted, #6b6b65);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .run-figure-head .rec-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--muted, #6b6b65);
+  }
   .excerpt {
     list-style: none;
-    margin: 1.25rem 0;
+    margin: 0;
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.85rem;
+    gap: 14px;
   }
-  .excerpt-line {
+  .excerpt > li {
+    margin: 0;
+  }
+  /* An excerpt may cross a round boundary (asch_conformity_v1 does), and
+     without a marker the jump reads as two agents talking past each other.
+     Readable rather than decorative, so a screen reader gets the same cue. */
+  .round-divider {
     display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.75rem 0.9rem;
-    border: 1px solid var(--rule, #e0dbce);
-    border-radius: 0.75rem;
-    background: var(--bubble-bg, #fff);
+    align-items: center;
+    gap: 10px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    color: var(--muted, #6b6b65);
+    margin: 6px 0 14px;
   }
-  .excerpt-agent {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--ink-secondary, #5b6152);
+  .round-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--rule, #e0dbce);
   }
-  .excerpt-text {
+  .excerpt .bubble blockquote {
     /* Long unbroken agent output must wrap rather than widen the page. */
     overflow-wrap: anywhere;
+  }
+  .inner-voice-note {
+    font-size: 0.85rem;
+    color: var(--ink-secondary, #5b6152);
   }
   .yaml-hook-h {
     font-size: 1rem;
     margin-bottom: 0.5rem;
   }
-  /* The panel chrome (monospace, border, padding, overflow-x: auto) comes from
-     page.css `.page-prose pre`, which this block sits inside. Only the caption
-     spacing is overridden here, so long YAML lines scroll within the block and
-     the page body never gains a horizontal scrollbar on narrow screens. */
+  /* `<Code>` highlights the fragment at build time via Shiki, the same
+     treatment the scenario format reference gets — there the Markdown fences
+     inherit it from `astro.config.mjs`'s pinned `github-light`, here the theme
+     is named explicitly. The panel chrome (monospace, border, padding,
+     overflow-x: auto) still comes from page.css `.page-prose pre`, which this
+     block sits inside, so long YAML lines scroll within the block and the page
+     body never gains a horizontal scrollbar on narrow screens.
+
+     The wrapper exists because `<Code>` emits its own `<pre>`, which carries no
+     scope attribute from this component — hence the `:global()` reach to pull
+     the caption back up under it. */
   .yaml-hook {
     max-width: 100%;
     margin-bottom: 0.5rem;
+  }
+  .yaml-hook :global(pre.astro-code) {
+    margin-bottom: 0;
   }
   .highlight-teaser {
     font-weight: 600;
