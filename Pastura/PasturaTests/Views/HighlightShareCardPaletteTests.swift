@@ -9,10 +9,19 @@ import Testing
 /// Why this suite exists: `HighlightShareCard` is the only sanctioned
 /// fixed-appearance consumer in the app, and 67 `Color.*` aliases are now
 /// trait-resolving. If one creeps back into this palette, both families collapse
-/// to "whatever appearance the renderer resolved" — and nothing else would
-/// notice, because `ImageRenderer` output is asserted nowhere and ADR-009 rules
-/// out snapshot tests. Comparing two `Color` values is logic extraction, which
+/// to whatever the render environment resolved — and nothing else would notice,
+/// because `ImageRenderer` output is asserted nowhere and ADR-009 rules out
+/// snapshot tests. Comparing two `Color` values is logic extraction, which
 /// ADR-009 permits.
+///
+/// **What that collapse would and would not cost, measured in #1337.** The
+/// render environment is the `colorScheme` the caller injects, so an alias here
+/// would still resolve to the *requested* appearance — the export would not
+/// silently go light on a dark device, which is what an earlier version of this
+/// comment implied. The pin is kept anyway: `light` and `dark` would become the
+/// same thing, so the caller's choice would stop having any effect, and the
+/// export would depend on a platform behaviour Apple owns rather than on sRGB
+/// values this repo pins. See ADR-028 § Amendment 2026-08-06 (#1337).
 ///
 /// ``SheepAvatarPaletteTests`` guards the same contract one level down, for
 /// the avatar this card draws — `HighlightCardPalette` covers six tokens and

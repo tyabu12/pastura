@@ -402,11 +402,21 @@ The check to run on a **new** fixed-appearance consumer is therefore "does it
 inject `\.environment(\.colorScheme, …)` and take the appearance as a
 parameter?" — not "does it read an alias". The first is what silently breaks.
 
-**The consumer is not always the view you migrated.** A component a
-fixed-appearance consumer *draws* inherits the constraint without appearing in
-any consumer list — pairing §2.5 silently un-pinned `HighlightShareCard`'s
-`SheepAvatar` (#1319). Ask not "does a fixed-appearance consumer read this
-token" but "does one read a **view** that reads it".
+**The consumer is not always the view you migrated** — but #1337 changed what
+that buys you. A component a fixed-appearance consumer *draws* does not appear in
+any consumer list, which is how pairing §2.5 silently un-pinned
+`HighlightShareCard`'s `SheepAvatar` (#1319). The reach observation stands; the
+**hazard** it was pointing at does not. An alias read inside a drawn component
+resolves against the export's injected `colorScheme` like any other read, so
+`SheepAvatar` was never actually rendering wrong.
+
+What propagates to a drawn component is therefore nothing — the requirement sits
+on the **export**, which must inject. So the question to ask is not "does one read
+a view that reads it" (the superseded #1319 form, still stated as such in ADR-028
+§ Amendment 2026-07-30 (#1319)) but simply: **does every fixed-appearance export
+inject its appearance?** A drawn component only becomes exposed when some *new*
+export draws it without injecting — and that is the omitted-injection hazard
+attached to the new export, not a property of the component.
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
 
