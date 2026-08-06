@@ -8,13 +8,15 @@ import SwiftUI
 // §4 (spacing, radii, shadows). If a token value here disagrees with that doc,
 // the doc wins — fix this file, not the doc.
 //
-// **One exception, and it runs the other way**: `PasturaOccluderShadows`
-// (§4.3.1, `DesignTokens+OccluderShadows.swift`) is canonical in Swift, because
+// **The §4.3 shadows are the exception, and they run the other way**: both
+// `PasturaShadows` (`DesignTokens+Shadows.swift`) and `PasturaOccluderShadows`
+// (§4.3.1, `DesignTokens+OccluderShadows.swift`) are canonical in Swift, because
 // `check_design_tokens_css.py` gates those literals against `tokens.css` — the
-// mirror is Swift → CSS, and §4.3.1 restates the values as a copy.
+// mirror is Swift → CSS, and the doc restates the values as a copy.
 //
 // Organized in layered namespaces (see individual doc comments below):
-//   - PasturaPalette / PasturaShadows — structural tokens (test-readable).
+//   - PasturaPalette                  — structural tokens (test-readable).
+//   - PasturaShadows (sibling file)   — §4.3's two-layer card shadow.
 //   - Typography + Spacing + Radius   — layout + type scales.
 //   - Color extension                 — SwiftUI-facing flat aliases.
 
@@ -42,9 +44,11 @@ struct PasturaColorValue: Sendable, Equatable {
     self.opacity = opacity
   }
 
-  /// Build a token from raw 0...1 sRGB components. Used for §4.3 shadow tints
-  /// specified as `rgba(90, 100, 60, ...)` where a hex literal would obscure
-  /// the source numbers.
+  /// Build a token from raw 0...1 sRGB components. Used for tokens the design
+  /// system specifies as `rgba(138, 154, 108, ...)` — the interaction-state
+  /// washes in `DesignTokens+ExtendedPalette` / `+NightStatePalette` — where a
+  /// hex literal would obscure the source numbers. §4.3's shadows used this
+  /// form until #1378 retinted them to a near-black written as `hex:opacity:`.
   init(red: Double, green: Double, blue: Double, opacity: Double) {
     self.red = red
     self.green = green
@@ -151,51 +155,9 @@ enum PasturaPalette {
   // file under the 400-line `file_length` cap while slice 4 added to §2.1/§2.3.
 }
 
-// MARK: - §4.3 Shadow tokens
-
-/// A single shadow layer matching SwiftUI's `.shadow(color:radius:x:y:)` shape.
-///
-/// CSS source (`design-system.md` §4.3) uses a negative spread on the second
-/// layer (`-12px`). SwiftUI's built-in `.shadow` has no spread parameter, so
-/// the spread is dropped; the visual approximation is close enough for the
-/// soft-shadow use case. If the exact spread matters for a specific surface,
-/// reach for a custom `.background { ... }` mask — but do not add spread
-/// handling to this token type without revisiting design-system.md §4.3 first.
-struct PasturaShadow: Sendable, Equatable {
-  let color: PasturaColorValue
-  let radius: CGFloat
-  let x: CGFloat
-  let y: CGFloat
-}
-
-/// Two-layer moss-tinted shadow recipe from `design-system.md` §4.3.
-///
-/// Apply by stacking both `.shadow(...)` modifiers on the same view:
-/// ```
-/// view
-///   .shadow(
-///     color: PasturaShadows.tight.color.color,
-///     radius: PasturaShadows.tight.radius,
-///     x: PasturaShadows.tight.x,
-///     y: PasturaShadows.tight.y)
-///   .shadow(
-///     color: PasturaShadows.soft.color.color,
-///     radius: PasturaShadows.soft.radius,
-///     x: PasturaShadows.soft.x,
-///     y: PasturaShadows.soft.y)
-/// ```
-enum PasturaShadows {
-  /// Inner tight layer — `0 1px 2px rgba(90,100,60,.04)`.
-  static let tight = PasturaShadow(
-    color: PasturaColorValue(
-      red: 90.0 / 255.0, green: 100.0 / 255.0, blue: 60.0 / 255.0, opacity: 0.04),
-    radius: 2, x: 0, y: 1)
-  /// Outer soft layer — `0 12px 26px -12px rgba(90,100,60,.2)` (spread dropped).
-  static let soft = PasturaShadow(
-    color: PasturaColorValue(
-      red: 90.0 / 255.0, green: 100.0 / 255.0, blue: 60.0 / 255.0, opacity: 0.2),
-    radius: 26, x: 0, y: 12)
-}
+// §4.3's shadow recipe (`PasturaShadow` / `PasturaShadows`) lives in
+// `DesignTokens+Shadows.swift`, alongside `DesignTokens+OccluderShadows.swift`
+// — moved out to keep this file under the 400-line `file_length` cap.
 
 // MARK: - §3 Typography tokens
 

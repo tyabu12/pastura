@@ -266,26 +266,35 @@
   --radius-button: 8px;
   --radius-dot: 50%;
 
-  /* §4.3 Shadow — max 2 layers per element, moss-tinted */
+  /* §4.3 Shadow — max 2 layers per element. Every shadow tint below is the
+     same #0B0C0A: an occluder must be darker than every ground it covers,
+     and the moss tints these replaced were lighter than the night ground,
+     so they composited upward as a glow. See ADR-028 (#1284 / #1373 / #1378). */
   /* §4.3-adjacent: the full-bleed occlusion scrim. Fixed in both
-     appearances — an occluder must be darker than every ground it covers,
-     which a paired token cannot guarantee. See ADR-028 (#1284). */
+     appearances — a paired token cannot guarantee the direction. */
   --scrim: rgba(11, 12, 10, 0.4);
 
-  /* §4.3.1 Occlusion shadows — same #0B0C0A as --scrim, for the same reason:
-     an element sitting on the app ground needs a tint darker than every
-     ground it covers, which the moss tints below are not. Geometry is
-     per-site; only the tint is shared. Three Swift consumers, two values:
-     the in-flight pill reuses --shadow-tint-occluder-light. See ADR-028
-     (#1373). */
+  /* §4.3.1 Occlusion shadows — geometry is per-site; only the tint is
+     shared. Three Swift consumers, two values: the in-flight pill reuses
+     --shadow-tint-occluder-light. */
   --shadow-tint-occluder-light: rgba(11, 12, 10, 0.1);
   --shadow-tint-occluder-strong: rgba(11, 12, 10, 0.36);
 
-  --shadow-tint-tight: rgba(90, 100, 60, 0.04);
-  --shadow-tint-soft: rgba(90, 100, 60, 0.2);
+  /* The general card recipe. Alphas were re-solved on the red channel when
+     the tint went near-black, so light-mode lightness is preserved and only
+     the hue goes neutral (0.04 -> 0.03, 0.2 -> 0.13).
+
+     Each value appears TWICE below — once as a --shadow-tint-* var, once
+     inside --shadow-card. check_design_tokens_css.py asks only whether a Swift
+     value appears *somewhere* in this file, so it cannot see one of a
+     duplicated pair drift: probed, mutating one of the two leaves the gate
+     green, mutating both (or the Swift side) reddens it. Edit the pair
+     together. */
+  --shadow-tint-tight: rgba(11, 12, 10, 0.03);
+  --shadow-tint-soft: rgba(11, 12, 10, 0.13);
   --shadow-card:
-    0 1px 2px rgba(90, 100, 60, 0.04),
-    0 12px 26px -12px rgba(90, 100, 60, 0.2);
+    0 1px 2px rgba(11, 12, 10, 0.03),
+    0 12px 26px -12px rgba(11, 12, 10, 0.13);
 }
 
 /* §2.4 Meta Contrast Presets — L3 is the documented default. */
