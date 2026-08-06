@@ -69,10 +69,10 @@ struct GalleryScenarioDetailView: View {
     // load rather than after it — a highlight is decorative enrichment and must
     // never sit on the screen's critical path (ADR-029 Decision 4).
     .task(id: scenario.id) {
-      let loader =
-        highlightLoader ?? GalleryHighlightLoader(galleryService: dependencies.galleryService)
-      highlightLoader = loader
-      await loader.load(for: scenario)
+      if highlightLoader == nil {
+        highlightLoader = GalleryHighlightLoader(galleryService: dependencies.galleryService)
+      }
+      await highlightLoader?.load(for: scenario)
     }
     .alert(item: $outcomeAlert) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))

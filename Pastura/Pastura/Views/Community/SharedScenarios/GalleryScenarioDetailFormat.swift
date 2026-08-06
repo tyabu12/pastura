@@ -55,9 +55,12 @@ enum GalleryScenarioDetailFormat {
   /// trimmed — leading indentation is load-bearing in YAML, so the first line's
   /// offset is preserved exactly as published.
   static func yamlFragmentForDisplay(_ fragment: String) -> String {
-    // `whitespacesAndNewlines` covers "\n", "\r\n", and trailing spaces alike.
+    // `Character.isWhitespace` is true for "\n", "\r\n", and spaces alike,
+    // so one predicate covers every trailing form. A hand-rolled loop rather
+    // than `trimmingCharacters(in:)`, which trims BOTH ends and would break
+    // the leading-indentation guarantee above.
     var trimmed = Substring(fragment)
-    while let last = trimmed.last, last.isWhitespace || last.isNewline {
+    while let last = trimmed.last, last.isWhitespace {
       trimmed = trimmed.dropLast()
     }
     return String(trimmed)

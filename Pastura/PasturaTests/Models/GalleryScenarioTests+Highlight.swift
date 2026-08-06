@@ -4,9 +4,8 @@ import Testing
 @testable import Pastura
 
 // Split out of `GalleryScenarioTests` to keep the parent suite under
-// swiftlint's `type_body_length` cap (testing.md § "Splitting a Suite Across
-// Files"). Sibling-file `extension` of the same suite — NOT a new `@Suite`,
-// which would run in parallel and defeat the shared-suite ordering.
+// swiftlint's `type_body_length` cap — sibling-file `extension` of the same
+// suite, per testing.md § "Splitting a Suite Across Files".
 extension GalleryScenarioTests {
 
   // MARK: - highlightURL / highlightSHA256 (optional, ADR-029)

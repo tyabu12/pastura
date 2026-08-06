@@ -194,4 +194,11 @@ nonisolated public struct GalleryHighlightYAMLHook: Codable, Equatable, Sendable
     self.fragment = fragment
     self.caption = caption
   }
+
+  // No snake_case mapping needed today; explicit per the file-family
+  // convention so a future mapped field cannot be added without noticing.
+  private enum CodingKeys: String, CodingKey {
+    case fragment
+    case caption
+  }
 }

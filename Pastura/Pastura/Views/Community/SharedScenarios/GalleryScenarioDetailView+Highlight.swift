@@ -52,6 +52,9 @@ extension GalleryScenarioDetailView {
             .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        // One VoiceOver element per utterance ("<agent>, <line>") — split
+        // elements would read the name, stop, then the line.
+        .accessibilityElement(children: .combine)
       }
     }
   }
@@ -74,7 +77,9 @@ extension GalleryScenarioDetailView {
         .font(.subheadline.weight(.semibold))
         .foregroundStyle(Color.ink)
       Text(verbatim: GalleryScenarioDetailFormat.yamlFragmentForDisplay(hook.fragment))
-        .font(.system(size: 12, design: .monospaced))
+        // Text-style-relative so the code block scales with Dynamic Type
+        // alongside the section's prose (a fixed point size would not).
+        .font(.system(.caption2, design: .monospaced))
         .foregroundStyle(Color.inkSecondary)
         .fixedSize(horizontal: false, vertical: true)
         .frame(maxWidth: .infinity, alignment: .leading)

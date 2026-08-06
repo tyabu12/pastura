@@ -161,25 +161,8 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   }
 
   public func fetchScenarioYAML(from url: URL, expectedSHA256: String) async throws -> String {
-    // Resolve against `indexURL` so `gallery.json` can reference siblings
-    // with relative paths (e.g. `"yaml_url": "asch_v1.yaml"`). Absolute
-    // URLs pass through untouched because URL resolution prefers the
-    // string's own scheme when present.
-    let resolved = URL(string: url.relativeString, relativeTo: indexURL) ?? url
-    var request = URLRequest(url: resolved)
-    request.httpMethod = "GET"
-    let (data, response) = try await performDataRequest(request, limit: Self.yamlSizeLimit)
-    guard let http = response as? HTTPURLResponse else {
-      throw GalleryServiceError.invalidResponse
-    }
-    guard http.statusCode == 200 else {
-      throw GalleryServiceError.unexpectedStatus(http.statusCode)
-    }
-    let actual = Self.sha256Hex(data)
-    let expected = expectedSHA256.lowercased()
-    guard actual == expected else {
-      throw GalleryServiceError.hashMismatch(expected: expected, actual: actual)
-    }
+    let data = try await fetchVerifiedBytes(
+      from: url, expectedSHA256: expectedSHA256, limit: Self.yamlSizeLimit)
     guard let yaml = String(data: data, encoding: .utf8) else {
       throw GalleryServiceError.invalidResponse
     }
@@ -187,14 +170,25 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   }
 
   public func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
-    // Resolve against `indexURL` so `gallery.json` can reference siblings
-    // with relative paths (e.g. `"highlight_url": "highlights/asch_v1.json"`).
-    // Absolute URLs pass through untouched because URL resolution prefers
-    // the string's own scheme when present.
+    try await fetchVerifiedBytes(
+      from: url, expectedSHA256: expectedSHA256, limit: Self.highlightSizeLimit)
+  }
+
+  /// Shared body of the two per-entry artifact fetches: size-limited GET +
+  /// SHA-256 verification against the index-declared hash.
+  ///
+  /// Resolves `url` against `indexURL` so `gallery.json` can reference
+  /// siblings with relative paths (e.g. `"yaml_url": "asch_v1.yaml"`,
+  /// `"highlight_url": "highlights/asch_v1.json"`). Absolute URLs pass
+  /// through untouched because URL resolution prefers the string's own
+  /// scheme when present.
+  private func fetchVerifiedBytes(
+    from url: URL, expectedSHA256: String, limit: Int
+  ) async throws -> Data {
     let resolved = URL(string: url.relativeString, relativeTo: indexURL) ?? url
     var request = URLRequest(url: resolved)
     request.httpMethod = "GET"
-    let (data, response) = try await performDataRequest(request, limit: Self.highlightSizeLimit)
+    let (data, response) = try await performDataRequest(request, limit: limit)
     guard let http = response as? HTTPURLResponse else {
       throw GalleryServiceError.invalidResponse
     }
