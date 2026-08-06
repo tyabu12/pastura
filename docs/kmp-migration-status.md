@@ -75,5 +75,10 @@ machine-checked — see the maintenance invariant above.
 - **Stage 4** (parity harness): 🔄 in progress — slice 1a landed; 1b next; no parity rung live yet.
   See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
   [#1387](https://github.com/tyabu12/pastura/issues/1387).
+  ⚠️ The divergent fixture's negative control now drives a **value** divergence only:
+  ADR-021 § Amendment 2026-08-06 resolved `SCHEMA_GUARD_POSITION` (both engines skip a turn
+  whose declared canonical primary is empty), and no structural arm is reachable from a
+  scripted fixture. Slice 1b owns re-arming it, together with the unfired-entry enforcement
+  that would have caught the loss — tracked on [#501](https://github.com/tyabu12/pastura/issues/501).
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.

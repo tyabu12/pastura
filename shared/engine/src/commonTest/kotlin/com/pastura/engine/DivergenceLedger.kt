@@ -62,13 +62,12 @@ internal object DivergenceLedger {
          */
         CANCELLATION_EVENT_TAIL("ConditionalHandler.kt class KDoc, § Divergences"),
 
-        /**
-         * For a present-but-empty canonical field on a schema-declaring phase,
-         * Swift's last retry attempt returns the empty output as an
-         * `agentOutput`; Kotlin's parser guard exhausts retries and the turn
-         * gate emits `turnSkipped`.
-         */
-        SCHEMA_GUARD_POSITION(".claude/rules/kmp-interop.md Pattern 4"),
+        // `SCHEMA_GUARD_POSITION` lived here — Swift returned a present-but-empty
+        // canonical field as an `agentOutput` where Kotlin's parser guard exhausted
+        // retries into a `turnSkipped`. ADR-021 § Amendment 2026-08-06 resolved it
+        // (both engines now skip), so the case is DELETED rather than kept with a
+        // "resolved" marker: a case that outlives its entries becomes a pre-approved
+        // licence a later author can attach to with no enum diff at all.
 
         /**
          * The ADR-010 language-adherence retry is dormant on the Kotlin side:

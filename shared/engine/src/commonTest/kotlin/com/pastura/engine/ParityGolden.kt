@@ -199,11 +199,13 @@ internal object ParityGolden {
     )
 
     /**
-     * Negative control. A ledger whose entries never fire ships unexercised, so this fixture drives two documented divergences on purpose — one of each entry kind — and the parity suite fails if either stops firing.
+     * Negative control. A ledger whose entries never fire ships unexercised, so this fixture drives documented divergences on purpose and the parity suite fails if one stops firing.
      *
-     * Calls 0-2 answer the first agent's schema-declaring `speak_all` turn with present-but-empty canonical fields, across the whole retry window. Swift takes an `empty_field` retry and its last attempt RETURNS the empty output as an `agentOutput`; Kotlin's parser applies its expected-key guard on every successful parse, so it exhausts retries and emits a `turnSkipped` instead. That is a STRUCTURAL divergence (`.claude/rules/kmp-interop.md` Pattern 4).
+     * **It currently drives a VALUE divergence only.** It used to drive one of each entry kind: calls 0-2 answer the first agent's schema-declaring `speak_all` turn with present-but-empty canonical fields across the whole retry window, which Swift returned as an `agentOutput` while Kotlin's parser guard exhausted retries into a `turnSkipped` — a STRUCTURAL divergence. ADR-021 § Amendment 2026-08-06 resolved it: both engines now skip that turn, so the arm no longer fires and `SCHEMA_GUARD_POSITION` was retired from the ledger. The empty-field overrides are kept because they still exercise the retry window identically on both sides.
      *
-     * The next call carries a float-valued key. Swift normalizes `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the literal as "1.0". That is a VALUE divergence, and the one `JSONResponseParser.kt` routes to Stage 4 to rule on.
+     * Re-arming a structural arm was assessed and is **not reachable from a scripted fixture**: `CANCELLATION_EVENT_TAIL` needs a mid-run cancellation this emitter never performs, `DETECTOR_UNWIRED` is deliberately guarded off (a real detector would make the golden vary by host — see `parityRunEmitsNoLanguageMismatch`), and `VALIDATOR_UNPORTED` needs a scenario Swift rejects, which would produce no transcript. Closing this gap belongs to the slice that makes ledger coverage enforceable; tracked on #501. Do not read a clean structural comparison here as evidence the structural path is exercised.
+     *
+     * The float-valued key below is the surviving arm. Swift normalizes `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the literal as "1.0". That is a VALUE divergence, and the one `JSONResponseParser.kt` routes to Stage 4 to rule on.
      */
     internal val targetScoreRaceDivergent: Fixture = Fixture(
         name = "targetScoreRaceDivergent",
@@ -247,7 +249,7 @@ internal object ParityGolden {
             """{"agent":"アオイ","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
             """{"agent":"アオイ","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
             """{"agent":"アオイ","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
-            """{"agent":"アオイ","attempt":0,"event":"agent_output","fields":{"inner_thought":"","statement":""},"phase_type":"speak_all","raw_text":"{\"statement\": \"\", \"inner_thought\": \"\"}","t":0,"type":"event"}""",
+            """{"agent":"アオイ","attempt":0,"event":"turn_skipped","phase_type":"speak_all","t":0,"type":"event","value":"retries exhausted"}""",
             """{"agent":"ハルト","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
             """{"agent":"ハルト","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
             """{"agent":"ハルト","attempt":0,"event":"agent_output","fields":{"confidence":"1","inner_thought":"t","statement":"s"},"phase_type":"speak_all","raw_text":"{\"statement\": \"s\", \"inner_thought\": \"t\", \"confidence\": 1.0}","t":0,"type":"event"}""",
