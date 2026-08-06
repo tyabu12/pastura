@@ -9,12 +9,19 @@ import Testing
 /// Why this suite exists: pairing the §2.5 tokens made every `Color.avatar*`
 /// alias trait-resolving, and ``SheepAvatar`` renders inside
 /// ``HighlightShareCard``'s `ImageRenderer` export. If an alias creeps into this
-/// palette, the shared image's sheep silently becomes "whatever appearance the
-/// renderer resolved" — and nothing else would notice: the app is pinned to
-/// light so no human sees it, `ImageRenderer` output is asserted nowhere, and
-/// ADR-009 rules out the snapshot test that would catch it. Sibling of
-/// ``HighlightShareCardPaletteTests``, which guards the same contract one level
-/// up.
+/// palette, the sheep's colours start tracking the render environment instead of
+/// the fixed values pinned below — and nothing else would notice, because
+/// `ImageRenderer` output is asserted nowhere and ADR-009 rules out the snapshot
+/// test that would catch it. Sibling of ``HighlightShareCardPaletteTests``, which
+/// guards the same contract one level up.
+///
+/// **What that costs, measured in #1337:** not a dark export rendering light.
+/// The render environment is the `colorScheme` the export injects, so an alias
+/// would still resolve to the requested appearance — but `light` and `dark` would
+/// resolve to the same thing, making the caller's choice inert, and the export
+/// would depend on a platform behaviour Apple owns. (An earlier version of this
+/// comment also said "the app is pinned to light so no human sees it"; that lock
+/// was deleted in #1284.) See ADR-028 § Amendment 2026-08-06 (#1337).
 ///
 /// What this suite does **not** cover: that ``HighlightShareCard`` actually
 /// passes its `colorScheme` down, and that ``SheepAvatar`` reads

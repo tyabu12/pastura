@@ -368,10 +368,14 @@ alias as fixed without checking `PasturaDynamicPalette`, whose doc comment carri
 the current membership and its slice-by-slice provenance.
 
 **Apply**: pass the appearance in **explicitly** — capture
-`@Environment(\.colorScheme)` at the call site, and drive the view's palette
-from that value (an explicit `colorScheme` parameter) reading
-**`PasturaPalette.<token>.color`, never the `Color.*` alias** — the raw palette
-values are fixed sRGB, which is exactly the property an export needs. Also set
+`@Environment(\.colorScheme)` at the call site, and drive the view's palette from
+that value (an explicit `colorScheme` parameter). **The injection is the
+load-bearing half**: omit it and the export goes light. Reading
+`PasturaPalette.<token>.color` rather than the `Color.*` alias remains the
+convention, but for callsite explicitness and independence from a platform
+behaviour Apple owns — not because an alias would resolve wrong (#1337 measured
+that it would not). Its concrete cost is that `light` and `dark` would collapse
+into each other, which makes the parameter you just threaded inert. Also set
 `.environment(\.colorScheme, …)` on the rendered content for any system-colored
 subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
 simulator misleads.

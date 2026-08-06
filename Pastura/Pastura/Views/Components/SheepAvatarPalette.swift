@@ -9,11 +9,16 @@ import SwiftUI
 /// `Color.avatar*` alias trait-resolving. ``SheepAvatar`` is rendered inside
 /// ``HighlightShareCard``, which is an `ImageRenderer` export path — and
 /// `ImageRenderer` does not inherit the ambient environment. Reading the
-/// aliases from there would have made the shared image's sheep resolve to
-/// whatever appearance the renderer happened to pick, which is the exact
-/// regression ``HighlightCardPalette`` was created to prevent one layer up.
-/// That palette pins six tokens and contains no avatar token, so its guard did
-/// not reach this far down.
+/// aliases from there would have tied the shared image's sheep to whatever the
+/// render environment resolved — the same shape ``HighlightCardPalette`` was
+/// created to prevent one layer up. That palette pins six tokens and contains no
+/// avatar token, so its guard did not reach this far down.
+///
+/// **The severity was overstated, and #1337 measured it.** The render
+/// environment is the `colorScheme` the export injects, so the sheep would have
+/// resolved to the *requested* appearance rather than the device's. The cost is
+/// that `light` and `dark` collapse into each other — the caller's choice goes
+/// inert — not that a dark export silently renders light.
 ///
 /// So every value here is read from **raw `PasturaPalette`**, which is fixed
 /// sRGB — the sanctioned explicit-appearance accessor (see
