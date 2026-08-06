@@ -16,6 +16,13 @@
 #   - YAML file size <= 256 KiB (matches URLSessionGalleryService.yamlSizeLimit)
 #   - id uniqueness across gallery.json + Pastura/Pastura/Resources/Presets/*.yaml
 #   - YAML filename stem == id field inside the YAML
+#   - docs/gallery/highlights/<id>.json validity (ADR-029 Decision 2) —
+#     delegated to scripts/gallery_highlight_validate.py, which re-derives the
+#     schema/cap/source_field allowlist, the sha three-way (highlight pin ==
+#     gallery.json == raw YAML bytes), the highlight_url ⟺ highlight_sha256 ⟺
+#     file pairing (including the inverse orphan), the spoiler position rules
+#     and the ContentBlocklist re-audit. This is the enforcement point: a
+#     hand-edited highlight never runs the extractor.
 #
 # Validations covered elsewhere (kept here as a maintainer signpost so
 # the next contributor does not duplicate them in bash):
@@ -56,6 +63,9 @@ ROOT="$(git rev-parse --show-toplevel)"
 GALLERY_DIR="$ROOT/docs/gallery"
 GALLERY_JSON="$GALLERY_DIR/gallery.json"
 PRESETS_DIR="$ROOT/Pastura/Pastura/Resources/Presets"
+HIGHLIGHTS_DIR="$GALLERY_DIR/highlights"
+HIGHLIGHT_VALIDATOR="$ROOT/scripts/gallery_highlight_validate.py"
+BLOCKLIST_JSON="$ROOT/Pastura/Pastura/Resources/ContentBlocklist.json"
 MAX_BYTES=$((256 * 1024))
 
 FAILURES=0
@@ -147,6 +157,42 @@ check_entry() {
   fi
 }
 
+# --- Highlight validation (ADR-029) ----------------------------------------
+
+# Delegates to the python validator. Runs in BOTH modes (the gallery-drift CI
+# job uses --all) and is a no-op when the repo carries neither a highlights/
+# directory nor any highlight_* index field — that keeps the check free for
+# every gallery edit that predates the feature.
+check_highlights() {
+  local paired
+  paired="$(jq -r '[.scenarios[] | select(has("highlight_url") or has("highlight_sha256"))] | length' "$GALLERY_JSON")"
+  if [ ! -d "$HIGHLIGHTS_DIR" ] && [ "$paired" = "0" ]; then
+    return 0
+  fi
+  if [ ! -f "$HIGHLIGHT_VALIDATOR" ]; then
+    fail "highlight: validator missing — expected $HIGHLIGHT_VALIDATOR"
+    return 0
+  fi
+  local out rc
+  set +e
+  out="$(python3 "$HIGHLIGHT_VALIDATOR" \
+    --gallery-json "$GALLERY_JSON" \
+    --gallery-dir "$GALLERY_DIR" \
+    --blocklist "$BLOCKLIST_JSON" 2>&1)"
+  rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    # here-doc, not a pipe: `echo "$out" | while …` would run the loop in a
+    # subshell and lose `fail`'s FAILURES increments. (Not `<<<` either —
+    # here-strings are on ci-workflows.md Rule 1's bash-3.2 avoid list.)
+    while IFS= read -r line; do
+      [ -n "$line" ] && fail "$line"
+    done <<EOF
+$out
+EOF
+  fi
+}
+
 check_id_uniqueness() {
   local dups
   dups="$(all_known_ids | sort | uniq -d)"
@@ -176,6 +222,7 @@ if [ "$MODE" = "--all" ]; then
     fi
     check_entry "$yaml_path" "$entry_id" "$entry_sha" "$entry_lang"
   done < <(jq -r '.scenarios[] | [.id, .yaml_url, .yaml_sha256, (.language // "")] | @tsv' "$GALLERY_JSON")
+  check_highlights
 else
   yaml_path="$MODE"
   if [ ! -f "$yaml_path" ]; then
@@ -195,6 +242,7 @@ else
     check_entry "$yaml_path" "$expected_id" "$expected_sha" "$expected_lang"
   fi
   check_id_uniqueness
+  check_highlights
 fi
 
 if [ "$FAILURES" -gt 0 ]; then

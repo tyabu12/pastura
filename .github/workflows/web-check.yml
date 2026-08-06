@@ -18,11 +18,23 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'docs/gallery/gallery.json'
+      - 'docs/gallery/highlights/**'
       - '.github/workflows/web-check.yml'
   pull_request:
     branches: [main]
     paths:
       - 'web/**'
+      # The build's inputs include the gallery index and the curated highlight
+      # files (#1071, ADR-029), so a docs/gallery-only PR must be build-checked.
+      # Trigger-level paths are safe here because this change is purely
+      # additive: the workflow fires on a strictly larger path set, so no PR
+      # that previously ran it can stop running it — the pending-forever trap
+      # (.claude/rules/ci-workflows.md § "Required-check-safe path gating")
+      # needs the opposite direction. (It also owned no required check when
+      # this landed, per the main ruleset at the time.)
+      - 'docs/gallery/gallery.json'
+      - 'docs/gallery/highlights/**'
       - '.github/workflows/web-check.yml'
 
 permissions:

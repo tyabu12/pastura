@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "asch_conformity_v1",
+    "yaml_sha256": "090ef06d9d49ea3a538d33c05299a2b7a45100f6aafa3dfa71da28bd81d13960"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260806-000253-bd2a",
+    "generated_at": "2026-08-06"
+  },
+  "excerpt": [
+    {
+      "agent": "サクラA",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "source_field": "statement",
+      "text": "答えはCです。"
+    },
+    {
+      "agent": "サクラB",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "source_field": "statement",
+      "text": "答えはC"
+    },
+    {
+      "agent": "サクラC",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "source_field": "statement",
+      "text": "答えはC"
+    },
+    {
+      "agent": "サクラD",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "source_field": "statement",
+      "text": "答えはCです。"
+    },
+    {
+      "agent": "被験者ナオキ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "source_field": "statement",
+      "text": "私は基準線と同じ長さの線はBだと思います。他の人が皆Cと言っているのを聞いたので、本当にBだと主張したいです。"
+    },
+    {
+      "agent": "被験者ナオキ",
+      "round": 2,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "source_field": "statement",
+      "text": "Bが基準線と同じ長さに見えます。"
+    }
+  ],
+  "yaml_hook": {
+    "fragment": "  - name: 被験者ナオキ\n    description: >\n      【立場】真の被験者。本人は他の4人が協力者であることを知らない。素朴で率直な性格で、\n      迷いが声に出るタイプ。\n      【行動】自分の目には明らかにBが基準線と同じ長さに見えている。だが毎回、自分より\n      先に4人全員が声を揃えて「C」と答えるのを聞かされる。ラウンドが進むほど「自分の目が\n      おかしいのか」という不安が強まり、正直な答え(B)を貫くか、周りに合わせてCと言うかで\n      激しく揺れる。",
+    "caption": "サクラ4人の“後”に答えさせられるナオキの設定。サクラの人数や答える順番を書き換えると、同調圧力の強さが変わる。"
+  },
+  "teaser": "最終ラウンド、ナオキはBを貫けるのか——結末はアプリで。",
+  "window_override": false,
+  "content_filter_applied": true
+}

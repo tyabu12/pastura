@@ -9,8 +9,17 @@
 // so a page may show a Japanese title under English chrome when a viewer
 // reaches the non-matching locale path. That is intentional: the title is
 // user content, and the share card links to the sharer's own locale path.
+//
+// The highlight section (ADR-029) is read here rather than in the two route
+// files so both routes stay identical by construction. Path resolution follows
+// the routes' gallery.json read: `process.cwd()` is the web/ project root
+// during `astro build`, and import.meta.url is unsafe (the bundler rewrites it
+// to an unstable depth). `highlight_url` in gallery.json is NOT resolved by the
+// web build — it exists for the app's index-anchored fetch (ADR-029 D5).
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import BaseLayout from '../layouts/BaseLayout.astro';
-import type { GalleryScenario } from '../types/gallery';
+import type { GalleryScenario, ScenarioHighlight } from '../types/gallery';
 
 interface Props {
   locale: 'en' | 'ja';
@@ -19,6 +28,39 @@ interface Props {
 
 const { locale, scenario } = Astro.props;
 const isJa = locale === 'ja';
+
+// Absence is the normal case (only a few curated scenarios have highlights),
+// and a malformed file must not break the build — the repo-side gallery gate
+// owns validation (ADR-029 D2), so the web build degrades to "no section".
+function loadHighlight(id: string): ScenarioHighlight | null {
+  const path = resolve(process.cwd(), `../docs/gallery/highlights/${id}.json`);
+  let raw: string;
+  try {
+    raw = readFileSync(path, 'utf-8');
+  } catch {
+    return null; // no highlight for this scenario — render as before
+  }
+  try {
+    const parsed = JSON.parse(raw) as ScenarioHighlight;
+    if (
+      parsed.schema_version !== 1 ||
+      !Array.isArray(parsed.excerpt) ||
+      parsed.excerpt.length === 0 ||
+      typeof parsed.yaml_hook?.fragment !== 'string' ||
+      typeof parsed.source?.model !== 'string' ||
+      typeof parsed.teaser !== 'string'
+    ) {
+      console.warn(`[highlight] ignoring unusable highlight file: ${path}`);
+      return null;
+    }
+    return parsed;
+  } catch (err) {
+    console.warn(`[highlight] ignoring unparseable highlight file: ${path} (${err})`);
+    return null;
+  }
+}
+
+const highlight = loadHighlight(scenario.id);
 
 const enPath = `/s/${scenario.id}/`;
 const jaPath = `/ja/s/${scenario.id}/`;
@@ -47,6 +89,10 @@ const t = isJa
       faq: 'FAQ',
       privacy: 'プライバシーポリシー',
       guide: 'シナリオガイド',
+      highlightH: '実行のようす',
+      highlightNote: `実際に端末で動かした結果から抜き出した会話です（${highlight?.source?.model ?? ''}）。`,
+      yamlHookH: 'この会話を生んだYAML',
+      editInvite: 'このYAMLはアプリで開いてそのまま書き換えられます。設定を変えて、自分だけの展開を確かめてみてください。',
     }
   : {
       titleSuffix: ' · Pastura',
@@ -65,6 +111,10 @@ const t = isJa
       faq: 'FAQ',
       privacy: 'Privacy Policy',
       guide: 'Scenario guide',
+      highlightH: 'A glimpse of a run',
+      highlightNote: `Lines taken from a real on-device run (${highlight?.source?.model ?? ''}).`,
+      yamlHookH: 'The YAML behind these lines',
+      editInvite: 'Open this YAML in the app and rewrite it in place. Change the setup and see where your own run goes.',
     };
 ---
 
@@ -98,6 +148,29 @@ const t = isJa
         <h1 lang={scenario.language}>{scenario.title}</h1>
         <p class="scenario-meta">{t.meta}</p>
         <p class="lead" lang={scenario.language}>{scenario.description}</p>
+
+        {highlight && (
+          <section class="highlight" aria-labelledby="highlight-h">
+            <h2 id="highlight-h">{t.highlightH}</h2>
+            <p class="highlight-note">{t.highlightNote}</p>
+
+            <ol class="excerpt" lang={scenario.language}>
+              {highlight.excerpt.map((line) => (
+                <li class="excerpt-line">
+                  <span class="excerpt-agent">{line.agent}</span>
+                  <span class="excerpt-text">{line.text}</span>
+                </li>
+              ))}
+            </ol>
+
+            <h3 class="yaml-hook-h">{t.yamlHookH}</h3>
+            <pre class="yaml-hook"><code>{highlight.yaml_hook.fragment}</code></pre>
+            <p class="yaml-hook-caption" lang={scenario.language}>{highlight.yaml_hook.caption}</p>
+
+            <p class="highlight-teaser" lang={scenario.language}>{highlight.teaser}</p>
+            <p class="highlight-invite">{t.editInvite}</p>
+          </section>
+        )}
 
         <p class="open-cta-row">
           <a class="open-cta" href={openURL}>{t.openInApp}</a>
@@ -173,5 +246,64 @@ const t = isJa
   .open-cta:hover,
   .open-cta:focus-visible {
     background: var(--moss-dark, #3d5a2b);
+  }
+
+  /* Highlight section (ADR-029) — static curated excerpt of a real run.
+     Deliberately plain markup, no client-side script: this is text, not a
+     replay surface (ADR-029 Decision 6 keeps it outside the Phase-3 line). */
+  .highlight {
+    margin: 2.5rem 0 0;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--rule, #e2e4dd);
+  }
+  .highlight-note,
+  .yaml-hook-caption {
+    font-size: 0.85rem;
+    color: var(--ink-secondary, #5b6152);
+  }
+  .excerpt {
+    list-style: none;
+    margin: 1.25rem 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .excerpt-line {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--rule, #e0dbce);
+    border-radius: 0.75rem;
+    background: var(--bubble-bg, #fff);
+  }
+  .excerpt-agent {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--ink-secondary, #5b6152);
+  }
+  .excerpt-text {
+    /* Long unbroken agent output must wrap rather than widen the page. */
+    overflow-wrap: anywhere;
+  }
+  .yaml-hook-h {
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+  /* The panel chrome (monospace, border, padding, overflow-x: auto) comes from
+     page.css `.page-prose pre`, which this block sits inside. Only the caption
+     spacing is overridden here, so long YAML lines scroll within the block and
+     the page body never gains a horizontal scrollbar on narrow screens. */
+  .yaml-hook {
+    max-width: 100%;
+    margin-bottom: 0.5rem;
+  }
+  .highlight-teaser {
+    font-weight: 600;
+  }
+  .highlight-invite {
+    font-size: 0.9rem;
+    color: var(--ink-secondary, #5b6152);
   }
 </style>
