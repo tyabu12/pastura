@@ -204,6 +204,13 @@ nonisolated final class URLSessionModelDownloader: ModelDownloader, @unchecked S
   /// construction raises `NSGenericException`. The singleton `.shared`
   /// owns this identifier; tests use `.default` / `.ephemeral` configs
   /// via `init(sessionConfiguration:)` and never touch this constant.
+  ///
+  /// Deliberately a literal, unlike `BackgroundSimulationManager.taskIdentifier`,
+  /// which derives from the bundle ID because the Debug configuration suffixes it.
+  /// Nothing forces this one to follow: background `URLSession` identifiers are
+  /// scoped to the app container, so a Debug install and the App Store install
+  /// cannot collide on it. Do not "fix" the inconsistency — renaming a background
+  /// session identifier orphans downloads already in flight under the old name.
   static let backgroundSessionIdentifier = "app.pastura.Pastura.modelDownload"
 
   /// Production singleton bound to the background `URLSession`. Lazily
