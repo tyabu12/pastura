@@ -1,0 +1,41 @@
+---
+// The sheep avatar drawn beside a chat bubble.
+//
+// Geometry mirrors Pastura/Pastura/Views/Components/SheepAvatar.swift (28-unit
+// viewBox, five wool circles, face oval, two eyes, highlight dot, two horns) —
+// the Swift side is the source of truth. The per-tone fills are NOT declared
+// here: they live in `web/public/css/base.css` as `.sheep[data-tone="…"]`,
+// which is a global sheet, so a parent's scoped <style> cannot reach into this
+// component's markup anyway.
+//
+// `web/src/pages/index.astro` keeps five inline copies of the same SVG rather
+// than importing this component. That is deliberate residue, not an oversight:
+// swapping them would edit the flagship LP for no functional gain. If the
+// geometry ever changes, update the LP copies too — no page renders both, so
+// nothing mechanical catches a divergence. `.claude/rules/lp-content.md` §4
+// carries the same warning for whoever arrives from the LP side instead.
+//
+// Decorative by design — identity is carried by the adjacent agent name, so the
+// SVG is aria-hidden and never announced.
+interface Props {
+  /// Which of the four §2.5 avatar colour slots to draw with. The caller picks;
+  /// see ScenarioLanding.astro for how an agent maps to a slot.
+  tone: 'alice' | 'bob' | 'carol' | 'dave';
+}
+
+const { tone } = Astro.props;
+---
+
+<svg class="sheep" data-tone={tone} viewBox="0 0 28 28" aria-hidden="true" focusable="false">
+  <circle class="wool" cx="14" cy="15" r="8"/>
+  <circle class="wool" cx="9"  cy="13" r="3.2"/>
+  <circle class="wool" cx="19" cy="13" r="3.2"/>
+  <circle class="wool" cx="11" cy="18" r="3"/>
+  <circle class="wool" cx="17" cy="18" r="3"/>
+  <ellipse class="face" cx="14" cy="15.5" rx="4" ry="4.2"/>
+  <circle class="eye" cx="12.6" cy="14.8" r="0.7"/>
+  <circle class="eye" cx="15.4" cy="14.8" r="0.7"/>
+  <circle class="highlight" cx="11.6" cy="13.5" r="0.5"/>
+  <path class="horn" d="M10.5 11.5Q10 10 11 9.5"/>
+  <path class="horn" d="M17.5 11.5Q18 10 17 9.5"/>
+</svg>

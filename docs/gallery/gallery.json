@@ -20,7 +20,7 @@
       "yaml_url": "asch_conformity_v1.yaml",
       "yaml_sha256": "090ef06d9d49ea3a538d33c05299a2b7a45100f6aafa3dfa71da28bd81d13960",
       "highlight_url": "highlights/asch_conformity_v1.json",
-      "highlight_sha256": "ed04a27ebea0db8dfd9274f581859e802b865aeb21221da34fdecea929986851",
+      "highlight_sha256": "f0f38dbce40ee2eacc5853c9ce2eb061e263c000dad7577ae1cf4d35bb0a83d2",
       "added_at": "2026-04-15"
     },
     {
@@ -199,7 +199,7 @@
       "yaml_url": "chin_jimaku_v1.yaml",
       "yaml_sha256": "6417957f7ce11f461a8be2adedd537e366bf98a00a5d0ab1c20531ad77b078e5",
       "highlight_url": "highlights/chin_jimaku_v1.json",
-      "highlight_sha256": "bddb640168de3c3a1dea2cd76e989ed6dad6a43be3da59fd527381cc8360faa7",
+      "highlight_sha256": "6e64a9af147d7c8e7b1b359e7df230acf2d1003d0b2cde8348f44971980cc91e",
       "added_at": "2026-06-13"
     },
     {
