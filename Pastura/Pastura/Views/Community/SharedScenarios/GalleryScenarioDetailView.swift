@@ -20,6 +20,9 @@ struct GalleryScenarioDetailView: View {
   @Environment(ModelManager.self) var modelManager
   @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
   @State private var viewModel: SharedScenariosViewModel?
+  // Read by the sibling extension in `GalleryScenarioDetailView+Highlight.swift`
+  // — `private` would block cross-file extension access.
+  @State var highlightLoader: GalleryHighlightLoader?
   @State var isWorking = false
   @State private var outcomeAlert: OutcomeAlert?
   @State private var isReportSheetPresented = false
@@ -59,6 +62,17 @@ struct GalleryScenarioDetailView: View {
         repository: dependencies.scenarioRepository)
       await newViewModel.load()
       viewModel = newViewModel
+    }
+    // Keyed on `scenario.id` ONLY: `load(for:)` clears its state at entry, so a
+    // re-fire for the same scenario would blank an already-rendered highlight
+    // and flash the section back in. The fetch runs alongside the view-model
+    // load rather than after it — a highlight is decorative enrichment and must
+    // never sit on the screen's critical path (ADR-029 Decision 4).
+    .task(id: scenario.id) {
+      if highlightLoader == nil {
+        highlightLoader = GalleryHighlightLoader(galleryService: dependencies.galleryService)
+      }
+      await highlightLoader?.load(for: scenario)
     }
     .alert(item: $outcomeAlert) { alert in
       Alert(title: Text(alert.title), message: Text(alert.message))
@@ -101,6 +115,10 @@ struct GalleryScenarioDetailView: View {
         if wasOpenedFromDeepLink { deepLinkBanner }
         headerCard
         whatHappensSection
+        // "What it feels like" reads best right after "what happens", and
+        // before the metadata table — the excerpt is the reason to install,
+        // `detailsCard` is reference material.
+        highlightSection
         detailsCard
         recommendedModelSection
         actionFooter(viewModel: viewModel)

@@ -58,6 +58,35 @@ struct GalleryScenarioDetailFormatTests {
     #expect(GalleryScenarioDetailFormat.languageLabel(code: "fr") == nil)
   }
 
+  // MARK: - yamlFragmentForDisplay (ADR-029)
+
+  @Test func yamlFragmentTrimsTrailingNewline() {
+    #expect(
+      GalleryScenarioDetailFormat.yamlFragmentForDisplay("personas:\n  - name: A\n")
+        == "personas:\n  - name: A")
+  }
+
+  @Test func yamlFragmentTrimsRepeatedTrailingWhitespace() {
+    #expect(
+      GalleryScenarioDetailFormat.yamlFragmentForDisplay("a: 1\nb: 2\n\n  \n")
+        == "a: 1\nb: 2")
+  }
+
+  @Test func yamlFragmentPreservesLeadingIndentation() {
+    // Leading offset is load-bearing YAML structure — only the tail is trimmed.
+    #expect(
+      GalleryScenarioDetailFormat.yamlFragmentForDisplay("  description: |\n    hi\n")
+        == "  description: |\n    hi")
+  }
+
+  @Test func yamlFragmentLeavesAlreadyTrimmedFragmentUnchanged() {
+    #expect(GalleryScenarioDetailFormat.yamlFragmentForDisplay("a: 1") == "a: 1")
+  }
+
+  @Test func yamlFragmentHandlesAllWhitespaceInput() {
+    #expect(GalleryScenarioDetailFormat.yamlFragmentForDisplay("\n \n").isEmpty)
+  }
+
   // MARK: - installAlert (ADR-020 D5)
 
   @Test func installAlertNilForNavigatingOutcomes() {

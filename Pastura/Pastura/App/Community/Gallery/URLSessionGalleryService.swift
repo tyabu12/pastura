@@ -27,6 +27,11 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   /// Maximum accepted size of a single scenario YAML, in bytes.
   public static let yamlSizeLimit = 262_144  // 256 KiB
 
+  /// Maximum accepted size of a single highlight excerpt file, in bytes.
+  /// An excerpt is a few KB; this is a defense bound, not a design target
+  /// (ADR-029 Decision 4).
+  public static let highlightSizeLimit = 65_536  // 64 KiB
+
   /// Default remote URL for the gallery index.
   ///
   /// In Debug builds, the `PASTURA_GALLERY_BASE_URL` environment variable
@@ -156,14 +161,34 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
   }
 
   public func fetchScenarioYAML(from url: URL, expectedSHA256: String) async throws -> String {
-    // Resolve against `indexURL` so `gallery.json` can reference siblings
-    // with relative paths (e.g. `"yaml_url": "asch_v1.yaml"`). Absolute
-    // URLs pass through untouched because URL resolution prefers the
-    // string's own scheme when present.
+    let data = try await fetchVerifiedBytes(
+      from: url, expectedSHA256: expectedSHA256, limit: Self.yamlSizeLimit)
+    guard let yaml = String(data: data, encoding: .utf8) else {
+      throw GalleryServiceError.invalidResponse
+    }
+    return yaml
+  }
+
+  public func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
+    try await fetchVerifiedBytes(
+      from: url, expectedSHA256: expectedSHA256, limit: Self.highlightSizeLimit)
+  }
+
+  /// Shared body of the two per-entry artifact fetches: size-limited GET +
+  /// SHA-256 verification against the index-declared hash.
+  ///
+  /// Resolves `url` against `indexURL` so `gallery.json` can reference
+  /// siblings with relative paths (e.g. `"yaml_url": "asch_v1.yaml"`,
+  /// `"highlight_url": "highlights/asch_v1.json"`). Absolute URLs pass
+  /// through untouched because URL resolution prefers the string's own
+  /// scheme when present.
+  private func fetchVerifiedBytes(
+    from url: URL, expectedSHA256: String, limit: Int
+  ) async throws -> Data {
     let resolved = URL(string: url.relativeString, relativeTo: indexURL) ?? url
     var request = URLRequest(url: resolved)
     request.httpMethod = "GET"
-    let (data, response) = try await performDataRequest(request, limit: Self.yamlSizeLimit)
+    let (data, response) = try await performDataRequest(request, limit: limit)
     guard let http = response as? HTTPURLResponse else {
       throw GalleryServiceError.invalidResponse
     }
@@ -175,10 +200,7 @@ public final class URLSessionGalleryService: NSObject, GalleryService, @unchecke
     guard actual == expected else {
       throw GalleryServiceError.hashMismatch(expected: expected, actual: actual)
     }
-    guard let yaml = String(data: data, encoding: .utf8) else {
-      throw GalleryServiceError.invalidResponse
-    }
-    return yaml
+    return data
   }
 
   // MARK: - Private

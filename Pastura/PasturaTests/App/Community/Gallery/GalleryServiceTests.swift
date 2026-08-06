@@ -6,7 +6,7 @@ import Testing
 
 /// Tests for `URLSessionGalleryService`.
 ///
-/// `.serialized` because MockURLProtocol shares static handler state across
+/// `.serialized` because GalleryMockURLProtocol shares static handler state across
 /// tests. Each test sets its own handler before exercising the service.
 @Suite(.serialized, .timeLimit(.minutes(1))) struct GalleryServiceTests {
 
@@ -15,7 +15,7 @@ import Testing
   private static let indexURL = URL(
     // swiftlint:disable:next force_unwrapping
     string: "https://example.com/gallery.json")!
-  private static let yamlURL = URL(
+  static let yamlURL = URL(
     // swiftlint:disable:next force_unwrapping
     string: "https://example.com/scenarios/asch.yaml")!
 
@@ -27,27 +27,27 @@ import Testing
     }
     """
 
-  private func makeService(cacheDirectory: URL) -> URLSessionGalleryService {
+  func makeService(cacheDirectory: URL) -> URLSessionGalleryService {
     let config = URLSessionConfiguration.ephemeral
-    config.protocolClasses = [MockURLProtocol.self]
+    config.protocolClasses = [GalleryMockURLProtocol.self]
     return URLSessionGalleryService(
       indexURL: Self.indexURL,
       cacheDirectory: cacheDirectory,
       sessionConfiguration: config)
   }
 
-  private func makeTempDir() throws -> URL {
+  func makeTempDir() throws -> URL {
     let url = FileManager.default.temporaryDirectory
       .appendingPathComponent("pastura-gallery-test-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
   }
 
-  private func cleanup(_ url: URL) {
+  func cleanup(_ url: URL) {
     try? FileManager.default.removeItem(at: url)
   }
 
-  private func response(
+  func response(
     status: Int, headers: [String: String] = [:], for url: URL = indexURL
   ) -> HTTPURLResponse {
     // swiftlint:disable:next force_unwrapping
@@ -62,7 +62,7 @@ import Testing
     let service = makeService(cacheDirectory: tmp)
 
     let jsonData = Data(Self.sampleJSON.utf8)
-    MockURLProtocol.setHandler { _ in
+    GalleryMockURLProtocol.setHandler { _ in
       (self.response(status: 200, headers: ["ETag": "\"v1\""]), jsonData)
     }
 
@@ -86,14 +86,14 @@ import Testing
 
     // Prime cache with an ETag.
     let jsonData = Data(Self.sampleJSON.utf8)
-    MockURLProtocol.setHandler { _ in
+    GalleryMockURLProtocol.setHandler { _ in
       (self.response(status: 200, headers: ["ETag": "\"v1\""]), jsonData)
     }
     _ = try await service.refreshIndex()
 
     // Next call should include the stored ETag.
     let capturedHeader = CapturedHeader()
-    MockURLProtocol.setHandler { request in
+    GalleryMockURLProtocol.setHandler { request in
       capturedHeader.set(request.value(forHTTPHeaderField: "If-None-Match"))
       return (self.response(status: 304), Data())
     }
@@ -110,7 +110,7 @@ import Testing
 
     // 2 MiB payload exceeds the 1 MiB indexSizeLimit.
     let oversize = Data(repeating: 0x7B, count: 2 * 1024 * 1024)
-    MockURLProtocol.setHandler { _ in (self.response(status: 200), oversize) }
+    GalleryMockURLProtocol.setHandler { _ in (self.response(status: 200), oversize) }
 
     await #expect(
       throws: GalleryServiceError.responseTooLarge(
@@ -125,7 +125,7 @@ import Testing
     defer { cleanup(tmp) }
     let service = makeService(cacheDirectory: tmp)
 
-    MockURLProtocol.setHandler { _ in
+    GalleryMockURLProtocol.setHandler { _ in
       (self.response(status: 200), Data("not json".utf8))
     }
 
@@ -139,7 +139,7 @@ import Testing
     defer { cleanup(tmp) }
     let service = makeService(cacheDirectory: tmp)
 
-    MockURLProtocol.setHandler { _ in (self.response(status: 500), Data()) }
+    GalleryMockURLProtocol.setHandler { _ in (self.response(status: 500), Data()) }
 
     await #expect(throws: GalleryServiceError.unexpectedStatus(500)) {
       _ = try await service.refreshIndex()
@@ -163,7 +163,7 @@ import Testing
     let service = makeService(cacheDirectory: tmp)
 
     let jsonData = Data(Self.sampleJSON.utf8)
-    MockURLProtocol.setHandler { _ in (self.response(status: 200), jsonData) }
+    GalleryMockURLProtocol.setHandler { _ in (self.response(status: 200), jsonData) }
     _ = try await service.refreshIndex()
 
     let cached = try service.loadCachedIndex()
@@ -194,7 +194,7 @@ import Testing
     let data = Data(yaml.utf8)
     let hash = URLSessionGalleryService.sha256Hex(data)
 
-    MockURLProtocol.setHandler { _ in (self.response(status: 200, for: Self.yamlURL), data) }
+    GalleryMockURLProtocol.setHandler { _ in (self.response(status: 200, for: Self.yamlURL), data) }
 
     let result = try await service.fetchScenarioYAML(from: Self.yamlURL, expectedSHA256: hash)
     #expect(result == yaml)
@@ -209,7 +209,7 @@ import Testing
     let data = Data(yaml.utf8)
     let wrongHash = String(repeating: "0", count: 64)
 
-    MockURLProtocol.setHandler { _ in (self.response(status: 200, for: Self.yamlURL), data) }
+    GalleryMockURLProtocol.setHandler { _ in (self.response(status: 200, for: Self.yamlURL), data) }
 
     await #expect(
       throws: GalleryServiceError.hashMismatch(
@@ -237,7 +237,7 @@ import Testing
     let hash = URLSessionGalleryService.sha256Hex(data)
 
     let capturedURL = CapturedHeader()  // reuse as a string holder
-    MockURLProtocol.setHandler { request in
+    GalleryMockURLProtocol.setHandler { request in
       capturedURL.set(request.url?.absoluteString)
       return (self.response(status: 200, for: expectedAbsolute), data)
     }
@@ -255,7 +255,7 @@ import Testing
     // 512 KiB exceeds the 256 KiB yamlSizeLimit.
     let oversize = Data(repeating: 0x20, count: 512 * 1024)
     let hash = URLSessionGalleryService.sha256Hex(oversize)
-    MockURLProtocol.setHandler { _ in (self.response(status: 200, for: Self.yamlURL), oversize) }
+    GalleryMockURLProtocol.setHandler { _ in (self.response(status: 200, for: Self.yamlURL), oversize) }
 
     await #expect(
       throws: GalleryServiceError.responseTooLarge(
@@ -281,7 +281,7 @@ import Testing
 ///
 /// The static handler is shared across all requests in the suite, which is
 /// why the surrounding `@Suite` uses `.serialized`.
-private final class MockURLProtocol: URLProtocol {
+final class GalleryMockURLProtocol: URLProtocol {
   typealias Handler = @Sendable (URLRequest) -> (HTTPURLResponse, Data)
 
   private static let lock = NSLock()
@@ -317,7 +317,7 @@ private final class MockURLProtocol: URLProtocol {
 
 /// Thread-safe holder for a single captured value used across the async
 /// URLSession delegate queue and the test thread.
-private final class CapturedHeader: @unchecked Sendable {
+final class CapturedHeader: @unchecked Sendable {
   private let lock = NSLock()
   private var value: String?
 

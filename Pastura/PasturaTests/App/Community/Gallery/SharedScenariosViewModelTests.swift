@@ -302,4 +302,9 @@ final class StubVMGalleryService: GalleryService, @unchecked Sendable {
     }
     return yaml
   }
+
+  func fetchHighlightData(from url: URL, expectedSHA256: String) async throws -> Data {
+    // No highlight-fetch flow exercised by this view model's tests yet.
+    throw GalleryServiceError.unexpectedStatus(404)
+  }
 }

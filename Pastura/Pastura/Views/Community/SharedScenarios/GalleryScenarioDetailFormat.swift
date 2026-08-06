@@ -47,6 +47,25 @@ enum GalleryScenarioDetailFormat {
     }
   }
 
+  /// Display-ready form of a curated highlight's YAML fragment (ADR-029).
+  ///
+  /// The published fragments are multi-line YAML blocks that commonly end with
+  /// a trailing newline; rendered as-is inside a code-style block that trailing
+  /// blank line reads as a stray empty row. Only **trailing** whitespace is
+  /// trimmed — leading indentation is load-bearing in YAML, so the first line's
+  /// offset is preserved exactly as published.
+  static func yamlFragmentForDisplay(_ fragment: String) -> String {
+    // `Character.isWhitespace` is true for "\n", "\r\n", and spaces alike,
+    // so one predicate covers every trailing form. A hand-rolled loop rather
+    // than `trimmingCharacters(in:)`, which trims BOTH ends and would break
+    // the leading-indentation guarantee above.
+    var trimmed = Substring(fragment)
+    while let last = trimmed.last, last.isWhitespace {
+      trimmed = trimmed.dropLast()
+    }
+    return String(trimmed)
+  }
+
   /// Alert content for a **non-navigating** install outcome, or `nil` for the
   /// navigating ones (`.installed` / `.updated`, which push to the local copy
   /// instead of alerting). Extracted from the View so the copy — including the

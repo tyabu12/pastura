@@ -1715,6 +1715,22 @@
         }
       }
     },
+    "A glimpse of a real run" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "A glimpse of a real run"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "実際に動かしたときのようす"
+          }
+        }
+      }
+    },
     "A scenario named “%@” already uses this id. Delete or rename it first, then try again." : {
       "localizations" : {
         "ja" : {
@@ -4759,6 +4775,22 @@
         }
       }
     },
+    "Once it is on your device you can rewrite this YAML freely. Change the setup and see where your own run goes." : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Once it is on your device you can rewrite this YAML freely. Change the setup and see where your own run goes."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末に取り込めば、この YAML はそのまま書き換えられます。設定を変えて、自分だけの展開を確かめてみてください。"
+          }
+        }
+      }
+    },
     "Open Report Form" : {
       "localizations" : {
         "ja" : {
@@ -6904,6 +6936,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "テンプレートの読み込みに失敗しました: %@"
+          }
+        }
+      }
+    },
+    "The YAML behind these lines" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The YAML behind these lines"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この会話を生んだ YAML"
           }
         }
       }
