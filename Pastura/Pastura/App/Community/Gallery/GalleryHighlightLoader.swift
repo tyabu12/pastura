@@ -99,6 +99,30 @@ final class GalleryHighlightLoader {
       return
     }
 
+    // Every line's phase must map to a `PhaseType` this build knows.
+    //
+    // This is not about malformed content — the extractor and the repo-side
+    // gate both hard-fail on an unknown phase (ADR-029 Decision 2), so a
+    // published file is always mappable by *some* build. What it guards is
+    // **version skew**: a highlight published after a new `PhaseType` lands
+    // (ADR-029 revisit trigger 1) read by an app that predates the case.
+    //
+    // Whole section, not just the offending row, because an excerpt is a
+    // *quotation* — the section's claim is that these lines, in this order,
+    // are what happened. Dropping one silently rewrites the passage while
+    // still presenting it as the record. That is the opposite trade-off from
+    // `GalleryScenarioDetailFormat.phaseSteps`, which lenient-skips: there
+    // every rendered step stays true and a gap merely understates the
+    // scenario's structure.
+    //
+    // It also keeps `PhaseType` non-optional the whole way down the render
+    // path, so the run figure never has to invent a fallback badge for a
+    // phase it cannot name.
+    guard decoded.excerpt.allSatisfy({ PhaseType(rawValue: $0.phase) != nil }) else {
+      log(check: "excerpt_phase_unknown", scenarioID: scenario.id)
+      return
+    }
+
     highlight = decoded
   }
 

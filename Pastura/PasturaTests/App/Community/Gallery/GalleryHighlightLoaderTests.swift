@@ -16,14 +16,18 @@ import Testing
   private static func highlightJSON(
     schemaVersion: Int = 1,
     contentFilterApplied: Bool = true,
-    excerptCount: Int = 2
+    excerptCount: Int = 2,
+    phases: [String]? = nil
   ) -> Data {
-    let entries = (0..<max(excerptCount, 0)).map { index in
+    // `phases`, when supplied, drives one entry per element so a test can mix
+    // known and unknown phase strings; otherwise every entry is `speak_each`.
+    let entryPhases = phases ?? Array(repeating: "speak_each", count: max(excerptCount, 0))
+    let entries = entryPhases.enumerated().map { index, phase in
       """
       {
         "agent": "サクラ\(index)",
         "round": 1,
-        "phase": "speak_each",
+        "phase": "\(phase)",
         "phase_index": 0,
         "source_field": "statement",
         "text": "答えはCです。"
@@ -183,7 +187,48 @@ import Testing
     #expect(loader.highlight == nil)
   }
 
+  /// Version skew: a highlight published after a new `PhaseType` lands, read by
+  /// an app build that predates the case (ADR-029 revisit trigger 1). The
+  /// excerpt is a quotation, so a phase this build cannot name hides the whole
+  /// section rather than dropping the line out of the passage.
+  @Test func unknownExcerptPhaseHidesSection() async {
+    let service = HighlightStubGalleryService()
+    service.result = .success(Self.highlightJSON(phases: ["interpretive_dance"]))
+    let loader = GalleryHighlightLoader(galleryService: service)
+
+    await loader.load(for: makeScenario())
+
+    #expect(loader.highlight == nil)
+  }
+
+  /// The guard is `allSatisfy`, not a check of the first entry — one unmappable
+  /// line anywhere in the passage hides it. Without this case a first-entry-only
+  /// check would still pass `unknownExcerptPhaseHidesSection` above.
+  @Test func oneUnknownPhaseAmongKnownOnesHidesSection() async {
+    let service = HighlightStubGalleryService()
+    service.result = .success(
+      Self.highlightJSON(phases: ["speak_each", "interpretive_dance", "speak_all"]))
+    let loader = GalleryHighlightLoader(galleryService: service)
+
+    await loader.load(for: makeScenario())
+
+    #expect(loader.highlight == nil)
+  }
+
   // MARK: - Success
+
+  /// Positive control for the two hide cases above: the same fixture path with
+  /// every phase mappable still publishes, so they fail on the phase check
+  /// rather than on the explicit `phases:` argument itself.
+  @Test func mappablePhaseVarietyIsPublished() async {
+    let service = HighlightStubGalleryService()
+    service.result = .success(Self.highlightJSON(phases: ["speak_each", "speak_all"]))
+    let loader = GalleryHighlightLoader(galleryService: service)
+
+    await loader.load(for: makeScenario())
+
+    #expect(loader.highlight?.excerpt.count == 2)
+  }
 
   @Test func validHighlightIsPublished() async {
     let service = HighlightStubGalleryService()
