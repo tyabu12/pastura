@@ -349,4 +349,4 @@ Titles are kept byte-identical to INDEX's `## ADR-NNN — <title>` headings. **N
 Two cross-cutting gotchas that fire outside their own ADR's subject area:
 
 - ⚠️ **ADR-022's no-default gate does not cover `==` predicates** — grep `== .<case>` when adding a case to any enum it governs (ADR-027).
-- ⚠️ **A fixed-appearance export (`ImageRenderer`) must inject its appearance** — `.environment(\.colorScheme, …)` plus an explicit parameter. Omit it and the export renders **light** on a dark device; that, not a paired-alias read, is the failure (#1337 measured that the injection reaches every read inside, `Canvas` included, and supersedes the older "and so must any component it draws" rule). Reading `PasturaPalette.<token>.color` stays the convention, for explicitness (ADR-028).
+- ⚠️ **A fixed-appearance export (`ImageRenderer`) must inject its appearance** — `.environment(\.colorScheme, …)` plus an explicit parameter; omitting it, not reading a paired alias, is what renders light on a dark device. Read `PasturaPalette.<token>.color` too, so `light` and `dark` stay distinct (ADR-028 § Amendment 2026-08-06).

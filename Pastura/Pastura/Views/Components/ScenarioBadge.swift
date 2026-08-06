@@ -93,9 +93,11 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// different pairing.
 ///
 /// These are trait-resolving `Color.*` aliases on purpose: the badge renders
-/// live on-device, so it must follow the device appearance. A
-/// fixed-appearance consumer (`ImageRenderer`) would have to read
-/// `PasturaPalette.<token>.color` directly instead — see ADR-028.
+/// live on-device, so it must follow the device appearance. A fixed-appearance
+/// consumer (`ImageRenderer`) would have to **inject** its appearance and read
+/// `PasturaPalette.<token>.color` directly instead — the injection is the half
+/// that breaks if omitted; the raw read keeps `light` and `dark` distinct. See
+/// ADR-028 § Amendment 2026-08-06 (#1337).
 ///
 /// The members are **MainActor-isolated** even though ``ScenarioBadgeStyle``
 /// itself is `nonisolated`: an extension does not inherit the type's

@@ -377,8 +377,9 @@ load-bearing half**: omit it and the export goes light. Reading
 `PasturaPalette.<token>.color` rather than the `Color.*` alias remains the
 convention, but for callsite explicitness and independence from a platform
 behaviour Apple owns — not because an alias would resolve wrong (#1337 measured
-that it would not). Its concrete cost is that `light` and `dark` would collapse
-into each other, which makes the parameter you just threaded inert. Also set
+that it would not). **The alias read's** concrete cost is that `light` and `dark`
+would collapse into each other, which makes the parameter you just threaded
+inert. Also set
 `.environment(\.colorScheme, …)` on the rendered content for any system-colored
 subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
 simulator misleads.
