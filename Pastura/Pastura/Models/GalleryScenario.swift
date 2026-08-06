@@ -166,6 +166,24 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
   /// required at the call site; the View layer can parse it as needed.
   public let addedAt: String
 
+  /// Remote URL of this entry's curated highlight excerpt (ADR-029), if one
+  /// has been generated. `nil` for the ~5/45 entries the spoiler policy
+  /// excludes and for any entry predating the feature.
+  ///
+  /// Optional + lenient decode (absent → `nil`) for the same forward-compat
+  /// reason as ``agentCount`` / ``rounds`` / ``phases`` / ``language`` /
+  /// ``minEngineVersion`` / ``featured``: an old cached `gallery.json` — or
+  /// an older app reading a newer feed — predates this key and must still
+  /// decode. Declared index-side (like ``yamlURL``) rather than derived by
+  /// convention, per ADR-029 Decision 4.
+  public let highlightURL: URL?
+
+  /// Lowercase hex SHA-256 of the highlight file at ``highlightURL``, for
+  /// integrity verification (ADR-029 Decision 4). Present iff
+  /// ``highlightURL`` is — both-or-neither is gate-validated on the repo
+  /// side, not re-checked here.
+  public let highlightSHA256: String?
+
   public init(
     id: String,
     title: String,
@@ -182,7 +200,9 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     phases: [String]? = nil,
     language: String? = nil,
     minEngineVersion: Int? = nil,
-    featured: Int? = nil
+    featured: Int? = nil,
+    highlightURL: URL? = nil,
+    highlightSHA256: String? = nil
   ) {
     self.id = id
     self.title = title
@@ -200,6 +220,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     self.language = language
     self.minEngineVersion = minEngineVersion
     self.featured = featured
+    self.highlightURL = highlightURL
+    self.highlightSHA256 = highlightSHA256
   }
 
   // Explicit CodingKeys so the JSON snake_case ↔ Swift camelCase mapping is
@@ -222,6 +244,8 @@ nonisolated public struct GalleryScenario: Codable, Sendable, Equatable, Hashabl
     case yamlURL = "yaml_url"
     case yamlSHA256 = "yaml_sha256"
     case addedAt = "added_at"
+    case highlightURL = "highlight_url"
+    case highlightSHA256 = "highlight_sha256"
   }
 }
 
