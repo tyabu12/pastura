@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "chin_jimaku_v1",
+    "yaml_sha256": "6417957f7ce11f461a8be2adedd537e366bf98a00a5d0ab1c20531ad77b078e5"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260806-000122-77d6",
+    "generated_at": "2026-08-06"
+  },
+  "excerpt": [
+    {
+      "agent": "直訳マシーンのボブ",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "今すぐ行け！遅いぞ、馬鹿！"
+    },
+    {
+      "agent": "意訳しすぎ朝倉",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "行くぞ、マジで！逃げろって！"
+    },
+    {
+      "agent": "ネタバレ女王",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "もう逃げろ！さもないと、次のシーンで実はこのキャラが実は超絶美女です！"
+    },
+    {
+      "agent": "余計な情報のスズキ",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "今すぐ行こうぜ！※この逃走ルートは実は非常口なんです。"
+    }
+  ],
+  "yaml_hook": {
+    "fragment": "  - name: ネタバレ女王\n    description: >\n      【立場】字幕でうっかり結末を漏らす困った翻訳者。\n      【目的】このセリフに関係ない結末や伏線を字幕に混ぜる。\n      例:「(実はこの後この人、生きてます)」\n  - name: 余計な情報のスズキ\n    description: >\n      【立場】訳と関係ない豆知識を足したがるお節介。\n      【目的】どうでもいいトリビアを字幕に添える。\n      例:「行こう(※この坂は時速8kmで登れます)」",
+    "caption": "この抜粋を生んだ2人の設定。『目的』の1行を書き換えれば、次の珍字幕はあなたの発明になる。"
+  },
+  "teaser": "4つの字幕のどれが優勝するのか——投票の行方はアプリで実行して確かめよう。",
+  "window_override": false,
+  "content_filter_applied": true
+}
