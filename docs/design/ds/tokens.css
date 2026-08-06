@@ -282,7 +282,14 @@
 
   /* The general card recipe. Alphas were re-solved on the red channel when
      the tint went near-black, so light-mode lightness is preserved and only
-     the hue goes neutral (0.04 -> 0.03, 0.2 -> 0.13). */
+     the hue goes neutral (0.04 -> 0.03, 0.2 -> 0.13).
+
+     Each value appears TWICE below — once as a --shadow-tint-* var, once
+     inside --shadow-card. check_design_tokens_css.py asks only whether a Swift
+     value appears *somewhere* in this file, so it cannot see one of a
+     duplicated pair drift: probed, mutating one of the two leaves the gate
+     green, mutating both (or the Swift side) reddens it. Edit the pair
+     together. */
   --shadow-tint-tight: rgba(11, 12, 10, 0.03);
   --shadow-tint-soft: rgba(11, 12, 10, 0.13);
   --shadow-card:
