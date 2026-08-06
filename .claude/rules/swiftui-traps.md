@@ -345,15 +345,27 @@ adopt early-return comment in `SimulationView`).
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 
-**The `Color.*` aliases make this sharper, not milder.** Most of them resolve
-light↔dark against the ambient interface style, so reading one inside
-`ImageRenderer` content means "whatever appearance the renderer resolved" — and
-an explicitly light or dark export becomes unexpressible. The rest are fixed
-(unpaired light tokens, `night*`, time-of-day, chart), so a token-styled view
-otherwise rasterizes in one appearance regardless of device. **The paired set
-grows with each gate-1 slice** — do not treat a specific alias as fixed without
-checking `PasturaDynamicPalette`, whose doc comment carries the current
-membership and its slice-by-slice provenance.
+**What a paired alias actually does here was measured in #1337, and it is
+determined, not arbitrary.** An earlier revision of this section said reading one
+inside `ImageRenderer` content means "whatever appearance the renderer resolved",
+which reads as unpredictable. It is not. The alias resolves against the **render
+environment's** `colorScheme` — the value you inject, or **light** when you inject
+nothing, even on an ambient-dark device. Ambient state reaches the renderer
+through neither channel: with an injection present an explicit
+`UITraitCollection` flip moves not one byte, and this holds for `GraphicsContext`
+inside a `Canvas` exactly as it does for plain `View` content. Arms and figures:
+ADR-028 § Amendment 2026-08-06 (#1337).
+
+**So the hazard is a consumer that omits the injection, not one that reads an
+alias.** A fixed-appearance export with no `.environment(\.colorScheme, …)`
+silently rasterizes light — a dark-mode user's card comes out light, which is the
+#1070 bug. Reading raw `PasturaPalette` is still the convention below, but as
+belt-and-braces: it makes the chosen appearance explicit at the callsite and
+keeps the export independent of a platform behaviour Apple could change. The rest
+of the aliases are fixed anyway (unpaired light tokens, `night*`, time-of-day,
+chart). **The paired set grows with each gate-1 slice** — do not treat a specific
+alias as fixed without checking `PasturaDynamicPalette`, whose doc comment carries
+the current membership and its slice-by-slice provenance.
 
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette
@@ -375,11 +387,20 @@ would otherwise make it vacuous) and `colors.count == childCount` (a slot typed
 `AnyShapeStyle` / `LinearGradient` / `UIColor` is invisible to `as? Color`).
 
 ADR-009 rules out snapshots, so any *new* fixed-appearance consumer still needs
-its own equivalent pin or it is unguarded — **nothing detects its absence**. An
-enumeration guard for that was designed and refused (ADR-028 § "Revisit trigger"
-bullet 1): it cannot redden on the shape that actually happened, below.
+its own equivalent pin or it is unguarded — **nothing detects its absence**.
+Three mechanical guards have now been designed and refused (all recorded under
+ADR-028 § "Revisit trigger" bullet 1): a SwiftLint rule, which cannot express the
+predicate; an enumeration guard over palette types, which cannot redden on the
+shape that actually happened, below; and — since #1337 — an A/B render-invariance
+probe over the production path, which has **no reachable failure to detect** now
+that the injection is known to cover every read inside the export. A probe that
+cannot fail is worse than an acknowledged gap, so none shipped.
 Reference consumers: `HighlightCardPalette`, and `SheepAvatarPalette` for the
 avatar that card draws.
+
+The check to run on a **new** fixed-appearance consumer is therefore "does it
+inject `\.environment(\.colorScheme, …)` and take the appearance as a
+parameter?" — not "does it read an alias". The first is what silently breaks.
 
 **The consumer is not always the view you migrated.** A component a
 fixed-appearance consumer *draws* inherits the constraint without appearing in
