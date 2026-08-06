@@ -96,10 +96,13 @@ internal object DivergenceLedger {
         /**
          * A field that differs on an event both engines emit.
          *
-         * Keyed by the event kind plus its 0-based **occurrence ordinal** among
-         * events of that kind, never by an absolute transcript index: an
+         * Keyed by the event kind plus its 0-based occurrence ordinal **within
+         * the Swift transcript**, never by an absolute transcript index: an
          * absolute index shifts under any upstream structural divergence, which
-         * would force one entry per remaining event.
+         * would force one entry per remaining event. The ordinal counts every
+         * event of that kind the walk consumes on that side, including ones a
+         * [Structural] entry accounts for — so it stays a property of the
+         * transcript rather than of how far the two happened to stay paired.
          */
         internal data class Value(
             override val fixture: String,
@@ -114,13 +117,25 @@ internal object DivergenceLedger {
         /**
          * An event one engine emits and the other does not.
          *
-         * [expectedLine] is the whole JSON line rather than a kind plus a
-         * position, so a *different* unexpected event arriving at the same place
-         * is not absorbed by this entry.
+         * Pinned three ways, and all three are load-bearing:
+         *
+         * - [expectedLine] is the whole JSON line, so a *different* unexpected
+         *   event arriving at the same place is not absorbed.
+         * - [event] plus [ordinal] fix *which occurrence* this licenses. Without
+         *   them a line-only match is position-free, and a transcript is full of
+         *   byte-identical lines — pinning `t` and `attempt` to 0 makes e.g. one
+         *   agent's `inference_started` recur 18 times verbatim in the committed
+         *   golden. An entry written for round 4 would then fire at round 1's
+         *   occurrence and the walk would re-sync as if nothing happened,
+         *   silently absorbing an ordering regression.
+         *
+         * [ordinal] counts occurrences of [event] on [side]'s own transcript.
          */
         internal data class Structural(
             override val fixture: String,
             val side: Side,
+            val event: String,
+            val ordinal: Int,
             val expectedLine: String,
             override val divergenceClass: DivergenceClass,
         ) : LedgerEntry()
@@ -133,18 +148,32 @@ internal object DivergenceLedger {
     internal data class Report(
         val uncovered: List<UncoveredDiff>,
         val unfired: List<LedgerEntry>,
+        /**
+         * Whether an uncovered structural difference forced the walk to advance
+         * both sides. Everything reported after that point may be a consequence
+         * rather than a cause.
+         */
+        val desynced: Boolean = false,
     ) {
         val isClean: Boolean get() = uncovered.isEmpty() && unfired.isEmpty()
 
         /** Human-readable failure text; empty when clean. */
         fun describe(): String = buildString {
+            // Emitted first, and in the failure text rather than only in a KDoc:
+            // the engineer reading a red build sees this string, not the source.
+            if (desynced) {
+                appendLine(
+                    "NOTE: the walk desynchronized at the first uncovered structural difference. " +
+                        "Everything after it may be a consequence — fix the first one and re-run."
+                )
+            }
             if (uncovered.isNotEmpty()) {
                 appendLine("Uncovered differences (${uncovered.size}):")
                 uncovered.forEach { appendLine("  - ${it.description}") }
             }
             if (unfired.isNotEmpty()) {
                 appendLine("Ledger entries that did not fire (${unfired.size}):")
-                unfired.forEach { appendLine("  - $it") }
+                unfired.forEach { appendLine("  - $it  [documented at: ${it.divergenceClass.documentedAt}]") }
                 appendLine(
                     "  An entry that stops firing is a divergence that closed — " +
                         "delete it rather than leaving a standing licence."

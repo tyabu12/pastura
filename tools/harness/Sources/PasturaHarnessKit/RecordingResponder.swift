@@ -22,8 +22,12 @@ import Synchronization
 /// Unlike ``MockLLMService``, which replays a flat list supplied up front, this
 /// type *derives* each answer, so a scenario's call count does not have to be
 /// predicted by hand before the run.
-package final class RecordingResponder: LLMService, @unchecked Sendable {
-  // @unchecked Sendable: mutable state is protected by a Mutex.
+/// Plain `Sendable`, not `@unchecked`: every stored property is a `let`, and
+/// `Mutex<State>` is `Sendable` because `State` is. Keeping the checked
+/// conformance means a later unguarded `var` fails the build instead of quietly
+/// re-opening a race (`.claude/rules/swift-isolation.md` Pattern 7's pairing
+/// advice).
+package final class RecordingResponder: LLMService, Sendable {
 
   /// Answers recorded so far, in call order.
   private struct State {

@@ -115,7 +115,7 @@ class TranscriptComparatorTests {
     // MARK: - Ordinal keying
 
     @Test
-    fun entriesAreKeyedByOccurrenceOrdinalNotTranscriptIndex() {
+    fun aLaterOccurrenceCanBeLedgeredOnItsOwn() {
         val swift = listOf(output("Alice", "a"), output("Bob", "1"))
         val kotlin = listOf(output("Alice", "a"), output("Bob", "1.0"))
         val report = compare(swift, kotlin, listOf(valueEntry(ordinal = 1, swift = "1", kotlin = "1.0")))
@@ -136,22 +136,54 @@ class TranscriptComparatorTests {
 
     // MARK: - Structural divergences
 
+    private fun structural(
+        side: Side,
+        event: String,
+        ordinal: Int,
+        line: String,
+    ) = LedgerEntry.Structural(
+        fixture = fixture,
+        side = side,
+        event = event,
+        ordinal = ordinal,
+        expectedLine = line,
+        divergenceClass = DivergenceClass.SCHEMA_GUARD_POSITION,
+    )
+
     @Test
     fun aLedgeredStructuralSubstitutionIsAcceptedAndResyncs() {
         // The shape the schema-guard divergence produces: Swift emits an
         // agent_output where Kotlin emits a turn_skipped. Two entries, one per
-        // side; the walk must re-sync and compare the following event normally.
-        val swift = listOf(output("Alice", ""), output("Bob", "ok"))
-        val kotlin = listOf(skipped("Alice"), output("Bob", "ok"))
+        // side. Bob's field DIFFERS across the sides on purpose — with identical
+        // Bob events, a comparator that skipped the event entirely instead of
+        // re-syncing would also report clean, so the test would pass for the
+        // wrong reason.
+        val swift = listOf(output("Alice", ""), output("Bob", "1"))
+        val kotlin = listOf(skipped("Alice"), output("Bob", "1.0"))
         val report = compare(
             swift, kotlin,
             listOf(
-                LedgerEntry.Structural(
-                    fixture, Side.SWIFT_ONLY, output("Alice", ""),
-                    DivergenceClass.SCHEMA_GUARD_POSITION),
-                LedgerEntry.Structural(
-                    fixture, Side.KOTLIN_ONLY, skipped("Alice"),
-                    DivergenceClass.SCHEMA_GUARD_POSITION),
+                structural(Side.SWIFT_ONLY, "agent_output", 0, output("Alice", "")),
+                structural(Side.KOTLIN_ONLY, "turn_skipped", 0, skipped("Alice")),
+            ),
+        )
+        // The walk re-synced, so Bob's difference is seen and reported.
+        assertEquals(1, report.uncovered.size, report.describe())
+        assertTrue(report.uncovered.single().description.contains("fields.statement"))
+        assertTrue(report.unfired.isEmpty(), report.describe())
+    }
+
+    @Test
+    fun aResyncedPairCanItselfBeLedgered() {
+        val report = compare(
+            listOf(output("Alice", ""), output("Bob", "1")),
+            listOf(skipped("Alice"), output("Bob", "1.0")),
+            listOf(
+                structural(Side.SWIFT_ONLY, "agent_output", 0, output("Alice", "")),
+                structural(Side.KOTLIN_ONLY, "turn_skipped", 0, skipped("Alice")),
+                // Ordinal 1: the Swift-side agent_output counter advanced past
+                // the structurally-consumed one, so Bob is occurrence 1.
+                valueEntry(ordinal = 1, swift = "1", kotlin = "1.0"),
             ),
         )
         assertTrue(report.isClean, report.describe())
@@ -165,6 +197,8 @@ class TranscriptComparatorTests {
         )
         assertTrue(report.uncovered.isNotEmpty(), report.describe())
         assertTrue(report.uncovered.first().description.contains("event kind diverged"))
+        assertTrue(report.desynced, "an uncovered kind mismatch must mark the report desynced")
+        assertTrue(report.describe().contains("may be a consequence"))
     }
 
     @Test
@@ -174,24 +208,117 @@ class TranscriptComparatorTests {
         val report = compare(
             listOf(output("Alice", "")),
             listOf(skipped("Carol")),
-            listOf(
-                LedgerEntry.Structural(
-                    fixture, Side.KOTLIN_ONLY, skipped("Alice"),
-                    DivergenceClass.SCHEMA_GUARD_POSITION),
-            ),
+            listOf(structural(Side.KOTLIN_ONLY, "turn_skipped", 0, skipped("Alice"))),
         )
         assertTrue(report.uncovered.isNotEmpty(), report.describe())
         assertEquals(1, report.unfired.size, report.describe())
     }
 
+    // The widening path a line-only match leaves open. Pinning `t` and `attempt`
+    // to 0 makes a real transcript full of byte-identical lines — one agent's
+    // `inference_started` recurs 18 times verbatim in the committed golden — so
+    // an entry written for one occurrence must not license a different one.
+    //
+    // Both arms share the fixture: occurrence 0 of `turn_skipped` is a MATCHED
+    // pair, so the only kind mismatch is at occurrence 1. That is what makes the
+    // ordinal observable — an earlier draft put the mismatch at occurrence 0 and
+    // passed with the ordinal check deleted, because a wrongly-consumed entry
+    // still left a second mismatch behind that satisfied the assertion.
+    private val repeatedSwift = listOf(skipped("Alice"), output("Alice", "a"))
+    private val repeatedKotlin = listOf(skipped("Alice"), skipped("Alice"))
+
     @Test
-    fun aTrailingEventOnOneSideIsReported() {
+    fun aStructuralEntryPinnedToTheWrongOccurrenceDoesNotFire() {
+        val report = compare(
+            repeatedSwift, repeatedKotlin,
+            // Pinned to occurrence 0 — which is a matched pair, not the mismatch.
+            listOf(structural(Side.KOTLIN_ONLY, "turn_skipped", 0, skipped("Alice"))),
+        )
+        assertTrue(
+            report.uncovered.any { it.description.contains("event kind diverged") },
+            report.describe(),
+        )
+        assertEquals(1, report.unfired.size, "the mis-keyed entry must read as unfired")
+    }
+
+    @Test
+    fun aStructuralEntryPinnedToTheRightOccurrenceFires() {
+        // The positive control for the arm above: same transcripts, ordinal 1.
+        // Swift's trailing agent_output is then unmatched, so one uncovered
+        // trailing diff remains — the point is that the kind mismatch is gone.
+        val report = compare(
+            repeatedSwift, repeatedKotlin,
+            listOf(structural(Side.KOTLIN_ONLY, "turn_skipped", 1, skipped("Alice"))),
+        )
+        assertTrue(report.unfired.isEmpty(), report.describe())
+        assertTrue(
+            report.uncovered.none { it.description.contains("event kind diverged") },
+            report.describe(),
+        )
+    }
+
+    @Test
+    fun duplicateEntriesDoNotMarkEachOtherFired() {
+        // Fired-ness is tracked by index. Tracked by value, one firing would
+        // mark both and the stale duplicate would read as used — a hole in
+        // assertion (b) exactly where a copy-paste ledger edit lands.
+        val entry = valueEntry(swift = "1", kotlin = "1.0")
+        val report = compare(
+            listOf(output("Alice", "1")),
+            listOf(output("Alice", "1.0")),
+            listOf(entry, entry),
+        )
+        assertEquals(1, report.unfired.size, report.describe())
+    }
+
+    @Test
+    fun anEmptyNestedObjectIsDistinguishedFromAnAbsentKey() {
+        // `fields: {}` versus no `fields` key at all. Erased by a naive flatten,
+        // and the wrong blind spot for a comparator whose reason to exist
+        // includes an empty-field divergence.
+        val report = compare(
+            listOf("""{"event":"agent_output","fields":{},"type":"event"}"""),
+            listOf("""{"event":"agent_output","type":"event"}"""),
+        )
+        assertEquals(1, report.uncovered.size, report.describe())
+        assertTrue(report.uncovered.single().description.contains("fields"))
+    }
+
+    @Test
+    fun aTrailingSwiftEventIsReported() {
         val report = compare(
             listOf(output("Alice", "a"), output("Bob", "b")),
             listOf(output("Alice", "a")),
         )
         assertEquals(1, report.uncovered.size, report.describe())
         assertTrue(report.uncovered.single().description.contains("trailing SWIFT_ONLY"))
+    }
+
+    @Test
+    fun aTrailingKotlinEventIsReported() {
+        val report = compare(
+            listOf(output("Alice", "a")),
+            listOf(output("Alice", "a"), output("Bob", "b")),
+        )
+        assertEquals(1, report.uncovered.size, report.describe())
+        assertTrue(report.uncovered.single().description.contains("trailing KOTLIN_ONLY"))
+    }
+
+    @Test
+    fun aLedgeredTrailingEventIsAccepted() {
+        val report = compare(
+            listOf(output("Alice", "a"), output("Bob", "b")),
+            listOf(output("Alice", "a")),
+            listOf(structural(Side.SWIFT_ONLY, "agent_output", 1, output("Bob", "b"))),
+        )
+        assertTrue(report.isClean, report.describe())
+    }
+
+    @Test
+    fun aMalformedLineDegradesToAReportRatherThanAThrow() {
+        val report = compare(listOf("not json"), listOf(output("Alice", "a")))
+        assertTrue(report.uncovered.isNotEmpty(), report.describe())
+        assertTrue(report.uncovered.any { it.description.contains("not a JSON object") })
     }
 
     // MARK: - Scoping

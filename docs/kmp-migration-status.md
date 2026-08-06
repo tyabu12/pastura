@@ -72,10 +72,8 @@ machine-checked — see the maintenance invariant above.
 
 ## Stages 4–5 — remaining integration
 
-- **Stage 4** (parity harness): 🔄 in progress — slice 1a (Swift emitter, goldens, ledger,
-  comparator) landed; slice 1b (Kotlin mapper mirror, dual-engine run, CI drift gate) next.
-  **Neither parity rung is live yet**: what Stage 2 pulled forward was the `macosArm64` *target
-  registration*, not the harness (ADR-023 §6). See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
+- **Stage 4** (parity harness): 🔄 in progress — slice 1a landed; 1b (Kotlin mirror, dual-engine
+  run, CI gate) next. Neither rung live. See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
   [#1387](https://github.com/tyabu12/pastura/issues/1387).
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.

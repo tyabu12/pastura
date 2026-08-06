@@ -5,8 +5,15 @@ import Testing
 @testable import PasturaHarnessKit
 
 /// `.serialized` because every emitter case constructs a `SimulationRunner`,
-/// which spawns `Task` + `AsyncStream`; concurrent teardown crashes the test
-/// process (`.claude/rules/swift-testing-parallelism.md`).
+/// which spawns `Task` + `AsyncStream` and crashes the test process on
+/// concurrent teardown.
+///
+/// **This orders cases within this suite only.** Per
+/// `.claude/rules/swift-testing-parallelism.md`, separate top-level suites still
+/// run concurrently, and `HarnessRunnerTests` / `HarnessLanguageDetectorTests`
+/// reach the same types in the same target. CI invokes a bare `swift test` with
+/// no `--no-parallel`, so cross-suite isolation is **not** enforced — stated
+/// here rather than implied, so the annotation is not read as more than it is.
 @Suite(.serialized, .timeLimit(.minutes(1)))
 struct ParityFixtureEmitterTests {
 
@@ -51,7 +58,11 @@ struct ParityFixtureEmitterTests {
     let after = try await responder.generate(system: "", user: "", schema: schema)
 
     #expect(overridden == #"{"statement": ""}"#)
-    #expect(!after.contains("\"\""))
+    // Asserted as the exact value, not as "not empty": the latter passes for any
+    // non-empty payload, including a wrongly-indexed one, and would pass
+    // vacuously if `derive` changed shape. This pins that the override applied
+    // at exactly index 1 and the derivation resumed at call index 2.
+    #expect(after == #"{"statement": "statement 2"}"#)
     #expect(responder.callCount == 3)
     #expect(responder.recordedResponses.count == 3)
   }
@@ -103,6 +114,48 @@ struct ParityFixtureEmitterTests {
     #expect(fixture.callCount == fixture.responses.count)
     #expect(fixture.transcript.contains { $0.contains("\"simulation_completed\"") })
     #expect(fixture.scenarioJSON.contains("target_score_race"))
+  }
+
+  @Test("no run emits a language mismatch")
+  func parityRunEmitsNoLanguageMismatch() async throws {
+    // Guards the deliberate `detector:` omission in `ParityFixtureEmitter.run`.
+    // `HarnessLanguageDetector` wraps an OS-version-dependent classifier, and
+    // the responder answers a `ja` scenario with ASCII — so an injected detector
+    // would trip ADR-010 retries, change `callCount`, and make the golden vary
+    // by host. Silent today; this makes re-adding one loud.
+    for spec in ParityFixtureEmitter.specs {
+      let fixture = try await ParityFixtureEmitter.run(spec)
+      #expect(!fixture.transcript.contains { $0.contains("language_mismatch") }, "\(spec.name)")
+    }
+  }
+
+  // MARK: - The negative-control fixture
+
+  @Test("the divergent spec's hand-pinned override indices still land on one turn")
+  func divergentSpecOverridesStayAligned() async throws {
+    // The negative control's contract is index-pinned: calls 0-2 are ONE agent's
+    // speak_all turn across the whole retry window, and call 3 is the next turn.
+    // That holds only while the retry budget is 3 and speak_all is phase 0.
+    // Change either and the overrides silently land on different turns — the
+    // emitter still succeeds and `--check` merely asks for a regeneration, after
+    // which the fixture drives a different divergence than its own KDoc claims.
+    // Nothing else on the Swift side reddens, so these two assertions are it.
+    guard let nominal = ParityFixtureEmitter.specs.first,
+      let divergent = ParityFixtureEmitter.specs.last,
+      nominal.name != divergent.name
+    else {
+      Issue.record("expected a nominal and a divergent spec")
+      return
+    }
+    let nominalRun = try await ParityFixtureEmitter.run(nominal)
+    let divergentRun = try await ParityFixtureEmitter.run(divergent)
+
+    // Exactly two extra attempts — which is what makes calls 0-2 a single turn.
+    #expect(divergentRun.callCount == nominalRun.callCount + 2)
+    // And the value divergence rides the very next call.
+    #expect(divergentRun.responses.count > 3)
+    #expect(divergentRun.responses[3].contains("confidence"))
+    #expect(divergentRun.transcript.contains { $0.contains("\"confidence\":\"1\"") })
   }
 
   // MARK: - Raw-string safety guard
