@@ -182,8 +182,9 @@ check_highlights() {
   rc=$?
   set -e
   if [ "$rc" -ne 0 ]; then
-    # here-doc, not a here-string: keeps the loop in this shell so `fail`'s
-    # FAILURES increments survive (and stays bash 3.2-safe).
+    # here-doc, not a pipe: `echo "$out" | while …` would run the loop in a
+    # subshell and lose `fail`'s FAILURES increments. (Not `<<<` either —
+    # here-strings are on ci-workflows.md Rule 1's bash-3.2 avoid list.)
     while IFS= read -r line; do
       [ -n "$line" ] && fail "$line"
     done <<EOF

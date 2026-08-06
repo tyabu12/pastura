@@ -144,11 +144,23 @@ def normalize_picks(raw_picks):
 
 
 def build_excerpt(picks, lines, context, run_path):
+    # A retried harness run appends attempt 2 to the same JSONL and round
+    # numbering restarts at 1, so a pick landing in the discarded attempt
+    # would be silently mis-contextualized (its round derived from the dead
+    # attempt while source.run_id implies the completed one). Only the final
+    # attempt is pickable; the validator never sees the transcript, so this
+    # is the sole enforcement point.
+    max_attempt = max(
+        (o.get("attempt") or 1) for o in lines.values() if o.get("type") == "event")
     excerpt = []
     for lineno, source_field in picks:
         obj = lines.get(lineno)
         if obj is None:
             die(f"pick {lineno} — no such (non-blank) line in {run_path}")
+        if (obj.get("attempt") or 1) != max_attempt:
+            die(f"pick {lineno} — belongs to attempt {obj.get('attempt')}, but the "
+                f"log's final attempt is {max_attempt}; a retried run renumbers "
+                "rounds, so picks must come from the final attempt only")
         if obj.get("type") != "event" or obj.get("event") != "agent_output":
             die(f"pick {lineno} — line is {obj.get('event') or obj.get('type')!r}, "
                 "not an `agent_output` event; only a persona utterance is "

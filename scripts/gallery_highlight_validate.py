@@ -79,9 +79,11 @@ def load_blocklist(path):
         doc = json.load(f)
     out = []
     for i, entry in enumerate(doc.get("patterns") or []):
-        term = (entry or {}).get("term") or ""
+        term = normalize((entry or {}).get("term") or "")
+        # Filter on the NORMALIZED form: a term of only combining marks
+        # normalizes to "" and would substring-match everything.
         if term:
-            out.append((normalize(term), (entry or {}).get("contentCategory", "?"), i))
+            out.append((term, (entry or {}).get("contentCategory", "?"), i))
     return out
 
 
@@ -120,10 +122,11 @@ def check_blocklist(doc, blocklist, where):
 
 def _check_schema(doc, where):
     failures = []
-    if doc.get("schema_version") != SCHEMA_VERSION:
+    sv = doc.get("schema_version")
+    if not isinstance(sv, int) or isinstance(sv, bool) or sv != SCHEMA_VERSION:
         failures.append(
             f"highlight: schema — {where} schema_version must be {SCHEMA_VERSION}, "
-            f"got {doc.get('schema_version')!r}")
+            f"got {sv!r}")
     ref = doc.get("scenario_ref")
     if not isinstance(ref, dict) or not isinstance(ref.get("id"), str) \
             or not isinstance(ref.get("yaml_sha256"), str):
@@ -286,8 +289,19 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
                 f"{'highlight_url' if has_url else 'highlight_sha256'} without its "
                 "partner; both-or-neither (ADR-029 Decision 4)")
             continue
-        if has_url:
-            paired_entries.append(entry)
+        if not has_url:
+            continue
+        # `has()` is true for an explicit JSON null too — a hand-edited index
+        # (exactly what this script polices) must fail with a named entry,
+        # not a TypeError traceback from os.path.basename(None).
+        if not isinstance(entry.get("highlight_url"), str) \
+                or not isinstance(entry.get("highlight_sha256"), str) \
+                or not isinstance(entry.get("yaml_url"), str):
+            failures.append(
+                f"highlight: schema — id={entry.get('id')} highlight_url / "
+                "highlight_sha256 / yaml_url must all be strings")
+            continue
+        paired_entries.append(entry)
 
     if not paired_entries and not on_disk:
         return failures
@@ -355,8 +369,9 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
         failures += check_content(doc, entry, blocklist, where)
 
     for path in sorted(on_disk - referenced):
+        rel = os.path.relpath(path, os.path.dirname(gallery_dir))
         failures.append(
-            f"highlight: orphan — {path} is not referenced by a gallery.json entry "
+            f"highlight: orphan — {rel} is not referenced by a gallery.json entry "
             "carrying both highlight_url and highlight_sha256 (the id may be absent "
             "from the index, or present without the fields)")
 

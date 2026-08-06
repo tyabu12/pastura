@@ -47,6 +47,7 @@ function loadHighlight(id: string): ScenarioHighlight | null {
       !Array.isArray(parsed.excerpt) ||
       parsed.excerpt.length === 0 ||
       typeof parsed.yaml_hook?.fragment !== 'string' ||
+      typeof parsed.source?.model !== 'string' ||
       typeof parsed.teaser !== 'string'
     ) {
       console.warn(`[highlight] ignoring unusable highlight file: ${path}`);
@@ -89,7 +90,7 @@ const t = isJa
       privacy: 'プライバシーポリシー',
       guide: 'シナリオガイド',
       highlightH: '実行のようす',
-      highlightNote: `実際に端末で動かした結果から抜き出した会話です（${highlight?.source.model ?? ''}）。`,
+      highlightNote: `実際に端末で動かした結果から抜き出した会話です（${highlight?.source?.model ?? ''}）。`,
       yamlHookH: 'この会話を生んだYAML',
       editInvite: 'このYAMLはアプリで開いてそのまま書き換えられます。設定を変えて、自分だけの展開を確かめてみてください。',
     }
@@ -111,7 +112,7 @@ const t = isJa
       privacy: 'Privacy Policy',
       guide: 'Scenario guide',
       highlightH: 'A glimpse of a run',
-      highlightNote: `Lines taken from a real on-device run (${highlight?.source.model ?? ''}).`,
+      highlightNote: `Lines taken from a real on-device run (${highlight?.source?.model ?? ''}).`,
       yamlHookH: 'The YAML behind these lines',
       editInvite: 'Open this YAML in the app and rewrite it in place. Change the setup and see where your own run goes.',
     };

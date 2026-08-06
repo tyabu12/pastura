@@ -280,6 +280,30 @@ rm "$R/docs/gallery/highlights/demo_v1.json"
 gate "$R"; expect_fail "H12 missing highlight file fails"
 expect_out "highlight: missing file" "H12 names the missing-file check"
 
+# H13 — schema family: a highlight with `source` dropped fails as schema.
+# (`source.model` is also the field the web build's guard checks, so this
+# case covers both sides of the data-schema↔web seam.)
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"
+python3 - "$R" <<'PY'
+import json, sys
+p = sys.argv[1] + "/docs/gallery/highlights/demo_v1.json"
+doc = json.load(open(p)); del doc["source"]
+json.dump(doc, open(p, "w"), ensure_ascii=False, indent=2)
+PY
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H13 missing source fails"
+expect_out "highlight: schema" "H13 names the schema check"
+
+# H14 — phase_index naming a different phase than `phase` (distinct code
+# path from H6's within-round bound; phases[:1] holds no outcome phase, so
+# only the mismatch check can redden here).
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":1,"source_field":"statement","text":"ずれてる。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H14 phase_index naming another phase fails"
+expect_out "highlight: phase_index mismatch" "H14 names the mismatch check"
+
 # ============================== extractor ================================
 
 # mk_run <repo> <path> — a minimal 4-round transcript. Line numbers:
@@ -391,6 +415,22 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run3.jsonl --id dem
 expect_fail "E8 blocklist match blocks extraction"
 expect_out "highlight: blocklist" "E8 names the blocklist check"
 if [ ! -e "$R/docs/gallery/highlights/demo_v1.json" ]; then PASS=$((PASS + 1)); else bad "E8 wrote a file despite the blocklist failure"; fi
+
+# E9 — a pick from a discarded retry attempt is refused (a retried run
+# renumbers rounds, so an attempt-1 pick would be mis-contextualized).
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R/run.jsonl" <<'PY'
+import sys
+p = sys.argv[1]
+lines = open(p, encoding="utf-8").read().rstrip("\n").split("\n")
+retry = [l.replace('"attempt":1', '"attempt":2') for l in lines[1:-1]]
+open(p, "w", encoding="utf-8").write("\n".join(lines[:-1] + retry + [lines[-1]]) + "\n")
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E9 attempt-1 pick in a retried log fails"
+expect_out "final attempt" "E9 names the attempt guard"
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
