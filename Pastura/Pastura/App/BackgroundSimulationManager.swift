@@ -142,8 +142,9 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
       try BGTaskScheduler.shared.submit(request)
       // Log the task identifier rather than the caller-supplied `title` —
       // `scheduleRequest(title:)` is `public` API and a future caller could
-      // pass user-controlled strings, but `Self.taskIdentifier` is a
-      // compile-time constant and provides equivalent diagnostic value.
+      // pass user-controlled strings, but `Self.taskIdentifier` is derived
+      // solely from the app's own bundle ID and provides equivalent
+      // diagnostic value.
       logger.info(
         "Scheduled BG continuation request: \(Self.taskIdentifier, privacy: .public)")
     } catch {

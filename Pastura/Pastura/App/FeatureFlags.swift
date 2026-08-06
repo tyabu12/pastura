@@ -20,6 +20,11 @@ import Foundation
 /// (re-enable preconditions met), keep the same key so that any
 /// developer-side `defaults write` overrides remain honoured rather than
 /// silently leaking under a renamed key.
+///
+/// The `defaults write` **domain** below is the running build's bundle ID, which
+/// the Debug configuration suffixes so a dev build can be installed alongside the
+/// App Store build — so a locally-run build reads `app.pastura.Pastura.dev`, and
+/// writing the unsuffixed domain silently affects the other app instead.
 nonisolated enum FeatureFlags {
   // MARK: - Keys
 
@@ -41,6 +46,8 @@ nonisolated enum FeatureFlags {
   /// ```
   /// defaults write app.pastura.Pastura realtimeStreamingEnabled -bool false
   /// ```
+  /// (append `.dev` to the domain when targeting a locally-built Debug app —
+  /// see the type-level note.)
   static var realtimeStreamingEnabled: Bool {
     defaultsReadBool(key: realtimeStreamingKey, default: true)
   }
@@ -84,6 +91,8 @@ nonisolated enum FeatureFlags {
   /// ```
   /// defaults write app.pastura.Pastura backgroundContinuationEnabled -bool true
   /// ```
+  /// (append `.dev` to the domain when targeting a locally-built Debug app —
+  /// see the type-level note.)
   ///
   /// **Re-enable bar** — flip this default to `true` only once *all three*
   /// engineering preconditions actually hold (independent of any issue's
