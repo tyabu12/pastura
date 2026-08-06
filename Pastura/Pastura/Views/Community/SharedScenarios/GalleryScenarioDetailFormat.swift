@@ -47,6 +47,118 @@ enum GalleryScenarioDetailFormat {
     }
   }
 
+  /// One rendered line of a curated highlight's excerpt, resolved for the run
+  /// figure (ADR-029).
+  ///
+  /// Built by ``excerptRows(_:totalRounds:)``, which owns the two derivations a
+  /// raw ``GalleryHighlightExcerptEntry`` cannot answer for itself: which avatar
+  /// colour slot the speaker occupies, and whether a round boundary opens above
+  /// this line.
+  struct ExcerptRow: Identifiable {
+    /// Position in the excerpt. The entries are **not** unique — one persona
+    /// can speak more than once, and two lines can be byte-identical (both
+    /// shipped highlights contain a repeated `"答えはC"`) — so the index is the
+    /// only stable identity, mirroring the `enumerated().offset` ids the rest
+    /// of this screen uses.
+    let id: Int
+
+    let entry: GalleryHighlightExcerptEntry
+
+    /// Zero-based avatar colour slot. See ``excerptRows(_:totalRounds:)`` for
+    /// how it is derived and why it matches the app's own resolution.
+    let agentPosition: Int
+
+    /// Mapped phase, for the row's badge. Non-optional: `GalleryHighlightLoader`
+    /// hides any highlight carrying an unmappable phase (ADR-029 § Amendment
+    /// 2026-08-07), so a row that exists always has one.
+    let phaseType: PhaseType
+
+    /// Localized round label for a divider drawn **above** this row, or `nil`
+    /// when the line continues the previous line's round.
+    let dividerLabel: String?
+  }
+
+  /// Resolves a curated excerpt into render-ready rows.
+  ///
+  /// **Avatar slots follow order of first appearance.** The app assigns a
+  /// speaker's colour from their index in the scenario's persona list
+  /// (``SheepAvatar/Character/forAgent(_:position:)`` → `allCases[position % 4]`),
+  /// but a highlight file carries no persona index — it is an excerpt, not a
+  /// scenario. First appearance within the excerpt stands in for it. Measured on
+  /// both shipped highlights, the two orders agree, so a reader sees the same
+  /// colours here as in a real run; `web/src/components/ScenarioLanding.astro`
+  /// resolves the landing pages the same way for the same reason. With five or
+  /// more speakers the fourth and fifth collide — the app collides identically,
+  /// so reproducing it is fidelity rather than a defect to route around.
+  ///
+  /// **Returns `[]` when any phase is unmappable.** This mirrors the loader's
+  /// fail-closed gate rather than trusting it: this is a pure function with no
+  /// way to signal a partial result, and the alternatives — dropping the line,
+  /// or inventing a fallback badge — are the two outcomes ADR-029 § Amendment
+  /// 2026-08-07 rejects. In production the loader has already hidden such a
+  /// highlight, so this path is defence in depth and not the live guard.
+  ///
+  /// - Parameter totalRounds: the scenario's round count
+  ///   (``GalleryScenario/rounds``), or `nil` when the feed omits it — divider
+  ///   labels then fall back to the total-less form.
+  static func excerptRows(
+    _ excerpt: [GalleryHighlightExcerptEntry], totalRounds: Int?
+  ) -> [ExcerptRow] {
+    var slots: [String: Int] = [:]
+    var rows: [ExcerptRow] = []
+
+    for (index, entry) in excerpt.enumerated() {
+      guard let phaseType = PhaseType(rawValue: entry.phase) else { return [] }
+
+      let position = slots[entry.agent] ?? slots.count
+      slots[entry.agent] = position
+
+      let opensNewRound = index > 0 && entry.round != excerpt[index - 1].round
+      rows.append(
+        ExcerptRow(
+          id: index,
+          entry: entry,
+          agentPosition: position,
+          phaseType: phaseType,
+          dividerLabel: opensNewRound
+            ? roundLabel(round: entry.round, totalRounds: totalRounds) : nil))
+    }
+    return rows
+  }
+
+  /// Round label for the run figure's head, or `nil` to collapse the fragment.
+  ///
+  /// Reads the **first excerpt entry's** round, not round 1: a highlight is
+  /// typically quoted from partway into a run, and the head is describing the
+  /// passage below it rather than the scenario. `web`'s landing pages take
+  /// `excerpt[0].round` for the same reason.
+  ///
+  /// Collapses when the excerpt is empty or ``GalleryScenario/rounds`` is
+  /// absent — the head states a position within a whole, so it needs both
+  /// halves, the same pair-or-nothing semantic ``GameHeaderRound`` enforces for
+  /// the live header. A divider is not held to this: it separates two rounds
+  /// that are both present in the passage, so it degrades to the total-less
+  /// form instead of vanishing.
+  static func excerptHeadRoundLabel(
+    _ excerpt: [GalleryHighlightExcerptEntry], totalRounds: Int?
+  ) -> String? {
+    guard let first = excerpt.first, let totalRounds else { return nil }
+    return GameHeader.formatRoundLabel(current: first.round, total: totalRounds)
+  }
+
+  /// `Round N / M`, or `Round N` when the total is unknown.
+  ///
+  /// Both keys already ship with `ja` translations — the two-argument form via
+  /// ``GameHeader/formatRoundLabel(current:total:)`` (shared with the live
+  /// header and the demo's round separators) and the one-argument form via the
+  /// past-results round separator — so neither adds a catalog entry.
+  static func roundLabel(round: Int, totalRounds: Int?) -> String {
+    guard let totalRounds else {
+      return String(format: String(localized: "Round %lld"), round)
+    }
+    return GameHeader.formatRoundLabel(current: round, total: totalRounds)
+  }
+
   /// Display-ready form of a curated highlight's YAML fragment (ADR-029).
   ///
   /// The published fragments are multi-line YAML blocks that commonly end with
