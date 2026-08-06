@@ -427,8 +427,10 @@
 		E0BCA4DB2F83E7E10025BAE6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_NAME_SUFFIX = " Dev";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				BUNDLE_ID_SUFFIX = ".dev";
 				CODE_SIGN_ENTITLEMENTS = Pastura/Pastura.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -437,8 +439,7 @@
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pastura/Info.plist;
-				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "app.pastura.Pastura.simulation-continuation";
-				INFOPLIST_KEY_CFBundleDisplayName = Pastura;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pastura$(APP_NAME_SUFFIX)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -451,7 +452,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.pastura.Pastura;
+				PRODUCT_BUNDLE_IDENTIFIER = "app.pastura.Pastura$(BUNDLE_ID_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -468,8 +469,10 @@
 		E0BCA4DC2F83E7E10025BAE6 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				APP_NAME_SUFFIX = "";
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				BUNDLE_ID_SUFFIX = "";
 				CODE_SIGN_ENTITLEMENTS = Pastura/Pastura.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
@@ -478,8 +481,7 @@
 				GCC_ENABLE_CPP_EXCEPTIONS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Pastura/Info.plist;
-				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "app.pastura.Pastura.simulation-continuation";
-				INFOPLIST_KEY_CFBundleDisplayName = Pastura;
+				INFOPLIST_KEY_CFBundleDisplayName = "Pastura$(APP_NAME_SUFFIX)";
 				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.entertainment";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -492,7 +494,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.1;
-				PRODUCT_BUNDLE_IDENTIFIER = app.pastura.Pastura;
+				PRODUCT_BUNDLE_IDENTIFIER = "app.pastura.Pastura$(BUNDLE_ID_SUFFIX)";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;

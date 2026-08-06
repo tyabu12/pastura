@@ -2,15 +2,34 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Build-setting substitution, not a literal: the Debug configuration suffixes
+	     PRODUCT_BUNDLE_IDENTIFIER (app.pastura.Pastura.dev) so a dev build can be
+	     installed alongside the App Store build. BackgroundSimulationManager.taskIdentifier
+	     derives the same way; BGTaskScheduler.register only logs when it rejects an
+	     unpermitted identifier, so a divergence here is silent at build AND run time.
+	     Sole source for this key — the duplicate INFOPLIST_KEY_ build setting was
+	     removed so precedence between the two is not something anything relies on.
+
+	     The App Store side rests on BUNDLE_ID_SUFFIX being EMPTY in the Release
+	     config, paired with scripts/release.sh pinning -configuration Release.
+	     Nothing tests that pairing: the suite builds Debug, so deleting the empty
+	     Release definition would ship a `.dev` binary with a green suite. Treat the
+	     Release block's BUNDLE_ID_SUFFIX = "" as load-bearing, not as dead weight
+	     that could be tidied away. -->
 	<key>BGTaskSchedulerPermittedIdentifiers</key>
 	<array>
-		<string>app.pastura.Pastura.simulation-continuation</string>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER).simulation-continuation</string>
 	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>app.pastura.Pastura.scenario</string>
+			<!-- Substituted for the same reason as the BGTask identifier above, so
+			     the file has no bundle-ID-shaped literal left. This is the URL
+			     type's abstract *name*, not the scheme — the scheme below stays
+			     `pastura` in both configurations, and which of two installed apps
+			     opens a `pastura://` URL is a deliberately accepted ambiguity. -->
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER).scenario</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>pastura</string>

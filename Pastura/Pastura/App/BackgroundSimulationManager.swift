@@ -34,8 +34,25 @@ import os
 nonisolated public final class BackgroundSimulationManager: @unchecked Sendable {
   // @unchecked Sendable: internal state protected by OSAllocatedUnfairLock.
 
-  /// The BG task identifier, must match `BGTaskSchedulerPermittedIdentifiers` in Info.plist.
-  public static let taskIdentifier = "app.pastura.Pastura.simulation-continuation"
+  /// The BG task identifier, derived from the running bundle so it always matches
+  /// `BGTaskSchedulerPermittedIdentifiers` in Info.plist.
+  ///
+  /// Derived rather than hardcoded because the Debug configuration suffixes the bundle
+  /// ID (`app.pastura.Pastura.dev`) so a locally-installed dev build can coexist with the
+  /// App Store build on one device. Info.plist declares the permitted identifier as
+  /// `$(PRODUCT_BUNDLE_IDENTIFIER).simulation-continuation`, so a literal here would
+  /// disagree with it on Debug — and `register()` below only *logs* when
+  /// `BGTaskScheduler` rejects an unpermitted identifier, so the divergence would ship
+  /// as a silently dead background-continuation feature rather than a build failure.
+  /// `BackgroundTaskIdentifierTests` pins the two together.
+  ///
+  /// The `??` fallback is unreachable in practice — `bundleIdentifier` is non-nil for
+  /// any bundled app, including the app-hosted test target. It is spelled out rather
+  /// than force-unwrapped per Hard Rule 1, and it deliberately names the *Release*
+  /// identifier: if it ever did fire on Debug it would reproduce exactly the
+  /// divergence this derivation removes, which only the test above would catch.
+  public static let taskIdentifier =
+    "\(Bundle.main.bundleIdentifier ?? "app.pastura.Pastura").simulation-continuation"
 
   private let logger = Logger(subsystem: "app.pastura.Pastura", category: "BGSimManager")
   private let state = OSAllocatedUnfairLock(initialState: State())
@@ -131,8 +148,9 @@ nonisolated public final class BackgroundSimulationManager: @unchecked Sendable 
       try BGTaskScheduler.shared.submit(request)
       // Log the task identifier rather than the caller-supplied `title` —
       // `scheduleRequest(title:)` is `public` API and a future caller could
-      // pass user-controlled strings, but `Self.taskIdentifier` is a
-      // compile-time constant and provides equivalent diagnostic value.
+      // pass user-controlled strings, but `Self.taskIdentifier` is derived
+      // solely from the app's own bundle ID and provides equivalent
+      // diagnostic value.
       logger.info(
         "Scheduled BG continuation request: \(Self.taskIdentifier, privacy: .public)")
     } catch {
