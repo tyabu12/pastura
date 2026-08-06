@@ -97,6 +97,34 @@ package enum ParityFixtureEmitter {
         comparison here means the two engines agree with an empty divergence \
         ledger — which is Stage 4's actual goal, not merely that the harness runs.
         """
+    ),
+    FixtureSpec(
+      name: "targetScoreRaceDivergent",
+      scenarioPath: "Pastura/Pastura/Resources/Presets/target_score_race.yaml",
+      purpose: """
+        Negative control. A ledger whose entries never fire ships unexercised, \
+        so this fixture drives two documented divergences on purpose — one of \
+        each entry kind — and the parity suite fails if either stops firing.
+
+        Calls 0-2 answer the first agent's schema-declaring `speak_all` turn \
+        with present-but-empty canonical fields, across the whole retry window. \
+        Swift takes an `empty_field` retry and its last attempt RETURNS the \
+        empty output as an `agentOutput`; Kotlin's parser applies its \
+        expected-key guard on every successful parse, so it exhausts retries \
+        and emits a `turnSkipped` instead. That is a STRUCTURAL divergence \
+        (`.claude/rules/kmp-interop.md` Pattern 4).
+
+        The next call carries a float-valued key. Swift normalizes `1.0` to \
+        "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the \
+        literal as "1.0". That is a VALUE divergence, and the one \
+        `JSONResponseParser.kt` routes to Stage 4 to rule on.
+        """,
+      overrides: [
+        0: #"{"statement": "", "inner_thought": ""}"#,
+        1: #"{"statement": "", "inner_thought": ""}"#,
+        2: #"{"statement": "", "inner_thought": ""}"#,
+        3: #"{"statement": "s", "inner_thought": "t", "confidence": 1.0}"#
+      ]
     )
   ]
 
