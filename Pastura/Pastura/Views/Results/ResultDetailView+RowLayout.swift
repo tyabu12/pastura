@@ -34,8 +34,7 @@ extension ResultDetailView {
   }
 
   func roundSeparator(_ round: Int) -> some View {
-    HStack {
-      Rectangle().fill(Color.rule).frame(height: 1)
+    PasturaStreamDivider {
       // `metaLabel` keeps "Round N" mixed case — tagPhase would
       // upper-case to "ROUND N" which reads shouty for a prose
       // marker. tagPhase stays reserved for one-word phase tags
@@ -43,8 +42,6 @@ extension ResultDetailView {
       Text(String(format: String(localized: "Round %lld"), round))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
-      Rectangle().fill(Color.rule).frame(height: 1)
     }
-    .padding(.vertical, 4)
   }
 }
