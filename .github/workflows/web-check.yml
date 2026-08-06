@@ -18,11 +18,20 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      - 'docs/gallery/gallery.json'
+      - 'docs/gallery/highlights/**'
       - '.github/workflows/web-check.yml'
   pull_request:
     branches: [main]
     paths:
       - 'web/**'
+      # The build's inputs include the gallery index and the curated highlight
+      # files (#1071, ADR-029), so a docs/gallery-only PR must be build-checked.
+      # This workflow owns no required check, and the change only makes it fire
+      # more often, so it cannot create the pending-forever trap
+      # (.claude/rules/ci-workflows.md § "Required-check-safe path gating").
+      - 'docs/gallery/gallery.json'
+      - 'docs/gallery/highlights/**'
       - '.github/workflows/web-check.yml'
 
 permissions:

@@ -44,6 +44,11 @@ on:
     branches: [main]
     paths:
       - 'web/**'
+      # The Astro build reads the gallery index and the curated highlight files
+      # from repo docs/ at build time (#1071, ADR-029), so a change to either
+      # must redeploy — before this, a gallery.json-only commit deployed nothing.
+      - 'docs/gallery/gallery.json'
+      - 'docs/gallery/highlights/**'
       - '.github/workflows/deploy-pages.yml'
   workflow_dispatch:
 
