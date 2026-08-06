@@ -27,9 +27,14 @@ extension Color {
   //
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?
-  // Read `PasturaPalette.<token>.color` directly instead of these aliases.
-  // `HighlightShareCard` is the reference consumer. That is the sanctioned
-  // explicit-appearance accessor — note the `Color.night*` aliases below now
+  // **Inject it**: `.environment(\.colorScheme, …)` plus an explicit parameter.
+  // That is the half that breaks if omitted — the export then resolves light,
+  // whatever the device (#1337). Then read `PasturaPalette.<token>.color`
+  // directly instead of these aliases: an alias under an injection still gives
+  // the requested appearance, but `light` and `dark` collapse into each other,
+  // so the parameter you just threaded stops doing anything.
+  // `HighlightShareCard` is the reference consumer. The raw palette is the
+  // sanctioned explicit-appearance accessor — note the `Color.night*` aliases below now
   // have ZERO consumers (#1319 moved their last one, that same card, to
   // the raw palette); they remain only as defined-ahead-of-need tokens, and are
   // not a second sanctioned route to a fixed appearance.
