@@ -321,6 +321,37 @@ class TranscriptComparatorTests {
         assertTrue(report.uncovered.any { it.description.contains("not a JSON object") })
     }
 
+    @Test
+    fun transcriptComparatorReportsAMalformedLineOnce() {
+        // The state the de-duplication in `kindOf` defends, which nothing else
+        // builds: the Kotlin side is what a structural entry consumes, so the
+        // Swift line survives the iteration and is re-read at the same index.
+        // Without the guard it reports twice and inflates `uncovered.size`.
+        val report = compare(
+            listOf("not json", output("Bob", "b")),
+            listOf(skipped("Alice"), output("Bob", "b")),
+            listOf(structural(Side.KOTLIN_ONLY, "turn_skipped", 0, skipped("Alice"))),
+        )
+        assertEquals(
+            1,
+            report.uncovered.count { it.description.contains("not a JSON object") },
+            report.describe(),
+        )
+    }
+
+    @Test
+    fun twoMalformedLinesOnOppositeSidesStayTwoReports() {
+        // The other half of "exact, not lossy": carrying side + index means two
+        // genuinely distinct bad lines with identical TEXT do not collapse into
+        // one report the way a text-only key would have made them.
+        val report = compare(listOf("not json"), listOf("not json"))
+        assertEquals(
+            2,
+            report.uncovered.count { it.description.contains("not a JSON object") },
+            report.describe(),
+        )
+    }
+
     // MARK: - Scoping
 
     @Test

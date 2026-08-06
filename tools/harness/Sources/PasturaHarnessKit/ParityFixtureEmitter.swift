@@ -317,10 +317,11 @@ package enum ParityFixtureEmitter {
       if payload.hasSuffix("\"") {
         throw ParityFixtureError.rawStringUnsafe(fixture.name, "a trailing quote")
       }
-      // Same defect at the other end: `"""\(value)"""` with a leading quote
-      // yields `""""value`. Listed separately rather than folded in, because
-      // "the guard should be as wide as its claim" applies to both ends equally
-      // and an asymmetric guard invites the reader to assume one was considered.
+      // Symmetry, not an asserted parse failure. Kotlin's documented raw-string
+      // limitation is the *trailing* quote — the opener is exactly three quotes,
+      // so a fourth at the start is content. A leading quote is rejected here as
+      // conservatism rather than because it is known to break the parse; the
+      // claim is deliberately weaker than the trailing arm's, which is verified.
       if payload.hasPrefix("\"") {
         throw ParityFixtureError.rawStringUnsafe(fixture.name, "a leading quote")
       }

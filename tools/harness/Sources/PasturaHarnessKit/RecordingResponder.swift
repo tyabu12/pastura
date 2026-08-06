@@ -36,6 +36,13 @@ package final class RecordingResponder: LLMService, Sendable {
   /// Answers recorded so far, in call order.
   private struct State {
     var responses: [String] = []
+    /// How many `vote`-schema calls have been answered.
+    ///
+    /// Tracked separately from `responses.count` because the vote rotation must
+    /// be immune to retries in *other* phases: keying it on the global call
+    /// index made the divergent fixture's three-call retry window shift the
+    /// whole stream by two, which put every vote back on its own voter.
+    var voteCallCount: Int = 0
   }
 
   private let state = Mutex(State())
@@ -84,10 +91,21 @@ package final class RecordingResponder: LLMService, Sendable {
     state.withLock { state in
       let index = state.responses.count
       let response =
-        overrides[index] ?? Self.derive(schema: schema, callIndex: index, personas: personas)
+        overrides[index]
+        ?? Self.derive(
+          schema: schema, callIndex: index, voteIndex: state.voteCallCount, personas: personas)
+      // Counted on every vote-schema call, including one an override answered:
+      // the rotation must track the phase's own position, and an override that
+      // did not advance it would desynchronize every vote after it.
+      if Self.declaresVote(schema) { state.voteCallCount += 1 }
       state.responses.append(response)
       return response
     }
+  }
+
+  /// Whether a call's schema is a `vote` turn.
+  private static func declaresVote(_ schema: OutputSchema?) -> Bool {
+    schema?.fields.contains { $0.name == "vote" } ?? false
   }
 
   /// Builds one answer from the schema's declared fields.
@@ -96,14 +114,16 @@ package final class RecordingResponder: LLMService, Sendable {
   /// both engines run the same parser, and a non-JSON answer would exercise the
   /// repair pipeline rather than the phase under test.
   private static func derive(
-    schema: OutputSchema?, callIndex: Int, personas: [String]
+    schema: OutputSchema?, callIndex: Int, voteIndex: Int, personas: [String]
   ) -> String {
     let fields = schema?.fields ?? []
     guard !fields.isEmpty else {
       return #"{"statement": "turn \#(callIndex)"}"#
     }
     let pairs = fields.map { field in
-      "\"\(field.name)\": \"\(value(for: field, callIndex: callIndex, personas: personas))\""
+      let rendered = value(
+        for: field, callIndex: callIndex, voteIndex: voteIndex, personas: personas)
+      return "\"\(field.name)\": \"\(rendered)\""
     }
     return "{\(pairs.joined(separator: ", "))}"
   }
@@ -114,23 +134,31 @@ package final class RecordingResponder: LLMService, Sendable {
   /// gets a call-indexed string, which makes the transcript discriminating: two
   /// turns that should differ cannot compare equal by accident.
   ///
-  /// **The `+ 1` offset is not a guarantee, and the guarantee lives elsewhere.**
-  /// This responder deliberately cannot see *which* agent is calling — it reads
-  /// the schema only — so it cannot exclude a self-vote by construction. The
-  /// offset merely avoids the alignment that a bare `callIndex % count` happens
-  /// to produce for a scenario whose per-round call count is a multiple of the
-  /// persona count: every vote lands on the voter, `exclude_self` drops all of
-  /// them, and the tally, the scoreboard and the conditional's taken branch are
-  /// all frozen in their degenerate state while the fixture still looks like a
-  /// full run. Whether the offset actually works for a given scenario is
-  /// asserted in `nominalRunExercisesVotingNotJustItsShape`, which reddens if it
-  /// stops — the arithmetic here is a heuristic, that test is the contract.
+  /// **The rotation is a heuristic; the guarantee is the test.** This responder
+  /// deliberately cannot see *which* agent is calling — it reads the schema only
+  /// — so it cannot exclude a self-vote by construction. What it can do is
+  /// rotate off the diagonal, and key that rotation on the **vote-call index**
+  /// rather than the global one.
+  ///
+  /// Both parts were learned the expensive way. Keying on the global index made
+  /// every vote land on its own voter for a scenario whose per-round call count
+  /// is a multiple of the persona count, so `exclude_self` dropped all of them
+  /// and the tally, the scoreboard and the conditional's taken branch were all
+  /// frozen while the fixture still looked like a full run. Adding `+ 1` fixed
+  /// the nominal fixture and left the divergent one broken, because its
+  /// three-call retry window shifts the global stream by two and lands back on
+  /// the diagonal — a phase-local counter is immune to that, a global one is
+  /// not.
+  ///
+  /// `everyFixtureExercisesVotingNotJustItsShape` asserts the non-degenerate
+  /// outcome for **every** spec. Scoping that check to one spec is exactly how
+  /// the second instance survived a review round.
   private static func value(
-    for field: OutputSchema.Field, callIndex: Int, personas: [String]
+    for field: OutputSchema.Field, callIndex: Int, voteIndex: Int, personas: [String]
   ) -> String {
     guard field.name == "vote", !personas.isEmpty else {
       return "\(field.name) \(callIndex)"
     }
-    return personas[(callIndex + 1) % personas.count]
+    return personas[(voteIndex + 1) % personas.count]
   }
 }

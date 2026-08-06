@@ -50,6 +50,9 @@ internal object TranscriptComparator {
     /** Sentinel for "this path exists on one side only". */
     private const val ABSENT = "<absent>"
 
+    /** Kind reported for a line that is not a JSON object. */
+    private const val UNPARSEABLE = "<unparseable>"
+
     /**
      * Sentinel so an empty nested object survives flattening.
      *
@@ -92,7 +95,7 @@ internal object TranscriptComparator {
                 val side = if (kotlinLine == null) Side.SWIFT_ONLY else Side.KOTLIN_ONLY
                 val line = swiftLine ?: kotlinLine ?: break
                 val ordinals = if (side == Side.SWIFT_ONLY) swiftOrdinals else kotlinOrdinals
-                val eventKind = kindOf(line, uncovered)
+                val eventKind = kindOf(line, uncovered, side, if (side == Side.SWIFT_ONLY) i else j)
                 if (!consumeStructural(scoped, fired, side, eventKind, ordinals, line)) {
                     uncovered += UncoveredDiff("trailing ${side.name} event with no ledger entry: $line")
                     take(ordinals, eventKind)
@@ -101,13 +104,19 @@ internal object TranscriptComparator {
                 continue
             }
 
-            val swiftKind = kindOf(swiftLine, uncovered)
-            val kotlinKind = kindOf(kotlinLine, uncovered)
+            val swiftKind = kindOf(swiftLine, uncovered, Side.SWIFT_ONLY, i)
+            val kotlinKind = kindOf(kotlinLine, uncovered, Side.KOTLIN_ONLY, j)
 
             if (swiftKind == kotlinKind) {
                 val ordinal = take(swiftOrdinals, swiftKind)
                 take(kotlinOrdinals, kotlinKind)
-                uncovered += diffFields(swiftKind, ordinal, swiftLine, kotlinLine, scoped, fired)
+                // Both sides unparseable: `kindOf` already reported each, and
+                // comparing two things that failed to parse would only restate
+                // it. Without this the field diff appended a third, duplicate
+                // report on the branch a truncated line on both sides hits.
+                if (swiftKind != UNPARSEABLE) {
+                    uncovered += diffFields(swiftKind, ordinal, swiftLine, kotlinLine, scoped, fired)
+                }
                 i++
                 j++
                 continue
@@ -189,8 +198,12 @@ internal object TranscriptComparator {
         scoped: List<LedgerEntry>,
         fired: BooleanArray,
     ): List<UncoveredDiff> {
-        val swift = parse(swiftLine) ?: return listOf(malformed(swiftLine))
-        val kotlin = parse(kotlinLine) ?: return listOf(malformed(kotlinLine))
+        // Unreachable: the caller only enters here when both kinds parsed to the
+        // same non-`UNPARSEABLE` value, which requires both `parse` calls to
+        // have succeeded already. Kept as a total function rather than a `!!`,
+        // and labelled so it is not read as a live path.
+        val swift = parse(swiftLine) ?: return emptyList()
+        val kotlin = parse(kotlinLine) ?: return emptyList()
         val swiftFlat = flatten(swift)
         val kotlinFlat = flatten(kotlin)
         val diffs = mutableListOf<UncoveredDiff>()
@@ -223,24 +236,36 @@ internal object TranscriptComparator {
         return diffs
     }
 
-    private fun malformed(line: String) =
-        UncoveredDiff("transcript line is not a JSON object: $line")
+    /**
+     * Carries the side and transcript index, which makes the de-duplication in
+     * [kindOf] **exact** rather than lossy: a line re-read at the same position
+     * produces a byte-identical diff and collapses, while two genuinely distinct
+     * bad lines that happen to have identical text stay two reports. It also
+     * tells the reader *where* to look, which a text-only message did not.
+     */
+    private fun malformed(side: Side, index: Int, line: String) =
+        UncoveredDiff("${side.name}[$index] is not a JSON object: $line")
 
     /**
      * Reads an event's kind, degrading rather than throwing: one malformed line
      * should produce a report a reader can act on, not a stack trace in place of
      * every other finding.
      */
-    private fun kindOf(line: String, uncovered: MutableList<UncoveredDiff>): String {
+    private fun kindOf(
+        line: String,
+        uncovered: MutableList<UncoveredDiff>,
+        side: Side,
+        index: Int,
+    ): String {
         val event = parse(line)
         if (event == null) {
             // De-duplicated: when a structural entry consumes the *other* side,
-            // only one pointer advances, so a surviving line is re-read on the
-            // next iteration. Appending unconditionally would inflate
-            // `uncovered.size`, which these tests assert on directly.
-            val diff = malformed(line)
+            // only one pointer advances, so a surviving line is re-read at the
+            // same index on the next iteration and would otherwise report twice.
+            // `transcriptComparatorReportsAMalformedLineOnce` builds that state.
+            val diff = malformed(side, index, line)
             if (diff !in uncovered) uncovered += diff
-            return "<unparseable>"
+            return UNPARSEABLE
         }
         return (event["event"] as? JsonPrimitive)?.content ?: "<no event key>"
     }

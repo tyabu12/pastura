@@ -171,8 +171,12 @@ struct ParityFixtureEmitterTests {
     // Exactly two extra attempts — which is what makes calls 0-2 a single turn.
     // Reddens on a retry-budget change.
     #expect(divergentRun.callCount == nominalRun.callCount + 2)
-    // And the value divergence rides the very next call.
-    #expect(divergentRun.responses.count > 4)
+    // `#require`, not `#expect`: a bare expectation does not halt, so a shorter
+    // list would trap on the subscripts below and kill the whole test process —
+    // taking every other suite's results with it — instead of failing this case.
+    // A structural change is precisely what this test exists to catch.
+    try #require(divergentRun.responses.count > 4)
+    try #require(nominalRun.responses.count > 3)
     #expect(divergentRun.responses[3].contains("confidence"))
     #expect(divergentRun.transcript.contains { $0.contains("\"confidence\":\"1\"") })
     // Phase order, which the two assertions above do NOT defend: the override is
@@ -187,42 +191,46 @@ struct ParityFixtureEmitterTests {
       "call 4 should still be a speak_all turn once the retry window shifts it")
   }
 
-  @Test("the nominal run exercises voting, not just its shape")
-  func nominalRunExercisesVotingNotJustItsShape() async throws {
-    // The contract `RecordingResponder.value(for:)`'s offset cannot state for
+  @Test("every fixture exercises voting, not just its shape")
+  func everyFixtureExercisesVotingNotJustItsShape() async throws {
+    // The contract `RecordingResponder.value(for:)`'s rotation cannot state for
     // itself: the responder never sees which agent is calling, so it cannot
-    // exclude a self-vote by construction. An earlier draft used a bare
-    // `callIndex % count`, which for this scenario made EVERY vote a self-vote —
-    // all tallies empty, all scores 0, `max_score >= 3` false in all four
-    // evaluations. The run still had the right shape and the right event count,
-    // so nothing else here would have caught it.
-    guard let nominal = ParityFixtureEmitter.specs.first else {
-      Issue.record("no fixture specs declared")
-      return
-    }
-    let fixture = try await ParityFixtureEmitter.run(nominal)
+    // exclude a self-vote by construction. A bare `callIndex % count` made EVERY
+    // vote a self-vote for this scenario — all tallies empty, all scores 0,
+    // `max_score >= 3` false in all four evaluations — while the run kept the
+    // right shape and the right event count, so nothing else here caught it.
+    //
+    // **Every spec, not `specs.first`.** Scoping this to one fixture is how the
+    // second instance survived: `+ 1` repaired the nominal run and left the
+    // divergent one on the diagonal, because its retry window shifts the global
+    // call stream by two.
+    #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
+    for spec in ParityFixtureEmitter.specs {
+      let fixture = try await ParityFixtureEmitter.run(spec)
 
-    #expect(
-      fixture.transcript.contains {
-        $0.contains("\"vote_results\"") && !$0.contains("\"tallies\":{}")
-      },
-      "every tally is empty — the votes are being dropped, probably as self-votes")
-    // Scoped to the `scores` object. An earlier draft searched the whole line
-    // for `:0,` and could never pass — every EventLine carries `"attempt":0,`,
-    // so the assertion was false regardless of the scores. A guard that cannot
-    // pass is as useless as one that cannot fail.
-    #expect(
-      fixture.transcript.contains { line in
-        guard line.contains("\"score_update\""),
-          let scores = line.range(of: "\"scores\":{").map({ line[$0.upperBound...] }),
-          let end = scores.firstIndex(of: "}")
-        else { return false }
-        return !scores[..<end].contains(":0")
-      },
-      "no score ever moved off zero")
-    #expect(
-      fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
-      "the conditional's then-branch is never taken — the node runs but decides nothing")
+      #expect(
+        fixture.transcript.contains {
+          $0.contains("\"vote_results\"") && !$0.contains("\"tallies\":{}")
+        },
+        "\(spec.name): every tally is empty — the votes are being dropped, probably as self-votes")
+      // Scoped to the `scores` object, and rejecting an empty one. Searching the
+      // whole line for `:0,` could never pass (every EventLine carries
+      // `"attempt":0,`); and `!contains(":0")` alone passes vacuously on
+      // `"scores":{}`, which is a shape this golden demonstrably produces.
+      #expect(
+        fixture.transcript.contains { line in
+          guard line.contains("\"score_update\""),
+            let scores = line.range(of: "\"scores\":{").map({ line[$0.upperBound...] }),
+            let end = scores.firstIndex(of: "}")
+          else { return false }
+          let payload = scores[..<end]
+          return !payload.isEmpty && !payload.contains(":0")
+        },
+        "\(spec.name): no score ever moved off zero")
+      #expect(
+        fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
+        "\(spec.name): the then-branch is never taken — the node runs but decides nothing")
+    }
   }
 
   // MARK: - Raw-string safety guard
