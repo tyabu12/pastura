@@ -668,9 +668,10 @@ jobs:
       # go stale from either side — an input change (Engine semantics, the
       # fixture scenario / `specs`, the `EventLineMapper` projection) or a
       # hand-edit. #1397 changed its contents while nothing detected staleness.
-      # Same reach argument as the step above; ~1 s, inference-free (scripted
-      # responder), and it reuses the executable `swift build` already produced,
-      # so decision B′ (no per-PR XCFramework dependency) still holds.
+      # Same reach argument as the step above. Sub-second locally, inference-free
+      # (scripted responder), reusing the executable `swift build` already
+      # produced — so decision B′ (no per-PR XCFramework dependency) still holds
+      # and `swift test` above stays the job's long pole.
       - name: Parity golden drift guard (ADR-023 Stage 4)
         run: swift run pastura-harness parity-emit --check
 
