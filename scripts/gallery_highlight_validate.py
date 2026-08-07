@@ -313,8 +313,13 @@ def _check_yaml_hook_secret(doc, where):
         try:
             if _secret_keys_in(yaml.safe_load(fragment)):
                 locations.append("a mapping key (flow style or quoted)")
-        except yaml.YAMLError:
-            pass  # unparseable: the line scan above is the only reachable arm
+        except (yaml.YAMLError, RecursionError):
+            # Unparseable: the line scan above is the only reachable arm.
+            # `RecursionError` is **not** a `YAMLError` — PyYAML's own parser
+            # recurses, so ~500 levels of nesting raises it out of `safe_load`
+            # before the walk ever runs. Uncaught it would be a traceback, and
+            # this module promises one failure line per problem.
+            pass
 
     return [
         f"highlight: yaml_hook secret — {where} yaml_hook.fragment declares `secret:` "
@@ -352,10 +357,13 @@ def _check_yaml_hook_fragment(doc, where):
             "than passing unverified"]
     try:
         parsed = yaml.safe_load(fragment)
-    except yaml.YAMLError as exc:
+    except (yaml.YAMLError, RecursionError) as exc:
+        # `RecursionError` is not a `YAMLError`, and PyYAML's parser recurses —
+        # ~500 levels of nesting raises it here. Reported as unparseable (which
+        # it effectively is) rather than escaping as a traceback.
         return [
             f"highlight: yaml_hook fragment — {where} kind=persona but the fragment is "
-            f"not parseable YAML: {exc}"]
+            f"not parseable YAML: {type(exc).__name__}: {exc}"]
 
     entries = _persona_entries(parsed)
     if not entries:

@@ -409,6 +409,23 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H18g secret: in an unparseable fragment fails"
 expect_out "highlight: yaml_hook secret" "H18g names the secret check"
 
+# H18h — nesting deep enough to exhaust Python's recursion limit inside
+# PyYAML's own parser. `RecursionError` is not a `YAMLError`, so before this it
+# escaped as a traceback rather than a failure line, breaking the module's
+# one-line-per-problem contract. The fragment is built here rather than inlined
+# because it is ~600 lines.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+DEEP="$(python3 -c "print(''.join(' '*i + 'k%d:\\\\n' % i for i in range(600)), end='')")"
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  "$(printf '{"kind":"persona","fragment":"%s","caption":"cap"}' "$DEEP")"
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18h deeply nested fragment fails"
+expect_out "not parseable YAML" "H18h reports rather than tracebacks"
+case "$OUT" in
+  *Traceback*) bad "H18h leaked a Python traceback";;
+  *) PASS=$((PASS + 1));;
+esac
+
 # H19 — kind=persona over a fragment that is not a persona list. The `phases:`
 # fragment is legal under `raw` (H1) and illegal here, which is the whole point
 # of the discriminator.
