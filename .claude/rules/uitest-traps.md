@@ -52,8 +52,6 @@ surfaces as several. A *label* assertion written against one shape silently
 keeps passing under the other, so it is not a probe of anything you think it
 is — pin the joined label when rows combine (#1394).
 
-**The snapshot is only captured on a failing element query**, not on
-`XCTFail`. To read the real tree, make a query fail on purpose, then
-`xcrun xcresulttool export attachments --path <xcresult> --output-path <dir>`
-and open the "App UI hierarchy" `.txt` (same export as `swiftui-traps.md`
-§ ".accessibilityIdentifier ordering").
+To measure, make a query fail on purpose — the hierarchy snapshot is captured
+on a **failing element query**, not on `XCTFail` — then export it per
+`swiftui-traps.md` § ".accessibilityIdentifier ordering".
