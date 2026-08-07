@@ -177,7 +177,7 @@
         <div class="ft">囚人のジレンマ · pastura.app</div>
       </div>
     </div>
-    <p class="section-note"><strong>共有カードは <code>ImageRenderer</code> の固定外観書き出し。</strong><code>HighlightCardPalette</code> が pin しているのは 6 トークンだけで avatar は入っていないので、対にした瞬間この羊だけが「レンダラが解決した任意の外観」になる。スライス3 で <code>SheepAvatar</code> 側にも明示の外観を通す</p>
+    <p class="section-note"><strong>共有カードは <code>ImageRenderer</code> の固定外観書き出し。</strong><code>HighlightCardPalette</code> が pin しているのは 6 トークンだけで avatar は入っていないので、対にした瞬間この羊だけがカード側の pin から外れる。スライス3 で <code>SheepAvatar</code> 側にも明示の外観を通した。<em>（#1337 の計測で判明: この羊は書き出し側が注入した <code>colorScheme</code> に追従するので、外観が壊れていたわけではない。失われるのは light/dark の区別で、呼び出し側の選択が効かなくなる。ADR-028 § Amendment 2026-08-06 (#1337)）</em></p>
   </div>
 
   <div class="section night">

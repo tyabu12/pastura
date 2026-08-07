@@ -21,21 +21,24 @@ import SwiftUI
 ///    NOT inherit the ambient color scheme — an unset card would always
 ///    rasterize light regardless of the device.
 /// 2. The app's `Color.*` aliases are trait-resolving for the 67 paired §2.9
-///    tokens (ADR-028 gate 1, closed by slice 4). Reading them here would make
-///    each family's colour depend on how `ImageRenderer` happens to resolve a
-///    dynamic `UIColor` — which is not contractually tied to the SwiftUI
-///    environment, even though both renderers do pin
-///    `.environment(\.colorScheme, colorScheme)`. ``HighlightCardPalette``
-///    therefore reads the raw `PasturaPalette` values, which are fixed sRGB,
-///    and selects the family itself.
+///    tokens (ADR-028 gate 1, closed by slice 4). Reading them here would
+///    resolve against reason 1's injected scheme — #1337 measured that, so the
+///    families would render the *requested* appearance — but `light` and `dark`
+///    would then resolve **identically**, and this type's whole job is that they
+///    differ. ``HighlightCardPalette`` therefore reads the raw `PasturaPalette`
+///    values, which are fixed sRGB, and selects the family itself; that also
+///    keeps the export off a resolution behaviour Apple owns rather than this
+///    repo. See ADR-028 § Amendment 2026-08-06 (#1337).
 ///
 /// The same reasoning reaches one level further down. ``SheepAvatar`` used to
 /// read the `Color.avatar*` aliases directly, which were fixed until slice 3 of
-/// ADR-028 gate 1 paired them; from that point the card's sheep would have
-/// resolved to whatever appearance the renderer picked, unpinned by
+/// ADR-028 gate 1 paired them; from that point the card's sheep tracked the
+/// render environment rather than fixed values, unpinned by
 /// ``HighlightCardPalette`` (which covers six tokens, none of them §2.5). So the
 /// card passes its ``colorScheme`` into the avatar as well, and
-/// ``SheepAvatarPalette`` selects fixed values from it.
+/// ``SheepAvatarPalette`` selects fixed values from it — which buys the same
+/// `light`/`dark` distinctness as reason 2, not a rescue from a light-on-dark
+/// export: #1337 measured that the injection reaches a `Canvas` too.
 /// The caller captures the device's `@Environment(\.colorScheme)` at the
 /// share site and passes it in, so the shared image matches what the user sees.
 struct HighlightShareCard: View {
