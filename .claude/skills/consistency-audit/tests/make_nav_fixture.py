@@ -2,11 +2,12 @@
 """Materialize the adr_navigation_missing fixture repo into a target directory.
 
 Generated rather than committed, for a reason that is itself the point of the
-arms: every "must NOT count" arm has to clear NAV_MIN_LINES (600) so that it is
-silent because of the *counting* rule it tests and not because it is short. A
-control that cannot redden is measuring nothing. Ten such ADRs is ~5500 lines of
-filler; the arm table below IS the fixture, and the filler is noise materialized
-on demand.
+arms: every arm except ADR-103 has to clear NAV_MIN_LINES (600), so that a
+silent one is silent because of the *counting* rule it tests and not because it
+is short. (ADR-103 is the deliberate exception — it is the arm that tests the
+size gate, so being short is what it exercises.) A control that cannot redden is
+measuring nothing. Those eleven arms are ~7300 lines of filler; the arm table
+below IS the fixture, and the filler is noise materialized on demand.
 
 Emits a JSON manifest on stdout: {"ADR-NNN": {"total_lines": N}, ...}. The
 harness asserts every must-not-fire arm cleared the size gate, which is what

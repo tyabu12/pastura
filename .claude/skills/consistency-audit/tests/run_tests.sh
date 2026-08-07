@@ -410,11 +410,11 @@ echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="embedded_source_mirror")|
   || fail "mirror: a mirror finding is missing its pre-authored judgment scalars"
 no_target_collision "$OUT" "mirror"
 
-# --- adr_navigation_missing: ten arms, exactly two must fire ---------------
-# The fixture is generated, not committed: every must-NOT-fire arm has to clear
-# the 600-line gate so it is silent for the rule it tests rather than for its
-# size, and ten such ADRs would be ~5500 lines of filler in the repo. The arm
-# table in make_nav_fixture.py is the fixture; this block asserts the outcome.
+# --- adr_navigation_missing: twelve arms, exactly four must fire -----------
+# The fixture is generated, not committed: every arm but ADR-103 has to clear
+# the 600-line gate so a silent one is silent for the rule it tests rather than
+# for its size, and those eleven are ~7300 lines of filler. The arm table in
+# make_nav_fixture.py is the fixture; this block asserts the outcome.
 NAVFIX="$TMP/navfix"
 MANIFEST=$(python3 make_nav_fixture.py "$NAVFIX")
 # The wrong-reason guard: a silent arm must be silent for the rule it tests,
@@ -456,20 +456,33 @@ NUM=$(echo "$OUT" | jq '[.needs_judgment[]|select(.target=="nav:ADR-110")|.numbe
 # test against "0" fails on a correct value.
 echo "$OUT" | jq -e '[.needs_judgment[]|select(.target=="nav:ADR-110")|.residual_share][0] == 0' >/dev/null \
   || fail "nav: ADR-110's residual share should be 0 (both sections numbered), got $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.target=="nav:ADR-110")|.residual_share][0]')"
-echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence|test("rests entirely on the title-based call")' >/dev/null \
+echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence|test("below the share gate, so this finding rests entirely on the title-based call")' >/dev/null \
   || fail "nav: ADR-110's counter_evidence must say the finding rests on the title-based call"
+# The clause must name no percentage of its own: it branches on the raw
+# comparison, so a printed figure beside it could disagree at the boundary
+# (49.96% prints as 50.0). The gate appears once, in the thresholds sentence.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|.counter_evidence|test("(under|over|below|clears) the [0-9.]+% gate")|not]|all' >/dev/null \
+  || fail "nav: a counter_evidence clause restates the gate percentage — it can contradict the printed share at the boundary"
 # The interpolated arithmetic, not just the clause around it — a regression that
 # emits the right sentence with wrong numbers is exactly the defect the int()
 # truncation was. ADR-110's two sections are both numbered, so numbered_lines
-# equals amendment_lines and the residual reads 0%.
+# equals amendment_lines and the residual reads 0.0%.
+#
+# Scope, since this reads stronger than it is: the hardcoded `0.0%` catches a
+# truncation regression (an int() prints `0`), and reusing $AL on both sides
+# catches prose/field divergence. It can NOT catch an `amendment_lines` that is
+# wrong but self-consistent — field and sentence move together. The absolute
+# assertion on the next line pins that, from the arm table's own spans
+# (300 + 200 filler lines + 3 structural lines each).
 AL=$(echo "$OUT" | jq -r '[.needs_judgment[]|select(.target=="nav:ADR-110")|.amendment_lines][0]')
+[ "$AL" -eq 506 ] || fail "nav: ADR-110's amendment_lines should be 506 from the arm table, got $AL"
 echo "$OUT" | jq -e --arg s "supplying $AL of $AL amendment lines. Excluding them the share is 0.0%" \
   '.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence|contains($s)' >/dev/null \
   || fail "nav: ADR-110's counter_evidence arithmetic does not match its own fields: $(echo "$OUT" | jq -r '[.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence][0]' | head -c 200)"
 # ADR-101 is the contrast: no numbered sections, so its residual share equals
 # its full share and the counter-evidence must NOT claim the finding evaporates.
-echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-101")|.counter_evidence|test("still over the")' >/dev/null \
-  || fail "nav: ADR-101's counter_evidence should report the residual share as still over the gate"
+echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-101")|.counter_evidence|test("still clears the share gate without them")' >/dev/null \
+  || fail "nav: ADR-101's counter_evidence should report the residual share as still clearing the gate"
 # The remedy is a map plus promotion into the body — never deletion.
 # `.claude/rules/adr-writing.md` records that amendments are not trimmed away
 # later (#1382 declined that on principle), so a generator proposing it would

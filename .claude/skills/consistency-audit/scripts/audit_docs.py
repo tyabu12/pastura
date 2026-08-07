@@ -715,6 +715,13 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
     untracked draft is being written right now, and flagging its structure is
     noise aimed at the one person who already knows.
 
+    No flood cap, unlike reservation_findings': the count is bounded by the ADR
+    count and each finding is a distinct, individually-actionable document, so
+    collapsing them would only hide work. Backpressure is Step 4's per-target
+    open-issue dedup plus the `nav-exempt` opt-out — a run files each ADR once
+    and never re-files one a human has answered. Revisit if a repo ever lands
+    enough large ADRs at once for that to be insufficient.
+
     Section classification is **title-based** — any `## ` heading naming
     "amendment" counts, including a numbered section belonging to the ADR's own
     outline (ADR-002 §10–§13 are exactly that shape). Taking the author's own
@@ -790,13 +797,21 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
         residual = amendment_lines - numbered_lines
         residual_share = round(residual / total, 3)
         # Percentage for the prose. NOT `int(share * 100)`, which truncates a
-        # binary float and printed ADR-021's 51.8% as "51%". One decimal, and —
-        # load-bearing — the sentence's "under / still over the gate" clause
-        # branches on this **printed** value rather than on the raw ratio, so
-        # the number a maintainer reads can never contradict the claim beside
-        # it. Rounding alone does not achieve that: 49.96% rounds to a printed
-        # 50.0 while the raw value is genuinely under the 50 gate.
+        # binary float and printed ADR-021's 51.8% as "51%".
+        #
+        # The clause beside it branches on `residual_clears` — the SAME
+        # predicate the detector's own gate uses, so its meaning ("would this
+        # finding survive without the title-based call?") is always right. Two
+        # earlier attempts got this wrong in opposite directions: branching on
+        # the raw ratio while printing a truncated integer made the number
+        # disagree with the clause, and branching on the *printed* value fixed
+        # the display at the cost of inverting the meaning — at 49.96% the
+        # printed 50.0 said "still over" when the finding does not in fact
+        # survive. No rounding removes that: some raw value always rounds
+        # across any gate. So the clause names no percentage at all; the gate
+        # is stated once, in the thresholds sentence below.
         residual_pct = round(residual / total * 100, 1)
+        residual_clears = residual >= total * NAV_MIN_SHARE
         gate_pct = NAV_MIN_SHARE * 100
         key = f"nav:{adr}"
         out.append({
@@ -818,12 +833,12 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
                 f"numbered, supplying {numbered_lines} of {amendment_lines} "
                 f"amendment lines. Excluding them the share is "
                 f"{residual_pct}%"
-                + (f", under the {gate_pct:g}% gate — so this finding rests "
-                   f"entirely on the title-based call"
-                   if residual_pct < gate_pct else
-                   f", still over the {gate_pct:g}% gate")
+                + (" — still clears the share gate without them"
+                   if residual_clears else
+                   " — below the share gate, so this finding rests entirely "
+                   "on the title-based call")
                 + f". The thresholds "
-                f"({NAV_MIN_LINES} lines / {int(NAV_MIN_SHARE * 100)}%) are a "
+                f"({NAV_MIN_LINES} lines / {gate_pct:g}%) are a "
                 f"deliberately conservative fitted separator, not a derived "
                 f"constant: an ADR just under them can have the same problem, "
                 f"and one just over it may still be perfectly readable. A "
@@ -831,8 +846,10 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
                 f"navigable as it stands."),
             "suggested_action": (
                 f"Add a navigation section to {rel} — the `## How to read this "
-                f"ADR` pattern ADR-028 established — pointing at where the "
-                f"current answer lives, and promote any standing value or "
+                f"ADR` pattern ADR-028 established; the heading is matched on "
+                f"the `## How to read` prefix, so `## Navigation` or "
+                f"`## Section map` will not discharge this — pointing at where "
+                f"the current answer lives, and promote any standing value or "
                 f"invariant that exists only inside an amendment into the body. "
                 f"Do NOT delete or trim amendments: `.claude/rules/"
                 f"adr-writing.md` records that they are not trimmed away later, "
