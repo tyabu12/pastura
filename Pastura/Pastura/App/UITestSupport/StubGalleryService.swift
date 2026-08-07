@@ -202,7 +202,8 @@
           }
         ],
         "yaml_hook": {
-          "fragment": "  - name: Alice\\n    description: First UI test persona.",
+          "kind": "persona",
+          "fragment": "  - name: Alice\\n    description: First UI test persona.\\n  - name: Bob\\n    description: Second UI test persona, kept deliberately longer so the row wraps.",
           "caption": "説明を書き換えると口調が変わる。"
         },
         "teaser": "この続きはアプリで。",

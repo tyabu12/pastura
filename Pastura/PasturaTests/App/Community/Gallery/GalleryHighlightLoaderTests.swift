@@ -48,6 +48,7 @@ import Testing
         },
         "excerpt": [\(entries.joined(separator: ","))],
         "yaml_hook": {
+          "kind": "raw",
           "fragment": "description: 自信家",
           "caption": "性格を書き換えてみよう"
         },
