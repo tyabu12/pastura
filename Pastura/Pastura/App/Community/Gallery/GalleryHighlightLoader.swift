@@ -23,6 +23,11 @@ final class GalleryHighlightLoader {
   /// failure alike. The view cannot (and must not) distinguish them.
   private(set) var highlight: GalleryHighlight?
 
+  /// How to draw ``highlight``'s `yaml_hook`, resolved alongside it. `nil`
+  /// exactly when ``highlight`` is — the two are set and cleared together, so
+  /// a view that has one always has the other.
+  private(set) var hookRendition: GalleryHighlightHookRendition?
+
   /// The only `schema_version` this build knows how to render. A newer file
   /// is hidden rather than best-effort rendered (ADR-029 Decision 4).
   static let supportedSchemaVersion = 1
@@ -43,6 +48,7 @@ final class GalleryHighlightLoader {
   /// scenario's highlight on screen.
   func load(for scenario: GalleryScenario) async {
     highlight = nil
+    hookRendition = nil
 
     guard let url = scenario.highlightURL, let expectedHash = scenario.highlightSHA256 else {
       // Both absent is the ordinary "no highlight" case — silent, no log.
@@ -140,6 +146,12 @@ final class GalleryHighlightLoader {
     }
 
     highlight = decoded
+    // Resolved here, once per load, rather than in the view's `body`.
+    // `resolve` parses the fragment with Yams and logs any fallback, so
+    // deriving it at render time would re-parse on every body evaluation and
+    // repeat the log line each time.
+    hookRendition = GalleryHighlightHookRendition.resolve(
+      decoded.yamlHook, scenarioID: scenario.id)
   }
 
   // MARK: - Private

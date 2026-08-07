@@ -258,6 +258,28 @@ import Testing
     #expect(loader.highlight?.teaser == "多数派の答えに引きずられるか。")
   }
 
+  /// ``GalleryHighlightLoader/hookRendition`` claims in its doc comment to be
+  /// `nil` exactly when ``GalleryHighlightLoader/highlight`` is. The view leans
+  /// on that — its section renders only when it can bind **both** — so a future
+  /// edit that publishes one without the other would make the whole highlight
+  /// vanish with no failing test and no log line. Both directions are asserted
+  /// because only the pair is the invariant.
+  @Test func theHookRenditionIsPublishedAndClearedWithTheHighlight() async {
+    let service = HighlightStubGalleryService()
+    service.result = .success(Self.highlightJSON())
+    let loader = GalleryHighlightLoader(galleryService: service)
+
+    await loader.load(for: makeScenario())
+    #expect(loader.highlight != nil)
+    // `kind: raw` in the fixture — resolution still has to happen.
+    #expect(loader.hookRendition == .rawYAML)
+
+    service.result = .failure(GalleryServiceError.unexpectedStatus(500))
+    await loader.load(for: makeScenario())
+    #expect(loader.highlight == nil)
+    #expect(loader.hookRendition == nil)
+  }
+
   @Test func secondLoadAfterFailureCanSucceed() async {
     let service = HighlightStubGalleryService()
     service.result = .failure(GalleryServiceError.unexpectedStatus(500))

@@ -34,6 +34,11 @@ export interface ScenarioHighlight {
   schema_version: number;
   source: { model: string; run_id: string; generated_at: string };
   excerpt: HighlightExcerptEntry[];
-  yaml_hook: { fragment: string; caption: string };
+  // `kind` is `persona` or `raw` (ADR-029 Decision 1). The web renders every
+  // hook as YAML regardless — it has no editor to show a persona fragment's
+  // meaning in, which is the whole reason the app diverges here
+  // (§ Amendment 2026-08-08). Declared so the shape stays honest, not because
+  // anything on this side branches on it.
+  yaml_hook: { kind: string; fragment: string; caption: string };
   teaser: string;
 }

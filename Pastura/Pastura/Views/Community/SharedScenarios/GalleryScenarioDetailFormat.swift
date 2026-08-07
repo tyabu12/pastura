@@ -176,6 +176,53 @@ enum GalleryScenarioDetailFormat {
     return GameHeader.formatRoundLabel(current: round, total: totalRounds)
   }
 
+  /// Heading for the highlight's `yaml_hook`, chosen **with** the body it sits
+  /// above (ADR-029 § Amendment 2026-08-08).
+  ///
+  /// Two invariants a reader would not guess, both asserted in
+  /// `GalleryScenarioDetailFormatTests`:
+  ///
+  /// - The persona heading **names itself an excerpt**. Both shipped hooks
+  ///   quote a subset of their scenario's personas, and drawn as editor-style
+  ///   rows that truncation stops being visible the way a leading `- ` in raw
+  ///   YAML made it. The app cannot check the claim — a non-installed gallery
+  ///   scenario's persona list is never fetched — so the wording carries it.
+  /// - The raw heading says "YAML" and the persona heading must **not**, because
+  ///   a persona rendition shows none. Reusing one heading for both would
+  ///   describe something that is not on screen.
+  static func hookHeading(for rendition: GalleryHighlightHookRendition) -> String {
+    switch rendition {
+    case .personas:
+      return String(localized: "Some of the personas behind these lines")
+    case .rawYAML:
+      return String(localized: "The YAML behind these lines")
+    }
+  }
+
+  /// Open-in-app-and-edit invitation for the highlight section (ADR-029
+  /// Decision 5), worded for the rendition it sits under.
+  ///
+  /// Same rule as ``hookHeading(for:)`` and found the same way — on a
+  /// screenshot, one element lower. The single fixed string this replaced said
+  /// "rewrite this YAML" under a persona rendition that shows none, so fixing
+  /// only the heading left the contradiction intact just below it. Whatever the
+  /// wording, it stays **copy, not a button**: the screen's install CTA is the
+  /// only action (Decision 6).
+  static func hookInvitation(for rendition: GalleryHighlightHookRendition) -> String {
+    switch rendition {
+    case .personas:
+      return String(
+        localized:
+          "Once it is on your device you can rewrite these personas freely. Change the setup and see where your own run goes."
+      )
+    case .rawYAML:
+      return String(
+        localized:
+          "Once it is on your device you can rewrite this YAML freely. Change the setup and see where your own run goes."
+      )
+    }
+  }
+
   /// Display-ready form of a curated highlight's YAML fragment (ADR-029).
   ///
   /// The published fragments are multi-line YAML blocks that commonly end with

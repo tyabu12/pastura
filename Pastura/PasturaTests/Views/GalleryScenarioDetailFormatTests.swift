@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 
 @testable import Pastura
@@ -218,5 +219,45 @@ struct GalleryScenarioDetailFormatTests {
 
   @Test func theHeadCollapsesOnAnEmptyExcerpt() {
     #expect(GalleryScenarioDetailFormat.excerptHeadRoundLabel([], totalRounds: 4) == nil)
+  }
+
+  // MARK: - Hook heading (ADR-029 § Amendment 2026-08-08)
+
+  /// The amendment's honesty requirement, and the only place it can live: both
+  /// shipped hooks quote a *subset* of their scenario's personas, and the app
+  /// cannot detect that — a non-installed gallery scenario's persona list is
+  /// never fetched. Asserted on a substring rather than the whole literal so
+  /// re-wording the heading does not falsely redden, while dropping the
+  /// excerpt marker does.
+  @Test func thePersonaHeadingNamesItselfAnExcerpt() {
+    let heading = GalleryScenarioDetailFormat.hookHeading(
+      for: .personas([.init(name: "アヤ", description: "率直な被験者。")]))
+    #expect(heading.localizedCaseInsensitiveContains("some of"))
+  }
+
+  /// A persona rendition shows no YAML, so a heading that says "YAML" would
+  /// describe something absent from the screen. Reusing one heading for both
+  /// renditions is the mistake this guards.
+  @Test func onlyTheRawRenditionCallsItYAML() {
+    let raw = GalleryScenarioDetailFormat.hookHeading(for: .rawYAML)
+    let personas = GalleryScenarioDetailFormat.hookHeading(
+      for: .personas([.init(name: "アヤ", description: "率直な被験者。")]))
+
+    #expect(raw.localizedCaseInsensitiveContains("yaml"))
+    #expect(!personas.localizedCaseInsensitiveContains("yaml"))
+    #expect(raw != personas)
+  }
+
+  /// The invitation sits directly under the rendition and was the second half
+  /// of the same contradiction — found on a screenshot after the heading was
+  /// already fixed, because a heading test cannot see one element lower.
+  @Test func onlyTheRawInvitationCallsItYAML() {
+    let raw = GalleryScenarioDetailFormat.hookInvitation(for: .rawYAML)
+    let personas = GalleryScenarioDetailFormat.hookInvitation(
+      for: .personas([.init(name: "アヤ", description: "率直な被験者。")]))
+
+    #expect(raw.localizedCaseInsensitiveContains("yaml"))
+    #expect(!personas.localizedCaseInsensitiveContains("yaml"))
+    #expect(raw != personas)
   }
 }
