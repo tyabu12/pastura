@@ -14,14 +14,13 @@ import Testing
 /// snapshot tests. Comparing two `Color` values is logic extraction, which
 /// ADR-009 permits.
 ///
-/// **What that collapse would and would not cost, measured in #1337.** The
-/// render environment is the `colorScheme` the caller injects, so an alias here
-/// would still resolve to the *requested* appearance — the export would not
-/// silently go light on a dark device, which is what an earlier version of this
-/// comment implied. The pin is kept anyway: `light` and `dark` would become the
-/// same thing, so the caller's choice would stop having any effect, and the
-/// export would depend on a platform behaviour Apple owns rather than on sRGB
-/// values this repo pins. See ADR-028 § Amendment 2026-08-06 (#1337).
+/// **What that collapse costs, measured in #1337:** not a dark export silently
+/// rendering light — the render environment is the `colorScheme` the caller
+/// injects, so an alias would still resolve to the *requested* appearance. It
+/// costs `light` and `dark` becoming the same thing, so the caller's choice stops
+/// having any effect, and it puts the export's correctness on a platform
+/// behaviour Apple owns rather than on sRGB values this repo pins. See ADR-028
+/// § Amendment 2026-08-06 (#1337).
 ///
 /// ``SheepAvatarPaletteTests`` guards the same contract one level down, for
 /// the avatar this card draws — `HighlightCardPalette` covers six tokens and

@@ -36,10 +36,9 @@ import SwiftUI
 /// render environment rather than fixed values, unpinned by
 /// ``HighlightCardPalette`` (which covers six tokens, none of them §2.5). So the
 /// card passes its ``colorScheme`` into the avatar as well, and
-/// ``SheepAvatarPalette`` selects fixed values from it. Note the sheep would
-/// still have rendered the *requested* appearance — #1337 measured that the
-/// injection reaches a `Canvas` too — so what this buys is that `light` and
-/// `dark` stay distinct, not a rescue from a light-on-dark export.
+/// ``SheepAvatarPalette`` selects fixed values from it — which buys the same
+/// `light`/`dark` distinctness as reason 2, not a rescue from a light-on-dark
+/// export: #1337 measured that the injection reaches a `Canvas` too.
 /// The caller captures the device's `@Environment(\.colorScheme)` at the
 /// share site and passes it in, so the shared image matches what the user sees.
 struct HighlightShareCard: View {

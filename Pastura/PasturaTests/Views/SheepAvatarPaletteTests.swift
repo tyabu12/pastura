@@ -19,9 +19,8 @@ import Testing
 /// The render environment is the `colorScheme` the export injects, so an alias
 /// would still resolve to the requested appearance — but `light` and `dark` would
 /// resolve to the same thing, making the caller's choice inert, and the export
-/// would depend on a platform behaviour Apple owns. (An earlier version of this
-/// comment also said "the app is pinned to light so no human sees it"; that lock
-/// was deleted in #1284.) See ADR-028 § Amendment 2026-08-06 (#1337).
+/// would depend on a platform behaviour Apple owns. See ADR-028
+/// § Amendment 2026-08-06 (#1337).
 ///
 /// What this suite does **not** cover: that ``HighlightShareCard`` actually
 /// passes its `colorScheme` down, and that ``SheepAvatar`` reads

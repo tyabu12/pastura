@@ -345,30 +345,25 @@ adopt early-return comment in `SimulationView`).
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
 
-**What a paired alias actually does here was measured in #1337, and it is
-determined, not arbitrary.** An earlier revision of this section said reading one
-inside `ImageRenderer` content means "whatever appearance the renderer resolved",
-which reads as unpredictable. It is not. The alias resolves against the **render
-environment's** `colorScheme` — the value you inject, or **light** when you inject
+**A paired alias inside `ImageRenderer` content resolves against the render
+environment's `colorScheme`** — the value you inject, or **light** when you inject
 nothing, even on an ambient-dark device. Ambient state reaches the renderer
 through neither channel: with an injection present an explicit
 `UITraitCollection` flip moves not one byte, and this holds for `GraphicsContext`
-inside a `Canvas` exactly as it does for plain `View` content. Measured on the
-iOS 26.5 **simulator**, which is adequate here because the claim is about which
-trait the provider is handed — plumbing, not appearance — and does **not** relax
-the real-device requirement below. Arms, controls and figures: ADR-028
+inside a `Canvas` exactly as it does for plain `View` content. Measured in #1337
+on the iOS 26.5 **simulator**, which is adequate here because the claim is about
+which trait the provider is handed — plumbing, not appearance — and does **not**
+relax the real-device requirement below. Arms, controls and figures: ADR-028
 § Amendment 2026-08-06 (#1337).
 
 **So the hazard is a consumer that omits the injection, not one that reads an
 alias.** A fixed-appearance export with no `.environment(\.colorScheme, …)`
 silently rasterizes light — a dark-mode user's card comes out light, which is the
-#1070 bug. Reading raw `PasturaPalette` is still the convention below, but as
-belt-and-braces: it makes the chosen appearance explicit at the callsite and
-keeps the export independent of a platform behaviour Apple could change. The rest
-of the aliases are fixed anyway (unpaired light tokens, `night*`, time-of-day,
-chart). **The paired set grows with each gate-1 slice** — do not treat a specific
-alias as fixed without checking `PasturaDynamicPalette`, whose doc comment carries
-the current membership and its slice-by-slice provenance.
+#1070 bug. The rest of the aliases are fixed anyway (unpaired light tokens,
+`night*`, time-of-day, chart). **The paired set grows with each gate-1 slice** —
+do not treat a specific alias as fixed without checking `PasturaDynamicPalette`,
+whose doc comment carries the current membership and its slice-by-slice
+provenance.
 
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette from
@@ -379,12 +374,11 @@ hook and CI, fails any app-target file that constructs an `ImageRenderer` withou
 injecting.
 
 **Read `PasturaPalette.<token>.color`, never the `Color.*` alias, and treat that
-as unconditional.** #1337 measured that an alias would resolve correctly *today*
-— on one device and one OS minor (iOS 26.5 simulator). The raw read is what keeps
-the export from depending on that measurement holding, and an SDK change can
-invalidate it; the alias's in-repo cost meanwhile is that `light` and `dark`
-collapse into each other, making the parameter you just threaded inert. Neither
-half is worth trading for a shorter line. Also set
+as unconditional** — not as belt-and-braces. An alias would resolve correctly
+*today*, but that was measured on one device and one OS minor (iOS 26.5
+simulator); the raw read is what keeps the export off a behaviour an SDK change
+can alter. Its in-repo cost meanwhile is that `light` and `dark` collapse into
+each other, making the parameter you just threaded inert. Also set
 `.environment(\.colorScheme, …)` on the rendered content for any system-colored
 subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
 simulator misleads.
@@ -400,36 +394,29 @@ would otherwise make it vacuous) and `colors.count == childCount` (a slot typed
 `AnyShapeStyle` / `LinearGradient` / `UIColor` is invisible to `as? Color`).
 
 ADR-009 rules out snapshots, so any *new* fixed-appearance consumer still needs
-its own equivalent pin or it is unguarded — **nothing detects its absence**.
-Three mechanical guards have now been designed and refused (all recorded under
+its own equivalent pin **on the alias half** — nothing detects its absence. Three
+mechanical guards for that half were designed and refused (all recorded under
 ADR-028 § "Revisit trigger" bullet 1): a SwiftLint rule, which cannot express the
 predicate; an enumeration guard over palette types, which cannot redden on the
-shape that actually happened, below; and — since #1337 — an A/B render-invariance
-probe over the production path, which has **no reachable failure to detect** now
-that the injection is known to cover every read inside the export. A probe that
-cannot fail is worse than an acknowledged gap, so none shipped.
+shape that actually happened, below; and an A/B render-invariance probe over the
+production path, which has **no reachable failure to detect** now that the
+injection is known to cover every read inside the export. A probe that cannot
+fail is worse than an acknowledged gap, so what shipped instead is the injection
+check above, which guards the other half only.
 Reference consumers: `HighlightCardPalette`, and `SheepAvatarPalette` for the
 avatar that card draws.
 
-The check to run on a **new** fixed-appearance consumer is therefore "does it
-inject `\.environment(\.colorScheme, …)` and take the appearance as a
-parameter?" — not "does it read an alias". The first is what silently breaks.
-
-**The consumer is not always the view you migrated** — but #1337 changed what
-that buys you. A component a fixed-appearance consumer *draws* does not appear in
-any consumer list, which is how pairing §2.5 silently un-pinned
-`HighlightShareCard`'s `SheepAvatar` (#1319). The reach observation stands; the
-**hazard** it was pointing at does not. An alias read inside a drawn component
-resolves against the export's injected `colorScheme` like any other read, so
-`SheepAvatar` was never actually rendering wrong.
-
-What propagates to a drawn component is therefore nothing — the requirement sits
-on the **export**, which must inject. So the question to ask is not "does one read
-a view that reads it" (the superseded #1319 form, still stated as such in ADR-028
-§ Amendment 2026-07-30 (#1319)) but simply: **does every fixed-appearance export
-inject its appearance?** A drawn component only becomes exposed when some *new*
-export draws it without injecting — and that is the omitted-injection hazard
-attached to the new export, not a property of the component.
+**The consumer is not always the view you migrated.** A component a
+fixed-appearance consumer *draws* does not appear in any consumer list, which is
+how pairing §2.5 silently un-pinned `HighlightShareCard`'s `SheepAvatar` (#1319).
+The reach is real, but nothing propagates to the drawn component: an alias read
+inside it resolves against the export's injected `colorScheme` like any other
+read, so the requirement sits on the **export**. The question to ask of a new
+fixed-appearance consumer is therefore **does it inject the appearance and take
+it as a parameter?** — not "does one read a view that reads an alias" (the #1319 form,
+superseded in ADR-028 § Amendment 2026-08-06). A drawn component becomes exposed
+only when some *new* export draws it without injecting, which is that export's
+omitted injection rather than a property of the component.
 
 Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
 

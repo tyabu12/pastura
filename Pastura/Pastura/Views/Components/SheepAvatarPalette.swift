@@ -9,16 +9,14 @@ import SwiftUI
 /// `Color.avatar*` alias trait-resolving. ``SheepAvatar`` is rendered inside
 /// ``HighlightShareCard``, which is an `ImageRenderer` export path — and
 /// `ImageRenderer` does not inherit the ambient environment. Reading the
-/// aliases from there would have tied the shared image's sheep to whatever the
-/// render environment resolved — the same shape ``HighlightCardPalette`` was
-/// created to prevent one layer up. That palette pins six tokens and contains no
-/// avatar token, so its guard did not reach this far down.
+/// aliases from there would tie the shared image's sheep to whatever the export
+/// injects — the same shape ``HighlightCardPalette`` was created to prevent one
+/// layer up. That palette pins six tokens and contains no avatar token, so its
+/// guard did not reach this far down.
 ///
-/// **The severity was overstated, and #1337 measured it.** The render
-/// environment is the `colorScheme` the export injects, so the sheep would have
-/// resolved to the *requested* appearance rather than the device's. The cost is
-/// that `light` and `dark` collapse into each other — the caller's choice goes
-/// inert — not that a dark export silently renders light.
+/// What that costs is that `light` and `dark` collapse into each other and the
+/// caller's choice goes inert — **not** a dark export silently rendering light,
+/// which #1337 measured cannot happen under an injection.
 ///
 /// So every value here is read from **raw `PasturaPalette`**, which is fixed
 /// sRGB — the sanctioned explicit-appearance accessor (see
@@ -28,23 +26,17 @@ import SwiftUI
 /// ## Why the caller picks, rather than the palette reading the environment
 ///
 /// The alternative was an `.ambient` case built from the trait-resolving
-/// aliases, letting SwiftUI resolve them at draw time. That was rejected on the
-/// grounds that the avatar draws inside a `Canvas`, so it would have rested on
-/// `GraphicsContext` resolving a dynamic `UIColor` against the context's
-/// environment — recorded here as "a behaviour nothing in this repo verifies and
-/// no test here could".
+/// aliases, letting SwiftUI resolve them at draw time. #1337 measured that it
+/// would have rendered correctly: the avatar draws inside a `Canvas`, and
+/// `GraphicsContext` resolves a paired alias against the *injected*
+/// `colorScheme` exactly as plain `View` content does, with ambient state
+/// reaching neither.
 ///
-/// **That last clause was wrong, and #1337 measured it.** `GraphicsContext` does
-/// resolve a paired alias against the *injected* `colorScheme`, exactly as plain
-/// `View` content does, and ambient state reaches neither. So the `.ambient` case
-/// would in fact have rendered correctly.
-///
-/// The choice below stands anyway, for the reason that survives the correction:
-/// selecting a fixed palette *before* the `Canvas` means only concrete sRGB
-/// values ever reach it, so the export does not depend on a platform behaviour
-/// that is Apple's to change and that nothing in the shipped suite pins. The
-/// appearance question is answered by ordinary `@Environment` in ``SheepAvatar``,
-/// which was never in doubt. Measurement: ADR-028 § Amendment 2026-08-06 (#1337).
+/// It is rejected anyway. Selecting a fixed palette *before* the `Canvas` means
+/// only concrete sRGB values ever reach it, so the export does not depend on a
+/// platform behaviour that is Apple's to change and that nothing in the shipped
+/// suite pins. The appearance question is answered by ordinary `@Environment` in
+/// ``SheepAvatar``. Measurement: ADR-028 § Amendment 2026-08-06 (#1337).
 ///
 /// ## Only five members
 ///
