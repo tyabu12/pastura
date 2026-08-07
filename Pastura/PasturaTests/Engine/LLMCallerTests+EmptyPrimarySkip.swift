@@ -174,6 +174,9 @@ extension LLMCallerTests {
     )
 
     #expect(result.statement == nil)
+    // Assert the secondary was *returned*, not discarded — the same projection
+    // the Kotlin counterpart asserts, so the pair cannot drift on that axis.
+    #expect(result.fields["inner_thought"] == "")
     #expect(
       mock.generateCallCount == 3,
       "the empty secondary still drives the retry; only the skip rule is off")

@@ -199,8 +199,8 @@ reachable: there a direct test is correct on both sides. `narrate` is permanentl
 that costs on **both** engines: narrate catches around its own call (Swift a bare `catch`, Kotlin
 the deliberately narrower `catch (_: SimulationException)`, which still covers `RetriesExhausted`),
 so a throw there is *swallowed* — the round loses its narration with no `TurnSkipped` and no
-breaker increment, a degradation the gate never counts. It is a future un-gated site with **no**
-catch that would abort the run.
+breaker increment, a degradation the gate never counts. A future un-gated site with **no** catch
+would abort the run instead.
 
 ⚠️ The `TurnSkipped` assertion holds only **below** `TurnFailureGate.consecutiveSkipLimit` — the
 tripping failure throws `TurnFailureLimitReached` and emits no `TurnSkipped`
