@@ -274,6 +274,17 @@ def _secret_keys_in(parsed):
     return False
 
 
+def _secret_failures(locations, where):
+    """One failure line per place a `secret` key was found."""
+    return [
+        f"highlight: yaml_hook secret — {where} yaml_hook.fragment declares `secret:` "
+        f"at {location}. A hidden agenda is a spoiler wherever it appears, and "
+        "ADR-029 Decision 2's secret branch is designed-untested — the extractor "
+        "refuses such scenarios, and this is the gate's copy that a hand-edited hook "
+        "cannot bypass, in any kind"
+        for location in locations]
+
+
 def _check_yaml_hook_secret(doc, where):
     """No published fragment may declare `secret:`, whatever its kind.
 
@@ -323,9 +334,15 @@ def _check_yaml_hook_secret(doc, where):
         # than silent, for the reason this module's docstring already gives
         # about PyYAML: a gate that quietly drops a check is worse than one
         # that is loud about it.
-        return [
+        #
+        # The line-scan hits are reported **alongside** it rather than
+        # discarded. Returning only the install notice would fail the gate
+        # either way, but it would tell a curator holding a real, line-start
+        # `secret:` to install a package instead of naming their spoiler —
+        # right verdict, useless message.
+        return _secret_failures(locations, where) + [
             f"highlight: yaml_hook secret — {where} PyYAML is not importable, so the "
-            "fragment can only be line-scanned for `secret:` and flow-style forms "
+            "fragment could not be walked and flow-style or quoted `secret` keys "
             "would pass unverified. Install it (python3 -m pip install "
             "'pyyaml>=6,<7')"]
     if not locations:
@@ -349,13 +366,7 @@ def _check_yaml_hook_secret(doc, where):
                 "while parsing or walking it), so `secret:` could not be ruled out. "
                 "Flatten the fragment"]
 
-    return [
-        f"highlight: yaml_hook secret — {where} yaml_hook.fragment declares `secret:` "
-        f"at {location}. A hidden agenda is a spoiler wherever it appears, and "
-        "ADR-029 Decision 2's secret branch is designed-untested — the extractor "
-        "refuses such scenarios, and this is the gate's copy that a hand-edited hook "
-        "cannot bypass, in any kind"
-        for location in locations]
+    return _secret_failures(locations, where)
 
 
 def _check_yaml_hook_fragment(doc, where):
