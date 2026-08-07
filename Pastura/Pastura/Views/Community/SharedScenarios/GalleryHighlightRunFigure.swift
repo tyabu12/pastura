@@ -75,12 +75,17 @@ struct GalleryHighlightRunFigure: View {
       //
       // This container is not itself an accessibility element, so the
       // identifier does not publish one queryable element — it propagates to
-      // every leaf below. The test therefore matches type-agnostically;
+      // the elements below. Measured on the exported hierarchy after the rows
+      // began combining: those are the head's `Text`, each divider, and one
+      // `StaticText` per combined row (e.g. identifier
+      // `galleryDetail.highlightRunFigure`, label `Alice, Speak, …`). So
       // `app.otherElements[…]` finds nothing even when the figure is fully
-      // drawn. Do NOT "fix" that by adding `.accessibilityElement(children:)`
-      // to this panel: the rows would collapse into a single VoiceOver stop
-      // reading the entire excerpt at once. Each row does its own combining,
-      // in `stream(_:)`.
+      // drawn, and the test matches type-agnostically.
+      //
+      // Do NOT "fix" that by adding `.accessibilityElement(children:)` to this
+      // panel: the rows would collapse into a single VoiceOver stop reading the
+      // entire excerpt at once. Each row does its own combining, in
+      // `stream(_:)`.
       .accessibilityIdentifier("galleryDetail.highlightRunFigure")
     }
   }
@@ -154,8 +159,14 @@ struct GalleryHighlightRunFigure: View {
           // `AgentOutputRow` will look up (`TurnOutput.primaryText(for:)` →
           // `ScenarioConventions.primaryField(for:)`). Hardcoding `statement`
           // renders an empty bubble for any phase that names its output
-          // differently — a line vanishing out of a quotation. The absence of
-          // `inner_thought` is what keeps the row static (see the type doc).
+          // differently — a line vanishing out of a quotation.
+          //
+          // Deliberately NOT `entry.sourceField`, even though the schema
+          // publishes it: that records which field the excerpt was *drawn
+          // from* for the gate to check, and keying on it would reintroduce
+          // the same empty bubble whenever it disagreed with the phase's own
+          // field name. The absence of `inner_thought` is what keeps the row
+          // static (see the type doc).
           output: TurnOutput(fields: [row.primaryField: row.entry.text]),
           phaseType: row.phaseType,
           showAllThoughts: false,
@@ -168,12 +179,21 @@ struct GalleryHighlightRunFigure: View {
         )
         // Restores the one-stop-per-utterance reading the previous bare list
         // had. `AgentOutputRow` groups nothing itself, so without this
-        // VoiceOver announces the speaker, stops, then the line. Safe in
-        // this configuration only: the avatar is `.accessibilityHidden`, and
-        // there is no chevron, share button or tap target to swallow. The
-        // phase badge's own `Text` is not hidden, so the utterance reads
+        // VoiceOver announces the speaker, stops, then the line.
+        //
+        // Nothing interactive is swallowed *in this configuration*: no chevron
+        // (no `inner_thought`), no share button and no persona tap (both
+        // `if let`-gated on handlers this call site omits). The avatar is
+        // silent for a different and unconditional reason — `SheepAvatar`
+        // itself carries `.accessibilityHidden(true)`, because its label is a
+        // colour-slot name rather than the agent's. Were that ever dropped,
+        // this combined row would start reading "Alice" inside an utterance by
+        // 被験者ナオキ, and nothing here would flag it.
+        //
+        // The phase badge's own `Text` is not hidden, so the utterance reads
         // "<speaker>, <phase>, <line>" — one more fragment than the old list,
-        // and it names something genuinely on screen.
+        // naming something genuinely on screen, and matching what the live Sim
+        // row reads.
         .accessibilityElement(children: .combine)
       }
     }

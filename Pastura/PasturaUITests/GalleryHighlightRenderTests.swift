@@ -50,10 +50,11 @@ final class GalleryHighlightRenderTests: XCTestCase {
 
     // Type-agnostic on purpose. `.accessibilityIdentifier` on a container that
     // is not itself an accessibility element does **not** publish one queryable
-    // `otherElement` — it propagates the identifier down to each leaf, so the
-    // matches here are the figure's `StaticText`s. Measured: an
-    // `app.otherElements[…]` query finds nothing while the subtree is fully
-    // rendered, which would read as a render failure.
+    // `otherElement` — it propagates down to the elements below it. Measured on
+    // the exported hierarchy: those are the head's label, each divider, and one
+    // `StaticText` per combined row. An `app.otherElements[…]` query finds
+    // nothing while the subtree is fully rendered, which would read as a render
+    // failure.
     let runFigure = app.descendants(matching: .any)
       .matching(identifier: "galleryDetail.highlightRunFigure")
       .firstMatch
@@ -77,7 +78,12 @@ final class GalleryHighlightRenderTests: XCTestCase {
     // panel rendered but said nothing about the reading.
     XCTAssertTrue(
       app.staticTexts["Alice, Speak, はじめまして、よろしく。"].waitForExistence(timeout: 5),
-      "Run figure rendered but its first excerpt row did not, or stopped combining.")
+      """
+      First excerpt row missing. Three causes, in likelihood order: the row \
+      did not render; `.accessibilityElement(children: .combine)` was dropped, \
+      so the fragments are loose again; or `PhaseDisplayName.label(for:)`'s \
+      "Speak" copy changed, which this label pins by construction.
+      """)
 
     // The divider is the one branch that fires only on a round change, so the
     // fixture spans two rounds specifically to reach it. Without this the

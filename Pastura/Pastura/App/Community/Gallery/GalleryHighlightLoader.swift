@@ -124,17 +124,17 @@ final class GalleryHighlightLoader {
     // phase it cannot name.
     //
     // Renderability only — this is deliberately NOT the spoiler check. It
-    // admits all 14 cases, where Decision 3 makes just `speak_all` /
-    // `speak_each` excerpt-eligible; that narrower rule is enforced once, at
-    // the gate (`gallery_highlight_validate.py`'s `ELIGIBLE_PHASES`), and no
-    // consumer re-derives it. Tightening it here would put spoiler policy in a
-    // second place that has to move whenever Decision 3 does, and diverge
-    // silently when it doesn't.
-    // Kept in step with `GalleryScenarioDetailFormat.excerptRows`, which
-    // re-applies the same predicate as defence in depth. If they diverge, that
-    // one starts returning `[]` for a highlight this published, and the section
-    // degrades to a teaser with no figure.
-    guard decoded.excerpt.allSatisfy({ Self.isRenderable(phase: $0.phase) }) else {
+    // admits every phase that can carry a line (the six with a primary field:
+    // speak_all, speak_each, whisper, choose, vote, reflect), still far wider
+    // than Decision 3's excerpt-eligible two. That narrower rule is enforced
+    // once, at the gate (`gallery_highlight_validate.py`'s `ELIGIBLE_PHASES`),
+    // and no consumer re-derives it. Tightening it here would put spoiler
+    // policy in a second place that has to move whenever Decision 3 does, and
+    // diverge silently when it doesn't.
+    // `renderablePhase` is the single definition of this rule;
+    // `GalleryScenarioDetailFormat.excerptRows` reads the same property to
+    // build its rows, so the two cannot drift.
+    guard decoded.excerpt.allSatisfy({ $0.renderablePhase != nil }) else {
       log(check: "excerpt_phase_unrenderable", scenarioID: scenario.id)
       return
     }
@@ -143,14 +143,6 @@ final class GalleryHighlightLoader {
   }
 
   // MARK: - Private
-
-  /// Whether the run figure can draw a line published under `phase`: the raw
-  /// value maps to a `PhaseType`, and that phase names a primary output field
-  /// for the line to live in.
-  private static func isRenderable(phase: String) -> Bool {
-    guard let phaseType = PhaseType(rawValue: phase) else { return false }
-    return ScenarioConventions.primaryField(for: phaseType) != nil
-  }
 
   private func checkName(for error: Error) -> String {
     guard let serviceError = error as? GalleryServiceError else { return "fetch_failed" }

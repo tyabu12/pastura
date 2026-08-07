@@ -99,16 +99,16 @@ enum GalleryScenarioDetailFormat {
   /// more speakers the fourth and fifth collide — the app collides identically,
   /// so reproducing it is fidelity rather than a defect to route around.
   ///
-  /// **Returns `[]` when any phase is unrenderable** — unmappable, or mapping
-  /// to a phase that declares no primary output field (the code phases). This
-  /// mirrors `GalleryHighlightLoader`'s gate rather than trusting it: this is a
-  /// pure function with no way to signal a partial result, and the
-  /// alternatives — dropping the line, or rendering a speaker with no line —
-  /// are the two outcomes ADR-029 § Amendment 2026-08-07 rejects. In production
-  /// the loader has already hidden such a highlight, so this path is defence in
-  /// depth and not the live guard; **keep the two predicates in step**, or this
-  /// one starts firing on highlights the loader published and the section
-  /// degrades to a teaser with no figure.
+  /// **Returns `[]` when any line is unrenderable**, as
+  /// ``GalleryHighlightExcerptEntry/renderablePhase`` defines it. That property
+  /// is also what `GalleryHighlightLoader` gates on, so this cannot disagree
+  /// with the loader by construction — which matters, because disagreement
+  /// would render a highlight the loader published as a teaser with no figure.
+  /// In production the loader has already hidden such a highlight, so this path
+  /// is defence in depth rather than the live guard; a pure function has no way
+  /// to signal a partial result, and the alternatives — dropping the line, or
+  /// rendering a speaker with no line — are the two outcomes ADR-029
+  /// § Amendment 2026-08-07 rejects.
   ///
   /// - Parameter totalRounds: the scenario's round count
   ///   (``GalleryScenario/rounds``), or `nil` when the feed omits it — divider
@@ -120,9 +120,7 @@ enum GalleryScenarioDetailFormat {
     var rows: [ExcerptRow] = []
 
     for (index, entry) in excerpt.enumerated() {
-      guard let phaseType = PhaseType(rawValue: entry.phase),
-        let primaryField = ScenarioConventions.primaryField(for: phaseType)
-      else { return [] }
+      guard let renderable = entry.renderablePhase else { return [] }
 
       let position = slots[entry.agent] ?? slots.count
       slots[entry.agent] = position
@@ -133,8 +131,8 @@ enum GalleryScenarioDetailFormat {
           id: index,
           entry: entry,
           agentPosition: position,
-          phaseType: phaseType,
-          primaryField: primaryField,
+          phaseType: renderable.type,
+          primaryField: renderable.primaryField,
           dividerLabel: opensNewRound
             ? roundLabel(round: entry.round, totalRounds: totalRounds) : nil))
     }
