@@ -81,12 +81,21 @@ enum ParityEmitCommand {
       print("\(path) is up to date")
       exit(0)
     }
+    // Name the generator's INPUTS rather than enumerate causes. The earlier
+    // wording blamed "the Swift Engine's behaviour changed", which is only one
+    // of them and not the likeliest: `specs` reads a shipped bundled preset, so
+    // an ordinary scenario-YAML edit lands here with no Engine change at all —
+    // and once this runs in CI the file can also simply have been hand-edited.
+    // The remedy is the same in every case, so a misnamed cause costs
+    // misdirection, not a wrong action.
     let diagnosis =
       committed == nil
       ? "\(path) is missing — it has never been generated in this checkout."
       : """
-      \(path) is stale.
-      The Swift Engine's behaviour changed without the parity goldens being regenerated.
+      \(path) no longer matches a fresh generation.
+      Either an input changed — the Engine's behaviour, the fixture scenarios or
+      `ParityFixtureEmitter.specs`, or the `EventLineMapper` projection — or the
+      generated file was hand-edited (its header says not to).
       """
     FileHandle.standardError.write(
       Data(
