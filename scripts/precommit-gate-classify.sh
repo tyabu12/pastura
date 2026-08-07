@@ -53,6 +53,14 @@ fi
 # compiled app-bundle resource today; if one is ever added under
 # Pastura/Pastura/Resources/, carve it out of this denylist so it forces
 # the build.
+#
+# WIDENING THIS DENYLIST DISARMS CI GATES SILENTLY. ci.yml derives the
+# `changes` job's `ios` output from the `build` token, and several jobs run
+# only when `ios != false` — so a path added here stops reaching them while
+# every gate still reports green, having never run. `shared/**` is the live
+# example: keeping it non-SAFE is the only reason `harness-build`'s two
+# generated-Kotlin drift guards see a PR that hand-edits one of those files.
+# scripts/tests/precommit-gate-classify-test.sh pins that case.
 SAFE='(^(web/|docs/|\.github/|\.claude/))|(\.md$)|(^(\.gitignore|\.gitattributes|\.editorconfig|LICENSE)$)'
 if [ -n "$staged" ] && printf '%s\n' "$staged" | grep -qvE "$SAFE"; then
   tokens="${tokens:+$tokens }build"

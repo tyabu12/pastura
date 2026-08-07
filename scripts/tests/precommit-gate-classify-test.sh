@@ -61,6 +61,17 @@ assert_tokens "root Package.resolved" "Package.resolved"          "build"
 assert_tokens "unknown extension" "random.txt"                    "build"
 assert_tokens "path with spaces"  "my notes.txt"                  "build"
 
+# `shared/**` must stay non-SAFE. Two ci.yml drift guards in `harness-build`
+# ("Golden JSON drift guard" / "Parity golden drift guard") are gated on
+# `ios != false`, which is derived from the `build` token — so these two cases
+# are what makes a PR hand-editing ONLY a generated Kotlin file reach them.
+# Adding `shared/` to the SAFE denylist would disarm both silently: the guards
+# would still pass, having never run.
+assert_tokens "shared kotlin (parity golden)" \
+  "shared/engine/src/commonTest/kotlin/com/pastura/engine/ParityGolden.kt"  "build"
+assert_tokens "shared kotlin (json golden)" \
+  "shared/models/src/commonTest/kotlin/com/pastura/models/SwiftGoldenJson.kt" "build"
+
 # --- lint + build: Swift source or the SwiftLint config -------------------
 assert_tokens "swift source"      "Pastura/Pastura/Engine/Foo.swift" "lint build"
 # A tightened rule in .swiftlint.yml can newly flag unchanged code, so a
