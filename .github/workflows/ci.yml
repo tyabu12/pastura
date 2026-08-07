@@ -665,13 +665,16 @@ jobs:
 
       # ADR-023 Stage-4 parity fixtures: `ParityGolden.kt` is generated from the
       # Swift Engine's own behaviour and carries a DO-NOT-EDIT header, so it can
-      # go stale from either side — an input change (Engine semantics, the
-      # fixture scenario / `specs`, the `EventLineMapper` projection) or a
-      # hand-edit. #1397 changed its contents while nothing detected staleness.
-      # Same reach argument as the step above. Sub-second locally, inference-free
-      # (scripted responder), reusing the executable `swift build` already
-      # produced — so decision B′ (no per-PR XCFramework dependency) still holds
-      # and `swift test` above stays the job's long pole.
+      # go stale from either side — an input change (e.g. Engine semantics, the
+      # fixture scenario / `specs`, the `EventLineMapper` projection; the list is
+      # open, see `ParityEmitCommand.checkDrift`) or a hand-edit. #1397 changed
+      # its contents while nothing detected staleness.
+      #
+      # Same reach argument as the step above. Inference-free (scripted
+      # responder), reusing the executable `swift build` already produced — so
+      # decision B′ (no per-PR XCFramework dependency) still holds, and it costs
+      # what its `emit-golden` sibling does, 1-2 s of a job whose time goes to
+      # `swift build` (27-45 s across the four most recent green main runs).
       - name: Parity golden drift guard (ADR-023 Stage 4)
         run: swift run pastura-harness parity-emit --check
 
