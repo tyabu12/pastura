@@ -353,6 +353,25 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H18 secret: in a persona fragment fails"
 expect_out "highlight: yaml_hook secret" "H18 names the secret check"
 
+# H18b — the same `secret:` under kind=raw. This is the arm H18 alone did not
+# cover: the check used to sit behind the persona branch, so a `raw` fragment —
+# published verbatim on both surfaces, and the likelier place for an unreviewed
+# paste — carried a hidden agenda straight through the gate.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"raw","fragment":"personas:\n  - name: アヤ\n    secret: 本当は協力者。","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18b secret: in a raw fragment fails"
+expect_out "highlight: yaml_hook secret" "H18b names the secret check"
+
+# H18c — a sequence-item `- secret:` form, which the line scan must also see.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"raw","fragment":"  - secret: 本当は協力者。","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18c sequence-item secret: fails"
+expect_out "highlight: yaml_hook secret" "H18c names the secret check"
+
 # H19 — kind=persona over a fragment that is not a persona list. The `phases:`
 # fragment is legal under `raw` (H1) and illegal here, which is the whole point
 # of the discriminator.
@@ -386,6 +405,27 @@ mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われ�
 link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H22 unparseable persona fragment fails"
 expect_out "not parseable YAML" "H22 names the parse failure"
+
+# H23 — a `personas:` key with a sibling. The shape is rejected either way; what
+# this pins is the *message*, which used to say "not a persona list" of a
+# fragment that visibly has one.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"personas:\n  - name: アヤ\n    description: d\nphases:\n  - type: speak_each","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H23 personas: with a sibling key fails"
+expect_out "parsed top level was a mapping with keys" "H23 names what it parsed instead"
+
+# H24 — non-string YAML keys. `sorted()` over a mixed-type key set raises
+# TypeError, which would abort the run with a traceback instead of the
+# one-failure-per-line contract the module promises. Two extras are required:
+# a single one never reaches a comparison.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"  - name: アヤ\n    description: d\n    mood: x\n    1: c","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H24 mixed-type extra keys fail"
+expect_out "outside the allowlist" "H24 reports rather than tracebacks"
 
 # ============================== extractor ================================
 

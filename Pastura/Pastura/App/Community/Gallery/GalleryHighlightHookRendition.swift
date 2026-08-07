@@ -79,11 +79,19 @@ enum GalleryHighlightHookRendition: Equatable {
   /// no dedent is needed) or a `personas:`-keyed mapping holding one.
   ///
   /// Keys beyond `name` / `description` are **ignored rather than rejected**,
-  /// which matters most for the one that cannot legally be here: the gate
-  /// rejects `secret:` by name, but were one ever to arrive, rejecting the
-  /// fragment would send the caller to ``rawYAML`` and *print the hidden
-  /// agenda*. Parsing is what drops it. Same strict-supply / lenient-read
-  /// asymmetry as ``GalleryHighlightYAMLHook/kind``.
+  /// which matters most for the one that cannot legally be here. The gate
+  /// rejects `secret:` by name in every kind, but were one to arrive anyway,
+  /// rejecting the fragment here would send the caller to ``rawYAML`` and
+  /// *print the hidden agenda* — so dropping it is the safer read. Same
+  /// strict-supply / lenient-read asymmetry as
+  /// ``GalleryHighlightYAMLHook/kind``.
+  ///
+  /// ⚠️ **This drops a secret only when the entry is otherwise well-formed.**
+  /// A missing `name` or `description`, or any malformed *sibling*, rejects the
+  /// whole fragment — and the fallback then prints it, secret included. So the
+  /// publish-time gate is the actual defence and this is the second layer, not
+  /// the first; `secretSurvivesWhenAMalformedSiblingForcesTheFallback` pins the
+  /// residual path rather than leaving it implied.
   static func personaEntries(in fragment: String) -> [Entry]? {
     guard let loaded = try? Yams.load(yaml: fragment),
       let items = sequence(in: loaded)

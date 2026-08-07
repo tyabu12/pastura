@@ -183,10 +183,13 @@ enum GalleryScenarioDetailFormat {
   /// `GalleryScenarioDetailFormatTests`:
   ///
   /// - The persona heading **names itself an excerpt**. Both shipped hooks
-  ///   quote a subset of their scenario's personas, and drawn as editor-style
-  ///   rows that truncation stops being visible the way a leading `- ` in raw
-  ///   YAML made it. The app cannot check the claim — a non-installed gallery
-  ///   scenario's persona list is never fetched — so the wording carries it.
+  ///   quote a subset of their scenario's personas, and when those are drawn as
+  ///   editor-style rows the truncation stops being visible the way a leading
+  ///   `- ` in raw YAML made it. The app cannot check the claim — a
+  ///   non-installed gallery scenario's persona list is never fetched — so the
+  ///   wording is what carries it, in **every** locale: highlight content is
+  ///   Japanese today, so `ja` is this feature's primary surface and its
+  ///   excerpt marker is pinned separately in `HookHeadingLocalizationTests`.
   /// - The raw heading says "YAML" and the persona heading must **not**, because
   ///   a persona rendition shows none. Reusing one heading for both would
   ///   describe something that is not on screen.

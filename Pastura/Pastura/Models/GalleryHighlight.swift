@@ -13,8 +13,9 @@ import Foundation
 /// pins that shape, not this type. Do not read the two as interchangeable —
 /// v1's required keys were widened in place once, when `yaml_hook.kind` landed
 /// (ADR-029 § Amendment 2026-08-08). That was licensed by no artifact bearing
-/// the older shape surviving anywhere, a precondition which expires with the
-/// next release; any required key added after it **bumps the version**.
+/// the older shape surviving anywhere — a precondition that fails on the first
+/// release to carry this reader, whatever it is numbered. Any required key
+/// added after that **bumps the version**.
 nonisolated public struct GalleryHighlight: Codable, Equatable, Sendable {
   /// Schema version of this highlight file (currently `1`). Not validated
   /// against a known set here — an unrecognised version is still decodable

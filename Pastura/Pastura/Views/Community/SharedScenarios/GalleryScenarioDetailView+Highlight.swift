@@ -29,8 +29,14 @@ extension GalleryScenarioDetailView {
   /// Decision 4: a failure the user cannot act on is worse than absence).
   @ViewBuilder
   var highlightSection: some View {
-    if let highlight = highlightLoader?.highlight,
-      let rendition = highlightLoader?.hookRendition {
+    if let highlight = highlightLoader?.highlight {
+      // `?? .rawYAML` rather than a second `let`: the loader sets both together,
+      // but binding them as a pair would make a missing *rendition* hide the
+      // excerpt, teaser and caption too — turning a presentation fallback into a
+      // content gate, and a silent one, since no `check=` line would name it.
+      // `.rawYAML` is the enum's own answer to "nothing better could be
+      // derived", so the section's presence stays keyed on `highlight` alone.
+      let rendition = highlightLoader?.hookRendition ?? .rawYAML
       PasturaSection(String(localized: "A glimpse of a real run")) {
         VStack(alignment: .leading, spacing: 16) {
           GalleryHighlightRunFigure(
@@ -99,6 +105,15 @@ extension GalleryScenarioDetailView {
   /// the scenario is not installed yet. Nothing mechanical detects an
   /// affordance being added; this comment is the guard.
   fileprivate func personaRows(_ entries: [GalleryHighlightHookRendition.Entry]) -> some View {
+    // No inner container, for two reasons measured on a screenshot. A
+    // `bubbleBackground` panel is invisible against this card — the same
+    // near-parity `GalleryHighlightRunFigure` works around with a `rule`
+    // hairline — and the horizontal padding it needed pushed every row right of
+    // the heading above it. The vocabulary source
+    // (`ScenarioDetailView+Sections.personasSection`) has no inner container
+    // either: dividers carry the structure, and the rows sit on the card.
+    // Stated above the builder rather than below it, because the edit this
+    // guards against is typing `.background(…)` onto the `VStack`.
     VStack(spacing: 0) {
       // Keyed by offset, not by name: a fragment is curated text and nothing
       // forbids two entries sharing a name.
@@ -118,13 +133,6 @@ extension GalleryScenarioDetailView {
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)
-    // No inner container, for two reasons measured on a screenshot. A
-    // `bubbleBackground` panel is invisible against this card — the same
-    // near-parity `GalleryHighlightRunFigure` works around with a `rule`
-    // hairline — and the horizontal padding it needed pushed every row right
-    // of the heading above it. The vocabulary source
-    // (`ScenarioDetailView+Sections.personasSection`) has no inner container
-    // either: dividers carry the structure, and the rows sit on the card.
   }
 
   /// The fragment as a code-style block — what every hook looked like before

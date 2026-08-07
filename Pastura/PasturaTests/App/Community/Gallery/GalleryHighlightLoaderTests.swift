@@ -17,7 +17,9 @@ import Testing
     schemaVersion: Int = 1,
     contentFilterApplied: Bool = true,
     excerptCount: Int = 2,
-    phases: [String]? = nil
+    phases: [String]? = nil,
+    hookKind: String = "raw",
+    hookFragment: String = "description: 自信家"
   ) -> Data {
     // `phases`, when supplied, drives one entry per element so a test can mix
     // known and unknown phase strings; otherwise every entry is `speak_each`.
@@ -48,8 +50,8 @@ import Testing
         },
         "excerpt": [\(entries.joined(separator: ","))],
         "yaml_hook": {
-          "kind": "raw",
-          "fragment": "description: 自信家",
+          "kind": "\(hookKind)",
+          "fragment": "\(hookFragment)",
           "caption": "性格を書き換えてみよう"
         },
         "teaser": "多数派の答えに引きずられるか。",
@@ -271,13 +273,32 @@ import Testing
 
     await loader.load(for: makeScenario())
     #expect(loader.highlight != nil)
-    // `kind: raw` in the fixture — resolution still has to happen.
+    // `kind: raw` by default — resolution still has to happen.
     #expect(loader.hookRendition == .rawYAML)
 
     service.result = .failure(GalleryServiceError.unexpectedStatus(500))
     await loader.load(for: makeScenario())
     #expect(loader.highlight == nil)
     #expect(loader.hookRendition == nil)
+  }
+
+  /// The path that actually ships. Every other loader test drives `kind: raw`,
+  /// so without this one nothing exercised decode → `resolve` → `.personas`
+  /// end-to-end through the loader — only the parser in isolation did.
+  @Test func aPersonaHookResolvesToRowsThroughTheLoader() async {
+    let service = HighlightStubGalleryService()
+    service.result = .success(
+      Self.highlightJSON(
+        hookKind: "persona",
+        hookFragment: "  - name: アヤ\\n    description: 率直な被験者。"))
+    let loader = GalleryHighlightLoader(galleryService: service)
+
+    await loader.load(for: makeScenario())
+
+    #expect(loader.highlight?.yamlHook.kind == "persona")
+    #expect(
+      loader.hookRendition
+        == .personas([.init(name: "アヤ", description: "率直な被験者。")]))
   }
 
   @Test func secondLoadAfterFailureCanSucceed() async {

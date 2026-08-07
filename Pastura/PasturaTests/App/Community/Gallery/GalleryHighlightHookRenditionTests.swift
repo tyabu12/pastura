@@ -39,14 +39,22 @@ struct GalleryHighlightHookRenditionTests {
       guard highlight.yamlHook.kind == Rendition.personaKind else { continue }
       personaHooksSeen += 1
 
+      // The `#require` is the measurement. Asserting non-empty names or a
+      // non-empty list here would restate `personaEntries`' own postcondition
+      // (`nonEmptyString`, and `nil` for an empty list) and could not fail —
+      // so instead assert what the parser does *not* promise: that the entry
+      // count matches what the fragment's own top-level `- name:` lines say,
+      // which is the property a silent parser divergence would break.
       let entries = try #require(
         Rendition.personaEntries(in: highlight.yamlHook.fragment),
         "\(name): the gate accepts this as kind=persona but Yams rejected it")
-      #expect(!entries.isEmpty, "\(name): parsed to an empty persona list")
-      for entry in entries {
-        #expect(!entry.name.isEmpty, "\(name): an entry has an empty name")
-        #expect(!entry.description.isEmpty, "\(name): an entry has an empty description")
-      }
+      let authoredNames = highlight.yamlHook.fragment
+        .split(separator: "\n")
+        .filter { $0.trimmingCharacters(in: .whitespaces).hasPrefix("- name:") }
+        .count
+      #expect(
+        entries.count == authoredNames,
+        "\(name): parsed \(entries.count) personas from \(authoredNames) authored entries")
     }
     // Without this the loop is vacuous the moment the shipped inventory stops
     // carrying a persona hook, and the suite would keep passing on nothing.
@@ -141,6 +149,25 @@ struct GalleryHighlightHookRenditionTests {
       #expect(!entry.name.contains("協力者"))
       #expect(!entry.description.contains("協力者"))
     }
+  }
+
+  /// The negative control for the test above, and the reason the gate — not
+  /// this parser — is the actual defence against a published secret.
+  ///
+  /// Dropping only happens on the paths where the fragment otherwise parses.
+  /// Here the entry has no `description`, so the *whole* fragment is rejected,
+  /// the caller falls back to `.rawYAML`, and the block prints the fragment
+  /// verbatim — secret included. Asserting the success case alone would have
+  /// left "parsing is what drops it" reading as unconditional, which it is not.
+  @Test func secretSurvivesWhenAMalformedSiblingForcesTheFallback() {
+    let fragment = """
+        - name: アヤ
+          secret: 本当は協力者。
+      """
+    #expect(Rendition.personaEntries(in: fragment) == nil)
+
+    let hook = GalleryHighlightYAMLHook(kind: "persona", fragment: fragment, caption: "cap")
+    #expect(Rendition.resolve(hook, scenarioID: "demo_v1") == .rawYAML)
   }
 
   // MARK: - resolve()
