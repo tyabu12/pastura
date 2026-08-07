@@ -373,13 +373,18 @@ the current membership and its slice-by-slice provenance.
 **Apply**: pass the appearance in **explicitly** — capture
 `@Environment(\.colorScheme)` at the call site, and drive the view's palette from
 that value (an explicit `colorScheme` parameter). **The injection is the
-load-bearing half**: omit it and the export goes light. Reading
-`PasturaPalette.<token>.color` rather than the `Color.*` alias remains the
-convention, but for callsite explicitness and independence from a platform
-behaviour Apple owns — not because an alias would resolve wrong (#1337 measured
-that it would not). **The alias read's** concrete cost is that `light` and `dark`
-would collapse into each other, which makes the parameter you just threaded
-inert. Also set
+load-bearing half**: omit it and the export goes light. Since #1337 that half is
+gated — `scripts/check_imagerenderer_injection.py`, wired into the pre-commit
+hook and CI, fails any app-target file that constructs an `ImageRenderer` without
+injecting.
+
+**Read `PasturaPalette.<token>.color`, never the `Color.*` alias, and treat that
+as unconditional.** #1337 measured that an alias would resolve correctly *today*
+— on one device and one OS minor (iOS 26.5 simulator). The raw read is what keeps
+the export from depending on that measurement holding, and an SDK change can
+invalidate it; the alias's in-repo cost meanwhile is that `light` and `dark`
+collapse into each other, making the parameter you just threaded inert. Neither
+half is worth trading for a shorter line. Also set
 `.environment(\.colorScheme, …)` on the rendered content for any system-colored
 subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
 simulator misleads.

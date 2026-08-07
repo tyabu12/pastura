@@ -69,6 +69,15 @@ what the skill cannot derive belongs here.
   `dangling_adr` false positives, and fails open (empty set) if it changes.
   `unparsed_adr_reservation` announces that parse miss rather than leaving it
   silent — but only on the next audit run, so do not rely on being told.
+- **Amending a large ADR: read its own placement rule first.** ADR-028 § "Where
+  new amendment content goes" is the house pattern — values and standing
+  invariants go in the **body** where the next reader looks; derivation,
+  measurements and retracted drafts stay in the amendment, which is why
+  amendments are not trimmed away later; superseding an earlier one marks it in
+  place rather than rewriting it. Stated here because nothing enforces it: no
+  lint, no gate, and `consistency-audit` has no amendment-placement detector, so
+  it is reviewer-enforced and only fires if it is loaded. It generalises to any
+  ADR past the size where a reader can hold its section structure (#1382).
 - **A file listing can also *over*-report.** The skill's reservation check
   covers a listing that under-reports; the inverse also happens here — an ADR
   draft sitting **untracked** in one checkout is visible to `ls` but absent for

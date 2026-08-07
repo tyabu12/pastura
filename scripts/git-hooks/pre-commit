@@ -113,3 +113,10 @@ bash ./scripts/prompt-literal-parity-precommit-gate.sh
 # job locally. Worth catching here specifically: codeql.yml is schedule-only, so
 # a divergent pin merges green and stays invisible until the next 18:05 UTC run.
 bash ./scripts/action-pin-consistency-precommit-gate.sh
+
+# 14. Fixed-appearance-export injection gate (#1337) — self-gates on app-target
+# Swift or the checker; fails-fast inside. Guards the hazard ADR-028 § "Revisit
+# trigger" bullet 1 names after #1337 inverted its threat model: an
+# `ImageRenderer` export that injects no `\.colorScheme` rasterizes light on any
+# device (#1070), and ADR-009 rules out the snapshot test that would see it.
+bash ./scripts/imagerenderer-injection-precommit-gate.sh

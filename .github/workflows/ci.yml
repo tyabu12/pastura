@@ -1028,6 +1028,19 @@ jobs:
           python3 scripts/check-prompt-literal-parity.py --self-test
           python3 scripts/check-prompt-literal-parity.py --check
 
+      # Fixed-appearance-export injection (#1337) — an `ImageRenderer` that
+      # injects no `\.colorScheme` rasterizes light on any device (#1070), and
+      # ADR-009 rules out the snapshot test that would observe it. Self-test
+      # first (positive control + the `UIGraphicsImageRenderer` substring trap),
+      # then the real tree. Unconditional for the same reason as the steps above
+      # (`.claude/rules/ci-workflows.md` § "Required-check-safe path gating").
+      # Defense-in-depth for scripts/imagerenderer-injection-precommit-gate.sh
+      # (local only).
+      - name: Fixed-appearance-export injection check
+        run: |
+          python3 scripts/check_imagerenderer_injection.py --self-test
+          python3 scripts/check_imagerenderer_injection.py --check
+
   gallery-drift:
     name: Gallery drift guard
     runs-on: ubuntu-latest
