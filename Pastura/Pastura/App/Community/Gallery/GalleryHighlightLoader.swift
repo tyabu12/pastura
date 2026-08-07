@@ -99,6 +99,46 @@ final class GalleryHighlightLoader {
       return
     }
 
+    // Every line's phase must be one this build can actually draw: it maps to
+    // a `PhaseType`, and that phase declares a primary output field to hold
+    // the line. The second half matters because `AgentOutputRow` looks the
+    // line up by that field name — a code phase, which declares none, would
+    // render a speaker with an empty bubble.
+    //
+    // This is not about malformed content — the extractor and the repo-side
+    // gate both hard-fail on an unknown phase (ADR-029 Decision 2), so a
+    // published file is always mappable by *some* build. What it guards is
+    // **version skew**: a highlight published after a new `PhaseType` lands
+    // (ADR-029 revisit trigger 1) read by an app that predates the case.
+    //
+    // Whole section, not just the offending row, because an excerpt is a
+    // *quotation* — the section's claim is that these lines, in this order,
+    // are what happened. Dropping one silently rewrites the passage while
+    // still presenting it as the record. That is the opposite trade-off from
+    // `GalleryScenarioDetailFormat.phaseSteps`, which lenient-skips: there
+    // every rendered step stays true and a gap merely understates the
+    // scenario's structure.
+    //
+    // It also keeps `PhaseType` non-optional the whole way down the render
+    // path, so the run figure never has to invent a fallback badge for a
+    // phase it cannot name.
+    //
+    // Renderability only — this is deliberately NOT the spoiler check. It
+    // admits every phase that can carry a line (the six with a primary field:
+    // speak_all, speak_each, whisper, choose, vote, reflect), still far wider
+    // than Decision 3's excerpt-eligible two. That narrower rule is enforced
+    // once, at the gate (`gallery_highlight_validate.py`'s `ELIGIBLE_PHASES`),
+    // and no consumer re-derives it. Tightening it here would put spoiler
+    // policy in a second place that has to move whenever Decision 3 does, and
+    // diverge silently when it doesn't.
+    // `renderablePhase` is the single definition of this rule;
+    // `GalleryScenarioDetailFormat.excerptRows` reads the same property to
+    // build its rows, so the two cannot drift.
+    guard decoded.excerpt.allSatisfy({ $0.renderablePhase != nil }) else {
+      log(check: "excerpt_phase_unrenderable", scenarioID: scenario.id)
+      return
+    }
+
     highlight = decoded
   }
 

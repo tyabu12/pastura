@@ -106,4 +106,117 @@ struct GalleryScenarioDetailFormatTests {
     let alert = GalleryScenarioDetailFormat.installAlert(for: .networkError("boom"))
     #expect(alert?.message == "boom")
   }
+
+  // MARK: - Highlight excerpt rows
+
+  private func entry(
+    agent: String, round: Int = 1, phase: String = "speak_each"
+  ) -> GalleryHighlightExcerptEntry {
+    GalleryHighlightExcerptEntry(
+      agent: agent, round: round, phase: phase, phaseIndex: 0,
+      sourceField: "statement", text: "…")
+  }
+
+  @Test func avatarSlotsFollowOrderOfFirstAppearance() {
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "A"), entry(agent: "B"), entry(agent: "A"), entry(agent: "C")],
+      totalRounds: 3)
+
+    // A keeps slot 0 on its second line — the map is keyed by name, not by row.
+    #expect(rows.map(\.agentPosition) == [0, 1, 0, 2])
+  }
+
+  @Test func fifthSpeakerCollidesWithTheFirstJustAsTheAppDoes() {
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      ["A", "B", "C", "D", "E"].map { entry(agent: $0) }, totalRounds: 3)
+
+    #expect(rows.map(\.agentPosition) == [0, 1, 2, 3, 4])
+    // Four colour slots, so the fifth speaker lands on the first one's colour.
+    // Pinned against the real resolver rather than by restating `4 % 4 == 0`:
+    // the claim is that `SheepAvatar` collides identically for a 5-agent
+    // scenario (`asch_conformity_v1` really has five), so a future "fix" here
+    // has to be a deliberate divergence from the app.
+    #expect(
+      SheepAvatar.Character.forAgent("E", position: 4)
+        == SheepAvatar.Character.forAgent("A", position: 0))
+  }
+
+  @Test func aDividerOpensOnlyWhereTheRoundChanges() {
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [
+        entry(agent: "A", round: 1), entry(agent: "B", round: 1),
+        entry(agent: "A", round: 2), entry(agent: "B", round: 2)
+      ], totalRounds: 3)
+
+    // Never above the first row — the head already names that round.
+    #expect(rows.map { $0.dividerLabel != nil } == [false, false, true, false])
+    #expect(rows[2].dividerLabel == "Round 2 / 3")
+  }
+
+  @Test func aDividerDropsTheTotalWhenTheFeedOmitsRounds() {
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "A", round: 1), entry(agent: "A", round: 2)], totalRounds: nil)
+
+    // Degrades to the total-less key rather than vanishing: both rounds are
+    // present in the passage, so the boundary is still real.
+    #expect(rows[1].dividerLabel == "Round 2")
+  }
+
+  @Test func anUnmappablePhaseYieldsNoRowsAtAll() {
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "A"), entry(agent: "B", phase: "interpretive_dance")],
+      totalRounds: 3)
+
+    // Defence in depth behind `GalleryHighlightLoader`'s own gate — the whole
+    // passage goes, never just the offending line (ADR-029 § Amendment
+    // 2026-08-07).
+    #expect(rows.isEmpty)
+  }
+
+  @Test func aFieldlessPhaseYieldsNoRowsEither() {
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "A"), entry(agent: "B", phase: "summarize")], totalRounds: 3)
+
+    // `summarize` maps to a `PhaseType` but declares no primary output field,
+    // so there is no key to hang the line on — same outcome, second half of
+    // the renderability predicate. Keeps this in step with the loader.
+    #expect(rows.isEmpty)
+  }
+
+  @Test func mappablePhasesYieldOneRowEachKeyedByTheirOwnField() {
+    // Positive control for the two cases above: same call shape, renderable
+    // phases. `vote` is included because it is the case a hardcoded
+    // `"statement"` key would have rendered as a speaker with no line.
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "A"), entry(agent: "B", phase: "vote")], totalRounds: 3)
+
+    #expect(rows.count == 2)
+    #expect(rows.map(\.phaseType) == [.speakEach, .vote])
+    #expect(rows.map(\.primaryField) == ["statement", "vote"])
+    #expect(rows.map(\.id) == [0, 1])
+  }
+
+  // MARK: - Highlight head round label
+
+  @Test func theHeadNamesTheFirstExcerptedRoundNotRoundOne() {
+    let label = GalleryScenarioDetailFormat.excerptHeadRoundLabel(
+      [entry(agent: "A", round: 2), entry(agent: "B", round: 3)], totalRounds: 4)
+
+    // A highlight is usually quoted from partway in; the head describes the
+    // passage below it, not the scenario.
+    #expect(label == "Round 2 / 4")
+  }
+
+  @Test func theHeadDropsTheTotalWhenTheFeedOmitsRounds() {
+    let label = GalleryScenarioDetailFormat.excerptHeadRoundLabel(
+      [entry(agent: "A", round: 2), entry(agent: "B", round: 3)], totalRounds: nil)
+
+    // Degrades like a divider rather than collapsing. Collapsing here while the
+    // round-3 divider still printed would leave the opening round unnamed.
+    #expect(label == "Round 2")
+  }
+
+  @Test func theHeadCollapsesOnAnEmptyExcerpt() {
+    #expect(GalleryScenarioDetailFormat.excerptHeadRoundLabel([], totalRounds: 4) == nil)
+  }
 }

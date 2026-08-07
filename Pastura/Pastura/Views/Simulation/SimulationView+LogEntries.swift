@@ -170,27 +170,23 @@ extension SimulationView {
   }
 
   /// Full-width phase-boundary separator for LLM phases (speak / vote /
-  /// choose). Mirrors `roundSeparator`'s rule + centered-content + rule
-  /// structure so the transcript reads as phase "chapters" (#882), but
-  /// keeps the existing `PhaseTypeLabel` capsule badge as the centered
-  /// element so it still reads as a phase marker.
+  /// choose). Shares `roundSeparator`'s ``PasturaStreamDivider`` container so
+  /// the transcript reads as phase "chapters" (#882), but keeps the
+  /// `PhaseTypeLabel` capsule badge as the centered element so it still reads
+  /// as a phase marker.
   ///
   /// Only LLM phases get this treatment — code phases (score_calc,
   /// assign, …) keep the inline badge (see `SimulationView`'s
   /// `.phaseStarted` case): full-width emphasis on every phase would be
   /// noise on code-phase-heavy scenarios.
   func phaseSeparator(_ phaseType: PhaseType) -> some View {
-    HStack {
-      Rectangle().fill(Color.rule).frame(height: 1)
+    PasturaStreamDivider {
       PhaseTypeLabel(phaseType: phaseType)
-      Rectangle().fill(Color.rule).frame(height: 1)
     }
-    .padding(.vertical, 4)
   }
 
   func roundSeparator(_ text: String) -> some View {
-    HStack {
-      Rectangle().fill(Color.rule).frame(height: 1)
+    PasturaStreamDivider {
       // `metaLabel` keeps "Round N/M" mixed case — tagPhase would
       // upper-case to "ROUND N/M" which reads shouty for a prose
       // marker. tagPhase stays reserved for one-word phase tags
@@ -198,9 +194,7 @@ extension SimulationView {
       Text(text)
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
-      Rectangle().fill(Color.rule).frame(height: 1)
     }
-    .padding(.vertical, 4)
   }
 
   func scoresSummary(_ scores: [String: Int]) -> some View {

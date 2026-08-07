@@ -845,7 +845,11 @@ private struct RootView: View {
     /// captures for the ui-refine L5/L6 lenses (#811):
     /// `--ui-test-seed-gallery-offline` → `.empty` ("Gallery Unavailable");
     /// `--ui-test-seed-empty-gallery` → `.loaded` with a galleryEmpty card
-    /// ("No scenarios available yet"). Plain `--ui-test` keeps the canary.
+    /// ("No scenarios available yet"). `--ui-test-seed-highlight` → the canary
+    /// entry carries a curated highlight so `GalleryHighlightRunFigure`
+    /// renders (#1394); kept off the default canary because the section's
+    /// height would push `galleryDetail.tryButton` out of reach of the
+    /// navigation flows that tap it. Plain `--ui-test` keeps the canary.
     private static func uiTestGalleryService() -> StubGalleryService {
       let args = CommandLine.arguments
       if args.contains("--ui-test-seed-gallery-offline") {
@@ -853,6 +857,9 @@ private struct RootView: View {
       }
       if args.contains("--ui-test-seed-empty-gallery") {
         return StubGalleryService.uiTestEmptyGallery()
+      }
+      if args.contains("--ui-test-seed-highlight") {
+        return StubGalleryService.uiTestHighlightGallery()
       }
       return StubGalleryService.uiTestPreset()
     }

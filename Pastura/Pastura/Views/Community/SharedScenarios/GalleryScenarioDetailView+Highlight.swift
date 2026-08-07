@@ -11,8 +11,12 @@ import SwiftUI
 /// is the only action.
 ///
 /// Every string sourced from the highlight file is remote content (currently
-/// Japanese, on both `en` and `ja` chrome) and is rendered with
-/// `Text(verbatim:)` so it never resolves as a `LocalizedStringKey`.
+/// Japanese, on both `en` and `ja` chrome) and must never resolve as a
+/// `LocalizedStringKey`. The teaser and the YAML hook say so explicitly with
+/// `Text(verbatim:)`. The excerpt lines reach ``AgentOutputRow`` instead, which
+/// is safe for a different reason: it is handed `String` / `Substring`
+/// *values*, and the `LocalizedStringKey` overload of `Text.init` binds only to
+/// string literals, so a non-literal argument selects the `StringProtocol` one.
 extension GalleryScenarioDetailView {
 
   /// Renders only once the loader has fetched **and** verified a highlight.
@@ -24,37 +28,14 @@ extension GalleryScenarioDetailView {
     if let highlight = highlightLoader?.highlight {
       PasturaSection(String(localized: "A glimpse of a real run")) {
         VStack(alignment: .leading, spacing: 16) {
-          excerptList(highlight.excerpt)
+          GalleryHighlightRunFigure(
+            excerpt: highlight.excerpt, totalRounds: scenario.rounds)
           teaserLine(highlight.teaser)
           yamlHook(highlight.yamlHook)
           editInvitation
         }
         .padding(17)
         .frame(maxWidth: .infinity, alignment: .leading)
-      }
-    }
-  }
-
-  /// Chat-log-style transcript: speaker name above the line it said.
-  /// `enumerated().offset` ids mirror `detailsCard` / `whatHappensSection` —
-  /// one persona can speak more than once, so the entries are not unique.
-  @ViewBuilder
-  fileprivate func excerptList(_ excerpt: [GalleryHighlightExcerptEntry]) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
-      ForEach(Array(excerpt.enumerated()), id: \.offset) { _, entry in
-        VStack(alignment: .leading, spacing: 3) {
-          Text(verbatim: entry.agent)
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(Color.mossDark)
-          Text(verbatim: entry.text)
-            .font(.callout)
-            .foregroundStyle(Color.ink)
-            .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        // One VoiceOver element per utterance ("<agent>, <line>") — split
-        // elements would read the name, stop, then the line.
-        .accessibilityElement(children: .combine)
       }
     }
   }

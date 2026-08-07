@@ -179,6 +179,32 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
     case sourceField = "source_field"
     case text
   }
+
+  /// The phase this line was published under, paired with the output field
+  /// that phase declares its line in — or `nil` when either cannot be
+  /// resolved, so no consumer can place the line in a `TurnOutput`.
+  ///
+  /// The two causes are deliberately not distinguished: an unmappable
+  /// ``phase`` (a feed newer than this build — ADR-029 revisit trigger 1), or
+  /// a phase that declares no primary output field, which is every code phase
+  /// **and** `narrate`, whose `{ commentary }` shape is Engine-fixed rather
+  /// than author-declared. `ScenarioConventionsTests` pins the `narrate` half,
+  /// which ADR-029's amendment leans on.
+  ///
+  /// **This is the single definition of the rule.** Both consumers read it —
+  /// `GalleryHighlightLoader` to decide whether to publish the highlight at
+  /// all (ADR-029 § Amendment 2026-08-07,
+  /// `check=excerpt_phase_unrenderable`), and
+  /// `GalleryScenarioDetailFormat.excerptRows` to build the row. They were
+  /// briefly two hand-written predicates kept in step by comments; one symbol
+  /// removes the drift, whose failure mode was a highlight the loader
+  /// published rendering as a teaser with no figure.
+  public var renderablePhase: (type: PhaseType, primaryField: String)? {
+    guard let phaseType = PhaseType(rawValue: phase),
+      let primaryField = ScenarioConventions.primaryField(for: phaseType)
+    else { return nil }
+    return (phaseType, primaryField)
+  }
 }
 
 /// A snippet of the scenario's backing YAML shown alongside the excerpt,

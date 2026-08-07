@@ -145,18 +145,17 @@ extension ModelDownloadHostView {
 
   // MARK: - Lifecycle chapter separators (#932 follow-up)
 
-  /// Full-width round separator, mirroring `SimulationView.roundSeparator`.
-  /// Reuses the `"Round %lld / %lld"` key already wired into `GameHeader` so the
-  /// separator label and header label stay translation-aligned.
+  /// Full-width round separator, sharing ``PasturaStreamDivider`` with the live
+  /// sim's `roundSeparator`. Reuses the `"Round %lld / %lld"` key already wired
+  /// into `GameHeader` so the separator label and header label stay
+  /// translation-aligned. The `.id` / `.transition` stay here rather than in the
+  /// shared container — they are the demo's playback concern, not the divider's.
   func demoRoundSeparator(id: UUID, round: Int, totalRounds: Int) -> some View {
-    HStack {
-      Rectangle().fill(Color.rule).frame(height: 1)
+    PasturaStreamDivider {
       Text(String(format: String(localized: "Round %lld / %lld"), round, totalRounds))
         .textStyle(Typography.metaLabel)
         .foregroundStyle(Color.inkSecondary)
-      Rectangle().fill(Color.rule).frame(height: 1)
     }
-    .padding(.vertical, 4)
     .id(id)
     .transition(reduceMotion ? .identity : .opacity)
   }
@@ -169,12 +168,9 @@ extension ModelDownloadHostView {
   func demoPhaseSeparator(id: UUID, phaseType: PhaseType) -> some View {
     Group {
       if phaseType.requiresLLM {
-        HStack {
-          Rectangle().fill(Color.rule).frame(height: 1)
+        PasturaStreamDivider {
           PhaseTypeLabel(phaseType: phaseType)
-          Rectangle().fill(Color.rule).frame(height: 1)
         }
-        .padding(.vertical, 4)
       } else {
         PhaseTypeLabel(phaseType: phaseType)
           .padding(.top, 4)

@@ -30,3 +30,28 @@ exposed.
 waits, or a broken launch burns the identifier's whole timeout first. Its doc
 comment carries the AX-tree evidence and the label-fallback contract. Adding
 another identifier in `RootTabView.tabIcon` does not fix it (#1271).
+
+## An identifier on a container publishes no element — it propagates to the leaves
+
+`.accessibilityIdentifier("X")` on a SwiftUI container that is not itself an
+accessibility element does **not** create one queryable element. The identifier
+lands on the elements *below* it, so `app.otherElements["X"]` finds nothing
+while the subtree is fully drawn — which reads as a render failure and sends you
+looking for a crash that never happened.
+
+**Apply**: match type-agnostically —
+`app.descendants(matching: .any).matching(identifier: "X").firstMatch` — and do
+not reach for `.accessibilityElement(children:)` to "fix" the query. That
+changes the VoiceOver reading to serve the test, and on a list it collapses
+every row into one stop.
+
+**Which leaves receive it is not guessable, so measure.** It shifts with the
+subtree's own a11y modifiers: a row carrying `.combine` surfaces as one
+`StaticText` labelled with the joined fragments, while the same row without it
+surfaces as several. A *label* assertion written against one shape silently
+keeps passing under the other, so it is not a probe of anything you think it
+is — pin the joined label when rows combine (#1394).
+
+To measure, make a query fail on purpose — the hierarchy snapshot is captured
+on a **failing element query**, not on `XCTFail` — then export it per
+`swiftui-traps.md` § ".accessibilityIdentifier ordering".

@@ -231,7 +231,6 @@ public struct GameHeader: View {
   var titleRow: some View {
     HStack(alignment: .center, spacing: Spacing.xs) {
       LeafIcon()
-        .frame(width: 9, height: 9)
       Text(displayedTitle)
         .textStyle(Typography.titleScenario)
         .foregroundStyle(Color.ink)
@@ -302,17 +301,8 @@ public struct GameHeader: View {
 
 // MARK: - Helpers
 
-/// 9×9 half-circle leaf accent for the title row. Visual translation
-/// of `header_reference.html`'s `.gh-leaf` (border-radius 50%/0 +
-/// rotate 45°) using SwiftUI's trim-on-Circle approximation.
-private struct LeafIcon: View {
-  var body: some View {
-    Circle()
-      .trim(from: 0, to: 0.5)
-      .fill(Color.moss.opacity(0.75))
-      .rotationEffect(.degrees(45))
-  }
-}
+// The title row's leaf accent lives in `LeafIcon.swift`, which owns the 9pt
+// default this file used to apply at the call site.
 
 /// Conditionally applies `.ignoresSafeArea(.container, edges: .top)`.
 /// `ViewModifier` form keeps the conditional out of the view-builder
