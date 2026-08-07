@@ -80,7 +80,7 @@ what the skill cannot derive belongs here.
   generalises to any ADR past the size where a reader can hold its section
   structure (#1382).
 - **What *is* enforced is findability, not placement.** `consistency-audit`'s
-  `adr_navigation_missing` files an issue when a tracked ADR passes 600 lines,
+  `adr_navigation_missing` files an issue when a tracked ADR reaches 600 lines,
   is at least half amendment by section span, and has no `## How to read this
   ADR` section. It says nothing about whether a given value landed in the body
   or in an amendment — that judgment is still yours. Two ways to discharge it:
