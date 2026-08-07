@@ -213,7 +213,6 @@ internal class JSONResponseParser {
         return TurnOutput(fields = normalizeValues(obj))
     }
 
-
     /**
      * Normalize every JSON value to `String`. Null values are omitted.
      *

@@ -56,7 +56,6 @@ nonisolated extension LLMCaller {
     return false
   }
 
-  /// True when any parsed value is blank or the `"..."` filler.
   func hasEmptyFields(_ output: TurnOutput) -> Bool {
     output.fields.values.contains { $0 == "..." || $0.isEmpty }
   }
