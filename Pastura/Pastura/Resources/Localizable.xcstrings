@@ -5605,6 +5605,22 @@
         }
       }
     },
+    "Recorded" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recorded"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "記録"
+          }
+        }
+      }
+    },
     "Recovery requires an active model" : {
       "localizations" : {
         "ja" : {
