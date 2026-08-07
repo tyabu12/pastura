@@ -81,12 +81,27 @@ enum ParityEmitCommand {
       print("\(path) is up to date")
       exit(0)
     }
+    // Point at the generator's INPUTS rather than assert a cause. The earlier
+    // wording blamed "the Swift Engine's behaviour changed", which is one input
+    // among several and not the likeliest: `specs` reads a shipped bundled
+    // preset, so an ordinary scenario-YAML edit lands here with no Engine change
+    // at all — and now that this runs in CI, a hand-edit is live too.
+    //
+    // The list is deliberately OPEN (`e.g.`) rather than exhaustive. Everything
+    // this emitter reads or renders is an input — `RecordingResponder`'s answers,
+    // `Scenario`'s `Codable` shape via `encodeScenario`, even `kotlinSource`'s own
+    // header lines — so any closed enumeration would start misdirecting the first
+    // time one of those changes, which is the failure it is meant to fix. The
+    // remedy is identical for all of them, so the cost is only misdirection.
     let diagnosis =
       committed == nil
       ? "\(path) is missing — it has never been generated in this checkout."
       : """
-      \(path) is stale.
-      The Swift Engine's behaviour changed without the parity goldens being regenerated.
+      \(path) no longer matches a fresh generation.
+      Any input to the emitter can cause this — e.g. the Engine's behaviour, the
+      fixture scenarios or `ParityFixtureEmitter.specs`, the `EventLineMapper`
+      projection, or the emitter's own rendering — as can a hand-edit of the
+      generated file (its header says not to).
       """
     FileHandle.standardError.write(
       Data(
