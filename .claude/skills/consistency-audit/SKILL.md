@@ -331,9 +331,14 @@ leaving the next author to re-derive it:
 
   Thirteen files mention supersession, eleven of them `ADR-NNN.md`, and
   exactly one carries `†` — so a naive "mentions supersede ⇒ must carry †"
-  predicate flags **ten ADRs**, nearly all wrongly. The mentions are mostly
-  about something other than an amendment inside the same file: ADR-027's
-  entry supersedes *ADR-021/-002* text, ADR-018's supersedes an *issue*'s
-  direction, and ADR-004's are about its own draft hold. The intra-file
-  convention governs none of those. Needs the claim's scope resolved — does
-  this supersede a section of *this* file? — before it can fire.
+  predicate flags **ten ADRs**. Most mentions are about something the
+  intra-file convention does not govern: `ADR-027.md:352` supersedes
+  *ADR-021/-002* text, `ADR-018.md:184` supersedes an *issue*'s direction.
+  But not all — `ADR-004.md:402` ("This supersedes the 2026-06-11 … pointer
+  and the earlier … default this section leaned toward") supersedes ADR-004's
+  own earlier text and marks it with a bold `**Update**` instead of the block
+  quote + `†` the convention asks for, so it is a **true** positive the naive
+  predicate would catch. The deferral is therefore about precision, not about
+  the check being worthless: it needs the claim's scope resolved — does this
+  supersede a section of *this* file? — before it can fire without burying the
+  real hits under the cross-ADR ones.

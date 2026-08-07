@@ -73,6 +73,15 @@ ARMS: dict[str, tuple[str, list[str]]] = {
              "own line.", ""]
             + section("## Context", 250)
             + section("## Amendment 2026-01-01 — settled", 400)),
+    # FIRES: shows the marker as a 4-space indented code block, the other way
+    # to write an example. FENCE_DELIM only recognises ``` / ~~~, so nothing
+    # strips it — the column-0 anchor is the only thing keeping this file from
+    # exempting itself.
+    "112": ("shows the nav-exempt marker as an indented code block",
+            ["An ADR opts out like this:", "",
+             "    <!-- nav-exempt: reason -->", ""]
+            + section("## Context", 250)
+            + section("## Amendment 2026-01-01 — settled", 400)),
     # Silent: `###` is not a top-level heading, so it is not a section boundary.
     "107": ("amendment recorded at ### level only",
             section("## Context", 250) + section("### Amendment 2026-01-01 — settled", 400)),
@@ -120,8 +129,8 @@ def main() -> int:
     # declares one, so omitting it keeps this fixture scoped to one detector.
     (root / "CLAUDE.md").write_text(
         "# adr_navigation_missing fixture\n\n"
-        "Eleven arms; three must fire (ADR-101, ADR-110, ADR-111) and eight "
-        "must stay silent, each for its own stated reason.\n",
+        "Twelve arms; four must fire (ADR-101, ADR-110, ADR-111, ADR-112) and "
+        "eight must stay silent, each for its own stated reason.\n",
         encoding="utf-8")
     print(json.dumps(manifest, indent=2))
     return 0

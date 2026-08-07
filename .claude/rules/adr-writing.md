@@ -87,9 +87,11 @@ what the skill cannot derive belongs here.
   add a navigation section whose heading starts `## How to read` (the ADR-028
   pattern, and the literal shape matched — `## Navigation` will not satisfy
   it), or, if you judge the ADR navigable as it stands, record
-  `<!-- nav-exempt: <reason> -->` in the file. Closing the issue without one of
-  those re-files it on the next run. The detector never proposes deleting or
-  trimming an amendment, for the reason in the bullet above.
+  `<!-- nav-exempt: <reason> -->` **on a line of its own, unindented** — it is
+  matched at column 0, so a marker inside a list item, a block quote or an
+  indented code block does not count. Closing the issue without one of those
+  re-files it on the next run. The detector never proposes deleting or trimming
+  an amendment, for the reason in the bullet above.
 - **A file listing can also *over*-report.** The skill's reservation check
   covers a listing that under-reports; the inverse also happens here — an ADR
   draft sitting **untracked** in one checkout is visible to `ls` but absent for

@@ -47,8 +47,8 @@ MUTATIONS: list[tuple] = [
      "ADR-101", "stops",
      # 110's `## 11. Amendments` needs the flag too; without it 110 keeps only
      # its lowercase-suffix section and falls to 48.0%, under the share gate.
-     # 111 carries the same capital-A heading as 101 and drops out with it.
-     {"ADR-110", "ADR-111"}),
+     # 111 and 112 carry the same capital-A heading as 101 and drop out with it.
+     {"ADR-110", "ADR-111", "ADR-112"}),
     ("measure first-amendment-to-EOF instead of per-section spans",
      [("            end = headings[k + 1][0] if k + 1 < len(headings) else total",
        "            end = total")],
@@ -81,13 +81,20 @@ MUTATIONS: list[tuple] = [
      # 111 mentions the marker in prose and must keep firing either way; it is
      # unaffected here because the mutation removes the check entirely.
      set()),
-    # Un-anchor the marker so a mention counts as an adoption. ADR-111 is the
-    # arm: it discusses the marker in an inline code span, which no fence skip
-    # can see.
+    # Un-anchor the marker entirely so any mention counts as an adoption.
+    # ADR-111 is the arm: it discusses the marker in an inline code span, which
+    # no fence skip can see. ADR-112 flips too — an unanchored pattern matches
+    # its indented example as well.
     ("un-anchor NAV_EXEMPT so a prose mention exempts the file",
-     [(r'NAV_EXEMPT = re.compile(r"^\s*<!--\s*nav-exempt:")',
+     [(r'NAV_EXEMPT = re.compile(r"^<!--\s*nav-exempt:")',
        r'NAV_EXEMPT = re.compile(r"<!--\s*nav-exempt:")')],
-     "ADR-111", "stops", set()),
+     "ADR-111", "stops", {"ADR-112"}),
+    # Allow leading whitespace — the weaker anchor this started with. Only the
+    # indented-code-block arm can tell the two apart, which is why it exists.
+    ("allow leading whitespace before the marker",
+     [(r'NAV_EXEMPT = re.compile(r"^<!--\s*nav-exempt:")',
+       r'NAV_EXEMPT = re.compile(r"^\s*<!--\s*nav-exempt:")')],
+     "ADR-112", "stops", set()),
     ("drop the navigation-section check",
      [("        if any(NAV_HEADING.match(line) for _, line in headings):\n            continue",
        "        if False:\n            continue")],
@@ -104,7 +111,7 @@ MUTATIONS: list[tuple] = [
      {"ADR-106"}),
 ]
 
-BASELINE = {"ADR-101", "ADR-110", "ADR-111"}
+BASELINE = {"ADR-101", "ADR-110", "ADR-111", "ADR-112"}
 
 
 def fired(script: Path, fixdir: Path) -> set[str]:

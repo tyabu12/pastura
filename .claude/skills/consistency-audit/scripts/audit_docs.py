@@ -26,7 +26,8 @@ adr_navigation_missing (needs_judgment).
 A clean `main` is NOT a zero-findings state, and was not one before
 adr_navigation_missing landed. Measure before asserting otherwise:
 
-  python3 audit_docs.py --repo-root . | jq '[.needs_judgment[].type]|unique'
+  python3 .claude/skills/consistency-audit/scripts/audit_docs.py --repo-root . \
+    | jq '[.needs_judgment[].type] | unique'          # from the repo root
 
 Two standing reports, for opposite reasons:
 
@@ -182,12 +183,16 @@ NAV_HEADING = re.compile(r"^## +How to read", re.I)
 # both discharge routes are documented in `.claude/rules/adr-writing.md` — a
 # marker nobody can discover is a nag loop with extra steps.
 #
-# Anchored to its own line, which is the guard against *accidental* exemption:
-# the natural way to mention the marker in prose is an inline code span
-# (`` `<!-- nav-exempt: … -->` ``), and a substring search would let an ADR that
-# merely discusses the convention silently exempt itself. Fence-skipping alone
-# does not cover that — inline spans are not fences.
-NAV_EXEMPT = re.compile(r"^\s*<!--\s*nav-exempt:")
+# Anchored at column 0, which is the guard against *accidental* exemption. Two
+# ways to show the marker as an example evade a substring search's opposite:
+# an inline code span (`` `<!-- nav-exempt: … -->` ``), which no fence skip sees
+# because a span is not a fence; and a 4-space indented code block, which
+# FENCE_DELIM also ignores since it only recognises ``` / ~~~. Allowing leading
+# whitespace would re-admit the second. The cost is that a marker inside a list
+# item or block quote does not exempt either — so every instruction that tells a
+# human to write the marker must say "on a line of its own, unindented", and the
+# ADR-112 fixture arm holds the indented case.
+NAV_EXEMPT = re.compile(r"^<!--\s*nav-exempt:")
 # A **fitted separator, not a derivation** — say so rather than let a reader
 # infer a principle that isn't there. Both boundaries are set by the same ADR
 # (ADR-021 at 653 lines / 52%), so the pair has one degree of freedom. What the
@@ -784,6 +789,15 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
         numbered_lines = sum(s["lines"] for s in sections if s["numbered"])
         residual = amendment_lines - numbered_lines
         residual_share = round(residual / total, 3)
+        # Percentage for the prose. NOT `int(share * 100)`, which truncates a
+        # binary float and printed ADR-021's 51.8% as "51%". One decimal, and —
+        # load-bearing — the sentence's "under / still over the gate" clause
+        # branches on this **printed** value rather than on the raw ratio, so
+        # the number a maintainer reads can never contradict the claim beside
+        # it. Rounding alone does not achieve that: 49.96% rounds to a printed
+        # 50.0 while the raw value is genuinely under the 50 gate.
+        residual_pct = round(residual / total * 100, 1)
+        gate_pct = NAV_MIN_SHARE * 100
         key = f"nav:{adr}"
         out.append({
             "type": "adr_navigation_missing",
@@ -803,11 +817,11 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
                 f"{numbered} of {len(sections)} classified sections here are "
                 f"numbered, supplying {numbered_lines} of {amendment_lines} "
                 f"amendment lines. Excluding them the share is "
-                f"{int(residual_share * 100)}%"
-                + (f", under the {int(NAV_MIN_SHARE * 100)}% gate — so this "
-                   f"finding rests entirely on the title-based call"
-                   if residual < total * NAV_MIN_SHARE else
-                   f", still over the {int(NAV_MIN_SHARE * 100)}% gate")
+                f"{residual_pct}%"
+                + (f", under the {gate_pct:g}% gate — so this finding rests "
+                   f"entirely on the title-based call"
+                   if residual_pct < gate_pct else
+                   f", still over the {gate_pct:g}% gate")
                 + f". The thresholds "
                 f"({NAV_MIN_LINES} lines / {int(NAV_MIN_SHARE * 100)}%) are a "
                 f"deliberately conservative fitted separator, not a derived "
@@ -824,9 +838,11 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
                 f"adr-writing.md` records that they are not trimmed away later, "
                 f"because a value with no recorded derivation gets "
                 f"re-litigated. If you judge this ADR does not need a map, "
-                f"record `<!-- nav-exempt: <reason> -->` in the file — closing "
-                f"this issue without the marker re-files the finding on the "
-                f"next run."),
+                f"record `<!-- nav-exempt: <reason> -->` on a line of its own, "
+                f"unindented and not inside a list item or block quote — the "
+                f"marker is matched at column 0, so an indented one does not "
+                f"count. Closing this issue without a marker the detector can "
+                f"see re-files the finding on the next run."),
             # The first `## ` heading is where a navigation section goes
             # (ADR-028's sits at its first one), so it is the actionable anchor
             # rather than the ADR's title line. `headings` is non-empty here by
