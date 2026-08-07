@@ -32,13 +32,14 @@ contract in context.
   the commit-time gate moved to the git pre-commit hook (`swiftlint --strict` +
   build), so there is no per-commit prompt. (`gh issue create` was allowlisted
   with the dangling-ADR detector (#876); every needs_judgment detector can
-  file Step 4 issues. The *drift* detectors report zero on a clean `main` by
-  construction — they describe states that should not exist. **`adr_navigation_missing`
-  does not**: it reports on a structural property a healthy repo can legitimately
-  have, and it fires on `main` today, so Step 4 now runs on ordinary passes
-  rather than only on a regression. That makes the cap-1 dedup in Step 4 step 1
-  and the `nav-exempt` opt-out load-bearing rather than theoretical — without
-  one of them, every run re-files the same finding.)
+  file Step 4 issues. **Step 4 runs on ordinary passes — a clean `main` is not
+  a zero-findings state**, and measurement rather than assumption is the rule
+  here: `dead_link ledger.md` has reported since long before this detector
+  existed (a gitignored-by-design target, so it is absent in every fresh clone),
+  and `adr_navigation_missing` reports by design on a property a healthy repo
+  can have. So the per-target open-issue dedup in Step 4 step 1 and the
+  `nav-exempt` opt-out are load-bearing, not theoretical — without them a run
+  re-files what a human already answered.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
@@ -318,9 +319,21 @@ leaving the next author to re-derive it:
   is the current answer" from "this is how we got there".
 - **supersede-convention violations** (`adr-writing.md` requires marking a
   superseded section in place with a leading block quote plus a `†` in the
-  index row) — measured on 2026-08-08, `supersed*` appears in ADR-023 (×9),
-  ADR-027 (×2), ADR-020 (×2), ADR-021, ADR-022 and INDEX (×3), and the
-  majority are **cross-ADR** supersession, which the intra-file convention
-  does not govern. `†` exists only in ADR-028. A naive "mentions supersede ⇒
-  must carry †" predicate yields 5+ false positives. Needs the claim's scope
-  resolved (does this supersede a section of *this* file?) before it can fire.
+  index row) — measured 2026-08-08 with
+  `grep -ric 'supersed' docs/decisions/*.md` (matching lines, not occurrences)
+  and `grep -lc '†' docs/decisions/*.md`:
+
+  ```
+  ADR-028 21 · ADR-023 11 · ADR-002 9 · ADR-021 6 · ADR-017 4 · INDEX 3
+  ADR-004 2 · ADR-020 2 · ADR-027 2 · ADR-016 1 · ADR-018 1 · ADR-022 1
+  adr-writing-guide 1          †: ADR-028 only
+  ```
+
+  Thirteen files mention supersession, eleven of them `ADR-NNN.md`, and
+  exactly one carries `†` — so a naive "mentions supersede ⇒ must carry †"
+  predicate flags **ten ADRs**, nearly all wrongly. The mentions are mostly
+  about something other than an amendment inside the same file: ADR-027's
+  entry supersedes *ADR-021/-002* text, ADR-018's supersedes an *issue*'s
+  direction, and ADR-004's are about its own draft hold. The intra-file
+  convention governs none of those. Needs the claim's scope resolved — does
+  this supersede a section of *this* file? — before it can fire.

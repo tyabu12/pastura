@@ -420,7 +420,7 @@ MANIFEST=$(python3 make_nav_fixture.py "$NAVFIX")
 # The wrong-reason guard. ADR-103 is the one arm deliberately under the gate
 # (it tests the gate); every other arm must clear it, or a "must not count"
 # arm is passing because it is short.
-for adr in ADR-101 ADR-102 ADR-104 ADR-105 ADR-106 ADR-107 ADR-108 ADR-109 ADR-110; do
+for adr in ADR-101 ADR-102 ADR-104 ADR-105 ADR-106 ADR-107 ADR-108 ADR-109 ADR-110 ADR-111; do
   n=$(echo "$MANIFEST" | jq --arg a "$adr" '.[$a].total_lines')
   [ "$n" -ge 600 ] || fail "nav: $adr is only $n lines — under the size gate, so its arm would pass for the wrong reason"
 done
@@ -431,9 +431,9 @@ OUT=$(python3 "$AUDIT" --repo-root "$NAVFIX")
 [ "$(af_len "$OUT")" -eq 0 ] || fail "nav: auto_fixable must stay empty — this detector is needs_judgment only: $(echo "$OUT" | jq -c .auto_fixable)"
 # No other detector may fire: a contaminated fixture (e.g. an arm title naming a
 # fileless ADR-NNN, which trips dangling_adr) makes the counts below meaningless.
-[ "$(nj_len "$OUT")" -eq 2 ] || fail "nav: expected exactly 2 findings, got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
-[ "$(nj_type_len "$OUT" adr_navigation_missing)" -eq 2 ] || fail "nav: expected 2 adr_navigation_missing, got $(nj_type_len "$OUT" adr_navigation_missing)"
-for want in "nav:ADR-101" "nav:ADR-110"; do
+[ "$(nj_len "$OUT")" -eq 3 ] || fail "nav: expected exactly 3 findings, got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
+[ "$(nj_type_len "$OUT" adr_navigation_missing)" -eq 3 ] || fail "nav: expected 3 adr_navigation_missing, got $(nj_type_len "$OUT" adr_navigation_missing)"
+for want in "nav:ADR-101" "nav:ADR-110" "nav:ADR-111"; do
   echo "$OUT" | jq -e --arg t "$want" '.needs_judgment[]|select(.type=="adr_navigation_missing" and .target==$t)' >/dev/null \
     || fail "nav: expected a finding targeted $want"
 done
@@ -444,10 +444,23 @@ echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|
 # Pre-authored judgment scalars — SKILL.md Step 4 uses these verbatim.
 echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|(has("confidence") and has("counter_evidence") and has("suggested_action") and has("sections") and (.locations|length>0))]|all' >/dev/null \
   || fail "nav: a finding is missing its pre-authored judgment scalars or locations"
-# The counter-evidence leans on this count, so it is asserted rather than
-# assumed: ADR-110's two sections are both numbered.
+# The counter-evidence leans on these, so they are asserted rather than
+# assumed: ADR-110's two sections are both numbered, and its residual share
+# (the share once numbered outline sections are excluded) is 0 — i.e. the
+# finding rests entirely on the title-based call, which is precisely what the
+# counter-evidence must tell a maintainer.
 NUM=$(echo "$OUT" | jq '[.needs_judgment[]|select(.target=="nav:ADR-110")|.numbered_section_count][0]')
 [ "$NUM" -eq 2 ] || fail "nav: ADR-110 should report 2 numbered sections, got $NUM"
+# Compared numerically: jq renders the rounded float as `0.0`, so a string
+# test against "0" fails on a correct value.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.target=="nav:ADR-110")|.residual_share][0] == 0' >/dev/null \
+  || fail "nav: ADR-110's residual share should be 0 (both sections numbered), got $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.target=="nav:ADR-110")|.residual_share][0]')"
+echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence|test("rests entirely on the title-based call")' >/dev/null \
+  || fail "nav: ADR-110's counter_evidence must say the finding rests on the title-based call"
+# ADR-101 is the contrast: no numbered sections, so its residual share equals
+# its full share and the counter-evidence must NOT claim the finding evaporates.
+echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-101")|.counter_evidence|test("still over the")' >/dev/null \
+  || fail "nav: ADR-101's counter_evidence should report the residual share as still over the gate"
 # The remedy is a map plus promotion into the body — never deletion.
 # `.claude/rules/adr-writing.md` records that amendments are not trimmed away
 # later (#1382 declined that on principle), so a generator proposing it would

@@ -22,7 +22,7 @@ defended by *both* heading anchors (widening either alone is a no-op), and the
 first `###` mutation targeted the classifier when the collection filter was
 doing the work.
 
-usage: mutate_nav_guards.py [workdir]   (cwd must be this tests/ directory)
+usage: mutate_nav_guards.py            (cwd must be this tests/ directory)
 """
 from __future__ import annotations
 
@@ -46,8 +46,9 @@ MUTATIONS: list[tuple] = [
      [(AMD_DECL, AMD_DECL.replace(", re.I", ""))],
      "ADR-101", "stops",
      # 110's `## 11. Amendments` needs the flag too; without it 110 keeps only
-     # its lowercase-suffix section and falls to 47.9%, under the share gate.
-     {"ADR-110"}),
+     # its lowercase-suffix section and falls to 48.0%, under the share gate.
+     # 111 carries the same capital-A heading as 101 and drops out with it.
+     {"ADR-110", "ADR-111"}),
     ("measure first-amendment-to-EOF instead of per-section spans",
      [("            end = headings[k + 1][0] if k + 1 < len(headings) else total",
        "            end = total")],
@@ -76,7 +77,17 @@ MUTATIONS: list[tuple] = [
     ("drop the nav-exempt opt-out",
      [("        if any(NAV_EXEMPT.search(line) for line in bare):\n            continue",
        "        if False:\n            continue")],
-     "ADR-105", "starts", set()),
+     "ADR-105", "starts",
+     # 111 mentions the marker in prose and must keep firing either way; it is
+     # unaffected here because the mutation removes the check entirely.
+     set()),
+    # Un-anchor the marker so a mention counts as an adoption. ADR-111 is the
+    # arm: it discusses the marker in an inline code span, which no fence skip
+    # can see.
+    ("un-anchor NAV_EXEMPT so a prose mention exempts the file",
+     [(r'NAV_EXEMPT = re.compile(r"^\s*<!--\s*nav-exempt:")',
+       r'NAV_EXEMPT = re.compile(r"<!--\s*nav-exempt:")')],
+     "ADR-111", "stops", set()),
     ("drop the navigation-section check",
      [("        if any(NAV_HEADING.match(line) for _, line in headings):\n            continue",
        "        if False:\n            continue")],
@@ -89,11 +100,11 @@ MUTATIONS: list[tuple] = [
      [("        if not sections or amendment_lines < total * NAV_MIN_SHARE:",
        "        if not sections or False:")],
      "ADR-104", "starts",
-     # 106 is silent *because of* the share gate (span-sum share 26.7%).
+     # 106 is silent *because of* the share gate (span-sum share 26.9%).
      {"ADR-106"}),
 ]
 
-BASELINE = {"ADR-101", "ADR-110"}
+BASELINE = {"ADR-101", "ADR-110", "ADR-111"}
 
 
 def fired(script: Path, fixdir: Path) -> set[str]:
@@ -119,15 +130,22 @@ def main() -> int:
             return 1
         mutant = work / "mutant.py"
         for name, pairs, arm, expect, collateral in MUTATIONS:
-            if any(old not in orig for old, _ in pairs):
-                print(f"FAIL: anchor miss for {name!r} — the mutation would "
-                      f"no-op and the control would pass vacuously",
-                      file=sys.stderr)
+            # Checked against the progressively-mutated text, not `orig`: in a
+            # multi-pair mutation an earlier replacement can invalidate a later
+            # anchor, and checking the original would miss exactly that.
+            text = orig
+            missed = False
+            for old, new in pairs:
+                if old not in text:
+                    print(f"FAIL: anchor miss for {name!r} — the mutation "
+                          f"would no-op and the control would pass vacuously",
+                          file=sys.stderr)
+                    missed = True
+                    break
+                text = text.replace(old, new, 1)
+            if missed:
                 ok = False
                 continue
-            text = orig
-            for old, new in pairs:
-                text = text.replace(old, new, 1)
             mutant.write_text(text, encoding="utf-8")
             got = fired(mutant, fixdir)
             flipped = (arm in base and arm not in got) if expect == "stops" \

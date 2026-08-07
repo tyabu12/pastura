@@ -17,19 +17,31 @@ Two finding classes:
                    section.
 
 Conservatism is deliberate: false positives poison the queue, so each detector
-prefers a miss over a wrong flag. Every shipped detector fires zero false
-positives on the current repo: dependency_version, min_ios, dead_link
-(needs_judgment), dangling_adr (needs_judgment), embedded_source_mirror
-(needs_judgment), unparsed_adr_reservation (needs_judgment),
-adr_roster_drift (needs_judgment), and adr_navigation_missing
-(needs_judgment).
+prefers a miss over a wrong flag. The shipped set is dependency_version,
+min_ios, dead_link (needs_judgment), dangling_adr (needs_judgment),
+embedded_source_mirror (needs_judgment), unparsed_adr_reservation
+(needs_judgment), adr_roster_drift (needs_judgment), and
+adr_navigation_missing (needs_judgment).
 
-adr_navigation_missing is the first detector that reports on a clean `main` —
-two ADRs at the time it landed. That is not a false positive: the others
-describe states that should not exist, whereas this one describes a structural
-property a healthy repo can legitimately have and a maintainer may legitimately
-accept. It is why the `<!-- nav-exempt: … -->` opt-out exists — a finding whose
-correct resolution is sometimes "no" needs a place to record the no, or every
+A clean `main` is NOT a zero-findings state, and was not one before
+adr_navigation_missing landed. Measure before asserting otherwise:
+
+  python3 audit_docs.py --repo-root . | jq '[.needs_judgment[].type]|unique'
+
+Two standing reports, for opposite reasons:
+
+  dead_link `ledger.md`             — docs/code-health/README.md links a file
+                                      that is gitignored by design, so it is
+                                      absent in every fresh clone and in CI.
+                                      A genuine false positive, and the
+                                      counterexample to any "zero FPs" claim.
+  adr_navigation_missing            — reports by design on a structural
+                                      property a healthy repo can legitimately
+                                      have and a maintainer may legitimately
+                                      accept. Not a defect in either direction.
+
+The second is why the `<!-- nav-exempt: … -->` opt-out exists: a finding whose
+correct resolution is sometimes "no" needs somewhere to record the no, or every
 run re-files it.
 Detectors that flood until their FP sources are designed out
 are intentionally deferred — see the SKILL's "Deferred detectors" note:
@@ -154,8 +166,13 @@ RESERVATION_FLOOD_CAP = 3
 H2_HEADING = re.compile(r"^## ")
 # `re.I` is load-bearing, not cosmetic: every amendment heading in this repo
 # capitalises "Amendment" except ADR-002's four parenthetical ones, so dropping
-# the flag scores ADR-021 at 0% and silences it outright. fixtures/adr-nav-case
-# is the arm that reddens if it is ever removed.
+# the flag scores ADR-021 at 0% and silences it outright. Arm ADR-101 in
+# tests/make_nav_fixture.py reddens if it is ever removed.
+#
+# `(?:\d+\.\s*)?` matches nothing `.*` would not already absorb — it is kept so
+# the "narrow to headings that START with Amendment" mutation in
+# tests/mutate_nav_guards.py is a one-token diff against this declaration,
+# which is what makes that control readable as the rejected alternative.
 AMENDMENT_HEADING = re.compile(r"^## +(?:\d+\.\s*)?.*\bamendments?\b", re.I)
 NUMBERED_HEADING = re.compile(r"^## +\d+\.\s")
 # ADR-028's `## How to read this ADR` is the pattern; matched on the stable
@@ -164,7 +181,13 @@ NAV_HEADING = re.compile(r"^## +How to read", re.I)
 # The opt-out. This is the first HTML-comment convention in docs/decisions/, so
 # both discharge routes are documented in `.claude/rules/adr-writing.md` — a
 # marker nobody can discover is a nag loop with extra steps.
-NAV_EXEMPT = re.compile(r"<!--\s*nav-exempt:")
+#
+# Anchored to its own line, which is the guard against *accidental* exemption:
+# the natural way to mention the marker in prose is an inline code span
+# (`` `<!-- nav-exempt: … -->` ``), and a substring search would let an ADR that
+# merely discusses the convention silently exempt itself. Fence-skipping alone
+# does not cover that — inline spans are not fences.
+NAV_EXEMPT = re.compile(r"^\s*<!--\s*nav-exempt:")
 # A **fitted separator, not a derivation** — say so rather than let a reader
 # infer a principle that isn't there. Both boundaries are set by the same ADR
 # (ADR-021 at 653 lines / 52%), so the pair has one degree of freedom. What the
@@ -708,9 +731,10 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
             continue
 
         # Fence-aware, like scan_doc: a `## Amendment`-shaped line inside a
-        # fenced block is illustration, not structure. Same for the opt-out
-        # marker — an ADR documenting the marker in an example must not thereby
-        # exempt itself.
+        # fenced block is illustration, not structure. The opt-out marker is
+        # searched over the same fence-stripped lines, but what actually stops a
+        # documenting mention from exempting the file is NAV_EXEMPT's own
+        # line anchor — see its declaration.
         headings: list[tuple[int, str]] = []
         bare: list[str] = []
         in_fence = False
@@ -751,6 +775,15 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
             continue
 
         numbered = sum(1 for s in sections if s["numbered"])
+        # The counter-evidence has to carry the *line* arithmetic, not just the
+        # section count: on ADR-002 four numbered outline sections supply 89% of
+        # the amendment lines, so "4 of 6 sections" reads as a partial caveat
+        # when the honest statement is that the finding evaporates without the
+        # title-based call. Making the reader do that division is the wrong way
+        # round under Output Contract rule 6.
+        numbered_lines = sum(s["lines"] for s in sections if s["numbered"])
+        residual = amendment_lines - numbered_lines
+        residual_share = round(residual / total, 3)
         key = f"nav:{adr}"
         out.append({
             "type": "adr_navigation_missing",
@@ -760,14 +793,22 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
             "amendment_share": round(amendment_lines / total, 3),
             "section_count": len(sections),
             "numbered_section_count": numbered,
+            "numbered_lines": numbered_lines,
+            "residual_share": residual_share,
             "sections": sections,
             "confidence": "medium",
             "counter_evidence": (
                 f"Section classification is title-based, so a numbered section "
                 f"belonging to the ADR's own outline counts as an amendment — "
                 f"{numbered} of {len(sections)} classified sections here are "
-                f"numbered. Read the per-section breakdown before treating the "
-                f"share as pure derivation log. The thresholds "
+                f"numbered, supplying {numbered_lines} of {amendment_lines} "
+                f"amendment lines. Excluding them the share is "
+                f"{int(residual_share * 100)}%"
+                + (f", under the {int(NAV_MIN_SHARE * 100)}% gate — so this "
+                   f"finding rests entirely on the title-based call"
+                   if residual < total * NAV_MIN_SHARE else
+                   f", still over the {int(NAV_MIN_SHARE * 100)}% gate")
+                + f". The thresholds "
                 f"({NAV_MIN_LINES} lines / {int(NAV_MIN_SHARE * 100)}%) are a "
                 f"deliberately conservative fitted separator, not a derived "
                 f"constant: an ADR just under them can have the same problem, "
@@ -788,8 +829,9 @@ def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
                 f"next run."),
             # The first `## ` heading is where a navigation section goes
             # (ADR-028's sits at its first one), so it is the actionable anchor
-            # rather than the ADR's title line.
-            "file": rel, "line": (headings[0][0] + 1) if headings else 1,
+            # rather than the ADR's title line. `headings` is non-empty here by
+            # construction — a non-empty `sections` implies it.
+            "file": rel, "line": headings[0][0] + 1,
         })
     return out
 

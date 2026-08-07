@@ -64,6 +64,15 @@ ARMS: dict[str, tuple[str, list[str]]] = {
     "106": ("body section AFTER an amendment — span-sum vs EOF control",
             section("## Context", 40) + section("## Amendment 2026-01-01 — settled", 180)
             + section("## Consequences", 450)),
+    # FIRES: mentions the opt-out inside an inline code span, the natural way to
+    # write about it in prose. A substring search would let a document that
+    # merely *discusses* the marker exempt itself; fence-skipping does not cover
+    # this, because an inline span is not a fence.
+    "111": ("mentions the nav-exempt marker in prose, without adopting it",
+            ["An ADR opts out by putting `<!-- nav-exempt: reason -->` on its "
+             "own line.", ""]
+            + section("## Context", 250)
+            + section("## Amendment 2026-01-01 — settled", 400)),
     # Silent: `###` is not a top-level heading, so it is not a section boundary.
     "107": ("amendment recorded at ### level only",
             section("## Context", 250) + section("### Amendment 2026-01-01 — settled", 400)),
@@ -111,8 +120,8 @@ def main() -> int:
     # declares one, so omitting it keeps this fixture scoped to one detector.
     (root / "CLAUDE.md").write_text(
         "# adr_navigation_missing fixture\n\n"
-        "Ten arms; two must fire (ADR-101, ADR-110) and eight must stay "
-        "silent, each for its own stated reason.\n",
+        "Eleven arms; three must fire (ADR-101, ADR-110, ADR-111) and eight "
+        "must stay silent, each for its own stated reason.\n",
         encoding="utf-8")
     print(json.dumps(manifest, indent=2))
     return 0
