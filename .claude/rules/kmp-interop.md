@@ -195,8 +195,12 @@ now *disables the skip rule* rather than merely the parser guard. For an **undec
 optional `mood`, or any key on a schema-less phase — the skip rule is off by design (a
 backward-compat carve-out for scenarios predating `validateForCommit`) and the handler guard *is*
 reachable: there a direct test is correct on both sides. `narrate` is permanently in that bucket —
-`primaryField(NARRATE)` is null, and it is the one LLM call site outside the turn gate, so a throw
-there would abort the run instead of skipping the turn.
+`primaryField(NARRATE)` is null, and it is the one LLM call site outside the turn gate. Note what
+that costs on **both** engines: narrate catches around its own call (Swift a bare `catch`, Kotlin
+the deliberately narrower `catch (_: SimulationException)`, which still covers `RetriesExhausted`),
+so a throw there is *swallowed* — the round loses its narration with no `TurnSkipped` and no
+breaker increment, a degradation the gate never counts. It is a future un-gated site with **no**
+catch that would abort the run.
 
 ⚠️ The `TurnSkipped` assertion holds only **below** `TurnFailureGate.consecutiveSkipLimit` — the
 tripping failure throws `TurnFailureLimitReached` and emits no `TurnSkipped`
@@ -237,13 +241,12 @@ Decisive in §12 perturbation work, where "it reddened" IS the evidence: read *w
 Worked example: `NarrateHandlerTests` (#1331).
 
 **Resolving a divergence silently disarms whatever parity fixture arm drove it.** The negative
-control in `ParityFixtureEmitter` drives one divergence per entry *kind*; converging the two
-engines on a behaviour retires the `DivergenceClass` that arm exercised, and the arm goes with it.
-`DivergenceLedger`'s unfired-entry assertion cannot see this — the case and its entry are deleted
-**together**, so nothing is left unfired — and neither can the "every case is cited" test it
-prescribes. Only a *kind-coverage* assertion (≥1 `Structural` **and** ≥1 `Value` entry driven)
-would. **Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only
-instance of that entry kind; if so, re-arm or record the loss with a concrete re-arm candidate,
-never a bare "not reachable" (that claim is an enumeration over *existing* cases and cannot see an
-unledgered divergence). Motivating incident: ADR-021 § Amendment 2026-08-06 retiring
-`SCHEMA_GUARD_POSITION`; residue tracked on #501.
+control in `ParityFixtureEmitter` is *intended* to drive one divergence per entry kind — today it
+does not, and that is the incident: converging the engines retires the `DivergenceClass` an arm
+exercised, and the arm goes with it. No existing assertion sees a case and its entry deleted
+**together**; only a *kind-coverage* one (≥1 `Structural` **and** ≥1 `Value` driven) would.
+**Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only instance
+of that entry kind; if so, re-arm or record the loss with a concrete re-arm candidate — never a
+bare "not reachable", which is an enumeration over *existing* cases and cannot see an unledgered
+divergence. Motivating incident: ADR-021 § Amendment 2026-08-06 retiring `SCHEMA_GUARD_POSITION`;
+residue and the kind-coverage guard tracked on #501.

@@ -151,6 +151,34 @@ extension LLMCallerTests {
     #expect(mock.generateCallCount == 1, "no retry, no throw — the rule is off for this schema")
   }
 
+  /// Same carve-out, driven across the **whole** retry window: the secondary is
+  /// empty too, so clause 1 retries to exhaustion and clause 2 has a final
+  /// attempt to fire on — yet must not, because the canonical primary is
+  /// undeclared. The sibling above returns at attempt 0 and so never reaches
+  /// that leg; this is the shape a legacy scenario actually hits.
+  /// Kotlin counterpart: `anUndeclaredCanonicalPrimaryStillReturnsAcrossTheFullRetryWindow`.
+  @Test func undeclaredCanonicalPrimaryStillReturnsAtExhaustion() async throws {
+    let empty = #"{"inner_thought": ""}"#
+    let mock = MockLLMService(responses: [empty, empty, empty])
+    try await mock.loadModel()
+
+    let collector = EventCollector()
+    let result = try await caller.call(
+      llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
+      schema: OutputSchema(fields: [
+        OutputSchema.Field(name: "inner_thought", kind: .string)
+      ]),
+      suspendController: SuspendController(),
+      emitter: collector.emit
+    )
+
+    #expect(result.statement == nil)
+    #expect(
+      mock.generateCallCount == 3,
+      "the empty secondary still drives the retry; only the skip rule is off")
+  }
+
   /// The canonical primary is resolved from the PHASE TYPE, never from the
   /// schema. A `vote` phase that also declares `statement` must be judged on
   /// `vote`; resolving through `OutputSchema.knownPrimaryKeys` would find the

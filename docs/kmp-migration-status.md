@@ -83,7 +83,7 @@ machine-checked — see the maintenance invariant above.
   `purpose` for the per-class reason). That is an enumeration over today's `DivergenceClass`
   cases, **not** a proof that no structural arm exists: an unledgered one does. Swift's
   schema-guarded salvage (#907) accepts a multi-object response
-  (`{"statement":"s","inner_thought":"t"}{"stray":1}`) that Kotlin's `extractFirstJsonObject`
+  (`{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}`) that Kotlin's `extractFirstJsonObject`
   refuses, yielding Swift `agent_output` vs Kotlin `turn_skipped` — the same structural shape
   that was just lost. The asymmetry is pinned by paired parser tests in both languages; adding
   the `DivergenceClass` case and the fixture arm is deliberately deferred, because a case with

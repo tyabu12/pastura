@@ -137,8 +137,11 @@ internal class NarrateHandler : PhaseHandler {
                 // `primaryField(NARRATE)` is null (Engine-fixed `{ commentary }`
                 // schema, not author-declared), so the ADR-021 Amendment
                 // 2026-08-06 skip rule cannot fire here. Load-bearing: this is
-                // the one LLM call site outside the turn gate, so a throw would
-                // abort the run rather than skip the turn.
+                // the one LLM call site outside the turn gate, so a
+                // `RetriesExhausted` thrown here would be swallowed by the
+                // `catch (_: SimulationException)` below — the round would lose
+                // its narration with no `TurnSkipped` and no breaker increment,
+                // i.e. a skip the gate never counts toward its consecutive limit.
                 phaseType = context.phase.type,
                 schema = schema,
                 detector = context.detector,

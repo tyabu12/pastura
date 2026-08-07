@@ -284,7 +284,11 @@ class LLMCallerTests {
     /**
      * `NARRATE`'s schema is Engine-fixed so `primaryField` is null and the rule
      * cannot fire — load-bearing, because narrate is the one call site outside the
-     * turn gate, where a throw would abort the run instead of skipping the turn.
+     * turn gate, and it catches around the call: a throw there would be swallowed,
+     * costing the round its narration with no `TurnSkipped` and no breaker
+     * increment. This test pins only the `primaryField == null` half; the "no
+     * un-gated, un-catching call site" half is a new-phase invariant carried in
+     * `.claude/rules/engine.md` (Swift) and Pattern 4 of `kmp-interop.md`.
      */
     @Test
     fun narrateIsStructurallyExcludedFromTheSkipRule() = runTest {

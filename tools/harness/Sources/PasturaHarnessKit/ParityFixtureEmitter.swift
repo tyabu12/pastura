@@ -144,7 +144,8 @@ package enum ParityFixtureEmitter {
         That is an enumeration over today's `DivergenceClass` cases, so it \
         cannot see a structural divergence that is not yet ledgered — and one \
         is: Swift's schema-guarded multi-object salvage (#907) accepts \
-        `{"statement":"s","inner_thought":"t"}{"stray":1}` on a schema-declaring \
+        `{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}` on a \
+        schema-declaring \
         turn, while Kotlin's `extractFirstJsonObject` returns object-like \
         residue unchanged and fails the parse into a `turnSkipped`. Scripting \
         that response here re-arms a structural arm. It is deferred, not \

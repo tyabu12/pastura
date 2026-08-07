@@ -56,6 +56,16 @@ internal object DivergenceLedger {
      * scope rather than unfired, so it vanishes with no signal when the
      * divergence it covered also closes; assert every `fixture` against the
      * known fixture names once they are enumerable.
+     *
+     * **A third gap, found the hard way (#501).** Neither assertion above sees a
+     * case and its entry being deleted **together** — which is what resolving a
+     * divergence does. Nothing is left unfired, and "every case is cited" holds
+     * over the survivors, so the negative control can silently lose an entire
+     * entry *kind* while staying green. Only a **kind-coverage** assertion (the
+     * divergent fixture drives >= 1 [LedgerEntry.Structural] *and* >= 1
+     * [LedgerEntry.Value]) reddens on it. ADR-021's Amendment 2026-08-06 retired
+     * `SCHEMA_GUARD_POSITION` and cost the fixture its only structural arm
+     * exactly this way.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
         /**
