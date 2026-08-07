@@ -113,18 +113,26 @@ init_index() {
     > "$1/docs/gallery/gallery.json"
 }
 
-# mk_highlight <repo> <id> <excerpt-json> [window_override] [teaser]
+# The default hook is `kind: raw` — a `phases:` fragment, which is exactly the
+# case `raw` exists for: no structured rendition is claimed, so the fragment
+# publishes as a YAML block. Cases exercising the persona shape pass their own
+# hook via mk_highlight's 6th argument.
+HOOK_RAW='{"kind":"raw","fragment":"phases:\n  - type: speak_each","caption":"この一行が会話を生む"}'
+HOOK_PERSONA='{"kind":"persona","fragment":"  - name: アヤ\n    description: 率直な被験者。\n  - name: ケン\n    description: 場を読む同調者。","caption":"この2人の設定を書き換えると流れが変わる。"}'
+
+# mk_highlight <repo> <id> <excerpt-json> [window_override] [teaser] [hook-json]
 mk_highlight() {
   local d="$1" id="$2" excerpt="$3" wo="${4:-false}" teaser="${5:-最後の一言は、まだ言われていない。}"
+  local hook="${6:-$HOOK_RAW}"
   local ysha
   ysha="$(sha "$d/docs/gallery/$id.yaml")"
   jq -n --arg id "$id" --arg ysha "$ysha" --argjson excerpt "$excerpt" \
-        --argjson wo "$wo" --arg teaser "$teaser" \
+        --argjson wo "$wo" --arg teaser "$teaser" --argjson hook "$hook" \
     '{schema_version: 1,
       scenario_ref: {id: $id, yaml_sha256: $ysha},
       source: {model: "gemma-4-e2b-q4-k-m", run_id: "r1", generated_at: "2026-08-05"},
       excerpt: $excerpt,
-      yaml_hook: {fragment: "phases:\n  - type: speak_each", caption: "この一行が会話を生む"},
+      yaml_hook: $hook,
       teaser: $teaser,
       window_override: $wo,
       content_filter_applied: true}' \
@@ -304,6 +312,81 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H14 phase_index naming another phase fails"
 expect_out "highlight: phase_index mismatch" "H14 names the mismatch check"
 
+# --- yaml_hook.kind (ADR-029 § Amendment 2026-08-08) ---------------------
+#
+# H1 already covers the `raw` positive via the default hook. Each case below
+# perturbs exactly one thing and asserts the *message*, not just the exit code:
+# several of these checks live in the same funnel, so a bare `expect_fail`
+# would pass on a neighbour's failure.
+
+# H15 — the persona shape the app renders is accepted (positive control for
+# every negative below; without it they could all be passing vacuously).
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" "$HOOK_PERSONA"
+link_highlight "$R" demo_v1
+gate "$R"; expect_ok "H15 kind=persona with a well-formed fragment passes"
+
+# H16 — a hook with no `kind` at all fails as schema. This is the shape every
+# pre-amendment file has, so it is what the migration had to sweep.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"fragment":"phases:","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H16 yaml_hook without kind fails"
+expect_out "yaml_hook must be {kind: str" "H16 names kind in the schema message"
+
+# H17 — a kind outside the allowlist fails, and is NOT silently treated as raw.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"phases","fragment":"phases:","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H17 unlisted yaml_hook.kind fails"
+expect_out "highlight: yaml_hook kind" "H17 names the kind allowlist check"
+
+# H18 — `secret:` inside a persona fragment. The extractor's hard-fail reads
+# the scenario YAML (E2), so before this the gate had no copy of the rule and
+# a hand-edited hook could publish a hidden agenda.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"  - name: アヤ\n    description: 率直な被験者。\n    secret: 本当は協力者。","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18 secret: in a persona fragment fails"
+expect_out "highlight: yaml_hook secret" "H18 names the secret check"
+
+# H19 — kind=persona over a fragment that is not a persona list. The `phases:`
+# fragment is legal under `raw` (H1) and illegal here, which is the whole point
+# of the discriminator.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"phases:\n  - type: speak_each","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H19 kind=persona over a non-persona fragment fails"
+expect_out "not a non-empty persona list" "H19 names the shape check"
+
+# H20 — a key outside {name, description}. Distinct from H18: `secret` has its
+# own named failure, so a generic-key case is needed to reach the other arm.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"  - name: アヤ\n    description: 率直な被験者。\n    mood: 不安","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H20 unknown persona key fails"
+expect_out "outside the allowlist" "H20 names the key allowlist check"
+
+# H21 — the `personas:`-keyed shape is the second form Decision 1 accepts.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"personas:\n  - name: アヤ\n    description: 率直な被験者。","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_ok "H21 personas:-keyed persona fragment passes"
+
+# H22 — a fragment that is not parseable YAML at all.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"  - name: [アヤ\n    description: 壊れている","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H22 unparseable persona fragment fails"
+expect_out "not parseable YAML" "H22 names the parse failure"
+
 # ============================== extractor ================================
 
 # mk_run <repo> <path> — a minimal 4-round transcript. Line numbers:
@@ -330,7 +413,7 @@ mk_selection() {  # repo path
   cat > "$2" <<'JSON'
 {
   "picks": [4],
-  "yaml_hook": { "fragment": "phases:\n  - type: speak_each", "caption": "この一行が会話を生む" },
+  "yaml_hook": { "kind": "raw", "fragment": "phases:\n  - type: speak_each", "caption": "この一行が会話を生む" },
   "teaser": "最後の一言は、まだ言われていない。"
 }
 JSON
@@ -365,11 +448,11 @@ expect_out "secret mechanism" "E2 names the secret hard-fail"
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"; mk_selection "$R" "$R/sel.json"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 9 \
-  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "まだ終わらない。"
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "まだ終わらない。"
 expect_fail "E3 late-round pick fails without --window-override"
 expect_out "highlight: round window" "E3 names the round-window check"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 9 \
-  --window-override --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "まだ終わらない。"
+  --window-override --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "まだ終わらない。"
 expect_ok "E3 --window-override accepts the late-round pick"
 runc "$R" jq -r '.window_override' docs/gallery/highlights/demo_v1.json
 expect_out "true" "E3 records window_override: true"
@@ -378,7 +461,7 @@ expect_out "true" "E3 records window_override: true"
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 6 \
-  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E4 summary-line pick fails"
 expect_out "not an \`agent_output\` event" "E4 names the pick check"
 
@@ -402,7 +485,7 @@ expect_out "yaml_sha256 mismatch" "E6 names the yaml sha check"
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 \
-  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E7 missing picks fails"
 expect_out "no picks" "E7 refuses to choose excerpts"
 
@@ -411,7 +494,7 @@ R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summa
 mk_run "$R" "$R/run.jsonl"
 sed 's/私はBだと思う。/こいつを殺すしかない。/' "$R/run.jsonl" > "$R/run3.jsonl"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run3.jsonl --id demo_v1 --pick 4 \
-  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E8 blocklist match blocks extraction"
 expect_out "highlight: blocklist" "E8 names the blocklist check"
 if [ ! -e "$R/docs/gallery/highlights/demo_v1.json" ]; then PASS=$((PASS + 1)); else bad "E8 wrote a file despite the blocklist failure"; fi
@@ -428,9 +511,25 @@ retry = [l.replace('"attempt":1', '"attempt":2') for l in lines[1:-1]]
 open(p, "w", encoding="utf-8").write("\n".join(lines[:-1] + retry + [lines[-1]]) + "\n")
 PY
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
-  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E9 attempt-1 pick in a retried log fails"
 expect_out "final attempt" "E9 names the attempt guard"
+
+# E10 — the extractor refuses to guess a kind. It has the fragment in hand and
+# could sniff it, which is precisely what the discriminator exists to stop:
+# `persona` vs `raw` is a presentation decision belonging to the curator.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E10 omitted yaml_hook.kind fails"
+expect_out "missing yaml_hook.kind" "E10 names the missing field"
+
+# E10b — and refuses an unlisted one rather than falling back to raw.
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind phases --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E10b unlisted yaml_hook.kind fails at extraction"
+expect_out "is not in the allowlist" "E10b names the allowlist"
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

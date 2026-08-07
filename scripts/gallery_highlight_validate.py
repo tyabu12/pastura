@@ -17,6 +17,12 @@ NOT `scripts/jsonl_to_demo_replay.py`'s `sha256_hex`, which hashes UTF-8
 *text* for the demo-replay drift check — different trust root (ADR-029
 Decision 1).
 
+Prerequisite: **PyYAML** (`python3 -m pip install 'pyyaml>=6,<7'`), needed to
+re-derive the shape a `yaml_hook.kind: persona` fragment promises. CI installs
+it in the same job that runs the gate. If it is missing, a `persona` hook fails
+with a named message rather than passing unverified — a gate that skips a check
+when a dependency is absent is worse than one that is loud about it.
+
 Exit code: 0 when every highlight passes, 1 otherwise. Each failure is one
 line on stdout prefixed `highlight: <check> — …` so the bash gate can
 aggregate them and a reader can grep a specific class.
@@ -29,8 +35,25 @@ import os
 import sys
 import unicodedata
 
+try:
+    import yaml
+except ImportError:  # reported as a failure below, never silently skipped
+    yaml = None
+
 SCHEMA_VERSION = 1
 EXCERPT_MAX = 8
+
+# ADR-029 Decision 1 — the `yaml_hook.kind` allowlist. `persona` promises the
+# fragment parses as persona mappings, which licenses the app's
+# editor-vocabulary rendition; `raw` claims no structure and is drawn as a YAML
+# block, which is what both surfaces did before the discriminator existed
+# (§ Amendment 2026-08-08).
+YAML_HOOK_KINDS = frozenset({"persona", "raw"})
+
+# A `kind: persona` fragment's mappings may name only these. `secret:` is
+# rejected by name: a hidden agenda is a spoiler wherever it appears, and
+# Decision 2's secret branch is designed-untested.
+PERSONA_FRAGMENT_KEYS = frozenset({"name", "description"})
 
 # ADR-029 Decision 3 — the full PhaseType catalog at last sync with
 # `Pastura/Pastura/Models/PhaseType.swift` (raw values). A transcript phase
@@ -141,10 +164,17 @@ def _check_schema(doc, where):
             "{model: str, run_id: str, generated_at: str}")
     hook = doc.get("yaml_hook")
     if not isinstance(hook, dict) or not isinstance(hook.get("fragment"), str) \
-            or not isinstance(hook.get("caption"), str):
+            or not isinstance(hook.get("caption"), str) \
+            or not isinstance(hook.get("kind"), str):
         failures.append(
             f"highlight: schema — {where} yaml_hook must be "
-            "{fragment: str, caption: str}")
+            "{kind: str, fragment: str, caption: str}")
+    elif hook["kind"] not in YAML_HOOK_KINDS:
+        failures.append(
+            f"highlight: yaml_hook kind — {where} yaml_hook.kind={hook['kind']!r} is "
+            f"not in the allowlist {sorted(YAML_HOOK_KINDS)}. Adding a value means "
+            "designing its reading side first (ADR-029 revisit trigger); until then "
+            "`raw` publishes the fragment as a YAML block")
     if not isinstance(doc.get("teaser"), str) or not doc.get("teaser").strip():
         failures.append(f"highlight: schema — {where} teaser must be a non-empty string")
     if not isinstance(doc.get("window_override"), bool):
@@ -195,6 +225,88 @@ def _check_excerpt_shape(doc, where):
                 f"highlight: source_field — {loc}.source_field="
                 f"{ex.get('source_field')!r} is not in the allowlist "
                 f"{sorted(SOURCE_FIELDS)} (ADR-029 Decision 3)")
+    return failures
+
+
+def _persona_entries(parsed):
+    """-> the entry list for either accepted persona-fragment shape, else None.
+
+    ADR-029 Decision 1 pins two: a bare block sequence of mappings (what both
+    shipped hooks use — PyYAML parses one at any indent without dedenting) or a
+    `personas:`-keyed mapping holding one.
+    """
+    if isinstance(parsed, list):
+        return parsed
+    if isinstance(parsed, dict) and set(parsed) == {"personas"} \
+            and isinstance(parsed["personas"], list):
+        return parsed["personas"]
+    return None
+
+
+def _check_yaml_hook_fragment(doc, where):
+    """`kind: persona` promises a shape — re-derive it (ADR-029 Decision 1).
+
+    Two reasons this lives in the gate rather than only in the extractor. A
+    hand-edited hook never runs the extractor, which is Decision 2's standing
+    argument; and the app renders a `persona` fragment in the visual editor's
+    vocabulary, so a shape it cannot parse must fail at supply time instead of
+    degrading in a client the repo cannot update (§ Amendment 2026-08-08).
+
+    This is also the gate's only `secret:` check. The extractor's hard-fail
+    reads the *scenario YAML*; nothing re-derived the same rule for the hook's
+    own text, so a hand-edited fragment could publish a hidden agenda.
+    """
+    hook = doc.get("yaml_hook")
+    if not isinstance(hook, dict) or hook.get("kind") != "persona":
+        return []
+    fragment = hook.get("fragment")
+    if not isinstance(fragment, str):
+        return []  # already reported by _check_schema
+    if yaml is None:
+        return [
+            f"highlight: yaml_hook fragment — {where} kind=persona, but PyYAML is not "
+            "importable so the fragment's shape cannot be verified. Install it "
+            "(python3 -m pip install 'pyyaml>=6,<7'); this check fails closed rather "
+            "than passing unverified"]
+    try:
+        parsed = yaml.safe_load(fragment)
+    except yaml.YAMLError as exc:
+        return [
+            f"highlight: yaml_hook fragment — {where} kind=persona but the fragment is "
+            f"not parseable YAML: {exc}"]
+
+    entries = _persona_entries(parsed)
+    if not entries:
+        return [
+            f"highlight: yaml_hook fragment — {where} kind=persona but the fragment is "
+            "not a non-empty persona list (expected a block sequence of mappings, or a "
+            "`personas:` key holding one). Use kind=raw to publish it as YAML instead"]
+
+    failures = []
+    for i, item in enumerate(entries):
+        loc = f"{where} yaml_hook.fragment[{i}]"
+        if not isinstance(item, dict):
+            failures.append(f"highlight: yaml_hook fragment — {loc} must be a mapping")
+            continue
+        extra = set(item) - PERSONA_FRAGMENT_KEYS
+        if "secret" in extra:
+            failures.append(
+                f"highlight: yaml_hook secret — {loc} declares `secret:`. A hidden "
+                "agenda is a spoiler wherever it appears, and ADR-029 Decision 2's "
+                "secret branch is designed-untested — the extractor refuses such "
+                "scenarios, and this is the gate's copy that a hand-edited hook "
+                "cannot bypass")
+        rest = sorted(extra - {"secret"})
+        if rest:
+            failures.append(
+                f"highlight: yaml_hook fragment — {loc} has key(s) {rest} outside the "
+                f"allowlist {sorted(PERSONA_FRAGMENT_KEYS)}")
+        for key in sorted(PERSONA_FRAGMENT_KEYS):
+            value = item.get(key)
+            if not isinstance(value, str) or not value.strip():
+                failures.append(
+                    f"highlight: yaml_hook fragment — {loc}.{key} must be a non-empty "
+                    "string (the app draws both fields)")
     return failures
 
 
@@ -254,6 +366,7 @@ def check_content(doc, entry, blocklist, where):
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
+    failures += _check_yaml_hook_fragment(doc, where)
     failures += _check_position(doc, entry, where)
     failures += check_blocklist(doc, blocklist, where)
     return failures
