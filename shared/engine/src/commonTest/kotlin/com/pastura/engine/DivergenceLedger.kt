@@ -14,7 +14,8 @@ package com.pastura.engine
  *
  * **Nothing is wired to a real transcript yet.** No `List<LedgerEntry>` instance
  * exists, and `ParityGolden` is read by nothing; the schema, the comparator and
- * the golden are three unconnected pieces until slice 1b (#1387) joins them. So
+ * the golden are three unconnected pieces until slice 1b (#501; #1387 delivered
+ * 1a and is closed) joins them. So
  * this file describes a guard that is proven against synthetic transcripts and
  * not yet against either engine — read the paragraphs below as the contract 1b
  * inherits, not as a gate now running.
@@ -34,7 +35,8 @@ package com.pastura.engine
  * genuinely new divergence needs a new enum case — a reviewable diff, not a
  * free-text pointer — and [LedgerEntry.Structural] pins the whole expected
  * event line, so an unrelated extra event near a ledgered position is not
- * absorbed. The rest is policy, recorded on #1387: on the ported surface a new
+ * absorbed. The rest is policy, first recorded on the closed #1387 and carried
+ * forward on #501: on the ported surface a new
  * Swift-only divergence is dual-landed, not ledgered.
  */
 internal object DivergenceLedger {

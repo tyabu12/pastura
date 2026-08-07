@@ -235,3 +235,15 @@ handler's `catch` is widened, and a wide catch here swallows `CancellationExcept
 own assertion ever running. Over-script (`MAX_RETRIES + 1`) so the written assertion is the detector.
 Decisive in §12 perturbation work, where "it reddened" IS the evidence: read *which* message fired.
 Worked example: `NarrateHandlerTests` (#1331).
+
+**Resolving a divergence silently disarms whatever parity fixture arm drove it.** The negative
+control in `ParityFixtureEmitter` drives one divergence per entry *kind*; converging the two
+engines on a behaviour retires the `DivergenceClass` that arm exercised, and the arm goes with it.
+`DivergenceLedger`'s unfired-entry assertion cannot see this — the case and its entry are deleted
+**together**, so nothing is left unfired — and neither can the "every case is cited" test it
+prescribes. Only a *kind-coverage* assertion (≥1 `Structural` **and** ≥1 `Value` entry driven)
+would. **Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only
+instance of that entry kind; if so, re-arm or record the loss with a concrete re-arm candidate,
+never a bare "not reachable" (that claim is an enumeration over *existing* cases and cannot see an
+unledgered divergence). Motivating incident: ADR-021 § Amendment 2026-08-06 retiring
+`SCHEMA_GUARD_POSITION`; residue tracked on #501.

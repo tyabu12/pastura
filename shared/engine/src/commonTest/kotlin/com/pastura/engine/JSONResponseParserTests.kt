@@ -272,4 +272,24 @@ class JSONResponseParserTests {
         val (out, _) = parser.parse("""{"anything": "x"}""", expectedKeys = emptySet())
         assertEquals("x", out.fields["anything"])
     }
+
+    // MARK: - Swift/Kotlin multi-object salvage asymmetry (#907)
+
+    /**
+     * Pins the Swift/Kotlin multi-object asymmetry: Swift's schema-guarded salvage
+     * (#907) accepts the first object, Kotlin fails the parse. This is the concrete
+     * re-arm candidate for the ADR-023 Stage-4 divergent fixture's lost structural
+     * arm (see `docs/kmp-migration-status.md` § Stage 4). Not a bug on either side —
+     * a divergence that must not change silently.
+     */
+    @Test
+    fun multiObjectResponseFailsTheParseEvenWithASatisfiedSchema() {
+        val error = assertFailsWith<SimulationException> {
+            parser.parse(
+                """{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}""",
+                expectedKeys = setOf("statement", "inner_thought"),
+            )
+        }
+        assertIs<SimulationError.JsonParseFailed>(error.error)
+    }
 }

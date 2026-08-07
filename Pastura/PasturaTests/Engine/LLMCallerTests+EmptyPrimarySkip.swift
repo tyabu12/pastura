@@ -177,8 +177,11 @@ extension LLMCallerTests {
 
   /// `narrate`'s schema is engine-fixed, so `primaryField(for: .narrate)` is
   /// `nil` and the rule cannot fire. Load-bearing: `NarrateHandler` is the one
-  /// LLM call site not wrapped in `turnGate.attempt`, so a throw there would
-  /// abort the run instead of skipping the turn.
+  /// LLM call site not wrapped in `turnGate.attempt`, and it catches around the
+  /// call — so a throw there would be swallowed, costing the round its narration
+  /// with no `.turnSkipped` and no breaker increment. This test pins only the
+  /// `primaryField == nil` half; the "no un-gated, un-catching call site" half
+  /// is unpinnable here and lives in `.claude/rules/engine.md`.
   @Test func narrateIsStructurallyExcluded() async throws {
     let mock = MockLLMService(responses: [
       #"{"commentary": ""}"#,

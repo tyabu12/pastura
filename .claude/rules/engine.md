@@ -184,6 +184,13 @@ neither compiler nor CI catches:
   `defaultHandlers()` and `ConditionalHandler.subHandlers` (`shared/engine`,
   ADR-023) — where it is likewise not compiler-caught, and where no validator
   exists to double-enforce it. Details: `.claude/rules/kmp-interop.md` Pattern 4.
+- **Empty-primary skip reachability** (ADR-021 § Amendment 2026-08-06) — a new **LLM** phase
+  must either route its `LLMCaller.call` through `turnGate.attempt`, or return `nil` from
+  `ScenarioConventions.primaryField(for:)`. Otherwise the skip rule's `retriesExhausted` reaches
+  a call site the gate does not own: it aborts the run if that site does not catch, and is
+  silently swallowed if it does (today only `NarrateHandler`, which takes the `nil` exit). No
+  compiler or CI check covers this — `primaryField` is exhaustive, but nothing ties a `nil`
+  verdict to gate wiring.
 - **Web format-spec coverage** — the public reference at
   `web/src/content/scenario-format.{en,ja}.md` must list the new phase as a
   backtick token, or `scripts/check-scenario-format-coverage.py` fails the

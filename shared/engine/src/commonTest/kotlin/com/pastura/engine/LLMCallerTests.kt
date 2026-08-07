@@ -256,6 +256,32 @@ class LLMCallerTests {
     }
 
     /**
+     * Kotlin sibling of Swift's `undeclaredCanonicalPrimaryStillReturns`
+     * (`LLMCallerTests+EmptyPrimarySkip.swift`). The nearest existing Kotlin
+     * coverage of this carve-out (`emptyFieldTriggersARetry`,
+     * `anEmptyFieldOnTheLastAttemptIsRETURNEDNotThrown`) passes `schema = null`,
+     * which yields `expectedKeys = emptySet()` — a DIFFERENT fixture shape from
+     * the actual legacy scenario: a non-empty schema that simply omits the
+     * canonical primary. Pins narrowing (b), the compatibility guard that keeps
+     * a pre-`validateForCommit` scenario runnable when its `output:` never
+     * declared `statement` at all — an all-empty response across the full
+     * retry window must still RETURN, not throw.
+     */
+    @Test
+    fun anUndeclaredCanonicalPrimaryStillReturnsAcrossTheFullRetryWindow() = runTest {
+        val schemaWithoutPrimary = OutputSchema(
+            fields = listOf(OutputSchema.Field(name = "inner_thought", kind = OutputSchema.Kind.StringKind)),
+        )
+        val backend = ScriptedLLMBackend(List(3) { script("""{"inner_thought": ""}""") })
+        val out = call(backend, schema = schemaWithoutPrimary)
+        assertEquals("", out.fields["inner_thought"])
+        assertEquals(
+            3, backend.callCount,
+            "the empty declared field still drives the retry; only the skip rule is off",
+        )
+    }
+
+    /**
      * `NARRATE`'s schema is Engine-fixed so `primaryField` is null and the rule
      * cannot fire — load-bearing, because narrate is the one call site outside the
      * turn gate, where a throw would abort the run instead of skipping the turn.

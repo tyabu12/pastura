@@ -32,6 +32,12 @@ import Foundation
 /// pairing the same way but emits ``SimulationEvent/actionRejected(agent:phaseType:raw:)``
 /// so the drop is observable, since the call itself succeeded. In **individual**
 /// mode a skipped turn writes nothing and clears the agent's stale `lastOutputs`.
+///
+/// Since ADR-021 § Amendment 2026-08-06 an **empty** action no longer reaches
+/// ``validateAction`` at all: `LLMCaller` skips the turn before returning, so it
+/// classifies as `.turnSkipped`, while a delivered-but-off-menu action stays
+/// `.actionRejected`. The `raw: ""` branch below survives only for scenarios
+/// whose `output:` schema omits `action` (the pre-`validateForCommit` carve-out).
 nonisolated struct ChooseHandler: PhaseHandler {
   private let promptBuilder = PromptBuilder()
 

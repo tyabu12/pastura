@@ -134,15 +134,28 @@ package enum ParityFixtureEmitter {
         overrides are kept because they still exercise the retry window \
         identically on both sides.
 
-        Re-arming a structural arm was assessed and is **not reachable from a \
-        scripted fixture**: `CANCELLATION_EVENT_TAIL` needs a mid-run \
-        cancellation this emitter never performs, `DETECTOR_UNWIRED` is \
-        deliberately guarded off (a real detector would make the golden vary by \
-        host — see `parityRunEmitsNoLanguageMismatch`), and `VALIDATOR_UNPORTED` \
-        needs a scenario Swift rejects, which would produce no transcript. \
-        Closing this gap belongs to the slice that makes ledger coverage \
-        enforceable; tracked on #501. Do not read a clean structural comparison \
-        here as evidence the structural path is exercised.
+        No **currently-ledgered** structural class is reachable from a scripted \
+        fixture: `CANCELLATION_EVENT_TAIL` needs a mid-run cancellation this \
+        emitter never performs, `DETECTOR_UNWIRED` is deliberately guarded off \
+        (a real detector would make the golden vary by host — see \
+        `parityRunEmitsNoLanguageMismatch`), and `VALIDATOR_UNPORTED` needs a \
+        scenario Swift rejects, which would produce no transcript.
+
+        That is an enumeration over today's `DivergenceClass` cases, so it \
+        cannot see a structural divergence that is not yet ledgered — and one \
+        is: Swift's schema-guarded multi-object salvage (#907) accepts \
+        `{"statement":"s","inner_thought":"t"}{"stray":1}` on a schema-declaring \
+        turn, while Kotlin's `extractFirstJsonObject` returns object-like \
+        residue unchanged and fails the parse into a `turnSkipped`. Scripting \
+        that response here re-arms a structural arm. It is deferred, not \
+        impossible: the arm needs a new `DivergenceClass` case, and a case with \
+        no entry is exactly the pre-approved licence `DivergenceLedger` warns \
+        about — while nothing consumes `ParityGolden` yet to verify the arm \
+        end-to-end. The asymmetry is instead pinned by paired \
+        `JSONResponseParser` tests in both languages. Tracked on #501.
+
+        Do not read a clean structural comparison here as evidence the \
+        structural path is exercised.
 
         The float-valued key below is the surviving arm. Swift normalizes `1.0` \
         to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves \

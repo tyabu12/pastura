@@ -78,8 +78,13 @@ nonisolated extension LLMCaller {
   /// ``OutputSchema`` carries no phase identity, and resolving through its
   /// `knownPrimaryKeys` would treat a stray `statement` declared on a `vote`
   /// phase as canonical. `.narrate` returns `nil` here (engine-fixed schema),
-  /// which is what structurally exempts the one call site that is not wrapped
-  /// in `turnGate.attempt`.
+  /// which is what structurally exempts the one call site not wrapped in
+  /// `turnGate.attempt`. Concretely: `NarrateHandler` catches around its
+  /// `call`, so a throw there is swallowed and the round loses its narration
+  /// with no `.turnSkipped` and no breaker increment — degradation the gate
+  /// never sees, not a run abort. A future un-gated site with **no** catch
+  /// would abort instead; see `.claude/rules/engine.md` § "Adding a new
+  /// `PhaseType`".
   func canonicalPrimaryIsMissing(
     _ output: TurnOutput, phaseType: PhaseType, expectedKeys: Set<String>
   ) -> Bool {

@@ -35,9 +35,10 @@ nonisolated public enum ScenarioConventions {
   /// for the given phase type, or `nil` for code phases that emit no LLM
   /// output.
   ///
-  /// Speak phases return `"statement"`, choose returns `"action"`, vote
-  /// returns `"vote"`, reflect returns `"note"`. All other phase types return
-  /// `nil`.
+  /// Speak phases and whisper return `"statement"`, choose returns `"action"`,
+  /// vote returns `"vote"`, reflect returns `"note"`. All other phase types
+  /// return `nil` — including `.narrate`, whose `{ commentary }` schema is
+  /// engine-fixed rather than author-declared.
   public static func primaryField(for phaseType: PhaseType) -> String? {
     switch phaseType {
     case .speakAll, .speakEach:
