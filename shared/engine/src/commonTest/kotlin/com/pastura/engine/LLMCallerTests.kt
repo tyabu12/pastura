@@ -1,6 +1,7 @@
 package com.pastura.engine
 
 import com.pastura.models.OutputSchema
+import com.pastura.models.PhaseType
 import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,12 +37,14 @@ class LLMCallerTests {
         backend: LLMBackend,
         relay: SuspensionRelay = SuspensionRelay(),
         schema: OutputSchema? = this.schema,
+        phaseType: PhaseType = PhaseType.SPEAK_ALL,
         events: MutableList<SimulationEvent> = mutableListOf(),
     ) = caller.call(
         backend = backend,
         system = "sys",
         user = "usr",
         agentName = "Alice",
+        phaseType = phaseType,
         schema = schema,
         relay = relay,
         emitter = { events += it },
@@ -79,6 +82,7 @@ class LLMCallerTests {
             system = "sys",
             user = "usr",
             agentName = "Alice",
+            phaseType = PhaseType.SPEAK_ALL,
             schema = schema,
             antiRepetitionSeeds = listOf("my prior statement"),
             relay = SuspensionRelay(),
@@ -110,6 +114,7 @@ class LLMCallerTests {
             system = "sys",
             user = "usr",
             agentName = "Alice",
+            phaseType = PhaseType.SPEAK_ALL,
             schema = schema,
             antiRepetitionSeeds = listOf("seed"),
             relay = SuspensionRelay(),
@@ -146,8 +151,10 @@ class LLMCallerTests {
         val backend = ScriptedLLMBackend(
             listOf(script("""{"statement": ""}"""), script("""{"statement": "real"}""")),
         )
-        // The empty-field retry only fires when the parser guard does not reject
-        // first, so this call goes schema-less.
+        // Schema-less on purpose: this pins the retry itself, isolated from the
+        // ADR-021 § Amendment 2026-08-06 skip rule, which needs a DECLARED
+        // canonical primary. (Before that Amendment the reason was different —
+        // the parser's post-parse guard would have rejected first.)
         assertEquals("real", call(backend, schema = null).fields["statement"])
         assertEquals(2, backend.callCount)
     }
@@ -162,13 +169,135 @@ class LLMCallerTests {
 
     @Test
     fun anEmptyFieldOnTheLastAttemptIsRETURNEDNotThrown() = runTest {
-        // The asymmetry with parse failure, and it is deliberate on both sides:
-        // Swift's guard is `hasEmptyFields(output) && attempt < maxRetries`, so a
-        // parseable-but-thin answer still lets the simulation continue. A port that
-        // threw here would abort runs Swift completes.
+        // Scoped to a schema that does NOT declare the canonical primary — the
+        // ADR-021 § Amendment 2026-08-06 backward-compat carve-out. There the old
+        // asymmetry with parse failure still holds on both engines: a
+        // parseable-but-thin answer lets the simulation continue rather than
+        // aborting a run the other engine would complete. When the primary IS
+        // declared the turn is skipped instead — see
+        // `anEmptyDeclaredPrimaryOnTheLastAttemptThrows`.
         val backend = ScriptedLLMBackend(List(3) { script("""{"statement": ""}""") })
         val out = call(backend, schema = null)
         assertEquals("", out.fields["statement"])
+        assertEquals(3, backend.callCount)
+    }
+
+    // MARK: - ADR-021 § Amendment 2026-08-06 — empty declared canonical primary
+
+    /**
+     * The load-bearing one: reverting `shouldRetryEmptyFields`' throw leg must turn
+     * this red. Mirrors Swift's `exhaustedEmptyPrimaryThrowsWhenSchemaDeclaresIt`.
+     */
+    @Test
+    fun anEmptyDeclaredPrimaryOnTheLastAttemptThrows() = runTest {
+        val backend = ScriptedLLMBackend(List(3) { script("""{"statement": ""}""") })
+        assertFailsWith<SimulationException> { call(backend) }
+        assertEquals(3, backend.callCount)
+    }
+
+    /** `"..."` is the same defect as `""` — no content either way. */
+    @Test
+    fun anEllipsisDeclaredPrimaryOnTheLastAttemptThrows() = runTest {
+        val backend = ScriptedLLMBackend(List(3) { script("""{"statement": "..."}""") })
+        assertFailsWith<SimulationException> { call(backend) }
+    }
+
+    /**
+     * A declared primary that is *absent* rather than empty. `hasEmptyFields`
+     * inspects values, not keys, so without the key-aware check this returned at
+     * attempt 0 and no final attempt ever existed to throw on.
+     */
+    @Test
+    fun anAbsentDeclaredPrimaryOnTheLastAttemptThrows() = runTest {
+        val backend = ScriptedLLMBackend(List(3) { script("""{"inner_thought": "t"}""") })
+        assertFailsWith<SimulationException> { call(backend) }
+        assertEquals(3, backend.callCount)
+    }
+
+    /**
+     * Negative control and the clause-1 pin in one: a delivered `statement` with an
+     * empty secondary still burns the full budget (so the narrowing did not shrink
+     * the *retry* trigger) and is still RETURNED rather than discarded.
+     */
+    @Test
+    fun anEmptySecondaryRetriesThenReturnsAtExhaustion() = runTest {
+        val declaresBoth = OutputSchema(
+            fields = listOf(
+                OutputSchema.Field(name = "statement", kind = OutputSchema.Kind.StringKind),
+                OutputSchema.Field(name = "inner_thought", kind = OutputSchema.Kind.StringKind),
+            ),
+        )
+        val backend = ScriptedLLMBackend(
+            List(3) { script("""{"statement": "delivered", "inner_thought": ""}""") },
+        )
+        val out = call(backend, schema = declaresBoth)
+        assertEquals("delivered", out.fields["statement"])
+        assertEquals(3, backend.callCount)
+    }
+
+    /**
+     * The canonical primary is resolved from the PHASE TYPE, never the schema: a
+     * `VOTE` phase that also declares `statement` must be judged on `vote`.
+     */
+    @Test
+    fun theCanonicalPrimaryIsPhaseKeyedNotSchemaDerived() = runTest {
+        val voteSchema = OutputSchema(
+            fields = listOf(
+                OutputSchema.Field(name = "vote", kind = OutputSchema.Kind.StringKind),
+                OutputSchema.Field(name = "statement", kind = OutputSchema.Kind.StringKind),
+            ),
+        )
+        val backend = ScriptedLLMBackend(
+            List(3) { script("""{"vote": "", "statement": "stray non-empty"}""") },
+        )
+        assertFailsWith<SimulationException> {
+            call(backend, schema = voteSchema, phaseType = PhaseType.VOTE)
+        }
+    }
+
+    /**
+     * Kotlin sibling of Swift's `undeclaredCanonicalPrimaryStillReturns`
+     * (`LLMCallerTests+EmptyPrimarySkip.swift`). The nearest existing Kotlin
+     * coverage of this carve-out (`emptyFieldTriggersARetry`,
+     * `anEmptyFieldOnTheLastAttemptIsRETURNEDNotThrown`) passes `schema = null`,
+     * which yields `expectedKeys = emptySet()` — a DIFFERENT fixture shape from
+     * the actual legacy scenario: a non-empty schema that simply omits the
+     * canonical primary. Pins narrowing (b), the compatibility guard that keeps
+     * a pre-`validateForCommit` scenario runnable when its `output:` never
+     * declared `statement` at all — an all-empty response across the full
+     * retry window must still RETURN, not throw.
+     */
+    @Test
+    fun anUndeclaredCanonicalPrimaryStillReturnsAcrossTheFullRetryWindow() = runTest {
+        val schemaWithoutPrimary = OutputSchema(
+            fields = listOf(OutputSchema.Field(name = "inner_thought", kind = OutputSchema.Kind.StringKind)),
+        )
+        val backend = ScriptedLLMBackend(List(3) { script("""{"inner_thought": ""}""") })
+        val out = call(backend, schema = schemaWithoutPrimary)
+        assertEquals("", out.fields["inner_thought"])
+        assertEquals(
+            3, backend.callCount,
+            "the empty declared field still drives the retry; only the skip rule is off",
+        )
+    }
+
+    /**
+     * `NARRATE`'s schema is Engine-fixed so `primaryField` is null and the rule
+     * cannot fire — load-bearing, because narrate is the one call site outside the
+     * turn gate, and it catches around the call: a throw there would be swallowed,
+     * costing the round its narration with no `TurnSkipped` and no breaker
+     * increment. This test pins only the `primaryField == null` half; the "no
+     * un-gated, un-catching call site" half is a new-phase invariant carried in
+     * `.claude/rules/engine.md` (Swift) and Pattern 4 of `kmp-interop.md`.
+     */
+    @Test
+    fun narrateIsStructurallyExcludedFromTheSkipRule() = runTest {
+        val narrateSchema = OutputSchema(
+            fields = listOf(OutputSchema.Field(name = "commentary", kind = OutputSchema.Kind.StringKind)),
+        )
+        val backend = ScriptedLLMBackend(List(3) { script("""{"commentary": ""}""") })
+        val out = call(backend, schema = narrateSchema, phaseType = PhaseType.NARRATE)
+        assertEquals("", out.fields["commentary"])
         assertEquals(3, backend.callCount)
     }
 

@@ -48,6 +48,13 @@ nonisolated struct LLMCaller: Sendable {
   ///   - system: The system prompt.
   ///   - user: The user prompt.
   ///   - agentName: The agent's name (for event emission).
+  ///   - phaseType: The phase being executed. Used **only** to resolve the
+  ///     canonical primary field via
+  ///     ``ScenarioConventions/primaryField(for:)`` for the ADR-021
+  ///     `Amendment 2026-08-06` skip rule. Deliberately non-optional: an
+  ///     optional would create a silent third state (caller forgot to thread
+  ///     it) indistinguishable from `.narrate`, whose canonical field is
+  ///     legitimately `nil`.
   ///   - schema: Optional ``OutputSchema`` for constrained decoding at
   ///     the backend (llama.cpp GBNF / Ollama format:json / Mock
   ///     capturedSchemas) AND the schema-aware repair guard in
@@ -62,10 +69,12 @@ nonisolated struct LLMCaller: Sendable {
   ///     cause=language_mismatch`), and on exhaustion a
   ///     ``SimulationEvent/languageMismatch(agent:detected:expected:)``
   ///     is emitted and the parsed output is still returned (sim
-  ///     continues — like `empty_field` exhaustion, which also
-  ///     returns the parsed output; structurally distinct from
-  ///     `parse_failed` exhaustion, which throws
-  ///     ``SimulationError/retriesExhausted`` (ADR-021 D7)).
+  ///     continues). A wrong-language answer is *delivered* content, so it
+  ///     is deliberately NOT routed through the skip path — see ADR-021
+  ///     § Amendment 2026-08-06, "Why `language_mismatch` does not move in
+  ///     step". `empty_field` exhaustion no longer shares that shape: it
+  ///     throws ``SimulationError/retriesExhausted`` when the declared
+  ///     canonical primary is missing, and returns otherwise.
   ///   - expectedLanguage: The scenario's `engineLanguage` per ADR-010
   ///     D5/D6. `nil` skips the adherence check entirely (back-compat
   ///     for callers that pre-date Step E PR2).
@@ -74,14 +83,20 @@ nonisolated struct LLMCaller: Sendable {
   ///     method awaits ``SuspendController/awaitResume()`` and retries the
   ///     same prompt without consuming the parse-error retry budget.
   ///   - emitter: Closure to emit simulation events.
-  /// - Returns: A parsed ``TurnOutput`` with all fields populated.
-  /// - Throws: ``SimulationError/retriesExhausted`` after max retries,
+  /// - Returns: A parsed ``TurnOutput``. Its canonical primary field is
+  ///   populated whenever the schema declares one; secondary fields may still
+  ///   be empty (that is a delivered-but-thin answer, not a failed turn).
+  /// - Throws: ``SimulationError/retriesExhausted`` on `parse_failed`
+  ///           exhaustion, or on `empty_field` exhaustion when the declared
+  ///           canonical primary is absent/empty (ADR-021
+  ///           § Amendment 2026-08-06);
   ///           ``SimulationError/llmGenerationFailed(description:)`` on LLM errors.
   func call(
     llm: LLMService,
     system: String,
     user: String,
     agentName: String,
+    phaseType: PhaseType,
     schema: OutputSchema? = nil,
     detector: (any LanguageDetector)? = nil,
     expectedLanguage: String? = nil,
@@ -144,9 +159,13 @@ nonisolated struct LLMCaller: Sendable {
       logRepairIfNeeded(agent: agentName, kind: parseResult.repairKind)
       logChatTemplateLeakage(in: raw)
 
-      if hasEmptyFields(output) && attempt < Self.maxRetries {
-        logEmptyFields(fields: output.fields, attempt: attempt)
-        emitRetryCause(agent: agentName, attempt: attempt + 1, cause: "empty_field")
+      // Empty-field retry, and the ADR-021 § Amendment 2026-08-06 skip when the
+      // declared canonical primary is what came back missing. Throws there;
+      // `TurnFailureGate` turns that into `.turnSkipped`. See
+      // `LLMCaller+EmptyPrimary` for the two-clause contract.
+      if try shouldRetryEmptyFields(
+        output: output, phaseType: phaseType, expectedKeys: expectedKeys,
+        attempt: attempt, agentName: agentName) {
         continue
       }
 
@@ -184,9 +203,9 @@ nonisolated struct LLMCaller: Sendable {
   // `emitLangCheckSkipped`) live in `LLMCaller+Logging.swift` to keep this
   // file under SwiftLint's `file_length` budget.
 
-  private func hasEmptyFields(_ output: TurnOutput) -> Bool {
-    output.fields.values.contains { $0 == "..." || $0.isEmpty }
-  }
+  // `hasEmptyFields`, `canonicalPrimaryIsMissing` and `shouldRetryEmptyFields`
+  // live in `LLMCaller+EmptyPrimary.swift` to keep this file under SwiftLint's
+  // `file_length` budget.
 
   // MARK: - Language Adherence (ADR-010 Step E PR2)
 

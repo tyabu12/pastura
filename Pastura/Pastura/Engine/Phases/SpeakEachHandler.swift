@@ -84,7 +84,7 @@ nonisolated struct SpeakEachHandler: PhaseHandler {
         work: {
           try await llmCaller.call(
             llm: context.llm, system: systemPrompt, user: userPrompt,
-            agentName: persona.name,
+            agentName: persona.name, phaseType: context.phase.type,
             schema: OutputSchema.from(phase: context.phase),
             detector: context.detector,
             expectedLanguage: context.scenario.engineLanguage,

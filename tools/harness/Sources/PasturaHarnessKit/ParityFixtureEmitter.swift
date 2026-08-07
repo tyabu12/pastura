@@ -120,20 +120,46 @@ package enum ParityFixtureEmitter {
       scenarioPath: "Pastura/Pastura/Resources/Presets/target_score_race.yaml",
       purpose: """
         Negative control. A ledger whose entries never fire ships unexercised, \
-        so this fixture drives two documented divergences on purpose — one of \
-        each entry kind — and the parity suite fails if either stops firing.
+        so this fixture drives documented divergences on purpose and the parity \
+        suite fails if one stops firing.
 
-        Calls 0-2 answer the first agent's schema-declaring `speak_all` turn \
-        with present-but-empty canonical fields, across the whole retry window. \
-        Swift takes an `empty_field` retry and its last attempt RETURNS the \
-        empty output as an `agentOutput`; Kotlin's parser applies its \
-        expected-key guard on every successful parse, so it exhausts retries \
-        and emits a `turnSkipped` instead. That is a STRUCTURAL divergence \
-        (`.claude/rules/kmp-interop.md` Pattern 4).
+        **It currently drives a VALUE divergence only.** It used to drive one of \
+        each entry kind: calls 0-2 answer the first agent's schema-declaring \
+        `speak_all` turn with present-but-empty canonical fields across the \
+        whole retry window, which Swift returned as an `agentOutput` while \
+        Kotlin's parser guard exhausted retries into a `turnSkipped` — a \
+        STRUCTURAL divergence. ADR-021 § Amendment 2026-08-06 resolved it: both \
+        engines now skip that turn, so the arm no longer fires and \
+        `SCHEMA_GUARD_POSITION` was retired from the ledger. The empty-field \
+        overrides are kept because they still exercise the retry window \
+        identically on both sides.
 
-        The next call carries a float-valued key. Swift normalizes `1.0` to \
-        "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the \
-        literal as "1.0". That is a VALUE divergence, and the one \
+        No **currently-ledgered** structural class is reachable from a scripted \
+        fixture: `CANCELLATION_EVENT_TAIL` needs a mid-run cancellation this \
+        emitter never performs, `DETECTOR_UNWIRED` is deliberately guarded off \
+        (a real detector would make the golden vary by host — see \
+        `parityRunEmitsNoLanguageMismatch`), and `VALIDATOR_UNPORTED` needs a \
+        scenario Swift rejects, which would produce no transcript.
+
+        That is an enumeration over today's `DivergenceClass` cases, so it \
+        cannot see a structural divergence that is not yet ledgered — and one \
+        is: Swift's schema-guarded multi-object salvage (#907) accepts \
+        `{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}` on a \
+        schema-declaring turn, while Kotlin's `extractFirstJsonObject` returns object-like \
+        residue unchanged and fails the parse into a `turnSkipped`. Scripting \
+        that response here re-arms a structural arm. It is deferred, not \
+        impossible: the arm needs a new `DivergenceClass` case, and a case with \
+        no entry is exactly the pre-approved licence `DivergenceLedger` warns \
+        about — while nothing consumes `ParityGolden` yet to verify the arm \
+        end-to-end. The asymmetry is instead pinned by paired \
+        `JSONResponseParser` tests in both languages. Tracked on #501.
+
+        Do not read a clean structural comparison here as evidence the \
+        structural path is exercised.
+
+        The float-valued key below is the surviving arm. Swift normalizes `1.0` \
+        to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves \
+        the literal as "1.0". That is a VALUE divergence, and the one \
         `JSONResponseParser.kt` routes to Stage 4 to rule on.
         """,
       overrides: [

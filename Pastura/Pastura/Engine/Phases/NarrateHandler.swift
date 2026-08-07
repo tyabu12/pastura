@@ -75,6 +75,14 @@ nonisolated struct NarrateHandler: PhaseHandler {
       let output = try await llmCaller.call(
         llm: context.llm, system: systemPrompt, user: userPrompt,
         agentName: Self.narratorAgentName,
+        // `primaryField(for: .narrate)` is nil (engine-fixed `{ commentary }`
+        // schema, not author-declared), so the ADR-021 Amendment 2026-08-06
+        // skip rule cannot fire here. That is load-bearing: this is the one
+        // LLM call site NOT wrapped in `turnGate.attempt`, so a `retriesExhausted`
+        // thrown here would be swallowed by the `catch` below — the round would
+        // lose its narration with no `.turnSkipped` and no breaker increment,
+        // i.e. a skip the gate never counts toward its consecutive limit.
+        phaseType: context.phase.type,
         schema: schema,
         detector: context.detector,
         expectedLanguage: language,

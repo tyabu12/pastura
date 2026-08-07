@@ -178,6 +178,7 @@ nonisolated struct WhisperHandler: PhaseHandler {
           try await llmCaller.call(
             llm: context.llm, system: systemPrompt, user: userPrompt,
             agentName: speaker.name,
+            phaseType: context.phase.type,
             schema: OutputSchema.from(phase: context.phase),
             detector: context.detector,
             expectedLanguage: context.scenario.engineLanguage,

@@ -1,6 +1,8 @@
 package com.pastura.engine
 
 import com.pastura.models.OutputSchema
+import com.pastura.models.PhaseType
+import com.pastura.models.ScenarioConventions
 import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import com.pastura.models.TurnOutput
@@ -106,15 +108,22 @@ internal class LLMCaller(
      *   not cover. Deliberately **not** recomputed per attempt: a retry re-issues
      *   the same prompt, so it must re-issue the same seeds, and the caller's
      *   `lastOutputs` read has not changed under it anyway.
+     * @param phaseType The phase being executed. Used **only** to resolve the
+     *   canonical primary field via [ScenarioConventions.primaryField] for the
+     *   ADR-021 § Amendment 2026-08-06 skip rule. Deliberately non-nullable: a
+     *   nullable one would create a silent third state (caller forgot to thread it)
+     *   indistinguishable from `NARRATE`, whose canonical field is legitimately null.
      * @throws SimulationException wrapping [SimulationError.RetriesExhausted] after
-     *   [MAX_RETRIES] parse failures, or [SimulationError.LlmGenerationFailed] on a
-     *   backend failure.
+     *   [MAX_RETRIES] parse failures — or on `empty_field` exhaustion when the
+     *   declared canonical primary is absent/empty (ADR-021 § Amendment 2026-08-06) —
+     *   or [SimulationError.LlmGenerationFailed] on a backend failure.
      */
     suspend fun call(
         backend: LLMBackend,
         system: String,
         user: String,
         agentName: String,
+        phaseType: PhaseType,
         schema: OutputSchema? = null,
         detector: LanguageDetector? = null,
         expectedLanguage: String? = null,
@@ -157,13 +166,12 @@ internal class LLMCaller(
             logRepairIfNeeded(agentName, parseResult.second)
             logChatTemplateLeakage(result.rawText)
 
-            // Note the `&&`: on the LAST attempt an empty-field output is RETURNED,
-            // not thrown. Swift does the same (`if hasEmptyFields(output) && attempt
-            // < maxRetries`), and the asymmetry with parse failure is deliberate —
-            // a parseable-but-thin answer still lets the simulation continue.
-            if (hasEmptyFields(output) && attempt < MAX_RETRIES) {
-                logEmptyFields(output.fields, attempt)
-                emitRetryCause(agentName, attempt + 1, "empty_field")
+            // Empty-field retry, and the ADR-021 § Amendment 2026-08-06 skip when
+            // the declared canonical primary is what came back missing. Throws
+            // there; the turn gate turns that into `TurnSkipped`. Mirrors Swift's
+            // `LLMCaller+EmptyPrimary`; see [shouldRetryEmptyFields] for the
+            // two-clause contract.
+            if (shouldRetryEmptyFields(output, phaseType, expectedKeys, attempt, agentName)) {
                 continue
             }
 
@@ -329,8 +337,82 @@ internal class LLMCaller(
         )
     }
 
+    /**
+     * Applies ADR-021 § Amendment 2026-08-06 to one parsed attempt: emits the retry
+     * diagnostics and reports whether [call] should retry, or throws to hand the
+     * turn to the turn gate.
+     *
+     * Shaped like [handleLanguageAdherence] — returns `true` to `continue` the retry
+     * loop — so both post-parse checks read the same way at the call site.
+     *
+     * Two clauses, deliberately separate:
+     *
+     * 1. **Retry trigger.** The all-fields scan is unchanged, so an empty secondary
+     *    (`inner_thought` / `reason`) still consumes the budget. It is widened only
+     *    by [canonicalPrimaryIsMissing], which also catches a declared primary that
+     *    is *absent*: [hasEmptyFields] inspects values, not keys, so an absent key
+     *    would otherwise return at attempt 0 and hand the handler a primary-less
+     *    turn — leaving no final attempt for clause 2 to fire on.
+     * 2. **Exhaustion.** Throw only when the canonical primary is the thing missing.
+     *    Scoped that way because omitting a turn that carries a good `statement`
+     *    alongside an empty `inner_thought` would discard content the model *did*
+     *    produce — D2 inverted rather than applied.
+     *
+     * @return `true` when the caller should retry this attempt.
+     * @throws SimulationException wrapping [SimulationError.RetriesExhausted] on the
+     *   final attempt when the declared canonical primary is absent/empty.
+     */
+    private fun shouldRetryEmptyFields(
+        output: TurnOutput,
+        phaseType: PhaseType,
+        expectedKeys: Set<String>,
+        attempt: Int,
+        agentName: String,
+    ): Boolean {
+        val primaryMissing = canonicalPrimaryIsMissing(output, phaseType, expectedKeys)
+        if (!hasEmptyFields(output) && !primaryMissing) return false
+
+        if (attempt < MAX_RETRIES) {
+            logEmptyFields(output.fields, attempt)
+            emitRetryCause(agentName, attempt + 1, "empty_field")
+            return true
+        }
+        if (primaryMissing) {
+            throw SimulationException(SimulationError.RetriesExhausted)
+        }
+        return false
+    }
+
     private fun hasEmptyFields(output: TurnOutput): Boolean =
         output.fields.values.any { it == "..." || it.isEmpty() }
+
+    /**
+     * True when the phase's canonical primary field is *declared* by the schema yet
+     * arrives absent, empty, or as the `"..."` filler.
+     *
+     * The [expectedKeys] precondition is a **compatibility guard, not a
+     * refinement**: Swift's `ScenarioValidator.validateForCommit` enforces the
+     * canonical field at commit time and nothing re-checks it at run time, so a
+     * scenario persisted before that gate — or imported under ADR-020
+     * backward-compat — can omit it from `output:` entirely. The grammar never
+     * generates an undeclared key, so without this guard the field would read absent
+     * on every attempt of every turn of that phase, tripping the turn gate's
+     * consecutive-skip limit and making a scenario that ran yesterday unrunnable.
+     *
+     * Keyed on the **phase type**, never on the schema: [OutputSchema] carries no
+     * phase identity. `NARRATE` returns null here (Engine-fixed schema), which is
+     * what structurally exempts the one call site outside the turn gate.
+     */
+    private fun canonicalPrimaryIsMissing(
+        output: TurnOutput,
+        phaseType: PhaseType,
+        expectedKeys: Set<String>,
+    ): Boolean {
+        val key = ScenarioConventions.primaryField(phaseType) ?: return false
+        if (key !in expectedKeys) return false
+        val value = output.fields[key] ?: return true
+        return value == "..." || value.isEmpty()
+    }
 
     // MARK: - Language adherence (ADR-010 Step E)
 

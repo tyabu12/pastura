@@ -163,34 +163,50 @@ compile-clean one):
 | `SimulationError` is thrown directly | it is a `@Serializable sealed class`, **not** a `Throwable` — the engine throws it wrapped in `SimulationException` | unwrap before matching; a `catch` on the raw case does not compile |
 | `1...0` traps | `1..0` is an **empty range** | a clamp port's failure mode flips from crash to silent zero-iteration, so a why-comment must say which engine it describes |
 
-**The schema guard sits at a different place in each engine — a live behavioural divergence, not a
-porting choice.** The two `hasAllExpectedKeys` helpers are identical (both reject a present-but-empty
-expected key), and so is the `LLMCaller` empty-field branch (`LLMCaller.kt:160-164` says so in its
-own comment). The divergence is **entirely in the parser**: Swift's happy path returns before any guard
-(`JSONResponseParser.swift:95-97`) and applies it only on the salvage and post-repair paths
-(`:105`, `:153`), whereas Kotlin applies it on every successful parse **when the phase declares an
-`output:` schema** (`expectedKeys.isNotEmpty()`, `JSONResponseParser.kt:105`). So for a well-formed
-but all-empty response (`{"note":""}`) to a schema-declaring phase:
+**An empty declared canonical primary skips the turn — on both engines, since ADR-021
+§ Amendment 2026-08-06.** This used to be the `SCHEMA_GUARD_POSITION` divergence: Kotlin's parser
+applied its expected-keys guard on *every* successful parse, so an empty declared key became
+`parse_failed` → `RetriesExhausted` → turn-gate skip, while Swift returned it and let `LLMCaller`
+decide. The Amendment **deleted** the Kotlin guard rather than relocating it — Swift consults its
+equivalent only on the salvage and post-repair acceptance paths, and this parser has neither (both
+are "Knowingly absent … Stage 3" in its own class doc). `expectedKeys` survives on the signature
+purely as that port's landing point; re-adding a guard on the happy path would silently re-open the
+divergence, which is what its KDoc warns about.
 
-| | Swift | Kotlin |
-|---|---|---|
-| parser | returns the empty output | throws `JsonParseFailed` |
-| `LLMCaller` | `empty_field` retry; the **last attempt returns** the empty output | `parse_failed` every attempt → `RetriesExhausted` → turn-gate skip |
+Both engines now: parser returns the parsed output, and `LLMCaller.shouldRetryEmptyFields` throws at
+exhaustion **iff** the phase's declared schema carries `ScenarioConventions.primaryField(phaseType)`
+and that value is absent/empty/`"..."`. The all-fields empty scan still drives the *retry* on both
+sides, so an empty secondary burns budget and is then returned rather than discarded.
 
-**Apply.** On the Kotlin side a handler's non-empty guard on a key the phase's `output:` **declares**
-is defensive parity, unreachable via that path — so an "empty output doesn't erase X" test must
-assert the **skip mechanism** (`TurnSkipped` emitted, no `AgentOutput`, prior value survives), never
-the guard. Asserting the guard is coverage theater: revert it and the test stays green (the same rule
-Swift-side is `testing.md` § "A regression test must drive the exact unguarded-path input"). The
-declaration is validator-enforced for reflect→`note` and whisper→`statement`
+**Apply.** A handler's non-empty guard on a key the phase's `output:` **declares** is defensive
+parity, unreachable from the exhaustion path — **now symmetrically on both engines**, where it used
+to be Kotlin-only. So an "empty output doesn't erase X" test must assert the **skip mechanism**
+(`TurnSkipped` emitted, no `AgentOutput`, prior value survives), never the guard. Asserting the guard
+is coverage theater: revert it and the test stays green (the same rule Swift-side is `testing.md`
+§ "A regression test must drive the exact unguarded-path input"). This rule is what let the four
+existing Kotlin handler tests survive the Amendment unchanged while their *mechanism* changed
+underneath them — and what made Swift's `emptyNoteDoesNotErasePreExistingNote`, which asserted only
+the outcome, need a re-pin to tell the two mechanisms apart.
+
+The declaration is validator-enforced for reflect→`note` and whisper→`statement`
 (`ScenarioValidator.swift:264,278`), and the handler must actually pass the schema through
-(`schema = OutputSchema.from(context.phase)`) — omit that and `expectedKeys` is empty again. For an
-**undeclared** key — an optional `mood`, or any key on a schema-less phase — the parser guard never
-runs and the handler guard *is* reachable: there a direct test is correct, and so is porting the
-Swift one. ⚠️ The `TurnSkipped` assertion holds only **below** `TurnFailureGate.consecutiveSkipLimit`
-— the tripping failure throws `TurnFailureLimitReached` and emits no `TurnSkipped`
+(`schema = OutputSchema.from(context.phase)`) — omit that and `expectedKeys` is empty again, which
+now *disables the skip rule* rather than merely the parser guard. For an **undeclared** key — an
+optional `mood`, or any key on a schema-less phase — the skip rule is off by design (a
+backward-compat carve-out for scenarios predating `validateForCommit`) and the handler guard *is*
+reachable: there a direct test is correct on both sides. `narrate` is permanently in that bucket —
+`primaryField(NARRATE)` is null, and it is the one LLM call site outside the turn gate. Note what
+that costs on **both** engines: narrate catches around its own call (Swift a bare `catch`, Kotlin
+the deliberately narrower `catch (_: SimulationException)`, which still covers `RetriesExhausted`),
+so a throw there is *swallowed* — the round loses its narration with no `TurnSkipped` and no
+breaker increment, a degradation the gate never counts. A future un-gated site with **no** catch
+would abort the run instead.
+
+⚠️ The `TurnSkipped` assertion holds only **below** `TurnFailureGate.consecutiveSkipLimit` — the
+tripping failure throws `TurnFailureLimitReached` and emits no `TurnSkipped`
 (`TurnFailureGate.kt:77-80`), so a test driving that many consecutive empty turns fails the very
-assertion this rule prescribes.
+assertion this rule prescribes. That limit now binds an empty declared primary too, which it did not
+on the Swift side before the Amendment.
 
 **Stage a new `.kt` before believing either gate.** `check-kmp-status.py` and the prompt-literal
 parity gate both scope themselves to tracked files (correctly — `ci-workflows.md` § "Gate scripts"),
@@ -223,3 +239,14 @@ handler's `catch` is widened, and a wide catch here swallows `CancellationExcept
 own assertion ever running. Over-script (`MAX_RETRIES + 1`) so the written assertion is the detector.
 Decisive in §12 perturbation work, where "it reddened" IS the evidence: read *which* message fired.
 Worked example: `NarrateHandlerTests` (#1331).
+
+**Resolving a divergence silently disarms whatever parity fixture arm drove it.** The negative
+control in `ParityFixtureEmitter` is *intended* to drive one divergence per entry kind — today it
+does not, and that is the incident: converging the engines retires the `DivergenceClass` an arm
+exercised, and the arm goes with it. No existing assertion sees a case and its entry deleted
+**together**; only a *kind-coverage* one (≥1 `Structural` **and** ≥1 `Value` driven) would.
+**Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only instance
+of that entry kind; if so, re-arm or record the loss with a concrete re-arm candidate — never a
+bare "not reachable", which is an enumeration over *existing* cases and cannot see an unledgered
+divergence. Motivating incident: ADR-021 § Amendment 2026-08-06 retiring `SCHEMA_GUARD_POSITION`;
+residue and the kind-coverage guard tracked on #501.

@@ -147,14 +147,19 @@ class TranscriptComparatorTests {
         event = event,
         ordinal = ordinal,
         expectedLine = line,
-        divergenceClass = DivergenceClass.SCHEMA_GUARD_POSITION,
+        // Any structural class serves — this fixture data is synthetic and the
+        // comparator never reads the class, only the entry shape.
+        divergenceClass = DivergenceClass.CANCELLATION_EVENT_TAIL,
     )
 
     @Test
     fun aLedgeredStructuralSubstitutionIsAcceptedAndResyncs() {
-        // The shape the schema-guard divergence produces: Swift emits an
-        // agent_output where Kotlin emits a turn_skipped. Two entries, one per
-        // side. Bob's field DIFFERS across the sides on purpose — with identical
+        // A structural substitution: Swift emits an agent_output where Kotlin
+        // emits a turn_skipped. Two entries, one per side. (This was the shipped
+        // shape of the schema-guard divergence until ADR-021 § Amendment
+        // 2026-08-06 resolved it; the shape is still what the comparator must
+        // handle, so the synthetic data stays.) Bob's field DIFFERS across the
+        // sides on purpose — with identical
         // Bob events, a comparator that skipped the event entirely instead of
         // re-syncing would also report clean, so the test would pass for the
         // wrong reason.

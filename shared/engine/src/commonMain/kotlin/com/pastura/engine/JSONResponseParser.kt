@@ -33,8 +33,11 @@ import kotlinx.serialization.json.JsonPrimitive
  * | `PartialOutputExtractor` | landed as a sibling commonMain type in PR-3 (#501 Stage 3); this parser still does not consume it — the two share only the duplicated thinking-tag regexes by parity |
  * | `TurnOutput.rawText` passthrough | Kotlin `TurnOutput` has no `rawText`; its only consumer is Data-layer `TurnRecord.rawOutput` audit, outside the Engine port |
  *
- * `expectedKeys` is therefore accepted and **only** used for the post-parse guard,
- * not to drive salvage.
+ * `expectedKeys` is therefore accepted but **currently unused**. It used to drive a
+ * post-parse guard on every successful parse; ADR-021 § Amendment 2026-08-06 removed
+ * that, because the guard had no counterpart position here — Swift consults it only
+ * on the salvage and post-repair paths, both of which are absent above. The
+ * parameter is kept as the Stage-3 port's landing point; see [parse].
  *
  * Swift original: `Pastura/Pastura/LLM/JSONResponseParser.swift`.
  */
@@ -86,25 +89,29 @@ internal class JSONResponseParser {
     fun parse(text: String): TurnOutput = parse(text, expectedKeys = emptySet()).first
 
     /**
-     * Parse with an optional post-parse schema guard.
+     * Parse the happy path. No schema guard runs here — see [expectedKeys].
      *
-     * @param expectedKeys When non-empty, a parse whose result is missing any of
-     *   these keys — or has one empty — is rejected rather than returned. Preserves
-     *   the throw instead of handing back a half-formed [TurnOutput] (#194 PR#a
-     *   Item 2d).
+     * @param expectedKeys **Currently unused — reserved for the Stage-3 repair /
+     *   salvage port.** Until ADR-021 § Amendment 2026-08-06 this parameter drove
+     *   a post-parse guard applied on *every* successful parse, which made an
+     *   empty declared key a `parse_failed` here while Swift returned it and let
+     *   `LLMCaller` decide — the `SCHEMA_GUARD_POSITION` divergence. The guard is
+     *   gone rather than relocated because this parser has neither of the two
+     *   places Swift consults it (salvage, post-repair); both are Stage-3 freight
+     *   per the class doc. When that port lands, re-add the guard **only** on
+     *   those two acceptance paths, mirroring
+     *   `JSONResponseParser.swift` — re-adding it here would silently
+     *   re-open the divergence.
      * @return The parsed output plus the applied repair kind. **Always `null`
      *   here** — the repair pipeline is Stage-3 freight (see the class doc). The
      *   pair shape is kept so the Stage-3 port can add repairs without changing
      *   every callsite.
      * @throws SimulationException wrapping [SimulationError.JsonParseFailed].
      */
+    @Suppress("UNUSED_PARAMETER")
     fun parse(text: String, expectedKeys: Set<String>): Pair<TurnOutput, String?> {
         val cleaned = applyCleanupPipeline(text)
         val output = tryParse(cleaned) ?: throw SimulationException(SimulationError.JsonParseFailed(raw = text))
-
-        if (expectedKeys.isNotEmpty() && !hasAllExpectedKeys(output, expectedKeys)) {
-            throw SimulationException(SimulationError.JsonParseFailed(raw = text))
-        }
         return output to null
     }
 
@@ -205,9 +212,6 @@ internal class JSONResponseParser {
         val obj = element as? JsonObject ?: return null
         return TurnOutput(fields = normalizeValues(obj))
     }
-
-    private fun hasAllExpectedKeys(output: TurnOutput, expectedKeys: Set<String>): Boolean =
-        expectedKeys.all { !output.fields[it].isNullOrEmpty() }
 
     /**
      * Normalize every JSON value to `String`. Null values are omitted.

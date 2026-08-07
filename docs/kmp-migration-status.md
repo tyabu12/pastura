@@ -32,7 +32,7 @@ _Last updated: 2026-08-06._
 | 1 | `shared/models` + CI infrastructure | ✅ done | #1052 #1055 #1059 |
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | 🔄 in progress | ↓ Stage 3 breakdown |
-| 4 | Cross-language parity harness | 🔄 in progress | slice 1a landed; 1b next · [#1387](https://github.com/tyabu12/pastura/issues/1387) |
+| 4 | Cross-language parity harness | 🔄 in progress | slice 1a landed ([#1387](https://github.com/tyabu12/pastura/issues/1387), closed); 1b next · [#501](https://github.com/tyabu12/pastura/issues/501) |
 | 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
@@ -74,6 +74,26 @@ machine-checked — see the maintenance invariant above.
 
 - **Stage 4** (parity harness): 🔄 in progress — slice 1a landed; 1b next; no parity rung live yet.
   See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
-  [#1387](https://github.com/tyabu12/pastura/issues/1387).
+  [#1387](https://github.com/tyabu12/pastura/issues/1387) (slice 1a, closed) and
+  [#501](https://github.com/tyabu12/pastura/issues/501) (remaining Stage-4 work).
+  ⚠️ The divergent fixture's negative control now drives a **value** divergence only:
+  ADR-021 § Amendment 2026-08-06 resolved `SCHEMA_GUARD_POSITION` (both engines skip a turn
+  whose declared canonical primary is empty), and none of the three *currently-ledgered*
+  structural classes is reachable from a scripted fixture (see `ParityFixtureEmitter`'s
+  `purpose` for the per-class reason). That is an enumeration over today's `DivergenceClass`
+  cases, **not** a proof that no structural arm exists: an unledgered one does. Swift's
+  schema-guarded salvage (#907) accepts a multi-object response
+  (`{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}`) that Kotlin's `extractFirstJsonObject`
+  refuses, yielding Swift `agent_output` vs Kotlin `turn_skipped` — the same structural shape
+  that was just lost. The asymmetry is pinned by paired parser tests in both languages; adding
+  the `DivergenceClass` case and the fixture arm is deliberately deferred, because a case with
+  no entry is the "pre-approved licence" `DivergenceLedger` warns about, and nothing consumes
+  `ParityGolden` yet to verify the arm end-to-end.
+  ⚠️ The guard that would have caught this loss is **kind-coverage** — an assertion that the
+  divergent fixture drives ≥1 `Structural` *and* ≥1 `Value` entry. Not the unfired-entry
+  assertion, and not the "every case is cited" test `DivergenceLedger` already prescribes: the
+  case and its entry were deleted *together*, so both stay green. Re-arming and the
+  kind-coverage guard are tracked on
+  [#501](https://github.com/tyabu12/pastura/issues/501) (#1387 is closed).
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.

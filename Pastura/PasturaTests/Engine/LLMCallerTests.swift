@@ -17,6 +17,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -35,6 +36,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -53,6 +55,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -71,6 +74,7 @@ struct LLMCallerTests {
     await #expect(throws: SimulationError.self) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: SuspendController(),
         emitter: collector.emit
       )
@@ -87,6 +91,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     _ = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -112,6 +117,7 @@ struct LLMCallerTests {
     await #expect(throws: SimulationError.self) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: SuspendController(),
         emitter: collector.emit
       )
@@ -133,6 +139,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "s", user: "u", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -158,6 +165,7 @@ struct LLMCallerTests {
     let callTask = Task<TurnOutput, Error> {
       try await caller.call(
         llm: mock, system: "s", user: "u", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: controller,
         emitter: collector.emit
       )
@@ -186,6 +194,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     _ = try await caller.call(
       llm: mock, system: "s", user: "u", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -215,6 +224,7 @@ struct LLMCallerTests {
     let callTask = Task<TurnOutput, Error> {
       try await caller.call(
         llm: mock, system: "s", user: "u", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: controller,
         emitter: collector.emit
       )
@@ -245,6 +255,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -267,6 +278,7 @@ struct LLMCallerTests {
     let collector = EventCollector()
     let result = try await caller.call(
       llm: mock, system: "sys", user: "usr", agentName: "Alice",
+      phaseType: .speakAll,
       suspendController: SuspendController(),
       emitter: collector.emit
     )
@@ -288,6 +300,7 @@ struct LLMCallerTests {
     do {
       _ = try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: SuspendController(),
         emitter: collector.emit)
       Issue.record("expected the run to fail after sampler-crash exhaustion")
@@ -315,6 +328,7 @@ struct LLMCallerTests {
     await #expect(throws: LLMError.invalidGrammar(description: "boom")) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: SuspendController(),
         emitter: collector.emit)
     }

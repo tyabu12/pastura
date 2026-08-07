@@ -22,6 +22,7 @@ extension LLMCallerTests {
     await #expect(throws: LLMError.notLoaded) {
       try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: SuspendController(),
         emitter: collector.emit)
     }
@@ -40,6 +41,7 @@ extension LLMCallerTests {
     do {
       _ = try await caller.call(
         llm: mock, system: "sys", user: "usr", agentName: "Alice",
+        phaseType: .speakAll,
         suspendController: SuspendController(),
         emitter: collector.emit)
       Issue.record("expected the call to throw after a non-retryable stream failure")

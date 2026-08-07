@@ -14,7 +14,8 @@ package com.pastura.engine
  *
  * **Nothing is wired to a real transcript yet.** No `List<LedgerEntry>` instance
  * exists, and `ParityGolden` is read by nothing; the schema, the comparator and
- * the golden are three unconnected pieces until slice 1b (#1387) joins them. So
+ * the golden are three unconnected pieces until slice 1b (#501; #1387 delivered
+ * 1a and is closed) joins them. So
  * this file describes a guard that is proven against synthetic transcripts and
  * not yet against either engine — read the paragraphs below as the contract 1b
  * inherits, not as a gate now running.
@@ -34,7 +35,8 @@ package com.pastura.engine
  * genuinely new divergence needs a new enum case — a reviewable diff, not a
  * free-text pointer — and [LedgerEntry.Structural] pins the whole expected
  * event line, so an unrelated extra event near a ledgered position is not
- * absorbed. The rest is policy, recorded on #1387: on the ported surface a new
+ * absorbed. The rest is policy, first recorded on the closed #1387 and carried
+ * forward on #501: on the ported surface a new
  * Swift-only divergence is dual-landed, not ledgered.
  */
 internal object DivergenceLedger {
@@ -54,6 +56,16 @@ internal object DivergenceLedger {
      * scope rather than unfired, so it vanishes with no signal when the
      * divergence it covered also closes; assert every `fixture` against the
      * known fixture names once they are enumerable.
+     *
+     * **A third gap, found the hard way (#501).** Neither assertion above sees a
+     * case and its entry being deleted **together** — which is what resolving a
+     * divergence does. Nothing is left unfired, and "every case is cited" holds
+     * over the survivors, so the negative control can silently lose an entire
+     * entry *kind* while staying green. Only a **kind-coverage** assertion (the
+     * divergent fixture drives >= 1 [LedgerEntry.Structural] *and* >= 1
+     * [LedgerEntry.Value]) reddens on it. ADR-021's Amendment 2026-08-06 retired
+     * `SCHEMA_GUARD_POSITION` and cost the fixture its only structural arm
+     * exactly this way.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
         /**
@@ -62,13 +74,12 @@ internal object DivergenceLedger {
          */
         CANCELLATION_EVENT_TAIL("ConditionalHandler.kt class KDoc, § Divergences"),
 
-        /**
-         * For a present-but-empty canonical field on a schema-declaring phase,
-         * Swift's last retry attempt returns the empty output as an
-         * `agentOutput`; Kotlin's parser guard exhausts retries and the turn
-         * gate emits `turnSkipped`.
-         */
-        SCHEMA_GUARD_POSITION(".claude/rules/kmp-interop.md Pattern 4"),
+        // `SCHEMA_GUARD_POSITION` lived here — Swift returned a present-but-empty
+        // canonical field as an `agentOutput` where Kotlin's parser guard exhausted
+        // retries into a `turnSkipped`. ADR-021 § Amendment 2026-08-06 resolved it
+        // (both engines now skip), so the case is DELETED rather than kept with a
+        // "resolved" marker: a case that outlives its entries becomes a pre-approved
+        // licence a later author can attach to with no enum diff at all.
 
         /**
          * The ADR-010 language-adherence retry is dormant on the Kotlin side:

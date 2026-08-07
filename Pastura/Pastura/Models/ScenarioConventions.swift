@@ -7,10 +7,14 @@ import Foundation
 ///
 /// | Phase | Canonical primary field |
 /// |-------|-------------------------|
-/// | `.speakAll`, `.speakEach` | `statement` |
+/// | `.speakAll`, `.speakEach`, `.whisper` | `statement` |
 /// | `.choose` | `action` |
 /// | `.vote` | `vote` |
 /// | `.reflect` | `note` |
+///
+/// `.narrate` is the one LLM phase absent from the table: its
+/// `{ commentary }` schema is engine-fixed rather than author-declared, so
+/// there is no canonical `output:` field to key on.
 ///
 /// Speak phases route the canonical field's value into the conversation log
 /// (read by ``PromptBuilder``) and into the agent's primary display text
@@ -32,12 +36,12 @@ import Foundation
 /// as-is.
 nonisolated public enum ScenarioConventions {
   /// Returns the canonical primary output field name expected on `output:`
-  /// for the given phase type, or `nil` for code phases that emit no LLM
-  /// output.
+  /// for the given phase type — the mapping tabled on ``ScenarioConventions``.
   ///
-  /// Speak phases return `"statement"`, choose returns `"action"`, vote
-  /// returns `"vote"`, reflect returns `"note"`. All other phase types return
-  /// `nil`.
+  /// `nil` does NOT mean "code phase": it means the phase declares no
+  /// author-facing primary, which covers every code phase **and** `.narrate`.
+  /// Callers branching on `nil` (ADR-021 § Amendment 2026-08-06's skip rule)
+  /// depend on that wider reading.
   public static func primaryField(for phaseType: PhaseType) -> String? {
     switch phaseType {
     case .speakAll, .speakEach:
