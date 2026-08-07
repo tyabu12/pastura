@@ -652,12 +652,27 @@ jobs:
       # the Swift Models — and it acquires NO XCFramework dependency, so
       # decision B′ still holds.
       #
-      # Coverage gap, stated rather than papered over: this job is gated on
-      # `ios != false`, so a PR that hand-edits ONLY the generated Kotlin file
-      # skips it. Swift is the source of truth and that direction is covered;
-      # the generated file carries a DO-NOT-EDIT header for the other.
+      # Both drift directions reach this job, including a PR that hand-edits ONLY
+      # the generated Kotlin file. That is NOT self-evident from the `ios !=
+      # false` gate above — it holds because `shared/**` is absent from
+      # `scripts/precommit-gate-classify.sh`'s SAFE denylist (`web/`, `docs/`,
+      # `.github/`, `.claude/`, `*.md`, repo-meta dotfiles), so such a path is
+      # non-SAFE ⇒ `build` ⇒ `ios=true`. Adding `shared/` to that denylist would
+      # silently disarm this guard and the parity one below; the invariant is
+      # pinned by `scripts/tests/precommit-gate-classify-test.sh`.
       - name: Golden JSON drift guard (ADR-023 measurement (v))
         run: swift run pastura-harness emit-golden --check
+
+      # ADR-023 Stage-4 parity fixtures: `ParityGolden.kt` is generated from the
+      # Swift Engine's own behaviour and carries a DO-NOT-EDIT header, so it can
+      # go stale from either side — an input change (Engine semantics, the
+      # fixture scenario / `specs`, the `EventLineMapper` projection) or a
+      # hand-edit. #1397 changed its contents while nothing detected staleness.
+      # Same reach argument as the step above; ~1 s, inference-free (scripted
+      # responder), and it reuses the executable `swift build` already produced,
+      # so decision B′ (no per-PR XCFramework dependency) still holds.
+      - name: Parity golden drift guard (ADR-023 Stage 4)
+        run: swift run pastura-harness parity-emit --check
 
   # ---------------------------------------------------------------------------
   # KMP Models layer build & test (#501 Stage 1, ADR-023). Validates that the
