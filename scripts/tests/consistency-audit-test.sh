@@ -6,9 +6,16 @@
 # The skill's own harness lives at
 # `.claude/skills/consistency-audit/tests/run_tests.sh`, which the CI
 # "Shell gate tests" job does NOT pick up — that job globs only
-# `scripts/tests/*-test.sh`. Without this shim the detector's fixtures
-# (clean / drift / judgment / boundary / adr) run nowhere automatically,
-# so the "zero findings on main" guarantee would have no regression guard.
+# `scripts/tests/*-test.sh`. Without this shim the detector's fixtures run
+# nowhere automatically, so every detector's must-NOT-fire set would have no
+# regression guard. (Fixtures are enumerated in the harness itself rather than
+# here, so the list cannot go stale from this end.)
+#
+# The harness asserts fixture behaviour only — never the live repo. `main` is
+# not a zero-findings invariant since adr_navigation_missing landed, and even
+# where a live assertion looks stable it would redden unrelated PRs: this job
+# has no path filter, so an ordinary docs edit that shifts an ADR's line count
+# would fail the consistency-audit gate.
 # This file matches the glob and delegates, giving the harness a CI home.
 #
 # The harness needs python3 + jq (both present on the ubuntu-latest runner);

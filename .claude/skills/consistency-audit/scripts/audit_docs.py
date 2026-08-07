@@ -20,8 +20,17 @@ Conservatism is deliberate: false positives poison the queue, so each detector
 prefers a miss over a wrong flag. Every shipped detector fires zero false
 positives on the current repo: dependency_version, min_ios, dead_link
 (needs_judgment), dangling_adr (needs_judgment), embedded_source_mirror
-(needs_judgment), unparsed_adr_reservation (needs_judgment), and
-adr_roster_drift (needs_judgment).
+(needs_judgment), unparsed_adr_reservation (needs_judgment),
+adr_roster_drift (needs_judgment), and adr_navigation_missing
+(needs_judgment).
+
+adr_navigation_missing is the first detector that reports on a clean `main` —
+two ADRs at the time it landed. That is not a false positive: the others
+describe states that should not exist, whereas this one describes a structural
+property a healthy repo can legitimately have and a maintainer may legitimately
+accept. It is why the `<!-- nav-exempt: … -->` opt-out exists — a finding whose
+correct resolution is sometimes "no" needs a place to record the no, or every
+run re-files it.
 Detectors that flood until their FP sources are designed out
 are intentionally deferred — see the SKILL's "Deferred detectors" note:
   - file:line citation checks   (docs cite source-root-relative paths, GitHub

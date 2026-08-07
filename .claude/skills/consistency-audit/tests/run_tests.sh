@@ -1,9 +1,15 @@
 #!/bin/bash
 # Self-test for the consistency-audit detector. No Swift toolchain or network
-# needed — exercises the fixture repos (clean / drift / judgment / boundary /
-# adr) against audit_docs.py, including the must-NOT-fire regression set, the
-# Package.resolved version-vs-revision trap, and the dangling-ADR reserved-set
-# / first-cell-keying guards.
+# needed — exercises the fixture repos under fixtures/ against audit_docs.py,
+# plus the generated adr_navigation_missing fixture, covering the must-NOT-fire
+# regression sets, the Package.resolved version-vs-revision trap, the
+# dangling-ADR reserved-set / first-cell-keying guards, and one mutation per
+# navigation guard. No fixture roster here: each block below names the fixture
+# it drives, and a summary list at the top only went stale.
+#
+# Assertions are fixture-only, deliberately: this runs in CI on every PR with
+# no path filter, so an assertion about the live repo would redden unrelated
+# work whenever an ADR's line count moved.
 #
 # usage: bash .claude/skills/consistency-audit/tests/run_tests.sh
 # requires: python3, jq

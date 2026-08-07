@@ -32,9 +32,13 @@ contract in context.
   the commit-time gate moved to the git pre-commit hook (`swiftlint --strict` +
   build), so there is no per-commit prompt. (`gh issue create` was allowlisted
   with the dangling-ADR detector (#876); every needs_judgment detector can
-  file Step 4 issues. It is exercised only when one actually fires; on a clean
-  `main` all of them are designed to report zero, so Step 4 stays quiet by
-  construction, not because it is unreachable.)
+  file Step 4 issues. The *drift* detectors report zero on a clean `main` by
+  construction — they describe states that should not exist. **`adr_navigation_missing`
+  does not**: it reports on a structural property a healthy repo can legitimately
+  have, and it fires on `main` today, so Step 4 now runs on ordinary passes
+  rather than only on a regression. That makes the cap-1 dedup in Step 4 step 1
+  and the `nav-exempt` opt-out load-bearing rather than theoretical — without
+  one of them, every run re-files the same finding.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
@@ -214,12 +218,12 @@ For each `needs_judgment` finding (already deduped by `target`):
    for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
    it is the `<docfile>::<sourcepath>` composite (so the same source mirrored in
    two docs files two distinct issues), for `unparsed_adr_reservation` it is
-   `reservation:ADR-NNN` and for `adr_roster_drift` `roster:ADR-NNN` (or
-   `roster:<file>` for a shape drift) — embed `target` in the issue title
-   verbatim.
+   `reservation:ADR-NNN`, for `adr_roster_drift` `roster:ADR-NNN` (or
+   `roster:<file>` for a shape drift), and for `adr_navigation_missing`
+   `nav:ADR-NNN` — embed `target` in the issue title verbatim.
 
-   **The namespacing on the last two is load-bearing, and it is not
-   sufficient.** The search cannot tell finding types apart, so a bare
+   **The namespacing on the three ADR-keyed types is load-bearing, and it is
+   not sufficient.** The search cannot tell finding types apart, so a bare
    `ADR-NNN` would be permanently suppressed by the open `dangling_adr` issue
    it exists to explain — most likely exactly when both fire. The prefix stops
    that, but GitHub also matches on tokens rather than whole strings, and
@@ -229,10 +233,11 @@ For each `needs_judgment` finding (already deduped by `target`):
    — a match on the bare ADR id when the target is namespaced (or vice versa)
    is a different finding, and skipping on it drops a real one silently.
 
-   Quote the target when it contains a `:` — `--search '"roster:ADR-006" in:title'`.
-   Unquoted, GitHub reads `roster:` as a search qualifier. (This predates the
-   two new types: `embedded_source_mirror`'s `<docfile>::<sourcepath>` composite
-   has the same shape.)
+   Quote the target when it contains a `:` — `--search '"roster:ADR-006" in:title'`,
+   and likewise `'"nav:ADR-002" in:title'`. Unquoted, GitHub reads `roster:` /
+   `nav:` as a search qualifier. (This predates the newer types:
+   `embedded_source_mirror`'s `<docfile>::<sourcepath>` composite has the same
+   shape.)
 2. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
@@ -242,12 +247,19 @@ For each `needs_judgment` finding (already deduped by `target`):
    - **Suggested action**, explicitly left for a human to decide.
 
    Most detectors pre-author these fields. `dangling_adr`,
-   `embedded_source_mirror`, `unparsed_adr_reservation` and `adr_roster_drift`
-   findings already carry `confidence`, `counter_evidence`, and
-   `suggested_action` on the JSON — use them verbatim rather than re-deriving.
+   `embedded_source_mirror`, `unparsed_adr_reservation`, `adr_roster_drift` and
+   `adr_navigation_missing` findings already carry `confidence`,
+   `counter_evidence`, and `suggested_action` on the JSON — use them verbatim
+   rather than re-deriving.
    Each also carries one field naming what it found: `source` (the real file a
    mirrored block drifted from), `shape` (which reservation shape was seen),
-   and `problems` (the list of roster/INDEX/disk disagreements for one ADR).
+   `problems` (the list of roster/INDEX/disk disagreements for one ADR), and
+   `sections` (the per-amendment heading and span behind a navigation finding).
+   **Reproduce `sections` in the issue body**, not just the share: the share is
+   title-based, so a numbered section belonging to the ADR's own outline counts
+   as an amendment, and the breakdown plus `numbered_section_count` is what
+   makes the finding arguable instead of a bare percentage a maintainer can
+   only accept or reject.
    `dead_link` does not, so author its confidence / counter-evidence at filing
    time as before.
 
@@ -290,3 +302,25 @@ enabling. Each floods the reference-dense repo today:
   fragile on emoji headings and duplicate-heading suffixes; bare `§"..."` prose
   refs have no unambiguous target. Needs a verified slug normalizer + a target
   resolution rule.
+
+Two more were measured and rejected while `adr_navigation_missing` was built
+(#1400). Both are amendment **placement** checks — the thing `adr-writing.md`
+still says nothing enforces — so record why each was declined rather than
+leaving the next author to re-derive it:
+
+- **stranded values** ("a definitive value that lives only in an amendment,
+  never in the body") — ADR-028 § "Where new amendment content goes" *puts*
+  derivation and measurements in amendments deliberately, so a hex value or a
+  threshold inside one is usually correct placement, not drift. Separating a
+  standing value from a derivation record is exactly the judgment the
+  convention leaves to a human, and a mechanical proxy floods on ADR-028 —
+  the one ADR that already follows the convention. Needs a way to tell "this
+  is the current answer" from "this is how we got there".
+- **supersede-convention violations** (`adr-writing.md` requires marking a
+  superseded section in place with a leading block quote plus a `†` in the
+  index row) — measured on 2026-08-08, `supersed*` appears in ADR-023 (×9),
+  ADR-027 (×2), ADR-020 (×2), ADR-021, ADR-022 and INDEX (×3), and the
+  majority are **cross-ADR** supersession, which the intra-file convention
+  does not govern. `†` exists only in ADR-028. A naive "mentions supersede ⇒
+  must carry †" predicate yields 5+ false positives. Needs the claim's scope
+  resolved (does this supersede a section of *this* file?) before it can fire.
