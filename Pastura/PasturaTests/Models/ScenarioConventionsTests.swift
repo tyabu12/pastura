@@ -30,13 +30,29 @@ struct ScenarioConventionsTests {
   /// missing".
   @Test func primaryFieldForCodePhasesReturnsNil() {
     let codePhases: [PhaseType] = [
-      .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject
+      .scoreCalc, .assign, .eliminate, .summarize, .conditional, .eventInject,
+      .relationshipUpdate
     ]
     for phase in codePhases {
       #expect(
         ScenarioConventions.primaryField(for: phase) == nil,
         "expected nil for code phase \(phase.rawValue)")
     }
+  }
+
+  /// `narrate` is an **LLM** phase, so it sits outside the code-phase list
+  /// above, yet it also has no primary field: its `{ commentary }` shape is
+  /// built by `NarrateHandler` rather than author-declared.
+  ///
+  /// Pinned separately because ADR-029 § Amendment 2026-08-07 now leans on it.
+  /// A highlight excerpt is hidden unless every line's phase declares a primary
+  /// field, so giving narration one would silently make narrate excerptable —
+  /// falsifying that amendment's "one widening is blocked outright" paragraph,
+  /// the loader's "the six" comment, and `GalleryHighlightExcerptEntry`'s doc,
+  /// with nothing else going red.
+  @Test func primaryFieldForNarrateReturnsNilDespiteBeingAnLLMPhase() {
+    #expect(PhaseType.narrate.requiresLLM)
+    #expect(ScenarioConventions.primaryField(for: .narrate) == nil)
   }
 
   /// Defends against drift if a new `PhaseType` case lands with a non-canonical
