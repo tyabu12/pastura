@@ -3,13 +3,9 @@ import SwiftUI
 /// Layout tokens for ``PasturaStreamDivider``.
 ///
 /// Extracted from the View so `PasturaStreamDividerTests` can act as a
-/// **change-detector tripwire** (`.claude/rules/view-testing.md` §
-/// "Change-detector tripwire for code-review-gated tokens"). The divider's
-/// rendered appearance is code-review-gated only — ADR-009 keeps snapshot
-/// tests out — and it now backs four separate screens, so a silent drift here
-/// would move the chapter rhythm on all of them at once. A failure is NOT a
-/// bug report: it means a code-review-gated token changed, and the editor must
-/// confirm that change passed review before updating the expected value.
+/// **change-detector tripwire** — see that suite's doc comment for why these
+/// values earn one (`.claude/rules/view-testing.md` § "Change-detector
+/// tripwire for code-review-gated tokens").
 enum PasturaStreamDividerLayout {
   /// Thickness of the hairline rules flanking the centred content.
   static let ruleHeight: CGFloat = 1
@@ -22,17 +18,24 @@ enum PasturaStreamDividerLayout {
 /// A full-width "chapter" separator for chat-stream surfaces: a hairline rule,
 /// the caller's centred content, and a second hairline rule.
 ///
-/// This is the shared body of what used to be five byte-identical inline
-/// copies — round separators on the live simulation, the DL-time demo and past
-/// results, plus phase separators on the first two. The centred element is
-/// whatever the caller passes (a `Text` round label, a ``PhaseTypeLabel``
-/// badge), and everything *outside* the divider stays at the call site:
-/// the demo's `.id()` / `.transition()`, and its `requiresLLM` gate.
+/// This is the shared body of what used to be five inline copies of one
+/// container: three byte-identical round separators (live simulation, DL-time
+/// demo, past results) plus two phase separators differing only in the centred
+/// element. That element is now whatever the caller passes — a `Text` round
+/// label, a ``PhaseTypeLabel`` badge — and everything *outside* the divider
+/// stays at the call site too: the demo's `.id()` / `.transition()`, and its
+/// `requiresLLM` gate.
 ///
-/// ⚠️ Not every "separator"-named helper is one of these. `demoPhaseSeparator`
-/// renders a **bare** ``PhaseTypeLabel`` for code-driven phases — no rules, no
-/// flanking — so full-width emphasis doesn't land on every phase of a
-/// code-phase-heavy scenario (#882). That branch must not be folded in here.
+/// ⚠️ Two neighbours look like members and are not:
+///
+/// - `demoPhaseSeparator`'s **code-phase** branch renders a bare
+///   ``PhaseTypeLabel`` with no rules at all, so full-width emphasis doesn't
+///   land on every phase of a code-phase-heavy scenario (#882).
+/// - ``DemoBoundaryRow`` *is* rule–content–rule and *does* sit in the same
+///   DL-time chat stream, but its rules take `.frame(maxWidth: .infinity)`, its
+///   14pt rhythm carries its own in-source rationale for the +2 over the
+///   inter-bubble gap, and it declares `.accessibilityAddTraits(.isHeader)`.
+///   Those are its contract, not drift from this one.
 struct PasturaStreamDivider<Content: View>: View {
   private let content: Content
 

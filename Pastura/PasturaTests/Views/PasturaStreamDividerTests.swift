@@ -5,19 +5,21 @@ import Testing
 
 /// Change-detector tripwire for ``PasturaStreamDividerLayout``.
 ///
-/// These assertions mirror the source-of-truth constants **by design**. The
-/// divider's rendered appearance is code-review-gated only (ADR-009 rules out
-/// snapshot tests), and since this component was extracted it backs four
-/// screens at once — the live simulation, the DL-time demo, past results, and
-/// the gallery highlight excerpt. A silent drift in a refactor would therefore
-/// re-space every chat-stream chapter break in the app simultaneously, with
-/// nothing else to catch it.
+/// These assertions mirror the source-of-truth constants **by design**.
+///
+/// `view-testing.md`'s tripwire rule is written for a surface with "no manual
+/// trigger to *see* it", and this divider fails that reading — it renders on
+/// every simulation run. The argument for guarding it anyway is **drift
+/// magnitude, not invisibility**: 1pt→2pt on the rule, or 4pt→6pt on the
+/// padding, is not something casual QA notices on any one screen, yet since
+/// the component was extracted a single edit re-spaces every chat-stream
+/// chapter break in the app at once — live simulation, DL-time demo, past
+/// results, and the gallery highlight excerpt. ADR-009 rules out the snapshot
+/// test that would otherwise catch it, so nothing else would.
 ///
 /// A failure here does NOT mean a bug was found: it means a code-review-gated
 /// visual token changed, and the editor must confirm that change passed code
-/// review before updating the expected value. See
-/// `.claude/rules/view-testing.md` § "Change-detector tripwire for
-/// code-review-gated tokens".
+/// review before updating the expected value.
 @Suite("PasturaStreamDividerLayout", .timeLimit(.minutes(1)))
 @MainActor
 struct PasturaStreamDividerTests {

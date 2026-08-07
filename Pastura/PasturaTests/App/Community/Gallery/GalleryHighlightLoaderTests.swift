@@ -191,7 +191,7 @@ import Testing
   /// an app build that predates the case (ADR-029 revisit trigger 1). The
   /// excerpt is a quotation, so a phase this build cannot name hides the whole
   /// section rather than dropping the line out of the passage.
-  @Test func unknownExcerptPhaseHidesSection() async {
+  @Test func unmappableExcerptPhaseHidesSection() async {
     let service = HighlightStubGalleryService()
     service.result = .success(Self.highlightJSON(phases: ["interpretive_dance"]))
     let loader = GalleryHighlightLoader(galleryService: service)
@@ -201,9 +201,23 @@ import Testing
     #expect(loader.highlight == nil)
   }
 
-  /// The guard is `allSatisfy`, not a check of the first entry — one unmappable
-  /// line anywhere in the passage hides it. Without this case a first-entry-only
-  /// check would still pass `unknownExcerptPhaseHidesSection` above.
+  /// A phase that maps fine but declares no primary output field is equally
+  /// unrenderable: `AgentOutputRow` looks the line up by that field name, so
+  /// the row would show a speaker above an empty bubble. `summarize` is a code
+  /// phase, so `ScenarioConventions.primaryField(for:)` returns `nil` for it.
+  @Test func mappableButFieldlessExcerptPhaseHidesSection() async {
+    let service = HighlightStubGalleryService()
+    service.result = .success(Self.highlightJSON(phases: ["summarize"]))
+    let loader = GalleryHighlightLoader(galleryService: service)
+
+    await loader.load(for: makeScenario())
+
+    #expect(loader.highlight == nil)
+  }
+
+  /// The guard is `allSatisfy`, not a check of the first entry — one bad line
+  /// anywhere in the passage hides it. Without this case a first-entry-only
+  /// check would still pass `unmappableExcerptPhaseHidesSection` above.
   @Test func oneUnknownPhaseAmongKnownOnesHidesSection() async {
     let service = HighlightStubGalleryService()
     service.result = .success(

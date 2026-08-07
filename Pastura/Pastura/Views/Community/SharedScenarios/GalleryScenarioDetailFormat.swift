@@ -56,12 +56,13 @@ enum GalleryScenarioDetailFormat {
   /// this line.
   struct ExcerptRow: Identifiable {
     /// Position in the excerpt. The entries are **not** unique — one persona
-    /// can speak more than once, and two lines can be byte-identical (both
-    /// shipped highlights contain a repeated `"答えはC"`) — so the index is the
-    /// only stable identity, mirroring the `enumerated().offset` ids the rest
-    /// of this screen uses.
+    /// can speak more than once, and two lines can be byte-identical: the
+    /// shipped `asch_conformity_v1` highlight repeats `"答えはC"` and has
+    /// 被験者ナオキ speaking twice. So the index is the only stable identity,
+    /// mirroring the `enumerated().offset` ids the rest of this screen uses.
     let id: Int
 
+    /// The published excerpt line this row renders — speaker, text, round.
     let entry: GalleryHighlightExcerptEntry
 
     /// Zero-based avatar colour slot. See ``excerptRows(_:totalRounds:)`` for
@@ -69,9 +70,16 @@ enum GalleryScenarioDetailFormat {
     let agentPosition: Int
 
     /// Mapped phase, for the row's badge. Non-optional: `GalleryHighlightLoader`
-    /// hides any highlight carrying an unmappable phase (ADR-029 § Amendment
+    /// hides any highlight carrying an unrenderable phase (ADR-029 § Amendment
     /// 2026-08-07), so a row that exists always has one.
     let phaseType: PhaseType
+
+    /// The output-field name ``phaseType`` declares its spoken line under —
+    /// `statement` for the speak phases, but `vote` / `action` / `note`
+    /// elsewhere. The row must key its `TurnOutput` by this and not by a
+    /// hardcoded `statement`, because that is what `AgentOutputRow` looks up;
+    /// a mismatch renders a speaker with no line.
+    let primaryField: String
 
     /// Localized round label for a divider drawn **above** this row, or `nil`
     /// when the line continues the previous line's round.
@@ -91,12 +99,16 @@ enum GalleryScenarioDetailFormat {
   /// more speakers the fourth and fifth collide — the app collides identically,
   /// so reproducing it is fidelity rather than a defect to route around.
   ///
-  /// **Returns `[]` when any phase is unmappable.** This mirrors the loader's
-  /// fail-closed gate rather than trusting it: this is a pure function with no
-  /// way to signal a partial result, and the alternatives — dropping the line,
-  /// or inventing a fallback badge — are the two outcomes ADR-029 § Amendment
-  /// 2026-08-07 rejects. In production the loader has already hidden such a
-  /// highlight, so this path is defence in depth and not the live guard.
+  /// **Returns `[]` when any phase is unrenderable** — unmappable, or mapping
+  /// to a phase that declares no primary output field (the code phases). This
+  /// mirrors `GalleryHighlightLoader`'s gate rather than trusting it: this is a
+  /// pure function with no way to signal a partial result, and the
+  /// alternatives — dropping the line, or rendering a speaker with no line —
+  /// are the two outcomes ADR-029 § Amendment 2026-08-07 rejects. In production
+  /// the loader has already hidden such a highlight, so this path is defence in
+  /// depth and not the live guard; **keep the two predicates in step**, or this
+  /// one starts firing on highlights the loader published and the section
+  /// degrades to a teaser with no figure.
   ///
   /// - Parameter totalRounds: the scenario's round count
   ///   (``GalleryScenario/rounds``), or `nil` when the feed omits it — divider
@@ -108,7 +120,9 @@ enum GalleryScenarioDetailFormat {
     var rows: [ExcerptRow] = []
 
     for (index, entry) in excerpt.enumerated() {
-      guard let phaseType = PhaseType(rawValue: entry.phase) else { return [] }
+      guard let phaseType = PhaseType(rawValue: entry.phase),
+        let primaryField = ScenarioConventions.primaryField(for: phaseType)
+      else { return [] }
 
       let position = slots[entry.agent] ?? slots.count
       slots[entry.agent] = position
@@ -120,6 +134,7 @@ enum GalleryScenarioDetailFormat {
           entry: entry,
           agentPosition: position,
           phaseType: phaseType,
+          primaryField: primaryField,
           dividerLabel: opensNewRound
             ? roundLabel(round: entry.round, totalRounds: totalRounds) : nil))
     }
@@ -133,17 +148,21 @@ enum GalleryScenarioDetailFormat {
   /// passage below it rather than the scenario. `web`'s landing pages take
   /// `excerpt[0].round` for the same reason.
   ///
-  /// Collapses when the excerpt is empty or ``GalleryScenario/rounds`` is
-  /// absent — the head states a position within a whole, so it needs both
-  /// halves, the same pair-or-nothing semantic ``GameHeaderRound`` enforces for
-  /// the live header. A divider is not held to this: it separates two rounds
-  /// that are both present in the passage, so it degrades to the total-less
-  /// form instead of vanishing.
+  /// Collapses only on an empty excerpt. A missing ``GalleryScenario/rounds``
+  /// degrades the label to the total-less form instead, matching what a divider
+  /// does — deliberately **not** ``GameHeaderRound``'s pair-or-nothing rule.
+  /// That rule fits the live header, where a round with no total says nothing
+  /// about how far into the run you are; here the head is describing the
+  /// passage below it, and naming the round the passage opens on is useful with
+  /// or without the whole. Holding the head to pair-or-nothing while the
+  /// divider degrades produced the incoherent case: a passage spanning rounds
+  /// 2→3 would open unlabeled and then announce "Round 3", leaving the reader
+  /// with an unnamed first round.
   static func excerptHeadRoundLabel(
     _ excerpt: [GalleryHighlightExcerptEntry], totalRounds: Int?
   ) -> String? {
-    guard let first = excerpt.first, let totalRounds else { return nil }
-    return GameHeader.formatRoundLabel(current: first.round, total: totalRounds)
+    guard let first = excerpt.first else { return nil }
+    return roundLabel(round: first.round, totalRounds: totalRounds)
   }
 
   /// `Round N / M`, or `Round N` when the total is unknown.

@@ -110,11 +110,16 @@
             statement: string
       """
 
-    /// Returns a `StubGalleryService` seeded with a single installable scenario
-    /// used by the canary navigation test. Hash is intentionally left as a
-    /// placeholder — the stub skips SHA-256 verification.
-    public static func uiTestPreset() -> StubGalleryService {
-      let scenario = GalleryScenario(
+    /// The canary gallery entry. Both fixtures build from this so an edit to
+    /// the canary cannot drift between them; only the highlight-bearing one
+    /// passes the two optional arguments.
+    ///
+    /// Hashes are placeholders — the stub serves from memory and skips SHA-256
+    /// verification.
+    private static func canaryScenario(
+      rounds: Int? = nil, highlight: (url: URL, sha256: String)? = nil
+    ) -> GalleryScenario {
+      GalleryScenario(
         id: "ui_test_canary",
         title: "UITest Canary",
         category: .experimental,
@@ -124,10 +129,18 @@
         estimatedInferences: 2,
         yamlURL: canaryYAMLURL,
         yamlSHA256: "0000000000000000000000000000000000000000000000000000000000000000",
-        addedAt: "2026-04-15"
+        addedAt: "2026-04-15",
+        rounds: rounds,
+        highlightURL: highlight?.url,
+        highlightSHA256: highlight?.sha256
       )
+    }
+
+    /// Returns a `StubGalleryService` seeded with a single installable scenario
+    /// used by the canary navigation test.
+    public static func uiTestPreset() -> StubGalleryService {
       let index = GalleryIndex(
-        version: 1, updatedAt: "2026-04-15", scenarios: [scenario])
+        version: 1, updatedAt: "2026-04-15", scenarios: [canaryScenario()])
       return StubGalleryService(
         index: index, yamlsByURL: [canaryYAMLURL: canaryYAML])
     }
@@ -141,15 +154,23 @@
       return url
     }()
 
-    /// A schema-valid highlight for the canary scenario (ADR-029 schema 1).
+    /// A schema-shaped highlight for the canary scenario (ADR-029 schema 1).
     ///
     /// Shaped to make `GalleryHighlightRunFigure` render **every** branch it
     /// has: two speakers so two avatar colour slots resolve, a round change so
     /// a `PasturaStreamDivider` is drawn, and both speak phases so the per-row
     /// `PhaseTypeLabel` differs between rows. `content_filter_applied` is
-    /// `true` and the phases are mappable, because the loader's fail-closed
+    /// `true` and the phases are renderable, because the loader's fail-closed
     /// gates would otherwise hide the section and the render check would pass
     /// while drawing nothing.
+    ///
+    /// ⚠️ **Not gate-valid content, and deliberately so.** It cites two rounds
+    /// and a `speak_each` phase where ``canaryYAML`` declares `rounds: 1` and a
+    /// single `speak_all` — `check-gallery-entry.sh` would reject that pairing.
+    /// Nothing in-app cross-checks the two (the stub skips hash verification
+    /// for the same reason), and bending the shared canary YAML to match would
+    /// perturb the navigation and focus-mode flows that install and run it. Do
+    /// not copy this file as an example of a well-formed highlight.
     public static let canaryHighlightJSON: Data = Data(
       """
       {
@@ -199,25 +220,16 @@
     /// button off-screen and break navigation tests that have nothing to do
     /// with highlights.
     ///
-    /// `rounds: 2` on the entry is load-bearing: the head's round fragment is
-    /// pair-or-nothing, so without a total it collapses and the label branch
-    /// goes unrendered.
+    /// `rounds: 2` on the entry is load-bearing: it is what makes the head and
+    /// the divider render their `Round N / M` form rather than the total-less
+    /// fallback, so both label branches are exercised.
     public static func uiTestHighlightGallery() -> StubGalleryService {
-      let scenario = GalleryScenario(
-        id: "ui_test_canary",
-        title: "UITest Canary",
-        category: .experimental,
-        description: "Minimal fixture for UI tests.",
-        author: "UITest",
-        recommendedModel: ModelRegistry.gemma4E2B.id,
-        estimatedInferences: 2,
-        yamlURL: canaryYAMLURL,
-        yamlSHA256: "0000000000000000000000000000000000000000000000000000000000000000",
-        addedAt: "2026-04-15",
+      let scenario = canaryScenario(
         rounds: 2,
-        highlightURL: canaryHighlightURL,
-        highlightSHA256: "1111111111111111111111111111111111111111111111111111111111111111"
-      )
+        highlight: (
+          url: canaryHighlightURL,
+          sha256: "1111111111111111111111111111111111111111111111111111111111111111"
+        ))
       let index = GalleryIndex(
         version: 1, updatedAt: "2026-04-15", scenarios: [scenario])
       return StubGalleryService(

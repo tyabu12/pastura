@@ -55,10 +55,13 @@ struct GalleryHighlightRunFigure: View {
         stream(rows)
       }
       // `screenBackground` inside the card's `bubbleBackground` reads as inset
-      // in both appearances: lighter-on-white in light, darker-on-`nightBubble`
-      // in dark. Both tokens are paired, so this is an ambient surface and
-      // correctly follows the device (ADR-028) — no fixed-appearance pinning,
-      // unlike `HighlightShareCard`, which exports through `ImageRenderer`.
+      // in both appearances, but not symmetrically: in light it is only a hair
+      // darker than white (#FCFAF4 on #FFFFFF, ~1.02:1), so the `rule` hairline
+      // below is what actually defines the edge; in dark it is clearly darker
+      // (#1B1D17 inside #2C2F28) and carries the inset on its own. Both tokens
+      // are paired, so this is an ambient surface and correctly follows the
+      // device (ADR-028) — no fixed-appearance pinning, unlike
+      // `HighlightShareCard`, which exports through `ImageRenderer`.
       .background(Color.screenBackground)
       .clipShape(RoundedRectangle(cornerRadius: Self.cornerRadius, style: .continuous))
       .overlay(
@@ -75,8 +78,9 @@ struct GalleryHighlightRunFigure: View {
       // every leaf below. The test therefore matches type-agnostically;
       // `app.otherElements[…]` finds nothing even when the figure is fully
       // drawn. Do NOT "fix" that by adding `.accessibilityElement(children:)`
-      // here: that would collapse the rows into one VoiceOver stop and undo
-      // `AgentOutputRow`'s per-utterance grouping.
+      // to this panel: the rows would collapse into a single VoiceOver stop
+      // reading the entire excerpt at once. Each row does its own combining,
+      // in `stream(_:)`.
       .accessibilityIdentifier("galleryDetail.highlightRunFigure")
     }
   }
@@ -146,12 +150,31 @@ struct GalleryHighlightRunFigure: View {
         }
         AgentOutputRow(
           agent: row.entry.agent,
-          // `statement` only — the Decision 1 allowlist, and the absence of
+          // Keyed by the phase's own primary field, because that is what
+          // `AgentOutputRow` will look up (`TurnOutput.primaryText(for:)` →
+          // `ScenarioConventions.primaryField(for:)`). Hardcoding `statement`
+          // renders an empty bubble for any phase that names its output
+          // differently — a line vanishing out of a quotation. The absence of
           // `inner_thought` is what keeps the row static (see the type doc).
-          output: TurnOutput(fields: ["statement": row.entry.text]),
+          output: TurnOutput(fields: [row.primaryField: row.entry.text]),
           phaseType: row.phaseType,
           showAllThoughts: false,
-          agentPosition: row.agentPosition)
+          // Spelled out although it is already the default: the type doc calls
+          // it load-bearing for ADR-029 Decision 6, and a bullet naming an
+          // argument absent from the call site invites a later "add" with a
+          // value in it.
+          charsPerSecond: nil,
+          agentPosition: row.agentPosition
+        )
+        // Restores the one-stop-per-utterance reading the previous bare list
+        // had. `AgentOutputRow` groups nothing itself, so without this
+        // VoiceOver announces the speaker, stops, then the line. Safe in
+        // this configuration only: the avatar is `.accessibilityHidden`, and
+        // there is no chevron, share button or tap target to swallow. The
+        // phase badge's own `Text` is not hidden, so the utterance reads
+        // "<speaker>, <phase>, <line>" — one more fragment than the old list,
+        // and it names something genuinely on screen.
+        .accessibilityElement(children: .combine)
       }
     }
     .padding(12)

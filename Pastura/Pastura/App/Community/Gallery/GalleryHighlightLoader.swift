@@ -99,7 +99,11 @@ final class GalleryHighlightLoader {
       return
     }
 
-    // Every line's phase must map to a `PhaseType` this build knows.
+    // Every line's phase must be one this build can actually draw: it maps to
+    // a `PhaseType`, and that phase declares a primary output field to hold
+    // the line. The second half matters because `AgentOutputRow` looks the
+    // line up by that field name — a code phase, which declares none, would
+    // render a speaker with an empty bubble.
     //
     // This is not about malformed content — the extractor and the repo-side
     // gate both hard-fail on an unknown phase (ADR-029 Decision 2), so a
@@ -118,8 +122,20 @@ final class GalleryHighlightLoader {
     // It also keeps `PhaseType` non-optional the whole way down the render
     // path, so the run figure never has to invent a fallback badge for a
     // phase it cannot name.
-    guard decoded.excerpt.allSatisfy({ PhaseType(rawValue: $0.phase) != nil }) else {
-      log(check: "excerpt_phase_unknown", scenarioID: scenario.id)
+    //
+    // Renderability only — this is deliberately NOT the spoiler check. It
+    // admits all 14 cases, where Decision 3 makes just `speak_all` /
+    // `speak_each` excerpt-eligible; that narrower rule is enforced once, at
+    // the gate (`gallery_highlight_validate.py`'s `ELIGIBLE_PHASES`), and no
+    // consumer re-derives it. Tightening it here would put spoiler policy in a
+    // second place that has to move whenever Decision 3 does, and diverge
+    // silently when it doesn't.
+    // Kept in step with `GalleryScenarioDetailFormat.excerptRows`, which
+    // re-applies the same predicate as defence in depth. If they diverge, that
+    // one starts returning `[]` for a highlight this published, and the section
+    // degrades to a teaser with no figure.
+    guard decoded.excerpt.allSatisfy({ Self.isRenderable(phase: $0.phase) }) else {
+      log(check: "excerpt_phase_unrenderable", scenarioID: scenario.id)
       return
     }
 
@@ -127,6 +143,14 @@ final class GalleryHighlightLoader {
   }
 
   // MARK: - Private
+
+  /// Whether the run figure can draw a line published under `phase`: the raw
+  /// value maps to a `PhaseType`, and that phase names a primary output field
+  /// for the line to live in.
+  private static func isRenderable(phase: String) -> Bool {
+    guard let phaseType = PhaseType(rawValue: phase) else { return false }
+    return ScenarioConventions.primaryField(for: phaseType) != nil
+  }
 
   private func checkName(for error: Error) -> String {
     guard let serviceError = error as? GalleryServiceError else { return "fetch_failed" }

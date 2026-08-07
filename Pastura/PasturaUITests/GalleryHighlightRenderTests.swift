@@ -69,10 +69,15 @@ final class GalleryHighlightRenderTests: XCTestCase {
       uses only mappable phases, so a gate firing is itself the bug.
       """)
 
-    // The excerpt's own text proves the rows rendered, not just the panel.
+    // Pinned to the **combined** label, which is the row's real contract: each
+    // utterance is one accessibility element carrying speaker, phase and line
+    // (`.accessibilityElement(children: .combine)` in `stream(_:)`). Asserting
+    // the bare line instead would not distinguish a combined row from three
+    // loose `Text`s — measured, that query passes either way — so it proved the
+    // panel rendered but said nothing about the reading.
     XCTAssertTrue(
-      app.staticTexts["はじめまして、よろしく。"].waitForExistence(timeout: 5),
-      "Run figure rendered but its first excerpt line did not.")
+      app.staticTexts["Alice, Speak, はじめまして、よろしく。"].waitForExistence(timeout: 5),
+      "Run figure rendered but its first excerpt row did not, or stopped combining.")
 
     // The divider is the one branch that fires only on a round change, so the
     // fixture spans two rounds specifically to reach it. Without this the
@@ -80,5 +85,15 @@ final class GalleryHighlightRenderTests: XCTestCase {
     XCTAssertTrue(
       app.staticTexts["Round 2 / 2"].waitForExistence(timeout: 5),
       "Round divider missing between the round-1 and round-2 excerpt lines.")
+
+    // The fixture spans both speak phases so the per-row `PhaseTypeLabel`
+    // differs; the second row's combined label is where that shows up. The
+    // badge's glyph stays `.accessibilityHidden(true)` — it is the unconditional
+    // Capsule this whole probe exists for, reachable only through the row's
+    // combined reading.
+    XCTAssertTrue(
+      app.staticTexts["Alice, Speak Each, では、そろそろ本題に入ろう。"]
+        .waitForExistence(timeout: 5),
+      "The round-2 row, whose phase badge differs from round 1's, did not render.")
   }
 }

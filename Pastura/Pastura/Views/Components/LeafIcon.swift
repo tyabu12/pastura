@@ -12,8 +12,13 @@ import SwiftUI
 /// a finished and quoted one — which is why the shape moved out of
 /// `GameHeader`'s private scope rather than being copied.
 ///
-/// The default ``size`` is the 9pt `GameHeader` has always applied at its call
-/// site; it lives here now so the two consumers cannot drift apart.
+/// The default ``size`` is the 9pt `GameHeader` used to apply at its call site.
+/// Keeping it here is what stops the two consumers drifting — both take the
+/// default rather than each naming a number.
+///
+/// ⚠️ Resize through ``size``, not an outer `.frame()`. The frame is applied
+/// **inside** `body`, so an enclosing one would centre a 9pt leaf in a larger
+/// box rather than growing it.
 struct LeafIcon: View {
   var size: CGFloat = 9
 

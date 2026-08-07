@@ -301,10 +301,8 @@ public struct GameHeader: View {
 
 // MARK: - Helpers
 
-// `LeafIcon` used to live here as a `private struct`. It moved to its own file
-// in `Components/` when the gallery highlight's run figure needed the same
-// accent — see `LeafIcon.swift`, which also now owns the 9pt default this call
-// site used to apply itself.
+// The title row's leaf accent lives in `LeafIcon.swift`, which owns the 9pt
+// default this file used to apply at the call site.
 
 /// Conditionally applies `.ignoresSafeArea(.container, edges: .top)`.
 /// `ViewModifier` form keeps the conditional out of the view-builder

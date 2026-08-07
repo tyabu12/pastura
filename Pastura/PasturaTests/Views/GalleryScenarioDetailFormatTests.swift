@@ -130,12 +130,15 @@ struct GalleryScenarioDetailFormatTests {
     let rows = GalleryScenarioDetailFormat.excerptRows(
       ["A", "B", "C", "D", "E"].map { entry(agent: $0) }, totalRounds: 3)
 
-    // Four colour slots, so `allCases[position % 4]` puts the fifth speaker on
-    // the first one's colour. `SheepAvatar` collides identically for a 5-agent
-    // scenario, so this is fidelity — asserted so a future "fix" has to be a
-    // deliberate divergence from the app.
     #expect(rows.map(\.agentPosition) == [0, 1, 2, 3, 4])
-    #expect(rows.map { $0.agentPosition % 4 } == [0, 1, 2, 3, 0])
+    // Four colour slots, so the fifth speaker lands on the first one's colour.
+    // Pinned against the real resolver rather than by restating `4 % 4 == 0`:
+    // the claim is that `SheepAvatar` collides identically for a 5-agent
+    // scenario (`asch_conformity_v1` really has five), so a future "fix" here
+    // has to be a deliberate divergence from the app.
+    #expect(
+      SheepAvatar.Character.forAgent("E", position: 4)
+        == SheepAvatar.Character.forAgent("A", position: 0))
   }
 
   @Test func aDividerOpensOnlyWhereTheRoundChanges() {
@@ -170,13 +173,26 @@ struct GalleryScenarioDetailFormatTests {
     #expect(rows.isEmpty)
   }
 
-  @Test func mappablePhasesYieldOneRowEach() {
-    // Positive control for the case above: same call shape, mappable phases.
+  @Test func aFieldlessPhaseYieldsNoRowsEither() {
     let rows = GalleryScenarioDetailFormat.excerptRows(
-      [entry(agent: "A"), entry(agent: "B", phase: "speak_all")], totalRounds: 3)
+      [entry(agent: "A"), entry(agent: "B", phase: "summarize")], totalRounds: 3)
+
+    // `summarize` maps to a `PhaseType` but declares no primary output field,
+    // so there is no key to hang the line on — same outcome, second half of
+    // the renderability predicate. Keeps this in step with the loader.
+    #expect(rows.isEmpty)
+  }
+
+  @Test func mappablePhasesYieldOneRowEachKeyedByTheirOwnField() {
+    // Positive control for the two cases above: same call shape, renderable
+    // phases. `vote` is included because it is the case a hardcoded
+    // `"statement"` key would have rendered as a speaker with no line.
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "A"), entry(agent: "B", phase: "vote")], totalRounds: 3)
 
     #expect(rows.count == 2)
-    #expect(rows.map(\.phaseType) == [.speakEach, .speakAll])
+    #expect(rows.map(\.phaseType) == [.speakEach, .vote])
+    #expect(rows.map(\.primaryField) == ["statement", "vote"])
     #expect(rows.map(\.id) == [0, 1])
   }
 
@@ -191,12 +207,13 @@ struct GalleryScenarioDetailFormatTests {
     #expect(label == "Round 2 / 4")
   }
 
-  @Test func theHeadCollapsesWithoutATotal() {
+  @Test func theHeadDropsTheTotalWhenTheFeedOmitsRounds() {
     let label = GalleryScenarioDetailFormat.excerptHeadRoundLabel(
-      [entry(agent: "A", round: 2)], totalRounds: nil)
+      [entry(agent: "A", round: 2), entry(agent: "B", round: 3)], totalRounds: nil)
 
-    // Pair-or-nothing: "Round 2" alone states a position with no whole.
-    #expect(label == nil)
+    // Degrades like a divider rather than collapsing. Collapsing here while the
+    // round-3 divider still printed would leave the opening round unnamed.
+    #expect(label == "Round 2")
   }
 
   @Test func theHeadCollapsesOnAnEmptyExcerpt() {
