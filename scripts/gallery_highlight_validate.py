@@ -294,6 +294,15 @@ def _check_yaml_hook_secret(doc, where):
     a false positive a curator resolves by rewording, which is the cheaper
     error of the two.
 
+    **The two do not add up to full coverage**, and the gap is their
+    *intersection*: a fragment that both fails to parse and hides `secret`
+    off line-start — `- {name: [a, secret: s}`, or a multi-document stream
+    (`safe_load` refuses those) whose secret sits inside a flow mapping. Both
+    are `raw`-only, since `kind: persona`'s shape check rejects them outright,
+    and neither is a plausible curator paste. Stated rather than papered over:
+    an earlier revision of this docstring implied the two arms were a covering
+    union, which they are not.
+
     This is the gate's only `secret:` check on the hook. The extractor's
     hard-fail (`declares_secret`) reads the *scenario YAML*, so nothing had
     ever re-derived the rule for the hook's own text, and a hand-edited hook
@@ -309,17 +318,36 @@ def _check_yaml_hook_secret(doc, where):
         for i, line in enumerate(fragment.splitlines())
         if re.match(r"^\s*(-\s+)?secret\s*:", line)
     ]
-    if yaml is not None and not locations:
+    if yaml is None:
+        # The walk cannot run, so only the weaker arm is live. Named rather
+        # than silent, for the reason this module's docstring already gives
+        # about PyYAML: a gate that quietly drops a check is worse than one
+        # that is loud about it.
+        return [
+            f"highlight: yaml_hook secret — {where} PyYAML is not importable, so the "
+            "fragment can only be line-scanned for `secret:` and flow-style forms "
+            "would pass unverified. Install it (python3 -m pip install "
+            "'pyyaml>=6,<7')"]
+    if not locations:
         try:
             if _secret_keys_in(yaml.safe_load(fragment)):
                 locations.append("a mapping key (flow style or quoted)")
-        except (yaml.YAMLError, RecursionError):
-            # Unparseable: the line scan above is the only reachable arm.
-            # `RecursionError` is **not** a `YAMLError` — PyYAML's own parser
-            # recurses, so ~500 levels of nesting raises it out of `safe_load`
-            # before the walk ever runs. Uncaught it would be a traceback, and
-            # this module promises one failure line per problem.
-            pass
+        except yaml.YAMLError:
+            pass  # Unparseable: the line scan above is the only reachable arm.
+        except RecursionError:
+            # **Fails closed, deliberately.** `RecursionError` is not a
+            # `YAMLError`, and it has *two* sources: PyYAML's own parser
+            # recurses (~500 levels of nesting raises it out of `safe_load`),
+            # and `_secret_keys_in` recurses too, so a self-referential alias
+            # (`a: &x\n  b: [*x, …]`) parses fine and then blows the stack in
+            # the walk. Swallowing it would turn a loud traceback into a silent
+            # pass on a fragment nothing verified — the one outcome worse than
+            # crashing.
+            return [
+                f"highlight: yaml_hook secret — {where} yaml_hook.fragment is too "
+                "deeply nested or self-referential to verify (recursion limit hit "
+                "while parsing or walking it), so `secret:` could not be ruled out. "
+                "Flatten the fragment"]
 
     return [
         f"highlight: yaml_hook secret — {where} yaml_hook.fragment declares `secret:` "

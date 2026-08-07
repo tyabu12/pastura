@@ -426,6 +426,21 @@ case "$OUT" in
   *) PASS=$((PASS + 1));;
 esac
 
+# H18i — a self-referential alias. This parses fine, so the *walk* is what
+# recurses, not the parser — the second source of RecursionError, and the one
+# that made swallowing it a fail-OPEN: before this the fragment passed the gate
+# silently. It must fail closed instead.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"raw","fragment":"a: &x\n  b: [*x, {secret: s}]","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18i self-referential alias fails closed"
+expect_out "too deeply nested or self-referential" "H18i names the recursion guard"
+case "$OUT" in
+  *Traceback*) bad "H18i leaked a Python traceback";;
+  *) PASS=$((PASS + 1));;
+esac
+
 # H19 — kind=persona over a fragment that is not a persona list. The `phases:`
 # fragment is legal under `raw` (H1) and illegal here, which is the whole point
 # of the discriminator.

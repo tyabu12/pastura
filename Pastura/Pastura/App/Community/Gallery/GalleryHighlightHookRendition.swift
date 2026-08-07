@@ -86,7 +86,8 @@ enum GalleryHighlightHookRendition: Equatable {
   /// strict-supply / lenient-read asymmetry as
   /// ``GalleryHighlightYAMLHook/kind``.
   ///
-  /// ⚠️ **This drops a secret only when the whole fragment parses.** Rejection
+  /// ⚠️ **This drops a secret only when every entry in the fragment is
+  /// well-formed.** Parsing is necessary but not sufficient. Rejection
   /// is per-*fragment*, not per-entry: a missing `name` or `description` on the
   /// offending entry — or on any **sibling** — rejects all of it, and the
   /// fallback then prints it, secret included. So the publish-time gate is the
