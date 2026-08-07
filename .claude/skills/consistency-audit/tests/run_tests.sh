@@ -404,4 +404,57 @@ echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="embedded_source_mirror")|
   || fail "mirror: a mirror finding is missing its pre-authored judgment scalars"
 no_target_collision "$OUT" "mirror"
 
+# --- adr_navigation_missing: ten arms, exactly two must fire ---------------
+# The fixture is generated, not committed: every must-NOT-fire arm has to clear
+# the 600-line gate so it is silent for the rule it tests rather than for its
+# size, and ten such ADRs would be ~5500 lines of filler in the repo. The arm
+# table in make_nav_fixture.py is the fixture; this block asserts the outcome.
+NAVFIX="$TMP/navfix"
+MANIFEST=$(python3 make_nav_fixture.py "$NAVFIX")
+# The wrong-reason guard. ADR-103 is the one arm deliberately under the gate
+# (it tests the gate); every other arm must clear it, or a "must not count"
+# arm is passing because it is short.
+for adr in ADR-101 ADR-102 ADR-104 ADR-105 ADR-106 ADR-107 ADR-108 ADR-109 ADR-110; do
+  n=$(echo "$MANIFEST" | jq --arg a "$adr" '.[$a].total_lines')
+  [ "$n" -ge 600 ] || fail "nav: $adr is only $n lines — under the size gate, so its arm would pass for the wrong reason"
+done
+NL=$(echo "$MANIFEST" | jq '."ADR-103".total_lines')
+[ "$NL" -lt 600 ] || fail "nav: ADR-103 must stay under the size gate to test it, got $NL"
+
+OUT=$(python3 "$AUDIT" --repo-root "$NAVFIX")
+[ "$(af_len "$OUT")" -eq 0 ] || fail "nav: auto_fixable must stay empty — this detector is needs_judgment only: $(echo "$OUT" | jq -c .auto_fixable)"
+# No other detector may fire: a contaminated fixture (e.g. an arm title naming a
+# fileless ADR-NNN, which trips dangling_adr) makes the counts below meaningless.
+[ "$(nj_len "$OUT")" -eq 2 ] || fail "nav: expected exactly 2 findings, got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
+[ "$(nj_type_len "$OUT" adr_navigation_missing)" -eq 2 ] || fail "nav: expected 2 adr_navigation_missing, got $(nj_type_len "$OUT" adr_navigation_missing)"
+for want in "nav:ADR-101" "nav:ADR-110"; do
+  echo "$OUT" | jq -e --arg t "$want" '.needs_judgment[]|select(.type=="adr_navigation_missing" and .target==$t)' >/dev/null \
+    || fail "nav: expected a finding targeted $want"
+done
+# `nav:` namespacing, for the same reason `roster:` carries it — Step 4's
+# cross-run dedup matches the target as a title substring and is type-blind.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|.target|startswith("nav:")]|all' >/dev/null \
+  || fail "nav: a finding target is not namespaced with nav:"
+# Pre-authored judgment scalars — SKILL.md Step 4 uses these verbatim.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|(has("confidence") and has("counter_evidence") and has("suggested_action") and has("sections") and (.locations|length>0))]|all' >/dev/null \
+  || fail "nav: a finding is missing its pre-authored judgment scalars or locations"
+# The counter-evidence leans on this count, so it is asserted rather than
+# assumed: ADR-110's two sections are both numbered.
+NUM=$(echo "$OUT" | jq '[.needs_judgment[]|select(.target=="nav:ADR-110")|.numbered_section_count][0]')
+[ "$NUM" -eq 2 ] || fail "nav: ADR-110 should report 2 numbered sections, got $NUM"
+# The remedy is a map plus promotion into the body — never deletion.
+# `.claude/rules/adr-writing.md` records that amendments are not trimmed away
+# later (#1382 declined that on principle), so a generator proposing it would
+# be putting an unattended run at odds with a house rule. Asserted as a plain
+# positive: the disclaimer must be present, which cannot pass vacuously.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|.suggested_action|test("Do NOT delete or trim amendments")]|all' >/dev/null \
+  || fail "nav: suggested_action lost its do-not-delete disclaimer"
+no_target_collision "$OUT" "nav"
+
+# --- negative controls: each guard has a mutation that flips its arm --------
+# Silent arms prove nothing by themselves; this is what demonstrates the guards
+# exist. Also asserts every mutation's anchor matched, so a no-op replace cannot
+# pass as a verified control.
+python3 mutate_nav_guards.py || fail "nav: a guard's negative control did not flip (see above)"
+
 echo "ALL TESTS PASSED"
