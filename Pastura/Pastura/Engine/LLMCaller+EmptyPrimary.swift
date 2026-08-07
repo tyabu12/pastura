@@ -56,7 +56,7 @@ nonisolated extension LLMCaller {
     return false
   }
 
-  func hasEmptyFields(_ output: TurnOutput) -> Bool {
+  private func hasEmptyFields(_ output: TurnOutput) -> Bool {
     output.fields.values.contains { $0 == "..." || $0.isEmpty }
   }
 
@@ -84,7 +84,7 @@ nonisolated extension LLMCaller {
   /// never sees, not a run abort. A future un-gated site with **no** catch
   /// would abort instead; see `.claude/rules/engine.md` § "Adding a new
   /// `PhaseType`".
-  func canonicalPrimaryIsMissing(
+  private func canonicalPrimaryIsMissing(
     _ output: TurnOutput, phaseType: PhaseType, expectedKeys: Set<String>
   ) -> Bool {
     guard let key = ScenarioConventions.primaryField(for: phaseType),
