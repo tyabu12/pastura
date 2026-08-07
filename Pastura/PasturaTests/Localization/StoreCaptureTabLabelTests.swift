@@ -49,6 +49,13 @@ struct StoreCaptureTabLabelTests {
     let entry = try #require(
       strings["History"] as? [String: Any],
       "the `History` key is gone from the catalog — the tab label moved")
+    // Same stale-entry vacuity `HookHeadingLocalizationTests` guards: a
+    // reworded en literal leaves this key behind as `extractionState: "stale"`
+    // with its ja value intact, so the assertion below would keep passing
+    // against an entry the app no longer resolves.
+    #expect(
+      entry["extractionState"] as? String != "stale",
+      "'History' is stale — the en literal moved; re-point this test at the new key")
     let localizations = try #require(entry["localizations"] as? [String: Any])
     let ja = try #require(localizations["ja"] as? [String: Any])
     let unit = try #require(ja["stringUnit"] as? [String: Any])

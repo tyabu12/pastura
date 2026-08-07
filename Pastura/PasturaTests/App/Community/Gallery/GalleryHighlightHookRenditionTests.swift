@@ -159,10 +159,29 @@ struct GalleryHighlightHookRenditionTests {
   /// the caller falls back to `.rawYAML`, and the block prints the fragment
   /// verbatim — secret included. Asserting the success case alone would have
   /// left "parsing is what drops it" reading as unconditional, which it is not.
-  @Test func secretSurvivesWhenAMalformedSiblingForcesTheFallback() {
+  @Test func secretSurvivesWhenTheEntryItselfIsMalformed() {
     let fragment = """
         - name: アヤ
           secret: 本当は協力者。
+      """
+    #expect(Rendition.personaEntries(in: fragment) == nil)
+
+    let hook = GalleryHighlightYAMLHook(kind: "persona", fragment: fragment, caption: "cap")
+    #expect(Rendition.resolve(hook, scenarioID: "demo_v1") == .rawYAML)
+  }
+
+  /// The sharper form of the same leak, and the one the rejection is
+  /// *whole-fragment* rather than per-entry: here the secret-bearing entry is
+  /// **well-formed**, so parsing would have dropped its secret — but a
+  /// malformed neighbour rejects the fragment and the fallback prints all of
+  /// it. Distinct path from the test above, where the offending entry was the
+  /// broken one.
+  @Test func secretSurvivesWhenAMalformedSiblingRejectsAWellFormedEntry() {
+    let fragment = """
+        - name: アヤ
+          description: 率直な被験者。
+          secret: 本当は協力者。
+        - name: ケン
       """
     #expect(Rendition.personaEntries(in: fragment) == nil)
 

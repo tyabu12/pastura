@@ -258,6 +258,22 @@ def _top_level_shape(parsed):
     return f"{type(parsed).__name__}"
 
 
+def _secret_keys_in(parsed):
+    """True if any mapping anywhere under `parsed` has a `secret` key.
+
+    Recursive and shape-agnostic, so it sees forms a line scan cannot: a flow
+    mapping (`- {name: a, secret: s}`), a quoted key (`"secret": s`), and a
+    `personas: [...]` flow sequence are all ordinary YAML a curator may write.
+    """
+    if isinstance(parsed, dict):
+        if any(str(key) == "secret" for key in parsed):
+            return True
+        return any(_secret_keys_in(value) for value in parsed.values())
+    if isinstance(parsed, list):
+        return any(_secret_keys_in(item) for item in parsed)
+    return False
+
+
 def _check_yaml_hook_secret(doc, where):
     """No published fragment may declare `secret:`, whatever its kind.
 
@@ -267,11 +283,16 @@ def _check_yaml_hook_secret(doc, where):
     most likely to paste an unreviewed block — it is published verbatim on both
     surfaces, so a `raw` leak is strictly worse than a `persona` one.
 
-    A line scan rather than a parse, because `raw` licenses no shape and so
-    cannot be parsed. That is deliberately conservative: it also fires on a
-    `secret:` inside a quoted scalar, which is a false positive a curator can
-    resolve by rewording. The alternative — missing a real one — is not
-    recoverable once published.
+    **Two detectors, and both are load-bearing.** A parse walk sees the key
+    wherever YAML puts it, including forms with nothing at line start; a line
+    scan covers what the parse cannot reach — `raw` licenses no shape, so a
+    fragment that fails to parse gets no walk at all, and that is exactly when
+    a curator is most likely to be pasting something unreviewed. Keeping only
+    the line scan silently narrows the check for every flow-style fragment;
+    keeping only the walk drops every unparseable one. The line scan is also
+    deliberately conservative — it fires on `secret:` inside a quoted scalar,
+    a false positive a curator resolves by rewording, which is the cheaper
+    error of the two.
 
     This is the gate's only `secret:` check on the hook. The extractor's
     hard-fail (`declares_secret`) reads the *scenario YAML*, so nothing had
@@ -281,15 +302,27 @@ def _check_yaml_hook_secret(doc, where):
     hook = doc.get("yaml_hook")
     if not isinstance(hook, dict) or not isinstance(hook.get("fragment"), str):
         return []
-    for i, line in enumerate(hook["fragment"].splitlines()):
-        if re.match(r"^\s*(-\s+)?secret\s*:", line):
-            return [
-                f"highlight: yaml_hook secret — {where} yaml_hook.fragment line {i + 1} "
-                "declares `secret:`. A hidden agenda is a spoiler wherever it appears, "
-                "and ADR-029 Decision 2's secret branch is designed-untested — the "
-                "extractor refuses such scenarios, and this is the gate's copy that a "
-                "hand-edited hook cannot bypass, in any kind"]
-    return []
+    fragment = hook["fragment"]
+
+    locations = [
+        f"line {i + 1}"
+        for i, line in enumerate(fragment.splitlines())
+        if re.match(r"^\s*(-\s+)?secret\s*:", line)
+    ]
+    if yaml is not None and not locations:
+        try:
+            if _secret_keys_in(yaml.safe_load(fragment)):
+                locations.append("a mapping key (flow style or quoted)")
+        except yaml.YAMLError:
+            pass  # unparseable: the line scan above is the only reachable arm
+
+    return [
+        f"highlight: yaml_hook secret — {where} yaml_hook.fragment declares `secret:` "
+        f"at {location}. A hidden agenda is a spoiler wherever it appears, and "
+        "ADR-029 Decision 2's secret branch is designed-untested — the extractor "
+        "refuses such scenarios, and this is the gate's copy that a hand-edited hook "
+        "cannot bypass, in any kind"
+        for location in locations]
 
 
 def _check_yaml_hook_fragment(doc, where):

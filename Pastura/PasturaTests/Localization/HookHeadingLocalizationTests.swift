@@ -46,6 +46,15 @@ struct HookHeadingLocalizationTests {
     let strings = try #require(json?["strings"] as? [String: Any])
     let entry = try #require(
       strings[key] as? [String: Any], "the key '\(key)' is gone from the catalog")
+    // A *deleted* key fails the `#require` above, but a **reworded** English
+    // literal does not: `xcstringstool sync` adds the new key and keeps the old
+    // one as `extractionState: "stale"` with its `ja` value intact (this catalog
+    // holds 26 such entries today). Without this the guard would keep passing
+    // against a stale entry while the shipping heading lost its marker — the
+    // exact vacuity it exists to prevent.
+    #expect(
+      entry["extractionState"] as? String != "stale",
+      "'\(key)' is stale — the en literal moved; re-point this test at the new key")
     let localizations = try #require(entry["localizations"] as? [String: Any])
     let ja = try #require(localizations["ja"] as? [String: Any], "'\(key)' has no ja")
     let unit = try #require(ja["stringUnit"] as? [String: Any])

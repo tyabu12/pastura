@@ -372,6 +372,43 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H18c sequence-item secret: fails"
 expect_out "highlight: yaml_hook secret" "H18c names the secret check"
 
+# H18d/e/f — forms with no `secret` at line start. These are the arms whose
+# absence let a review-fix silently *narrow* the persona-side check: swapping
+# the parsed-key detection for a line-anchored regex passed the whole suite
+# while flow-style fragments walked straight through. A flow mapping is the
+# ordinary one-line persona form, so none of these is exotic.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"  - {name: アヤ, description: 率直。, secret: 本当は協力者。}","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18d secret: in a flow mapping fails"
+expect_out "highlight: yaml_hook secret" "H18d names the secret check"
+
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"persona","fragment":"  - name: アヤ\n    description: 率直。\n    \"secret\": 本当は協力者。","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18e quoted secret key fails"
+expect_out "highlight: yaml_hook secret" "H18e names the secret check"
+
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"raw","fragment":"personas: [{name: アヤ, description: 率直。, secret: 本当は協力者。}]","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18f secret: in a raw flow sequence fails"
+expect_out "highlight: yaml_hook secret" "H18f names the secret check"
+
+# H18g — the line scan's own arm: a fragment that does not parse at all. Every
+# other secret case here is valid YAML, so the parse walk alone would carry
+# them and the line scan could be deleted without a single test reddening.
+# An unparseable `raw` paste is the shape it exists for.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
+  '{"kind":"raw","fragment":"  - name: [アヤ\n    secret: 本当は協力者。","caption":"cap"}'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H18g secret: in an unparseable fragment fails"
+expect_out "highlight: yaml_hook secret" "H18g names the secret check"
+
 # H19 — kind=persona over a fragment that is not a persona list. The `phases:`
 # fragment is legal under `raw` (H1) and illegal here, which is the whole point
 # of the discriminator.

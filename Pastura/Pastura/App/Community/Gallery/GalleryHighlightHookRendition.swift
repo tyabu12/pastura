@@ -86,12 +86,14 @@ enum GalleryHighlightHookRendition: Equatable {
   /// strict-supply / lenient-read asymmetry as
   /// ``GalleryHighlightYAMLHook/kind``.
   ///
-  /// ⚠️ **This drops a secret only when the entry is otherwise well-formed.**
-  /// A missing `name` or `description`, or any malformed *sibling*, rejects the
-  /// whole fragment — and the fallback then prints it, secret included. So the
-  /// publish-time gate is the actual defence and this is the second layer, not
-  /// the first; `secretSurvivesWhenAMalformedSiblingForcesTheFallback` pins the
-  /// residual path rather than leaving it implied.
+  /// ⚠️ **This drops a secret only when the whole fragment parses.** Rejection
+  /// is per-*fragment*, not per-entry: a missing `name` or `description` on the
+  /// offending entry — or on any **sibling** — rejects all of it, and the
+  /// fallback then prints it, secret included. So the publish-time gate is the
+  /// actual defence and this is the second layer, not the first. Both paths are
+  /// pinned rather than implied:
+  /// `secretSurvivesWhenTheEntryItselfIsMalformed` and
+  /// `secretSurvivesWhenAMalformedSiblingRejectsAWellFormedEntry`.
   static func personaEntries(in fragment: String) -> [Entry]? {
     guard let loaded = try? Yams.load(yaml: fragment),
       let items = sequence(in: loaded)
