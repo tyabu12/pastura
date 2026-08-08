@@ -340,16 +340,129 @@ reverts each step.
    docs/gallery/<id>.yaml` to leave the working tree clean before
    commit / PR.
 
+## Highlights (ADR-029)
+
+A **highlight** is a short curated excerpt of a real on-device run, published
+as `docs/gallery/highlights/<id>.json` and pinned from the entry by
+`highlight_url` + `highlight_sha256`. It renders on the `/s/<id>/` landing
+pages and on the app's gallery detail screen. Optional and rare, so most
+entries have none.
+
+Read `docs/decisions/ADR-029.md` before curating one. The spoiler policy,
+the 8-entry cap and the trust model are decided there, not here. This section
+covers the workflow and the taste calls the gate cannot make.
+
+### Procedure
+
+1. **Run the scenario on the harness** (75-170s each):
+
+   ```sh
+   .claude/skills/scenario-factory/scripts/run_scenario.sh \
+     docs/gallery/<id>.yaml ~/Models/gemma-4-E2B-it-Q4_K_M.gguf \
+     data/highlight-runs/<id>.jsonl 600
+   ```
+
+   `data/highlight-runs/` is gitignored. Keep the transcript until the
+   highlight merges, since re-running gives different text.
+
+2. **Read the transcript and choose the lines yourself.** Eligible lines are
+   `agent_output` events from `speak_all` / `speak_each`, `statement` field,
+   in rounds 1 through ⌈rounds/2⌉, with no outcome-class phase earlier in the
+   same round. A retried run appends a second attempt to the same file and
+   restarts round numbering, so only the final attempt is pickable. A later
+   round is reachable, but only by passing `--window-override` at extraction,
+   which records `window_override: true` in the file for the reviewer to weigh.
+   ADR-029 makes human selection non-negotiable, and the tool refuses to choose.
+
+3. **Write a selection file** and extract. The schema is in
+   `scripts/gallery_highlight_extract.py`'s docstring.
+
+   ```sh
+   python3 scripts/gallery_highlight_extract.py \
+     --run data/highlight-runs/<id>.jsonl --id <id> --selection <sel>.json
+   ```
+
+   `persona_index` is derived and never selectable. `source.model` is derived by
+   default — the extractor resolves the harness's display name to a
+   `ModelRegistry` id — and `--model` can override it, but only with a value
+   that resolves to a registry id or a known `displayName`.
+
+4. **Register it in `gallery.json`** by hand, adding `highlight_url` and
+   `highlight_sha256` (the extractor prints the hash) between `yaml_sha256`
+   and `added_at`.
+
+5. **Verify**: `bash scripts/check-gallery-entry.sh --all` (needs PyYAML on top
+   of `jq` / `shasum` — it hard-exits without it, which reads like a broken gate
+   rather than a missing dependency).
+
+6. **Show the excerpt and caption to a human for sign-off** before committing.
+   The blocklist audit is necessary, not sufficient.
+
+### Curation norms
+
+The gate checks structure. Whether a highlight is worth publishing is a taste
+call, and these four are what the first two batches taught.
+
+- **Scenario fitness varies, and it is the biggest factor.** Scenarios whose
+  product *is* the utterance (comedy, improv, one-liners) excerpt well.
+  Scenarios whose core is the *situation* are weak, because ADR-029 bans
+  `assign`-distributed values from the excerpt, the caption and the teaser
+  alike, so the interesting part cannot be written down anywhere.
+  `trolley_dilemma_v1` was run and rejected on exactly this: all three of its
+  framings live in `assign`.
+- **Never paraphrase `assign` content** in a caption or teaser. An excerpt that
+  lets a reader *infer* the prompt is fine, and for a question-and-answer
+  scenario that inference is the point.
+- **Do not use an existing caption as a template.** The bar is quality, not
+  sentence shape. Captions written to the same pattern read as filler when the
+  gallery shows several side by side.
+- **A hook fragment quoting part of the cast is already disclosed** by the
+  app's heading ("Some of the personas behind these lines", pinned by
+  `HookHeadingLocalizationTests`). That is what ADR-029's
+  § Amendment 2026-08-08 requires, and it is structural. Saying so again in the
+  caption is optional polish: `chin_jimaku_v1` states the count outright
+  (「この抜粋を生んだ4人のうち、特にクセの強い2人の設定。」),
+  `asch_conformity_v1` only implies it
+  (「サクラ4人の"後"に答えさせられるナオキの設定。」), and both are accepted.
+
+**Excerpt** and **hook fragment** are different things. The excerpt is the
+quoted conversation; the hook fragment is the slice of YAML shown beneath it.
+Norms about one do not transfer to the other.
+
+Avatar colours need no attention from a curator. Each excerpt entry carries the
+speaker's `persona_index`, so any set of speakers renders in the same colours a
+real run gives them.
+
+### Updating a scenario that has a highlight
+
+A highlight pins the exact YAML bytes it was generated from. Editing the
+scenario body and running `--update` therefore fails with
+`highlight: yaml_sha256 mismatch`, which is correct rather than a bug. Resolve
+it **in the same PR**, one of two ways:
+
+- Re-run the harness and re-extract, then re-register the new hash. The excerpt
+  text will differ, so it needs a fresh sign-off.
+- Delete `docs/gallery/highlights/<id>.json` and both `highlight_*` fields.
+
+`--update` itself preserves the `highlight_*` fields, so a metadata-only change
+(a tighter card description, say) needs none of this.
+
 ## What enforces this contract
 
 Three independent gates catch drift between the YAML and its
 `gallery.json` entry:
 
 1. **`scripts/check-gallery-entry.sh`** — runs as a pre-commit hook
-   when the staged diff touches `docs/gallery/<id>.yaml` or
-   `gallery.json`. Validates SHA-256 byte-match, size cap, id
-   uniqueness across `gallery.json` + bundled presets, and
-   `<stem>.yaml ↔ id: <stem>`.
+   when the staged diff touches any `.yaml` / `.json` under
+   `docs/gallery/` (including `highlights/`). Validates SHA-256
+   byte-match, size cap, id uniqueness across `gallery.json` + bundled
+   presets, and `<stem>.yaml ↔ id: <stem>`. Highlight validation is
+   delegated to `scripts/gallery_highlight_validate.py`, which re-derives
+   every ADR-029 rule a highlight file plus its index entry can support —
+   the enumeration lives in ADR-029 Decision 2, and `check_content`'s
+   dispatch list is the code it mirrors. A hand-edited highlight never
+   runs the extractor, so this is the enforcement point rather than that
+   tool.
 2. **CI `gallery-drift` job** — re-runs the same check on every PR
    (catches `--no-verify` commits and PRs landed via the GitHub web
    UI that bypass the local hook).
@@ -379,6 +492,8 @@ both adding a new entry and updating an existing one:
 
 - `gallery.json` — the index manifest the iOS app fetches.
 - `<id>.yaml` — individual scenario definitions, one per listed entry.
+- `highlights/<id>.json` — curated run excerpts for the few entries that have
+  one (ADR-029; see § Highlights above).
 
 ## Testing changes from a feature branch
 

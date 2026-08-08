@@ -110,21 +110,39 @@ struct GalleryScenarioDetailFormatTests {
 
   // MARK: - Highlight excerpt rows
 
+  /// The persona list every `entry(...)` below is drawn from. Deriving
+  /// `personaIndex` from it keeps a fixture consistent with what the repo-side
+  /// gate requires of a real highlight.
+  private static let cast = ["A", "B", "C", "D", "E"]
+
+  /// Force-unwrapped deliberately: a `?? 0` fallback would let a case name an
+  /// agent outside `cast` and then pass vacuously against an expected slot of 0.
   private func entry(
     agent: String, round: Int = 1, phase: String = "speak_each"
   ) -> GalleryHighlightExcerptEntry {
     GalleryHighlightExcerptEntry(
       agent: agent, round: round, phase: phase, phaseIndex: 0,
+      personaIndex: Self.cast.firstIndex(of: agent)!,
       sourceField: "statement", text: "…")
   }
 
-  @Test func avatarSlotsFollowOrderOfFirstAppearance() {
+  @Test func avatarSlotsComeFromThePinnedPersonaIndex() {
+    // C and B only — an excerpt whose speakers are NOT a prefix of the persona
+    // list, so ranking them by first appearance would slot them [0, 1].
     let rows = GalleryScenarioDetailFormat.excerptRows(
-      [entry(agent: "A"), entry(agent: "B"), entry(agent: "A"), entry(agent: "C")],
-      totalRounds: 3)
+      [entry(agent: "C"), entry(agent: "B")], totalRounds: 3)
 
-    // A keeps slot 0 on its second line — the map is keyed by name, not by row.
-    #expect(rows.map(\.agentPosition) == [0, 1, 0, 2])
+    #expect(rows.map(\.agentPosition) == [2, 1])
+  }
+
+  @Test func slotsDoNotHaveToAscend() {
+    // A non-monotonic sequence — unreachable by any rank-as-you-go scheme, so
+    // this pins that `agentPosition` is a pass-through of `personaIndex` rather
+    // than an ordering derived from the excerpt.
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "D"), entry(agent: "A"), entry(agent: "D")], totalRounds: 3)
+
+    #expect(rows.map(\.agentPosition) == [3, 0, 3])
   }
 
   @Test func fifthSpeakerCollidesWithTheFirstJustAsTheAppDoes() {

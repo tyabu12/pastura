@@ -31,6 +31,7 @@ import Testing
         "round": 1,
         "phase": "\(phase)",
         "phase_index": 0,
+        "persona_index": \(index),
         "source_field": "statement",
         "text": "答えはCです。"
       }

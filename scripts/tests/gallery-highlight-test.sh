@@ -25,7 +25,8 @@ for dep in jq python3 git shasum; do
 done
 python3 -c "import yaml" 2>/dev/null || { echo "ERROR: PyYAML not available — 'python3 -m pip install pyyaml'" >&2; exit 1; }
 
-SRC_SCRIPTS="$(git rev-parse --show-toplevel)/scripts"
+REAL_ROOT="$(git rev-parse --show-toplevel)"
+SRC_SCRIPTS="$REAL_ROOT/scripts"
 TMPROOT="$(mktemp -d)"
 trap 'rm -rf "$TMPROOT"' EXIT
 
@@ -47,6 +48,10 @@ runc() {
 expect_ok()   { if [ "$RC" -eq 0 ]; then PASS=$((PASS + 1)); else bad "$1 (rc=$RC): $OUT"; fi; }
 expect_fail() { if [ "$RC" -ne 0 ]; then PASS=$((PASS + 1)); else bad "$1 (expected non-zero rc): $OUT"; fi; }
 expect_out()  { case "$OUT" in *"$1"*) PASS=$((PASS + 1));; *) bad "$2 (missing '$1'): $OUT";; esac; }
+# Exact, for asserting a single extracted value. `expect_out 1` would also pass
+# on 10 or on an error string containing a 1 — a substring match cannot assert
+# that a derived number is the RIGHT number.
+expect_eq()   { if [ "$OUT" = "$1" ]; then PASS=$((PASS + 1)); else bad "$2 (expected '$1', got '$OUT')"; fi; }
 
 # --- Scaffold --------------------------------------------------------------
 
@@ -57,10 +62,35 @@ sha() { shasum -a 256 "$1" | awk '{print $1}'; }
 new_repo() {
   local d
   d="$(mktemp -d "$TMPROOT/repo.XXXXXX")"
-  mkdir -p "$d/scripts" "$d/docs/gallery/highlights" "$d/Pastura/Pastura/Resources"
+  mkdir -p "$d/scripts" "$d/docs/gallery/highlights" \
+           "$d/Pastura/Pastura/Resources" "$d/Pastura/Pastura/App"
   cp "$SRC_SCRIPTS/check-gallery-entry.sh" \
      "$SRC_SCRIPTS/gallery_highlight_validate.py" \
      "$SRC_SCRIPTS/gallery_highlight_extract.py" "$d/scripts/"
+  # A two-entry stand-in for Pastura/Pastura/App/ModelRegistry.swift — the gate
+  # and the extractor both read `source.model` against it. Shaped like the real
+  # literal, including `shortDisplayName:`, which must NOT be read as
+  # `displayName:` (E15 is the control for that anchoring).
+  cat > "$d/Pastura/Pastura/App/ModelRegistry.swift" <<'SWIFT'
+enum ModelRegistry {
+  nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
+    id: "gemma-4-e2b-q4-k-m",
+    displayName: "Gemma 4 E2B (Q4_K_M)",
+    shortDisplayName: "Gemma 4 E2B",
+    vendor: "Google"
+  )
+
+  nonisolated static let qwen34B: ModelDescriptor = ModelDescriptor(
+    id: "qwen-3-4b-q4-k-m",
+    displayName: "Qwen 3 4B (Q4_K_M)",
+    shortDisplayName: "Qwen 3 4B",
+    vendor: "Alibaba"
+  )
+
+  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B]
+  nonisolated static func lookup(id: ModelID) -> ModelDescriptor? { nil }
+}
+SWIFT
   cat > "$d/Pastura/Pastura/Resources/ContentBlocklist.json" <<'JSON'
 {
   "version": 1,
@@ -77,9 +107,13 @@ JSON
   printf '%s' "$d"
 }
 
-# mk_scenario <repo> <id> <phases-json> [rounds] [secret]
+# mk_scenario <repo> <id> <phases-json> [rounds] [secret] [extra-personas]
+# `extra-personas` is appended to the `personas:` block with `printf %b`, so
+# pass '\n'-separated YAML lines. It exists for the persona_index cases: with
+# one persona every index is 0, which cannot tell a lookup from a hardcoded 0.
 mk_scenario() {
   local d="$1" id="$2" phases="$3" rounds="${4:-4}" secret="${5:-}"
+  local extra_personas="${6:-}"
   cat > "$d/docs/gallery/$id.yaml" <<YAML
 id: $id
 language: ja
@@ -93,6 +127,9 @@ personas:
 YAML
   if [ -n "$secret" ]; then
     printf '    secret: hidden agenda\n' >> "$d/docs/gallery/$id.yaml"
+  fi
+  if [ -n "$extra_personas" ]; then
+    printf '%b\n' "$extra_personas" >> "$d/docs/gallery/$id.yaml"
   fi
   printf 'phases:\n' >> "$d/docs/gallery/$id.yaml"
   echo "$phases" | jq -r '.[] | "  - type: " + .' >> "$d/docs/gallery/$id.yaml"
@@ -134,6 +171,11 @@ mk_highlight() {
 (Linux MAX_ARG_STRLEN is 128 KiB per argument). Use flow style for deep nesting."
     return 0
   fi
+  # Every fixture scenario declares アヤ as its sole persona, so backfilling 0 is
+  # exactly what the extractor would derive. Cases exercising a WRONG or ABSENT
+  # index set (or delete) the key explicitly; `has()` leaves those alone.
+  excerpt="$(printf '%s' "$excerpt" \
+    | jq -c 'map(if has("persona_index") then . else . + {persona_index: 0} end)')"
   local ysha
   ysha="$(sha "$d/docs/gallery/$id.yaml")"
   jq -n --arg id "$id" --arg ysha "$ysha" --argjson excerpt "$excerpt" \
@@ -157,6 +199,18 @@ link_highlight() {
      '.scenarios |= map(if .id == $id then
         . + {highlight_url: ("highlights/" + $id + ".json"), highlight_sha256: $hsha}
       else . end)' \
+     "$d/docs/gallery/gallery.json" > "$d/docs/gallery/gallery.json.tmp"
+  mv "$d/docs/gallery/gallery.json.tmp" "$d/docs/gallery/gallery.json"
+}
+
+# repin_yaml <repo> <id> — refresh gallery.json's yaml_sha256 after a YAML edit.
+# A case that mutates the scenario YAML must call this BEFORE mk_highlight, or
+# the stale-pin check reddens first and the arm passes for the wrong reason.
+repin_yaml() {
+  local d="$1" id="$2" s
+  s="$(sha "$d/docs/gallery/$id.yaml")"
+  jq --arg id "$id" --arg s "$s" \
+     '.scenarios |= map(if .id == $id then .yaml_sha256 = $s else . end)' \
      "$d/docs/gallery/gallery.json" > "$d/docs/gallery/gallery.json.tmp"
   mv "$d/docs/gallery/gallery.json.tmp" "$d/docs/gallery/gallery.json"
 }
@@ -512,6 +566,230 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H24 mixed-type extra keys fail"
 expect_out "outside the allowlist" "H24 reports rather than tracebacks"
 
+# --- persona_index (ADR-029 Decision 1) ----------------------------------
+#
+# The consumers resolve a speaker's avatar colour from this index, so a wrong
+# one silently recolours the excerpt — nothing else in the pipeline notices.
+# H25 is the load-bearing positive: every other fixture has a single persona,
+# where index 0 is indistinguishable from a hardcoded zero.
+
+# H25 — a NON-zero index against a two-persona scenario passes.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"ケン","round":1,"phase":"speak_each","phase_index":0,"persona_index":1,"source_field":"statement","text":"そう思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_ok "H25 non-zero persona_index matching the YAML passes"
+
+# H26 — an explicit null (what a hand-edit that blanks the field leaves behind)
+# is a schema failure, not a skipped check. `mk_highlight` keys its backfill on
+# `has()`, which is true for null, so the fixture reaches the gate as written.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":null,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26 null persona_index fails"
+expect_out "persona_index must be an integer" "H26 names the persona_index schema check"
+
+# H26b — the key deleted outright. Distinct from H26 because `has()` is false
+# here, and this is the shape a pre-persona_index highlight file actually has —
+# i.e. what the gate must reject after this change lands. Deleted after
+# mk_highlight (which would otherwise backfill it), so re-link for the hash.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"
+python3 - "$R" <<'PY'
+import json, sys
+p = sys.argv[1] + "/docs/gallery/highlights/demo_v1.json"
+doc = json.load(open(p, encoding="utf-8"))
+for entry in doc["excerpt"]:
+    del entry["persona_index"]
+with open(p, "w", encoding="utf-8") as f:
+    json.dump(doc, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+PY
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26b omitted persona_index fails"
+expect_out "persona_index must be an integer" "H26b names the persona_index schema check"
+
+# H26c/H26d — the SCHEMA `persona_index` guards (`isinstance(…, bool)` and
+# `< 0`), which H26/H26b do not reach. Measured: dropping either clause from
+# `_check_excerpt_shape` reddens the matching arm here. (`_check_persona_index`'s
+# own skip is not a guard — dropping it leaves the suite green.)
+#
+# `True` IS an `int` in Python, so the agent here is ケン at index 1: with the
+# schema clause gone, `persona_names[True]` resolves and PASSES, rather than
+# reddening for the sibling name-match reason.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"ケン","round":1,"phase":"speak_each","phase_index":0,"persona_index":true,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26c boolean persona_index fails"
+expect_out "persona_index must be an integer" "H26c names the persona_index schema check"
+
+# H26d arms the schema `< 0` clause. The cross-reference's own `< 0` skip is
+# unarmable through the gate: `list.index()` never returns a negative, so a
+# negative past the schema clause is intercepted by the name-match arm instead.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":-1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26d negative persona_index fails"
+expect_out "persona_index must be an integer" "H26d names the persona_index schema check"
+
+# H27 — an index past the end of the persona list.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":7,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H27 out-of-range persona_index fails"
+expect_out "is outside the scenario's \`personas:\` list" "H27 names the range check"
+
+# H28b — a scenario declaring the same name twice. Name-matching alone would
+# accept either index; the app resolves the slot with `firstIndex(of:)`, so only
+# the first reproduces the run's colours.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: アヤ\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H28b a later duplicate persona_index fails"
+expect_out "is a later duplicate of agent=" "H28b names the duplicate check"
+
+# H28 — an in-range index naming a DIFFERENT persona than `agent`. This is the
+# shape a hand-edited excerpt reaches by reordering lines, and the one H27's
+# range check cannot see.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H28 persona_index naming another persona fails"
+expect_out "in the scenario's \`personas:\` list but agent=" "H28 names the mismatch"
+
+# H29 — the sibling YAML carries no readable `personas:`. The check must say it
+# could not verify rather than silently pass; repin_yaml keeps the stale-pin
+# check from reddening first.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+python3 - "$R" <<'PY'
+import re, sys
+p = sys.argv[1] + "/docs/gallery/demo_v1.yaml"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(
+    re.sub(r"personas:\n  - name: アヤ\n    description: aa\n",
+           "personas: ノーコメント\n", text))
+PY
+repin_yaml "$R" demo_v1
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H29 unreadable personas fails"
+# Asserts the CAUSE, not just "cannot be verified" — _read_persona_names returns
+# a reason per class. The PyYAML-absent class cannot have an arm here: the suite
+# aborts at startup without PyYAML.
+expect_out "cannot be verified: the sibling scenario YAML has no \`personas:\`" \
+  "H29 names the shape cause specifically"
+
+# --- source.model (ADR-029 Decision 1) ------------------------------------
+#
+# The string publishes verbatim in user-facing prose on the landing pages, so a
+# display name reaching it shows one model under two names across neighbouring
+# pages. H1 already covers the positive (mk_highlight writes the slug).
+
+# set_model <repo> <id> <model-string> — rewrite source.model, then re-link so
+# the hash check does not redden first and mask the arm.
+set_model() {
+  jq --arg m "$3" '.source.model = $m' \
+    "$1/docs/gallery/highlights/$2.json" > "$1/hl.tmp"
+  mv "$1/hl.tmp" "$1/docs/gallery/highlights/$2.json"
+  link_highlight "$1" "$2"
+}
+
+# H30 — the harness's display name, i.e. exactly what an extraction that did not
+# resolve `run_start.model` would leave behind.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+set_model "$R" demo_v1 "Gemma 4 E2B (Q4_K_M)"
+gate "$R"; expect_fail "H30 display-name source.model fails"
+expect_out "highlight: source.model" "H30 names the source.model check"
+
+# H31 — an unknown id that is NOT retired. Also the control for H32: without it,
+# a registry read that silently returned everything would let H32 pass.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+set_model "$R" demo_v1 "legacy-model-id"
+gate "$R"; expect_fail "H31 unknown non-retired id fails"
+expect_out "highlight: source.model" "H31 names the source.model check"
+
+# H32 — the same id, now in RETIRED_MODEL_IDS, passes. Injected into the copied
+# validator; a `sed` whose anchor missed would leave the id unknown and redden,
+# so this arm cannot pass by a silent no-op.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+set_model "$R" demo_v1 "legacy-model-id"
+sed -i.bak 's/^RETIRED_MODEL_IDS = frozenset()$/RETIRED_MODEL_IDS = frozenset({"legacy-model-id"})/' \
+  "$R/scripts/gallery_highlight_validate.py"
+if grep -q 'frozenset({"legacy-model-id"})' "$R/scripts/gallery_highlight_validate.py"; then
+  PASS=$((PASS + 1))
+else
+  bad "H32 sed anchor missed — RETIRED_MODEL_IDS not injected, arm is vacuous"
+fi
+gate "$R"; expect_ok "H32 a retired id passes"
+
+# H33 — the registry reformatted so the anchored pattern finds nothing. This is
+# the claim the parser's own comment makes (this repo auto-formats Swift on
+# edit), and an empty parse must be loud rather than admitting every id.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+printf '%s\n' 'enum ModelRegistry { static let a = ModelDescriptor(id: "gemma-4-e2b-q4-k-m") }' \
+  > "$R/Pastura/Pastura/App/ModelRegistry.swift"
+gate "$R"; expect_fail "H33 unparseable registry fails"
+expect_out "highlight: model registry" "H33 names the registry read"
+
+# H34 — known-positive control against the REAL repo registry. Every arm above
+# reads a synthetic fixture, so none would notice the real file drifting out of
+# the pattern's reach. Read-only, and `-B` so the import leaves no
+# `scripts/__pycache__` in the real worktree.
+runc "$REAL_ROOT" python3 -B -c "
+import sys
+sys.path.insert(0, 'scripts')
+import gallery_highlight_validate as ghv
+result = ghv.registry_model_ids('Pastura/Pastura/App/ModelRegistry.swift')
+ids, display = (result if result else (set(), {}))
+print('gemma-4-e2b-q4-k-m' in ids and 'Gemma 4 E2B (Q4_K_M)' in display)
+"
+expect_eq "True" "H34 the real ModelRegistry.swift parses to ids + displayNames"
+
+# --- add-gallery-entry.sh --update carry-forward --------------------------
+#
+# Lives in this suite rather than gallery-scripts-test.sh because the script's
+# post-validate step runs the gate, which needs the highlight scaffold only this
+# file builds (validator copy, registry + blocklist fixtures, a linked file).
+#
+# Measured against the bug (carry-forward disabled): the two value assertions
+# below PASS anyway, because the failed post-validate restores the backup. Only
+# `expect_ok` and the key-order check discriminate — keep both.
+
+# H35 — `--update` keeps highlight_url / highlight_sha256.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+cp "$SRC_SCRIPTS/add-gallery-entry.sh" "$R/scripts/"
+# mk_scenario writes only the YAML-derived fields; --update reads the rest from
+# the existing entry, so they must be present for --non-interactive to proceed.
+jq '.scenarios |= map(. + {category: "creative", description: "card",
+      author: "tester", recommended_model: "gemma-4-e2b-q4-k-m",
+      estimated_inferences: 8, added_at: "2026-01-01"})' \
+  "$R/docs/gallery/gallery.json" > "$R/gj.tmp"
+mv "$R/gj.tmp" "$R/docs/gallery/gallery.json"
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+HSHA_BEFORE="$(jq -r '.scenarios[0].highlight_sha256' "$R/docs/gallery/gallery.json")"
+# A flag override, so the candidate differs and the no-op short-circuit cannot
+# stand in for the carry-forward.
+runc "$R" bash scripts/add-gallery-entry.sh --update demo_v1 --non-interactive \
+  --description "tighter card"
+expect_ok "H35 --update on a highlighted entry exits 0"
+runc "$R" jq -r '.scenarios[0].highlight_sha256' docs/gallery/gallery.json
+expect_eq "$HSHA_BEFORE" "H35 kept highlight_sha256 across --update"
+runc "$R" jq -r '.scenarios[0].highlight_url' docs/gallery/gallery.json
+expect_eq "highlights/demo_v1.json" "H35 kept highlight_url across --update"
+# Key order matters for the diff a curator reads: the fields belong between
+# yaml_sha256 and added_at, where a hand-written entry puts them. "Directly
+# after" rather than "somewhere between", so it also pins the internal
+# highlight_url-before-highlight_sha256 order that `with_entries` preserves.
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("highlight_url") - index("yaml_sha256")' \
+  docs/gallery/gallery.json
+expect_eq "1" "H35 highlight_url sits directly after yaml_sha256"
+
 # ============================== extractor ================================
 
 # mk_run <repo> <path> — a minimal 4-round transcript. Line numbers:
@@ -521,7 +799,7 @@ expect_out "outside the allowlist" "H24 reports rather than tracebacks"
 #   9 agent_output(アヤ, round 4), 10 run_end
 mk_run() {
   cat > "$2" <<'JSONL'
-{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"demo_v1","scenario_name":"T","language":"ja","model":"gemma-4-e2b-q4-k-m","timeout_sec":900,"estimated_inferences":12}
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"demo_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
 {"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":4}
 {"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"speak_each","phase_path":[0]}
 {"type":"event","t":0.3,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_each","fields":{"statement":"私はBだと思う。","inner_thought":"本当はCかも。"}}
@@ -655,6 +933,117 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo
   --yaml-hook-kind phases --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E10b unlisted yaml_hook.kind fails at extraction"
 expect_out "is not in the allowlist" "E10b names the allowlist"
+
+# --- persona_index derivation ---------------------------------------------
+
+# E11 — the extractor derives the index from the YAML, and derives a NON-zero
+# one. Against a single-persona scenario a hardcoded 0 would pass, so the
+# speaker here is `personas[1]`.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(text.replace('"agent":"アヤ"', '"agent":"ケン"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_ok "E11 extraction with a personas[1] speaker succeeds"
+runc "$R" jq -r '.excerpt[0].persona_index' docs/gallery/highlights/demo_v1.json
+expect_eq "1" "E11 wrote the derived index, not a hardcoded 0"
+
+# E12 — a transcript speaker the scenario does not declare. The index would be
+# arbitrary, so extraction refuses rather than omitting the key.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(text.replace('"agent":"アヤ"', '"agent":"ミカ"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E12 undeclared speaker fails at extraction"
+expect_out "is not in the scenario's \`personas:\` list" "E12 names the persona lookup"
+
+# E13 — a scenario YAML with no readable `personas:` refuses extraction outright
+# (the gate's H29 is the same condition reached from the other consumer).
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+python3 - "$R" <<'PY'
+import re, sys
+p = sys.argv[1] + "/docs/gallery/demo_v1.yaml"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(
+    re.sub(r"personas:\n  - name: アヤ\n    description: aa\n",
+           "personas: ノーコメント\n", text))
+PY
+repin_yaml "$R" demo_v1
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E13 unreadable personas refuses extraction"
+expect_out "unreadable personas" "E13 names the personas failure"
+
+# E13b — the extractor's own copy of "an empty registry parse is loud". H33 is
+# the gate side of the same claim; this is the arm for the extractor's `die`.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+printf '%s\n' 'enum ModelRegistry { static let a = ModelDescriptor(id: "gemma-4-e2b-q4-k-m") }' \
+  > "$R/Pastura/Pastura/App/ModelRegistry.swift"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E13b unparseable registry refuses extraction"
+expect_out "model registry" "E13b names the registry read"
+
+# --- source.model resolution ----------------------------------------------
+
+# E14 — the default path. `mk_run` writes what the harness writes (a display
+# name), so every E case above already goes through the mapping; this is the one
+# that asserts the value it resolves to.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_ok "E14 a display-name run_start.model extracts"
+runc "$R" jq -r '.source.model' docs/gallery/highlights/demo_v1.json
+expect_eq "gemma-4-e2b-q4-k-m" "E14 wrote the resolved id, not the display name"
+
+# E14b — the other shape: a transcript already carrying the id passes through
+# unchanged. This was `mk_run`'s value before the flip, so without this arm the
+# id path would have no coverage at all.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+old = '"model":"Gemma 4 E2B (Q4_K_M)"'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+open(p, "w", encoding="utf-8").write(
+    text.replace(old, '"model":"gemma-4-e2b-q4-k-m"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_ok "E14b an id in run_start.model extracts"
+runc "$R" jq -r '.source.model' docs/gallery/highlights/demo_v1.json
+expect_eq "gemma-4-e2b-q4-k-m" "E14b passed the id through unchanged"
+
+# E15 — a string that is neither an id nor a known displayName. Refused rather
+# than written through, and the message names the escape hatch.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --model "Gemma 4 E2B" \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E15 an unresolvable model refuses extraction"
+expect_out "Pass --model with the registry id" "E15 names the escape hatch"
+# The value is the fixture registry's `shortDisplayName`, deliberately: it is
+# rejected today and would start RESOLVING the moment `_REGISTRY_DISPLAY_NAME`
+# lost its `^\s*` anchor. This is the control for that anchoring — an unrelated
+# string would be rejected under either anchor, i.e. would measure nothing.
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

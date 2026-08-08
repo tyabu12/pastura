@@ -19,7 +19,11 @@ each must be an `agent_output` line) or a `--selection <file.json>`:
       "yaml_hook": {"kind": "raw",
                     "fragment": "phases:\\n  - type: speak_each", "caption": "…"},
       "teaser": "…",
-      "model": "gemma-4-e2b-q4-k-m",      // optional; default run_start.model
+      // optional. Omitted, `run_start.model` is resolved to a `ModelRegistry`
+      // id — the harness writes a *display name* there, and the slug is what
+      // ships. Supply one only to override; a value that is neither an id nor a
+      // known displayName hard-fails either way.
+      "model": "gemma-4-e2b-q4-k-m",
       "generated_at": "2026-08-05"         // optional; default today (UTC)
     }
 
@@ -36,6 +40,9 @@ Hard-fails (each with a distinct, greppable message):
     landed; classify it in ADR-029 Decision 3 first);
   - a pick that is not an `agent_output` line, or whose phase / source_field /
     position / round violates Decision 3;
+  - a pick whose `agent` is absent from the scenario's `personas:` list, or a
+    YAML with no readable `personas:` — every excerpt entry pins the speaker's
+    index into that list as `persona_index`, derived here and never selectable;
   - more than 8 excerpt entries; a blocklist match; a stale `yaml_sha256`.
 
 The gate (`scripts/check-gallery-entry.sh`), not this tool, is the enforcement
@@ -147,7 +154,7 @@ def normalize_picks(raw_picks):
     return picks
 
 
-def build_excerpt(picks, lines, context, run_path):
+def build_excerpt(picks, lines, context, run_path, persona_names):
     # A retried harness run appends attempt 2 to the same JSONL and round
     # numbering restarts at 1, so a pick landing in the discarded attempt
     # would be silently mis-contextualized (its round derived from the dead
@@ -180,15 +187,51 @@ def build_excerpt(picks, lines, context, run_path):
         if source_field not in fields:
             die(f"pick {lineno} — the agent_output carries no {source_field!r} field "
                 f"(has {sorted(fields)})")
+        agent = obj.get("agent", "")
+        # Hard-fail rather than omit the key or write a sentinel: a speaker the
+        # scenario does not declare means the transcript and the pinned YAML
+        # disagree, so the index the consumers colour from would be arbitrary.
+        if agent not in persona_names:
+            die(f"pick {lineno} — agent {agent!r} is not in the scenario's "
+                f"`personas:` list {persona_names}; persona_index cannot be "
+                "derived. The transcript and the pinned YAML disagree — check "
+                "that the run used this exact scenario file.")
         excerpt.append({
-            "agent": obj.get("agent", ""),
+            "agent": agent,
             "round": round_no,
             "phase": obj.get("phase_type", ""),
             "phase_index": phase_idx,
+            "persona_index": persona_names.index(agent),
             "source_field": source_field,
             "text": fields[source_field],
         })
     return excerpt
+
+
+def resolve_model_id(raw, allowed_model_ids, display_to_id):
+    """-> a `ModelRegistry` id for `raw`, or die.
+
+    The harness writes `ModelProfile.name` — a **display name** like
+    `Gemma 4 E2B (Q4_K_M)` — into `run_start.model`, while every shipped
+    highlight and the landing pages want the slug (`gemma-4-e2b-q4-k-m`). An
+    unresolved one would reach `source.model` and publish verbatim in
+    user-facing prose, showing one model under two names.
+    """
+    if not isinstance(raw, str):
+        die(f"model must be a string, got {type(raw).__name__} ({raw!r}) — check "
+            "the selection file's `model` value")
+    if not raw:
+        die("no model — the transcript's run_start carries none and neither "
+            "--model nor the selection file supplied one")
+    if raw in allowed_model_ids:
+        return raw
+    mapped = display_to_id.get(raw)
+    if mapped is not None:
+        return mapped
+    die(f"unknown model {raw!r} — it is neither a ModelRegistry id "
+        f"{sorted(allowed_model_ids)} nor a known displayName "
+        f"{sorted(display_to_id)}. Pass --model with the registry id the run "
+        "actually used.")
 
 
 def load_selection(args):
@@ -250,6 +293,8 @@ def main():
     ap.add_argument("--gallery-dir", default=os.path.join(REPO_ROOT, "docs", "gallery"))
     ap.add_argument("--blocklist", default=os.path.join(
         REPO_ROOT, "Pastura", "Pastura", "Resources", "ContentBlocklist.json"))
+    ap.add_argument("--model-registry", default=os.path.join(
+        REPO_ROOT, "Pastura", "Pastura", "App", "ModelRegistry.swift"))
     ap.add_argument("--out", help="output path (default <gallery-dir>/highlights/<id>.json)")
     args = ap.parse_args()
 
@@ -276,17 +321,35 @@ def main():
             f"gallery.json has {entry.get('yaml_sha256')}. The index is stale or "
             "points at the wrong file; fix it before pinning a highlight to it.")
 
+    persona_names = ghv.scenario_persona_names(scenario)
+    if persona_names is None:
+        die(f"unreadable personas — {yaml_path} has no `personas:` list of "
+            "mappings each carrying a string `name`. Every excerpt entry pins "
+            "the speaker's index into that list (ADR-029 Decision 1), so it "
+            "cannot be derived.")
+
     lines, run_start = read_transcript(args.run)
     check_phase_catalog(lines, args.run)
     context = annotate(lines)
     selection = load_selection(args)
-    excerpt = build_excerpt(selection["picks"], lines, context, args.run)
+    excerpt = build_excerpt(
+        selection["picks"], lines, context, args.run, persona_names)
+
+    registry = ghv.registry_model_ids(args.model_registry)
+    if registry is None:
+        die(f"model registry — no ModelDescriptor id readable from "
+            f"{args.model_registry}; source.model cannot be resolved or checked.")
+    registry_ids, display_to_id = registry
+    allowed_model_ids = registry_ids | ghv.RETIRED_MODEL_IDS
+    model = resolve_model_id(
+        selection["model"] or run_start.get("model", ""),
+        allowed_model_ids, display_to_id)
 
     doc = {
         "schema_version": ghv.SCHEMA_VERSION,
         "scenario_ref": {"id": args.id, "yaml_sha256": yaml_sha},
         "source": {
-            "model": selection["model"] or run_start.get("model", ""),
+            "model": model,
             "run_id": run_start.get("run_id", ""),
             "generated_at": selection["generated_at"]
             or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
@@ -306,7 +369,9 @@ def main():
         die(f"ContentBlocklist.json not found at {args.blocklist} — the "
             "publish-time audit is mandatory (ADR-029 Decision 2)")
     blocklist = ghv.load_blocklist(args.blocklist)
-    failures = ghv.check_content(doc, entry, blocklist, f"[{args.id}]")
+    failures = ghv.check_content(
+        doc, entry, blocklist, f"[{args.id}]",
+        personas=(persona_names, None), allowed_model_ids=allowed_model_ids)
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

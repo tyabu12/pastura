@@ -187,17 +187,17 @@
         "excerpt": [
           {
             "agent": "Alice", "round": 1, "phase": "speak_all",
-            "phase_index": 0, "source_field": "statement",
+            "phase_index": 0, "persona_index": 0, "source_field": "statement",
             "text": "はじめまして、よろしく。"
           },
           {
             "agent": "Bob", "round": 1, "phase": "speak_all",
-            "phase_index": 0, "source_field": "statement",
+            "phase_index": 0, "persona_index": 1, "source_field": "statement",
             "text": "こちらこそ。まずは様子を見たい。"
           },
           {
             "agent": "Alice", "round": 2, "phase": "speak_each",
-            "phase_index": 0, "source_field": "statement",
+            "phase_index": 0, "persona_index": 0, "source_field": "statement",
             "text": "では、そろそろ本題に入ろう。"
           }
         ],

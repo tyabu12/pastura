@@ -50,7 +50,17 @@ function loadHighlight(id: string): ScenarioHighlight | null {
       parsed.excerpt.length === 0 ||
       typeof parsed.yaml_hook?.fragment !== 'string' ||
       typeof parsed.source?.model !== 'string' ||
-      typeof parsed.teaser !== 'string'
+      typeof parsed.teaser !== 'string' ||
+      // The only per-entry field checked here, because it is the only one whose
+      // absence renders WRONG rather than empty: `undefined % 4` is NaN and
+      // `SHEEP_TONES[NaN]` is undefined, which drops `data-tone` and leaves the
+      // avatar untinted. `astro check` catches neither step — `parsed` is a bare
+      // cast and `noUncheckedIndexedAccess` is off — so without this clause a
+      // malformed file degrades to a miscoloured section instead of to the
+      // "no section" this function promises.
+      parsed.excerpt.some(
+        (entry) => !Number.isInteger(entry?.persona_index) || entry.persona_index < 0
+      )
     ) {
       console.warn(`[highlight] ignoring unusable highlight file: ${path}`);
       return null;
@@ -67,24 +77,26 @@ const highlight = loadHighlight(scenario.id);
 // The four avatar colour slots, in the order of `SheepAvatar.Character.allCases`
 // (Pastura/Pastura/Views/Components/SheepAvatar.swift). The app resolves an
 // agent's slot as `allCases[agentPosition % 4]`, where `agentPosition` is the
-// agent's index in the scenario's persona list. A highlight file carries no
-// persona index, so the order of first appearance in the excerpt stands in for
-// it. Measured on all four shipped highlights (chin_jimaku_v1,
-// asch_conformity_v1, chinkaitou_soudan_v1, iiwake_battle_v1):
-// the two orders are identical, so a reader sees the same colours here as in
-// the app. That includes asch_conformity_v1's collision, where five agents
-// share four slots and 被験者ナオキ lands on サクラA's. The app collides the
-// same way, so reproducing it is fidelity rather than a defect to route around.
+// agent's index in the scenario's persona list, and `excerpt[].persona_index`
+// carries exactly that index. So a reader sees the same colours here as in the
+// app for any excerpt, and the repo-side gate cross-checks each index against
+// the sibling YAML (`scripts/gallery_highlight_validate.py`, `_check_persona_index`).
+//
+// With four variants, persona index 4 reuses index 0's slot — the fifth persona
+// collides with the first, not with the fourth. asch_conformity_v1 is the live
+// case (被験者ナオキ at index 4 lands on サクラA's). The app collides the same
+// way, so reproducing it is fidelity rather than a defect to route around.
+//
+// The double modulo is parity with Swift's wrap, not a reachable case: both the
+// gate and `loadHighlight` above reject a negative `persona_index`.
 const SHEEP_TONES = ['alice', 'bob', 'carol', 'dave'] as const;
 
 const excerpt = highlight?.excerpt ?? [];
 
-const agentSlots = new Map<string, number>();
-for (const line of excerpt) {
-  if (!agentSlots.has(line.agent)) agentSlots.set(line.agent, agentSlots.size);
-}
-const toneFor = (agent: string) =>
-  SHEEP_TONES[(agentSlots.get(agent) ?? 0) % SHEEP_TONES.length];
+const toneFor = (personaIndex: number) =>
+  SHEEP_TONES[
+    ((personaIndex % SHEEP_TONES.length) + SHEEP_TONES.length) % SHEEP_TONES.length
+  ];
 
 // The panel head names the phase only when every line shares one, mirroring
 // GameHeader's meta row, where each fragment renders or collapses on its own.
@@ -231,7 +243,7 @@ const headLabel = highlight
                       <div class="round-divider" lang={locale}>{t.roundLabel(line.round, scenario.rounds)}</div>
                     )}
                     <div class="bubble-row">
-                      <SheepAvatar tone={toneFor(line.agent)} />
+                      <SheepAvatar tone={toneFor(line.persona_index)} />
                       <div class="bubble-stack">
                         <div class="bubble-name">{line.agent}</div>
                         <div class="bubble"><blockquote>{line.text}</blockquote></div>

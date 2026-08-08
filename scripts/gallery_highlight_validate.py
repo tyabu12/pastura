@@ -4,7 +4,8 @@
 Two consumers, one implementation:
 
   1. `scripts/check-gallery-entry.sh` runs this as a CLI (`--gallery-json` /
-     `--gallery-dir` / `--blocklist`). That is the **enforcement point**
+     `--gallery-dir` / `--blocklist` / `--model-registry`, all required — this
+     module derives no paths of its own). That is the **enforcement point**
      (ADR-029 Decision 2): a hand-edited highlight never runs the extractor,
      so every rule must be re-derivable here, ungated, in CI.
   2. `scripts/gallery_highlight_extract.py` imports `check_content` as a
@@ -75,6 +76,23 @@ OUTCOME_PHASES = frozenset({"vote", "eliminate", "score_calc", "choose", "summar
 
 # Field-level allowlist: speak phases also emit `inner_thought`.
 SOURCE_FIELDS = frozenset({"statement"})
+
+# Model ids that have left `ModelRegistry.catalog` but remain valid as
+# `source.model`. A highlight is a pinned snapshot — a statement about the run
+# that produced it — and the registry's supersede convention *removes* the old
+# entry (`ModelRegistry.swift` § "Model-update (supersede) convention"), so a
+# catalog-only check would turn every shipped highlight red on an unrelated
+# model-swap PR, with only "re-run the harness" or "delete the excerpt" as
+# remedies. Empty today: a swap PR still reddens until its author moves the id
+# here — what the list buys is a failure that names its own remedy.
+RETIRED_MODEL_IDS = frozenset()
+
+# `id:` / `displayName:` inside a `ModelDescriptor(...)` literal. Anchored at
+# line start so `shortDisplayName:` cannot be read as `displayName:`, and
+# requiring a quoted value so `lookup(id: ModelID)` and
+# `defaultInitialModelID = gemma4E2B.id` are not mistaken for entries.
+_REGISTRY_ID = re.compile(r'^\s*id:\s*"([^"]+)"')
+_REGISTRY_DISPLAY_NAME = re.compile(r'^\s*displayName:\s*"([^"]+)"')
 
 
 # --- Hashing + text normalization ------------------------------------------
@@ -211,6 +229,12 @@ def _check_excerpt_shape(doc, where):
         if not isinstance(ex.get("phase_index"), int) \
                 or isinstance(ex.get("phase_index"), bool) or ex["phase_index"] < 0:
             failures.append(f"highlight: schema — {loc}.phase_index must be an integer >= 0")
+        if not isinstance(ex.get("persona_index"), int) \
+                or isinstance(ex.get("persona_index"), bool) or ex["persona_index"] < 0:
+            failures.append(
+                f"highlight: schema — {loc}.persona_index must be an integer >= 0 "
+                "(the speaker's index in the scenario's `personas:` list, which is "
+                "what resolves their avatar colour slot; ADR-029 Decision 1)")
         phase = ex.get("phase")
         if phase not in PHASE_TYPES:
             failures.append(
@@ -486,14 +510,168 @@ def _check_position(doc, entry, where):
     return failures
 
 
-def check_content(doc, entry, blocklist, where):
+def registry_model_ids(registry_swift):
+    """-> ({id, …}, {displayName: id, …}) from `ModelRegistry.swift`, or None.
+
+    `None` means the catalog could not be read — missing file, or a parse that
+    found no entries. Both are reported as one named failure by the caller
+    rather than degrading into "every model id is unknown", and an empty parse
+    is a failure precisely because this repo auto-formats Swift on edit: a
+    reformat that broke the pattern would otherwise silently disarm the check.
+
+    This parses **every line-anchored `id: "…"` in the file**, a superset of
+    `ModelRegistry.catalog`: a descriptor withheld from the catalog array would
+    widen the allowlist by one. Tolerated — the check exists to catch display
+    names and typos, not to police unshipped descriptors.
+    """
+    ids, display_to_id = set(), {}
+    try:
+        with open(registry_swift, encoding="utf-8") as f:
+            current = None
+            for line in f:
+                match = _REGISTRY_ID.match(line)
+                if match:
+                    current = match.group(1)
+                    ids.add(current)
+                    continue
+                match = _REGISTRY_DISPLAY_NAME.match(line)
+                if match and current is not None:
+                    display_to_id[match.group(1)] = current
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not ids:
+        return None
+    return ids, display_to_id
+
+
+def _check_source_model(doc, allowed_model_ids, where):
+    """`source.model` must name a model a reader could actually have run.
+
+    The string is published verbatim in user-facing prose on the landing pages
+    (「実際に端末で動かした結果…（<model>）」 and its English sibling), so one
+    model appearing under two names across neighbouring pages is a visible
+    defect. The authority is `ModelRegistry.catalog`, not the harness's
+    `ModelProfile.all`, which also carries eval candidates with no app entry.
+
+    Consequence to accept rather than discover: a transcript from a harness-only
+    profile cannot produce a publishable highlight at all, and `--model` offers
+    no way around it. The landing page calls this "a real on-device run", which
+    it would not be for a model the reader cannot install.
+    """
+    source = doc.get("source")
+    if not isinstance(source, dict) or not isinstance(source.get("model"), str):
+        return []  # shape already reported by _check_schema
+    model = source["model"]
+    if model in allowed_model_ids:
+        return []
+    return [
+        f"highlight: source.model — {where} source.model={model!r} is not a known "
+        f"model id. Expected one of {sorted(allowed_model_ids)}. The harness writes "
+        "`ModelProfile.name` (a display name) into the transcript's `run_start`, so "
+        "an extraction that did not resolve it lands here; a superseded model's id "
+        "belongs in RETIRED_MODEL_IDS in this file."]
+
+
+def scenario_persona_names(scenario):
+    """-> the scenario's persona names in declaration order, or None.
+
+    `None` means the list could not be read *at all* — unparseable YAML, no
+    `personas:` key, or an entry without a string `name`. Kept distinct from an
+    empty list so the caller reports "cannot verify" instead of "every index is
+    wrong": the two need different fixes.
+    """
+    if not isinstance(scenario, dict):
+        return None
+    personas = scenario.get("personas")
+    if not isinstance(personas, list) or not personas:
+        return None
+    names = []
+    for persona in personas:
+        if not isinstance(persona, dict) or not isinstance(persona.get("name"), str):
+            return None
+        names.append(persona["name"])
+    return names
+
+
+def _check_persona_index(doc, personas, where):
+    """Cross-reference `excerpt[].persona_index` against the sibling YAML.
+
+    The app resolves a speaker's avatar colour as
+    `SheepAvatar.Character.allCases[i % 4]`, where `i` is that speaker's index
+    in the scenario's `personas:` list (`SimulationView.personaItem(for:)`).
+    `i` was previously derived from excerpt order, which matched the run only
+    when the excerpt was a prefix of `personas:`; carrying the real index makes
+    the correspondence hold for any excerpt, which is why this is a
+    cross-reference against the YAML and NOT a constraint on which lines may be
+    excerpted.
+
+    `personas` is the `(names, reason)` pair from ``_read_persona_names`` — a
+    pair so an unreadable YAML reports *why* it could not be verified, rather
+    than one message that blames the YAML for a missing PyYAML.
+    """
+    persona_names, reason = personas
+    if persona_names is None:
+        return [
+            f"highlight: persona_index — {where} cannot be verified: {reason}"]
+    failures = []
+    for i, ex in enumerate(doc.get("excerpt") or []):
+        if not isinstance(ex, dict):
+            continue
+        loc = f"{where} excerpt[{i}]"
+        idx = ex.get("persona_index")
+        if not isinstance(idx, int) or isinstance(idx, bool) or idx < 0:
+            # NOT a guard — `_check_excerpt_shape` already fails all of these
+            # (measured: removing this line leaves the suite green). It only
+            # avoids double-reporting. Do not describe it as catching anything.
+            continue
+        agent = ex.get("agent")
+        if idx >= len(persona_names):
+            failures.append(
+                f"highlight: persona_index — {loc}.persona_index={idx} is outside the "
+                f"scenario's `personas:` list (len={len(persona_names)})")
+        elif persona_names[idx] != agent:
+            failures.append(
+                f"highlight: persona_index — {loc}.persona_index={idx} names "
+                f"{persona_names[idx]!r} in the scenario's `personas:` list but "
+                f"agent={agent!r}")
+        elif idx >= 0 and persona_names.index(agent) != idx:
+            # Name-match alone is too weak when a scenario declares the same
+            # name twice: either index would satisfy it, while the app resolves
+            # the slot with `firstIndex(of:)` and so uses the first. Requiring
+            # the first keeps the excerpt's colours equal to the run's.
+            failures.append(
+                f"highlight: persona_index — {loc}.persona_index={idx} is a later "
+                f"duplicate of agent={agent!r}, first declared at "
+                f"{persona_names.index(agent)}; the app resolves the slot from the "
+                "first match, so only that index reproduces the run's colours")
+    return failures
+
+
+def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
     """Every rule derivable from the highlight doc + its index entry.
 
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
     the file-level checks (pairing, file hashes) the extractor cannot run.
+
+    **This dispatch list is mirrored in prose, and nothing checks the mirror.**
+    Adding a check here — or to ``validate_repo`` — means sweeping ADR-029
+    Decision 2 ("re-derives, per highlight: …") in the same PR: it claims to be
+    a *complete* list of what the gate re-derives, split across this function
+    (content-level) and ``validate_repo`` (file-level), and
+    `docs/gallery/README.md` gate 1 points at it rather than restating it. The extractor's own § "Hard-fails" is a partial sibling
+    and needs updating only when the check has an extraction-time counterpart.
+    Sweeping the mirror can *narrow* it: spelling out a category that was vague
+    once excluded a member the vagueness had covered. Widen, do not enumerate.
+
+    `personas` is ``_read_persona_names``'s `(names, reason)` pair;
+    `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both
+    are required rather than defaulted, so a caller cannot skip a check by
+    omission — the gate is the only place either failure would surface.
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
+    failures += _check_persona_index(doc, personas, where)
+    failures += _check_source_model(doc, allowed_model_ids, where)
     failures += _check_yaml_hook_secret(doc, where)
     failures += _check_yaml_hook_fragment(doc, where)
     failures += _check_position(doc, entry, where)
@@ -509,7 +687,33 @@ def _entry_index(gallery_json):
         return json.load(f).get("scenarios") or []
 
 
-def validate_repo(gallery_json, gallery_dir, blocklist_path):
+def _read_persona_names(yaml_path):
+    """-> (names, None) on success, or (None, reason) naming what went wrong.
+
+    The reason travels back so the failure text can name the actual cause: on a
+    machine without PyYAML the fix is an install, and a message blaming the YAML
+    would send the curator to the wrong file. `RecursionError` is caught
+    alongside `YAMLError` for the reason the sibling checks here document — it
+    is not a `YAMLError`, so deep nesting escapes as a traceback otherwise.
+    """
+    if yaml is None:
+        return None, ("PyYAML is not installed, so the sibling scenario YAML "
+                      "cannot be parsed (python3 -m pip install 'pyyaml>=6,<7')")
+    try:
+        with open(yaml_path, encoding="utf-8") as f:
+            parsed = yaml.safe_load(f)
+    except (OSError, UnicodeDecodeError) as exc:
+        return None, f"the sibling scenario YAML could not be read ({exc})"
+    except (yaml.YAMLError, RecursionError) as exc:
+        return None, f"the sibling scenario YAML does not parse ({type(exc).__name__})"
+    names = scenario_persona_names(parsed)
+    if names is None:
+        return None, ("the sibling scenario YAML has no `personas:` list of "
+                      "mappings each carrying a string `name`")
+    return names, None
+
+
+def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
     """-> list of failure strings across the whole gallery."""
     failures = []
     entries = _entry_index(gallery_json)
@@ -555,6 +759,14 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
         return failures
     blocklist = load_blocklist(blocklist_path)
 
+    registry = registry_model_ids(registry_swift)
+    if registry is None:
+        failures.append(
+            "highlight: model registry — could not read any ModelDescriptor id from "
+            f"{registry_swift}; source.model cannot be checked against the catalog")
+        return failures
+    allowed_model_ids = registry[0] | RETIRED_MODEL_IDS
+
     referenced = set()
     for entry in paired_entries:
         entry_id = entry.get("id")
@@ -594,6 +806,7 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
                 f"gallery.json id {entry_id!r}")
 
         yaml_path = os.path.join(gallery_dir, os.path.basename(entry.get("yaml_url", "")))
+        personas = (None, f"the sibling scenario YAML {yaml_path} is missing")
         if not os.path.isfile(yaml_path):
             failures.append(
                 f"highlight: yaml_sha256 mismatch — id={entry_id} sibling YAML "
@@ -607,8 +820,11 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
                     f"{ref_sha}, gallery.json has {entry.get('yaml_sha256')}, actual "
                     f"YAML bytes hash to {yaml_sha}. Regenerate or delete the highlight "
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
+            personas = _read_persona_names(yaml_path)
 
-        failures += check_content(doc, entry, blocklist, where)
+        failures += check_content(
+            doc, entry, blocklist, where,
+            personas=personas, allowed_model_ids=allowed_model_ids)
 
     for path in sorted(on_disk - referenced):
         rel = os.path.relpath(path, os.path.dirname(gallery_dir))
@@ -625,9 +841,13 @@ def main():
     ap.add_argument("--gallery-json", required=True)
     ap.add_argument("--gallery-dir", required=True)
     ap.add_argument("--blocklist", required=True)
+    # Required like its siblings: this module derives no paths of its own, so the
+    # gate stays the single place that knows the repo layout.
+    ap.add_argument("--model-registry", required=True)
     a = ap.parse_args()
 
-    failures = validate_repo(a.gallery_json, a.gallery_dir, a.blocklist)
+    failures = validate_repo(
+        a.gallery_json, a.gallery_dir, a.blocklist, a.model_registry)
     for line in failures:
         print(line)
     return 1 if failures else 0

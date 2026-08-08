@@ -29,6 +29,13 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 /// app release are the job of the deferred "Remote model manifest" — see
 /// ROADMAP "Technical Debt to Address".)
 ///
+/// **When you remove an entry, move its `id` into `RETIRED_MODEL_IDS` in
+/// `scripts/gallery_highlight_validate.py` in the same PR.** Shipped gallery
+/// highlights pin the model they were generated on as a statement about the
+/// past (ADR-029 Decision 1), and the gate checks that string against this
+/// catalog — so removing an id here turns every highlight naming it red, on a
+/// PR that has nothing to do with the gallery.
+///
 /// The superseded GGUF stays on disk. Because `ModelManager.checkModelStatus`
 /// only iterates the *live* catalog, that file becomes an orphan with no
 /// per-model row. `ModelManager.orphanedModelFiles()` detects it and Settings

@@ -25,6 +25,7 @@ import Testing
           "round": 1,
           "phase": "speak_each",
           "phase_index": 0,
+          "persona_index": 0,
           "source_field": "statement",
           "text": "答えはCです。"
         },
@@ -33,6 +34,7 @@ import Testing
           "round": 1,
           "phase": "speak_each",
           "phase_index": 0,
+          "persona_index": 4,
           "source_field": "statement",
           "text": "私は基準線と同じ長さの線はBだと思います。"
         }
@@ -65,6 +67,11 @@ import Testing
     #expect(highlight.excerpt[0].round == 1)
     #expect(highlight.excerpt[0].phase == "speak_each")
     #expect(highlight.excerpt[0].phaseIndex == 0)
+    #expect(highlight.excerpt[0].personaIndex == 0)
+    // 4 differs from every other integer in the same object (`phase_index` 0,
+    // `round` 1), so a CodingKeys entry mis-wired to a sibling int key cannot
+    // pass here.
+    #expect(highlight.excerpt[1].personaIndex == 4)
     #expect(highlight.excerpt[0].sourceField == "statement")
     #expect(highlight.excerpt[0].text == "答えはCです。")
     #expect(highlight.yamlHook.kind == "persona")
