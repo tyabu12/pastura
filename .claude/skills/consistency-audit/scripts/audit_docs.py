@@ -17,11 +17,33 @@ Two finding classes:
                    section.
 
 Conservatism is deliberate: false positives poison the queue, so each detector
-prefers a miss over a wrong flag. Every shipped detector fires zero false
-positives on the current repo: dependency_version, min_ios, dead_link
-(needs_judgment), dangling_adr (needs_judgment), embedded_source_mirror
-(needs_judgment), unparsed_adr_reservation (needs_judgment), and
-adr_roster_drift (needs_judgment).
+prefers a miss over a wrong flag. The shipped set is dependency_version,
+min_ios, dead_link (needs_judgment), dangling_adr (needs_judgment),
+embedded_source_mirror (needs_judgment), unparsed_adr_reservation
+(needs_judgment), adr_roster_drift (needs_judgment), and
+adr_navigation_missing (needs_judgment).
+
+A clean `main` is NOT a zero-findings state, and was not one before
+adr_navigation_missing landed. Measure before asserting otherwise:
+
+  python3 .claude/skills/consistency-audit/scripts/audit_docs.py --repo-root . \
+    | jq '[.needs_judgment[].type] | unique'          # from the repo root
+
+Two standing reports, for opposite reasons:
+
+  dead_link `ledger.md`             — docs/code-health/README.md links a file
+                                      that is gitignored by design, so it is
+                                      absent in every fresh clone and in CI.
+                                      A genuine false positive, and the
+                                      counterexample to any "zero FPs" claim.
+  adr_navigation_missing            — reports by design on a structural
+                                      property a healthy repo can legitimately
+                                      have and a maintainer may legitimately
+                                      accept. Not a defect in either direction.
+
+The second is why the `<!-- nav-exempt: … -->` opt-out exists: a finding whose
+correct resolution is sometimes "no" needs somewhere to record the no, or every
+run re-files it.
 Detectors that flood until their FP sources are designed out
 are intentionally deferred — see the SKILL's "Deferred detectors" note:
   - file:line citation checks   (docs cite source-root-relative paths, GitHub
@@ -141,6 +163,53 @@ ROSTER_DECLARED = "ADR roster"
 # finding: see reservation_findings. Three is "a couple of reservations went
 # unparsed"; more is a structural accident.
 RESERVATION_FLOOD_CAP = 3
+# --- adr_navigation_missing ------------------------------------------------
+H2_HEADING = re.compile(r"^## ")
+# `re.I` is load-bearing, not cosmetic: every amendment heading in this repo
+# capitalises "Amendment" except ADR-002's four parenthetical ones, so dropping
+# the flag scores ADR-021 at 0% and silences it outright. Arm ADR-101 in
+# tests/make_nav_fixture.py reddens if it is ever removed.
+#
+# `(?:\d+\.\s*)?` matches nothing `.*` would not already absorb — it is kept so
+# the "narrow to headings that START with Amendment" mutation in
+# tests/mutate_nav_guards.py is a one-token diff against this declaration,
+# which is what makes that control readable as the rejected alternative.
+AMENDMENT_HEADING = re.compile(r"^## +(?:\d+\.\s*)?.*\bamendments?\b", re.I)
+NUMBERED_HEADING = re.compile(r"^## +\d+\.\s")
+# ADR-028's `## How to read this ADR` is the pattern; matched on the stable
+# prefix so a variant tail ("How to read ADR-028") still discharges.
+NAV_HEADING = re.compile(r"^## +How to read", re.I)
+# The opt-out. This is the first HTML-comment convention in docs/decisions/, so
+# both discharge routes are documented in `.claude/rules/adr-writing.md` — a
+# marker nobody can discover is a nag loop with extra steps.
+#
+# Anchored at column 0, which is the guard against *accidental* exemption. Two
+# ways to show the marker as an example evade a substring search's opposite:
+# an inline code span (`` `<!-- nav-exempt: … -->` ``), which no fence skip sees
+# because a span is not a fence; and a 4-space indented code block, which
+# FENCE_DELIM also ignores since it only recognises ``` / ~~~. Allowing leading
+# whitespace would re-admit the second. The cost is that a marker inside a list
+# item or block quote does not exempt either — so every instruction that tells a
+# human to write the marker must say "on a line of its own, unindented", and the
+# ADR-112 fixture arm holds the indented case.
+NAV_EXEMPT = re.compile(r"^<!--\s*nav-exempt:")
+# A **fitted separator, not a derivation** — say so rather than let a reader
+# infer a principle that isn't there. Both boundaries are set by the same ADR
+# (ADR-021 at 653 lines / 52%), so the pair has one degree of freedom. What the
+# two terms mean: 50% is "the majority of the file is derivation log, so the
+# body is a minority of what a reader scrolls past" — a large ADR whose bulk is
+# *body* (ADR-005: 1479 lines, 8%) is not this problem; 600 is the operator's
+# judgment that ADR-021 is past what a reader can hold, set well below the
+# 2355-line/75% case #1382 actually problematised. Conservative per Output
+# Contract rule 6: prefer a miss.
+#
+# Known false-negative class: ADR-010 records amendments as inline bold
+# (`**Amendment 2026-06-20 …:**`), not as a heading, so it can never fire no
+# matter how far its amendments grow. Widening to catch it would have to
+# distinguish an amendment marker from any other bold lead-in, which is the
+# flood this detector is scoped to avoid.
+NAV_MIN_LINES = 600
+NAV_MIN_SHARE = 0.50
 # CommonMark lets an ATX heading sit flush against a paragraph on either side,
 # so a heading line is a paragraph boundary even though it is not blank. The
 # roster's own `### ADR roster` written without a blank line after it would
@@ -630,6 +699,176 @@ def roster_findings(claude_md: Path, index_md: Path,
     return out
 
 
+def navigation_findings(root: Path, tracked_adrs: set[str]) -> list[dict]:
+    """An ADR that is large, amendment-dominated, and carries no navigation
+    section — the reader problem #1382 measured on ADR-028, where the body a
+    reader actually wants sits under ~1750 lines of amendment.
+
+    The remedy this points at is the one ADR-028 demonstrated: add a map and
+    promote standing values into the body. It is NOT deletion — `adr-writing.md`
+    records that amendments are not trimmed away later, because a value with no
+    recorded derivation gets re-litigated. So this detector never proposes
+    removing anything, and it is needs_judgment: whether a given ADR has crossed
+    into unreadable is a human call.
+
+    Scoped to `tracked` ADRs for the same reason the listing detectors are: an
+    untracked draft is being written right now, and flagging its structure is
+    noise aimed at the one person who already knows.
+
+    No flood cap, unlike reservation_findings': the count is bounded by the ADR
+    count and each finding is a distinct, individually-actionable document, so
+    collapsing them would only hide work. Backpressure is Step 4's per-target
+    open-issue dedup plus the `nav-exempt` opt-out — a run files each ADR once
+    and never re-files one a human has answered. Revisit if a repo ever lands
+    enough large ADRs at once for that to be insufficient.
+
+    Section classification is **title-based** — any `## ` heading naming
+    "amendment" counts, including a numbered section belonging to the ADR's own
+    outline (ADR-002 §10–§13 are exactly that shape). Taking the author's own
+    label at face value is deliberate: re-classifying a section the author
+    called an amendment would be the detector claiming to know the document
+    better than its writer. The cost is that the share can overstate how much is
+    really derivation log, so the finding carries the per-section breakdown and
+    the numbered count for the human to weigh."""
+    out: list[dict] = []
+    for nnn in sorted(tracked_adrs):
+        adr = f"ADR-{nnn}"
+        rel = f"{ADR_DIR}/{adr}.md"
+        try:
+            lines = (root / rel).read_text(encoding="utf-8").splitlines()
+        except OSError:
+            continue  # fail open: an unreadable ADR is not a finding
+        total = len(lines)
+        if total < NAV_MIN_LINES:
+            continue
+
+        # Fence-aware, like scan_doc: a `## Amendment`-shaped line inside a
+        # fenced block is illustration, not structure. The opt-out marker is
+        # searched over the same fence-stripped lines, but what actually stops a
+        # documenting mention from exempting the file is NAV_EXEMPT's own
+        # line anchor — see its declaration.
+        headings: list[tuple[int, str]] = []
+        bare: list[str] = []
+        in_fence = False
+        fence_delim = ""
+        for idx, line in enumerate(lines):
+            fm = FENCE_DELIM.match(line)
+            if fm:
+                ticks = fm.group(2)
+                if not in_fence:
+                    in_fence, fence_delim = True, ticks[0]
+                elif ticks[0] == fence_delim:
+                    in_fence, fence_delim = False, ""
+                continue
+            if in_fence:
+                continue
+            bare.append(line)
+            if H2_HEADING.match(line):
+                headings.append((idx, line))
+
+        if any(NAV_HEADING.match(line) for _, line in headings):
+            continue
+        if any(NAV_EXEMPT.search(line) for line in bare):
+            continue
+
+        # Per-section spans, NOT first-amendment-to-EOF: ADR-023/029/027 all
+        # carry body sections *after* an amendment, which the EOF measure would
+        # count as amendment.
+        sections: list[dict] = []
+        for k, (idx, line) in enumerate(headings):
+            if not AMENDMENT_HEADING.match(line):
+                continue
+            end = headings[k + 1][0] if k + 1 < len(headings) else total
+            sections.append({"heading": line.strip(), "line": idx + 1,
+                             "lines": end - idx,
+                             "numbered": bool(NUMBERED_HEADING.match(line))})
+        amendment_lines = sum(s["lines"] for s in sections)
+        if not sections or amendment_lines < total * NAV_MIN_SHARE:
+            continue
+
+        numbered = sum(1 for s in sections if s["numbered"])
+        # The counter-evidence has to carry the *line* arithmetic, not just the
+        # section count: on ADR-002 four numbered outline sections supply 89% of
+        # the amendment lines, so "4 of 6 sections" reads as a partial caveat
+        # when the honest statement is that the finding evaporates without the
+        # title-based call. Making the reader do that division is the wrong way
+        # round under Output Contract rule 6.
+        numbered_lines = sum(s["lines"] for s in sections if s["numbered"])
+        residual = amendment_lines - numbered_lines
+        residual_share = round(residual / total, 3)
+        # Percentage for the prose. NOT `int(share * 100)`, which truncates a
+        # binary float and printed ADR-021's 51.8% as "51%".
+        #
+        # The clause beside it branches on `residual_clears` — the SAME
+        # predicate the detector's own gate uses, so its meaning ("would this
+        # finding survive without the title-based call?") is always right. Two
+        # earlier attempts got this wrong in opposite directions: branching on
+        # the raw ratio while printing a truncated integer made the number
+        # disagree with the clause, and branching on the *printed* value fixed
+        # the display at the cost of inverting the meaning — at 49.96% the
+        # printed 50.0 said "still over" when the finding does not in fact
+        # survive. No rounding removes that: some raw value always rounds
+        # across any gate. So the clause names no percentage at all; the gate
+        # is stated once, in the thresholds sentence below.
+        residual_pct = round(residual / total * 100, 1)
+        residual_clears = residual >= total * NAV_MIN_SHARE
+        gate_pct = NAV_MIN_SHARE * 100
+        key = f"nav:{adr}"
+        out.append({
+            "type": "adr_navigation_missing",
+            "adr": adr, "target": key, "key": key,
+            "total_lines": total,
+            "amendment_lines": amendment_lines,
+            "amendment_share": round(amendment_lines / total, 3),
+            "section_count": len(sections),
+            "numbered_section_count": numbered,
+            "numbered_lines": numbered_lines,
+            "residual_share": residual_share,
+            "sections": sections,
+            "confidence": "medium",
+            "counter_evidence": (
+                f"Section classification is title-based, so a numbered section "
+                f"belonging to the ADR's own outline counts as an amendment — "
+                f"{numbered} of {len(sections)} classified sections here are "
+                f"numbered, supplying {numbered_lines} of {amendment_lines} "
+                f"amendment lines. Excluding them the share is "
+                f"{residual_pct}%"
+                + (" — still clears the share gate without them"
+                   if residual_clears else
+                   " — below the share gate, so this finding rests entirely "
+                   "on the title-based call")
+                + f". The thresholds "
+                f"({NAV_MIN_LINES} lines / {gate_pct:g}%) are a "
+                f"deliberately conservative fitted separator, not a derived "
+                f"constant: an ADR just under them can have the same problem, "
+                f"and one just over it may still be perfectly readable. A "
+                f"maintainer who knows this document may simply judge it "
+                f"navigable as it stands."),
+            "suggested_action": (
+                f"Add a navigation section to {rel} — the `## How to read this "
+                f"ADR` pattern ADR-028 established; the heading is matched on "
+                f"the `## How to read` prefix, so `## Navigation` or "
+                f"`## Section map` will not discharge this — pointing at where "
+                f"the current answer lives, and promote any standing value or "
+                f"invariant that exists only inside an amendment into the body. "
+                f"Do NOT delete or trim amendments: `.claude/rules/"
+                f"adr-writing.md` records that they are not trimmed away later, "
+                f"because a value with no recorded derivation gets "
+                f"re-litigated. If you judge this ADR does not need a map, "
+                f"record `<!-- nav-exempt: <reason> -->` on a line of its own, "
+                f"unindented and not inside a list item or block quote — the "
+                f"marker is matched at column 0, so an indented one does not "
+                f"count. Closing this issue without a marker the detector can "
+                f"see re-files the finding on the next run."),
+            # The first `## ` heading is where a navigation section goes
+            # (ADR-028's sits at its first one), so it is the actionable anchor
+            # rather than the ADR's title line. `headings` is non-empty here by
+            # construction — a non-empty `sections` implies it.
+            "file": rel, "line": headings[0][0] + 1,
+        })
+    return out
+
+
 def build_yaml_index(root: Path) -> dict[str, list[str]]:
     """basename -> [repo-relative paths] for every tracked-ish YAML under root.
     Used to resolve which source file an embedded `id:`-keyed block mirrors.
@@ -985,6 +1224,7 @@ def main() -> int:
         claude_md, reserved_adrs, index_adrs, existing_adrs)
     judg.extend(roster_findings(claude_md, index_md, index_adrs,
                                 tracked_adrs, existing_adrs, reserved_adrs))
+    judg.extend(navigation_findings(root, tracked_adrs))
     for doc in discover_docs(root):
         a, j = scan_doc(doc, root, resolved, min_ios, reserved_adrs, yaml_index)
         auto.extend(a)

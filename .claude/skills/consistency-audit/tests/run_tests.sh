@@ -1,9 +1,15 @@
 #!/bin/bash
 # Self-test for the consistency-audit detector. No Swift toolchain or network
-# needed — exercises the fixture repos (clean / drift / judgment / boundary /
-# adr) against audit_docs.py, including the must-NOT-fire regression set, the
-# Package.resolved version-vs-revision trap, and the dangling-ADR reserved-set
-# / first-cell-keying guards.
+# needed — exercises the fixture repos under fixtures/ against audit_docs.py,
+# plus the generated adr_navigation_missing fixture, covering the must-NOT-fire
+# regression sets, the Package.resolved version-vs-revision trap, the
+# dangling-ADR reserved-set / first-cell-keying guards, and one mutation per
+# navigation guard. No fixture roster here: each block below names the fixture
+# it drives, and a summary list at the top only went stale.
+#
+# Assertions are fixture-only, deliberately: this runs in CI on every PR with
+# no path filter, so an assertion about the live repo would redden unrelated
+# work whenever an ADR's line count moved.
 #
 # usage: bash .claude/skills/consistency-audit/tests/run_tests.sh
 # requires: python3, jq
@@ -403,5 +409,93 @@ fi
 echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="embedded_source_mirror")|(has("confidence") and has("counter_evidence") and has("suggested_action") and has("source") and (.target==.source|not))]|all' >/dev/null \
   || fail "mirror: a mirror finding is missing its pre-authored judgment scalars"
 no_target_collision "$OUT" "mirror"
+
+# --- adr_navigation_missing: twelve arms, exactly four must fire -----------
+# The fixture is generated, not committed: every arm but ADR-103 has to clear
+# the 600-line gate so a silent one is silent for the rule it tests rather than
+# for its size, and those eleven are ~7300 lines of filler. The arm table in
+# make_nav_fixture.py is the fixture; this block asserts the outcome.
+NAVFIX="$TMP/navfix"
+MANIFEST=$(python3 make_nav_fixture.py "$NAVFIX")
+# The wrong-reason guard: a silent arm must be silent for the rule it tests,
+# not because it fell under the size gate. ADR-103 is the one arm deliberately
+# under the gate (it tests the gate); every other arm — firing or silent —
+# must clear it.
+for adr in ADR-101 ADR-102 ADR-104 ADR-105 ADR-106 ADR-107 ADR-108 ADR-109 ADR-110 ADR-111 ADR-112; do
+  n=$(echo "$MANIFEST" | jq --arg a "$adr" '.[$a].total_lines')
+  [ "$n" -ge 600 ] || fail "nav: $adr is only $n lines — under the size gate, so its arm would pass for the wrong reason"
+done
+NL=$(echo "$MANIFEST" | jq '."ADR-103".total_lines')
+[ "$NL" -lt 600 ] || fail "nav: ADR-103 must stay under the size gate to test it, got $NL"
+
+OUT=$(python3 "$AUDIT" --repo-root "$NAVFIX")
+[ "$(af_len "$OUT")" -eq 0 ] || fail "nav: auto_fixable must stay empty — this detector is needs_judgment only: $(echo "$OUT" | jq -c .auto_fixable)"
+# No other detector may fire: a contaminated fixture (e.g. an arm title naming a
+# fileless ADR-NNN, which trips dangling_adr) makes the counts below meaningless.
+[ "$(nj_len "$OUT")" -eq 4 ] || fail "nav: expected exactly 4 findings, got $(nj_len "$OUT"): $(echo "$OUT" | jq -c '[.needs_judgment[]|{type,target}]')"
+[ "$(nj_type_len "$OUT" adr_navigation_missing)" -eq 4 ] || fail "nav: expected 4 adr_navigation_missing, got $(nj_type_len "$OUT" adr_navigation_missing)"
+for want in "nav:ADR-101" "nav:ADR-110" "nav:ADR-111" "nav:ADR-112"; do
+  echo "$OUT" | jq -e --arg t "$want" '.needs_judgment[]|select(.type=="adr_navigation_missing" and .target==$t)' >/dev/null \
+    || fail "nav: expected a finding targeted $want"
+done
+# `nav:` namespacing, for the same reason `roster:` carries it — Step 4's
+# cross-run dedup matches the target as a title substring and is type-blind.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|.target|startswith("nav:")]|all' >/dev/null \
+  || fail "nav: a finding target is not namespaced with nav:"
+# Pre-authored judgment scalars — SKILL.md Step 4 uses these verbatim.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|(has("confidence") and has("counter_evidence") and has("suggested_action") and has("sections") and (.locations|length>0))]|all' >/dev/null \
+  || fail "nav: a finding is missing its pre-authored judgment scalars or locations"
+# The counter-evidence leans on these, so they are asserted rather than
+# assumed: ADR-110's two sections are both numbered, and its residual share
+# (the share once numbered outline sections are excluded) is 0 — i.e. the
+# finding rests entirely on the title-based call, which is precisely what the
+# counter-evidence must tell a maintainer.
+NUM=$(echo "$OUT" | jq '[.needs_judgment[]|select(.target=="nav:ADR-110")|.numbered_section_count][0]')
+[ "$NUM" -eq 2 ] || fail "nav: ADR-110 should report 2 numbered sections, got $NUM"
+# Compared numerically: jq renders the rounded float as `0.0`, so a string
+# test against "0" fails on a correct value.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.target=="nav:ADR-110")|.residual_share][0] == 0' >/dev/null \
+  || fail "nav: ADR-110's residual share should be 0 (both sections numbered), got $(echo "$OUT" | jq -c '[.needs_judgment[]|select(.target=="nav:ADR-110")|.residual_share][0]')"
+echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence|test("below the share gate, so this finding rests entirely on the title-based call")' >/dev/null \
+  || fail "nav: ADR-110's counter_evidence must say the finding rests on the title-based call"
+# The clause must name no percentage of its own: it branches on the raw
+# comparison, so a printed figure beside it could disagree at the boundary
+# (49.96% prints as 50.0). The gate appears once, in the thresholds sentence.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|.counter_evidence|test("(under|over|below|clears) the [0-9.]+% gate")|not]|all' >/dev/null \
+  || fail "nav: a counter_evidence clause restates the gate percentage — it can contradict the printed share at the boundary"
+# The interpolated arithmetic, not just the clause around it — a regression that
+# emits the right sentence with wrong numbers is exactly the defect the int()
+# truncation was. ADR-110's two sections are both numbered, so numbered_lines
+# equals amendment_lines and the residual reads 0.0%.
+#
+# Scope, since this reads stronger than it is: the hardcoded `0.0%` catches a
+# truncation regression (an int() prints `0`), and reusing $AL on both sides
+# catches prose/field divergence. It can NOT catch an `amendment_lines` that is
+# wrong but self-consistent — field and sentence move together. The absolute
+# assertion on the next line pins that, from the arm table's own spans
+# (300 + 200 filler lines + 3 structural lines each).
+AL=$(echo "$OUT" | jq -r '[.needs_judgment[]|select(.target=="nav:ADR-110")|.amendment_lines][0]')
+[ "$AL" -eq 506 ] || fail "nav: ADR-110's amendment_lines should be 506 from the arm table, got $AL"
+echo "$OUT" | jq -e --arg s "supplying $AL of $AL amendment lines. Excluding them the share is 0.0%" \
+  '.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence|contains($s)' >/dev/null \
+  || fail "nav: ADR-110's counter_evidence arithmetic does not match its own fields: $(echo "$OUT" | jq -r '[.needs_judgment[]|select(.target=="nav:ADR-110")|.counter_evidence][0]' | head -c 200)"
+# ADR-101 is the contrast: no numbered sections, so its residual share equals
+# its full share and the counter-evidence must NOT claim the finding evaporates.
+echo "$OUT" | jq -e '.needs_judgment[]|select(.target=="nav:ADR-101")|.counter_evidence|test("still clears the share gate without them")' >/dev/null \
+  || fail "nav: ADR-101's counter_evidence should report the residual share as still clearing the gate"
+# The remedy is a map plus promotion into the body — never deletion.
+# `.claude/rules/adr-writing.md` records that amendments are not trimmed away
+# later (#1382 declined that on principle), so a generator proposing it would
+# be putting an unattended run at odds with a house rule. Asserted as a plain
+# positive: the disclaimer must be present, which cannot pass vacuously.
+echo "$OUT" | jq -e '[.needs_judgment[]|select(.type=="adr_navigation_missing")|.suggested_action|test("Do NOT delete or trim amendments")]|all' >/dev/null \
+  || fail "nav: suggested_action lost its do-not-delete disclaimer"
+no_target_collision "$OUT" "nav"
+
+# --- negative controls: each guard has a mutation that flips its arm --------
+# Silent arms prove nothing by themselves; this is what demonstrates the guards
+# exist. Also asserts every mutation's anchor matched, so a no-op replace cannot
+# pass as a verified control.
+python3 mutate_nav_guards.py || fail "nav: a guard's negative control did not flip (see above)"
 
 echo "ALL TESTS PASSED"

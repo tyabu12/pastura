@@ -75,9 +75,23 @@ what the skill cannot derive belongs here.
   measurements and retracted drafts stay in the amendment, which is why
   amendments are not trimmed away later; superseding an earlier one marks it in
   place rather than rewriting it. Stated here because nothing enforces it: no
-  lint, no gate, and `consistency-audit` has no amendment-placement detector, so
-  it is reviewer-enforced and only fires if it is loaded. It generalises to any
-  ADR past the size where a reader can hold its section structure (#1382).
+  lint, no gate, and `consistency-audit` has no amendment-**placement**
+  detector, so it is reviewer-enforced and only fires if it is loaded. It
+  generalises to any ADR past the size where a reader can hold its section
+  structure (#1382).
+- **What *is* enforced is findability, not placement.** `consistency-audit`'s
+  `adr_navigation_missing` files an issue when a tracked ADR reaches 600 lines,
+  is at least half amendment by section span, and has no `## How to read this
+  ADR` section. It says nothing about whether a given value landed in the body
+  or in an amendment — that judgment is still yours. Two ways to discharge it:
+  add a navigation section whose heading starts `## How to read` (the ADR-028
+  pattern, and the literal shape matched — `## Navigation` will not satisfy
+  it), or, if you judge the ADR navigable as it stands, record
+  `<!-- nav-exempt: <reason> -->` **on a line of its own, unindented** — it is
+  matched at column 0, so a marker inside a list item, a block quote or an
+  indented code block does not count. Closing the issue without one of those
+  re-files it on the next run. The detector never proposes deleting or trimming
+  an amendment, for the reason in the bullet above.
 - **A file listing can also *over*-report.** The skill's reservation check
   covers a listing that under-reports; the inverse also happens here — an ADR
   draft sitting **untracked** in one checkout is visible to `ls` but absent for
