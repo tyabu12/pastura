@@ -93,7 +93,7 @@ enum GalleryScenarioDetailFormat {
   /// (``SheepAvatar/Character/forAgent(_:position:)`` → `allCases[position % 4]`),
   /// but a highlight file carries no persona index — it is an excerpt, not a
   /// scenario. First appearance within the excerpt stands in for it. Measured on
-  /// both shipped highlights, the two orders agree, so a reader sees the same
+  /// all four shipped highlights, the two orders agree, so a reader sees the same
   /// colours here as in a real run; `web/src/components/ScenarioLanding.astro`
   /// resolves the landing pages the same way for the same reason. With five or
   /// more speakers the fourth and fifth collide — the app collides identically,

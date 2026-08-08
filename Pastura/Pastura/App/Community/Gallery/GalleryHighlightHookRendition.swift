@@ -21,7 +21,7 @@ enum GalleryHighlightHookRendition: Equatable {
   /// The fragment parsed as a persona list — draw it as editor-style rows.
   ///
   /// The entries are an **excerpt** of the scenario's personas, not its cast:
-  /// both shipped hooks quote a subset. The app cannot check that (a
+  /// all four shipped hooks quote a subset. The app cannot check that (a
   /// non-installed gallery scenario's persona list is never fetched), so the
   /// section's heading is what has to say so.
   case personas([Entry])
@@ -75,7 +75,7 @@ enum GalleryHighlightHookRendition: Equatable {
   /// Parses a `kind: "persona"` fragment, or `nil` when it is not one.
   ///
   /// Accepts the two shapes ADR-029 Decision 1 pins: a bare block sequence of
-  /// mappings (what both shipped hooks use — Yams reads one at any indent, so
+  /// mappings (what all four shipped hooks use — Yams reads one at any indent, so
   /// no dedent is needed) or a `personas:`-keyed mapping holding one.
   ///
   /// Keys beyond `name` / `description` are **ignored rather than rejected**,
