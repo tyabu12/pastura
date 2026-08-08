@@ -40,13 +40,15 @@ struct PhaseTypeLabel: View {
     .foregroundStyle(badgeText)
   }
 
-  /// Text tint. §2.3 reserves `moss-dark` for accent text (アクセント
-  /// リンク・ステータスラベル) — the readable foreground belongs there,
-  /// not on `moss` (which is enumerated for fills / borders).
+  /// Text tint. §2.3 enumerates `moss` for fills / borders, so the readable
+  /// foreground is a darker step — but not the `moss-dark` §2.3 lists for
+  /// accent text: over this capsule's own `moss` @0.15 wash that measures only
+  /// ≈4.11:1 in light, under the 4.5:1 bar at `tagPhase`'s 9.5pt. The
+  /// `moss-on-wash` role token takes it to ≈6.07:1 (#1327).
   /// Code-driven phases stay on `ink-secondary` (neutral pair).
   private var badgeText: Color {
     if phaseType.requiresLLM {
-      Color.mossDark
+      Color.mossOnWash
     } else {
       Color.inkSecondary
     }

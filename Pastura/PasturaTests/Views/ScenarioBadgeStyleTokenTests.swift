@@ -20,13 +20,14 @@ import Testing
 /// most likely in an unrelated refactor or an ADR-028 pairing slice. Confirm the
 /// change was intended and passed review, then update the expectation.
 ///
-/// **Why assert the alias, not the hex.** All three of `Color.moss`,
-/// `Color.inkSecondary` and `Color.mossDark` are trait-resolving
-/// (`PasturaDynamicPalette`). `mossDark` was the one still fixed when this
-/// suite landed, and ADR-028 gate 1 slice 4 (#1325) paired it without a line
-/// changing here — which was the point of comparing against the alias. It
-/// still reddens if a token is swapped for a *different* one, the actual
-/// drift being guarded.
+/// **Why assert the alias, not the hex.** All three tokens this suite reads —
+/// `Color.moss`, `Color.inkSecondary`, `Color.mossOnWash` — are trait-resolving
+/// (`PasturaDynamicPalette`). `mossDark`, which the tinted label read until
+/// #1327, was the one still fixed when this suite landed, and ADR-028 gate 1
+/// slice 4 (#1325) paired it without a line changing here — which was the point
+/// of comparing against the alias. It still reddens if a token is swapped for a
+/// *different* one, the actual drift being guarded; #1327 is that case, and it
+/// reddened as designed.
 ///
 /// `@MainActor` is required twice over, which is why it is not removable: this
 /// suite reads the `Color.*` statics directly, and the token members it calls
@@ -47,12 +48,14 @@ import Testing
 struct ScenarioBadgeStyleTokenTests {
 
   @Test func tintReadsTheAccentPair() {
-    // § 2.3: `moss` for fills, `mossDark` for accent text. On this badge's
-    // composited wash the label measures ≈3.92:1; swapping it to `moss` drops
-    // it to ≈2.51:1. (Not "white-on-accent" — no white foreground is involved
-    // here; that framing belongs to the solid-fill cases in ADR-028.)
+    // § 2.3: `moss` for fills. The label is the `mossOnWash` role token rather
+    // than the `mossDark` §2.3 lists for accent text — on this badge's
+    // composited wash `mossDark` measures ≈3.93:1, under the 4.5:1 bar, and
+    // `mossOnWash` reads ≈5.79:1 (#1327). Swapping the label to `moss` would
+    // drop it to ≈2.52:1. (Not "white-on-accent" — no white foreground is
+    // involved here; that framing belongs to the solid-fill cases in ADR-028.)
     #expect(ScenarioBadgeStyle.tint.fillToken == Color.moss)
-    #expect(ScenarioBadgeStyle.tint.labelToken == Color.mossDark)
+    #expect(ScenarioBadgeStyle.tint.labelToken == Color.mossOnWash)
   }
 
   @Test func secondaryReadsTheNeutralTokenForBoth() {

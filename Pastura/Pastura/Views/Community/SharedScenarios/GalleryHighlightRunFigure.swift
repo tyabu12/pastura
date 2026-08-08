@@ -136,7 +136,11 @@ struct GalleryHighlightRunFigure: View {
       Text(String(localized: "Recorded"))
     }
     .textStyle(Typography.pillStatus)
-    .foregroundStyle(Color.mossDark)
+    // Label only — the dot above and the capsule below stay `mossDark`. The
+    // dot is a non-text shape (3:1 bar, which `mossDark` clears) and the
+    // capsule is the wash itself, whose value is unchanged; only the text on
+    // it moves to the `mossOnWash` role token (#1327).
+    .foregroundStyle(Color.mossOnWash)
     .padding(.horizontal, 8)
     .padding(.vertical, 3)
     .background(Capsule().fill(Color.mossDark.opacity(0.14)))
