@@ -229,9 +229,13 @@ that a future reader can trust it means "unmeasured".
 | `differentiation` **required** when ≥1 cell is `ok` | A partial block still measured something — record what the completed cells showed, scoped to them |
 
 Note the last two: a blocked run is **not** necessarily a total block.
-Sarashina 2.2 3B on 2026-07-08 had 3 of 6 cells complete and is recorded as
-blocked; a "zero `ok` cells" precondition would have made that shape
-unrecordable. See `docs/models/eval-log.md`.
+Sarashina 2.2 3B on 2026-07-08 had 3 of 6 cells complete (recorded in
+`tools/harness/Sources/PasturaHarnessKit/ModelProfile.swift`, the
+`sarashina223B` doc comment), so a "zero `ok` cells" precondition would have
+made that shape unrecordable. That run predates this disposition and has no
+ledger heading of its own — it is grandfathered inside the later entry,
+`docs/models/eval-log.md` § "Sarashina 2.2 3B Instruct v0.1 (Q4_K_M) —
+2026-07-23", under its *Grandfathered (#1419)* sub-bullet.
 
 ## Step 5 — Append the scorecard
 

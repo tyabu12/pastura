@@ -104,9 +104,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // normal turn — that is EOG, for every model.
   // Qwen 3 is ChatML, where the plaintext form is `<|im_end|>`. Gemma 4 is
   // not: its turn markers are `<|turn>` / `<turn|>` (ids 105/106, CONTROL) and
-  // `<|im_end|>` is absent from its 262k vocabulary, so the descriptor value is
-  // inert for Gemma — deliberately left in place (#1417). Read from the
-  // descriptor at construction time; future models may differ.
+  // `<|im_end|>` is absent from its 262k vocabulary. So for Gemma this value
+  // fires only if the model spells out a ChatML marker it was never trained
+  // on — not impossible (any printable ASCII is spellable), but it is not the
+  // marker a Gemma hallucination would reach for. Left in place deliberately
+  // rather than guessed at (#1417). Read from the descriptor at construction
+  // time; future models may differ.
   // TODO: Consider adding `<|im_start|>` if hallucinated turn starts are observed (#65)
   let stopSequence: String
 
@@ -187,9 +190,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// `.systemPromptSuffix`). This avoids silently running Qwen with Gemma's
   /// defaults if a call-site forgets to thread the descriptor through.
   /// Test code can construct via a file-scope helper (see
-  /// `LlamaCppServiceTests`) to centralize the test values. Those pin the
-  /// shipped Gemma descriptor, whose `stopSequence` is a ChatML string that
-  /// Gemma never emits — see the `stopSequence` note above (#1417).
+  /// `LlamaCppServiceTests`) to centralize the test values. Those are not a
+  /// pin of the shipped descriptor — the path and identifier are synthetic;
+  /// only the `stopSequence` literal happens to reuse the shipped ChatML one,
+  /// which is inert for Gemma in practice (see the `stopSequence` note above,
+  /// #1417).
   ///
   /// - Parameters:
   ///   - modelPath: Absolute path to the GGUF model file on disk (provided by
@@ -563,9 +568,11 @@ extension LlamaCppService {
 
     // Auto-regressive generation loop with string-based stop detection.
     // Tokens are decoded incrementally so a spelled-out stop sentinel is
-    // detected even when BPE splits it across several subword tokens — which
-    // it always does, since the sentinel is by construction not a token of
-    // this model's vocabulary when it appears as text (see `stopSequence`).
+    // detected even when BPE splits it across several subword tokens. It
+    // necessarily is split whenever the sentinel is a control token of this
+    // model — such a token is not reachable as CONTENT (it decodes to "" and
+    // EOG returns first), so the only form that can arrive here is the
+    // spelled-out one (see `stopSequence`).
     var outputText = ""
     var generatedTokens = 0
 

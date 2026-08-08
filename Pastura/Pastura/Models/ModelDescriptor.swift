@@ -49,11 +49,14 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// Plaintext stop sentinel — the literal text that ends generation early when
   /// the model writes it out as ordinary text (a hallucinated turn boundary).
   ///
-  /// NOT the tokenizer's end-of-turn token: a genuine control token decodes to
-  /// `""` and the turn terminates on EOG before this is ever consulted. So the
-  /// value only ever matters for models whose chat markers a hallucination is
-  /// likely to spell out. `"<|im_end|>"` for ChatML models such as Qwen 3;
-  /// inert for Gemma 4, whose markers are `<|turn>` / `<turn|>` (see #1417).
+  /// Contract for consumers: match this against **decoded text only**. It is
+  /// not the tokenizer's end-of-turn token, and a backend must not treat it as
+  /// the thing that terminates a normal turn. `"<|im_end|>"` for ChatML models
+  /// such as Qwen 3; for Gemma 4 that string is absent from the vocabulary and
+  /// its own markers are `<|turn>` / `<turn|>`, so the value carries no Gemma
+  /// marker (see #1417). Why a control token can never reach the match is
+  /// backend-specific — for llama.cpp it is documented at
+  /// `LlamaCppService.stopSequence`.
   public let stopSequence: String
 
   /// Minimum physical RAM required to load and run the model (bytes).

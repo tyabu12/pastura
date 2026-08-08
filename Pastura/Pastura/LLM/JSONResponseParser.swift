@@ -22,8 +22,9 @@ nonisolated public struct JSONResponseParser: Sendable {
   )
   // Chat template tokens — truncate everything from first occurrence onwards.
   // Catches hallucinated continuations where the model generates past its own turn.
-  // ChatML-only by construction: correct for Qwen 3, but Gemma 4's markers are
-  // `<|turn>` / `<turn|>`, so a Gemma hallucination is NOT truncated here.
+  // ChatML-only by construction: correct for Qwen 3, but inert for Gemma 4,
+  // whose markers are `<|turn>` / `<turn|>` — see the doc on
+  // `truncateAtChatTemplateToken` for why they cannot arrive as text.
   // Making this per-model is #1422; the false-rationale half was #1417.
   private static let chatTemplateTokenRegex = try? NSRegularExpression(
     pattern: #"<\|im_end\|>.*"#,
@@ -294,9 +295,13 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// regex from capturing content across hallucinated turns.
   ///
   /// - Important: the token is hardcoded, so this is a no-op for a non-ChatML
-  ///   model. Gemma 4 — the default shipped model — writes `<|turn>` /
-  ///   `<turn|>` instead, and its hallucinated continuations are therefore not
-  ///   truncated. Sourcing the marker per-model is tracked in #1422.
+  ///   model. Gemma 4's turn markers are CONTROL tokens (`<|turn>` / `<turn|>`,
+  ///   ids 105/106) that cannot reach this parser as text at all — `special:
+  ///   false` decoding drops 105, and 106 is EOG — and `<|im_end|>` is absent
+  ///   from its vocabulary, so this step is inert for the default shipped
+  ///   model. **Which text a Gemma hallucination would spell out instead is
+  ///   not established**; whatever it is, it would not be truncated here.
+  ///   Sourcing the marker per-model is tracked in #1422.
   private func truncateAtChatTemplateToken(_ text: String) -> String {
     guard let regex = Self.chatTemplateTokenRegex else { return text }
     let range = NSRange(text.startIndex..., in: text)

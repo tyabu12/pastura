@@ -60,7 +60,7 @@ struct LlamaCppIntegrationTests {
 
   // MARK: - Helpers
 
-  // Not `private`: the sibling `+Streaming.swift` extension calls it
+  // Not `private`: sibling `+*.swift` extensions of this suite call it
   // (`.claude/rules/testing.md` § "Splitting a Suite Across Files").
   func makeService() -> LlamaCppService {
     LlamaCppService(
@@ -163,13 +163,15 @@ struct LlamaCppIntegrationTests {
       user: "Introduce yourself briefly."
     )
 
-    // ChatML-shaped leak check. This suite runs against Gemma 4 (see
-    // `makeService`), whose vocabulary does not contain `<|im_end|>` at all, so
-    // for that model this assertion is vacuously true and constructs nothing —
-    // it is retained because the same suite shape is reused when onboarding a
-    // ChatML model, where it does bite. The load-bearing Gemma guarantee is the
-    // length bound below: termination there is EOG (`<turn|>`, id 106), not the
-    // stop sentinel. See #1417; the per-model sentinel work is #1422.
+    // ChatML-shaped leak check — it covers ONE route: the model spelling
+    // `<|im_end|>` out as ordinary text. A control token cannot reach here
+    // (decodes to "", and EOG returns first), so that route is the only one
+    // there is. This suite runs against Gemma 4 (see `makeService`), which was
+    // never trained on ChatML, so the route is unlikely for it — but not
+    // impossible, and this assertion is the guard if it happens. What it does
+    // NOT cover is a Gemma-shaped hallucination (`<|turn>` / `<turn|>`), which
+    // nothing here truncates — that gap is #1422. Gemma's normal termination
+    // is EOG (`<turn|>`, id 106), which the length bound below is what checks.
     #expect(
       !result.contains("<|im_end|>"),
       "Raw output contains <|im_end|> — stop token not working. Output: \(result)"

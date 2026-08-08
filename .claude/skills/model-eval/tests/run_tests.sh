@@ -121,17 +121,23 @@ grep -qF "must be one of pass|borderline|fail|blocked" "$TMP/invalid_err" \
 # it, and each arm asserts WHICH message fired — the guards share an exit code,
 # so an exit-status-only arm would pass on a sibling guard's failure.
 assert_blocked_reject() {
-  fixture="$1"
-  expected="$2"
-  errfile="$TMP/err_$fixture"
+  local fixture="$1"
+  local expected="$2"
+  local errfile="$TMP/err_$fixture"
+  # A rejected fixture must also leave the journal byte-identical — validation
+  # runs before any write, and this is what pins that.
+  local before
+  before=$(cksum < "$JOURNAL")
   set +e
   python3 "$SCRIPTS/append_eval.py" \
     --results "fixtures/$fixture" --journal "$JOURNAL" >/dev/null 2>"$errfile"
-  rc=$?
+  local rc=$?
   set -e
   [ "$rc" -eq 1 ] || fail "append: $fixture should exit 1, got $rc"
   grep -qF "$expected" "$errfile" \
     || fail "append: $fixture reddened for the wrong reason — expected '$expected', got: $(cat "$errfile")"
+  [ "$(cksum < "$JOURNAL")" = "$before" ] \
+    || fail "append: $fixture was rejected but still mutated the journal"
 }
 
 assert_blocked_reject results_blocked_no_unblocked_by.json \
@@ -156,6 +162,24 @@ grep -qF "Unblocked by: pinned llama.cpp" "$JOURNAL" \
 grep -qF "Retry: #1416" "$JOURNAL" || fail "append: blocked section missing the Retry line"
 grep -qF "Differentiation: UNASSESSABLE" "$JOURNAL" \
   || fail "append: blocked section must state differentiation is unassessable"
+
+# Positive control #2 — a PARTIAL block (>=1 ok cell). This is the shape the
+# rejected "zero ok cells" precondition would have made unrecordable, so it
+# needs a green arm of its own: without one, re-adding that precondition (or
+# mislabelling a partial block as UNASSESSABLE) would leave the suite green.
+python3 "$SCRIPTS/append_eval.py" \
+  --results fixtures/results_blocked_partial_valid.json --journal "$JOURNAL" >/dev/null \
+  || fail "append: valid PARTIAL blocked fixture should succeed"
+grep -qF "Differentiation: ja-native humor on the cells that completed" "$JOURNAL" \
+  || fail "append: partial block must render its real differentiation"
+PARTIAL_SECTION="$TMP/partial_section.md"
+sed -n '/^## 2026-07-08 — sarashina-2-2-3b-q4-k-m/,/^## /p' "$JOURNAL" > "$PARTIAL_SECTION"
+[ -s "$PARTIAL_SECTION" ] || fail "append: partial blocked section not found in the journal"
+if grep -qF "UNASSESSABLE" "$PARTIAL_SECTION"; then
+  fail "append: partial block must NOT be labelled UNASSESSABLE — a cell did complete"
+fi
+grep -qF "Retry: #751" "$PARTIAL_SECTION" \
+  || fail "append: partial blocked section missing the Retry line"
 
 # --- run_scenario.sh --profile canary (PASTURA_HARNESS_BIN test seam) ------
 FAKE_BIN="$TMP/fake_harness.sh"

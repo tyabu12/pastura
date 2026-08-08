@@ -55,12 +55,12 @@ enum ModelRegistry {
     fileName: "gemma-4-E2B-it-Q4_K_M.gguf",
     fileSize: 3_106_735_776,
     sha256: "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845",
-    // Inert for Gemma 4, deliberately: `<|im_end|>` is a ChatML sentinel absent
-    // from this model's 262k vocabulary (its markers are `<|turn>` / `<turn|>`,
-    // ids 105/106), and the turn terminates on EOG. `stopSequence` only ever
-    // matches a sentinel the model spells out as text, and no Gemma plaintext
-    // marker has been demonstrated in decoded output — so it is left as-is
-    // rather than guessed at (#1417; the behaviour half is #1422).
+    // Carries no Gemma marker, deliberately: `<|im_end|>` is a ChatML sentinel
+    // absent from this model's 262k vocabulary, and Gemma's own markers are
+    // `<|turn>` / `<turn|>` (ids 105/106, CONTROL). `stopSequence` only ever
+    // matches a sentinel the model spells out as text, and which text a Gemma
+    // hallucination would spell is **not established** — so this is left as-is
+    // rather than replaced by a guess (#1417; the behaviour half is #1422).
     stopSequence: "<|im_end|>",
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),

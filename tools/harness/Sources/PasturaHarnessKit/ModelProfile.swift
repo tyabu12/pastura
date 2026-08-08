@@ -14,10 +14,10 @@ package struct ModelProfile: Sendable, Equatable {
   package let name: String
   /// Plaintext stop sentinel, mirroring `ModelDescriptor.stopSequence`.
   ///
-  /// NOT what terminates a generation — that is EOG, for every model. This is
-  /// matched only against text the model spelled out itself (a hallucinated
-  /// turn boundary), so it is inert for a model whose markers a hallucination
-  /// would not write in that form. See #1417.
+  /// Ends generation early only when the model spells it out as ordinary text
+  /// (a hallucinated turn boundary); it is not what terminates a *normal*
+  /// turn — that is EOG, for every model. So it carries nothing for a model
+  /// whose markers a hallucination would not write in that form. See #1417.
   package let stopSequence: String
   /// Optional suffix appended to every system prompt.
   package let systemPromptSuffix: String?
@@ -51,9 +51,10 @@ package struct ModelProfile: Sendable, Equatable {
   package static let gemma4E2B = ModelProfile(
     id: "gemma-4-e2b-q4-k-m",
     name: "Gemma 4 E2B (Q4_K_M)",
-    // Inert for Gemma 4, deliberately — mirrors `ModelRegistry.gemma4E2B`, whose
-    // comment carries the measurement. `ModelProfileTests` pins the two equal, so
-    // this value cannot be "fixed" here alone (#1417).
+    // Carries no Gemma marker, deliberately — mirrors `ModelRegistry.gemma4E2B`,
+    // whose comment carries the measurement. The drift guard in
+    // `ModelProfileTests` pins this literal, so it cannot be changed here
+    // alone (#1417).
     stopSequence: "<|im_end|>",
     systemPromptSuffix: nil,
     assistantPrefix: nil,

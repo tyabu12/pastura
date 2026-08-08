@@ -272,8 +272,14 @@ def render_section(results):
 
     lines.append("")
     verdict = results.get("verdict") or {}
-    if results.get("differentiation"):
-        lines += [f"Differentiation: {results['differentiation']}", ""]
+    # Normalize exactly as `validate_blocked` does, and branch on that same
+    # value. Testing raw truthiness here instead would let the two sites
+    # disagree: a whitespace-only value passes the validator's forbidden-guard
+    # (it strips to "") yet renders as `Differentiation:   `, silently losing
+    # the placeholder line the ledger's anti-drift rule needs.
+    differentiation = str(results.get("differentiation") or "").strip()
+    if differentiation:
+        lines += [f"Differentiation: {differentiation}", ""]
     elif verdict.get("gate") == "blocked":
         # The ledger's anti-drift rule requires a one-line differentiation in
         # EVERY entry, and this section is what an operator transcribes into it.

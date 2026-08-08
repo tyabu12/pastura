@@ -27,8 +27,10 @@ mirror goes stale the moment a cell is re-sampled.
 `BLOCKED` is a **verdict of its own**, not a flavour of `FAIL`: the candidate
 could not be *evaluated*, so it was never rejected and the outcome is
 retry-gated. Vocabulary and admissibility are canonical in
-`.claude/skills/model-eval/SKILL.md` § "Step 4 — Verdict"; the flow position is
-in [`onboarding.md`](onboarding.md). A `BLOCKED` entry here additionally carries:
+`.claude/skills/model-eval/SKILL.md`
+§ "`blocked` — admissibility and its two enforcement layers"; the flow position
+is in [`onboarding.md`](onboarding.md). A `BLOCKED` entry here additionally
+carries:
 
 - **Unblocked by** — the named condition that would allow a retry.
 - **Retry** — where the retry is tracked. The blocker's own issue is acceptable.
@@ -46,7 +48,15 @@ the mapping is a convention you apply:
 The anti-drift rule above still wants a one-line differentiation in *every*
 entry — `UNASSESSABLE` is how a total block satisfies it without fabricating a
 judgment from zero inferences. `render_section` emits that line for you when the
-gate is `blocked`, so it survives the digest → ledger transcription.
+gate is `blocked` **and no cell completed**, so it survives the digest → ledger
+transcription; a partial block renders its real differentiation instead.
+
+**Heading form.** A blocked entry's heading reads
+`## <model> — <date> — **BLOCKED (<one-line reason>)**` — not `FAIL (BLOCKED …)`,
+which is the pre-#1419 form. Nothing validates this file, so the heading is
+where the vocabulary will drift back first. One pre-#1419 blocked run
+(Sarashina, 2026-07-08) has **no heading of its own** and is grandfathered
+inside the 2026-07-23 entry — see the note there.
 
 **Scope vs. ADR-011.** The [ADR-011](../decisions/ADR-011.md) § "Alternatives
 considered" Candidate A–F table is the committed home for the **6 GB-tier /
@@ -97,8 +107,8 @@ everything else here.
 - **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support
   (`mattt/llama.swift` bumped past b8694).
 - **Retry**: #1416 (Gate 1 retry), gated on #1415 (the pin spike).
-- **Disposition**: **not rejected.** Retry is gated on a llama.cpp pin carrying
-  shared-KV tail-layer support → #1415 (spike) then #1416 (Gate 1 retry).
+- **Disposition**: **not rejected** — the retry chain is in *Unblocked by* /
+  *Retry* above, not restated here.
   Pre-cleared for that retry, so it need not be re-derived: ADR-011 **P1**
   non-gated (HF `gated: false`; anonymous resolve 302 → CDN 200) and **P2**
   CONTROL flags (`<|turn>` id 105, `<turn|>` id 106, both `token_type=3`); EOG set
@@ -126,9 +136,11 @@ everything else here.
     entry would add review surface without adding information, since the retry
     it was waiting for already landed and is recorded right here. It is also the
     reason the taxonomy admits a **partial** block: 3 of its 6 cells completed
-    (`ok`), so a "zero `ok` cells" precondition would have made this very shape
-    unrecordable. Unblocked by / Retry, reconstructed: the #751 empty-output
-    path being fixed → PR #1024.
+    (`ok`) — recorded in `tools/harness/Sources/PasturaHarnessKit/ModelProfile.swift`,
+    the `sarashina223B` doc comment, since the run's own digest section is
+    gitignored and per-machine — so a "zero `ok` cells" precondition would have
+    made this very shape unrecordable. Unblocked by / Retry, reconstructed
+    after the fact: the #751 empty-output path being fixed → PR #1024.
 - **Model**: `mmnga/sarashina2.2-3b-instruct-v0.1-gguf` · `Q4_K_M` · MIT,
   non-gated · ~2.07 GB · Stage-0 profile #1016 (`sarashina-2-2-3b-q4-k-m`).
 - **Differentiation**: genuine **native-Japanese creative/humor** — the ja

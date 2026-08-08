@@ -19,9 +19,9 @@ Stage 0  harness ModelProfile PR (new family only)
 Gate 1   /model-eval  — cheap Mac filter (足切り)
    │        ├─ reject ──▶ record candidate + failure mode (stop)
    │        ├─ borderline ──▶ re-sample weak cell(s), re-judge (never reject on one sample)
-   │        ├─ blocked ──▶ record blocker + retry pointer ──┐  (NOT a stop)
-   │        │                                               │
-   │        │      ◀── retry when the blocker clears ───────┘
+   │        └─ blocked ──▶ record blocker + retry pointer ──┐  (NOT a stop)
+   │                                                        │
+   │               ◀── retry when the blocker clears ───────┘
    │        (pass = ADVANCE only; it cannot accept)
    ▼
 Gate 2   ADR-011 real-device PoC — the ONLY accept path
@@ -46,10 +46,13 @@ can produce it; a blocked entry must always name **what would unblock it** and
 The two gates enforce that asymmetrically, and the asymmetry is deliberate:
 
 - **Gate 1** is machine-checked. `/model-eval`'s `append_eval.py` rejects a
-  `blocked` scorecard that lacks an unblock condition or a retry pointer, and
-  refuses a `differentiation` judgment when no cell completed. Admissibility
-  itself (is the failure environmental or the candidate's own?) stays a human
-  call — see `.claude/skills/model-eval/SKILL.md` § "Step 4 — Verdict".
+  `blocked` scorecard that lacks an unblock condition or a retry pointer, or
+  that has no non-`ok` cell; it refuses a `differentiation` judgment when no
+  cell completed, and conversely *requires* one — scoped to the completed
+  cells — when at least one did. Admissibility itself (is the failure
+  environmental or the candidate's own?) stays a human call — see
+  `.claude/skills/model-eval/SKILL.md`
+  § "`blocked` — admissibility and its two enforcement layers".
 - **Gate 2** is **convention-only**. There is no machine-readable Gate-2
   artifact, so nothing validates a real-device blocked outcome; record it in
   [`eval-log.md`](eval-log.md) with the same two fields by hand.

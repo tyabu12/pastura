@@ -62,8 +62,12 @@ internal class JSONResponseParser {
          * Chat-template token — truncate everything from the first occurrence.
          *
          * ChatML-only by construction, mirroring the Swift original: correct for
-         * Qwen 3, but Gemma 4's markers are `<|turn>` / `<turn|>`, so a Gemma
-         * hallucinated continuation is NOT truncated. Per-model sourcing is #1422.
+         * Qwen 3, but inert for Gemma 4. Gemma's turn markers are CONTROL tokens
+         * (`<|turn>` / `<turn|>`, ids 105/106) that cannot reach a parser as text
+         * — `special: false` decoding drops 105, and 106 is EOG — and `<|im_end|>`
+         * is absent from its vocabulary. Which text a Gemma hallucination would
+         * spell out instead is **not established**; whatever it is, it would not
+         * be truncated here. Per-model sourcing is #1422.
          */
         val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>[\s\S]*""")
 

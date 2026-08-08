@@ -9,7 +9,8 @@ import Testing
 /// Declared as an `extension` of the suite struct rather than a new `@Suite`
 /// on purpose — a second suite would run in parallel with the original and
 /// race it for the single shared GGUF / Metal device. See
-/// `.claude/rules/testing.md` § "Splitting a Suite Across Files".
+/// `.claude/rules/testing.md` § "Splitting a Suite Across Files";
+/// `LlamaCppIntegrationTests+Qwen.swift` is the established precedent.
 /// Suite traits (`.serialized`, `.enabled(if:)`) are inherited from the
 /// declaration in `LlamaCppIntegrationTests.swift`.
 extension LlamaCppIntegrationTests {
@@ -50,11 +51,12 @@ extension LlamaCppIntegrationTests {
       "Final chunk should carry completionTokens"
     )
 
-    // Holdback check for the plaintext stop sentinel. Vacuous against Gemma 4
-    // (this suite's model), whose vocabulary has no `<|im_end|>` — nothing here
-    // constructs a delta that could carry it. Kept because the same suite shape
-    // is reused when onboarding a ChatML model, where the sentinel is a form a
-    // hallucination really does spell out. See #1417.
+    // Holdback check for the plaintext stop sentinel — same single route as
+    // Test 4's leak check: only a spelled-out `<|im_end|>` can reach a delta,
+    // because a control token decodes to "" and EOG returns before append.
+    // Gemma 4 (this suite's model) was never trained on ChatML so that route is
+    // unlikely for it, but this is the guard if it fires. A Gemma-shaped
+    // hallucination (`<|turn>` / `<turn|>`) is NOT covered — see #1417 / #1422.
     for delta in deltas {
       #expect(
         !delta.contains("<|im_end|>"),
