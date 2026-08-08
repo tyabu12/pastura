@@ -272,16 +272,13 @@ actually composite over" question, asked of a surface rather than an occluder; k
 pointing at each other. (Quoted with an ellipsis, not truncated, so a grep for the heading finds
 this pointer too.)
 
-**Measure a contrast ratio the way the guard does — composite in normalized float,
-never quantize the ground to 8 bits.** An ad-hoc script that rounds each composited
-channel back to 0–255 (the natural thing to write) lands 0.005–0.02 off, which is
-enough to make a doc comment disagree with the test that asserts the same value.
-`DesignTokensTests+NightPalette.swift`'s `composite` / `contrastRatio` helpers are
-the reference: `PasturaColorValue(hex:)` is `hex/255`, the luminance threshold is
-`0.03928`, and the blend stays in Double. **Also fix one ground convention per
-figure and state it** — per-site real ground, or the tests' worst-case ground — or
-an aggregate "before → after" range silently draws its two ends from different
-sites and cannot be true. Both defects shipped to review in #1327.
+**Measure a contrast ratio with the guard's own helpers** (`composite` /
+`contrastRatio`, `DesignTokensTests+NightPalette.swift`) — an ad-hoc script that
+quantizes the composited ground back to 0–255 lands ~0.01 off, enough to make a doc
+comment disagree with the test asserting the same value. And **state which ground
+each figure uses**: mixing per-site and worst-case grounds lets an aggregate
+"before → after" range draw its two ends from different sites, which cannot be true.
+ADR-028 § Amendment 2026-08-08.
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
