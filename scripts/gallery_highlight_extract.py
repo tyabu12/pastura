@@ -19,7 +19,11 @@ each must be an `agent_output` line) or a `--selection <file.json>`:
       "yaml_hook": {"kind": "raw",
                     "fragment": "phases:\\n  - type: speak_each", "caption": "…"},
       "teaser": "…",
-      "model": "gemma-4-e2b-q4-k-m",      // optional; default run_start.model
+      // optional. Omitted, `run_start.model` is resolved to a `ModelRegistry`
+      // id — the harness writes a *display name* there, and the slug is what
+      // ships. Supply one only to override; a value that is neither an id nor a
+      // known displayName hard-fails either way.
+      "model": "gemma-4-e2b-q4-k-m",
       "generated_at": "2026-08-05"         // optional; default today (UTC)
     }
 
@@ -208,6 +212,30 @@ def build_excerpt(picks, lines, context, run_path, persona_names):
     return excerpt
 
 
+def resolve_model_id(raw, allowed_model_ids, display_to_id):
+    """-> a `ModelRegistry` id for `raw`, or die.
+
+    The harness writes `ModelProfile.name` — a **display name** like
+    `Gemma 4 E2B (Q4_K_M)` — into `run_start.model`, while every shipped
+    highlight and the landing pages want the slug (`gemma-4-e2b-q4-k-m`). So the
+    default path resolves the display name rather than passing it through: an
+    unresolved one would reach `source.model`, publish verbatim in user-facing
+    prose, and show the same model under two names on neighbouring pages.
+    """
+    if not raw:
+        die("no model — the transcript's run_start carries none and neither "
+            "--model nor the selection file supplied one")
+    if raw in allowed_model_ids:
+        return raw
+    mapped = display_to_id.get(raw)
+    if mapped is not None:
+        return mapped
+    die(f"unknown model {raw!r} — it is neither a ModelRegistry id "
+        f"{sorted(allowed_model_ids)} nor a known displayName "
+        f"{sorted(display_to_id)}. Pass --model with the registry id the run "
+        "actually used.")
+
+
 def load_selection(args):
     sel = {}
     if args.selection:
@@ -267,6 +295,8 @@ def main():
     ap.add_argument("--gallery-dir", default=os.path.join(REPO_ROOT, "docs", "gallery"))
     ap.add_argument("--blocklist", default=os.path.join(
         REPO_ROOT, "Pastura", "Pastura", "Resources", "ContentBlocklist.json"))
+    ap.add_argument("--model-registry", default=os.path.join(
+        REPO_ROOT, "Pastura", "Pastura", "App", "ModelRegistry.swift"))
     ap.add_argument("--out", help="output path (default <gallery-dir>/highlights/<id>.json)")
     args = ap.parse_args()
 
@@ -307,11 +337,21 @@ def main():
     excerpt = build_excerpt(
         selection["picks"], lines, context, args.run, persona_names)
 
+    registry = ghv.registry_model_ids(args.model_registry)
+    if registry is None:
+        die(f"model registry — no ModelDescriptor id readable from "
+            f"{args.model_registry}; source.model cannot be resolved or checked.")
+    registry_ids, display_to_id = registry
+    allowed_model_ids = registry_ids | ghv.RETIRED_MODEL_IDS
+    model = resolve_model_id(
+        selection["model"] or run_start.get("model", ""),
+        allowed_model_ids, display_to_id)
+
     doc = {
         "schema_version": ghv.SCHEMA_VERSION,
         "scenario_ref": {"id": args.id, "yaml_sha256": yaml_sha},
         "source": {
-            "model": selection["model"] or run_start.get("model", ""),
+            "model": model,
             "run_id": run_start.get("run_id", ""),
             "generated_at": selection["generated_at"]
             or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
@@ -331,7 +371,8 @@ def main():
         die(f"ContentBlocklist.json not found at {args.blocklist} — the "
             "publish-time audit is mandatory (ADR-029 Decision 2)")
     blocklist = ghv.load_blocklist(args.blocklist)
-    failures = ghv.check_content(doc, entry, blocklist, f"[{args.id}]", persona_names)
+    failures = ghv.check_content(
+        doc, entry, blocklist, f"[{args.id}]", persona_names, allowed_model_ids)
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

@@ -76,6 +76,26 @@ OUTCOME_PHASES = frozenset({"vote", "eliminate", "score_calc", "choose", "summar
 # Field-level allowlist: speak phases also emit `inner_thought`.
 SOURCE_FIELDS = frozenset({"statement"})
 
+# Model ids that have left `ModelRegistry.catalog` but remain valid as
+# `source.model`. A highlight is a pinned snapshot — a statement about the run
+# that produced it — and the registry's supersede convention *removes* the old
+# entry (`ModelRegistry.swift` § "Model-update (supersede) convention"), so a
+# catalog-only check would turn every shipped highlight red on an unrelated
+# model-swap PR and offer only "re-run the harness" or "delete the excerpt".
+#
+# Empty today, and note what that does and does not buy: it does NOT prevent
+# that red — the `gallery-drift` CI job is unconditional, so a swap PR still
+# fails until its author moves the id here. What it buys is a failure that names
+# its own remedy instead of reading as a corrupt highlight.
+RETIRED_MODEL_IDS = frozenset()
+
+# `id:` / `displayName:` inside a `ModelDescriptor(...)` literal. Anchored at
+# line start so `shortDisplayName:` cannot be read as `displayName:`, and
+# requiring a quoted value so `lookup(id: ModelID)` and
+# `defaultInitialModelID = gemma4E2B.id` are not mistaken for entries.
+_REGISTRY_ID = re.compile(r'^\s*id:\s*"([^"]+)"')
+_REGISTRY_DISPLAY_NAME = re.compile(r'^\s*displayName:\s*"([^"]+)"')
+
 
 # --- Hashing + text normalization ------------------------------------------
 
@@ -492,6 +512,64 @@ def _check_position(doc, entry, where):
     return failures
 
 
+def registry_model_ids(registry_swift):
+    """-> ({id, …}, {displayName: id, …}) from `ModelRegistry.swift`, or None.
+
+    `None` means the catalog could not be read — missing file, or a parse that
+    found no entries. Both are reported as one named failure by the caller
+    rather than degrading into "every model id is unknown", and an empty parse
+    is treated as failure precisely because this repo auto-formats Swift on
+    edit: a reformat that broke the pattern would otherwise silently disarm the
+    check.
+
+    Same source and same shape as `add-gallery-entry.sh`'s `list_models()`,
+    which greps this file to populate its interactive prompt.
+    """
+    ids, display_to_id = set(), {}
+    try:
+        with open(registry_swift, encoding="utf-8") as f:
+            current = None
+            for line in f:
+                match = _REGISTRY_ID.match(line)
+                if match:
+                    current = match.group(1)
+                    ids.add(current)
+                    continue
+                match = _REGISTRY_DISPLAY_NAME.match(line)
+                if match and current is not None:
+                    display_to_id[match.group(1)] = current
+    except (OSError, UnicodeDecodeError):
+        return None
+    if not ids:
+        return None
+    return ids, display_to_id
+
+
+def _check_source_model(doc, allowed_model_ids, where):
+    """`source.model` must name a model a reader could actually have run.
+
+    The string is published verbatim in user-facing prose on the landing pages
+    (`ScenarioLanding.astro` renders 「実際に端末で動かした結果から抜き出した会話
+    です（<model>）。」 and its English sibling), so the same model appearing under
+    two different names across neighbouring pages is a visible defect. The
+    authority is `ModelRegistry.catalog` rather than the harness's
+    `ModelProfile.all`: the latter also carries evaluation candidates with no
+    app entry, which no reader can run on a device.
+    """
+    source = doc.get("source")
+    if not isinstance(source, dict) or not isinstance(source.get("model"), str):
+        return []  # shape already reported by _check_schema
+    model = source["model"]
+    if model in allowed_model_ids:
+        return []
+    return [
+        f"highlight: source.model — {where} source.model={model!r} is not a known "
+        f"model id. Expected one of {sorted(allowed_model_ids)}. The harness writes "
+        "`ModelProfile.name` (a display name) into the transcript's `run_start`, so "
+        "an extraction that did not resolve it lands here; a superseded model's id "
+        "belongs in RETIRED_MODEL_IDS in this file."]
+
+
 def scenario_persona_names(scenario):
     """-> the scenario's persona names in declaration order, or None.
 
@@ -552,20 +630,22 @@ def _check_persona_index(doc, persona_names, where):
     return failures
 
 
-def check_content(doc, entry, blocklist, where, persona_names):
+def check_content(doc, entry, blocklist, where, persona_names, allowed_model_ids):
     """Every rule derivable from the highlight doc + its index entry.
 
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
     the file-level checks (pairing, file hashes) the extractor cannot run.
 
     `persona_names` comes from the sibling scenario YAML via
-    ``scenario_persona_names``. It is a required parameter, not an optional one:
-    a default would let a caller skip the persona_index cross-check by omission,
-    and the gate is the only place that failure would ever surface.
+    ``scenario_persona_names``; `allowed_model_ids` from
+    ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both are required
+    parameters, not optional ones: a default would let a caller skip a check by
+    omission, and the gate is the only place either failure would surface.
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
     failures += _check_persona_index(doc, persona_names, where)
+    failures += _check_source_model(doc, allowed_model_ids, where)
     failures += _check_yaml_hook_secret(doc, where)
     failures += _check_yaml_hook_fragment(doc, where)
     failures += _check_position(doc, entry, where)
@@ -597,7 +677,7 @@ def _read_persona_names(yaml_path):
         return None
 
 
-def validate_repo(gallery_json, gallery_dir, blocklist_path):
+def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
     """-> list of failure strings across the whole gallery."""
     failures = []
     entries = _entry_index(gallery_json)
@@ -642,6 +722,14 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
             f"{blocklist_path}; the publish-time audit cannot run")
         return failures
     blocklist = load_blocklist(blocklist_path)
+
+    registry = registry_model_ids(registry_swift)
+    if registry is None:
+        failures.append(
+            "highlight: model registry — could not read any ModelDescriptor id from "
+            f"{registry_swift}; source.model cannot be checked against the catalog")
+        return failures
+    allowed_model_ids = registry[0] | RETIRED_MODEL_IDS
 
     referenced = set()
     for entry in paired_entries:
@@ -698,7 +786,8 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
             persona_names = _read_persona_names(yaml_path)
 
-        failures += check_content(doc, entry, blocklist, where, persona_names)
+        failures += check_content(
+            doc, entry, blocklist, where, persona_names, allowed_model_ids)
 
     for path in sorted(on_disk - referenced):
         rel = os.path.relpath(path, os.path.dirname(gallery_dir))
@@ -715,9 +804,13 @@ def main():
     ap.add_argument("--gallery-json", required=True)
     ap.add_argument("--gallery-dir", required=True)
     ap.add_argument("--blocklist", required=True)
+    # Required like its siblings: this module derives no paths of its own, so the
+    # gate stays the single place that knows the repo layout.
+    ap.add_argument("--model-registry", required=True)
     a = ap.parse_args()
 
-    failures = validate_repo(a.gallery_json, a.gallery_dir, a.blocklist)
+    failures = validate_repo(
+        a.gallery_json, a.gallery_dir, a.blocklist, a.model_registry)
     for line in failures:
         print(line)
     return 1 if failures else 0

@@ -66,6 +66,7 @@ PRESETS_DIR="$ROOT/Pastura/Pastura/Resources/Presets"
 HIGHLIGHTS_DIR="$GALLERY_DIR/highlights"
 HIGHLIGHT_VALIDATOR="$ROOT/scripts/gallery_highlight_validate.py"
 BLOCKLIST_JSON="$ROOT/Pastura/Pastura/Resources/ContentBlocklist.json"
+MODEL_REGISTRY_SWIFT="$ROOT/Pastura/Pastura/App/ModelRegistry.swift"
 MAX_BYTES=$((256 * 1024))
 
 FAILURES=0
@@ -178,7 +179,8 @@ check_highlights() {
   out="$(python3 "$HIGHLIGHT_VALIDATOR" \
     --gallery-json "$GALLERY_JSON" \
     --gallery-dir "$GALLERY_DIR" \
-    --blocklist "$BLOCKLIST_JSON" 2>&1)"
+    --blocklist "$BLOCKLIST_JSON" \
+    --model-registry "$MODEL_REGISTRY_SWIFT" 2>&1)"
   rc=$?
   set -e
   if [ "$rc" -ne 0 ]; then

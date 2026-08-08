@@ -25,7 +25,8 @@ for dep in jq python3 git shasum; do
 done
 python3 -c "import yaml" 2>/dev/null || { echo "ERROR: PyYAML not available — 'python3 -m pip install pyyaml'" >&2; exit 1; }
 
-SRC_SCRIPTS="$(git rev-parse --show-toplevel)/scripts"
+REAL_ROOT="$(git rev-parse --show-toplevel)"
+SRC_SCRIPTS="$REAL_ROOT/scripts"
 TMPROOT="$(mktemp -d)"
 trap 'rm -rf "$TMPROOT"' EXIT
 
@@ -61,10 +62,38 @@ sha() { shasum -a 256 "$1" | awk '{print $1}'; }
 new_repo() {
   local d
   d="$(mktemp -d "$TMPROOT/repo.XXXXXX")"
-  mkdir -p "$d/scripts" "$d/docs/gallery/highlights" "$d/Pastura/Pastura/Resources"
+  mkdir -p "$d/scripts" "$d/docs/gallery/highlights" \
+           "$d/Pastura/Pastura/Resources" "$d/Pastura/Pastura/App"
   cp "$SRC_SCRIPTS/check-gallery-entry.sh" \
      "$SRC_SCRIPTS/gallery_highlight_validate.py" \
      "$SRC_SCRIPTS/gallery_highlight_extract.py" "$d/scripts/"
+  # A two-entry stand-in for Pastura/Pastura/App/ModelRegistry.swift. The gate
+  # and the extractor both read `source.model` against it, and without this the
+  # whole suite would fail on the missing-registry path — green in the
+  # pre-commit hook (which runs the gate against the real repo) and red in CI
+  # only, the shape ci-workflows.md records as #788. Shaped like the real
+  # literal, including `shortDisplayName:`, which must NOT be read as
+  # `displayName:`.
+  cat > "$d/Pastura/Pastura/App/ModelRegistry.swift" <<'SWIFT'
+enum ModelRegistry {
+  nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
+    id: "gemma-4-e2b-q4-k-m",
+    displayName: "Gemma 4 E2B (Q4_K_M)",
+    shortDisplayName: "Gemma 4 E2B",
+    vendor: "Google"
+  )
+
+  nonisolated static let qwen34B: ModelDescriptor = ModelDescriptor(
+    id: "qwen-3-4b-q4-k-m",
+    displayName: "Qwen 3 4B (Q4_K_M)",
+    shortDisplayName: "Qwen 3 4B",
+    vendor: "Alibaba"
+  )
+
+  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B]
+  nonisolated static func lookup(id: ModelID) -> ModelDescriptor? { nil }
+}
+SWIFT
   cat > "$d/Pastura/Pastura/Resources/ContentBlocklist.json" <<'JSON'
 {
   "version": 1,
@@ -620,6 +649,76 @@ gate "$R"; expect_fail "H29 unreadable personas fails"
 expect_out "could not be read, so persona_index cannot be verified" \
   "H29 names the cannot-verify path"
 
+# --- source.model (ADR-029 Decision 1) ------------------------------------
+#
+# The string publishes verbatim in user-facing prose on the landing pages, so a
+# display name reaching it shows one model under two names across neighbouring
+# pages. H1 already covers the positive (mk_highlight writes the slug).
+
+# set_model <repo> <id> <model-string> — rewrite source.model, then re-link so
+# the hash check does not redden first and mask the arm.
+set_model() {
+  jq --arg m "$3" '.source.model = $m' \
+    "$1/docs/gallery/highlights/$2.json" > "$1/hl.tmp"
+  mv "$1/hl.tmp" "$1/docs/gallery/highlights/$2.json"
+  link_highlight "$1" "$2"
+}
+
+# H30 — the harness's display name, i.e. exactly what an extraction that did not
+# resolve `run_start.model` would leave behind.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+set_model "$R" demo_v1 "Gemma 4 E2B (Q4_K_M)"
+gate "$R"; expect_fail "H30 display-name source.model fails"
+expect_out "highlight: source.model" "H30 names the source.model check"
+
+# H31 — an unknown id that is NOT retired. Also the control for H32: without it,
+# a registry read that silently returned everything would let H32 pass.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+set_model "$R" demo_v1 "legacy-model-id"
+gate "$R"; expect_fail "H31 unknown non-retired id fails"
+expect_out "highlight: source.model" "H31 names the source.model check"
+
+# H32 — the same id, now in RETIRED_MODEL_IDS, passes. Injected into the copied
+# validator; a `sed` whose anchor missed would leave the id unknown and redden,
+# so this arm cannot pass by a silent no-op.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+set_model "$R" demo_v1 "legacy-model-id"
+sed -i.bak 's/^RETIRED_MODEL_IDS = frozenset()$/RETIRED_MODEL_IDS = frozenset({"legacy-model-id"})/' \
+  "$R/scripts/gallery_highlight_validate.py"
+if grep -q 'frozenset({"legacy-model-id"})' "$R/scripts/gallery_highlight_validate.py"; then
+  PASS=$((PASS + 1))
+else
+  bad "H32 sed anchor missed — RETIRED_MODEL_IDS not injected, arm is vacuous"
+fi
+gate "$R"; expect_ok "H32 a retired id passes"
+
+# H33 — the registry reformatted so the anchored pattern finds nothing. This is
+# the claim the parser's own comment makes (this repo auto-formats Swift on
+# edit), and an empty parse must be loud rather than admitting every id.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+printf '%s\n' 'enum ModelRegistry { static let a = ModelDescriptor(id: "gemma-4-e2b-q4-k-m") }' \
+  > "$R/Pastura/Pastura/App/ModelRegistry.swift"
+gate "$R"; expect_fail "H33 unparseable registry fails"
+expect_out "highlight: model registry" "H33 names the registry read"
+
+# H34 — known-positive control against the REAL repo registry. The arms above
+# all read a synthetic fixture, so none of them would notice the real file
+# drifting out of the pattern's reach. Read-only, so the suite stays
+# parallel-safe and touches nothing outside its tempdirs.
+runc "$REAL_ROOT" python3 -c "
+import sys
+sys.path.insert(0, 'scripts')
+import gallery_highlight_validate as ghv
+result = ghv.registry_model_ids('Pastura/Pastura/App/ModelRegistry.swift')
+ids, display = (result if result else (set(), {}))
+print('gemma-4-e2b-q4-k-m' in ids and 'Gemma 4 E2B (Q4_K_M)' in display)
+"
+expect_eq "True" "H34 the real ModelRegistry.swift parses to ids + displayNames"
+
 # ============================== extractor ================================
 
 # mk_run <repo> <path> — a minimal 4-round transcript. Line numbers:
@@ -816,6 +915,37 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo
   --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E13 unreadable personas refuses extraction"
 expect_out "unreadable personas" "E13 names the personas failure"
+
+# --- source.model resolution ----------------------------------------------
+
+# E14 — a display name in `run_start.model` (what the harness actually writes)
+# resolves to the registry id, rather than publishing verbatim.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+old = '"model":"gemma-4-e2b-q4-k-m"'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times"
+open(p, "w", encoding="utf-8").write(
+    text.replace(old, '"model":"Gemma 4 E2B (Q4_K_M)"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_ok "E14 a display-name run_start.model extracts"
+runc "$R" jq -r '.source.model' docs/gallery/highlights/demo_v1.json
+expect_eq "gemma-4-e2b-q4-k-m" "E14 wrote the resolved id, not the display name"
+
+# E15 — a string that is neither an id nor a known displayName. Refused rather
+# than written through, and the message names the escape hatch.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --model "gemma 4 e2b" \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E15 an unresolvable model refuses extraction"
+expect_out "Pass --model with the registry id" "E15 names the escape hatch"
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
