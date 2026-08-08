@@ -4,10 +4,18 @@ import Foundation
 ///
 /// Decodes one `docs/gallery/highlights/<id>.json` file, fetched by the app
 /// only when the detail screen shows (no cache, unconditional hash-verified
-/// fetch — ADR-029 Decision 4). All fields are **required**: `schema_version`
-/// 1 pins the exact shape, and the feature's fail-closed posture means a
-/// malformed or partial file must throw at decode time so the caller hides
-/// the section, rather than silently rendering a degraded one.
+/// fetch — ADR-029 Decision 4). All fields are **required**: the feature's
+/// fail-closed posture means a malformed or partial file must throw at decode
+/// time so the caller hides the section, rather than silently rendering a
+/// degraded one.
+///
+/// `schema_version` names *which* key set applies; the repo-side gate is what
+/// pins that shape, not this type. Do not read the two as interchangeable —
+/// v1's required keys were widened in place once, when `yaml_hook.kind` landed
+/// (ADR-029 § Amendment 2026-08-08). That was licensed by no artifact bearing
+/// the older shape surviving anywhere — a precondition that fails on the first
+/// release to carry this reader, whatever it is numbered. Any required key
+/// added after that **bumps the version**.
 nonisolated public struct GalleryHighlight: Codable, Equatable, Sendable {
   /// Schema version of this highlight file (currently `1`). Not validated
   /// against a known set here — an unrecognised version is still decodable
@@ -210,13 +218,26 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
 /// A snippet of the scenario's backing YAML shown alongside the excerpt,
 /// inviting the reader to open and edit it in-app.
 nonisolated public struct GalleryHighlightYAMLHook: Codable, Equatable, Sendable {
+  /// What shape the fragment is in, and therefore how a consumer may draw it
+  /// (ADR-029 Decision 1). `"persona"` licenses the app's editor-vocabulary
+  /// rendition; `"raw"` claims no structure and publishes the fragment as a
+  /// YAML block.
+  ///
+  /// Kept as `String` rather than an enum for the same forward-compat reason as
+  /// ``GalleryHighlightExcerptEntry/phase``: the supply side is strict (the
+  /// gate allowlists the value) while a **reader** must tolerate a kind newer
+  /// than its build and fall back to the YAML block, rather than failing the
+  /// decode and hiding a section that is otherwise entirely valid.
+  public let kind: String
+
   /// The YAML fragment itself (e.g. one persona's `description:` block).
   public let fragment: String
 
   /// Human-readable caption explaining what to try editing.
   public let caption: String
 
-  public init(fragment: String, caption: String) {
+  public init(kind: String, fragment: String, caption: String) {
+    self.kind = kind
     self.fragment = fragment
     self.caption = caption
   }
@@ -224,6 +245,7 @@ nonisolated public struct GalleryHighlightYAMLHook: Codable, Equatable, Sendable
   // No snake_case mapping needed today; explicit per the file-family
   // convention so a future mapped field cannot be added without noticing.
   private enum CodingKeys: String, CodingKey {
+    case kind
     case fragment
     case caption
   }

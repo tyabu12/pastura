@@ -34,6 +34,13 @@ export interface ScenarioHighlight {
   schema_version: number;
   source: { model: string; run_id: string; generated_at: string };
   excerpt: HighlightExcerptEntry[];
-  yaml_hook: { fragment: string; caption: string };
+  // `kind` is `persona` or `raw` (ADR-029 Decision 1). The web renders every
+  // hook as YAML regardless — it has no editor to show a persona fragment's
+  // meaning in, which is the whole reason the app diverges here
+  // (§ Amendment 2026-08-08). Nothing on this side branches on it, and
+  // `loadHighlight`'s runtime guard does not check it either, so this field is
+  // documentation of the on-disk shape rather than a verified property of the
+  // parsed value — the repo-side gate is what makes it true.
+  yaml_hook: { kind: string; fragment: string; caption: string };
   teaser: string;
 }

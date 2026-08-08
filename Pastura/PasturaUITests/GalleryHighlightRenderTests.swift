@@ -12,6 +12,13 @@ import XCTest
 /// and a `PhaseTypeLabel` capsule to a `ForEach` inside it, which is the shape
 /// named there. Only navigating in and rendering can tell us.
 ///
+/// **Which rendition the fixture selects is coverage, not a detail.** Since
+/// #1393 the seeded hook is `kind: "persona"`, so this run also renders the
+/// persona rows — a second `ForEach` in the same flagged container. Flipping the
+/// fixture back to `"raw"` would silently move that coverage to the YAML block
+/// and leave the rows untested; if both ever need covering, add a second launch
+/// argument rather than swapping this one.
+///
 /// It needs its own launch argument because the default `--ui-test` canary
 /// serves no highlight: `StubGalleryService.fetchHighlightData` 404s unless the
 /// fixture seeds one, so a probe run under `--ui-test` would find the section

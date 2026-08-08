@@ -38,6 +38,7 @@ import Testing
         }
       ],
       "yaml_hook": {
+        "kind": "persona",
         "fragment": "  - name: 被験者ナオキ\\n    description: >\\n      素朴な性格。",
         "caption": "サクラの人数を書き換えると、同調圧力の強さが変わる。"
       },
@@ -66,6 +67,7 @@ import Testing
     #expect(highlight.excerpt[0].phaseIndex == 0)
     #expect(highlight.excerpt[0].sourceField == "statement")
     #expect(highlight.excerpt[0].text == "答えはCです。")
+    #expect(highlight.yamlHook.kind == "persona")
     #expect(highlight.yamlHook.caption == "サクラの人数を書き換えると、同調圧力の強さが変わる。")
     #expect(highlight.teaser == "最終ラウンド、ナオキはBを貫けるのか——結末はアプリで。")
     #expect(highlight.windowOverride == false)
@@ -91,6 +93,25 @@ import Testing
     var json = try #require(
       JSONSerialization.jsonObject(with: Data(Self.validJSON.utf8)) as? [String: Any])
     json.removeValue(forKey: "teaser")
+    let data = try JSONSerialization.data(withJSONObject: json)
+
+    #expect(throws: (any Error).self) {
+      try JSONDecoder().decode(GalleryHighlight.self, from: data)
+    }
+  }
+
+  /// The fail-closed posture reaches **nested** required keys too, and
+  /// `yaml_hook.kind` is the one that tests it: ADR-029 § Amendment 2026-08-08
+  /// added it to `schema_version: 1` in place, on the argument that no file
+  /// bearing the older shape survives. This pins the decoder's half of that —
+  /// a pre-amendment hook must throw rather than decode with a defaulted kind
+  /// and render as though a curator had chosen it.
+  @Test func missingYAMLHookKindThrows() throws {
+    var json = try #require(
+      JSONSerialization.jsonObject(with: Data(Self.validJSON.utf8)) as? [String: Any])
+    var hook = try #require(json["yaml_hook"] as? [String: Any])
+    hook.removeValue(forKey: "kind")
+    json["yaml_hook"] = hook
     let data = try JSONSerialization.data(withJSONObject: json)
 
     #expect(throws: (any Error).self) {

@@ -4775,6 +4775,16 @@
         }
       }
     },
+    "Once it is on your device you can rewrite these personas freely. Change the setup and see where your own run goes." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "端末に取り込めば、この人物設定はそのまま書き換えられます。設定を変えて、自分だけの展開を確かめてみてください。"
+          }
+        }
+      }
+    },
     "Once it is on your device you can rewrite this YAML freely. Change the setup and see where your own run goes." : {
       "localizations" : {
         "en" : {
@@ -6660,6 +6670,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "社会心理学"
+          }
+        }
+      }
+    },
+    "Some of the personas behind these lines" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このセリフを生んだ人物設定（抜粋）"
           }
         }
       }

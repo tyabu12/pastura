@@ -13,7 +13,11 @@ each must be an `agent_output` line) or a `--selection <file.json>`:
 
     {
       "picks": [12, {"line": 15, "source_field": "statement"}],
-      "yaml_hook": {"fragment": "phases:\\n  - type: speak_each", "caption": "…"},
+      // kind: "persona" (the fragment is a persona list — the app draws it in
+      // the visual editor's vocabulary) or "raw" (published as a YAML block).
+      // Required, no default; a persona fragment's shape is gate-checked.
+      "yaml_hook": {"kind": "raw",
+                    "fragment": "phases:\\n  - type: speak_each", "caption": "…"},
       "teaser": "…",
       "model": "gemma-4-e2b-q4-k-m",      // optional; default run_start.model
       "generated_at": "2026-08-05"         // optional; default today (UTC)
@@ -201,13 +205,22 @@ def load_selection(args):
     hook = sel.get("yaml_hook") or {}
     fragment = args.yaml_hook_fragment or hook.get("fragment")
     caption = args.yaml_hook_caption or hook.get("caption")
+    # No default. `persona` licenses the app's editor-vocabulary rendition and
+    # `raw` publishes the fragment as YAML, so guessing either would make a
+    # presentation decision on the curator's behalf (ADR-029 § Amendment
+    # 2026-08-08). The gate re-derives the shape `persona` promises.
+    kind = args.yaml_hook_kind or hook.get("kind")
     teaser = args.teaser or sel.get("teaser")
-    for name, value in (("yaml_hook.fragment", fragment),
+    for name, value in (("yaml_hook.kind", kind), ("yaml_hook.fragment", fragment),
                         ("yaml_hook.caption", caption), ("teaser", teaser)):
         if not value:
             die(f"missing {name} — supply it via --selection or the matching CLI flag")
+    if kind not in ghv.YAML_HOOK_KINDS:
+        die(f"yaml_hook.kind={kind!r} is not in the allowlist "
+            f"{sorted(ghv.YAML_HOOK_KINDS)} (ADR-029 Decision 1)")
     return {
         "picks": normalize_picks(picks),
+        "kind": kind,
         "fragment": fragment,
         "caption": caption,
         "teaser": teaser,
@@ -223,6 +236,9 @@ def main():
     ap.add_argument("--selection", help="JSON selection file (see module docstring)")
     ap.add_argument("--pick", type=int, action="append",
                     help="1-based JSONL line number of an agent_output to excerpt")
+    ap.add_argument("--yaml-hook-kind",
+                    help="persona | raw — how a consumer may render the fragment "
+                         "(ADR-029 Decision 1). Required; there is no default.")
     ap.add_argument("--yaml-hook-fragment")
     ap.add_argument("--yaml-hook-caption")
     ap.add_argument("--teaser")
@@ -276,7 +292,11 @@ def main():
             or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d"),
         },
         "excerpt": excerpt,
-        "yaml_hook": {"fragment": selection["fragment"], "caption": selection["caption"]},
+        "yaml_hook": {
+            "kind": selection["kind"],
+            "fragment": selection["fragment"],
+            "caption": selection["caption"],
+        },
         "teaser": selection["teaser"],
         "window_override": bool(args.window_override),
         "content_filter_applied": True,
