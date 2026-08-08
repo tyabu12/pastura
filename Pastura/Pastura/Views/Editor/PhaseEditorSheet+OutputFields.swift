@@ -67,10 +67,10 @@ extension PhaseEditorSheet {
 
   /// Wash and label are separate parameters because the moss arm needs them to
   /// differ: the designed wash is `mossDark` at 0.16, but `mossDark` text on it
-  /// measures ≈3.87:1 in light — under the 4.5:1 bar at `caption2` — so the
+  /// measures ≈3.88:1 in light — under the 4.5:1 bar at `caption2` — so the
   /// label reads the `mossOnWash` role token instead, which brings it to
-  /// ≈5.71:1 (#1327). The ink arm still passes one token twice — its light half
-  /// clears the bar at ≈5.50:1, and its *dark*-side gap (≈4.41:1, the opposite
+  /// ≈5.73:1 (#1327). The ink arm still passes one token twice — its light half
+  /// clears the bar at ≈5.48:1, and its *dark*-side gap (≈4.41:1, the opposite
   /// asymmetry) is tracked separately in #1408.
   private func fieldPill(_ text: String, wash: Color, label: Color) -> some View {
     Text(text)

@@ -80,9 +80,9 @@ struct HomePausedCard: View {
   ///
   /// The dot and the label take **different** tokens on purpose. The dot is a
   /// non-text shape, so it answers to WCAG's 3:1 bar and `mossDark` clears it;
-  /// the label is 9.5pt text on the card's own moss gradient, where `mossDark`
-  /// measured ≈3.93:1 against the 4.5:1 bar. Only the label moves to the
-  /// `mossOnWash` role token, which reads ≈5.80:1 (#1327).
+  /// the label is 11pt text on the card's own moss gradient, where `mossDark`
+  /// measured ≈3.92:1 against the 4.5:1 bar. Only the label moves to the
+  /// `mossOnWash` role token, which reads ≈5.78:1 (#1327).
   private var eyebrow: some View {
     HStack(spacing: 7) {
       Circle()

@@ -133,7 +133,7 @@ enum PasturaPalette {
   /// ground*, not to be a step, so the value is solved from the 4.5:1 target on
   /// the composited washes rather than placed by ladder position (ADR-028's arm
   /// doctrine). `mossDark` cannot do this job at any wash opacity — its ceiling
-  /// is 4.737:1 even on pure white, so every *visible* wash puts it under the
+  /// is 4.737:1 even on pure white, so every wash the app ships puts it under the
   /// bar. Valid over moss-family **translucent** washes on light surfaces;
   /// explicitly NOT over opaque `mossSoft`, where it measures 4.29 (see #1407).
   static let mossOnWash = PasturaColorValue(hex: 0x535D40)

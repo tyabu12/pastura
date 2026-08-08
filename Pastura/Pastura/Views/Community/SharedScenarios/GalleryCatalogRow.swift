@@ -111,10 +111,10 @@ struct GalleryCatalogRow: View {
   /// Inline category chip — `mossOnWash` text on the moss `selected` wash,
   /// mirroring the filter-chip accent without the capsule (a quieter inline
   /// tag). `mossDark` was the original label token; on this wash it measured
-  /// ≈4.00:1 in light and ≈4.38:1 in dark, i.e. the one site that missed the
+  /// ≈4.00:1 in light and ≈4.39:1 in dark, i.e. the one site that missed the
   /// 4.5:1 bar in *both* appearances — `nightSelected` re-bases the alpha
   /// 0.18 → 0.24, which is why dark fails here and nowhere else. The role token
-  /// reads ≈5.90:1 light / ≈4.69:1 dark (#1327).
+  /// reads ≈5.89:1 light / ≈4.70:1 dark (#1327).
   private var categoryChip: some View {
     Text(model.category)
       .font(.caption2.weight(.semibold))

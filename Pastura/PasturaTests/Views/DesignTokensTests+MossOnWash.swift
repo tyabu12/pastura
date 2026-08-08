@@ -29,7 +29,8 @@ extension DesignTokensTests {
   /// what makes its asymmetry visible: `nightSelected` re-bases 0.18 -> 0.24, so
   /// it is the only row whose two appearances differ, and that re-basing is why
   /// the chip was the one site already failing in **dark** before this token
-  /// existed (4.38).
+  /// existed (4.39 — asserted by
+  /// ``onlyTheCategoryChipWasFailingInDarkBeforeThisToken``, not just stated).
   static var mossWashSites: [MossWashSite] {
     [
       MossWashSite("GalleryCatalogRow.badgeView", wash: .moss, light: 0.20, dark: 0.20),
@@ -60,6 +61,13 @@ extension DesignTokensTests {
   /// that pair. Nothing here detects one; the enumeration above is the guard,
   /// and it is hand-maintained.
   @Test func mossOnWashClearsAAOnEveryWashItIsUsedOn() {
+    // Size pin, not decoration: the body below is a bare loop over a
+    // hand-maintained fixture, so trimming or emptying `mossWashSites` would
+    // make this arm pass **vacuously** and green would mean nothing. The
+    // negative control has its two non-loop ceiling assertions as a floor;
+    // this arm had none.
+    #expect(Self.mossWashSites.count == 7)
+
     for site in Self.mossWashSites {
       let lightGround = composite(
         site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)
@@ -102,6 +110,40 @@ extension DesignTokensTests {
     let ceiling = contrastRatio(PasturaPalette.mossDark, PasturaPalette.bubbleBackground)
     #expect(ceiling >= Self.textBar, "mossDark's ceiling moved below the bar: \(ceiling)")
     #expect(ceiling < 5.0, "mossDark got materially darker: \(ceiling)")
+  }
+
+  /// The dark-side negative control, and it is deliberately **one row, not
+  /// seven**.
+  ///
+  /// The claim it defends is narrow: dark was not broken in general — the
+  /// gallery category chip was the single site already under the bar there,
+  /// because `nightSelected` re-bases the wash alpha 0.18 -> 0.24 and lightens
+  /// its ground. That claim is asserted in prose in three places (this file's
+  /// fixture doc, `nightMossOnWash`'s doc comment, and ADR-028 § Amendment
+  /// 2026-08-08) and was executed by nothing until this test.
+  ///
+  /// A blanket dark control over all seven would **fail**: the other six give
+  /// `nightMossDark` 4.77–5.62, i.e. they pass. Widening this loop would
+  /// therefore not strengthen the guard, it would break it — which is the
+  /// tell that the chip-scoping is the claim, not a shortcut.
+  @Test func onlyTheCategoryChipWasFailingInDarkBeforeThisToken() {
+    let chipGround = composite(
+      PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.24)
+    let before = contrastRatio(PasturaPalette.nightMossDark, chipGround)
+    #expect(before < Self.textBar, "the chip is supposed to be the dark failure: \(before)")
+
+    // The paired positive: the same ground clears the bar once the label moves.
+    let after = contrastRatio(PasturaPalette.nightMossOnWash, chipGround)
+    #expect(after >= Self.textBar, "chip still under the bar in dark: \(after)")
+
+    // ...and the six others were NOT failing, so "dark was broken" would be the
+    // wrong story to tell about this change.
+    for site in Self.mossWashSites where site.name != "GalleryCatalogRow.categoryChip" {
+      let ground = composite(
+        site.darkToken, over: PasturaPalette.nightBubble, alpha: site.darkAlpha)
+      let ratio = contrastRatio(PasturaPalette.nightMossDark, ground)
+      #expect(ratio >= Self.textBar, "expected dark-passing for \(site.name), got \(ratio)")
+    }
   }
 
   /// `mossOnWash` is a role token, not a fifth rung — but it still has to sit

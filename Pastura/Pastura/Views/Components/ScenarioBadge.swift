@@ -72,15 +72,17 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// §2.3 lists for accent text. `mossDark` was the shipped choice and it did not
 /// reach the 4.5:1 bar on any wash the app renders: measured on this composite
 /// (label over `moss` @0.2 over `bubbleBackground`), **light appearance**,
-/// `mossDark` gives **≈3.93:1** — better than the ≈2.52:1 a `moss` label would
-/// give, but still short. `mossOnWash` brings it to **≈5.79:1** (#1327).
+/// `mossDark` gives **≈3.92:1** — better than the ≈2.51:1 a `moss` label would
+/// give, but still short. `mossOnWash` brings it to **≈5.78:1** (#1327).
 /// `secondary` measures ≈5.57:1, also light.
 ///
-/// All the tokens in that composite are paired since ADR-028 slice 4, so these
-/// are light-appearance figures rather than absolutes. Measured on the dark
+/// Every token in that composite is paired, so these are light-appearance
+/// figures rather than absolutes — the three grounds since ADR-028 slice 4,
+/// and `mossOnWash` from birth as the 68th pair (#1327), which is *not* from
+/// any slice. Measured on the dark
 /// composite (`nightMossOnWash` label over a `nightMoss` wash at the same 0.2
 /// fill opacity, composited over `nightBubble` → composited wash #454A3B):
-/// **≈5.13:1**, up from ≈4.79:1 under `nightMossDark`. Dark already passed the
+/// **≈5.11:1**, up from ≈4.77:1 under `nightMossDark`. Dark already passed the
 /// bar before this change — the #1327 gap was light-only — so the swap buys
 /// margin here rather than fixing a failure.
 /// The `secondary` style is the opposite trade: `nightInkSecondary` over its own

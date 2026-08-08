@@ -44,7 +44,7 @@ struct PhaseTypeLabel: View {
   /// foreground is a darker step — but not the `moss-dark` §2.3 lists for
   /// accent text: over this capsule's own `moss` @0.15 wash that measures only
   /// ≈4.11:1 in light, under the 4.5:1 bar at `tagPhase`'s 9.5pt. The
-  /// `moss-on-wash` role token takes it to ≈6.07:1 (#1327).
+  /// `moss-on-wash` role token takes it to ≈6.06:1 (#1327).
   /// Code-driven phases stay on `ink-secondary` (neutral pair).
   private var badgeText: Color {
     if phaseType.requiresLLM {

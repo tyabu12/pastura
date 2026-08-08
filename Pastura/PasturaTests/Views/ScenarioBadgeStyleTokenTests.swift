@@ -50,9 +50,9 @@ struct ScenarioBadgeStyleTokenTests {
   @Test func tintReadsTheAccentPair() {
     // § 2.3: `moss` for fills. The label is the `mossOnWash` role token rather
     // than the `mossDark` §2.3 lists for accent text — on this badge's
-    // composited wash `mossDark` measures ≈3.93:1, under the 4.5:1 bar, and
-    // `mossOnWash` reads ≈5.79:1 (#1327). Swapping the label to `moss` would
-    // drop it to ≈2.52:1. (Not "white-on-accent" — no white foreground is
+    // composited wash `mossDark` measures ≈3.92:1, under the 4.5:1 bar, and
+    // `mossOnWash` reads ≈5.78:1 (#1327). Swapping the label to `moss` would
+    // drop it to ≈2.51:1. (Not "white-on-accent" — no white foreground is
     // involved here; that framing belongs to the solid-fill cases in ADR-028.)
     #expect(ScenarioBadgeStyle.tint.fillToken == Color.moss)
     #expect(ScenarioBadgeStyle.tint.labelToken == Color.mossOnWash)
