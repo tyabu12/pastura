@@ -42,9 +42,7 @@ Hard-fails (each with a distinct, greppable message):
     position / round violates Decision 3;
   - a pick whose `agent` is absent from the scenario's `personas:` list, or a
     YAML with no readable `personas:` — every excerpt entry pins the speaker's
-    index into that list as `persona_index`, and it is derived here, never
-    selectable (it is what the app and the web resolve the avatar colour slot
-    from, so a wrong one silently recolours the excerpt);
+    index into that list as `persona_index`, derived here and never selectable;
   - more than 8 excerpt entries; a blocklist match; a stale `yaml_sha256`.
 
 The gate (`scripts/check-gallery-entry.sh`), not this tool, is the enforcement
@@ -192,9 +190,7 @@ def build_excerpt(picks, lines, context, run_path, persona_names):
         agent = obj.get("agent", "")
         # Hard-fail rather than omit the key or write a sentinel: a speaker the
         # scenario does not declare means the transcript and the pinned YAML
-        # disagree, and the avatar colour the consumers resolve from this index
-        # would be arbitrary. Silently skipping would leave the gate's
-        # cross-check with nothing to compare (ADR-029 Decision 1).
+        # disagree, so the index the consumers colour from would be arbitrary.
         if agent not in persona_names:
             die(f"pick {lineno} — agent {agent!r} is not in the scenario's "
                 f"`personas:` list {persona_names}; persona_index cannot be "
@@ -217,10 +213,9 @@ def resolve_model_id(raw, allowed_model_ids, display_to_id):
 
     The harness writes `ModelProfile.name` — a **display name** like
     `Gemma 4 E2B (Q4_K_M)` — into `run_start.model`, while every shipped
-    highlight and the landing pages want the slug (`gemma-4-e2b-q4-k-m`). So the
-    default path resolves the display name rather than passing it through: an
-    unresolved one would reach `source.model`, publish verbatim in user-facing
-    prose, and show the same model under two names on neighbouring pages.
+    highlight and the landing pages want the slug (`gemma-4-e2b-q4-k-m`). An
+    unresolved one would reach `source.model` and publish verbatim in
+    user-facing prose, showing one model under two names.
     """
     if not isinstance(raw, str):
         die(f"model must be a string, got {type(raw).__name__} ({raw!r}) — check "

@@ -81,16 +81,13 @@
 #       to the existing one (no flag overrides AND unchanged YAML),
 #       exits 0 BEFORE bumping `updated_at` and BEFORE the atomic
 #       write. Re-running `--update` with no real change is therefore
-#       free. Reaches highlighted entries only because of (h) — before
-#       that carry-forward the candidate could never compare equal.
+#       free. Reaches highlighted entries only because of (h).
 #   (h) update-mode highlight carry-forward: ADR-029's `highlight_*`
-#       fields are copied from the existing entry (selected by
-#       `highlight_` prefix, so a field added to that contract later
-#       carries too). Consequence to know: with the highlight FILE
-#       already deleted but the fields still present, `--update` now
-#       refuses (post-validate names the missing file) instead of
-#       silently repairing the state by dropping them. Delete both
-#       fields by hand — see docs/gallery/README.md § Highlights.
+#       fields are copied over from the existing entry. Consequence to
+#       know: with the highlight FILE already deleted but the fields
+#       still present, `--update` refuses (post-validate names the
+#       missing file) rather than silently repairing the state. Delete
+#       both fields by hand — docs/gallery/README.md § Highlights.
 #
 # Choice lists at prompts are read from the Swift sources at runtime
 # (Pastura/Pastura/Models/GalleryScenario.swift,
@@ -320,6 +317,9 @@ list_categories() {
     | sed -E 's/.*=[[:space:]]*"([^"]+)".*/\1/'
 }
 
+# Deliberately unanchored, unlike gallery_highlight_validate.py's `^\s*id:` over
+# the same file: this prompt may over-offer an inline or trailing `id: "…"`. The
+# gate is the authority — a value offered here can still be rejected there.
 list_models() {
   grep -E 'id:[[:space:]]*"[^"]+"' \
     "$ROOT/Pastura/Pastura/App/ModelRegistry.swift" \
@@ -413,15 +413,14 @@ fi
 
 # ADR-029 highlight fields are derivable from neither the YAML nor any flag of
 # this script, and update mode replaces the entry wholesale — so without this
-# carry-forward, `--update` on a highlighted entry drops `highlight_url` +
-# `highlight_sha256`. The post-validate gate then fails on the orphaned
-# highlight file and restores the backup, so nothing is destroyed, but the error
-# names an orphan and never mentions the dropped fields.
+# carry-forward, `--update` on a highlighted entry drops them. The post-validate
+# gate then fails on the orphaned highlight file and restores the backup, so
+# nothing is destroyed, but the error names an orphan and never mentions the
+# dropped fields.
 #
 # Selected by `highlight_` prefix rather than by naming the two keys: the
-# fail-safe direction here is carrying an unrecognised field, not dropping it,
-# and a field added to the contract later would otherwise vanish with no gate
-# able to notice.
+# fail-safe direction is carrying an unrecognised field, not dropping it, and a
+# field added to the contract later would otherwise vanish unnoticed.
 HIGHLIGHT_FIELDS='{}'
 if [ "$MODE" = "update" ]; then
   HIGHLIGHT_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \

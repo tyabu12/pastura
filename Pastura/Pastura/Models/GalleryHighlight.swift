@@ -158,18 +158,14 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
 
   /// Index of ``agent`` in the scenario's `personas:` list — the value a real
   /// run resolves the speaker's avatar colour from (`SheepAvatar.Character`'s
-  /// `forAgent(_:position:)` wraps it over `allCases.count`, fed by
-  /// `SimulationView.personaItem(for:)`). Named in prose rather than as a DocC
-  /// symbol link, matching this layer's other cross-layer mentions: `Models/`
-  /// must not depend on `Views/`, and a resolvable link would dangle once
-  /// `Models` becomes its own SPM module.
+  /// `forAgent(_:position:)`, fed by `SimulationView.personaItem(for:)`; named
+  /// in prose because `Models/` must not depend on `Views/`, and a resolvable
+  /// link would dangle once `Models` is its own SPM module).
   ///
-  /// Carried in the file rather than inferred because an excerpt is not a run:
-  /// the speaker's rank *within the excerpt* equals their persona index only
-  /// when the excerpt's speakers happen to be a prefix of `personas:`. The
-  /// extractor derives it from the sibling YAML and the repo-side gate
-  /// cross-checks it against that same YAML, so a curator may excerpt any lines
-  /// and still get the run's colours.
+  /// Carried in the file rather than inferred from the excerpt, because an
+  /// excerpt is not a run: its speakers need not be a prefix of `personas:`.
+  /// The extractor derives it from the sibling YAML and the repo-side gate
+  /// cross-checks it against that same YAML.
   public let personaIndex: Int
 
   /// Which field of the phase's output this excerpt was drawn from

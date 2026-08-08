@@ -90,26 +90,17 @@ enum GalleryScenarioDetailFormat {
   ///
   /// **Avatar slots come from the file's pinned persona index.** The app assigns
   /// a speaker's colour from their index in the scenario's persona list
-  /// (``SheepAvatar/Character/forAgent(_:position:)`` → `allCases[position % 4]`),
-  /// and ``GalleryHighlightExcerptEntry/personaIndex`` carries exactly that
-  /// index, so a reader sees the same colours here as in a real run for **any**
-  /// excerpt. The repo-side gate cross-checks the index against the sibling YAML;
-  /// `web/src/components/ScenarioLanding.astro` reads the same field for the
-  /// landing pages. Before that field existed both surfaces stood the speaker's
-  /// first-appearance rank *within the excerpt* in for it, which agreed with the
-  /// run only when the excerpt's speakers formed a prefix of `personas:`.
+  /// (``SheepAvatar/Character/forAgent(_:position:)``, which wraps over
+  /// `allCases.count`), and ``GalleryHighlightExcerptEntry/personaIndex`` carries
+  /// exactly that index — so a reader sees the same colours here as in a real run
+  /// for **any** excerpt. The repo-side gate cross-checks the index against the
+  /// sibling YAML; `web/src/components/ScenarioLanding.astro` reads the same
+  /// field for the landing pages.
   ///
-  /// There are four colour variants, so a speaker at persona index 4 reuses
-  /// index 0's slot — the **fifth** persona collides with the **first**, not with
-  /// the fourth (indices 3 and 4 never share). `asch_conformity_v1` is the live
-  /// case: `personas[0]` and `personas[4]` both render slot 0, and the app
-  /// collides identically, so reproducing it is fidelity rather than a defect to
-  /// route around. ``SheepAvatar/Character/forAgent(_:position:)`` is where the
-  /// wrap happens, over `allCases.count` rather than a literal 4.
-  ///
-  /// Note this is reachable from a shorter excerpt than before: the stand-in
-  /// needed five distinct speakers in the excerpt itself to reach slot 0 twice,
-  /// whereas a pinned index reaches it with two lines.
+  /// With four colour variants, persona index 4 reuses index 0's slot — the
+  /// **fifth** persona collides with the **first**, not with the fourth.
+  /// `asch_conformity_v1` is the live case, and the app collides identically, so
+  /// reproducing it is fidelity rather than a defect to route around.
   ///
   /// **Returns `[]` when any line is unrenderable**, as
   /// ``GalleryHighlightExcerptEntry/renderablePhase`` defines it. That property

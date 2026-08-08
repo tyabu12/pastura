@@ -82,12 +82,9 @@ SOURCE_FIELDS = frozenset({"statement"})
 # that produced it — and the registry's supersede convention *removes* the old
 # entry (`ModelRegistry.swift` § "Model-update (supersede) convention"), so a
 # catalog-only check would turn every shipped highlight red on an unrelated
-# model-swap PR and offer only "re-run the harness" or "delete the excerpt".
-#
-# Empty today, and note what that does and does not buy: it does NOT prevent
-# that red — the `gallery-drift` CI job is unconditional, so a swap PR still
-# fails until its author moves the id here. What it buys is a failure that names
-# its own remedy instead of reading as a corrupt highlight.
+# model-swap PR, with only "re-run the harness" or "delete the excerpt" as
+# remedies. Empty today: a swap PR still reddens until its author moves the id
+# here — what the list buys is a failure that names its own remedy.
 RETIRED_MODEL_IDS = frozenset()
 
 # `id:` / `displayName:` inside a `ModelDescriptor(...)` literal. Anchored at
@@ -519,22 +516,13 @@ def registry_model_ids(registry_swift):
     `None` means the catalog could not be read — missing file, or a parse that
     found no entries. Both are reported as one named failure by the caller
     rather than degrading into "every model id is unknown", and an empty parse
-    is treated as failure precisely because this repo auto-formats Swift on
-    edit: a reformat that broke the pattern would otherwise silently disarm the
-    check.
+    is a failure precisely because this repo auto-formats Swift on edit: a
+    reformat that broke the pattern would otherwise silently disarm the check.
 
-    What this actually parses is **every line-anchored `id: "…"` in the file**,
-    which is a superset of `ModelRegistry.catalog`: a descriptor present in the
-    source but withheld from the catalog array would widen the allowlist by one.
-    Tolerated because the check exists to catch display names and typos, not to
-    police unshipped descriptors, and because the two coincide today (the file
-    holds exactly as many `id:` lines as `ModelDescriptor(` literals).
-
-    Same source *file* as `add-gallery-entry.sh`'s `list_models()`, which greps
-    it to populate an interactive prompt — but not the same pattern: that one is
-    unanchored, so an inline or trailing `id: "…"` would be offered there and
-    rejected here. The anchoring is load-bearing in this direction, since
-    `shortDisplayName:` must not alias `displayName:`.
+    This parses **every line-anchored `id: "…"` in the file**, a superset of
+    `ModelRegistry.catalog`: a descriptor withheld from the catalog array would
+    widen the allowlist by one. Tolerated — the check exists to catch display
+    names and typos, not to police unshipped descriptors.
     """
     ids, display_to_id = set(), {}
     try:
@@ -560,19 +548,15 @@ def _check_source_model(doc, allowed_model_ids, where):
     """`source.model` must name a model a reader could actually have run.
 
     The string is published verbatim in user-facing prose on the landing pages
-    (`ScenarioLanding.astro` renders 「実際に端末で動かした結果から抜き出した会話
-    です（<model>）。」 and its English sibling), so the same model appearing under
-    two different names across neighbouring pages is a visible defect. The
-    authority is `ModelRegistry.catalog` rather than the harness's
-    `ModelProfile.all`: the latter also carries evaluation candidates with no
-    app entry, which no reader can run on a device.
+    (「実際に端末で動かした結果…（<model>）」 and its English sibling), so one
+    model appearing under two names across neighbouring pages is a visible
+    defect. The authority is `ModelRegistry.catalog`, not the harness's
+    `ModelProfile.all`, which also carries eval candidates with no app entry.
 
-    A consequence worth stating rather than discovering: a transcript from a
-    harness-only profile (today `Sarashina 2.2 3B (Q4_K_M)`, a `/model-eval`
-    candidate) cannot produce a publishable highlight at all, and `--model`
-    offers no way around it. That is the intended posture — the landing page
-    tells the reader this is "a real on-device run", which it would not be for
-    a model they cannot install.
+    Consequence to accept rather than discover: a transcript from a harness-only
+    profile cannot produce a publishable highlight at all, and `--model` offers
+    no way around it. The landing page calls this "a real on-device run", which
+    it would not be for a model the reader cannot install.
     """
     source = doc.get("source")
     if not isinstance(source, dict) or not isinstance(source.get("model"), str):
@@ -614,17 +598,16 @@ def _check_persona_index(doc, personas, where):
 
     The app resolves a speaker's avatar colour as
     `SheepAvatar.Character.allCases[i % 4]`, where `i` is that speaker's index
-    in the scenario's `personas:` list (`SimulationView.personaItem(for:)`). A
-    highlight is an excerpt rather than a run, so before this key both consumers
-    stood the speaker's *first-appearance rank within the excerpt* in for `i` —
-    which reproduces the run's colours only when the excerpt's speakers happen
-    to be a prefix of `personas:`. Carrying the real index makes the
-    correspondence hold for any excerpt, which is why this is a cross-reference
-    against the YAML and NOT a constraint on which lines may be excerpted.
+    in the scenario's `personas:` list (`SimulationView.personaItem(for:)`).
+    `i` was previously derived from excerpt order, which matched the run only
+    when the excerpt was a prefix of `personas:`; carrying the real index makes
+    the correspondence hold for any excerpt, which is why this is a
+    cross-reference against the YAML and NOT a constraint on which lines may be
+    excerpted.
 
-    `personas` is the `(names, reason)` pair from ``_read_persona_names``: a pair
-    rather than a bare list so an unreadable YAML reports *why* it could not be
-    verified, instead of one message that blames the YAML for a missing PyYAML.
+    `personas` is the `(names, reason)` pair from ``_read_persona_names`` — a
+    pair so an unreadable YAML reports *why* it could not be verified, rather
+    than one message that blames the YAML for a missing PyYAML.
     """
     persona_names, reason = personas
     if persona_names is None:
@@ -637,11 +620,9 @@ def _check_persona_index(doc, personas, where):
         loc = f"{where} excerpt[{i}]"
         idx = ex.get("persona_index")
         if not isinstance(idx, int) or isinstance(idx, bool) or idx < 0:
-            # NOT a guard — `_check_excerpt_shape` already fails every one of
-            # these, and measurement confirms removing this line leaves the
-            # suite green. It exists so a malformed index is reported once
-            # rather than twice, and it is unarmable through the gate by
-            # construction. Do not describe it as catching anything.
+            # NOT a guard — `_check_excerpt_shape` already fails all of these
+            # (measured: removing this line leaves the suite green). It only
+            # avoids double-reporting. Do not describe it as catching anything.
             continue
         agent = ex.get("agent")
         if idx >= len(persona_names):
@@ -672,22 +653,20 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
     the file-level checks (pairing, file hashes) the extractor cannot run.
 
-    **This dispatch list is mirrored in prose, and nothing checks the mirrors.**
-    Adding a check here means sweeping them in the same PR:
-    `docs/decisions/ADR-029.md` Decision 2 ("re-derives, per highlight: …") and
-    `docs/gallery/README.md` § "What enforces this contract" gate 1 both claim
-    to be complete lists of what the gate re-derives; the extractor's own
-    docstring § "Hard-fails" is a *partial* sibling (fail-fast convenience, not
-    the enforcement point) and needs updating only when the new check has an
-    extraction-time counterpart. #1410 landed a check while leaving both
-    complete-lists stale, then **narrowed** one while trying to complete it —
-    spelling out a vague category excluded a member the vagueness had covered.
+    **This dispatch list is mirrored in prose, and nothing checks the mirror.**
+    Adding a check here — or to ``validate_repo`` — means sweeping ADR-029
+    Decision 2 ("re-derives, per highlight: …") in the same PR: it claims to be
+    a *complete* list of what the gate re-derives, split across this function
+    (content-level) and ``validate_repo`` (file-level), and
+    `docs/gallery/README.md` gate 1 points at it rather than restating it. The extractor's own § "Hard-fails" is a partial sibling
+    and needs updating only when the check has an extraction-time counterpart.
+    Sweeping the mirror can *narrow* it: spelling out a category that was vague
+    once excluded a member the vagueness had covered. Widen, do not enumerate.
 
     `personas` is ``_read_persona_names``'s `(names, reason)` pair;
     `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both
-    are required parameters, not optional ones: a default would let a caller
-    skip a check by omission, and the gate is the only place either failure
-    would surface.
+    are required rather than defaulted, so a caller cannot skip a check by
+    omission — the gate is the only place either failure would surface.
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
@@ -713,12 +692,9 @@ def _read_persona_names(yaml_path):
 
     The reason travels back so the failure text can name the actual cause: on a
     machine without PyYAML the fix is an install, and a message blaming the YAML
-    would send the curator to the wrong file.
-
-    `RecursionError` is caught alongside `YAMLError` for the reason the two
-    sibling checks in this file already document: it is not a `YAMLError`, and
-    PyYAML's parser recurses, so deep nesting in a hand-editable file escapes as
-    a traceback instead of one named failure line.
+    would send the curator to the wrong file. `RecursionError` is caught
+    alongside `YAMLError` for the reason the sibling checks here document — it
+    is not a `YAMLError`, so deep nesting escapes as a traceback otherwise.
     """
     if yaml is None:
         return None, ("PyYAML is not installed, so the sibling scenario YAML "

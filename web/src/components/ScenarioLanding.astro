@@ -52,12 +52,12 @@ function loadHighlight(id: string): ScenarioHighlight | null {
       typeof parsed.source?.model !== 'string' ||
       typeof parsed.teaser !== 'string' ||
       // The only per-entry field checked here, because it is the only one whose
-      // absence renders WRONG rather than empty: `undefined % 4` is NaN, and
-      // `SHEEP_TONES[NaN]` is undefined, which drops the `data-tone` attribute
-      // and leaves the avatar untinted. `astro check` cannot catch it — `parsed`
-      // is a bare cast and `noUncheckedIndexedAccess` is off — so without this
-      // clause a malformed file degrades to a miscoloured section instead of to
-      // the "no section" this function promises.
+      // absence renders WRONG rather than empty: `undefined % 4` is NaN and
+      // `SHEEP_TONES[NaN]` is undefined, which drops `data-tone` and leaves the
+      // avatar untinted. `astro check` catches neither step — `parsed` is a bare
+      // cast and `noUncheckedIndexedAccess` is off — so without this clause a
+      // malformed file degrades to a miscoloured section instead of to the
+      // "no section" this function promises.
       parsed.excerpt.some(
         (entry) => !Number.isInteger(entry?.persona_index) || entry.persona_index < 0
       )
@@ -81,24 +81,14 @@ const highlight = loadHighlight(scenario.id);
 // carries exactly that index. So a reader sees the same colours here as in the
 // app for any excerpt, and the repo-side gate cross-checks each index against
 // the sibling YAML (`scripts/gallery_highlight_validate.py`, `_check_persona_index`).
-// Before that field existed this stood the speaker's first-appearance rank
-// within the excerpt in for it, which matched the run only when the excerpt's
-// speakers formed a prefix of `personas:`.
 //
-// There are four variants, so persona index 4 reuses index 0's slot — the fifth
-// persona collides with the first, not with the fourth. asch_conformity_v1 is the
-// live case, where 被験者ナオキ (index 4) lands on サクラA's (index 0). The app
-// collides the same way, so reproducing it is fidelity rather than a defect to
-// route around. Note this is reachable from a SHORTER excerpt than before: the
-// stand-in needed five distinct speakers in the excerpt itself to reach slot 0
-// twice, whereas pinned indices reach it with two lines.
+// With four variants, persona index 4 reuses index 0's slot — the fifth persona
+// collides with the first, not with the fourth. asch_conformity_v1 is the live
+// case (被験者ナオキ at index 4 lands on サクラA's). The app collides the same
+// way, so reproducing it is fidelity rather than a defect to route around.
 //
-// The double modulo mirrors Swift rather than covering a reachable case — both
-// the repo-side gate and `loadHighlight` above reject a negative
-// `persona_index`, so the outer `+ length` never changes the result here. Kept
-// for parity, not for an input to hunt for. (Swift needs no such note: the wrap
-// lives in `SheepAvatar.Character.forAgent(_:position:)`, a general-purpose
-// helper whose guard protects every caller, not just highlights.)
+// The double modulo is parity with Swift's wrap, not a reachable case: both the
+// gate and `loadHighlight` above reject a negative `persona_index`.
 const SHEEP_TONES = ['alice', 'bob', 'carol', 'dave'] as const;
 
 const excerpt = highlight?.excerpt ?? [];

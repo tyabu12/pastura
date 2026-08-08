@@ -67,13 +67,10 @@ new_repo() {
   cp "$SRC_SCRIPTS/check-gallery-entry.sh" \
      "$SRC_SCRIPTS/gallery_highlight_validate.py" \
      "$SRC_SCRIPTS/gallery_highlight_extract.py" "$d/scripts/"
-  # A two-entry stand-in for Pastura/Pastura/App/ModelRegistry.swift. The gate
-  # and the extractor both read `source.model` against it, and without this the
-  # whole suite would fail on the missing-registry path — green in the
-  # pre-commit hook (which runs the gate against the real repo) and red in CI
-  # only, the shape ci-workflows.md records as #788. Shaped like the real
+  # A two-entry stand-in for Pastura/Pastura/App/ModelRegistry.swift — the gate
+  # and the extractor both read `source.model` against it. Shaped like the real
   # literal, including `shortDisplayName:`, which must NOT be read as
-  # `displayName:`.
+  # `displayName:` (E15 is the control for that anchoring).
   cat > "$d/Pastura/Pastura/App/ModelRegistry.swift" <<'SWIFT'
 enum ModelRegistry {
   nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
@@ -113,8 +110,7 @@ JSON
 # mk_scenario <repo> <id> <phases-json> [rounds] [secret] [extra-personas]
 # `extra-personas` is appended to the `personas:` block with `printf %b`, so
 # pass '\n'-separated YAML lines. It exists for the persona_index cases: with
-# one persona every index is 0, and a check that only ever sees 0 cannot tell a
-# real lookup from a hardcoded zero.
+# one persona every index is 0, which cannot tell a lookup from a hardcoded 0.
 mk_scenario() {
   local d="$1" id="$2" phases="$3" rounds="${4:-4}" secret="${5:-}"
   local extra_personas="${6:-}"
@@ -175,10 +171,9 @@ mk_highlight() {
 (Linux MAX_ARG_STRLEN is 128 KiB per argument). Use flow style for deep nesting."
     return 0
   fi
-  # Every fixture scenario declares アヤ as its sole persona, so an excerpt entry
-  # that does not pin `persona_index` itself gets 0 — exactly what the extractor
-  # would derive. Cases exercising a WRONG or ABSENT index set (or delete) the
-  # key explicitly, and this leaves those alone.
+  # Every fixture scenario declares アヤ as its sole persona, so backfilling 0 is
+  # exactly what the extractor would derive. Cases exercising a WRONG or ABSENT
+  # index set (or delete) the key explicitly; `has()` leaves those alone.
   excerpt="$(printf '%s' "$excerpt" \
     | jq -c 'map(if has("persona_index") then . else . + {persona_index: 0} end)')"
   local ysha
@@ -615,18 +610,13 @@ gate "$R"; expect_fail "H26b omitted persona_index fails"
 expect_out "persona_index must be an integer" "H26b names the persona_index schema check"
 
 # H26c/H26d — the SCHEMA `persona_index` guards (`isinstance(…, bool)` and
-# `< 0`), which H26/H26b do not reach. Measured, not assumed: dropping either
-# clause from `_check_excerpt_shape` reddens the matching arm here.
+# `< 0`), which H26/H26b do not reach. Measured: dropping either clause from
+# `_check_excerpt_shape` reddens the matching arm here. (`_check_persona_index`'s
+# own skip is not a guard — dropping it leaves the suite green.)
 #
-# They arm the schema clauses only. `_check_persona_index`'s own
-# `isinstance`/`< 0` skip is NOT a guard — dropping it leaves the suite green,
-# because it only avoids double-reporting what the schema already failed.
-#
-# `True` IS an `int` in Python, so with BOTH the schema clause and that skip
-# removed, `persona_names[True]` resolves — which is why the agent here is ケン
-# at index 1: it makes the resulting lookup *succeed* and pass, rather than
-# reddening for the name-match sibling reason. That is the state the schema
-# clause exists to prevent.
+# `True` IS an `int` in Python, so the agent here is ケン at index 1: with the
+# schema clause gone, `persona_names[True]` resolves and PASSES, rather than
+# reddening for the sibling name-match reason.
 R="$(new_repo)"; init_index "$R"
 mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
 mk_highlight "$R" demo_v1 '[{"agent":"ケン","round":1,"phase":"speak_each","phase_index":0,"persona_index":true,"source_field":"statement","text":"私はBだと思う。"}]'
@@ -634,10 +624,9 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H26c boolean persona_index fails"
 expect_out "persona_index must be an integer" "H26c names the persona_index schema check"
 
-# H26d arms the schema `< 0` clause. Note the cross-reference's own `< 0` skip
-# became unarmable through the gate in the same change that added the
-# first-declaration check: `list.index()` never returns a negative, so a
-# negative that got past the schema clause is intercepted there instead.
+# H26d arms the schema `< 0` clause. The cross-reference's own `< 0` skip is
+# unarmable through the gate: `list.index()` never returns a negative, so a
+# negative past the schema clause is intercepted by the name-match arm instead.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":-1,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" demo_v1
@@ -686,10 +675,9 @@ PY
 repin_yaml "$R" demo_v1
 mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H29 unreadable personas fails"
-# The message names the CAUSE, not just "cannot be verified": _read_persona_names
-# returns a reason per class so a missing PyYAML does not read as a YAML defect.
-# The PyYAML-absent class has no arm here and cannot have one — this suite aborts
-# at startup without PyYAML.
+# Asserts the CAUSE, not just "cannot be verified" — _read_persona_names returns
+# a reason per class. The PyYAML-absent class cannot have an arm here: the suite
+# aborts at startup without PyYAML.
 expect_out "cannot be verified: the sibling scenario YAML has no \`personas:\`" \
   "H29 names the shape cause specifically"
 
@@ -749,12 +737,10 @@ printf '%s\n' 'enum ModelRegistry { static let a = ModelDescriptor(id: "gemma-4-
 gate "$R"; expect_fail "H33 unparseable registry fails"
 expect_out "highlight: model registry" "H33 names the registry read"
 
-# H34 — known-positive control against the REAL repo registry. The arms above
-# all read a synthetic fixture, so none of them would notice the real file
-# drifting out of the pattern's reach. Read-only, and `-B` so the import writes
-# no `scripts/__pycache__` into the real worktree — the suite is meant to touch
-# nothing outside its tempdirs, and a gitignored byproduct still makes that
-# sentence false.
+# H34 — known-positive control against the REAL repo registry. Every arm above
+# reads a synthetic fixture, so none would notice the real file drifting out of
+# the pattern's reach. Read-only, and `-B` so the import leaves no
+# `scripts/__pycache__` in the real worktree.
 runc "$REAL_ROOT" python3 -B -c "
 import sys
 sys.path.insert(0, 'scripts')
@@ -770,14 +756,10 @@ expect_eq "True" "H34 the real ModelRegistry.swift parses to ids + displayNames"
 # Lives in this suite rather than gallery-scripts-test.sh because the script's
 # post-validate step runs the gate, which needs the highlight scaffold only this
 # file builds (validator copy, registry + blocklist fixtures, a linked file).
-# Without that scaffold the arm cannot tell the carry-forward from the
-# restore-the-backup path the bug already took: both leave the fields on disk.
 #
 # Measured against the bug (carry-forward disabled): the two value assertions
 # below PASS anyway, because the failed post-validate restores the backup. Only
-# `expect_ok` and the key-order check discriminate — and the failure text is the
-# `highlight: orphan` message, which never mentions a dropped field. Do not trim
-# either of those two on the grounds that the value checks look sufficient.
+# `expect_ok` and the key-order check discriminate — keep both.
 
 # H35 — `--update` keeps highlight_url / highlight_sha256.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
@@ -801,11 +783,9 @@ expect_eq "$HSHA_BEFORE" "H35 kept highlight_sha256 across --update"
 runc "$R" jq -r '.scenarios[0].highlight_url' docs/gallery/gallery.json
 expect_eq "highlights/demo_v1.json" "H35 kept highlight_url across --update"
 # Key order matters for the diff a curator reads: the fields belong between
-# yaml_sha256 and added_at, which is where a hand-written entry puts them.
-# Asserts "directly after" rather than "somewhere between", so it also inherits
-# the existing entry's internal highlight_url-before-highlight_sha256 order —
-# intentional, since `with_entries` preserves input order and a swap would be a
-# real (if cosmetic) drift from the hand-written shape.
+# yaml_sha256 and added_at, where a hand-written entry puts them. "Directly
+# after" rather than "somewhere between", so it also pins the internal
+# highlight_url-before-highlight_sha256 order that `with_entries` preserves.
 runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("highlight_url") - index("yaml_sha256")' \
   docs/gallery/gallery.json
 expect_eq "1" "H35 highlight_url sits directly after yaml_sha256"
@@ -1062,10 +1042,8 @@ expect_fail "E15 an unresolvable model refuses extraction"
 expect_out "Pass --model with the registry id" "E15 names the escape hatch"
 # The value is the fixture registry's `shortDisplayName`, deliberately: it is
 # rejected today and would start RESOLVING the moment `_REGISTRY_DISPLAY_NAME`
-# lost its `^\s*` anchor and began reading `shortDisplayName:` as `displayName:`.
-# This is the control for the anchoring claim in new_repo()'s fixture comment,
-# which nothing else can redden on. A not-even-close string would pass under
-# both the tight and the loose anchor, i.e. would measure nothing.
+# lost its `^\s*` anchor. This is the control for that anchoring — an unrelated
+# string would be rejected under either anchor, i.e. would measure nothing.
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

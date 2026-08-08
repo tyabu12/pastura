@@ -420,12 +420,10 @@ call, and these four are what the first two batches taught.
   app's heading ("Some of the personas behind these lines", pinned by
   `HookHeadingLocalizationTests`). That is what ADR-029's
   § Amendment 2026-08-08 requires, and it is structural. Saying so again in the
-  caption is optional polish, not a requirement. The two shipped hooks differ in
-  how explicit they are and both are accepted: `chin_jimaku_v1`'s caption states
-  the count outright (「この抜粋を生んだ4人のうち、特にクセの強い2人の設定。」),
-  while `asch_conformity_v1`'s conveys it only obliquely
-  (「サクラ4人の"後"に答えさせられるナオキの設定。」 — the cast size is there, the
-  "one of five" framing is not).
+  caption is optional polish: `chin_jimaku_v1` states the count outright
+  (「この抜粋を生んだ4人のうち、特にクセの強い2人の設定。」),
+  `asch_conformity_v1` only implies it
+  (「サクラ4人の"後"に答えさせられるナオキの設定。」), and both are accepted.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
@@ -460,18 +458,11 @@ Three independent gates catch drift between the YAML and its
    byte-match, size cap, id uniqueness across `gallery.json` + bundled
    presets, and `<stem>.yaml ↔ id: <stem>`. Highlight validation is
    delegated to `scripts/gallery_highlight_validate.py`, which re-derives
-   the ADR-029 rules a highlight file plus its index entry can support:
-   schema and the excerpt cap, `yaml_hook.kind` and the `persona`-fragment
-   shape, the spoiler mechanics (phase eligibility, the within-round
-   outcome bound, the round window, and the kind-independent `secret:`
-   rejection inside `yaml_hook.fragment`), the `content_filter_applied`
-   attestation, `persona_index` against the sibling
-   YAML, `source.model` against `ModelRegistry`, the `yaml_sha256`
-   three-way, the highlight file's own hash, `highlight_url` ⟺
-   `highlight_sha256` pairing plus orphan-file detection, the
-   stem ↔ `scenario_ref.id` ↔ index-id match, and a blocklist re-audit.
-   A hand-edited highlight never runs the extractor, so this is the
-   enforcement point rather than that tool.
+   every ADR-029 rule a highlight file plus its index entry can support —
+   the enumeration lives in ADR-029 Decision 2, and `check_content`'s
+   dispatch list is the code it mirrors. A hand-edited highlight never
+   runs the extractor, so this is the enforcement point rather than that
+   tool.
 2. **CI `gallery-drift` job** — re-runs the same check on every PR
    (catches `--no-verify` commits and PRs landed via the GitHub web
    UI that bypass the local hook).

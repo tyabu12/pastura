@@ -80,17 +80,12 @@ short, and needs nothing. In Pastura the check is arithmetic rather than
 a prose judgement: `code-reviewer`'s summary emits per-severity counts
 (`- **Critical**: N issues`) to compare the body against.
 
-**A second failure shape: no verdict at all**, which the paragraph above says
-should not happen. Observed in #1410: 4 of 13 `code-reviewer` runs returned only
-their opening sentence — no verdict, no findings, no `SCOPE_TOO_LARGE` — so the
-count-mismatch detector had no summary to check a body against. What the four
-shared was a broad **multi-axis verification workload**, not a large diff (two
-covered <120 changed lines); tool-call count explains nothing (all four stopped
-at 30, a survivor used 36).
-
-**Apply**: read it as "re-run narrower" rather than as a finding, and cut what
-the prompt asks the agent to *verify*, not how many files it sees. Requesting
-the verdict in the first message is cheap insurance.
+**A second failure shape: no verdict at all**, contradicting the guarantee
+above — the run returns only its opening sentence, leaving the count-mismatch
+detector no summary to check a body against. Seen on broad **multi-axis verification** prompts, not on large diffs
+(#1410). **Apply**: treat it as "re-run narrower" rather than as a finding, and
+cut what the prompt asks the agent to *verify*, not how many files it sees.
+Requesting the verdict in the first message is cheap insurance.
 
 **Blind spot**: a summary claiming nothing cannot mismatch, so a
 zero-issue report truncated right after it reads as consistent. Closing

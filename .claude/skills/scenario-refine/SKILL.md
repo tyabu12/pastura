@@ -191,12 +191,9 @@ excerpts of exactly such a run, and the supply bottleneck is a human reading
 transcripts — so surface the candidate lines while they are in hand rather than
 re-running later.
 
-**This step proposes; it never publishes.** Write nothing outside
-`data/factory/`, do NOT run `scripts/gallery_highlight_extract.py`, do NOT
-touch `docs/gallery/` (the safety boundary already forbids it), and make no
-commit. The output is prose in the Step 6 report. ADR-029 makes excerpt
-selection a human judgement, so a candidate list is the most this cycle may
-produce.
+**This step proposes; it never publishes** (§ Safety boundary / § Non-goals —
+the latter carries the "never runs the extractor" half). The only output
+is prose in the Step 6 report: no writes outside `data/factory/`, no commit.
 
 **Which scenarios qualify** — all four conditions must hold:
 
@@ -222,10 +219,9 @@ this, so a proposal that ignores it wastes the curator's time): `agent_output`
 events whose `phase_type` is `speak_all` / `speak_each`, `statement` field
 only, `round` within 1..⌈rounds/2⌉, with no outcome-class phase
 (`vote` / `eliminate` / `score_calc` / `choose` / `summarize`) earlier in that
-same round. Draw only from the **final** attempt: a retried run appends
-attempt 2 to the same JSONL and restarts round numbering. A later round is
-reachable only via an audited `window_override` at extraction, so do not propose
-one — that is a curator's call, not a proposal's.
+same round. Draw only from the **final** attempt — a retried run appends
+attempt 2 to the same JSONL and restarts round numbering. Never propose a later
+round: reaching one needs an audited `window_override`, a curator's call.
 
 For each qualifying scenario, report 4-8 candidate lines with speaker and
 round, plus one sentence on why the scenario suits excerpting at all — the

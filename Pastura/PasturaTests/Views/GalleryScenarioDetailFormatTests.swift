@@ -110,14 +110,13 @@ struct GalleryScenarioDetailFormatTests {
 
   // MARK: - Highlight excerpt rows
 
-  /// The persona list every `entry(...)` below is drawn from. `personaIndex` is
-  /// derived from it so a fixture matches what the repo-side gate requires of a
-  /// real highlight — two agents sharing index 0 could not exist in the repo.
+  /// The persona list every `entry(...)` below is drawn from. Deriving
+  /// `personaIndex` from it keeps a fixture consistent with what the repo-side
+  /// gate requires of a real highlight.
   private static let cast = ["A", "B", "C", "D", "E"]
 
-  /// Force-unwrapped deliberately (test code is exempt): a `?? 0` fallback would
-  /// let a future case name an agent outside `cast` and then pass vacuously
-  /// against an expected slot of 0.
+  /// Force-unwrapped deliberately: a `?? 0` fallback would let a case name an
+  /// agent outside `cast` and then pass vacuously against an expected slot of 0.
   private func entry(
     agent: String, round: Int = 1, phase: String = "speak_each"
   ) -> GalleryHighlightExcerptEntry {
@@ -129,8 +128,7 @@ struct GalleryScenarioDetailFormatTests {
 
   @Test func avatarSlotsComeFromThePinnedPersonaIndex() {
     // C and B only — an excerpt whose speakers are NOT a prefix of the persona
-    // list, which is the case first-appearance ranking got wrong: it would slot
-    // them [0, 1] while a real run colours them [2, 1].
+    // list, so ranking them by first appearance would slot them [0, 1].
     let rows = GalleryScenarioDetailFormat.excerptRows(
       [entry(agent: "C"), entry(agent: "B")], totalRounds: 3)
 
@@ -138,9 +136,9 @@ struct GalleryScenarioDetailFormatTests {
   }
 
   @Test func slotsDoNotHaveToAscend() {
-    // A non-monotonic sequence, which the first-appearance stand-in could never
-    // produce — its ranks only ever counted up. So this pins the pass-through
-    // rather than restating a "keeps its slot" map the change deleted.
+    // A non-monotonic sequence — unreachable by any rank-as-you-go scheme, so
+    // this pins that `agentPosition` is a pass-through of `personaIndex` rather
+    // than an ordering derived from the excerpt.
     let rows = GalleryScenarioDetailFormat.excerptRows(
       [entry(agent: "D"), entry(agent: "A"), entry(agent: "D")], totalRounds: 3)
 
