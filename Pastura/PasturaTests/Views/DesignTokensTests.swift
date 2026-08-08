@@ -94,6 +94,13 @@ struct DesignTokensTests {
     #expect(approxEqual(token.blue, 0x52 / 255.0))
   }
 
+  @Test func mossOnWashMatchesSpec() {
+    let token = PasturaPalette.mossOnWash
+    #expect(approxEqual(token.red, 0x53 / 255.0))
+    #expect(approxEqual(token.green, 0x5D / 255.0))
+    #expect(approxEqual(token.blue, 0x40 / 255.0))
+  }
+
   // MARK: - §2.4 Meta Contrast Presets
 
   @Test func metaL3IsTheDocumentedDefault() {

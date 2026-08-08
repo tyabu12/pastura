@@ -83,7 +83,7 @@
 	     mixed-appearance screens. All five of ADR-028 § "Rollout"'s gate
 	     conditions are now met, the last two by real-device QA, so the lock is
 	     removed rather than updated. Re-adding it is not a small change: it
-	     would silently strand 67 designed dark token pairs, the paired
+	     would silently strand 68 designed dark token pairs, the paired
 	     `launchScreenBackground` / `AccentColor` colorsets and the dark
 	     share-card path. Read ADR-028 first. -->
 </dict>

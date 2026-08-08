@@ -77,6 +77,12 @@ struct HomePausedCard: View {
   /// The eyebrow: a moss-dark status dot + the uppercase mono "Interrupted
   /// Scenario" label (reuses the existing catalog key — the muted section
   /// header that used to carry it on Home is dropped now that it lives here).
+  ///
+  /// The dot and the label take **different** tokens on purpose. The dot is a
+  /// non-text shape, so it answers to WCAG's 3:1 bar and `mossDark` clears it;
+  /// the label is 11pt text on the card's own moss gradient, where `mossDark`
+  /// measured ≈3.92:1 against the 4.5:1 bar. Only the label moves to the
+  /// `mossOnWash` role token, which reads ≈5.78:1 (#1327).
   private var eyebrow: some View {
     HStack(spacing: 7) {
       Circle()
@@ -86,7 +92,7 @@ struct HomePausedCard: View {
         .font(.system(size: HomeHeroLayout.eyebrowFontSize, weight: .semibold, design: .monospaced))
         .tracking(HomeHeroLayout.eyebrowTracking)
         .textCase(.uppercase)
-        .foregroundStyle(Color.mossDark)
+        .foregroundStyle(Color.mossOnWash)
     }
   }
 

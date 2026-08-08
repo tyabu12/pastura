@@ -124,13 +124,15 @@ struct ModelRow: View {
 
   /// The "推奨" tag. Reuses the existing `tagPhase` typography token
   /// (mono 9.5pt, 0.22em tracking, uppercase) from DesignTokens. Color
-  /// `mossDark` over a `moss.opacity(0.12)` chip.
+  /// `mossOnWash` over a `moss` @0.12 chip on the card ground — `mossDark` was the
+  /// original choice but measured ≈4.23:1 in light, under the 4.5:1 bar at
+  /// this size; the role token reads ≈6.24:1 (#1327).
   private var recommendedTag: some View {
     Text(String(localized: "Recommended"))
       .font(.system(size: 9.5, weight: .semibold, design: .monospaced))
       .tracking(0.22 * 9.5)
       .textCase(.uppercase)
-      .foregroundStyle(Color.mossDark)
+      .foregroundStyle(Color.mossOnWash)
       .padding(.horizontal, 7)
       .padding(.vertical, 2)
       .background(

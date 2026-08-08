@@ -12,7 +12,7 @@ import XCTest
 /// CI-skipped via `-skip-testing PasturaUITests/MarketingShotTests` in
 /// `ci.yml` — same class as `StoreScreenshotTests`. **ja / light only**, but
 /// light is now enforced rather than inherent: #1284 removed `Info.plist`'s
-/// `UIUserInterfaceStyle`, so the app follows the device and all 67 ADR-028
+/// `UIUserInterfaceStyle`, so the app follows the device and all 68 ADR-028
 /// pairs resolve. `scripts/marketing-shots.sh` pins the simulator's appearance
 /// to light before the run; a dark marketing set is deferred, not impossible.
 @MainActor

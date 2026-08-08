@@ -272,6 +272,14 @@ actually composite over" question, asked of a surface rather than an occluder; k
 pointing at each other. (Quoted with an ellipsis, not truncated, so a grep for the heading finds
 this pointer too.)
 
+**Measure a contrast ratio with the guard's own helpers** (`composite` /
+`contrastRatio`, `DesignTokensTests+NightPalette.swift`) — an ad-hoc script that
+quantizes the composited ground back to 0–255 lands ~0.01 off, enough to make a doc
+comment disagree with the test asserting the same value. And **state which ground
+each figure uses**: mixing per-site and worst-case grounds lets an aggregate
+"before → after" range draw its two ends from different sites, which cannot be true.
+ADR-028 § Amendment 2026-08-08.
+
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
 For `.sheet(item: $binding)`, pass the **model itself** as `Optional<Model>`. Never wrap an

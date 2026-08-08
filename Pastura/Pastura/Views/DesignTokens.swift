@@ -117,7 +117,7 @@ enum PasturaPalette {
   /// Rule / divider lines.
   static let rule = PasturaColorValue(hex: 0xE0DBCE)
 
-  // MARK: §2.3 Moss Accent — Pastura's only brand color, 4 steps
+  // MARK: §2.3 Moss Accent — Pastura's only brand color, 4 steps + 1 role token
 
   /// Leaf icon, promo left border (3pt).
   static let moss = PasturaColorValue(hex: 0x8A9A6C)
@@ -127,6 +127,16 @@ enum PasturaPalette {
   static let mossInk = PasturaColorValue(hex: 0x3D4030)
   /// THINKING left-rule, gentle dividers.
   static let mossSoft = PasturaColorValue(hex: 0xD4CBA8)
+  /// Accent text on a translucent moss wash — badges, chips, status pills.
+  ///
+  /// **Not a fifth rung of the ladder above.** Its job is to *read against a
+  /// ground*, not to be a step, so the value is solved from the 4.5:1 target on
+  /// the composited washes rather than placed by ladder position (ADR-028's arm
+  /// doctrine). `mossDark` cannot do this job at any wash opacity — its ceiling
+  /// is 4.737:1 even on pure white, so every wash the app ships puts it under the
+  /// bar. Valid over moss-family **translucent** washes on light surfaces;
+  /// explicitly NOT over opaque `mossSoft`, where it measures 4.29 (see #1407).
+  static let mossOnWash = PasturaColorValue(hex: 0x535D40)
 
   // MARK: §2.4 Meta Contrast Presets (DL progress)
 

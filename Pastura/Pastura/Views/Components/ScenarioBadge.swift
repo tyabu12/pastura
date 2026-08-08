@@ -63,31 +63,32 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// kept byte-identical by hand.
 ///
 /// Token choice follows the ``PhaseTypeLabel`` precedent and design-system
-/// § 2.3, which lists `mossDark` for accent text (links, status labels) and
-/// keeps base `moss` for fills / borders. `mossDark` is the readable half of
-/// that pair in either framing, so the tinted badge takes `moss` for its wash
-/// and `mossDark` for its label; the quieter `secondary` uses `inkSecondary`
-/// for both. The wash opacities are **not** shared with `PhaseTypeLabel` (which
-/// uses 0.15 for both) — the tinted badge sits on a card background and needs
-/// 0.2 to read.
+/// § 2.3, which keeps base `moss` for fills / borders. So the tinted badge takes
+/// `moss` for its wash; the quieter `secondary` uses `inkSecondary` for both.
+/// The wash opacities are **not** shared with `PhaseTypeLabel` (which uses 0.15
+/// for both) — the tinted badge sits on a card background and needs 0.2 to read.
 ///
-/// Measured on the composited wash (`mossDark` over `moss` @0.2 over
-/// `bubbleBackground`), **light appearance**: **≈3.92:1**, versus ≈2.51:1 if the
-/// label were `moss`. So the token split is what makes the badge legible, but at
-/// `caption2.bold` it does **not** reach the 4.5:1 text bar — a pre-existing
-/// property of the shipped design, unchanged by the hoist. `secondary` measures
-/// ≈5.57:1, also light.
+/// The tinted **label** is the `mossOnWash` role token, not the `mossDark` that
+/// §2.3 lists for accent text. `mossDark` was the shipped choice and it did not
+/// reach the 4.5:1 bar on any wash the app renders: measured on this composite
+/// (label over `moss` @0.2 over `bubbleBackground`), **light appearance**,
+/// `mossDark` gives **≈3.92:1** — better than the ≈2.51:1 a `moss` label would
+/// give, but still short. `mossOnWash` brings it to **≈5.78:1** (#1327).
+/// `secondary` measures ≈5.57:1, also light.
 ///
-/// All four tokens in that composite are paired since ADR-028 slice 4, so these
-/// are light-appearance figures rather than absolutes. Measured on the dark
-/// composite (`nightMossDark` label over a `nightMoss` wash at the same 0.2
+/// Every token in that composite is paired, so these are light-appearance
+/// figures rather than absolutes — the three grounds since ADR-028 slice 4,
+/// and `mossOnWash` from birth as the 68th pair (#1327), which is *not* from
+/// any slice. Measured on the dark
+/// composite (`nightMossOnWash` label over a `nightMoss` wash at the same 0.2
 /// fill opacity, composited over `nightBubble` → composited wash #454A3B):
-/// **≈4.79:1** — for the **tinted** badge, dark **passes** the 4.5:1 text bar,
-/// so the known light-mode contrast gap (#1327 part 1) does not extend to it.
+/// **≈5.11:1**, up from ≈4.77:1 under `nightMossDark`. Dark already passed the
+/// bar before this change — the #1327 gap was light-only — so the swap buys
+/// margin here rather than fixing a failure.
 /// The `secondary` style is the opposite trade: `nightInkSecondary` over its own
 /// token at 0.15 measures **≈4.5:1**, i.e. it lands ON the bar in dark where
-/// light clears it at ≈5.57:1. Neither figure is a regression from this branch;
-/// both are the designed values, measured.
+/// light clears it at ≈5.57:1. That one is not fixed here — `mossOnWash` is a
+/// moss-family token and does not reach the ink family; tracked in #1408.
 /// Do not read § 2.2's ≈3.03 / ≈4.74 figures as covering either appearance:
 /// those are `inkOnAccent` on a **solid** fill (white only in light), a
 /// different pairing.
@@ -121,7 +122,7 @@ extension ScenarioBadgeStyle {
   /// Label colour.
   var labelToken: Color {
     switch self {
-    case .tint: return Color.mossDark
+    case .tint: return Color.mossOnWash
     case .secondary: return Color.inkSecondary
     }
   }

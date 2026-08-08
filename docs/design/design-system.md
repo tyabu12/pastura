@@ -91,6 +91,21 @@ Pastura 唯一のブランド色。用途別に4段階。
 | `--moss-ink` | `#3D4030` | 犬の輪郭・完了タイトル |
 | `--moss-soft` | `#D4CBA8` | THINKING 左線・やさしい区切り |
 
+この 4 段とは別に、**役割トークン**が 1 つある。梯子の 5 段目ではない。
+
+| トークン | Hex | 用途 |
+|---------|-----|------|
+| `--moss-on-wash` | `#535D40` | 半透明の苔系ウォッシュに乗るアクセント文字（バッジ・チップ・ステータスピル）。ダーク対は §2.9 の `nightMossOnWash`（#1327 で追加。下の「slice 4」には**含まれない**） |
+
+段位置ではなく **4.5:1 という目標比から解いた値**である点が 4 段と違う（ADR-028
+のアーム論、アーム3）。`--moss-dark` はこの仕事をどのウォッシュ濃度でもこなせない
+— 純白に対してすら天井が 4.737:1 なので、目に見える濃さのウォッシュはすべて
+バーを割る。出荷済み 7 サイトで light 3.74〜4.07 だったものが 5.51〜6.00 になる（各ウォッシュを
+そのアピアランスの最悪地 — light は `screen-background` — に合成した値。テストが
+assert する規約と同じ）
+（#1327）。適用範囲は**半透明**の苔系ウォッシュに限る — 不透明な `--moss-soft`
+の上では 4.29 で、そちらは #1407 の担当。
+
 §2.9 でダーク対を持つ（slice 4）。**4段の順序が反転する** — light は
 輝度で ink < dark < moss < soft（ink が最暗）だが、dark は
 soft < moss < dark < ink（ink が最明）。つまり `nightMossDark` は
@@ -201,8 +216,8 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（67 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 67 対が `Color.*` エイリアス経由で実 UI に
+**trait-based 配線済み（68 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 68 対が `Color.*` エイリアス経由で実 UI に
 届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
 18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対
 + slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`）。
@@ -246,7 +261,7 @@ Source: `§2.9 Dark Mode`。
 `HighlightShareCard`）。**注入を省くと書き出しは端末がダークでも light に倒れる** — #1337
 で計測。これが本当の失敗モードで、エイリアスを読むこと自体ではない。
 
-その上で **この 67 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
+その上で **この 68 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
 規約。理由は呼び出し側で選んだ外観が読んで分かること、および Apple 側の挙動に書き出しの
 正しさを預けないこと。エイリアスを読んでも*要求した*外観では出る（注入は `Canvas` の
 `GraphicsContext` にも届く — #1337）が、`light` と `dark` が同じ値に潰れて呼び出し側の
@@ -409,6 +424,7 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightMossDark` | `#B3C197` | `mossDark`（**`nightMoss` より明るい** — 強調段の向きが反転） |
 | `nightMossInk` | `#C6CBB1` | `mossInk`（アーム3、地に対し 10.19 保持） |
 | `nightMossSoft` | `#384029` | `mossSoft`（向き反転。色相は moss 族へ寄せた） |
+| `nightMossOnWash` | `#BDC6A4` | `mossOnWash`（アーム3。7 種のウォッシュ上で 4.70〜6.03、最薄はカテゴリチップ） |
 | `nightLink` | `#699054` | `link` |
 | `nightLinkVisited` | `#9B9075` | `linkVisited` |
 | `nightLinkHover` | `#7FAA62` | `linkHover` |

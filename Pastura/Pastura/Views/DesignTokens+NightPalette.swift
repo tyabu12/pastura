@@ -298,6 +298,25 @@ extension PasturaPalette {
   /// reads as amber and would collide in meaning with `nightWarningSoft`
   /// (#383124, hue 39°). Slice 3's chroma lesson, applied downward.
   static let nightMossSoft = PasturaColorValue(hex: 0x384029)
+  /// Accent text on a translucent moss wash under dark mode.
+  ///
+  /// Arm 3: measured over the seven shipped washes it lands 4.70–6.03, clearing
+  /// the 4.5:1 text bar on all of them (composited on `nightBubble`, the harder
+  /// of the two grounds for light-on-dark — the same worst-case convention
+  /// `DesignTokensTests+MossOnWash.swift` asserts). The thinnest is the gallery
+  /// category chip, whose `nightSelected` re-bases alpha 0.18 -> 0.24 and so
+  /// lightens the ground — 4.70 there, against 4.39 for `mossDark` today, which
+  /// makes the chip the one site already failing in dark before this token.
+  ///
+  /// Placed by the §2.3 proportional-L relation, which is **precedent, not an
+  /// independent control**: `mossOnWash` sits 0.700 of the way from `moss` to
+  /// `mossInk`, and applying that fraction to the night ladder gives HSL L
+  /// 70.98. `nightMossDark` agreeing at 0.400 with `mossDark` does not
+  /// corroborate it — ADR-028 § Amendment 2026-07-30 (#1325) *placed*
+  /// `nightMossDark` by holding exactly that position, so the agreement is
+  /// construction. What has teeth is the measurement above. See ADR-028
+  /// § Amendment 2026-08-08 (#1327).
+  static let nightMossOnWash = PasturaColorValue(hex: 0xBDC6A4)
 
   // MARK: §2.9 Dark counterparts of the §2.8 link / action tokens
   //

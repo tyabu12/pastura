@@ -206,7 +206,7 @@ extension DesignTokensTests {
   // which is exactly the independence that makes them worth having.
 
   /// §2.1/§2.2/§2.3/§2.8 rows, extracted for the same reason as the §2.5 ones
-  /// above: appending ten more rows inline pushes both table bodies past
+  /// above: appending eleven more rows inline pushes both table bodies past
   /// swiftlint's `function_body_length`, and `build-traps.md` rules out the
   /// disable-directive route on a declaration carrying a doc comment.
   func remainderDarkPairs() -> [(alias: Color, dark: PasturaColorValue)] {
@@ -218,13 +218,14 @@ extension DesignTokensTests {
       (.mossDark, PasturaPalette.nightMossDark),
       (.mossInk, PasturaPalette.nightMossInk),
       (.mossSoft, PasturaPalette.nightMossSoft),
+      (.mossOnWash, PasturaPalette.nightMossOnWash),
       (.link, PasturaPalette.nightLink),
       (.linkVisited, PasturaPalette.nightLinkVisited),
       (.linkHover, PasturaPalette.nightLinkHover)
     ]
   }
 
-  /// Light halves of the same ten. See `remainderDarkPairs()`.
+  /// Light halves of the same eleven. See `remainderDarkPairs()`.
   func remainderLightPairs() -> [(alias: Color, light: PasturaColorValue)] {
     [
       (.page, PasturaPalette.page),
@@ -234,6 +235,7 @@ extension DesignTokensTests {
       (.mossDark, PasturaPalette.mossDark),
       (.mossInk, PasturaPalette.mossInk),
       (.mossSoft, PasturaPalette.mossSoft),
+      (.mossOnWash, PasturaPalette.mossOnWash),
       (.link, PasturaPalette.link),
       (.linkVisited, PasturaPalette.linkVisited),
       (.linkHover, PasturaPalette.linkHover)
