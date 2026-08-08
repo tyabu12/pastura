@@ -33,6 +33,64 @@ everything else here.
 
 ---
 
+## Gemma 4 E2B QAT Q4_0 (`google/gemma-4-E2B-it-qat-q4_0-gguf`) — 2026-08-08 — **FAIL (BLOCKED — runtime compatibility, not a quality rejection)**
+
+> **Not the shipped model.** This is a *different build* of a catalog model: the
+> QAT Q4_0 export. The shipped descriptor
+> (`unsloth/gemma-4-E2B-it-GGUF` Q4_K_M, non-QAT) is **unaffected and remains in
+> the catalog** — nothing here indicates a regression in a released build.
+
+- **Gate**: 1 (Mac filter, `/model-eval`) — **blocked at model load, never
+  reached inference.** All 6 battery cells failed in ~0.9 s each with the
+  identical error and 2 attempts apiece:
+  `llama_model_load: error loading model: missing tensor 'blk.15.attn_k.weight'`.
+  Scenario-independent (all 3 families × ja/en fail the same way).
+- **Model**: `google/gemma-4-E2B-it-qat-q4_0-gguf` @ `675cff4` ·
+  `gemma-4-E2B_q4_0-it.gguf` · QAT `Q4_0` · Apache-2.0, non-gated · 3,349,516,256 B
+  · sha256 `fa401b55…6634` (both matching the HF resolve `X-Linked-Size` /
+  `X-Linked-ETag`). **No Stage-0 profile of its own** — the run deliberately
+  reused the incumbent's `gemma-4-e2b-q4-k-m` profile, legitimate per
+  [`onboarding.md`](onboarding.md) (Stage 0 is per *family*, and `gemma` is
+  registered) after verifying the three prompt-format fields are equivalent.
+  Consequence: the raw logs are stamped with the incumbent's `modelIdentifier`,
+  and a future retry still has no validated profile of its own.
+- **Differentiation**: **UNASSESSABLE.** Zero inferences were produced, so this
+  run yields no evidence whatsoever about output character. The QAT question is
+  *untested*, not answered — nothing here supports or refutes a slot claim.
+- **Snapshot**: `runs_ok 0 / 6`, `language_mismatch_total 0`, `attempts_mean 2.0`,
+  `tok_per_sec` n/a, inferences **0**. No rubric scores exist for any cell.
+- **Rationale**: Gemma 4 E2B **QAT** GGUFs ship a **shared-KV tail-layer** layout —
+  541 tensors, omitting `attn_k` / `attn_v` / `attn_k_norm` for layers 15–34 (60
+  tensors) — where the shipped non-QAT Q4_K_M materialises all 601. Zero tensors
+  exist in the QAT file that are absent from the incumbent, so it is a structural
+  difference, not corruption. The pinned llama.cpp b8694 (`mattt/llama.swift`
+  `exact: "2.8694.0"`) has no shared-KV tail-layer loader. **Not vendor-specific**:
+  unsloth's own QAT re-export (`unsloth/gemma-4-E2B-it-qat-GGUF` →
+  `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`, 2,620,370,976 B, sha256 `e5310072…6889`)
+  carries the byte-identical 541-tensor layout, so the split is **QAT-vs-non-QAT,
+  not Google-vs-unsloth**. Confirmed by direct measurement in a throwaway
+  standalone SwiftPM package with the repository's own pin untouched: llama.swift
+  **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
+  b8694 loads only the incumbent — a bump is therefore sufficient *and* the
+  wrapper release exists.
+- **Disposition**: **not rejected.** Retry is gated on a llama.cpp pin carrying
+  shared-KV tail-layer support → #1415 (spike) then #1416 (Gate 1 retry).
+  Pre-cleared for that retry, so it need not be re-derived: ADR-011 **P1**
+  non-gated (HF `gated: false`; anonymous resolve 302 → CDN 200) and **P2**
+  CONTROL flags (`<|turn>` id 105, `<turn|>` id 106, both `token_type=3`); EOG set
+  `{1, 50, 106, 212}` is a **superset** of the incumbent's `{50, 106, 212}`, so
+  `<turn|>` terminates generation on both builds and there is no runaway-generation
+  risk. Worth evaluating alongside the unsloth QAT file above, which is ~0.49 GB
+  *smaller* than the shipped Q4_K_M (2.62 vs 3.11 GB). **P3–P5 remain untouched**
+  (Gate 2).
+- **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-08 ·
+  gemma-4-e2b-q4-k-m (gitignored, and replaced by key `(date, profile_id)` — which
+  here is the *incumbent's* id, so treat it as volatile) · intake → #979 · pin
+  spike → #1415 · retry → #1416 · dead `stopSequence` + false rationale comment
+  surfaced during this eval → #1417.
+
+---
+
 ## Sarashina 2.2 3B Instruct v0.1 (Q4_K_M) — 2026-07-23 — **FAIL (NO-GO)**
 
 - **Gate**: 1 (Mac filter, `/model-eval`) — re-eval after the #751 empty-output
