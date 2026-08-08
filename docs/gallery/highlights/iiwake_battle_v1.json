@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "iiwake_battle_v1",
+    "yaml_sha256": "6b35dbf5ac872170d480ca73f5c088dd34f5c727f21015a7d39eb7032d22ec9d"
+  },
+  "source": {
+    "model": "Gemma 4 E2B (Q4_K_M)",
+    "run_id": "20260808-131915-59f5",
+    "generated_at": "2026-08-08"
+  },
+  "excerpt": [
+    {
+      "agent": "国際派ジョージ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "サマータイムの廃止決定に伴う世界標準時への移行の混乱が、私のスケジュールに予期せぬ遅延をもたらしました。"
+    },
+    {
+      "agent": "科学者リケ美",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "私の遅刻は、予測不能な量子もつれ状態に陥ったため、時間軸の局所性が崩壊した結果です。"
+    },
+    {
+      "agent": "浪花節たけし",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "実は、その会議の直前、急な嵐で外が完全に水没し、私は避難するのに時間を費やしてしまいました。"
+    },
+    {
+      "agent": "開き直りマコ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "source_field": "statement",
+      "text": "私の遅刻は、単なる時間感覚の誤作動ではなく、会議そのものが持つべき神聖な儀式を尊重するために必要な儀式的な停滞でした。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 国際派ジョージ\n    description: >\n      【立場】何でも国際問題のせいにするスケール詐欺師\n      【目的】時差・為替・外交問題など世界規模の理由に責任転嫁して笑いを取る。\n      例:「サマータイムの廃止が決まった影響で」「円安がここまでとは」\n  - name: 開き直りマコ\n    description: >\n      【立場】言い訳を放棄して堂々と開き直る確信犯\n      【目的】謝るどころか逆に相手を説得し始める図々しさで笑いを取る。\n      例:「むしろ感謝してほしい」「これは遅刻ではなく様式美」",
+    "caption": "並んだ4人から、両極の2人を抜き出した設定。スケールで殴る詐欺師と、そもそも謝らない確信犯——芸風の正体は『例』のひと言だ。差し替えれば、言い訳の流派はまるごと入れ替わる。"
+  },
+  "teaser": "後から言うほど大胆にしないと埋もれる。4人の言い訳バトル、生き残るのは誰か、アプリで確かめよう。",
+  "window_override": false,
+  "content_filter_applied": true
+}
