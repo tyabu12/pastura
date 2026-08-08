@@ -298,6 +298,18 @@ extension PasturaPalette {
   /// reads as amber and would collide in meaning with `nightWarningSoft`
   /// (#383124, hue 39°). Slice 3's chroma lesson, applied downward.
   static let nightMossSoft = PasturaColorValue(hex: 0x384029)
+  /// Accent text on a translucent moss wash under dark mode.
+  ///
+  /// Arm 3: measured on the four shipped washes it lands 4.69–6.05, clearing the
+  /// 4.5:1 text bar on all of them. The thinnest is the gallery category chip,
+  /// whose `nightSelected` re-bases alpha 0.18 -> 0.24 and so lightens the
+  /// ground — 4.69 there, against 4.38 for `mossDark` today.
+  ///
+  /// Corroborated (not derived) by the §2.3 proportional-L relation: `mossDark`
+  /// sits 0.400 of the way from `moss` to `mossInk`, and `nightMossDark` sits
+  /// 0.400 of the way from `nightMoss` to `nightMossInk`. `mossOnWash` sits at
+  /// 0.700, which places this token at HSL L 70.98.
+  static let nightMossOnWash = PasturaColorValue(hex: 0xBDC6A4)
 
   // MARK: §2.9 Dark counterparts of the §2.8 link / action tokens
   //

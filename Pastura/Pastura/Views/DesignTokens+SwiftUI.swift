@@ -9,7 +9,7 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
-  // The 67 aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // The 68 aliases sourced from `PasturaDynamicPalette` resolve light/dark
   // against the ambient interface style (§2.9 — ADR-028's original eight, the
   // §2.6/§2.7 slice in #1282, the §2.4 meta presets plus two §2.12 header
   // slots in #1313, the §2.5 character palette in #1319, and the §2.1/§2.3/§2.8
@@ -17,9 +17,9 @@ extension Color {
   // light token is left in pairing scope and it is resolved, not pending**:
   // `headerMetaSubdued`, fixed in both appearances by decision — see
   // `DesignTokens+NightPalette`'s §2.12 MARK. The remaining aliases below are
-  // outside that scope entirely: the 67 §2.9 `night*` ones are the dark halves
+  // outside that scope entirely: the 68 §2.9 `night*` ones are the dark halves
   // themselves (note `night` alone is §2.10, not one of them — grepping the
-  // prefix returns 68), and §2.10 time-of-day / §2.11 chart are decorative
+  // prefix returns 69), and §2.10 time-of-day / §2.11 chart are decorative
   // reservations that were never candidates for pairing. `Info.plist`'s
   // `UIUserInterfaceStyle` lock has been removed (ADR-028 gates 4/5), so every
   // half-dark surface now renders on a device set to dark appearance — nothing
@@ -59,6 +59,7 @@ extension Color {
   static let mossDark = PasturaDynamicPalette.mossDark.color
   static let mossInk = PasturaDynamicPalette.mossInk.color
   static let mossSoft = PasturaDynamicPalette.mossSoft.color
+  static let mossOnWash = PasturaDynamicPalette.mossOnWash.color
 
   // §2.4 Meta L1
   static let metaBaseL1 = PasturaDynamicPalette.metaBaseL1.color
@@ -196,6 +197,7 @@ extension Color {
   static let nightMossDark = PasturaPalette.nightMossDark.color
   static let nightMossInk = PasturaPalette.nightMossInk.color
   static let nightMossSoft = PasturaPalette.nightMossSoft.color
+  static let nightMossOnWash = PasturaPalette.nightMossOnWash.color
   static let nightLink = PasturaPalette.nightLink.color
   static let nightLinkVisited = PasturaPalette.nightLinkVisited.color
   static let nightLinkHover = PasturaPalette.nightLinkHover.color

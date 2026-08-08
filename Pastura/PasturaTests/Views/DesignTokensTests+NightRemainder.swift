@@ -42,6 +42,7 @@ extension DesignTokensTests {
       (PasturaPalette.nightMossDark, 0xB3C197),
       (PasturaPalette.nightMossInk, 0xC6CBB1),
       (PasturaPalette.nightMossSoft, 0x384029),
+      (PasturaPalette.nightMossOnWash, 0xBDC6A4),
       (PasturaPalette.nightLink, 0x699054),
       (PasturaPalette.nightLinkVisited, 0x9B9075),
       (PasturaPalette.nightLinkHover, 0x7FAA62)

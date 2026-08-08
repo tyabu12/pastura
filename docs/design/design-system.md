@@ -201,8 +201,8 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（67 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 67 対が `Color.*` エイリアス経由で実 UI に
+**trait-based 配線済み（68 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 68 対が `Color.*` エイリアス経由で実 UI に
 届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
 18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対
 + slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`）。
@@ -246,7 +246,7 @@ Source: `§2.9 Dark Mode`。
 `HighlightShareCard`）。**注入を省くと書き出しは端末がダークでも light に倒れる** — #1337
 で計測。これが本当の失敗モードで、エイリアスを読むこと自体ではない。
 
-その上で **この 67 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
+その上で **この 68 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
 規約。理由は呼び出し側で選んだ外観が読んで分かること、および Apple 側の挙動に書き出しの
 正しさを預けないこと。エイリアスを読んでも*要求した*外観では出る（注入は `Canvas` の
 `GraphicsContext` にも届く — #1337）が、`light` と `dark` が同じ値に潰れて呼び出し側の
@@ -409,6 +409,7 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightMossDark` | `#B3C197` | `mossDark`（**`nightMoss` より明るい** — 強調段の向きが反転） |
 | `nightMossInk` | `#C6CBB1` | `mossInk`（アーム3、地に対し 10.19 保持） |
 | `nightMossSoft` | `#384029` | `mossSoft`（向き反転。色相は moss 族へ寄せた） |
+| `nightMossOnWash` | `#BDC6A4` | `mossOnWash`（アーム3。4 種のウォッシュ上で 4.69〜6.05、最薄はカテゴリチップ） |
 | `nightLink` | `#699054` | `link` |
 | `nightLinkVisited` | `#9B9075` | `linkVisited` |
 | `nightLinkHover` | `#7FAA62` | `linkHover` |

@@ -202,7 +202,7 @@ extension DesignTokensTests {
   ///
   /// This is the guard on that decision, on both halves of it. Changing the
   /// token breaks the measurement below; pairing it trips the registry check,
-  /// which is here rather than left to `exactlySixtySevenPairsAreWired` so that the
+  /// which is here rather than left to `exactlySixtyEightPairsAreWired` so that the
   /// *reason* fixing is right is what reddens, not just an arithmetic count.
   @Test func headerMetaSubduedReadsTheSameOnBothGrounds() {
     #expect(!PasturaDynamicPalette.all.contains { $0.name == "headerMetaSubdued" })
