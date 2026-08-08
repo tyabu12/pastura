@@ -95,7 +95,7 @@ init in `Pastura/Pastura/App/ModelRegistry.swift`:
 | `id` | Stable catalog id; also the `--profile` / `ModelProfile.id`. |
 | `displayName` / `shortDisplayName` | Full + compact labels. |
 | `vendor` / `vendorURL` | Publisher name + site. |
-| `downloadURL` | **Pins a specific HF commit SHA** (`resolve/<commit>/...`), not `main`. |
+| `downloadURL` | **Pins a specific HF commit SHA** (`resolve/<commit>/...`), not `main`. A `-qat-` repo is **not** a drop-in swap for its non-QAT sibling — see `.claude/rules/engine.md` § "GGUF source *and variant* matter". |
 | `fileName` | GGUF filename; unique across the catalog. |
 | `fileSize` / `sha256` | From `curl -sIL` `X-Linked-Size` / `X-Linked-ETag` (Gate 1 note). |
 | `stopSequence` | Prompt-format field — must match the Stage-0 profile. |
