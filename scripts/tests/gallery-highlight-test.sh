@@ -728,7 +728,7 @@ expect_eq "True" "H34 the real ModelRegistry.swift parses to ids + displayNames"
 #   9 agent_output(アヤ, round 4), 10 run_end
 mk_run() {
   cat > "$2" <<'JSONL'
-{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"demo_v1","scenario_name":"T","language":"ja","model":"gemma-4-e2b-q4-k-m","timeout_sec":900,"estimated_inferences":12}
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"demo_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
 {"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":4}
 {"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"speak_each","phase_path":[0]}
 {"type":"event","t":0.3,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_each","fields":{"statement":"私はBだと思う。","inner_thought":"本当はCかも。"}}
@@ -918,24 +918,36 @@ expect_out "unreadable personas" "E13 names the personas failure"
 
 # --- source.model resolution ----------------------------------------------
 
-# E14 — a display name in `run_start.model` (what the harness actually writes)
-# resolves to the registry id, rather than publishing verbatim.
+# E14 — the default path. `mk_run` writes what the harness writes (a display
+# name), so every E case above already goes through the mapping; this is the one
+# that asserts the value it resolves to.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_ok "E14 a display-name run_start.model extracts"
+runc "$R" jq -r '.source.model' docs/gallery/highlights/demo_v1.json
+expect_eq "gemma-4-e2b-q4-k-m" "E14 wrote the resolved id, not the display name"
+
+# E14b — the other shape: a transcript already carrying the id passes through
+# unchanged. This was `mk_run`'s value before the flip, so without this arm the
+# id path would have no coverage at all.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"
 python3 - "$R" <<'PY'
 import sys
 p = sys.argv[1] + "/run.jsonl"
 text = open(p, encoding="utf-8").read()
-old = '"model":"gemma-4-e2b-q4-k-m"'
-assert text.count(old) == 1, f"anchor matched {text.count(old)} times"
+old = '"model":"Gemma 4 E2B (Q4_K_M)"'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
 open(p, "w", encoding="utf-8").write(
-    text.replace(old, '"model":"Gemma 4 E2B (Q4_K_M)"'))
+    text.replace(old, '"model":"gemma-4-e2b-q4-k-m"'))
 PY
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
   --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
-expect_ok "E14 a display-name run_start.model extracts"
+expect_ok "E14b an id in run_start.model extracts"
 runc "$R" jq -r '.source.model' docs/gallery/highlights/demo_v1.json
-expect_eq "gemma-4-e2b-q4-k-m" "E14 wrote the resolved id, not the display name"
+expect_eq "gemma-4-e2b-q4-k-m" "E14b passed the id through unchanged"
 
 # E15 — a string that is neither an id nor a known displayName. Refused rather
 # than written through, and the message names the escape hatch.
