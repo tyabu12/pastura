@@ -211,6 +211,12 @@ def _check_excerpt_shape(doc, where):
         if not isinstance(ex.get("phase_index"), int) \
                 or isinstance(ex.get("phase_index"), bool) or ex["phase_index"] < 0:
             failures.append(f"highlight: schema — {loc}.phase_index must be an integer >= 0")
+        if not isinstance(ex.get("persona_index"), int) \
+                or isinstance(ex.get("persona_index"), bool) or ex["persona_index"] < 0:
+            failures.append(
+                f"highlight: schema — {loc}.persona_index must be an integer >= 0 "
+                "(the speaker's index in the scenario's `personas:` list, which is "
+                "what resolves their avatar colour slot; ADR-029 Decision 1)")
         phase = ex.get("phase")
         if phase not in PHASE_TYPES:
             failures.append(
@@ -486,14 +492,80 @@ def _check_position(doc, entry, where):
     return failures
 
 
-def check_content(doc, entry, blocklist, where):
+def scenario_persona_names(scenario):
+    """-> the scenario's persona names in declaration order, or None.
+
+    `None` means the list could not be read *at all* — unparseable YAML, no
+    `personas:` key, or an entry without a string `name`. Kept distinct from an
+    empty list so the caller reports "cannot verify" instead of "every index is
+    wrong": the two need different fixes.
+    """
+    if not isinstance(scenario, dict):
+        return None
+    personas = scenario.get("personas")
+    if not isinstance(personas, list) or not personas:
+        return None
+    names = []
+    for persona in personas:
+        if not isinstance(persona, dict) or not isinstance(persona.get("name"), str):
+            return None
+        names.append(persona["name"])
+    return names
+
+
+def _check_persona_index(doc, persona_names, where):
+    """Cross-reference `excerpt[].persona_index` against the sibling YAML.
+
+    The app resolves a speaker's avatar colour as
+    `SheepAvatar.Character.allCases[i % 4]`, where `i` is that speaker's index
+    in the scenario's `personas:` list (`SimulationView.personaItem(for:)`). A
+    highlight is an excerpt rather than a run, so before this key both consumers
+    stood the speaker's *first-appearance rank within the excerpt* in for `i` —
+    which reproduces the run's colours only when the excerpt's speakers happen
+    to be a prefix of `personas:`. Carrying the real index makes the
+    correspondence hold for any excerpt, which is why this is a cross-reference
+    against the YAML and NOT a constraint on which lines may be excerpted.
+    """
+    if persona_names is None:
+        return [
+            f"highlight: persona_index — {where} the sibling YAML's `personas:` list "
+            "could not be read, so persona_index cannot be verified against it"]
+    failures = []
+    for i, ex in enumerate(doc.get("excerpt") or []):
+        if not isinstance(ex, dict):
+            continue
+        loc = f"{where} excerpt[{i}]"
+        idx = ex.get("persona_index")
+        if not isinstance(idx, int) or isinstance(idx, bool) or idx < 0:
+            # Shape (missing / wrong type / negative) is reported by
+            # _check_excerpt_shape; re-reporting it here would double-count.
+            continue
+        if idx >= len(persona_names):
+            failures.append(
+                f"highlight: persona_index — {loc}.persona_index={idx} is outside the "
+                f"scenario's `personas:` list (len={len(persona_names)})")
+        elif persona_names[idx] != ex.get("agent"):
+            failures.append(
+                f"highlight: persona_index — {loc}.persona_index={idx} names "
+                f"{persona_names[idx]!r} in the scenario's `personas:` list but "
+                f"agent={ex.get('agent')!r}")
+    return failures
+
+
+def check_content(doc, entry, blocklist, where, persona_names):
     """Every rule derivable from the highlight doc + its index entry.
 
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
     the file-level checks (pairing, file hashes) the extractor cannot run.
+
+    `persona_names` comes from the sibling scenario YAML via
+    ``scenario_persona_names``. It is a required parameter, not an optional one:
+    a default would let a caller skip the persona_index cross-check by omission,
+    and the gate is the only place that failure would ever surface.
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
+    failures += _check_persona_index(doc, persona_names, where)
     failures += _check_yaml_hook_secret(doc, where)
     failures += _check_yaml_hook_fragment(doc, where)
     failures += _check_position(doc, entry, where)
@@ -507,6 +579,22 @@ def check_content(doc, entry, blocklist, where):
 def _entry_index(gallery_json):
     with open(gallery_json, encoding="utf-8") as f:
         return json.load(f).get("scenarios") or []
+
+
+def _read_persona_names(yaml_path):
+    """-> ``scenario_persona_names`` for a YAML path, or None if unreadable.
+
+    Every None path (PyYAML absent, unreadable file, parse error, unexpected
+    shape) collapses to the same "cannot verify" failure at the call site rather
+    than to a skipped check.
+    """
+    if yaml is None:
+        return None
+    try:
+        with open(yaml_path, encoding="utf-8") as f:
+            return scenario_persona_names(yaml.safe_load(f))
+    except (OSError, UnicodeDecodeError, yaml.YAMLError):
+        return None
 
 
 def validate_repo(gallery_json, gallery_dir, blocklist_path):
@@ -594,6 +682,7 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
                 f"gallery.json id {entry_id!r}")
 
         yaml_path = os.path.join(gallery_dir, os.path.basename(entry.get("yaml_url", "")))
+        persona_names = None
         if not os.path.isfile(yaml_path):
             failures.append(
                 f"highlight: yaml_sha256 mismatch — id={entry_id} sibling YAML "
@@ -607,8 +696,9 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path):
                     f"{ref_sha}, gallery.json has {entry.get('yaml_sha256')}, actual "
                     f"YAML bytes hash to {yaml_sha}. Regenerate or delete the highlight "
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
+            persona_names = _read_persona_names(yaml_path)
 
-        failures += check_content(doc, entry, blocklist, where)
+        failures += check_content(doc, entry, blocklist, where, persona_names)
 
     for path in sorted(on_disk - referenced):
         rel = os.path.relpath(path, os.path.dirname(gallery_dir))

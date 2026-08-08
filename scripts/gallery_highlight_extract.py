@@ -36,6 +36,11 @@ Hard-fails (each with a distinct, greppable message):
     landed; classify it in ADR-029 Decision 3 first);
   - a pick that is not an `agent_output` line, or whose phase / source_field /
     position / round violates Decision 3;
+  - a pick whose `agent` is absent from the scenario's `personas:` list, or a
+    YAML with no readable `personas:` — every excerpt entry pins the speaker's
+    index into that list as `persona_index`, and it is derived here, never
+    selectable (it is what the app and the web resolve the avatar colour slot
+    from, so a wrong one silently recolours the excerpt);
   - more than 8 excerpt entries; a blocklist match; a stale `yaml_sha256`.
 
 The gate (`scripts/check-gallery-entry.sh`), not this tool, is the enforcement
@@ -147,7 +152,7 @@ def normalize_picks(raw_picks):
     return picks
 
 
-def build_excerpt(picks, lines, context, run_path):
+def build_excerpt(picks, lines, context, run_path, persona_names):
     # A retried harness run appends attempt 2 to the same JSONL and round
     # numbering restarts at 1, so a pick landing in the discarded attempt
     # would be silently mis-contextualized (its round derived from the dead
@@ -180,11 +185,23 @@ def build_excerpt(picks, lines, context, run_path):
         if source_field not in fields:
             die(f"pick {lineno} — the agent_output carries no {source_field!r} field "
                 f"(has {sorted(fields)})")
+        agent = obj.get("agent", "")
+        # Hard-fail rather than omit the key or write a sentinel: a speaker the
+        # scenario does not declare means the transcript and the pinned YAML
+        # disagree, and the avatar colour the consumers resolve from this index
+        # would be arbitrary. Silently skipping would leave the gate's
+        # cross-check with nothing to compare (ADR-029 Decision 1).
+        if agent not in persona_names:
+            die(f"pick {lineno} — agent {agent!r} is not in the scenario's "
+                f"`personas:` list {persona_names}; persona_index cannot be "
+                "derived. The transcript and the pinned YAML disagree — check "
+                "that the run used this exact scenario file.")
         excerpt.append({
-            "agent": obj.get("agent", ""),
+            "agent": agent,
             "round": round_no,
             "phase": obj.get("phase_type", ""),
             "phase_index": phase_idx,
+            "persona_index": persona_names.index(agent),
             "source_field": source_field,
             "text": fields[source_field],
         })
@@ -276,11 +293,19 @@ def main():
             f"gallery.json has {entry.get('yaml_sha256')}. The index is stale or "
             "points at the wrong file; fix it before pinning a highlight to it.")
 
+    persona_names = ghv.scenario_persona_names(scenario)
+    if persona_names is None:
+        die(f"unreadable personas — {yaml_path} has no `personas:` list of "
+            "mappings each carrying a string `name`. Every excerpt entry pins "
+            "the speaker's index into that list (ADR-029 Decision 1), so it "
+            "cannot be derived.")
+
     lines, run_start = read_transcript(args.run)
     check_phase_catalog(lines, args.run)
     context = annotate(lines)
     selection = load_selection(args)
-    excerpt = build_excerpt(selection["picks"], lines, context, args.run)
+    excerpt = build_excerpt(
+        selection["picks"], lines, context, args.run, persona_names)
 
     doc = {
         "schema_version": ghv.SCHEMA_VERSION,
@@ -306,7 +331,7 @@ def main():
         die(f"ContentBlocklist.json not found at {args.blocklist} — the "
             "publish-time audit is mandatory (ADR-029 Decision 2)")
     blocklist = ghv.load_blocklist(args.blocklist)
-    failures = ghv.check_content(doc, entry, blocklist, f"[{args.id}]")
+    failures = ghv.check_content(doc, entry, blocklist, f"[{args.id}]", persona_names)
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

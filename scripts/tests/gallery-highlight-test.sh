@@ -47,6 +47,10 @@ runc() {
 expect_ok()   { if [ "$RC" -eq 0 ]; then PASS=$((PASS + 1)); else bad "$1 (rc=$RC): $OUT"; fi; }
 expect_fail() { if [ "$RC" -ne 0 ]; then PASS=$((PASS + 1)); else bad "$1 (expected non-zero rc): $OUT"; fi; }
 expect_out()  { case "$OUT" in *"$1"*) PASS=$((PASS + 1));; *) bad "$2 (missing '$1'): $OUT";; esac; }
+# Exact, for asserting a single extracted value. `expect_out 1` would also pass
+# on 10 or on an error string containing a 1 — a substring match cannot assert
+# that a derived number is the RIGHT number.
+expect_eq()   { if [ "$OUT" = "$1" ]; then PASS=$((PASS + 1)); else bad "$2 (expected '$1', got '$OUT')"; fi; }
 
 # --- Scaffold --------------------------------------------------------------
 
@@ -77,9 +81,14 @@ JSON
   printf '%s' "$d"
 }
 
-# mk_scenario <repo> <id> <phases-json> [rounds] [secret]
+# mk_scenario <repo> <id> <phases-json> [rounds] [secret] [extra-personas]
+# `extra-personas` is appended to the `personas:` block with `printf %b`, so
+# pass '\n'-separated YAML lines. It exists for the persona_index cases: with
+# one persona every index is 0, and a check that only ever sees 0 cannot tell a
+# real lookup from a hardcoded zero.
 mk_scenario() {
   local d="$1" id="$2" phases="$3" rounds="${4:-4}" secret="${5:-}"
+  local extra_personas="${6:-}"
   cat > "$d/docs/gallery/$id.yaml" <<YAML
 id: $id
 language: ja
@@ -93,6 +102,9 @@ personas:
 YAML
   if [ -n "$secret" ]; then
     printf '    secret: hidden agenda\n' >> "$d/docs/gallery/$id.yaml"
+  fi
+  if [ -n "$extra_personas" ]; then
+    printf '%b\n' "$extra_personas" >> "$d/docs/gallery/$id.yaml"
   fi
   printf 'phases:\n' >> "$d/docs/gallery/$id.yaml"
   echo "$phases" | jq -r '.[] | "  - type: " + .' >> "$d/docs/gallery/$id.yaml"
@@ -134,6 +146,12 @@ mk_highlight() {
 (Linux MAX_ARG_STRLEN is 128 KiB per argument). Use flow style for deep nesting."
     return 0
   fi
+  # Every fixture scenario declares アヤ as its sole persona, so an excerpt entry
+  # that does not pin `persona_index` itself gets 0 — exactly what the extractor
+  # would derive. Cases exercising a WRONG or ABSENT index set (or delete) the
+  # key explicitly, and this leaves those alone.
+  excerpt="$(printf '%s' "$excerpt" \
+    | jq -c 'map(if has("persona_index") then . else . + {persona_index: 0} end)')"
   local ysha
   ysha="$(sha "$d/docs/gallery/$id.yaml")"
   jq -n --arg id "$id" --arg ysha "$ysha" --argjson excerpt "$excerpt" \
@@ -157,6 +175,18 @@ link_highlight() {
      '.scenarios |= map(if .id == $id then
         . + {highlight_url: ("highlights/" + $id + ".json"), highlight_sha256: $hsha}
       else . end)' \
+     "$d/docs/gallery/gallery.json" > "$d/docs/gallery/gallery.json.tmp"
+  mv "$d/docs/gallery/gallery.json.tmp" "$d/docs/gallery/gallery.json"
+}
+
+# repin_yaml <repo> <id> — refresh gallery.json's yaml_sha256 after a YAML edit.
+# A case that mutates the scenario YAML must call this BEFORE mk_highlight, or
+# the stale-pin check reddens first and the arm passes for the wrong reason.
+repin_yaml() {
+  local d="$1" id="$2" s
+  s="$(sha "$d/docs/gallery/$id.yaml")"
+  jq --arg id "$id" --arg s "$s" \
+     '.scenarios |= map(if .id == $id then .yaml_sha256 = $s else . end)' \
      "$d/docs/gallery/gallery.json" > "$d/docs/gallery/gallery.json.tmp"
   mv "$d/docs/gallery/gallery.json.tmp" "$d/docs/gallery/gallery.json"
 }
@@ -512,6 +542,84 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H24 mixed-type extra keys fail"
 expect_out "outside the allowlist" "H24 reports rather than tracebacks"
 
+# --- persona_index (ADR-029 Decision 1) ----------------------------------
+#
+# The consumers resolve a speaker's avatar colour from this index, so a wrong
+# one silently recolours the excerpt — nothing else in the pipeline notices.
+# H25 is the load-bearing positive: every other fixture has a single persona,
+# where index 0 is indistinguishable from a hardcoded zero.
+
+# H25 — a NON-zero index against a two-persona scenario passes.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"ケン","round":1,"phase":"speak_each","phase_index":0,"persona_index":1,"source_field":"statement","text":"そう思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_ok "H25 non-zero persona_index matching the YAML passes"
+
+# H26 — an explicit null (what a hand-edit that blanks the field leaves behind)
+# is a schema failure, not a skipped check. `mk_highlight` keys its backfill on
+# `has()`, which is true for null, so the fixture reaches the gate as written.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":null,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26 null persona_index fails"
+expect_out "persona_index must be an integer" "H26 names the persona_index schema check"
+
+# H26b — the key deleted outright. Distinct from H26 because `has()` is false
+# here, and this is the shape a pre-persona_index highlight file actually has —
+# i.e. what the gate must reject after this change lands. Deleted after
+# mk_highlight (which would otherwise backfill it), so re-link for the hash.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 "$EX_OK"
+python3 - "$R" <<'PY'
+import json, sys
+p = sys.argv[1] + "/docs/gallery/highlights/demo_v1.json"
+doc = json.load(open(p, encoding="utf-8"))
+for entry in doc["excerpt"]:
+    del entry["persona_index"]
+with open(p, "w", encoding="utf-8") as f:
+    json.dump(doc, f, ensure_ascii=False, indent=2)
+    f.write("\n")
+PY
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26b omitted persona_index fails"
+expect_out "persona_index must be an integer" "H26b names the persona_index schema check"
+
+# H27 — an index past the end of the persona list.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":7,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H27 out-of-range persona_index fails"
+expect_out "is outside the scenario's \`personas:\` list" "H27 names the range check"
+
+# H28 — an in-range index naming a DIFFERENT persona than `agent`. This is the
+# shape a hand-edited excerpt reaches by reordering lines, and the one H27's
+# range check cannot see.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H28 persona_index naming another persona fails"
+expect_out "in the scenario's \`personas:\` list but agent=" "H28 names the mismatch"
+
+# H29 — the sibling YAML carries no readable `personas:`. The check must say it
+# could not verify rather than silently pass; repin_yaml keeps the stale-pin
+# check from reddening first.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+python3 - "$R" <<'PY'
+import re, sys
+p = sys.argv[1] + "/docs/gallery/demo_v1.yaml"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(
+    re.sub(r"personas:\n  - name: アヤ\n    description: aa\n",
+           "personas: ノーコメント\n", text))
+PY
+repin_yaml "$R" demo_v1
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H29 unreadable personas fails"
+expect_out "could not be read, so persona_index cannot be verified" \
+  "H29 names the cannot-verify path"
+
 # ============================== extractor ================================
 
 # mk_run <repo> <path> — a minimal 4-round transcript. Line numbers:
@@ -655,6 +763,59 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo
   --yaml-hook-kind phases --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E10b unlisted yaml_hook.kind fails at extraction"
 expect_out "is not in the allowlist" "E10b names the allowlist"
+
+# --- persona_index derivation ---------------------------------------------
+
+# E11 — the extractor derives the index from the YAML, and derives a NON-zero
+# one. Against a single-persona scenario a hardcoded 0 would pass, so the
+# speaker here is `personas[1]`.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(text.replace('"agent":"アヤ"', '"agent":"ケン"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_ok "E11 extraction with a personas[1] speaker succeeds"
+runc "$R" jq -r '.excerpt[0].persona_index' docs/gallery/highlights/demo_v1.json
+expect_eq "1" "E11 wrote the derived index, not a hardcoded 0"
+
+# E12 — a transcript speaker the scenario does not declare. The index would be
+# arbitrary, so extraction refuses rather than omitting the key.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(text.replace('"agent":"アヤ"', '"agent":"ミカ"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E12 undeclared speaker fails at extraction"
+expect_out "is not in the scenario's \`personas:\` list" "E12 names the persona lookup"
+
+# E13 — a scenario YAML with no readable `personas:` refuses extraction outright
+# (the gate's H29 is the same condition reached from the other consumer).
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+python3 - "$R" <<'PY'
+import re, sys
+p = sys.argv[1] + "/docs/gallery/demo_v1.yaml"
+text = open(p, encoding="utf-8").read()
+open(p, "w", encoding="utf-8").write(
+    re.sub(r"personas:\n  - name: アヤ\n    description: aa\n",
+           "personas: ノーコメント\n", text))
+PY
+repin_yaml "$R" demo_v1
+mk_run "$R" "$R/run.jsonl"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E13 unreadable personas refuses extraction"
+expect_out "unreadable personas" "E13 names the personas failure"
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

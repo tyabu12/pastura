@@ -15,6 +15,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 1,
+      "persona_index": 0,
       "source_field": "statement",
       "text": "サマータイムの廃止決定に伴う世界標準時への移行の混乱が、私のスケジュールに予期せぬ遅延をもたらしました。"
     },
@@ -23,6 +24,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 1,
+      "persona_index": 1,
       "source_field": "statement",
       "text": "私の遅刻は、予測不能な量子もつれ状態に陥ったため、時間軸の局所性が崩壊した結果です。"
     },
@@ -31,6 +33,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 1,
+      "persona_index": 2,
       "source_field": "statement",
       "text": "実は、その会議の直前、急な嵐で外が完全に水没し、私は避難するのに時間を費やしてしまいました。"
     },
@@ -39,6 +42,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 1,
+      "persona_index": 3,
       "source_field": "statement",
       "text": "私の遅刻は、単なる時間感覚の誤作動ではなく、会議そのものが持つべき神聖な儀式を尊重するために必要な儀式的な停滞でした。"
     }

@@ -15,6 +15,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 0,
+      "persona_index": 0,
       "source_field": "statement",
       "text": "答えはCです。"
     },
@@ -23,6 +24,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 0,
+      "persona_index": 1,
       "source_field": "statement",
       "text": "答えはC"
     },
@@ -31,6 +33,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 0,
+      "persona_index": 2,
       "source_field": "statement",
       "text": "答えはC"
     },
@@ -39,6 +42,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 0,
+      "persona_index": 3,
       "source_field": "statement",
       "text": "答えはCです。"
     },
@@ -47,6 +51,7 @@
       "round": 1,
       "phase": "speak_each",
       "phase_index": 0,
+      "persona_index": 4,
       "source_field": "statement",
       "text": "私は基準線と同じ長さの線はBだと思います。他の人が皆Cと言っているのを聞いたので、本当にBだと主張したいです。"
     },
@@ -55,6 +60,7 @@
       "round": 2,
       "phase": "speak_each",
       "phase_index": 0,
+      "persona_index": 4,
       "source_field": "statement",
       "text": "Bが基準線と同じ長さに見えます。"
     }
