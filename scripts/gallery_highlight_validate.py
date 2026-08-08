@@ -4,7 +4,8 @@
 Two consumers, one implementation:
 
   1. `scripts/check-gallery-entry.sh` runs this as a CLI (`--gallery-json` /
-     `--gallery-dir` / `--blocklist`). That is the **enforcement point**
+     `--gallery-dir` / `--blocklist` / `--model-registry`, all required — this
+     module derives no paths of its own). That is the **enforcement point**
      (ADR-029 Decision 2): a hand-edited highlight never runs the extractor,
      so every rule must be re-derivable here, ungated, in CI.
   2. `scripts/gallery_highlight_extract.py` imports `check_content` as a
@@ -636,8 +637,11 @@ def _check_persona_index(doc, personas, where):
         loc = f"{where} excerpt[{i}]"
         idx = ex.get("persona_index")
         if not isinstance(idx, int) or isinstance(idx, bool) or idx < 0:
-            # Shape (missing / wrong type / negative) is reported by
-            # _check_excerpt_shape; re-reporting it here would double-count.
+            # NOT a guard — `_check_excerpt_shape` already fails every one of
+            # these, and measurement confirms removing this line leaves the
+            # suite green. It exists so a malformed index is reported once
+            # rather than twice, and it is unarmable through the gate by
+            # construction. Do not describe it as catching anything.
             continue
         agent = ex.get("agent")
         if idx >= len(persona_names):
@@ -649,7 +653,7 @@ def _check_persona_index(doc, personas, where):
                 f"highlight: persona_index — {loc}.persona_index={idx} names "
                 f"{persona_names[idx]!r} in the scenario's `personas:` list but "
                 f"agent={agent!r}")
-        elif persona_names.index(agent) != idx:
+        elif idx >= 0 and persona_names.index(agent) != idx:
             # Name-match alone is too weak when a scenario declares the same
             # name twice: either index would satisfy it, while the app resolves
             # the slot with `firstIndex(of:)` and so uses the first. Requiring

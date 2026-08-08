@@ -89,11 +89,16 @@ const highlight = loadHighlight(scenario.id);
 // persona collides with the first, not with the fourth. asch_conformity_v1 is the
 // live case, where 被験者ナオキ (index 4) lands on サクラA's (index 0). The app
 // collides the same way, so reproducing it is fidelity rather than a defect to
-// route around.
+// route around. Note this is reachable from a SHORTER excerpt than before: the
+// stand-in needed five distinct speakers in the excerpt itself to reach slot 0
+// twice, whereas pinned indices reach it with two lines.
 //
-// The double modulo mirrors the Swift guard rather than covering a reachable
-// case: the gate rejects a negative `persona_index`, so the outer `+ length`
-// never changes the result here. Kept for parity, not for an input to hunt for.
+// The double modulo mirrors Swift rather than covering a reachable case — both
+// the repo-side gate and `loadHighlight` above reject a negative
+// `persona_index`, so the outer `+ length` never changes the result here. Kept
+// for parity, not for an input to hunt for. (Swift needs no such note: the wrap
+// lives in `SheepAvatar.Character.forAgent(_:position:)`, a general-purpose
+// helper whose guard protects every caller, not just highlights.)
 const SHEEP_TONES = ['alice', 'bob', 'carol', 'dave'] as const;
 
 const excerpt = highlight?.excerpt ?? [];

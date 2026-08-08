@@ -420,9 +420,12 @@ call, and these four are what the first two batches taught.
   app's heading ("Some of the personas behind these lines", pinned by
   `HookHeadingLocalizationTests`). That is what ADR-029's
   § Amendment 2026-08-08 requires, and it is structural. Saying so again in the
-  caption is optional polish, not a requirement — the two shipped hooks differ
-  on it and both are accepted: `chin_jimaku_v1`'s caption does say "2 of the 4",
-  while `asch_conformity_v1` quotes one persona of five and does not mention it.
+  caption is optional polish, not a requirement. The two shipped hooks differ in
+  how explicit they are and both are accepted: `chin_jimaku_v1`'s caption states
+  the count outright (「この抜粋を生んだ4人のうち、特にクセの強い2人の設定。」),
+  while `asch_conformity_v1`'s conveys it only obliquely
+  (「サクラ4人の"後"に答えさせられるナオキの設定。」 — the cast size is there, the
+  "one of five" framing is not).
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
@@ -460,7 +463,9 @@ Three independent gates catch drift between the YAML and its
    the ADR-029 rules a highlight file plus its index entry can support:
    schema and the excerpt cap, `yaml_hook.kind` and the `persona`-fragment
    shape, the spoiler mechanics (phase eligibility, the within-round
-   outcome bound, the round window), `persona_index` against the sibling
+   outcome bound, the round window, and the kind-independent `secret:`
+   rejection inside `yaml_hook.fragment`), the `content_filter_applied`
+   attestation, `persona_index` against the sibling
    YAML, `source.model` against `ModelRegistry`, the `yaml_sha256`
    three-way, the highlight file's own hash, `highlight_url` ⟺
    `highlight_sha256` pairing plus orphan-file detection, the

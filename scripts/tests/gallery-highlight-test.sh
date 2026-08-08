@@ -614,18 +614,30 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H26b omitted persona_index fails"
 expect_out "persona_index must be an integer" "H26b names the persona_index schema check"
 
-# H26c/H26d — the two guard clauses `_check_persona_index` spends explicitly and
-# that H26/H26b do not reach. `True` IS an `int` in Python, so without the
-# `isinstance(idx, bool)` test it would index `persona_names[1]` and pass on any
-# two-persona scenario; without `idx < 0` a negative would index from the end.
-# Both clauses could be deleted with the rest of the suite green.
+# H26c/H26d — the SCHEMA `persona_index` guards (`isinstance(…, bool)` and
+# `< 0`), which H26/H26b do not reach. Measured, not assumed: dropping either
+# clause from `_check_excerpt_shape` reddens the matching arm here.
+#
+# They arm the schema clauses only. `_check_persona_index`'s own
+# `isinstance`/`< 0` skip is NOT a guard — dropping it leaves the suite green,
+# because it only avoids double-reporting what the schema already failed.
+#
+# `True` IS an `int` in Python, so with BOTH the schema clause and that skip
+# removed, `persona_names[True]` resolves — which is why the agent here is ケン
+# at index 1: it makes the resulting lookup *succeed* and pass, rather than
+# reddening for the name-match sibling reason. That is the state the schema
+# clause exists to prevent.
 R="$(new_repo)"; init_index "$R"
 mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
-mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":true,"source_field":"statement","text":"私はBだと思う。"}]'
+mk_highlight "$R" demo_v1 '[{"agent":"ケン","round":1,"phase":"speak_each","phase_index":0,"persona_index":true,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H26c boolean persona_index fails"
 expect_out "persona_index must be an integer" "H26c names the persona_index schema check"
 
+# H26d arms the schema `< 0` clause. Note the cross-reference's own `< 0` skip
+# became unarmable through the gate in the same change that added the
+# first-declaration check: `list.index()` never returns a negative, so a
+# negative that got past the schema clause is intercepted there instead.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":-1,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" demo_v1
