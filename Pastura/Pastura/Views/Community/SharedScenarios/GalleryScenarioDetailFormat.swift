@@ -99,9 +99,17 @@ enum GalleryScenarioDetailFormat {
   /// first-appearance rank *within the excerpt* in for it, which agreed with the
   /// run only when the excerpt's speakers formed a prefix of `personas:`.
   ///
-  /// With five or more speakers the fourth and fifth collide — the app collides
-  /// identically, so reproducing it is fidelity rather than a defect to route
-  /// around.
+  /// There are four colour variants, so a speaker at persona index 4 reuses
+  /// index 0's slot — the **fifth** persona collides with the **first**, not with
+  /// the fourth (indices 3 and 4 never share). `asch_conformity_v1` is the live
+  /// case: `personas[0]` and `personas[4]` both render slot 0, and the app
+  /// collides identically, so reproducing it is fidelity rather than a defect to
+  /// route around. ``SheepAvatar/Character/forAgent(_:position:)`` is where the
+  /// wrap happens, over `allCases.count` rather than a literal 4.
+  ///
+  /// Note this is reachable from a shorter excerpt than before: the stand-in
+  /// needed five distinct speakers in the excerpt itself to reach slot 0 twice,
+  /// whereas a pinned index reaches it with two lines.
   ///
   /// **Returns `[]` when any line is unrenderable**, as
   /// ``GalleryHighlightExcerptEntry/renderablePhase`` defines it. That property

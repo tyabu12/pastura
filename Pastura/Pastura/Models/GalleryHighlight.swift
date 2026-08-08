@@ -157,9 +157,12 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
   public let phaseIndex: Int
 
   /// Index of ``agent`` in the scenario's `personas:` list — the value a real
-  /// run resolves the speaker's avatar colour from
-  /// (``SheepAvatar/Character/forAgent(_:position:)`` → `allCases[position % 4]`,
-  /// fed by `SimulationView.personaItem(for:)`).
+  /// run resolves the speaker's avatar colour from (`SheepAvatar.Character`'s
+  /// `forAgent(_:position:)` wraps it over `allCases.count`, fed by
+  /// `SimulationView.personaItem(for:)`). Named in prose rather than as a DocC
+  /// symbol link, matching this layer's other cross-layer mentions: `Models/`
+  /// must not depend on `Views/`, and a resolvable link would dangle once
+  /// `Models` becomes its own SPM module.
   ///
   /// Carried in the file rather than inferred because an excerpt is not a run:
   /// the speaker's rank *within the excerpt* equals their persona index only

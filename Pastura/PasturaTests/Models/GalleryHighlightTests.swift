@@ -67,9 +67,11 @@ import Testing
     #expect(highlight.excerpt[0].round == 1)
     #expect(highlight.excerpt[0].phase == "speak_each")
     #expect(highlight.excerpt[0].phaseIndex == 0)
-    // Non-zero on the second entry: 被験者ナオキ is `personas[4]` in the real
-    // asch_conformity_v1 cast, which is what makes this more than a "field
-    // decodes" check — a stand-in derived from excerpt order would read 1.
+    // This is a pure decoder test, so the non-zero second value buys a narrower
+    // thing than "a stand-in would read 1": 4 differs from every other integer
+    // in the same object (`phase_index` 0, `round` 1), so a CodingKeys entry
+    // mis-wired to a sibling int key cannot pass. The value also mirrors the
+    // real asch_conformity_v1 cast, where 被験者ナオキ is `personas[4]`.
     #expect(highlight.excerpt[0].personaIndex == 0)
     #expect(highlight.excerpt[1].personaIndex == 4)
     #expect(highlight.excerpt[0].sourceField == "statement")

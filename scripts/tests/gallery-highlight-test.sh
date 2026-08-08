@@ -614,12 +614,40 @@ link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H26b omitted persona_index fails"
 expect_out "persona_index must be an integer" "H26b names the persona_index schema check"
 
+# H26c/H26d — the two guard clauses `_check_persona_index` spends explicitly and
+# that H26/H26b do not reach. `True` IS an `int` in Python, so without the
+# `isinstance(idx, bool)` test it would index `persona_names[1]` and pass on any
+# two-persona scenario; without `idx < 0` a negative would index from the end.
+# Both clauses could be deleted with the rest of the suite green.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: ケン\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":true,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26c boolean persona_index fails"
+expect_out "persona_index must be an integer" "H26c names the persona_index schema check"
+
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":-1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H26d negative persona_index fails"
+expect_out "persona_index must be an integer" "H26d names the persona_index schema check"
+
 # H27 — an index past the end of the persona list.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":7,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H27 out-of-range persona_index fails"
 expect_out "is outside the scenario's \`personas:\` list" "H27 names the range check"
+
+# H28b — a scenario declaring the same name twice. Name-matching alone would
+# accept either index; the app resolves the slot with `firstIndex(of:)`, so only
+# the first reproduces the run's colours.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" demo_v1 '["speak_each","summarize"]' 4 "" '  - name: アヤ\n    description: bb'
+mk_highlight "$R" demo_v1 '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":0,"persona_index":1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" demo_v1
+gate "$R"; expect_fail "H28b a later duplicate persona_index fails"
+expect_out "is a later duplicate of agent=" "H28b names the duplicate check"
 
 # H28 — an in-range index naming a DIFFERENT persona than `agent`. This is the
 # shape a hand-edited excerpt reaches by reordering lines, and the one H27's
@@ -646,8 +674,12 @@ PY
 repin_yaml "$R" demo_v1
 mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
 gate "$R"; expect_fail "H29 unreadable personas fails"
-expect_out "could not be read, so persona_index cannot be verified" \
-  "H29 names the cannot-verify path"
+# The message names the CAUSE, not just "cannot be verified": _read_persona_names
+# returns a reason per class so a missing PyYAML does not read as a YAML defect.
+# The PyYAML-absent class has no arm here and cannot have one — this suite aborts
+# at startup without PyYAML.
+expect_out "cannot be verified: the sibling scenario YAML has no \`personas:\`" \
+  "H29 names the shape cause specifically"
 
 # --- source.model (ADR-029 Decision 1) ------------------------------------
 #
@@ -707,9 +739,11 @@ expect_out "highlight: model registry" "H33 names the registry read"
 
 # H34 — known-positive control against the REAL repo registry. The arms above
 # all read a synthetic fixture, so none of them would notice the real file
-# drifting out of the pattern's reach. Read-only, so the suite stays
-# parallel-safe and touches nothing outside its tempdirs.
-runc "$REAL_ROOT" python3 -c "
+# drifting out of the pattern's reach. Read-only, and `-B` so the import writes
+# no `scripts/__pycache__` into the real worktree — the suite is meant to touch
+# nothing outside its tempdirs, and a gitignored byproduct still makes that
+# sentence false.
+runc "$REAL_ROOT" python3 -B -c "
 import sys
 sys.path.insert(0, 'scripts')
 import gallery_highlight_validate as ghv
@@ -756,6 +790,10 @@ runc "$R" jq -r '.scenarios[0].highlight_url' docs/gallery/gallery.json
 expect_eq "highlights/demo_v1.json" "H35 kept highlight_url across --update"
 # Key order matters for the diff a curator reads: the fields belong between
 # yaml_sha256 and added_at, which is where a hand-written entry puts them.
+# Asserts "directly after" rather than "somewhere between", so it also inherits
+# the existing entry's internal highlight_url-before-highlight_sha256 order —
+# intentional, since `with_entries` preserves input order and a swap would be a
+# real (if cosmetic) drift from the hand-written shape.
 runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("highlight_url") - index("yaml_sha256")' \
   docs/gallery/gallery.json
 expect_eq "1" "H35 highlight_url sits directly after yaml_sha256"
@@ -957,6 +995,17 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo
 expect_fail "E13 unreadable personas refuses extraction"
 expect_out "unreadable personas" "E13 names the personas failure"
 
+# E13b — the extractor's own copy of "an empty registry parse is loud". H33 is
+# the gate side of the same claim; this is the arm for the extractor's `die`.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"
+printf '%s\n' 'enum ModelRegistry { static let a = ModelDescriptor(id: "gemma-4-e2b-q4-k-m") }' \
+  > "$R/Pastura/Pastura/App/ModelRegistry.swift"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
+  --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
+expect_fail "E13b unparseable registry refuses extraction"
+expect_out "model registry" "E13b names the registry read"
+
 # --- source.model resolution ----------------------------------------------
 
 # E14 — the default path. `mk_run` writes what the harness writes (a display
@@ -995,10 +1044,16 @@ expect_eq "gemma-4-e2b-q4-k-m" "E14b passed the id through unchanged"
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --pick 4 \
-  --model "gemma 4 e2b" \
+  --model "Gemma 4 E2B" \
   --yaml-hook-kind raw --yaml-hook-fragment "phases:" --yaml-hook-caption "cap" --teaser "t"
 expect_fail "E15 an unresolvable model refuses extraction"
 expect_out "Pass --model with the registry id" "E15 names the escape hatch"
+# The value is the fixture registry's `shortDisplayName`, deliberately: it is
+# rejected today and would start RESOLVING the moment `_REGISTRY_DISPLAY_NAME`
+# lost its `^\s*` anchor and began reading `shortDisplayName:` as `displayName:`.
+# This is the control for the anchoring claim in new_repo()'s fixture comment,
+# which nothing else can redden on. A not-even-close string would pass under
+# both the tight and the loose anchor, i.e. would measure nothing.
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

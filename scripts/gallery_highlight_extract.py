@@ -222,6 +222,9 @@ def resolve_model_id(raw, allowed_model_ids, display_to_id):
     unresolved one would reach `source.model`, publish verbatim in user-facing
     prose, and show the same model under two names on neighbouring pages.
     """
+    if not isinstance(raw, str):
+        die(f"model must be a string, got {type(raw).__name__} ({raw!r}) — check "
+            "the selection file's `model` value")
     if not raw:
         die("no model — the transcript's run_start carries none and neither "
             "--model nor the selection file supplied one")
@@ -372,7 +375,8 @@ def main():
             "publish-time audit is mandatory (ADR-029 Decision 2)")
     blocklist = ghv.load_blocklist(args.blocklist)
     failures = ghv.check_content(
-        doc, entry, blocklist, f"[{args.id}]", persona_names, allowed_model_ids)
+        doc, entry, blocklist, f"[{args.id}]",
+        personas=(persona_names, None), allowed_model_ids=allowed_model_ids)
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

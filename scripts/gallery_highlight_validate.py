@@ -522,8 +522,18 @@ def registry_model_ids(registry_swift):
     edit: a reformat that broke the pattern would otherwise silently disarm the
     check.
 
-    Same source and same shape as `add-gallery-entry.sh`'s `list_models()`,
-    which greps this file to populate its interactive prompt.
+    What this actually parses is **every line-anchored `id: "…"` in the file**,
+    which is a superset of `ModelRegistry.catalog`: a descriptor present in the
+    source but withheld from the catalog array would widen the allowlist by one.
+    Tolerated because the check exists to catch display names and typos, not to
+    police unshipped descriptors, and because the two coincide today (the file
+    holds exactly as many `id:` lines as `ModelDescriptor(` literals).
+
+    Same source *file* as `add-gallery-entry.sh`'s `list_models()`, which greps
+    it to populate an interactive prompt — but not the same pattern: that one is
+    unanchored, so an inline or trailing `id: "…"` would be offered there and
+    rejected here. The anchoring is load-bearing in this direction, since
+    `shortDisplayName:` must not alias `displayName:`.
     """
     ids, display_to_id = set(), {}
     try:
@@ -555,6 +565,13 @@ def _check_source_model(doc, allowed_model_ids, where):
     authority is `ModelRegistry.catalog` rather than the harness's
     `ModelProfile.all`: the latter also carries evaluation candidates with no
     app entry, which no reader can run on a device.
+
+    A consequence worth stating rather than discovering: a transcript from a
+    harness-only profile (today `Sarashina 2.2 3B (Q4_K_M)`, a `/model-eval`
+    candidate) cannot produce a publishable highlight at all, and `--model`
+    offers no way around it. That is the intended posture — the landing page
+    tells the reader this is "a real on-device run", which it would not be for
+    a model they cannot install.
     """
     source = doc.get("source")
     if not isinstance(source, dict) or not isinstance(source.get("model"), str):
@@ -591,7 +608,7 @@ def scenario_persona_names(scenario):
     return names
 
 
-def _check_persona_index(doc, persona_names, where):
+def _check_persona_index(doc, personas, where):
     """Cross-reference `excerpt[].persona_index` against the sibling YAML.
 
     The app resolves a speaker's avatar colour as
@@ -603,11 +620,15 @@ def _check_persona_index(doc, persona_names, where):
     to be a prefix of `personas:`. Carrying the real index makes the
     correspondence hold for any excerpt, which is why this is a cross-reference
     against the YAML and NOT a constraint on which lines may be excerpted.
+
+    `personas` is the `(names, reason)` pair from ``_read_persona_names``: a pair
+    rather than a bare list so an unreadable YAML reports *why* it could not be
+    verified, instead of one message that blames the YAML for a missing PyYAML.
     """
+    persona_names, reason = personas
     if persona_names is None:
         return [
-            f"highlight: persona_index — {where} the sibling YAML's `personas:` list "
-            "could not be read, so persona_index cannot be verified against it"]
+            f"highlight: persona_index — {where} cannot be verified: {reason}"]
     failures = []
     for i, ex in enumerate(doc.get("excerpt") or []):
         if not isinstance(ex, dict):
@@ -618,33 +639,44 @@ def _check_persona_index(doc, persona_names, where):
             # Shape (missing / wrong type / negative) is reported by
             # _check_excerpt_shape; re-reporting it here would double-count.
             continue
+        agent = ex.get("agent")
         if idx >= len(persona_names):
             failures.append(
                 f"highlight: persona_index — {loc}.persona_index={idx} is outside the "
                 f"scenario's `personas:` list (len={len(persona_names)})")
-        elif persona_names[idx] != ex.get("agent"):
+        elif persona_names[idx] != agent:
             failures.append(
                 f"highlight: persona_index — {loc}.persona_index={idx} names "
                 f"{persona_names[idx]!r} in the scenario's `personas:` list but "
-                f"agent={ex.get('agent')!r}")
+                f"agent={agent!r}")
+        elif persona_names.index(agent) != idx:
+            # Name-match alone is too weak when a scenario declares the same
+            # name twice: either index would satisfy it, while the app resolves
+            # the slot with `firstIndex(of:)` and so uses the first. Requiring
+            # the first keeps the excerpt's colours equal to the run's.
+            failures.append(
+                f"highlight: persona_index — {loc}.persona_index={idx} is a later "
+                f"duplicate of agent={agent!r}, first declared at "
+                f"{persona_names.index(agent)}; the app resolves the slot from the "
+                "first match, so only that index reproduces the run's colours")
     return failures
 
 
-def check_content(doc, entry, blocklist, where, persona_names, allowed_model_ids):
+def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
     """Every rule derivable from the highlight doc + its index entry.
 
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
     the file-level checks (pairing, file hashes) the extractor cannot run.
 
-    `persona_names` comes from the sibling scenario YAML via
-    ``scenario_persona_names``; `allowed_model_ids` from
-    ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both are required
-    parameters, not optional ones: a default would let a caller skip a check by
-    omission, and the gate is the only place either failure would surface.
+    `personas` is ``_read_persona_names``'s `(names, reason)` pair;
+    `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both
+    are required parameters, not optional ones: a default would let a caller
+    skip a check by omission, and the gate is the only place either failure
+    would surface.
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
-    failures += _check_persona_index(doc, persona_names, where)
+    failures += _check_persona_index(doc, personas, where)
     failures += _check_source_model(doc, allowed_model_ids, where)
     failures += _check_yaml_hook_secret(doc, where)
     failures += _check_yaml_hook_fragment(doc, where)
@@ -662,19 +694,32 @@ def _entry_index(gallery_json):
 
 
 def _read_persona_names(yaml_path):
-    """-> ``scenario_persona_names`` for a YAML path, or None if unreadable.
+    """-> (names, None) on success, or (None, reason) naming what went wrong.
 
-    Every None path (PyYAML absent, unreadable file, parse error, unexpected
-    shape) collapses to the same "cannot verify" failure at the call site rather
-    than to a skipped check.
+    The reason travels back so the failure text can name the actual cause: on a
+    machine without PyYAML the fix is an install, and a message blaming the YAML
+    would send the curator to the wrong file.
+
+    `RecursionError` is caught alongside `YAMLError` for the reason the two
+    sibling checks in this file already document: it is not a `YAMLError`, and
+    PyYAML's parser recurses, so deep nesting in a hand-editable file escapes as
+    a traceback instead of one named failure line.
     """
     if yaml is None:
-        return None
+        return None, ("PyYAML is not installed, so the sibling scenario YAML "
+                      "cannot be parsed (python3 -m pip install 'pyyaml>=6,<7')")
     try:
         with open(yaml_path, encoding="utf-8") as f:
-            return scenario_persona_names(yaml.safe_load(f))
-    except (OSError, UnicodeDecodeError, yaml.YAMLError):
-        return None
+            parsed = yaml.safe_load(f)
+    except (OSError, UnicodeDecodeError) as exc:
+        return None, f"the sibling scenario YAML could not be read ({exc})"
+    except (yaml.YAMLError, RecursionError) as exc:
+        return None, f"the sibling scenario YAML does not parse ({type(exc).__name__})"
+    names = scenario_persona_names(parsed)
+    if names is None:
+        return None, ("the sibling scenario YAML has no `personas:` list of "
+                      "mappings each carrying a string `name`")
+    return names, None
 
 
 def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
@@ -770,7 +815,7 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
                 f"gallery.json id {entry_id!r}")
 
         yaml_path = os.path.join(gallery_dir, os.path.basename(entry.get("yaml_url", "")))
-        persona_names = None
+        personas = (None, f"the sibling scenario YAML {yaml_path} is missing")
         if not os.path.isfile(yaml_path):
             failures.append(
                 f"highlight: yaml_sha256 mismatch — id={entry_id} sibling YAML "
@@ -784,10 +829,11 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
                     f"{ref_sha}, gallery.json has {entry.get('yaml_sha256')}, actual "
                     f"YAML bytes hash to {yaml_sha}. Regenerate or delete the highlight "
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
-            persona_names = _read_persona_names(yaml_path)
+            personas = _read_persona_names(yaml_path)
 
         failures += check_content(
-            doc, entry, blocklist, where, persona_names, allowed_model_ids)
+            doc, entry, blocklist, where,
+            personas=personas, allowed_model_ids=allowed_model_ids)
 
     for path in sorted(on_disk - referenced):
         rel = os.path.relpath(path, os.path.dirname(gallery_dir))

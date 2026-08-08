@@ -113,16 +113,17 @@ struct GalleryScenarioDetailFormatTests {
   /// The persona list every `entry(...)` below is drawn from. `personaIndex` is
   /// derived from it so a fixture matches what the repo-side gate requires of a
   /// real highlight — two agents sharing index 0 could not exist in the repo.
-  /// The `?? 0` fallback only reaches an agent outside this cast, which no case
-  /// uses; the tests that read the index all name a cast member.
   private static let cast = ["A", "B", "C", "D", "E"]
 
+  /// Force-unwrapped deliberately (test code is exempt): a `?? 0` fallback would
+  /// let a future case name an agent outside `cast` and then pass vacuously
+  /// against an expected slot of 0.
   private func entry(
     agent: String, round: Int = 1, phase: String = "speak_each"
   ) -> GalleryHighlightExcerptEntry {
     GalleryHighlightExcerptEntry(
       agent: agent, round: round, phase: phase, phaseIndex: 0,
-      personaIndex: Self.cast.firstIndex(of: agent) ?? 0,
+      personaIndex: Self.cast.firstIndex(of: agent)!,
       sourceField: "statement", text: "…")
   }
 
@@ -136,12 +137,14 @@ struct GalleryScenarioDetailFormatTests {
     #expect(rows.map(\.agentPosition) == [2, 1])
   }
 
-  @Test func aRepeatSpeakerKeepsItsSlot() {
+  @Test func slotsDoNotHaveToAscend() {
+    // A non-monotonic sequence, which the first-appearance stand-in could never
+    // produce — its ranks only ever counted up. So this pins the pass-through
+    // rather than restating a "keeps its slot" map the change deleted.
     let rows = GalleryScenarioDetailFormat.excerptRows(
-      [entry(agent: "A"), entry(agent: "B"), entry(agent: "A"), entry(agent: "C")],
-      totalRounds: 3)
+      [entry(agent: "D"), entry(agent: "A"), entry(agent: "D")], totalRounds: 3)
 
-    #expect(rows.map(\.agentPosition) == [0, 1, 0, 2])
+    #expect(rows.map(\.agentPosition) == [3, 0, 3])
   }
 
   @Test func fifthSpeakerCollidesWithTheFirstJustAsTheAppDoes() {

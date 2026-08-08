@@ -50,7 +50,17 @@ function loadHighlight(id: string): ScenarioHighlight | null {
       parsed.excerpt.length === 0 ||
       typeof parsed.yaml_hook?.fragment !== 'string' ||
       typeof parsed.source?.model !== 'string' ||
-      typeof parsed.teaser !== 'string'
+      typeof parsed.teaser !== 'string' ||
+      // The only per-entry field checked here, because it is the only one whose
+      // absence renders WRONG rather than empty: `undefined % 4` is NaN, and
+      // `SHEEP_TONES[NaN]` is undefined, which drops the `data-tone` attribute
+      // and leaves the avatar untinted. `astro check` cannot catch it — `parsed`
+      // is a bare cast and `noUncheckedIndexedAccess` is off — so without this
+      // clause a malformed file degrades to a miscoloured section instead of to
+      // the "no section" this function promises.
+      parsed.excerpt.some(
+        (entry) => !Number.isInteger(entry?.persona_index) || entry.persona_index < 0
+      )
     ) {
       console.warn(`[highlight] ignoring unusable highlight file: ${path}`);
       return null;
@@ -70,14 +80,20 @@ const highlight = loadHighlight(scenario.id);
 // agent's index in the scenario's persona list, and `excerpt[].persona_index`
 // carries exactly that index. So a reader sees the same colours here as in the
 // app for any excerpt, and the repo-side gate cross-checks each index against
-// the sibling YAML. Before that field existed this stood the speaker's
-// first-appearance rank within the excerpt in for it, which matched the run only
-// when the excerpt's speakers formed a prefix of `personas:`.
+// the sibling YAML (`scripts/gallery_highlight_validate.py`, `_check_persona_index`).
+// Before that field existed this stood the speaker's first-appearance rank
+// within the excerpt in for it, which matched the run only when the excerpt's
+// speakers formed a prefix of `personas:`.
 //
-// With five or more speakers two of them share a slot — asch_conformity_v1 is
-// the live case, where 被験者ナオキ lands on サクラA's. The app collides the
-// same way, so reproducing it is fidelity rather than a defect to route around.
-// The double modulo mirrors the Swift guard for a negative index.
+// There are four variants, so persona index 4 reuses index 0's slot — the fifth
+// persona collides with the first, not with the fourth. asch_conformity_v1 is the
+// live case, where 被験者ナオキ (index 4) lands on サクラA's (index 0). The app
+// collides the same way, so reproducing it is fidelity rather than a defect to
+// route around.
+//
+// The double modulo mirrors the Swift guard rather than covering a reachable
+// case: the gate rejects a negative `persona_index`, so the outer `+ length`
+// never changes the result here. Kept for parity, not for an input to hunt for.
 const SHEEP_TONES = ['alice', 'bob', 'carol', 'dave'] as const;
 
 const excerpt = highlight?.excerpt ?? [];

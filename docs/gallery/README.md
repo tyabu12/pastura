@@ -369,8 +369,10 @@ covers the workflow and the taste calls the gate cannot make.
    `agent_output` events from `speak_all` / `speak_each`, `statement` field,
    in rounds 1 through ⌈rounds/2⌉, with no outcome-class phase earlier in the
    same round. A retried run appends a second attempt to the same file and
-   restarts round numbering, so only the final attempt is pickable. ADR-029
-   makes human selection non-negotiable, and the tool refuses to choose.
+   restarts round numbering, so only the final attempt is pickable. A later
+   round is reachable, but only by passing `--window-override` at extraction,
+   which records `window_override: true` in the file for the reviewer to weigh.
+   ADR-029 makes human selection non-negotiable, and the tool refuses to choose.
 
 3. **Write a selection file** and extract. The schema is in
    `scripts/gallery_highlight_extract.py`'s docstring.
@@ -380,15 +382,18 @@ covers the workflow and the taste calls the gate cannot make.
      --run data/highlight-runs/<id>.jsonl --id <id> --selection <sel>.json
    ```
 
-   `source.model` and `persona_index` are derived, not authored. The extractor
-   resolves the harness's display name to a `ModelRegistry` id and looks each
-   speaker up in the scenario's `personas:` list.
+   `persona_index` is derived and never selectable. `source.model` is derived by
+   default — the extractor resolves the harness's display name to a
+   `ModelRegistry` id — and `--model` can override it, but only with a value
+   that resolves to a registry id or a known `displayName`.
 
 4. **Register it in `gallery.json`** by hand, adding `highlight_url` and
    `highlight_sha256` (the extractor prints the hash) between `yaml_sha256`
    and `added_at`.
 
-5. **Verify**: `bash scripts/check-gallery-entry.sh --all`.
+5. **Verify**: `bash scripts/check-gallery-entry.sh --all` (needs PyYAML on top
+   of `jq` / `shasum` — it hard-exits without it, which reads like a broken gate
+   rather than a missing dependency).
 
 6. **Show the excerpt and caption to a human for sign-off** before committing.
    The blocklist audit is necessary, not sufficient.
@@ -415,9 +420,9 @@ call, and these four are what the first two batches taught.
   app's heading ("Some of the personas behind these lines", pinned by
   `HookHeadingLocalizationTests`). That is what ADR-029's
   § Amendment 2026-08-08 requires, and it is structural. Saying so again in the
-  caption is optional polish, not a requirement. ADR-029 records
-  `chin_jimaku_v1`'s caption wording as accepted residue, and
-  `asch_conformity_v1` quotes one persona of five without mentioning it.
+  caption is optional polish, not a requirement — the two shipped hooks differ
+  on it and both are accepted: `chin_jimaku_v1`'s caption does say "2 of the 4",
+  while `asch_conformity_v1` quotes one persona of five and does not mention it.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
@@ -452,9 +457,14 @@ Three independent gates catch drift between the YAML and its
    byte-match, size cap, id uniqueness across `gallery.json` + bundled
    presets, and `<stem>.yaml ↔ id: <stem>`. Highlight validation is
    delegated to `scripts/gallery_highlight_validate.py`, which re-derives
-   every ADR-029 rule — schema, the excerpt cap, the spoiler mechanics,
-   `persona_index` against the sibling YAML, `source.model` against
-   `ModelRegistry`, the hash three-way, and a blocklist re-audit.
+   the ADR-029 rules a highlight file plus its index entry can support:
+   schema and the excerpt cap, `yaml_hook.kind` and the `persona`-fragment
+   shape, the spoiler mechanics (phase eligibility, the within-round
+   outcome bound, the round window), `persona_index` against the sibling
+   YAML, `source.model` against `ModelRegistry`, the `yaml_sha256`
+   three-way, the highlight file's own hash, `highlight_url` ⟺
+   `highlight_sha256` pairing plus orphan-file detection, the
+   stem ↔ `scenario_ref.id` ↔ index-id match, and a blocklist re-audit.
    A hand-edited highlight never runs the extractor, so this is the
    enforcement point rather than that tool.
 2. **CI `gallery-drift` job** — re-runs the same check on every PR

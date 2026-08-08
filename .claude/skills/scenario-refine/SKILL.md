@@ -198,7 +198,7 @@ commit. The output is prose in the Step 6 report. ADR-029 makes excerpt
 selection a human judgement, so a candidate list is the most this cycle may
 produce.
 
-**Which scenarios qualify** — all four, this cycle:
+**Which scenarios qualify** — all four conditions must hold:
 
 - `channel == gallery` (a preset has no landing page to render a highlight on),
 - its `gallery.json` entry has no `highlight_url`:
@@ -223,7 +223,9 @@ events whose `phase_type` is `speak_all` / `speak_each`, `statement` field
 only, `round` within 1..⌈rounds/2⌉, with no outcome-class phase
 (`vote` / `eliminate` / `score_calc` / `choose` / `summarize`) earlier in that
 same round. Draw only from the **final** attempt: a retried run appends
-attempt 2 to the same JSONL and restarts round numbering.
+attempt 2 to the same JSONL and restarts round numbering. A later round is
+reachable only via an audited `window_override` at extraction, so do not propose
+one — that is a curator's call, not a proposal's.
 
 For each qualifying scenario, report 4-8 candidate lines with speaker and
 round, plus one sentence on why the scenario suits excerpting at all — the

@@ -81,7 +81,16 @@
 #       to the existing one (no flag overrides AND unchanged YAML),
 #       exits 0 BEFORE bumping `updated_at` and BEFORE the atomic
 #       write. Re-running `--update` with no real change is therefore
-#       free.
+#       free. Reaches highlighted entries only because of (h) — before
+#       that carry-forward the candidate could never compare equal.
+#   (h) update-mode highlight carry-forward: ADR-029's `highlight_*`
+#       fields are copied from the existing entry (selected by
+#       `highlight_` prefix, so a field added to that contract later
+#       carries too). Consequence to know: with the highlight FILE
+#       already deleted but the fields still present, `--update` now
+#       refuses (post-validate names the missing file) instead of
+#       silently repairing the state by dropping them. Delete both
+#       fields by hand — see docs/gallery/README.md § Highlights.
 #
 # Choice lists at prompts are read from the Swift sources at runtime
 # (Pastura/Pastura/Models/GalleryScenario.swift,
