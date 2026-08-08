@@ -58,7 +58,13 @@ internal class JSONResponseParser {
         /** Common thinking-model format: `<think>...</think>` (DeepSeek, Qwen). */
         val THINK_TAG = Regex("""<think>[\s\S]*?</think>""")
 
-        /** Chat-template token — truncate everything from the first occurrence. */
+        /**
+         * Chat-template token — truncate everything from the first occurrence.
+         *
+         * ChatML-only by construction, mirroring the Swift original: correct for
+         * Qwen 3, but Gemma 4's markers are `<|turn>` / `<turn|>`, so a Gemma
+         * hallucinated continuation is NOT truncated. Per-model sourcing is #1422.
+         */
         val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>[\s\S]*""")
 
         val CODE_BLOCK = Regex("""```(?:json)?\s*\n?([\s\S]*?)\n?```""")

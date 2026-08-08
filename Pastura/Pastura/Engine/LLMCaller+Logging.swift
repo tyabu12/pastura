@@ -66,10 +66,14 @@ nonisolated extension LLMCaller {
   }
 
   /// Detect chat template token leakage and hallucinated continuations.
-  /// `LlamaCppService`'s streaming path strips `<|im_end|>` before
-  /// emission, so this primarily catches non-streaming backends (Mock
+  /// `LlamaCppService`'s streaming path strips a spelled-out `<|im_end|>`
+  /// before emission, so this primarily catches non-streaming backends (Mock
   /// wrap path, Ollama) where the raw string may still contain template
   /// tokens.
+  ///
+  /// - Important: ChatML-only. Gemma 4's markers are `<|turn>` / `<turn|>`,
+  ///   so this diagnostic is silently blind for the default shipped model.
+  ///   Making it model-aware is tracked in #1422.
   func logChatTemplateLeakage(in raw: String) {
     if raw.contains("<|im_start|>") {
       logger.log(

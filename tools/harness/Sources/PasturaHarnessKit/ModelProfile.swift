@@ -12,7 +12,12 @@ package struct ModelProfile: Sendable, Equatable {
   package let id: String
   /// Human-readable model label, used as `LlamaCppService.modelIdentifier`.
   package let name: String
-  /// Stop sequence terminating each generation.
+  /// Plaintext stop sentinel, mirroring `ModelDescriptor.stopSequence`.
+  ///
+  /// NOT what terminates a generation — that is EOG, for every model. This is
+  /// matched only against text the model spelled out itself (a hallucinated
+  /// turn boundary), so it is inert for a model whose markers a hallucination
+  /// would not write in that form. See #1417.
   package let stopSequence: String
   /// Optional suffix appended to every system prompt.
   package let systemPromptSuffix: String?
@@ -46,6 +51,9 @@ package struct ModelProfile: Sendable, Equatable {
   package static let gemma4E2B = ModelProfile(
     id: "gemma-4-e2b-q4-k-m",
     name: "Gemma 4 E2B (Q4_K_M)",
+    // Inert for Gemma 4, deliberately — mirrors `ModelRegistry.gemma4E2B`, whose
+    // comment carries the measurement. `ModelProfileTests` pins the two equal, so
+    // this value cannot be "fixed" here alone (#1417).
     stopSequence: "<|im_end|>",
     systemPromptSuffix: nil,
     assistantPrefix: nil,

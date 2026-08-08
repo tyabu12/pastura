@@ -564,8 +564,12 @@ internal class LLMCaller(
 
     /**
      * Detect chat-template token leakage. The Swift `LlamaCppService` streaming path
-     * strips `<|im_end|>` before emission, so this primarily catches non-streaming
-     * backends where the raw string may still contain template tokens.
+     * strips a spelled-out `<|im_end|>` before emission, so this primarily catches
+     * non-streaming backends where the raw string may still contain template tokens.
+     *
+     * ChatML-only, mirroring the Swift original: Gemma 4's markers are `<|turn>` /
+     * `<turn|>`, so this diagnostic is silently blind for the default shipped
+     * model. Making it model-aware is #1422.
      */
     private fun logChatTemplateLeakage(raw: String) {
         if (raw.contains("<|im_start|>")) {
