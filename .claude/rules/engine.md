@@ -553,7 +553,7 @@ yes, it needs a closed-form `assistantPrefix` or no grammar.
 Defense-in-depth (post-sample `llama_vocab_is_special` check) is tracked
 in #371 — consult it before adding any thinking-mode model.
 
-### GGUF source *and variant* matter — control-token flags, shared-KV layout
+### GGUF source *and variant* matter
 
 unsloth's Gemma 3 GGUF exports flag `<start_of_turn>` / `<end_of_turn>`
 as NORMAL instead of CONTROL (unslothai/unsloth#5070), so llama.cpp
@@ -566,17 +566,12 @@ unsloth exports are unaffected **by #5070** and the existing Gemma 4 E2B
 descriptor stays on unsloth. (PR #480, closed — Gemma 3 1B no-go;
 durable record in ADR-011.)
 
-**Variant matters too, not just publisher.** Gemma 4 **QAT** exports —
-Google's official and unsloth's re-export alike — use a shared-KV
-tail-layer layout: 541 tensors, dropping `attn_k` / `attn_v` /
-`attn_k_norm` for layers 15–34 (20 × 3 = 60), where the shipped non-QAT
-Q4_K_M materialises all 601. The pinned llama.cpp rejects them outright
-with `missing tensor 'blk.15.attn_k.weight'`. So "unsloth is fine for
-Gemma 4" holds for the **non-QAT** export only — a `-qat-` repo is not a
-drop-in swap. Note the descriptor you would edit (`ModelRegistry.swift`)
-is in `App/`, which this rule's `paths:` do **not** cover — the
-descriptor-side procedure is `docs/models/onboarding.md`. (Measured
-2026-08-08; verdict + retry gating in `docs/models/eval-log.md`, #1415.)
+**Variant, not just publisher.** Gemma 4 **QAT** exports — Google's and
+unsloth's alike — ship a shared-KV tail layer the pinned llama.cpp cannot
+load (`missing tensor 'blk.15.attn_k.weight'`), so a `-qat-` repo is never
+a drop-in swap for its non-QAT sibling. Descriptor-side procedure:
+`docs/models/onboarding.md`; measurement + retry gating:
+`docs/models/eval-log.md` §2026-08-08 (#1415).
 
 When pinning a new descriptor, the HF resolve-URL headers
 `X-Linked-Size` / `X-Linked-ETag` give authoritative `fileSize` /

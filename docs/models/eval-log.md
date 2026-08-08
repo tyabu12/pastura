@@ -35,30 +35,24 @@ everything else here.
 
 ## Gemma 4 E2B QAT Q4_0 (`google/gemma-4-E2B-it-qat-q4_0-gguf`) — 2026-08-08 — **FAIL (BLOCKED — runtime compatibility, not a quality rejection)**
 
-> **Not the shipped model.** This is a *different build* of a catalog model: the
-> QAT Q4_0 export. The shipped descriptor
-> (`unsloth/gemma-4-E2B-it-GGUF` Q4_K_M, non-QAT) is **unaffected and remains in
-> the catalog** — nothing here indicates a regression in a released build.
-
 - **Gate**: 1 (Mac filter, `/model-eval`) — **blocked at model load, never
-  reached inference.** All 6 battery cells failed in ~0.9 s each with the
-  identical error and 2 attempts apiece:
+  reached inference.** All 6 battery cells failed in ~0.9 s each, 2 attempts
+  apiece, with the identical scenario-independent error
   `llama_model_load: error loading model: missing tensor 'blk.15.attn_k.weight'`.
-  Scenario-independent (all 3 families × ja/en fail the same way).
 - **Model**: `google/gemma-4-E2B-it-qat-q4_0-gguf` @ `675cff4` ·
   `gemma-4-E2B_q4_0-it.gguf` · QAT `Q4_0` · Apache-2.0, non-gated · 3,349,516,256 B
   · sha256 `fa401b55…6634` (both matching the HF resolve `X-Linked-Size` /
-  `X-Linked-ETag`). **No Stage-0 profile of its own** — the run deliberately
-  reused the incumbent's `gemma-4-e2b-q4-k-m` profile, legitimate per
-  [`onboarding.md`](onboarding.md) (Stage 0 is per *family*, and `gemma` is
-  registered) after verifying the three prompt-format fields are equivalent.
-  Consequence: the raw logs are stamped with the incumbent's `modelIdentifier`,
-  and a future retry still has no validated profile of its own.
-- **Differentiation**: **UNASSESSABLE.** Zero inferences were produced, so this
-  run yields no evidence whatsoever about output character. The QAT question is
-  *untested*, not answered — nothing here supports or refutes a slot claim.
-- **Snapshot**: `runs_ok 0 / 6`, `language_mismatch_total 0`, `attempts_mean 2.0`,
-  `tok_per_sec` n/a, inferences **0**. No rubric scores exist for any cell.
+  `X-Linked-ETag`). A *different build* of a catalog model — the shipped
+  descriptor (`unsloth/gemma-4-E2B-it-GGUF` Q4_K_M, non-QAT) is unaffected and
+  remains in the catalog. **No Stage-0 profile of its own** — the run reused the
+  incumbent's `gemma-4-e2b-q4-k-m` profile, legitimate per
+  [`onboarding.md`](onboarding.md) (Stage 0 is per *family*) after verifying the
+  three prompt-format fields are equivalent; so the raw logs carry the
+  incumbent's `modelIdentifier` and a retry still has no validated profile.
+- **Differentiation**: **UNASSESSABLE** — zero inferences, so the QAT question is
+  *untested*, not answered.
+- **Snapshot**: `runs_ok 0 / 6`, `attempts_mean 2.0`, inferences **0** — no rubric
+  scores exist for any cell.
 - **Rationale**: Gemma 4 E2B **QAT** GGUFs ship a **shared-KV tail-layer** layout —
   541 tensors, omitting `attn_k` / `attn_v` / `attn_k_norm` for layers 15–34 (60
   tensors) — where the shipped non-QAT Q4_K_M materialises all 601. Zero tensors
@@ -67,7 +61,8 @@ everything else here.
   `exact: "2.8694.0"`) has no shared-KV tail-layer loader. **Not vendor-specific**:
   unsloth's own QAT re-export (`unsloth/gemma-4-E2B-it-qat-GGUF` →
   `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`, 2,620,370,976 B, sha256 `e5310072…6889`)
-  carries the byte-identical 541-tensor layout, so the split is **QAT-vs-non-QAT,
+  carries the same 541-tensor layout (identical tensor-name set, different
+  quantisation and byte length), so the split is **QAT-vs-non-QAT,
   not Google-vs-unsloth**. Confirmed by direct measurement in a throwaway
   standalone SwiftPM package with the repository's own pin untouched: llama.swift
   **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
