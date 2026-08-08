@@ -553,7 +553,7 @@ yes, it needs a closed-form `assistantPrefix` or no grammar.
 Defense-in-depth (post-sample `llama_vocab_is_special` check) is tracked
 in #371 — consult it before adding any thinking-mode model.
 
-### GGUF source matters — control-token type flags
+### GGUF source *and variant* matter
 
 unsloth's Gemma 3 GGUF exports flag `<start_of_turn>` / `<end_of_turn>`
 as NORMAL instead of CONTROL (unslothai/unsloth#5070), so llama.cpp
@@ -562,9 +562,16 @@ emits a garbage first token, which then trips the grammar. **Same crash
 signature as the special-token trap above, different root cause,
 different fix**: switch GGUF source — `assistantPrefix` does not help.
 Prefer `ggml-org/*-GGUF` (or bartowski) for the Gemma 3 family; Gemma 4
-unsloth exports are unaffected and the existing Gemma 4 E2B descriptor
-stays on unsloth. (PR #480, closed — Gemma 3 1B no-go; durable record in
-ADR-011.)
+unsloth exports are unaffected **by #5070** and the existing Gemma 4 E2B
+descriptor stays on unsloth. (PR #480, closed — Gemma 3 1B no-go;
+durable record in ADR-011.)
+
+**Variant, not just publisher.** Gemma 4 **QAT** exports — Google's and
+unsloth's alike — ship a shared-KV tail layer the pinned llama.cpp cannot
+load (`missing tensor 'blk.15.attn_k.weight'`), so a `-qat-` repo is never
+a drop-in swap for its non-QAT sibling. Descriptor-side procedure:
+`docs/models/onboarding.md`; measurement + retry gating:
+`docs/models/eval-log.md` §2026-08-08 (#1415).
 
 When pinning a new descriptor, the HF resolve-URL headers
 `X-Linked-Size` / `X-Linked-ETag` give authoritative `fileSize` /
