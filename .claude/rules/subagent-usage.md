@@ -80,6 +80,26 @@ short, and needs nothing. In Pastura the check is arithmetic rather than
 a prose judgement: `code-reviewer`'s summary emits per-severity counts
 (`- **Critical**: N issues`) to compare the body against.
 
+**A second failure shape: no verdict at all.** The paragraph above says a
+missing summary is *not* what exhaustion looks like, because agents emit the
+verdict first. Observed counter-example (#1410, 13 `code-reviewer` runs): four
+returned **only their opening sentence** — "I'll start with the mandatory scope
+check." — with no verdict, no findings, and no `SCOPE_TOO_LARGE`. The
+count-mismatch detector cannot see this: there is no summary to compare a body
+against.
+
+The four shared a broad **multi-axis verification workload** (a prompt asking
+the agent to execute many independent claims), not a large diff — two of them
+covered under 120 changed lines. **Do not read a tool-call ceiling into it**:
+all four stopped at exactly 30 tool calls, but a *successful* run in the same
+batch used 36, so the count alone explains nothing and the mechanism is
+unestablished.
+
+**Apply**: treat an opening-line-only return as "re-run narrower", not as a
+finding about the code, and cut the number of things the prompt asks the agent
+to *verify* rather than the number of files. Asking for the verdict in the
+first message is cheap insurance and is what the surviving runs did.
+
 **Blind spot**: a summary claiming nothing cannot mismatch, so a
 zero-issue report truncated right after it reads as consistent. Closing
 that needs a structural check against a pinned Output Format — see

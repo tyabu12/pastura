@@ -672,6 +672,17 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
     the file-level checks (pairing, file hashes) the extractor cannot run.
 
+    **This dispatch list is mirrored in prose, and nothing checks the mirrors.**
+    Adding a check here means sweeping them in the same PR:
+    `docs/decisions/ADR-029.md` Decision 2 ("re-derives, per highlight: …") and
+    `docs/gallery/README.md` § "What enforces this contract" gate 1 both claim
+    to be complete lists of what the gate re-derives; the extractor's own
+    docstring § "Hard-fails" is a *partial* sibling (fail-fast convenience, not
+    the enforcement point) and needs updating only when the new check has an
+    extraction-time counterpart. #1410 landed a check while leaving both
+    complete-lists stale, then **narrowed** one while trying to complete it —
+    spelling out a vague category excluded a member the vagueness had covered.
+
     `personas` is ``_read_persona_names``'s `(names, reason)` pair;
     `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both
     are required parameters, not optional ones: a default would let a caller
