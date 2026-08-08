@@ -13,7 +13,7 @@ durable, version-controlled one:
 |---|---|---|
 | `data/models/eval-digest.md` | Raw per-cell scorecard (every axis + tok/s), **script-regenerated** by `/model-eval` | Gitignored, **per-machine** — re-sampling rewrites it |
 | GitHub issue #979 | Rolling **intake queue** — triage, candidate proposals | Comment thread, buries over time |
-| **This file** | The **verdict** (pass/fail + rationale + differentiation) | Committed, PR-reviewed |
+| **This file** | The **verdict** (`pass` / `borderline` / `fail` / `blocked` + rationale + differentiation) | Committed, PR-reviewed |
 
 **Anti-drift rule — entries carry judgment only.** An entry records the verdict,
 date, model id/quant, one-line differentiation, rationale, and an aggregate
@@ -21,6 +21,32 @@ point-in-time snapshot — then **points to `data/models/eval-digest.md` for the
 raw per-cell scores**. Do NOT copy the per-cell score matrix here: it is the
 volatile, script-owned content of the gitignored digest, and a hand-copied
 mirror goes stale the moment a cell is re-sampled.
+
+### `BLOCKED` entries
+
+`BLOCKED` is a **verdict of its own**, not a flavour of `FAIL`: the candidate
+could not be *evaluated*, so it was never rejected and the outcome is
+retry-gated. Vocabulary and admissibility are canonical in
+`.claude/skills/model-eval/SKILL.md` § "Step 4 — Verdict"; the flow position is
+in [`onboarding.md`](onboarding.md). A `BLOCKED` entry here additionally carries:
+
+- **Unblocked by** — the named condition that would allow a retry.
+- **Retry** — where the retry is tracked. The blocker's own issue is acceptable.
+
+**The differentiation field maps across two artifacts, and only one of them is
+validated.** `/model-eval` writes the gitignored digest, where `append_eval.py`
+*enforces* the rule; this ledger is hand-authored and validated by nothing, so
+the mapping is a convention you apply:
+
+| Cells completed | digest JSON (`append_eval.py`, enforced) | this ledger (convention) |
+|---|---|---|
+| none `ok` | `differentiation` **absent** | `**Differentiation**: **UNASSESSABLE**` + why |
+| ≥1 `ok` | `differentiation` **required**, scoped to the completed cells | the same text, stated as partial |
+
+The anti-drift rule above still wants a one-line differentiation in *every*
+entry — `UNASSESSABLE` is how a total block satisfies it without fabricating a
+judgment from zero inferences. `render_section` emits that line for you when the
+gate is `blocked`, so it survives the digest → ledger transcription.
 
 **Scope vs. ADR-011.** The [ADR-011](../decisions/ADR-011.md) § "Alternatives
 considered" Candidate A–F table is the committed home for the **6 GB-tier /
@@ -33,7 +59,7 @@ everything else here.
 
 ---
 
-## Gemma 4 E2B QAT Q4_0 (`google/gemma-4-E2B-it-qat-q4_0-gguf`) — 2026-08-08 — **FAIL (BLOCKED — runtime compatibility, not a quality rejection)**
+## Gemma 4 E2B QAT Q4_0 (`google/gemma-4-E2B-it-qat-q4_0-gguf`) — 2026-08-08 — **BLOCKED (runtime compatibility — not evaluated, therefore not rejected)**
 
 - **Gate**: 1 (Mac filter, `/model-eval`) — **blocked at model load, never
   reached inference.** All 6 battery cells failed in ~0.9 s each, 2 attempts
@@ -68,6 +94,9 @@ everything else here.
   **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
   b8694 loads only the incumbent — a bump is therefore sufficient *and* the
   wrapper release exists.
+- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support
+  (`mattt/llama.swift` bumped past b8694).
+- **Retry**: #1416 (Gate 1 retry), gated on #1415 (the pin spike).
 - **Disposition**: **not rejected.** Retry is gated on a llama.cpp pin carrying
   shared-KV tail-layer support → #1415 (spike) then #1416 (Gate 1 retry).
   Pre-cleared for that retry, so it need not be re-derived: ADR-011 **P1**
@@ -91,6 +120,15 @@ everything else here.
 - **Gate**: 1 (Mac filter, `/model-eval`) — re-eval after the #751 empty-output
   blocker was fixed (PR #1024); the original 2026-07-08 run was blocked, not
   cleanly quality-rejected.
+  - *Grandfathered (#1419).* That 2026-07-08 run predates the `BLOCKED` verdict
+    and has **no entry of its own** — it exists only as this clause. It is left
+    that way deliberately: there is no heading to retitle, and back-dating an
+    entry would add review surface without adding information, since the retry
+    it was waiting for already landed and is recorded right here. It is also the
+    reason the taxonomy admits a **partial** block: 3 of its 6 cells completed
+    (`ok`), so a "zero `ok` cells" precondition would have made this very shape
+    unrecordable. Unblocked by / Retry, reconstructed: the #751 empty-output
+    path being fixed → PR #1024.
 - **Model**: `mmnga/sarashina2.2-3b-instruct-v0.1-gguf` · `Q4_K_M` · MIT,
   non-gated · ~2.07 GB · Stage-0 profile #1016 (`sarashina-2-2-3b-q4-k-m`).
 - **Differentiation**: genuine **native-Japanese creative/humor** — the ja

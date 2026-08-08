@@ -186,8 +186,8 @@ character earns no slot even with decent scores.
 
 ## Step 4 — Verdict (asymmetric, variance-aware)
 
-Gate ∈ `pass` | `borderline` | `fail`. **Mechanical prerequisites for
-`pass`** (all required): all 6 cells `ok` AND `language_mismatch_total == 0`
+Gate ∈ `pass` | `borderline` | `fail` | `blocked`. **Mechanical prerequisites
+for `pass`** (all required): all 6 cells `ok` AND `language_mismatch_total == 0`
 AND no `crashed` cell. Beyond the mechanical floor, weigh the rubric totals and
 `differentiation` against the eval-digest history / incumbent baseline — do NOT
 pin numeric tok/s or rubric-total thresholds (mechanism-contract style; the
@@ -200,6 +200,38 @@ comparison).
   Single-run-per-cell means one unlucky sample must not discard a candidate;
   the reject bar is asymmetric — cheap to re-sample, expensive to wrongly
   discard. Re-run into the same `<family>_<lang>.jsonl` path and re-judge.
+- **BLOCKED** — the candidate could not be *evaluated*, so there is nothing to
+  reject. Non-terminal by definition: it is retry-gated, not an endpoint.
+
+### `blocked` — admissibility and its two enforcement layers
+
+`fail` says "measured, and it isn't good enough"; `blocked` says "not measured".
+Choosing between them is an **attribution** judgment — did the non-`ok` cells
+fail because of the candidate, or because of the environment? — and that is NOT
+derivable from cell statuses, so most of it cannot be mechanised.
+
+**Admissibility (prose — nothing executes this; it is your call):** `blocked` is
+admissible only when **every non-`ok` cell shares one scenario-independent
+failure cause** — a model-load error, a runtime/toolchain incompatibility, a
+known infra path — rather than a per-scenario quality breakdown. If cells fail
+for scenario-shaped reasons, that is `fail` or `borderline`. Do not reach for
+`blocked` to soften a genuine quality reject; the whole value of the token is
+that a future reader can trust it means "unmeasured".
+
+**Structure (enforced by `append_eval.py`; it exits 1 otherwise):**
+
+| Rule | Why |
+|---|---|
+| `verdict.unblocked_by` required, non-empty | A blocked entry without a named unblock condition is a `fail` with softer wording |
+| `verdict.retry` required, non-empty | The retry pointer is what makes it non-terminal. The blocker's own issue number is acceptable — a dedicated retry issue need not exist yet |
+| at least one non-`ok` cell | A run where every cell completed was not blocked |
+| **no** `differentiation` when zero cells are `ok` | Zero inferences means zero evidence; a value here would be fabricated |
+| `differentiation` **required** when ≥1 cell is `ok` | A partial block still measured something — record what the completed cells showed, scoped to them |
+
+Note the last two: a blocked run is **not** necessarily a total block.
+Sarashina 2.2 3B on 2026-07-08 had 3 of 6 cells complete and is recorded as
+blocked; a "zero `ok` cells" precondition would have made that shape
+unrecordable. See `docs/models/eval-log.md`.
 
 ## Step 5 — Append the scorecard
 
@@ -208,8 +240,10 @@ comparison).
    `battery[]` per cell with `scenario_id`, `language`, `status`, `attempts`,
    `language_mismatches`, `tok_per_sec`, `rubric` (the 5 axes + `payoff_axis`,
    or `null` for failed/config_error cells), `comment`; `differentiation`;
-   `verdict` `{gate, notes}`). Write it to a temp file (`mktemp` or the
-   session scratchpad — not inside the repo).
+   `verdict` `{gate, notes}` — plus `{unblocked_by, retry}` when the gate is
+   `blocked`, and see Step 4 for when `differentiation` must be omitted).
+   Write it to a temp file (`mktemp` or the session scratchpad — not inside
+   the repo).
 2. ```bash
    python3 .claude/skills/model-eval/scripts/append_eval.py \
      --results <tmp>/results.json \
@@ -229,10 +263,13 @@ Compact final report to the user:
   5 axis scores + total (failed cells show `–`).
 - **Aggregate metrics** (Step 2): `runs_ok` / `runs_failed`,
   `language_mismatch_total`, `attempts_mean`, `tok_per_sec_overall`.
-- **Differentiation**: the one-paragraph slot-earning judgment.
-- **Gate** (`pass` / `borderline` / `fail`) with the explicit line that a
-  **pass only advances the candidate to the ADR-011 real-device GBNF PoC** — it
-  is not an adoption.
+- **Differentiation**: the one-paragraph slot-earning judgment. For a `blocked`
+  run with zero `ok` cells, report it as **UNASSESSABLE** and say why — do not
+  improvise a judgment from zero inferences.
+- **Gate** (`pass` / `borderline` / `fail` / `blocked`) with the explicit line
+  that a **pass only advances the candidate to the ADR-011 real-device GBNF
+  PoC** — it is not an adoption. For `blocked`, state the unblock condition and
+  the retry pointer, and say plainly that the candidate was **not rejected**.
 - Artifact locations (`data/models/eval-runs/<DATE>/`, the appended
   `eval-digest.md` section) — a gitignored local log, not committed or pushed.
 
