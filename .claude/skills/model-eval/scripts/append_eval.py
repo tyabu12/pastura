@@ -41,8 +41,18 @@ Results JSON schema (composed by the /model-eval session):
     }
   ],
   "differentiation": "free text: how this model's outputs differ from others",
-  "verdict": {"gate": "pass|borderline|fail", "notes": "..."}
+                     // REQUIRED when gate is "blocked" and >=1 cell is ok;
+                     // FORBIDDEN when gate is "blocked" and no cell is ok
+                     // (zero inferences = zero evidence)
+  "verdict": {"gate": "pass|borderline|fail|blocked", "notes": "...",
+              // the two below are REQUIRED when gate is "blocked":
+              "unblocked_by": "the condition that would allow a retry",
+              "retry": "issue pointer, e.g. #1416 (the blocker's own issue is ok)"}
 }
+
+`blocked` = "could not be evaluated, retry when the blocker clears" — non-
+terminal, and distinct from a quality `fail`. See `validate_blocked` for which
+of its rules are enforced here and which stay in SKILL.md prose (#1419).
 """
 
 import argparse
@@ -117,9 +127,66 @@ def validate_results(results):
 
     verdict = results.get("verdict")
     if not isinstance(verdict, dict) or verdict.get("gate") not in (
-        "pass", "borderline", "fail",
+        "pass", "borderline", "fail", "blocked",
     ):
-        return "results.verdict.gate must be one of pass|borderline|fail"
+        return "results.verdict.gate must be one of pass|borderline|fail|blocked"
+
+    if verdict.get("gate") == "blocked":
+        err = validate_blocked(results, verdict, battery)
+        if err:
+            return err
+
+    return None
+
+
+def validate_blocked(results, verdict, battery):
+    """Structural rules for the `blocked` disposition (#1419).
+
+    `blocked` means "could not be evaluated, retry when the blocker clears" —
+    a non-terminal state, distinct from a quality `fail`. What separates the
+    two is ATTRIBUTION (an environmental blocker vs. the candidate's own
+    quality), which is a judgment and is NOT derivable from `battery[].status`.
+    The admissibility criterion therefore lives in SKILL.md prose; only its
+    structural consequences are enforced here.
+
+    Deliberately NOT a rule: "zero ok cells". Sarashina 2.2 3B on 2026-07-08 —
+    one of the two runs that motivated this disposition — had 3 of 6 cells
+    complete, and is recorded as blocked rather than cleanly rejected. A
+    zero-ok precondition would make that shape unrecordable and re-create the
+    defect this disposition exists to fix.
+    """
+    if not str(verdict.get("unblocked_by") or "").strip():
+        return (
+            "results.verdict.unblocked_by is required when gate is 'blocked' "
+            "— name the condition that would allow a retry"
+        )
+    if not str(verdict.get("retry") or "").strip():
+        return (
+            "results.verdict.retry is required when gate is 'blocked' "
+            "— an issue pointer; the blocker's own issue number is acceptable"
+        )
+
+    ok_cells = [e for e in battery if e.get("status") == "ok"]
+    if len(ok_cells) == len(battery):
+        return (
+            "gate 'blocked' requires at least one non-ok battery cell "
+            "— a run where every cell completed was not blocked"
+        )
+
+    # Zero inferences means zero evidence, so a differentiation judgment there
+    # would be fabricated. A partial block DID measure something, so discarding
+    # that judgment would lose real evidence — hence required, not forbidden.
+    has_differentiation = bool(str(results.get("differentiation") or "").strip())
+    if not ok_cells and has_differentiation:
+        return (
+            "results.differentiation must be absent when gate is 'blocked' and "
+            "no cell is ok — zero inferences means the judgment is unassessable"
+        )
+    if ok_cells and not has_differentiation:
+        return (
+            "results.differentiation is required when gate is 'blocked' and at "
+            "least one cell is ok — record what the completed cells did show"
+        )
 
     return None
 
@@ -204,10 +271,20 @@ def render_section(results):
         lines.append("| " + " | ".join(row) + " |")
 
     lines.append("")
+    verdict = results.get("verdict") or {}
     if results.get("differentiation"):
         lines += [f"Differentiation: {results['differentiation']}", ""]
-    verdict = results.get("verdict") or {}
+    elif verdict.get("gate") == "blocked":
+        # The ledger's anti-drift rule requires a one-line differentiation in
+        # EVERY entry, and this section is what an operator transcribes into it.
+        # Emit the sanctioned placeholder rather than nothing, so the required
+        # line is carried by construction rather than by operator memory.
+        lines += ["Differentiation: UNASSESSABLE (blocked — no cell completed)", ""]
     lines.append(f"**Gate**: {verdict.get('gate', '?')}")
+    if verdict.get("unblocked_by"):
+        lines.append(f"Unblocked by: {verdict['unblocked_by']}")
+    if verdict.get("retry"):
+        lines.append(f"Retry: {verdict['retry']}")
     if verdict.get("notes"):
         lines.append(f"Notes: {verdict['notes']}")
     lines.append("")

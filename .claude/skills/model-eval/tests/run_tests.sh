@@ -110,7 +110,52 @@ python3 "$SCRIPTS/append_eval.py" \
 RC=$?
 set -e
 [ "$RC" -eq 1 ] || fail "append: invalid verdict.gate fixture should exit 1, got $RC"
-grep -q "gate" "$TMP/invalid_err" || fail "append: invalid-gate error message missing"
+# Message-keyed, not a bare `grep -q gate`: since `blocked` landed there are
+# several distinct errors whose text contains "gate", so a substring match
+# would let this arm pass on another guard's failure (#1419).
+grep -qF "must be one of pass|borderline|fail|blocked" "$TMP/invalid_err" \
+  || fail "append: invalid-gate arm reddened for the wrong reason: $(cat "$TMP/invalid_err")"
+
+# --- `blocked` disposition guards (#1419) ---------------------------------
+# One arm per guard. Each fixture is keyed so ONLY its target guard can redden
+# it, and each arm asserts WHICH message fired — the guards share an exit code,
+# so an exit-status-only arm would pass on a sibling guard's failure.
+assert_blocked_reject() {
+  fixture="$1"
+  expected="$2"
+  errfile="$TMP/err_$fixture"
+  set +e
+  python3 "$SCRIPTS/append_eval.py" \
+    --results "fixtures/$fixture" --journal "$JOURNAL" >/dev/null 2>"$errfile"
+  rc=$?
+  set -e
+  [ "$rc" -eq 1 ] || fail "append: $fixture should exit 1, got $rc"
+  grep -qF "$expected" "$errfile" \
+    || fail "append: $fixture reddened for the wrong reason — expected '$expected', got: $(cat "$errfile")"
+}
+
+assert_blocked_reject results_blocked_no_unblocked_by.json \
+  "verdict.unblocked_by is required when gate is 'blocked'"
+assert_blocked_reject results_blocked_no_retry.json \
+  "verdict.retry is required when gate is 'blocked'"
+assert_blocked_reject results_blocked_all_ok.json \
+  "gate 'blocked' requires at least one non-ok battery cell"
+assert_blocked_reject results_blocked_total_with_differentiation.json \
+  "differentiation must be absent when gate is 'blocked' and no cell is ok"
+assert_blocked_reject results_blocked_partial_no_differentiation.json \
+  "differentiation is required when gate is 'blocked' and at least one cell is ok"
+
+# Positive control: a well-formed total block appends, and the rendered section
+# carries the fields a human transcribes into docs/models/eval-log.md.
+python3 "$SCRIPTS/append_eval.py" \
+  --results fixtures/results_blocked_valid.json --journal "$JOURNAL" >/dev/null \
+  || fail "append: valid blocked fixture should succeed"
+grep -qF "**Gate**: blocked" "$JOURNAL" || fail "append: blocked gate not rendered"
+grep -qF "Unblocked by: pinned llama.cpp" "$JOURNAL" \
+  || fail "append: blocked section missing the Unblocked by line"
+grep -qF "Retry: #1416" "$JOURNAL" || fail "append: blocked section missing the Retry line"
+grep -qF "Differentiation: UNASSESSABLE" "$JOURNAL" \
+  || fail "append: blocked section must state differentiation is unassessable"
 
 # --- run_scenario.sh --profile canary (PASTURA_HARNESS_BIN test seam) ------
 FAKE_BIN="$TMP/fake_harness.sh"
