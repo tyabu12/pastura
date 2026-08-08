@@ -347,6 +347,13 @@ via an `/orchestrate` PR either way:
   blocklist gate — curate by the judge scores yourself (hold back
   low-coherence / low-humor runs). Full bridge: `docs/gallery/README.md`
   § "Promoting from the scenario factory".
+  - **Then consider a highlight** (ADR-029). A promoted scenario whose judge
+    scores were strong is exactly the supply a highlight needs, and the
+    promotion PR is when its transcript is still on disk. Separate human step
+    with its own sign-off — never bundled into an unattended run. Procedure and
+    the fitness call (utterance-driven scenarios excerpt well, `assign`-driven
+    ones cannot): `docs/gallery/README.md` § Highlights. `/scenario-refine`
+    Step 3.5 surfaces candidates for entries already in the gallery.
 
 ## Lessons promotion
 

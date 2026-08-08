@@ -38,6 +38,9 @@ Actually changing a shipped scenario is a SEPARATE, human-driven step (see
 - **No direct inventory edits.** See the safety boundary above.
 - **No promotion / swap automation.** The journal is a judging log. Promoting
   or retiring a scenario is a human-reviewed `/orchestrate` PR (§ Promotion).
+- **No highlight publishing.** Step 3.5 proposes candidate excerpt lines and
+  stops there — it never runs the extractor and never writes under
+  `docs/gallery/`. ADR-029 makes excerpt selection a human judgement.
 - **No content-safety screening.** The judge scores quality only. Safety is
   enforced by the blocklist pre-commit gate at preset-promotion time and by
   hand-curation for the gallery (same as factory).
@@ -180,6 +183,54 @@ axis are skipped as Δ baselines (the appender emits a single aggregated
 `missing score axes` notice), so the FIRST re-evaluation of each scenario after
 this change shows `Δ –` — a one-time reset, by design.
 
+## Step 3.5 — Propose highlight candidates (gallery only, PROPOSE-ONLY)
+
+A gallery scenario that just scored well has already paid the run cost, and its
+transcript is sitting in `audit-runs/<DATE>/`. Highlights (ADR-029) are curated
+excerpts of exactly such a run, and the supply bottleneck is a human reading
+transcripts — so surface the candidate lines while they are in hand rather than
+re-running later.
+
+**This step proposes; it never publishes.** Write nothing outside
+`data/factory/`, do NOT run `scripts/gallery_highlight_extract.py`, do NOT
+touch `docs/gallery/` (the safety boundary already forbids it), and make no
+commit. The output is prose in the Step 6 report. ADR-029 makes excerpt
+selection a human judgement, so a candidate list is the most this cycle may
+produce.
+
+**Which scenarios qualify** — all four, this cycle:
+
+- `channel == gallery` (a preset has no landing page to render a highlight on),
+- its `gallery.json` entry has no `highlight_url`:
+
+  ```bash
+  jq -r '.scenarios[] | select(has("highlight_url") | not) | .id' docs/gallery/gallery.json
+  ```
+
+- its id does not end in `_en` — ADR-029 §7 makes en a separately-generated
+  batch, since ja transcript quality does not transfer,
+- it scored `total ≥ 20` (max 25) with `payoff ≥ 4` and `breakdown_free ≥ 4`.
+  A publishable excerpt needs a quotable line and no format breaks; the other
+  axes matter less because an excerpt is a few lines, not a whole run.
+
+**Cap at 2 scenarios per cycle.** If more qualify, take the highest `payoff`
+and name the ones skipped — a silent truncation reads as "nothing else
+qualified".
+
+**Which lines are eligible** (ADR-029 Decision 3 — the gate re-derives all of
+this, so a proposal that ignores it wastes the curator's time): `agent_output`
+events whose `phase_type` is `speak_all` / `speak_each`, `statement` field
+only, `round` within 1..⌈rounds/2⌉, with no outcome-class phase
+(`vote` / `eliminate` / `score_calc` / `choose` / `summarize`) earlier in that
+same round. Draw only from the **final** attempt: a retried run appends
+attempt 2 to the same JSONL and restarts round numbering.
+
+For each qualifying scenario, report 4-8 candidate lines with speaker and
+round, plus one sentence on why the scenario suits excerpting at all — the
+fitness call in `docs/gallery/README.md` § Highlights is the biggest factor,
+and a scenario whose interest lives in its `assign` values cannot be excerpted
+however well it scored. Say so instead of listing lines when that applies.
+
 ## Step 4 — Improve (A/B), bounded
 
 For low scorers, generate ONE v2 candidate and A/B-test it. A scenario is an
@@ -262,7 +313,9 @@ only — refine never edits `PLAYBOOK.md`; promotion is the factory SKILL's
 
 Summarize for the user: per-scenario status + scores, **regressions (`⚠️`)
 called out first**, A/B candidate wins (`vs base +N ✅`) with where the YAML
-lives, failures with one-line causes, and where the artifacts are
+lives, any highlight candidates from Step 3.5 (with the transcript path, so the
+curator can read around the proposed lines), failures with one-line causes, and
+where the artifacts are
 (`audit-runs/<DATE>/`, `improvements/<DATE>/`, the appended journal section,
 the `lessons-inbox.md` entries if any were proposed in Step 5.5). The journal
 is a gitignored local log — not committed or pushed. Only *promoting* a
