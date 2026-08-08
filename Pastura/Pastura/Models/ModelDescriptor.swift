@@ -46,8 +46,14 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// Lowercase hex SHA-256 digest for integrity verification after download.
   public let sha256: String
 
-  /// Generation stop sentinel appended by the model's tokenizer
-  /// (e.g., `"<|im_end|>"` for Gemma/Llama chat format).
+  /// Plaintext stop sentinel — the literal text that ends generation early when
+  /// the model writes it out as ordinary text (a hallucinated turn boundary).
+  ///
+  /// NOT the tokenizer's end-of-turn token: a genuine control token decodes to
+  /// `""` and the turn terminates on EOG before this is ever consulted. So the
+  /// value only ever matters for models whose chat markers a hallucination is
+  /// likely to spell out. `"<|im_end|>"` for ChatML models such as Qwen 3;
+  /// inert for Gemma 4, whose markers are `<|turn>` / `<turn|>` (see #1417).
   public let stopSequence: String
 
   /// Minimum physical RAM required to load and run the model (bytes).
