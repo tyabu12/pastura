@@ -124,6 +124,16 @@ HOOK_PERSONA='{"kind":"persona","fragment":"  - name: アヤ\n    description: �
 mk_highlight() {
   local d="$1" id="$2" excerpt="$3" wo="${4:-false}" teaser="${5:-最後の一言は、まだ言われていない。}"
   local hook="${6:-$HOOK_RAW}"
+  # Linux caps a single exec argument at 128 KiB (`MAX_ARG_STRLEN`); macOS does
+  # not, and this suite runs in CI on ubuntu only. So an oversized fixture
+  # passes every local run and fails the job with a bare
+  # `jq: Argument list too long` naming this line but not the cause. Asserting
+  # it here is what lets a local run see the CI-only failure at all.
+  if [ "${#hook}" -gt 65536 ]; then
+    bad "mk_highlight fixture for $id is ${#hook} bytes; keep it under 64 KiB \
+(Linux MAX_ARG_STRLEN is 128 KiB per argument). Use flow style for deep nesting."
+    return 0
+  fi
   local ysha
   ysha="$(sha "$d/docs/gallery/$id.yaml")"
   jq -n --arg id "$id" --arg ysha "$ysha" --argjson excerpt "$excerpt" \
@@ -412,10 +422,16 @@ expect_out "highlight: yaml_hook secret" "H18g names the secret check"
 # H18h — nesting deep enough to exhaust Python's recursion limit inside
 # PyYAML's own parser. `RecursionError` is not a `YAMLError`, so before this it
 # escaped as a traceback rather than a failure line, breaking the module's
-# one-line-per-problem contract. The fragment is built here rather than inlined
-# because it is ~600 lines.
+# one-line-per-problem contract.
+#
+# **Flow style, not block indentation.** Both reach the same depth, but block
+# indentation grows quadratically — 600 levels is ~183 KB, which passes as a jq
+# argument on macOS and dies on Linux with `Argument list too long`
+# (`MAX_ARG_STRLEN`, 128 KiB per argument). This suite is CI-only and CI is
+# ubuntu, so the local run cannot see that. Flow nesting is 1.2 KB for the same
+# 600 levels.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
-DEEP="$(python3 -c "print(''.join(' '*i + 'k%d:\\\\n' % i for i in range(600)), end='')")"
+DEEP="$(python3 -c "print('[' * 600 + ']' * 600, end='')")"
 mk_highlight "$R" demo_v1 "$EX_OK" false "最後の一言は、まだ言われていない。" \
   "$(printf '{"kind":"persona","fragment":"%s","caption":"cap"}' "$DEEP")"
 link_highlight "$R" demo_v1
