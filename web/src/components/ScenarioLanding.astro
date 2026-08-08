@@ -67,24 +67,25 @@ const highlight = loadHighlight(scenario.id);
 // The four avatar colour slots, in the order of `SheepAvatar.Character.allCases`
 // (Pastura/Pastura/Views/Components/SheepAvatar.swift). The app resolves an
 // agent's slot as `allCases[agentPosition % 4]`, where `agentPosition` is the
-// agent's index in the scenario's persona list. A highlight file carries no
-// persona index, so the order of first appearance in the excerpt stands in for
-// it. Measured on all four shipped highlights (chin_jimaku_v1,
-// asch_conformity_v1, chinkaitou_soudan_v1, iiwake_battle_v1):
-// the two orders are identical, so a reader sees the same colours here as in
-// the app. That includes asch_conformity_v1's collision, where five agents
-// share four slots and 被験者ナオキ lands on サクラA's. The app collides the
+// agent's index in the scenario's persona list, and `excerpt[].persona_index`
+// carries exactly that index. So a reader sees the same colours here as in the
+// app for any excerpt, and the repo-side gate cross-checks each index against
+// the sibling YAML. Before that field existed this stood the speaker's
+// first-appearance rank within the excerpt in for it, which matched the run only
+// when the excerpt's speakers formed a prefix of `personas:`.
+//
+// With five or more speakers two of them share a slot — asch_conformity_v1 is
+// the live case, where 被験者ナオキ lands on サクラA's. The app collides the
 // same way, so reproducing it is fidelity rather than a defect to route around.
+// The double modulo mirrors the Swift guard for a negative index.
 const SHEEP_TONES = ['alice', 'bob', 'carol', 'dave'] as const;
 
 const excerpt = highlight?.excerpt ?? [];
 
-const agentSlots = new Map<string, number>();
-for (const line of excerpt) {
-  if (!agentSlots.has(line.agent)) agentSlots.set(line.agent, agentSlots.size);
-}
-const toneFor = (agent: string) =>
-  SHEEP_TONES[(agentSlots.get(agent) ?? 0) % SHEEP_TONES.length];
+const toneFor = (personaIndex: number) =>
+  SHEEP_TONES[
+    ((personaIndex % SHEEP_TONES.length) + SHEEP_TONES.length) % SHEEP_TONES.length
+  ];
 
 // The panel head names the phase only when every line shares one, mirroring
 // GameHeader's meta row, where each fragment renders or collapses on its own.
@@ -231,7 +232,7 @@ const headLabel = highlight
                       <div class="round-divider" lang={locale}>{t.roundLabel(line.round, scenario.rounds)}</div>
                     )}
                     <div class="bubble-row">
-                      <SheepAvatar tone={toneFor(line.agent)} />
+                      <SheepAvatar tone={toneFor(line.persona_index)} />
                       <div class="bubble-stack">
                         <div class="bubble-name">{line.agent}</div>
                         <div class="bubble"><blockquote>{line.text}</blockquote></div>

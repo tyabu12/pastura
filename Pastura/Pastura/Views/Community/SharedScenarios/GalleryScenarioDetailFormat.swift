@@ -88,16 +88,20 @@ enum GalleryScenarioDetailFormat {
 
   /// Resolves a curated excerpt into render-ready rows.
   ///
-  /// **Avatar slots follow order of first appearance.** The app assigns a
-  /// speaker's colour from their index in the scenario's persona list
+  /// **Avatar slots come from the file's pinned persona index.** The app assigns
+  /// a speaker's colour from their index in the scenario's persona list
   /// (``SheepAvatar/Character/forAgent(_:position:)`` → `allCases[position % 4]`),
-  /// but a highlight file carries no persona index — it is an excerpt, not a
-  /// scenario. First appearance within the excerpt stands in for it. Measured on
-  /// all four shipped highlights, the two orders agree, so a reader sees the same
-  /// colours here as in a real run; `web/src/components/ScenarioLanding.astro`
-  /// resolves the landing pages the same way for the same reason. With five or
-  /// more speakers the fourth and fifth collide — the app collides identically,
-  /// so reproducing it is fidelity rather than a defect to route around.
+  /// and ``GalleryHighlightExcerptEntry/personaIndex`` carries exactly that
+  /// index, so a reader sees the same colours here as in a real run for **any**
+  /// excerpt. The repo-side gate cross-checks the index against the sibling YAML;
+  /// `web/src/components/ScenarioLanding.astro` reads the same field for the
+  /// landing pages. Before that field existed both surfaces stood the speaker's
+  /// first-appearance rank *within the excerpt* in for it, which agreed with the
+  /// run only when the excerpt's speakers formed a prefix of `personas:`.
+  ///
+  /// With five or more speakers the fourth and fifth collide — the app collides
+  /// identically, so reproducing it is fidelity rather than a defect to route
+  /// around.
   ///
   /// **Returns `[]` when any line is unrenderable**, as
   /// ``GalleryHighlightExcerptEntry/renderablePhase`` defines it. That property
@@ -116,21 +120,17 @@ enum GalleryScenarioDetailFormat {
   static func excerptRows(
     _ excerpt: [GalleryHighlightExcerptEntry], totalRounds: Int?
   ) -> [ExcerptRow] {
-    var slots: [String: Int] = [:]
     var rows: [ExcerptRow] = []
 
     for (index, entry) in excerpt.enumerated() {
       guard let renderable = entry.renderablePhase else { return [] }
-
-      let position = slots[entry.agent] ?? slots.count
-      slots[entry.agent] = position
 
       let opensNewRound = index > 0 && entry.round != excerpt[index - 1].round
       rows.append(
         ExcerptRow(
           id: index,
           entry: entry,
-          agentPosition: position,
+          agentPosition: entry.personaIndex,
           phaseType: renderable.type,
           primaryField: renderable.primaryField,
           dividerLabel: opensNewRound

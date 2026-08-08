@@ -26,6 +26,10 @@ export interface HighlightExcerptEntry {
   round: number;
   phase: string;
   phase_index: number;
+  // The speaker's index in the scenario's `personas:` list, which is what a real
+  // run resolves the avatar colour slot from. Carried in the file rather than
+  // inferred here — see the `toneFor` comment in ScenarioLanding.astro.
+  persona_index: number;
   source_field: string;
   text: string;
 }

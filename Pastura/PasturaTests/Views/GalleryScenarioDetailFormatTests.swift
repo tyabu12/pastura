@@ -110,20 +110,37 @@ struct GalleryScenarioDetailFormatTests {
 
   // MARK: - Highlight excerpt rows
 
+  /// The persona list every `entry(...)` below is drawn from. `personaIndex` is
+  /// derived from it so a fixture matches what the repo-side gate requires of a
+  /// real highlight — two agents sharing index 0 could not exist in the repo.
+  /// The `?? 0` fallback only reaches an agent outside this cast, which no case
+  /// uses; the tests that read the index all name a cast member.
+  private static let cast = ["A", "B", "C", "D", "E"]
+
   private func entry(
     agent: String, round: Int = 1, phase: String = "speak_each"
   ) -> GalleryHighlightExcerptEntry {
     GalleryHighlightExcerptEntry(
       agent: agent, round: round, phase: phase, phaseIndex: 0,
+      personaIndex: Self.cast.firstIndex(of: agent) ?? 0,
       sourceField: "statement", text: "…")
   }
 
-  @Test func avatarSlotsFollowOrderOfFirstAppearance() {
+  @Test func avatarSlotsComeFromThePinnedPersonaIndex() {
+    // C and B only — an excerpt whose speakers are NOT a prefix of the persona
+    // list, which is the case first-appearance ranking got wrong: it would slot
+    // them [0, 1] while a real run colours them [2, 1].
+    let rows = GalleryScenarioDetailFormat.excerptRows(
+      [entry(agent: "C"), entry(agent: "B")], totalRounds: 3)
+
+    #expect(rows.map(\.agentPosition) == [2, 1])
+  }
+
+  @Test func aRepeatSpeakerKeepsItsSlot() {
     let rows = GalleryScenarioDetailFormat.excerptRows(
       [entry(agent: "A"), entry(agent: "B"), entry(agent: "A"), entry(agent: "C")],
       totalRounds: 3)
 
-    // A keeps slot 0 on its second line — the map is keyed by name, not by row.
     #expect(rows.map(\.agentPosition) == [0, 1, 0, 2])
   }
 

@@ -156,6 +156,19 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
   /// the within-round spoiler bound.
   public let phaseIndex: Int
 
+  /// Index of ``agent`` in the scenario's `personas:` list — the value a real
+  /// run resolves the speaker's avatar colour from
+  /// (``SheepAvatar/Character/forAgent(_:position:)`` → `allCases[position % 4]`,
+  /// fed by `SimulationView.personaItem(for:)`).
+  ///
+  /// Carried in the file rather than inferred because an excerpt is not a run:
+  /// the speaker's rank *within the excerpt* equals their persona index only
+  /// when the excerpt's speakers happen to be a prefix of `personas:`. The
+  /// extractor derives it from the sibling YAML and the repo-side gate
+  /// cross-checks it against that same YAML, so a curator may excerpt any lines
+  /// and still get the run's colours.
+  public let personaIndex: Int
+
   /// Which field of the phase's output this excerpt was drawn from
   /// (currently always `"statement"` — the Decision 1 allowlist).
   public let sourceField: String
@@ -168,6 +181,7 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
     round: Int,
     phase: String,
     phaseIndex: Int,
+    personaIndex: Int,
     sourceField: String,
     text: String
   ) {
@@ -175,6 +189,7 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
     self.round = round
     self.phase = phase
     self.phaseIndex = phaseIndex
+    self.personaIndex = personaIndex
     self.sourceField = sourceField
     self.text = text
   }
@@ -184,6 +199,7 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
     case round
     case phase
     case phaseIndex = "phase_index"
+    case personaIndex = "persona_index"
     case sourceField = "source_field"
     case text
   }
