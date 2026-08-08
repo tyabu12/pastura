@@ -402,6 +402,23 @@ fi
 
 # --- Build candidate entry -------------------------------------------------
 
+# ADR-029 highlight fields are derivable from neither the YAML nor any flag of
+# this script, and update mode replaces the entry wholesale — so without this
+# carry-forward, `--update` on a highlighted entry drops `highlight_url` +
+# `highlight_sha256`. The post-validate gate then fails on the orphaned
+# highlight file and restores the backup, so nothing is destroyed, but the error
+# names an orphan and never mentions the dropped fields.
+#
+# Selected by `highlight_` prefix rather than by naming the two keys: the
+# fail-safe direction here is carrying an unrecognised field, not dropping it,
+# and a field added to the contract later would otherwise vanish with no gate
+# able to notice.
+HIGHLIGHT_FIELDS='{}'
+if [ "$MODE" = "update" ]; then
+  HIGHLIGHT_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \
+    | jq -c 'with_entries(select(.key | startswith("highlight_")))')
+fi
+
 NEW_ENTRY=$(jq -n \
   --arg id "$YAML_ID" \
   --arg title "$YAML_NAME" \
@@ -416,6 +433,7 @@ NEW_ENTRY=$(jq -n \
   --arg language "$YAML_LANGUAGE" \
   --arg yaml_url "$YAML_BASENAME" \
   --arg yaml_sha256 "$YAML_SHA" \
+  --argjson highlight "$HIGHLIGHT_FIELDS" \
   --arg added_at "$ADDED_AT" \
   '{
     id: $id,
@@ -430,7 +448,10 @@ NEW_ENTRY=$(jq -n \
     phases: $phases,
     language: $language,
     yaml_url: $yaml_url,
-    yaml_sha256: $yaml_sha256,
+    yaml_sha256: $yaml_sha256
+  }
+  + $highlight
+  + {
     added_at: $added_at
   }')
 

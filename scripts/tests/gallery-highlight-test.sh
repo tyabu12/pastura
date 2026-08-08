@@ -719,6 +719,47 @@ print('gemma-4-e2b-q4-k-m' in ids and 'Gemma 4 E2B (Q4_K_M)' in display)
 "
 expect_eq "True" "H34 the real ModelRegistry.swift parses to ids + displayNames"
 
+# --- add-gallery-entry.sh --update carry-forward --------------------------
+#
+# Lives in this suite rather than gallery-scripts-test.sh because the script's
+# post-validate step runs the gate, which needs the highlight scaffold only this
+# file builds (validator copy, registry + blocklist fixtures, a linked file).
+# Without that scaffold the arm cannot tell the carry-forward from the
+# restore-the-backup path the bug already took: both leave the fields on disk.
+#
+# Measured against the bug (carry-forward disabled): the two value assertions
+# below PASS anyway, because the failed post-validate restores the backup. Only
+# `expect_ok` and the key-order check discriminate — and the failure text is the
+# `highlight: orphan` message, which never mentions a dropped field. Do not trim
+# either of those two on the grounds that the value checks look sufficient.
+
+# H35 — `--update` keeps highlight_url / highlight_sha256.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+cp "$SRC_SCRIPTS/add-gallery-entry.sh" "$R/scripts/"
+# mk_scenario writes only the YAML-derived fields; --update reads the rest from
+# the existing entry, so they must be present for --non-interactive to proceed.
+jq '.scenarios |= map(. + {category: "creative", description: "card",
+      author: "tester", recommended_model: "gemma-4-e2b-q4-k-m",
+      estimated_inferences: 8, added_at: "2026-01-01"})' \
+  "$R/docs/gallery/gallery.json" > "$R/gj.tmp"
+mv "$R/gj.tmp" "$R/docs/gallery/gallery.json"
+mk_highlight "$R" demo_v1 "$EX_OK"; link_highlight "$R" demo_v1
+HSHA_BEFORE="$(jq -r '.scenarios[0].highlight_sha256' "$R/docs/gallery/gallery.json")"
+# A flag override, so the candidate differs and the no-op short-circuit cannot
+# stand in for the carry-forward.
+runc "$R" bash scripts/add-gallery-entry.sh --update demo_v1 --non-interactive \
+  --description "tighter card"
+expect_ok "H35 --update on a highlighted entry exits 0"
+runc "$R" jq -r '.scenarios[0].highlight_sha256' docs/gallery/gallery.json
+expect_eq "$HSHA_BEFORE" "H35 kept highlight_sha256 across --update"
+runc "$R" jq -r '.scenarios[0].highlight_url' docs/gallery/gallery.json
+expect_eq "highlights/demo_v1.json" "H35 kept highlight_url across --update"
+# Key order matters for the diff a curator reads: the fields belong between
+# yaml_sha256 and added_at, which is where a hand-written entry puts them.
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("highlight_url") - index("yaml_sha256")' \
+  docs/gallery/gallery.json
+expect_eq "1" "H35 highlight_url sits directly after yaml_sha256"
+
 # ============================== extractor ================================
 
 # mk_run <repo> <path> — a minimal 4-round transcript. Line numbers:
