@@ -56,8 +56,8 @@ nonisolated public struct JSONResponseParser: Sendable {
   ///
   /// Processing pipeline:
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
-  /// 2. Truncate at ChatML chat-template tokens (`<|im_end|>`; no-op for
-  ///    non-ChatML models such as Gemma 4 — see #1422)
+  /// 2. Truncate at ChatML chat-template tokens (`<|im_end|>`; for a
+  ///    non-ChatML model such as Gemma 4 this matches nothing it emits — #1422)
   /// 3. Extract content from markdown code blocks
   /// 4. Extract the first balanced `{...}` object (string-aware), discarding
   ///    any trailing content after its matching close brace
@@ -297,9 +297,9 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// - Important: the token is hardcoded, so for a non-ChatML model this step
   ///   fires only on a spelled-out `<|im_end|>`. Gemma 4's markers are
   ///   `<|turn>` / `<turn|>` and `<|im_end|>` is not in its vocabulary, so
-  ///   spelled-out is the only form that could arrive — possible, but not seen.
-  ///   What this step does NOT do for Gemma is truncate a Gemma-shaped
-  ///   continuation.
+  ///   spelled-out is the only form that could arrive — and it is not the form
+  ///   a Gemma hallucination would reach for. What this step does NOT do for
+  ///   Gemma is truncate a Gemma-shaped continuation.
   ///
   ///   This type is backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
   ///   Foundation Models output through one instance), so do not assume the

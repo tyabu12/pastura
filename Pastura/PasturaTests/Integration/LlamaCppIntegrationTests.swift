@@ -163,17 +163,18 @@ struct LlamaCppIntegrationTests {
       user: "Introduce yourself briefly."
     )
 
-    // ChatML-shaped leak check — it covers ONE route: the model spelling
-    // `<|im_end|>` out as ordinary text. That is the only route there is; why,
-    // is the canonical note on `LlamaCppService.stopSequence`. This suite runs
-    // against Gemma 4 (see `makeService`), which was never trained on ChatML,
-    // so the route is unlikely for it — but not impossible, and this assertion
-    // is the guard if it happens. What it does NOT cover is a Gemma-shaped
-    // hallucination (`<|turn>` / `<turn|>`), which nothing here truncates —
-    // that gap is #1422. Gemma's normal termination is EOG (`<turn|>`, id 106);
-    // the length bound below is only a runaway proxy for it — it would notice
-    // termination failing, but cannot tell EOG from the #907 caught-grammar
-    // stop, nor either from a naturally short answer.
+    // Leak check. Note what it observes: when the stop path FIRES, the sentinel
+    // is truncated before `generate` returns, so this passes. It therefore
+    // fails only on the opposite event — a spelled-out `<|im_end|>` that the
+    // stop path did NOT catch. (Why only a spelled-out one can appear at all:
+    // the canonical note on `LlamaCppService.stopSequence`.)
+    //
+    // Scope: ChatML-shaped only. A Gemma-shaped hallucination (`<|turn>` /
+    // `<turn|>`) is neither matched nor truncated anywhere — that gap is #1422.
+    // Gemma's normal termination is EOG (`<turn|>`, id 106); the length bound
+    // below is only a runaway proxy for it — it would notice termination
+    // failing, but cannot tell EOG from the #907 caught-grammar stop, nor
+    // either from a naturally short answer.
     #expect(
       !result.contains("<|im_end|>"),
       "Raw output contains <|im_end|> — stop token not working. Output: \(result)"

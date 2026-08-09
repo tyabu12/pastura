@@ -71,11 +71,12 @@ nonisolated extension LLMCaller {
   /// wrap path, Ollama) where the raw string may still contain template
   /// tokens.
   ///
-  /// - Important: ChatML-only. Gemma 4's markers are `<|turn>` / `<turn|>`, so
-  ///   this diagnostic never matches for the default shipped model. Backends
-  ///   that decode server-side — Ollama and Foundation Models, neither of
-  ///   which defines `generateStream` — lack llama.cpp's decode-side
-  ///   guarantee, and are the residual surface here. Making it model-aware is
+  /// - Important: ChatML-only, so for Gemma 4 (markers `<|turn>` / `<turn|>`)
+  ///   it can match only a spelled-out ChatML token. Note the `<|im_start|>`
+  ///   branch stays reachable even under llama.cpp: the streaming path strips
+  ///   `stopSequence`, which is `<|im_end|>` alone, so a spelled-out
+  ///   `<|im_start|>` survives — that is what the #65 TODO on
+  ///   `LlamaCppService.stopSequence` is about. Making this model-aware is
   ///   tracked in #1422.
   func logChatTemplateLeakage(in raw: String) {
     if raw.contains("<|im_start|>") {

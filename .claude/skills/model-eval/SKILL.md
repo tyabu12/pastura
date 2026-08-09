@@ -210,13 +210,35 @@ Choosing between them is an **attribution** judgment — did the non-`ok` cells
 fail because of the candidate, or because of the environment? — and that is NOT
 derivable from cell statuses, so most of it cannot be mechanised.
 
-**Admissibility (prose — nothing executes this; it is your call):** `blocked` is
-admissible only when **every non-`ok` cell shares one scenario-independent
-failure cause** — a model-load error, a runtime/toolchain incompatibility, a
-known infra path — rather than a per-scenario quality breakdown. If cells fail
-for scenario-shaped reasons, that is `fail` or `borderline`. Do not reach for
-`blocked` to soften a genuine quality reject; the whole value of the token is
-that a future reader can trust it means "unmeasured".
+**Admissibility (prose — no code executes this; it is your call):** `blocked` is
+admissible only when **every non-`ok` cell shares one failure CAUSE that is
+independent of scenario content** — a model-load error, a runtime/toolchain
+incompatibility, a known infra path — rather than a per-scenario quality
+breakdown.
+
+**Cause, not incidence.** A scenario-independent cause can still have
+scenario-*correlated* incidence, and mistaking the two would exclude the very
+run this disposition was built for. Sarashina 2.2 3B on 2026-07-08 failed only
+the longer, reflect-heavy cells while short ones completed — which looks
+scenario-shaped — but the cause was the #751 empty-output retry-budget path,
+and fixing that one upstream defect cleared every cell (PR #1024, re-evaluated
+2026-07-23). **The tell is exactly that**: if one upstream fix would clear all
+of them, the cause is independent of scenario content no matter how its
+incidence distributed. If instead each cell fails for its own scenario-shaped
+reason, that is `fail` or `borderline`.
+
+Do not reach for `blocked` to soften a genuine quality reject; the whole value
+of the token is that a future reader can trust it means "unmeasured". Nothing
+downstream re-checks that — the required `retry` pointer is the only backstop,
+and it works only when someone actually runs the retry.
+
+**Why this is not mechanised.** Attribution is not derivable from the fields the
+results schema carries (`battery[].status` is the only failure signal in it).
+The run artifacts *do* carry per-cell error text, so a "all non-`ok` cells share
+one error signature" proxy is constructible — it was considered and not adopted,
+because that text is session-authored, so identity across cells is self-attested
+and carries no attribution power against the case worth catching. It would catch
+sloppiness, not misuse.
 
 **Structure (enforced by `append_eval.py`; it exits 1 otherwise):**
 
@@ -224,11 +246,21 @@ that a future reader can trust it means "unmeasured".
 |---|---|
 | `verdict.unblocked_by` required, non-empty | A blocked entry without a named unblock condition is a `fail` with softer wording |
 | `verdict.retry` required, non-empty | The retry pointer is what makes it non-terminal. The blocker's own issue number is acceptable — a dedicated retry issue need not exist yet |
-| at least one non-`ok` cell | A run where every cell completed was not blocked |
 | **no** `differentiation` when zero cells are `ok` | Zero inferences means zero evidence; a value here would be fabricated |
-| `differentiation` **required** when ≥1 cell is `ok` | A partial block still measured something — record what the completed cells showed, scoped to them |
+| `differentiation` **required** when ≥1 cell is `ok` | A partial block still measured something — record what the completed cells showed, scoped to them. Declining is legitimate; see below |
+| at least one non-`ok` cell | *Coherence assert only* — it rejects a battery whose every row is `ok`, i.e. a self-contradictory composition. It does **not** distinguish `blocked` from `fail` (a `fail` has non-`ok` cells too), and it is satisfiable by recording only the failing rows, since nothing checks the battery for completeness. Do not read it as a substantive guard |
 
-Note the last two: a blocked run is **not** necessarily a total block.
+**Declining a partial differentiation is legitimate.** The validator checks only
+that the field is non-empty, so `PARTIAL (n/6 cells) — insufficient to
+differentiate` satisfies it. Use that form rather than stretching one or two
+completed cells into a slot-earning judgment: `differentiation` means "does this
+model's *character* earn a catalog slot", and a couple of cells rarely answers
+it. The required-when-partial rule exists so real evidence is not silently
+discarded, not to manufacture a verdict — the same fabrication pressure the
+zero-`ok` rule guards against, arriving from the other side.
+
+Note the two `differentiation` rows: a blocked run is **not** necessarily a
+total block.
 Sarashina 2.2 3B on 2026-07-08 had 3 of 6 cells complete (recorded in
 `tools/harness/Sources/PasturaHarnessKit/ModelProfile.swift`, the
 `sarashina223B` doc comment), so a "zero `ok` cells" precondition would have

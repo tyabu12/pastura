@@ -44,6 +44,12 @@ the mapping is a convention you apply:
 |---|---|---|
 | none `ok` | `differentiation` **absent** | `**Differentiation**: **UNASSESSABLE**` + why |
 | ≥1 `ok` | `differentiation` **required**, scoped to the completed cells | the same text, stated as partial |
+| ≥1 `ok`, too few to judge | `PARTIAL (n/6 cells) — insufficient to differentiate` | the same, verbatim |
+
+That third row is a sanctioned value, not a rule dodge: `differentiation` asks
+whether the model's *character* earns a catalog slot, and one or two cells
+rarely answers it. Declining explicitly beats stretching thin evidence into a
+verdict.
 
 The anti-drift rule above still wants a one-line differentiation in *every*
 entry — `UNASSESSABLE` is how a total block satisfies it without fabricating a

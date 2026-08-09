@@ -45,14 +45,16 @@ can produce it; a blocked entry must always name **what would unblock it** and
 
 The two gates enforce that asymmetrically, and the asymmetry is deliberate:
 
-- **Gate 1** is machine-checked. `/model-eval`'s `append_eval.py` rejects a
-  `blocked` scorecard that lacks an unblock condition or a retry pointer, or
-  that has no non-`ok` cell; it refuses a `differentiation` judgment when no
+- **Gate 1** is machine-checked, but only structurally. `/model-eval`'s
+  `append_eval.py` rejects a `blocked` scorecard that lacks an unblock
+  condition or a retry pointer; it refuses a `differentiation` judgment when no
   cell completed, and conversely *requires* one — scoped to the completed
-  cells — when at least one did. Admissibility itself (is the failure
-  environmental or the candidate's own?) stays a human call — see
+  cells, or an explicit "insufficient to differentiate" — when at least one
+  did. Admissibility itself (is the failure environmental or the candidate's
+  own?) is **not** checked by anything and stays a human call — see
   `.claude/skills/model-eval/SKILL.md`
-  § "`blocked` — admissibility and its two enforcement layers".
+  § "`blocked` — admissibility and its two enforcement layers", which also
+  explains why a mechanical proxy was rejected.
 - **Gate 2** is **convention-only**. There is no machine-readable Gate-2
   artifact, so nothing validates a real-device blocked outcome; record it in
   [`eval-log.md`](eval-log.md) with the same two fields by hand.
