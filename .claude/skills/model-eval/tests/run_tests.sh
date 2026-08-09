@@ -163,10 +163,9 @@ grep -qF "Retry: #1416" "$JOURNAL" || fail "append: blocked section missing the 
 grep -qF "Differentiation: UNASSESSABLE" "$JOURNAL" \
   || fail "append: blocked section must state differentiation is unassessable"
 
-# Positive control #2 — a PARTIAL block (>=1 ok cell). This is the shape the
-# rejected "zero ok cells" precondition would have made unrecordable, so it
-# needs a green arm of its own: without one, re-adding that precondition (or
-# mislabelling a partial block as UNASSESSABLE) would leave the suite green.
+# Positive control #2 — a PARTIAL block (>=1 ok cell). Without a green arm of
+# its own, re-adding the rejected "zero ok cells" precondition (or mislabelling
+# a partial block as UNASSESSABLE) would leave the suite green.
 python3 "$SCRIPTS/append_eval.py" \
   --results fixtures/results_blocked_partial_valid.json --journal "$JOURNAL" >/dev/null \
   || fail "append: valid PARTIAL blocked fixture should succeed"

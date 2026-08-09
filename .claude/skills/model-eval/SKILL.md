@@ -217,28 +217,23 @@ incompatibility, a known infra path — rather than a per-scenario quality
 breakdown.
 
 **Cause, not incidence.** A scenario-independent cause can still have
-scenario-*correlated* incidence, and mistaking the two would exclude the very
-run this disposition was built for. Sarashina 2.2 3B on 2026-07-08 failed only
-the longer, reflect-heavy cells while short ones completed — which looks
-scenario-shaped — but the cause was the #751 empty-output retry-budget path,
-and fixing that one upstream defect cleared every cell (PR #1024, re-evaluated
-2026-07-23). **The tell is exactly that**: if one upstream fix would clear all
-of them, the cause is independent of scenario content no matter how its
-incidence distributed. If instead each cell fails for its own scenario-shaped
-reason, that is `fail` or `borderline`.
+scenario-*correlated* incidence. Sarashina 2.2 3B on 2026-07-08 failed only the
+longer, reflect-heavy cells while short ones completed — which looks
+scenario-shaped — but the cause was the #751 empty-output retry-budget path, and
+fixing that one upstream defect cleared every cell (PR #1024). **The tell is
+exactly that**: if one upstream fix would clear all of them, the cause is
+independent of scenario content however its incidence distributed. If instead
+each cell fails for its own scenario-shaped reason, that is `fail` or
+`borderline`.
 
 Do not reach for `blocked` to soften a genuine quality reject; the whole value
 of the token is that a future reader can trust it means "unmeasured". Nothing
 downstream re-checks that — the required `retry` pointer is the only backstop,
-and it works only when someone actually runs the retry.
-
-**Why this is not mechanised.** Attribution is not derivable from the fields the
-results schema carries (`battery[].status` is the only failure signal in it).
-The run artifacts *do* carry per-cell error text, so a "all non-`ok` cells share
-one error signature" proxy is constructible — it was considered and not adopted,
-because that text is session-authored, so identity across cells is self-attested
-and carries no attribution power against the case worth catching. It would catch
-sloppiness, not misuse.
+and it works only when someone actually runs the retry. A mechanical proxy
+("all non-`ok` cells share one error signature") was considered and rejected:
+the run artifacts *do* carry per-cell error text, so the proxy is constructible
+— but that text is session-authored, so identity across cells is self-attested,
+and it would catch sloppiness rather than misuse.
 
 **Structure (enforced by `append_eval.py`; it exits 1 otherwise):**
 
@@ -253,21 +248,15 @@ sloppiness, not misuse.
 **Declining a partial differentiation is legitimate.** The validator checks only
 that the field is non-empty, so `PARTIAL (n/6 cells) — insufficient to
 differentiate` satisfies it. Use that form rather than stretching one or two
-completed cells into a slot-earning judgment: `differentiation` means "does this
-model's *character* earn a catalog slot", and a couple of cells rarely answers
-it. The required-when-partial rule exists so real evidence is not silently
-discarded, not to manufacture a verdict — the same fabrication pressure the
-zero-`ok` rule guards against, arriving from the other side.
+completed cells into a slot-earning judgment. The required-when-partial rule
+exists so real evidence is not silently discarded, not to manufacture a verdict
+— the same fabrication pressure the zero-`ok` rule guards against, arriving from
+the other side.
 
 Note the two `differentiation` rows: a blocked run is **not** necessarily a
-total block.
-Sarashina 2.2 3B on 2026-07-08 had 3 of 6 cells complete (recorded in
-`tools/harness/Sources/PasturaHarnessKit/ModelProfile.swift`, the
-`sarashina223B` doc comment), so a "zero `ok` cells" precondition would have
-made that shape unrecordable. That run predates this disposition and has no
-ledger heading of its own — it is grandfathered inside the later entry,
-`docs/models/eval-log.md` § "Sarashina 2.2 3B Instruct v0.1 (Q4_K_M) —
-2026-07-23", under its *Grandfathered (#1419)* sub-bullet.
+total block. The worked precedent (Sarashina 2.2 3B, 2026-07-08 — 3 of 6 cells
+hard-failed, so some completed) is in `docs/models/eval-log.md` under the
+2026-07-23 entry's *Grandfathered (#1419)* sub-bullet.
 
 ## Step 5 — Append the scorecard
 

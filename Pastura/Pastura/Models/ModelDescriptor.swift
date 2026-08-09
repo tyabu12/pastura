@@ -52,11 +52,9 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// Contract for consumers: match this against **decoded text only**. It is
   /// not the tokenizer's end-of-turn token, and a backend must not treat it as
   /// the thing that terminates a normal turn. `"<|im_end|>"` for ChatML models
-  /// such as Qwen 3; for Gemma 4 that string is absent from the vocabulary and
-  /// its own markers are `<|turn>` / `<turn|>`, so the value carries no Gemma
-  /// marker (see #1417). Why a control token can never reach the match is
-  /// backend-specific — for llama.cpp it is documented at
-  /// `LlamaCppService.stopSequence`.
+  /// such as Qwen 3; Gemma 4 carries that same string although its own markers
+  /// are `<|turn>` / `<turn|>` (#1417). Mechanism, and why a control token can
+  /// never reach the match under llama.cpp: `LlamaCppService.stopSequence`.
   public let stopSequence: String
 
   /// Minimum physical RAM required to load and run the model (bytes).

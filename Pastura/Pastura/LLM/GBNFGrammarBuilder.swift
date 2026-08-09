@@ -192,9 +192,8 @@ nonisolated public struct GBNFGrammarBuilder: Sendable {
   //
   // Coverage: tab, CR, LF, space through tilde (0x20-0x7e) —
   // all printable ASCII plus whitespace. Post-`}` tokens from Gemma
-  // are almost always whitespace, chat-template fragments (`<|turn>` /
-  // `<turn|>` — Gemma 4's markers; `<|im_end|>` is a Qwen ChatML one,
-  // absent from Gemma's vocabulary) or EOS; all fit in this range.
+  // are almost always whitespace, chat-template fragments (Gemma 4's
+  // markers are `<|turn>` / `<turn|>`) or EOS; all fit in this range.
   // Non-ASCII post-`}` bytes would still cause an accept-time crash,
   // but the model is trained to emit EOS immediately after a closed
   // object so that path is practically unreachable.

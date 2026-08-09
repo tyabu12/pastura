@@ -22,10 +22,7 @@ nonisolated public struct JSONResponseParser: Sendable {
   )
   // Chat template tokens — truncate everything from first occurrence onwards.
   // Catches hallucinated continuations where the model generates past its own turn.
-  // ChatML-only by construction: correct for Qwen 3; for Gemma 4, whose
-  // markers are `<|turn>` / `<turn|>`, it can only fire on a spelled-out
-  // `<|im_end|>` — see the doc on `truncateAtChatTemplateToken`.
-  // Making this per-model is #1422; the false-rationale half was #1417.
+  // ChatML-only — see the doc on `truncateAtChatTemplateToken`.
   private static let chatTemplateTokenRegex = try? NSRegularExpression(
     pattern: #"<\|im_end\|>.*"#,
     options: .dotMatchesLineSeparators
@@ -56,8 +53,8 @@ nonisolated public struct JSONResponseParser: Sendable {
   ///
   /// Processing pipeline:
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
-  /// 2. Truncate at ChatML chat-template tokens (`<|im_end|>`; for a
-  ///    non-ChatML model such as Gemma 4 this matches nothing it emits — #1422)
+  /// 2. Truncate at the ChatML chat-template token (`<|im_end|>`) — ChatML
+  ///    models only (#1422)
   /// 3. Extract content from markdown code blocks
   /// 4. Extract the first balanced `{...}` object (string-aware), discarding
   ///    any trailing content after its matching close brace
@@ -294,24 +291,14 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Discarding everything from the first such token prevents the greedy JSON
   /// regex from capturing content across hallucinated turns.
   ///
-  /// - Important: the token is hardcoded, so for a non-ChatML model this step
-  ///   fires only on a spelled-out `<|im_end|>`. Gemma 4's markers are
-  ///   `<|turn>` / `<turn|>` and `<|im_end|>` is not in its vocabulary, so
-  ///   spelled-out is the only form that could arrive — and it is not the form
-  ///   a Gemma hallucination would reach for. What this step does NOT do for
-  ///   Gemma is truncate a Gemma-shaped continuation.
-  ///
-  ///   This type is backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
-  ///   Foundation Models output through one instance), so do not assume the
-  ///   llama.cpp guarantee here: under *that* backend a control marker cannot
-  ///   reach decoded text at all (see the canonical note on
-  ///   `LlamaCppService.stopSequence`), but a server-decoding backend offers no
-  ///   such guarantee — cf. `LLMCaller.logChatTemplateLeakage`, which exists
-  ///   because those backends can still emit template tokens.
-  ///
-  ///   **Which text a Gemma hallucination would spell out is not
-  ///   established**; whatever it is, it would not be truncated here.
-  ///   Sourcing the marker per-model is tracked in #1422.
+  /// - Important: the token is hardcoded, so for a non-ChatML model this fires
+  ///   only on a spelled-out `<|im_end|>` — not the form a Gemma hallucination
+  ///   would take (Gemma 4's markers are `<|turn>` / `<turn|>`). This type is
+  ///   also backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
+  ///   Foundation Models through one instance), so do not import the llama.cpp
+  ///   control-token guarantee (`LlamaCppService.stopSequence`) here: a
+  ///   server-decoding backend offers none, which is why
+  ///   `LLMCaller.logChatTemplateLeakage` exists. Per-model sourcing is #1422.
   private func truncateAtChatTemplateToken(_ text: String) -> String {
     guard let regex = Self.chatTemplateTokenRegex else { return text }
     let range = NSRange(text.startIndex..., in: text)

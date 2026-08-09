@@ -51,12 +51,9 @@ extension LlamaCppIntegrationTests {
       "Final chunk should carry completionTokens"
     )
 
-    // Holdback check — same observation shape as Test 4's leak check: when the
-    // stop path fires, only the text before the sentinel is emitted, so this
-    // passes. It fails only if a spelled-out `<|im_end|>` slips into a delta
-    // uncaught. (Why only a spelled-out one can appear: the canonical note on
-    // `LlamaCppService.stopSequence`.) A Gemma-shaped hallucination
-    // (`<|turn>` / `<turn|>`) is NOT covered — see #1417 / #1422.
+    // Holdback check — same observation shape as Test 4's leak check: it fails
+    // only if a spelled-out `<|im_end|>` slips into a delta uncaught. A
+    // Gemma-shaped hallucination (`<|turn>` / `<turn|>`) is NOT covered (#1422).
     for delta in deltas {
       #expect(
         !delta.contains("<|im_end|>"),

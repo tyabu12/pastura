@@ -65,8 +65,7 @@ struct LlamaCppIntegrationTests {
   func makeService() -> LlamaCppService {
     LlamaCppService(
       modelPath: LlamaCppConfig.modelPath,
-      // Mirrors `ModelRegistry.gemma4E2B` — carries no Gemma marker;
-      // `<|im_end|>` is absent from Gemma's vocabulary (#1417).
+      // Mirrors `ModelRegistry.gemma4E2B` — carries no Gemma marker (#1417).
       stopSequence: "<|im_end|>",
       modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
       systemPromptSuffix: nil
@@ -163,18 +162,14 @@ struct LlamaCppIntegrationTests {
       user: "Introduce yourself briefly."
     )
 
-    // Leak check. Note what it observes: when the stop path FIRES, the sentinel
-    // is truncated before `generate` returns, so this passes. It therefore
-    // fails only on the opposite event — a spelled-out `<|im_end|>` that the
-    // stop path did NOT catch. (Why only a spelled-out one can appear at all:
-    // the canonical note on `LlamaCppService.stopSequence`.)
-    //
-    // Scope: ChatML-shaped only. A Gemma-shaped hallucination (`<|turn>` /
-    // `<turn|>`) is neither matched nor truncated anywhere — that gap is #1422.
-    // Gemma's normal termination is EOG (`<turn|>`, id 106); the length bound
-    // below is only a runaway proxy for it — it would notice termination
-    // failing, but cannot tell EOG from the #907 caught-grammar stop, nor
-    // either from a naturally short answer.
+    // Leak check. When the stop path FIRES the sentinel is truncated before
+    // `generate` returns, so this passes; it fails only on a spelled-out
+    // `<|im_end|>` the stop path did NOT catch. ChatML-shaped only — a
+    // Gemma-shaped hallucination (`<|turn>` / `<turn|>`) is matched nowhere
+    // (#1422). Gemma's normal termination is EOG, and the length bound below is
+    // only a runaway proxy for it: it would notice termination failing outright,
+    // but cannot tell EOG from the #907 caught-grammar stop, nor either from a
+    // naturally short answer.
     #expect(
       !result.contains("<|im_end|>"),
       "Raw output contains <|im_end|> — stop token not working. Output: \(result)"

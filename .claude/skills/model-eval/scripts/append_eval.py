@@ -149,11 +149,10 @@ def validate_blocked(results, verdict, battery):
     The admissibility criterion therefore lives in SKILL.md prose; only its
     structural consequences are enforced here.
 
-    Deliberately NOT a rule: "zero ok cells". Sarashina 2.2 3B on 2026-07-08 —
-    one of the two runs that motivated this disposition — had 3 of 6 cells
-    complete, and is recorded as blocked rather than cleanly rejected. A
-    zero-ok precondition would make that shape unrecordable and re-create the
-    defect this disposition exists to fix.
+    Deliberately NOT a rule: "zero ok cells". A block can be partial, and that
+    precondition would make the shape unrecordable — worked precedent in
+    docs/models/eval-log.md, the 2026-07-23 Sarashina entry's
+    *Grandfathered (#1419)* sub-bullet.
     """
     if not str(verdict.get("unblocked_by") or "").strip():
         return (
@@ -272,19 +271,17 @@ def render_section(results):
 
     lines.append("")
     verdict = results.get("verdict") or {}
-    # Normalize exactly as `validate_blocked` does, and branch on that same
-    # value. Testing raw truthiness here instead would let the two sites
-    # disagree: a whitespace-only value passes the validator's forbidden-guard
-    # (it strips to "") yet renders as `Differentiation:   `, silently losing
-    # the placeholder line the ledger's anti-drift rule needs.
+    # Normalize exactly as `validate_blocked` does. On raw truthiness the two
+    # sites would disagree: a whitespace-only value passes the validator's
+    # forbidden-guard yet renders as `Differentiation:   `, losing the
+    # placeholder below.
     differentiation = str(results.get("differentiation") or "").strip()
     if differentiation:
         lines += [f"Differentiation: {differentiation}", ""]
     elif verdict.get("gate") == "blocked":
-        # The ledger's anti-drift rule requires a one-line differentiation in
-        # EVERY entry, and this section is what an operator transcribes into it.
-        # Emit the sanctioned placeholder rather than nothing, so the required
-        # line is carried by construction rather than by operator memory.
+        # The ledger's anti-drift rule wants a one-line differentiation in EVERY
+        # entry, and this section is what an operator transcribes into it — so
+        # carry the sanctioned placeholder by construction, not by memory.
         lines += ["Differentiation: UNASSESSABLE (blocked — no cell completed)", ""]
     lines.append(f"**Gate**: {verdict.get('gate', '?')}")
     if verdict.get("unblocked_by"):

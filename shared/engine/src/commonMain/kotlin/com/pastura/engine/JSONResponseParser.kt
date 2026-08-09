@@ -61,18 +61,11 @@ internal class JSONResponseParser {
         /**
          * Chat-template token — truncate everything from the first occurrence.
          *
-         * ChatML-only by construction, mirroring the Swift original: correct for
-         * Qwen 3, and for Gemma 4 it fires only on a spelled-out `<|im_end|>`.
-         * Gemma's markers are `<|turn>` / `<turn|>` and its vocabulary has no
-         * `<|im_end|>`, so spelled-out is the only form that could arrive — and
-         * it is not the form a Gemma hallucination would reach for. What it does
-         * NOT do for Gemma is truncate a Gemma-shaped continuation.
-         *
-         * This type is backend-agnostic, so do not assume the llama.cpp
-         * guarantee here: under that backend a control marker cannot reach
-         * decoded text at all, but a server-decoding backend offers no such
-         * guarantee. Which text a Gemma hallucination would spell out is **not
-         * established**; whatever it is, it would not be truncated here.
+         * ChatML-only, mirroring the Swift original: for a non-ChatML model this
+         * fires only on a spelled-out `<|im_end|>` — not the form a Gemma
+         * hallucination would take (Gemma 4's markers are `<|turn>` / `<turn|>`).
+         * The type is also backend-agnostic, so do not import the llama.cpp
+         * control-token guarantee here: a server-decoding backend offers none.
          * Per-model sourcing is #1422.
          */
         val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>[\s\S]*""")

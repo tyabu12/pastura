@@ -44,22 +44,16 @@ the mapping is a convention you apply:
 |---|---|---|
 | none `ok` | `differentiation` **absent** | `**Differentiation**: **UNASSESSABLE**` + why |
 | ≥1 `ok` | `differentiation` **required**, scoped to the completed cells | the same text, stated as partial |
-| ≥1 `ok`, too few to judge | `PARTIAL (n/6 cells) — insufficient to differentiate` | the same, verbatim |
+| ≥1 `ok`, too few to judge | `PARTIAL (n/6 cells) — insufficient to differentiate` (the validator checks only non-emptiness) | the same, verbatim — a sanctioned value, since a couple of cells rarely answers the slot-earning question |
 
-That third row is a sanctioned value, not a rule dodge: `differentiation` asks
-whether the model's *character* earns a catalog slot, and one or two cells
-rarely answers it. Declining explicitly beats stretching thin evidence into a
-verdict.
+`UNASSESSABLE` is how a total block satisfies the anti-drift rule's
+one-line-differentiation requirement without fabricating a judgment from zero
+inferences. `render_section` emits it for you **when no cell completed**, so it
+survives the digest → ledger transcription; a partial block renders its real
+differentiation instead, and must not be relabelled `UNASSESSABLE`.
 
-The anti-drift rule above still wants a one-line differentiation in *every*
-entry — `UNASSESSABLE` is how a total block satisfies it without fabricating a
-judgment from zero inferences. `render_section` emits that line for you when the
-gate is `blocked` **and no cell completed**, so it survives the digest → ledger
-transcription; a partial block renders its real differentiation instead.
-
-**Heading form.** A blocked entry's heading reads
-`## <model> — <date> — **BLOCKED (<one-line reason>)**` — not `FAIL (BLOCKED …)`,
-which is the pre-#1419 form. Nothing validates this file, so the heading is
+**Heading form.** `## <model> — <date> — **BLOCKED (<one-line reason>)**`, not
+the pre-#1419 `FAIL (BLOCKED …)`. Nothing validates this file, so the heading is
 where the vocabulary will drift back first. One pre-#1419 blocked run
 (Sarashina, 2026-07-08) has **no heading of its own** and is grandfathered
 inside the 2026-07-23 entry — see the note there.
@@ -113,9 +107,8 @@ everything else here.
 - **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support
   (`mattt/llama.swift` bumped past b8694).
 - **Retry**: #1416 (Gate 1 retry), gated on #1415 (the pin spike).
-- **Disposition**: **not rejected** — the retry chain is in *Unblocked by* /
-  *Retry* above, not restated here.
-  Pre-cleared for that retry, so it need not be re-derived: ADR-011 **P1**
+- **Disposition**: **not rejected.**
+  Pre-cleared for the retry, so it need not be re-derived: ADR-011 **P1**
   non-gated (HF `gated: false`; anonymous resolve 302 → CDN 200) and **P2**
   CONTROL flags (`<|turn>` id 105, `<turn|>` id 106, both `token_type=3`); EOG set
   `{1, 50, 106, 212}` is a **superset** of the incumbent's `{50, 106, 212}`, so
@@ -137,16 +130,15 @@ everything else here.
   blocker was fixed (PR #1024); the original 2026-07-08 run was blocked, not
   cleanly quality-rejected.
   - *Grandfathered (#1419).* That 2026-07-08 run predates the `BLOCKED` verdict
-    and has **no entry of its own** — it exists only as this clause. It is left
-    that way deliberately: there is no heading to retitle, and back-dating an
-    entry would add review surface without adding information, since the retry
-    it was waiting for already landed and is recorded right here. It is also the
-    reason the taxonomy admits a **partial** block: 3 of its 6 cells completed
-    (`ok`) — recorded in `tools/harness/Sources/PasturaHarnessKit/ModelProfile.swift`,
-    the `sarashina223B` doc comment, since the run's own digest section is
-    gitignored and per-machine — so a "zero `ok` cells" precondition would have
-    made this very shape unrecordable. Unblocked by / Retry, reconstructed
-    after the fact: the #751 empty-output path being fixed → PR #1024.
+    and has **no entry of its own** — deliberately, since the retry it waited on
+    already landed and is recorded right here (unblocked by the #751
+    empty-output fix → PR #1024; both fields reconstructed after the fact). It is
+    also why the taxonomy admits a **partial** block: 3 of its 6 cells
+    hard-failed and the rest did not, so some completed — recorded in that
+    direction in the `sarashina223B` doc comment in
+    `tools/harness/Sources/PasturaHarnessKit/ModelProfile.swift`, the digest
+    itself being gitignored. A "zero `ok` cells" precondition would therefore
+    have made this very shape unrecordable.
 - **Model**: `mmnga/sarashina2.2-3b-instruct-v0.1-gguf` · `Q4_K_M` · MIT,
   non-gated · ~2.07 GB · Stage-0 profile #1016 (`sarashina-2-2-3b-q4-k-m`).
 - **Differentiation**: genuine **native-Japanese creative/humor** — the ja
