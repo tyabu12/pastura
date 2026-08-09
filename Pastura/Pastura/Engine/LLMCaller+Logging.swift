@@ -71,9 +71,11 @@ nonisolated extension LLMCaller {
   /// wrap path, Ollama) where the raw string may still contain template
   /// tokens.
   ///
-  /// - Important: ChatML-only. Gemma 4's markers are `<|turn>` / `<turn|>`,
-  ///   so this diagnostic is silently blind for the default shipped model.
-  ///   Making it model-aware is tracked in #1422.
+  /// - Important: ChatML-only. Gemma 4's markers are `<|turn>` / `<turn|>`, so
+  ///   this diagnostic sees nothing for the default shipped model. Note the
+  ///   backends named above are exactly the ones without llama.cpp's
+  ///   decode-side guarantee, which is what makes them the residual surface
+  ///   here. Making it model-aware is tracked in #1422.
   func logChatTemplateLeakage(in raw: String) {
     if raw.contains("<|im_start|>") {
       logger.log(

@@ -65,8 +65,8 @@ struct LlamaCppIntegrationTests {
   func makeService() -> LlamaCppService {
     LlamaCppService(
       modelPath: LlamaCppConfig.modelPath,
-      // Mirrors `ModelRegistry.gemma4E2B` — inert for Gemma 4, which has no
-      // `<|im_end|>` in its vocabulary and terminates on EOG instead (#1417).
+      // Mirrors `ModelRegistry.gemma4E2B` — carries no Gemma marker;
+      // `<|im_end|>` is absent from Gemma's vocabulary (#1417).
       stopSequence: "<|im_end|>",
       modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
       systemPromptSuffix: nil
@@ -164,14 +164,14 @@ struct LlamaCppIntegrationTests {
     )
 
     // ChatML-shaped leak check — it covers ONE route: the model spelling
-    // `<|im_end|>` out as ordinary text. A control token cannot reach here
-    // (decodes to "", and EOG returns first), so that route is the only one
-    // there is. This suite runs against Gemma 4 (see `makeService`), which was
-    // never trained on ChatML, so the route is unlikely for it — but not
-    // impossible, and this assertion is the guard if it happens. What it does
-    // NOT cover is a Gemma-shaped hallucination (`<|turn>` / `<turn|>`), which
-    // nothing here truncates — that gap is #1422. Gemma's normal termination
-    // is EOG (`<turn|>`, id 106), which the length bound below is what checks.
+    // `<|im_end|>` out as ordinary text. That is the only route there is; why,
+    // is the canonical note on `LlamaCppService.stopSequence`. This suite runs
+    // against Gemma 4 (see `makeService`), which was never trained on ChatML,
+    // so the route is unlikely for it — but not impossible, and this assertion
+    // is the guard if it happens. What it does NOT cover is a Gemma-shaped
+    // hallucination (`<|turn>` / `<turn|>`), which nothing here truncates —
+    // that gap is #1422. Gemma's normal termination is EOG (`<turn|>`, id 106),
+    // which is what the length bound below checks.
     #expect(
       !result.contains("<|im_end|>"),
       "Raw output contains <|im_end|> — stop token not working. Output: \(result)"

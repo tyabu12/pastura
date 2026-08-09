@@ -95,21 +95,32 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   static let contextSize: UInt32 = 8_192
   static let batchSize: Int = 512
   // Per-instance plaintext stop sentinel (was `static` pre-multi-model).
-  // String-based, not token-ID, because the paths it feeds can only match a
-  // sentinel the model spelled out as ORDINARY TEXT: a genuine control token
-  // never reaches them — `decodePiece` passes `special: false` so it decodes
-  // to "", and `nextContentTokenOrStop` returns nil on EOG before the piece is
-  // appended. So this is a hallucinated-turn guard (sibling of
+  // CANONICAL NOTE for this mechanism — other sites point here rather than
+  // restate it, because the details below are easy to get subtly wrong.
+  //
+  // String-based, not token-ID, because the two paths it feeds (`:604`
+  // non-streaming, `:818` streaming) match against DECODED TEXT, and under
+  // this backend only a spelled-out sentinel can appear there. Two separate
+  // reasons, per case — do not state them as one conjunction:
+  //   1. A sentinel that IS a control token of the model never decodes into
+  //      the text: `decodePiece` passes `special: false`, so it renders "".
+  //      Independently, if that token is also EOG, `nextContentTokenOrStop`
+  //      returns nil before the piece is appended. Gemma's `<|turn>` (105) is
+  //      CONTROL but NOT EOG, so for it only the first reason applies.
+  //   2. A sentinel that is not in the vocabulary at all has no token form to
+  //      begin with, so it can only ever arrive spelled out.
+  // Either way this is a hallucinated-turn guard (sibling of
   // `JSONResponseParser.truncateAtChatTemplateToken`), NOT what terminates a
   // normal turn — that is EOG, for every model.
-  // Qwen 3 is ChatML, where the plaintext form is `<|im_end|>`. Gemma 4 is
-  // not: its turn markers are `<|turn>` / `<turn|>` (ids 105/106, CONTROL) and
-  // `<|im_end|>` is absent from its 262k vocabulary. So for Gemma this value
-  // fires only if the model spells out a ChatML marker it was never trained
-  // on — not impossible (any printable ASCII is spellable), but it is not the
-  // marker a Gemma hallucination would reach for. Left in place deliberately
-  // rather than guessed at (#1417). Read from the descriptor at construction
-  // time; future models may differ.
+  //
+  // Qwen 3 is ChatML, where the plaintext form is `<|im_end|>` (151645, also
+  // its EOG). Gemma 4 is not: its markers are `<|turn>` / `<turn|>` (105/106,
+  // CONTROL) and `<|im_end|>` is absent from its 262k vocabulary — case 2. So
+  // for Gemma this fires only if the model spells out a ChatML marker it was
+  // never trained on: possible (every character is printable ASCII), not
+  // observed, and not the marker a Gemma hallucination would reach for. Left
+  // in place deliberately rather than guessed at (#1417). Read from the
+  // descriptor at construction time; future models may differ.
   // TODO: Consider adding `<|im_start|>` if hallucinated turn starts are observed (#65)
   let stopSequence: String
 
@@ -192,9 +203,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// Test code can construct via a file-scope helper (see
   /// `LlamaCppServiceTests`) to centralize the test values. Those are not a
   /// pin of the shipped descriptor — the path and identifier are synthetic;
-  /// only the `stopSequence` literal happens to reuse the shipped ChatML one,
-  /// which is inert for Gemma in practice (see the `stopSequence` note above,
-  /// #1417).
+  /// the `stopSequence` literal reuses the shipped ChatML one (see the
+  /// `stopSequence` note above, #1417).
   ///
   /// - Parameters:
   ///   - modelPath: Absolute path to the GGUF model file on disk (provided by
@@ -568,11 +578,8 @@ extension LlamaCppService {
 
     // Auto-regressive generation loop with string-based stop detection.
     // Tokens are decoded incrementally so a spelled-out stop sentinel is
-    // detected even when BPE splits it across several subword tokens. It
-    // necessarily is split whenever the sentinel is a control token of this
-    // model — such a token is not reachable as CONTENT (it decodes to "" and
-    // EOG returns first), so the only form that can arrive here is the
-    // spelled-out one (see `stopSequence`).
+    // detected even when BPE splits it across subword tokens. Only the
+    // spelled-out form can arrive here at all — see `stopSequence` for why.
     var outputText = ""
     var generatedTokens = 0
 

@@ -568,8 +568,10 @@ internal class LLMCaller(
      * non-streaming backends where the raw string may still contain template tokens.
      *
      * ChatML-only, mirroring the Swift original: Gemma 4's markers are `<|turn>` /
-     * `<turn|>`, so this diagnostic is silently blind for the default shipped
-     * model. Making it model-aware is #1422.
+     * `<turn|>`, so this diagnostic sees nothing for the default shipped model.
+     * The backends named above are exactly the ones without llama.cpp's
+     * decode-side guarantee, which is what makes them the residual surface here.
+     * Making it model-aware is #1422.
      */
     private fun logChatTemplateLeakage(raw: String) {
         if (raw.contains("<|im_start|>")) {

@@ -22,9 +22,9 @@ nonisolated public struct JSONResponseParser: Sendable {
   )
   // Chat template tokens — truncate everything from first occurrence onwards.
   // Catches hallucinated continuations where the model generates past its own turn.
-  // ChatML-only by construction: correct for Qwen 3, but inert for Gemma 4,
+  // ChatML-only by construction: correct for Qwen 3, does nothing for Gemma 4,
   // whose markers are `<|turn>` / `<turn|>` — see the doc on
-  // `truncateAtChatTemplateToken` for why they cannot arrive as text.
+  // `truncateAtChatTemplateToken` for the per-backend detail.
   // Making this per-model is #1422; the false-rationale half was #1417.
   private static let chatTemplateTokenRegex = try? NSRegularExpression(
     pattern: #"<\|im_end\|>.*"#,
@@ -294,13 +294,21 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Discarding everything from the first such token prevents the greedy JSON
   /// regex from capturing content across hallucinated turns.
   ///
-  /// - Important: the token is hardcoded, so this is a no-op for a non-ChatML
-  ///   model. Gemma 4's turn markers are CONTROL tokens (`<|turn>` / `<turn|>`,
-  ///   ids 105/106) that cannot reach this parser as text at all — `special:
-  ///   false` decoding drops 105, and 106 is EOG — and `<|im_end|>` is absent
-  ///   from its vocabulary, so this step is inert for the default shipped
-  ///   model. **Which text a Gemma hallucination would spell out instead is
-  ///   not established**; whatever it is, it would not be truncated here.
+  /// - Important: the token is hardcoded, so this step does nothing for a
+  ///   non-ChatML model. Gemma 4's markers are `<|turn>` / `<turn|>` and
+  ///   `<|im_end|>` is not in its vocabulary, so the literal can only arrive
+  ///   spelled out as ordinary text — possible, but not observed.
+  ///
+  ///   This type is backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
+  ///   Foundation Models output through one instance), so do not assume the
+  ///   llama.cpp guarantee here: under *that* backend a control marker cannot
+  ///   reach decoded text at all (see the canonical note on
+  ///   `LlamaCppService.stopSequence`), but a server-decoding backend offers no
+  ///   such guarantee — cf. `LLMCaller.logChatTemplateLeakage`, which exists
+  ///   because those backends can still emit template tokens.
+  ///
+  ///   **Which text a Gemma hallucination would spell out is not
+  ///   established**; whatever it is, it would not be truncated here.
   ///   Sourcing the marker per-model is tracked in #1422.
   private func truncateAtChatTemplateToken(_ text: String) -> String {
     guard let regex = Self.chatTemplateTokenRegex else { return text }
