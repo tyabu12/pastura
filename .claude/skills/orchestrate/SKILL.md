@@ -334,8 +334,8 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 2. If the code-reviewer returns **FAIL**:
    a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt).
    b. Build the **Review Action Summary** (see below) and present it to the user.
-   c. Fix all confirmed issues. Skip false positives.
-   d. Re-run the `code-reviewer` subagent on the updated code.
+   c. Capture `FIX_BASE=$(git rev-parse HEAD)`, then fix all confirmed issues. Skip false positives.
+   d. Re-run the `code-reviewer` subagent **scoped to the fix diff**: prompt it with `git diff {FIX_BASE}...HEAD` (the fix commits only) plus the prior FAIL items, instructing it to verify each fix and its immediate blast radius — NOT to re-review the full branch. Fall back to a full-branch re-review only when the fixes touched files outside the set reviewed in the previous iteration.
 3. Hard limit: **3 iterations**. If still FAIL after 3, report remaining issues to the user.
 
 **Review Action Summary** (displayed after each iteration):
