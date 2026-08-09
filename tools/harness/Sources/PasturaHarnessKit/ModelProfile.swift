@@ -16,9 +16,10 @@ package struct ModelProfile: Sendable, Equatable {
   ///
   /// Ends generation early only when the model spells it out as ordinary text
   /// (a hallucinated turn boundary); it is not what terminates a *normal*
-  /// turn — that is EOG, for every model. So it never fires for a model whose
-  /// markers a hallucination would not write in that form. The canonical
-  /// mechanism note is on `LlamaCppService.stopSequence` (#1417).
+  /// turn — that is EOG, for every model. For a model whose markers a
+  /// hallucination would not write in that form, it therefore fires only on a
+  /// spelled-out sentinel: possible, but not seen. The canonical mechanism
+  /// note is on `LlamaCppService.stopSequence` (#1417).
   package let stopSequence: String
   /// Optional suffix appended to every system prompt.
   package let systemPromptSuffix: String?

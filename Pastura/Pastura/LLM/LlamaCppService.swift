@@ -98,29 +98,36 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // CANONICAL NOTE for this mechanism — other sites point here rather than
   // restate it, because the details below are easy to get subtly wrong.
   //
-  // String-based, not token-ID, because the two paths it feeds (`:604`
-  // non-streaming, `:818` streaming) match against DECODED TEXT, and under
-  // this backend only a spelled-out sentinel can appear there. Two separate
-  // reasons, per case — do not state them as one conjunction:
-  //   1. A sentinel that IS a control token of the model never decodes into
-  //      the text: `decodePiece` passes `special: false`, so it renders "".
-  //      Independently, if that token is also EOG, `nextContentTokenOrStop`
-  //      returns nil before the piece is appended. Gemma's `<|turn>` (105) is
-  //      CONTROL but NOT EOG, so for it only the first reason applies.
-  //   2. A sentinel that is not in the vocabulary at all has no token form to
-  //      begin with, so it can only ever arrive spelled out.
+  // For BOTH descriptors shipped today, only a SPELLED-OUT sentinel can reach
+  // the two match sites (`runGeneration` / `runStreamGeneration` — cited by
+  // name, not line, because a comment's line numbers rot on the next edit
+  // above them). Two independent reasons, one per descriptor — do not state
+  // them as a single conjunction:
+  //   1. Qwen 3's `<|im_end|>` IS a control token (151645), so it never
+  //      decodes into the text: `decodePiece` passes `special: false`, so it
+  //      renders "". Separately, it is also EOG, so `nextContentTokenOrStop`
+  //      returns nil before the piece is appended. Those are two guards, not
+  //      one: Gemma's `<|turn>` (105) is CONTROL but NOT EOG, so a token in
+  //      that position would be covered by the first alone.
+  //   2. Gemma 4's descriptor holds `<|im_end|>`, which is absent from its
+  //      262k vocabulary entirely — no token form exists, so it could only
+  //      ever arrive spelled out.
+  // (A third shape — a sentinel present as a NORMAL-typed token — is not
+  // covered by either and is not measured here; publishers do ship turn
+  // markers mis-flagged that way, see `.claude/rules/engine.md` § "GGUF source
+  // *and variant* matter". The conclusion below survives it regardless.)
+  //
   // Either way this is a hallucinated-turn guard (sibling of
   // `JSONResponseParser.truncateAtChatTemplateToken`), NOT what terminates a
-  // normal turn — that is EOG, for every model.
+  // normal turn — that is EOG, for every model. It is String-based rather than
+  // token-ID precisely because the spelled-out form has no single token id.
   //
-  // Qwen 3 is ChatML, where the plaintext form is `<|im_end|>` (151645, also
-  // its EOG). Gemma 4 is not: its markers are `<|turn>` / `<turn|>` (105/106,
-  // CONTROL) and `<|im_end|>` is absent from its 262k vocabulary — case 2. So
-  // for Gemma this fires only if the model spells out a ChatML marker it was
-  // never trained on: possible (every character is printable ASCII), not
-  // observed, and not the marker a Gemma hallucination would reach for. Left
-  // in place deliberately rather than guessed at (#1417). Read from the
-  // descriptor at construction time; future models may differ.
+  // So for Gemma this fires only if the model spells out a ChatML marker it
+  // was never trained on: possible (every character is printable ASCII), and
+  // never seen to fire in the integration assertions that would catch it, but
+  // not the marker a Gemma hallucination would reach for. Left in place
+  // deliberately rather than guessed at (#1417). Read from the descriptor at
+  // construction time; future models may differ.
   // TODO: Consider adding `<|im_start|>` if hallucinated turn starts are observed (#65)
   let stopSequence: String
 

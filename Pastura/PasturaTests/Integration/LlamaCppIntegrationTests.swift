@@ -170,8 +170,10 @@ struct LlamaCppIntegrationTests {
     // so the route is unlikely for it — but not impossible, and this assertion
     // is the guard if it happens. What it does NOT cover is a Gemma-shaped
     // hallucination (`<|turn>` / `<turn|>`), which nothing here truncates —
-    // that gap is #1422. Gemma's normal termination is EOG (`<turn|>`, id 106),
-    // which is what the length bound below checks.
+    // that gap is #1422. Gemma's normal termination is EOG (`<turn|>`, id 106);
+    // the length bound below is only a runaway proxy for it — it would notice
+    // termination failing, but cannot tell EOG from the #907 caught-grammar
+    // stop, nor either from a naturally short answer.
     #expect(
       !result.contains("<|im_end|>"),
       "Raw output contains <|im_end|> — stop token not working. Output: \(result)"

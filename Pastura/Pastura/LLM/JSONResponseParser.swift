@@ -22,9 +22,9 @@ nonisolated public struct JSONResponseParser: Sendable {
   )
   // Chat template tokens — truncate everything from first occurrence onwards.
   // Catches hallucinated continuations where the model generates past its own turn.
-  // ChatML-only by construction: correct for Qwen 3, does nothing for Gemma 4,
-  // whose markers are `<|turn>` / `<turn|>` — see the doc on
-  // `truncateAtChatTemplateToken` for the per-backend detail.
+  // ChatML-only by construction: correct for Qwen 3; for Gemma 4, whose
+  // markers are `<|turn>` / `<turn|>`, it can only fire on a spelled-out
+  // `<|im_end|>` — see the doc on `truncateAtChatTemplateToken`.
   // Making this per-model is #1422; the false-rationale half was #1417.
   private static let chatTemplateTokenRegex = try? NSRegularExpression(
     pattern: #"<\|im_end\|>.*"#,
@@ -294,10 +294,12 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Discarding everything from the first such token prevents the greedy JSON
   /// regex from capturing content across hallucinated turns.
   ///
-  /// - Important: the token is hardcoded, so this step does nothing for a
-  ///   non-ChatML model. Gemma 4's markers are `<|turn>` / `<turn|>` and
-  ///   `<|im_end|>` is not in its vocabulary, so the literal can only arrive
-  ///   spelled out as ordinary text — possible, but not observed.
+  /// - Important: the token is hardcoded, so for a non-ChatML model this step
+  ///   fires only on a spelled-out `<|im_end|>`. Gemma 4's markers are
+  ///   `<|turn>` / `<turn|>` and `<|im_end|>` is not in its vocabulary, so
+  ///   spelled-out is the only form that could arrive — possible, but not seen.
+  ///   What this step does NOT do for Gemma is truncate a Gemma-shaped
+  ///   continuation.
   ///
   ///   This type is backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
   ///   Foundation Models output through one instance), so do not assume the

@@ -62,10 +62,11 @@ internal class JSONResponseParser {
          * Chat-template token — truncate everything from the first occurrence.
          *
          * ChatML-only by construction, mirroring the Swift original: correct for
-         * Qwen 3, but it does nothing for Gemma 4, whose markers are `<|turn>` /
-         * `<turn|>` and whose vocabulary has no `<|im_end|>` — so that literal
-         * can only arrive spelled out as ordinary text, which is possible but
-         * not observed.
+         * Qwen 3, and for Gemma 4 it fires only on a spelled-out `<|im_end|>`.
+         * Gemma's markers are `<|turn>` / `<turn|>` and its vocabulary has no
+         * `<|im_end|>`, so spelled-out is the only form that could arrive —
+         * possible, but not seen. What it does NOT do for Gemma is truncate a
+         * Gemma-shaped continuation.
          *
          * This type is backend-agnostic, so do not assume the llama.cpp
          * guarantee here: under that backend a control marker cannot reach

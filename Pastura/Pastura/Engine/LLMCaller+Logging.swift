@@ -72,10 +72,11 @@ nonisolated extension LLMCaller {
   /// tokens.
   ///
   /// - Important: ChatML-only. Gemma 4's markers are `<|turn>` / `<turn|>`, so
-  ///   this diagnostic sees nothing for the default shipped model. Note the
-  ///   backends named above are exactly the ones without llama.cpp's
-  ///   decode-side guarantee, which is what makes them the residual surface
-  ///   here. Making it model-aware is tracked in #1422.
+  ///   this diagnostic never matches for the default shipped model. Backends
+  ///   that decode server-side — Ollama and Foundation Models, neither of
+  ///   which defines `generateStream` — lack llama.cpp's decode-side
+  ///   guarantee, and are the residual surface here. Making it model-aware is
+  ///   tracked in #1422.
   func logChatTemplateLeakage(in raw: String) {
     if raw.contains("<|im_start|>") {
       logger.log(
