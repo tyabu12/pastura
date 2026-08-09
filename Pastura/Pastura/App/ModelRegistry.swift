@@ -55,6 +55,10 @@ enum ModelRegistry {
     fileName: "gemma-4-E2B-it-Q4_K_M.gguf",
     fileSize: 3_106_735_776,
     sha256: "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845",
+    // Carries no Gemma marker, deliberately: `<|im_end|>` is a ChatML sentinel
+    // absent from this model's vocabulary, and replacing it would mean guessing
+    // what text a Gemma hallucination spells out. See the canonical note on
+    // `LlamaCppService.stopSequence` (#1417; behaviour half #1422).
     stopSequence: "<|im_end|>",
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),

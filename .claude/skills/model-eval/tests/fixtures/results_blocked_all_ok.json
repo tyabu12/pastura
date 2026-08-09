@@ -1,0 +1,20 @@
+{
+  "date": "2026-08-08",
+  "model": {"profile_id": "gemma-4-e2b-q4-k-m", "gguf": "gemma-4-E2B_q4_0-it"},
+  "battery": [
+    {
+      "scenario_id": "bokete", "language": "ja", "status": "ok",
+      "attempts": 1, "language_mismatches": 0, "tok_per_sec": 12.0,
+      "rubric": {"coherence": 4, "interaction": 3, "breakdown_free": 5,
+                 "development": 3, "payoff": 4, "payoff_axis": "humor"},
+      "comment": "keyed so ONLY the non-ok-cell guard can fire"
+    }
+  ],
+  "differentiation": "present, so the differentiation guards cannot fire here",
+  "verdict": {
+    "gate": "blocked",
+    "unblocked_by": "nothing — this run was not actually blocked",
+    "retry": "#1416",
+    "notes": "every cell completed, so blocked is not admissible"
+  }
+}

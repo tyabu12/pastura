@@ -58,7 +58,16 @@ internal class JSONResponseParser {
         /** Common thinking-model format: `<think>...</think>` (DeepSeek, Qwen). */
         val THINK_TAG = Regex("""<think>[\s\S]*?</think>""")
 
-        /** Chat-template token — truncate everything from the first occurrence. */
+        /**
+         * Chat-template token — truncate everything from the first occurrence.
+         *
+         * ChatML-only, mirroring the Swift original: for a non-ChatML model this
+         * fires only on a spelled-out `<|im_end|>` — not the form a Gemma
+         * hallucination would take (Gemma 4's markers are `<|turn>` / `<turn|>`).
+         * The type is also backend-agnostic, so do not import the llama.cpp
+         * control-token guarantee here: a server-decoding backend offers none.
+         * Per-model sourcing is #1422.
+         */
         val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>[\s\S]*""")
 
         val CODE_BLOCK = Regex("""```(?:json)?\s*\n?([\s\S]*?)\n?```""")

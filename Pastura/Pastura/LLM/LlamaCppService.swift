@@ -94,11 +94,25 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   static let repeatPenalty: Float = 1.1
   static let contextSize: UInt32 = 8_192
   static let batchSize: Int = 512
-  // Per-instance stop sequence (was `static` pre-multi-model). String-based,
-  // not token-ID, because Gemma 4 E2B tokenizes `<|im_end|>` into 6 subword
-  // tokens — single-token ID matching is impossible for this model. Gemma
-  // and Qwen 3 both use `<|im_end|>`; future models may differ (read from
-  // descriptor at construction time).
+  // Per-instance plaintext stop sentinel (was `static` pre-multi-model).
+  // CANONICAL NOTE — other sites point here instead of restating this.
+  //
+  // Matched against decoded text (`runGeneration` / `runStreamGeneration`), so
+  // it catches only a sentinel the model SPELLED OUT: a control token never
+  // decodes into the text at all (`decodePiece` passes `special: false`, so it
+  // renders ""; if it is ALSO EOG, `nextContentTokenOrStop` stops first — a
+  // second, independent guard), and a sentinel absent from the vocabulary has
+  // no token form to arrive as. So this is a hallucinated-turn guard (sibling of
+  // `JSONResponseParser.truncateAtChatTemplateToken`), NOT what terminates a
+  // normal turn — that is EOG, for every model. String-based rather than
+  // token-ID because what it must catch is text, which has no single token id.
+  //
+  // Shipped values: Qwen 3's `<|im_end|>` is 151645 (CONTROL, and its EOG).
+  // Gemma 4's descriptor holds that same ChatML string, absent from its 262k
+  // vocabulary — its own markers are `<|turn>` (105, CONTROL, NOT EOG) and
+  // `<turn|>` (106, EOG). Left as-is rather than replaced by a guess at what a
+  // Gemma hallucination would spell (#1417; behaviour half #1422). Read from
+  // the descriptor at construction time; future models may differ.
   // TODO: Consider adding `<|im_start|>` if hallucinated turn starts are observed (#65)
   let stopSequence: String
 
@@ -179,12 +193,15 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// `.systemPromptSuffix`). This avoids silently running Qwen with Gemma's
   /// defaults if a call-site forgets to thread the descriptor through.
   /// Test code can construct via a file-scope helper (see
-  /// `LlamaCppServiceTests`) to centralize the Gemma-shaped test values.
+  /// `LlamaCppServiceTests`) to centralize the test values. Not a pin of the
+  /// shipped descriptor — the path and identifier are synthetic, while the
+  /// `stopSequence` literal reuses the shipped ChatML one.
   ///
   /// - Parameters:
   ///   - modelPath: Absolute path to the GGUF model file on disk (provided by
   ///     `ModelManager.modelFileURL(for:).path` at the call-site).
-  ///   - stopSequence: Per-model stop sentinel (e.g., `<|im_end|>`).
+  ///   - stopSequence: Per-model plaintext stop sentinel, matched only against
+  ///     text the model spelled out (e.g., `<|im_end|>` for ChatML models).
   ///   - modelIdentifier: Human-readable label for exports / replay metadata.
   ///   - systemPromptSuffix: Optional suffix appended to the system prompt
   ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
@@ -550,8 +567,9 @@ extension LlamaCppService {
     defer { candidateBuffer?.deallocate() }
 
     // Auto-regressive generation loop with string-based stop detection.
-    // Tokens are decoded incrementally so we can detect <|im_end|> even when
-    // the model's tokenizer splits it across multiple subword tokens.
+    // Tokens are decoded incrementally so a spelled-out stop sentinel is
+    // detected even when BPE splits it across subword tokens (see
+    // `stopSequence` for why only the spelled-out form can arrive here).
     var outputText = ""
     var generatedTokens = 0
 
@@ -677,8 +695,8 @@ extension LlamaCppService {
   /// Replaces the default protocol wrap (which yields a single chunk at
   /// completion) with real incremental output. Each decoded token piece
   /// either emits as a new delta or is held back briefly while we wait
-  /// to see if it completes the stop sequence `<|im_end|>` or a
-  /// multi-byte UTF-8 character.
+  /// to see if it completes the plaintext stop sentinel (``stopSequence``)
+  /// or a multi-byte UTF-8 character.
   ///
   /// Contract preserved from ``generate(system:user:)``:
   /// - Sequential access (ADR-002 §6) — concurrent callers serialize via
@@ -686,7 +704,7 @@ extension LlamaCppService {
   ///   not via a runtime trap.
   /// - Cooperative ``SuspendController`` check at each iteration boundary.
   /// - Task cancellation at iteration boundary.
-  /// - Stop-sequence `<|im_end|>` never appears in emitted deltas.
+  /// - The plaintext stop sentinel never appears in emitted deltas.
   /// - Final chunk carries ``LLMStreamChunk/completionTokens`` — llama.cpp
   ///   is one of the few backends that can report this cheaply.
   ///
@@ -909,8 +927,8 @@ extension LlamaCppService {
 
   /// Length of the longest suffix of `decoded` that is also a strict
   /// prefix of ``stopSequence``. Those characters are held back from
-  /// emission until the next token disambiguates whether we are
-  /// actually starting `<|im_end|>`.
+  /// emission until the next token disambiguates whether the model is
+  /// actually spelling out the sentinel.
   ///
   /// Returns 0 when the tail shares nothing with the stop sequence — the
   /// common case, producing immediate emission and zero UX lag. Capped

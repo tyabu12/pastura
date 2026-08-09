@@ -1,0 +1,19 @@
+{
+  "date": "2026-08-08",
+  "model": {"profile_id": "gemma-4-e2b-q4-k-m", "gguf": "gemma-4-E2B_q4_0-it"},
+  "battery": [
+    {
+      "scenario_id": "bokete", "language": "ja", "status": "failed",
+      "attempts": 2, "language_mismatches": 0, "tok_per_sec": null,
+      "rubric": null,
+      "comment": "zero ok cells, so differentiation is unassessable"
+    }
+  ],
+  "differentiation": "fabricated — there were zero inferences to judge",
+  "verdict": {
+    "gate": "blocked",
+    "unblocked_by": "pinned llama.cpp gains shared-KV tail-layer support",
+    "retry": "#1416",
+    "notes": "keyed so ONLY the differentiation-forbidden guard can fire"
+  }
+}

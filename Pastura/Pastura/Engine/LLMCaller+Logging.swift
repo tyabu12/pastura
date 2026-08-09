@@ -66,10 +66,16 @@ nonisolated extension LLMCaller {
   }
 
   /// Detect chat template token leakage and hallucinated continuations.
-  /// `LlamaCppService`'s streaming path strips `<|im_end|>` before
-  /// emission, so this primarily catches non-streaming backends (Mock
+  /// `LlamaCppService`'s streaming path strips a spelled-out `<|im_end|>`
+  /// before emission, so this primarily catches non-streaming backends (Mock
   /// wrap path, Ollama) where the raw string may still contain template
   /// tokens.
+  ///
+  /// - Important: ChatML-only, so a non-ChatML model (Gemma 4) is not covered
+  ///   — #1422. A spelled-out `<|im_start|>` stays reachable even under
+  ///   llama.cpp, whose streaming path strips `stopSequence` (`<|im_end|>`)
+  ///   alone; that is what the #65 TODO on `LlamaCppService.stopSequence` is
+  ///   about.
   func logChatTemplateLeakage(in raw: String) {
     if raw.contains("<|im_start|>") {
       logger.log(

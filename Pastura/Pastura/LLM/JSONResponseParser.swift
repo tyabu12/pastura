@@ -22,6 +22,7 @@ nonisolated public struct JSONResponseParser: Sendable {
   )
   // Chat template tokens — truncate everything from first occurrence onwards.
   // Catches hallucinated continuations where the model generates past its own turn.
+  // ChatML-only — see the doc on `truncateAtChatTemplateToken`.
   private static let chatTemplateTokenRegex = try? NSRegularExpression(
     pattern: #"<\|im_end\|>.*"#,
     options: .dotMatchesLineSeparators
@@ -52,7 +53,8 @@ nonisolated public struct JSONResponseParser: Sendable {
   ///
   /// Processing pipeline:
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
-  /// 2. Truncate at chat template tokens (`<|im_end|>`)
+  /// 2. Truncate at the ChatML chat-template token (`<|im_end|>`) — ChatML
+  ///    models only (#1422)
   /// 3. Extract content from markdown code blocks
   /// 4. Extract the first balanced `{...}` object (string-aware), discarding
   ///    any trailing content after its matching close brace
@@ -282,12 +284,21 @@ nonisolated public struct JSONResponseParser: Sendable {
     return result
   }
 
-  /// Truncate at the first chat template token (`<|im_end|>`).
+  /// Truncate at the first ChatML chat-template token (`<|im_end|>`).
   ///
-  /// When the model hallucinates past its own turn, it emits `<|im_end|>`
-  /// followed by fabricated user/assistant turns. Discarding everything from
-  /// the first such token prevents the greedy JSON regex from capturing
-  /// content across hallucinated turns.
+  /// When a **ChatML** model hallucinates past its own turn it emits
+  /// `<|im_end|>` as text, followed by fabricated user/assistant turns.
+  /// Discarding everything from the first such token prevents the greedy JSON
+  /// regex from capturing content across hallucinated turns.
+  ///
+  /// - Important: the token is hardcoded, so for a non-ChatML model this fires
+  ///   only on a spelled-out `<|im_end|>` — not the form a Gemma hallucination
+  ///   would take (Gemma 4's markers are `<|turn>` / `<turn|>`). This type is
+  ///   also backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
+  ///   Foundation Models through one instance), so do not import the llama.cpp
+  ///   control-token guarantee (`LlamaCppService.stopSequence`) here: a
+  ///   server-decoding backend offers none, which is why
+  ///   `LLMCaller.logChatTemplateLeakage` exists. Per-model sourcing is #1422.
   private func truncateAtChatTemplateToken(_ text: String) -> String {
     guard let regex = Self.chatTemplateTokenRegex else { return text }
     let range = NSRange(text.startIndex..., in: text)

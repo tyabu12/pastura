@@ -1,0 +1,25 @@
+{
+  "date": "2026-07-08",
+  "model": {"profile_id": "sarashina-2-2-3b-q4-k-m", "gguf": "sarashina2.2-3b-instruct-v0.1-Q4_K_M"},
+  "battery": [
+    {
+      "scenario_id": "bokete", "language": "ja", "status": "ok",
+      "attempts": 1, "language_mismatches": 0, "tok_per_sec": 4.9,
+      "rubric": {"coherence": 4, "interaction": 3, "breakdown_free": 4,
+                 "development": 3, "payoff": 5, "payoff_axis": "humor"},
+      "comment": "completed — so real evidence exists"
+    },
+    {
+      "scenario_id": "word_wolf", "language": "ja", "status": "failed",
+      "attempts": 2, "language_mismatches": 0, "tok_per_sec": null,
+      "rubric": null,
+      "comment": "empty-output path (#751)"
+    }
+  ],
+  "verdict": {
+    "gate": "blocked",
+    "unblocked_by": "the #751 empty-output path is fixed",
+    "retry": "#751",
+    "notes": "keyed so ONLY the differentiation-required guard can fire"
+  }
+}

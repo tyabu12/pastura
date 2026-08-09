@@ -18,18 +18,46 @@ Stage 0  harness ModelProfile PR (new family only)
    │
 Gate 1   /model-eval  — cheap Mac filter (足切り)
    │        ├─ reject ──▶ record candidate + failure mode (stop)
-   │        └─ borderline ──▶ re-sample weak cell(s), re-judge (never reject on one sample)
+   │        ├─ borderline ──▶ re-sample weak cell(s), re-judge (never reject on one sample)
+   │        └─ blocked ──▶ record blocker + retry pointer ──┐  (NOT a stop)
+   │                                                        │
+   │               ◀── retry when the blocker clears ───────┘
    │        (pass = ADVANCE only; it cannot accept)
    ▼
 Gate 2   ADR-011 real-device PoC — the ONLY accept path
-   │        └─ no-go ──▶ record candidate + failure mode (stop)
+   │        ├─ no-go ──▶ record candidate + failure mode (stop)
+   │        └─ blocked ──▶ record blocker + retry pointer ──┐  (NOT a stop)
+   │                                                        │
+   │               ◀── retry when the blocker clears ───────┘
    ▼
 Registration  (/orchestrate: descriptor + mirrors + device QA)
 ```
 
-Gate 1 can **reject** cheaply or return **borderline** (→ re-sample per the
+Gate 1 can **reject** cheaply, return **borderline** (→ re-sample per the
 skill's asymmetric verdict — one unlucky single-run sample must never discard a
-candidate). Gate 2 is the sole gate that can **accept**.
+candidate), or return **blocked**. Gate 2 is the sole gate that can **accept**.
+
+**`blocked` is not a rejection** — it means the candidate could not be
+*evaluated* (a model-load failure, a runtime incompatibility, a known infra
+path), so there is nothing to reject and the outcome is retry-gated. Both gates
+can produce it; a blocked entry must always name **what would unblock it** and
+**where the retry is tracked**.
+
+The two gates enforce that asymmetrically, and the asymmetry is deliberate:
+
+- **Gate 1** is machine-checked, but only structurally. `/model-eval`'s
+  `append_eval.py` rejects a `blocked` scorecard that lacks an unblock
+  condition or a retry pointer; it refuses a `differentiation` judgment when no
+  cell completed, and conversely *requires* one — scoped to the completed
+  cells, or an explicit "insufficient to differentiate" — when at least one
+  did. Admissibility itself (is the failure environmental or the candidate's
+  own?) is **not** checked by anything and stays a human call — see
+  `.claude/skills/model-eval/SKILL.md`
+  § "`blocked` — admissibility and its two enforcement layers", which also
+  explains why a mechanical proxy was rejected.
+- **Gate 2** is **convention-only**. There is no machine-readable Gate-2
+  artifact, so nothing validates a real-device blocked outcome; record it in
+  [`eval-log.md`](eval-log.md) with the same two fields by hand.
 
 ## Stage 0 — Harness profile (new model family only)
 
@@ -130,6 +158,9 @@ character earns no slot even with decent numbers. Each model also costs
 ## Recording outcomes
 
 - **Pass (through Gate 2)** → the registration PR above.
+- **Blocked (either gate)** → record the blocker + the unblock condition + the
+  retry pointer, on the same three surfaces below. The candidate stays live;
+  do **not** write it up as a rejection.
 - **No-go / reject (either gate)** → record the verdict + failure mode. Three
   committed surfaces, by role:
   - **[`eval-log.md`](eval-log.md)** — the durable verdict ledger; the home for

@@ -60,9 +60,12 @@ struct LlamaCppIntegrationTests {
 
   // MARK: - Helpers
 
-  private func makeService() -> LlamaCppService {
+  // Not `private`: sibling `+*.swift` extensions of this suite call it
+  // (`.claude/rules/testing.md` § "Splitting a Suite Across Files").
+  func makeService() -> LlamaCppService {
     LlamaCppService(
       modelPath: LlamaCppConfig.modelPath,
+      // Mirrors `ModelRegistry.gemma4E2B` — carries no Gemma marker (#1417).
       stopSequence: "<|im_end|>",
       modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
       systemPromptSuffix: nil
@@ -143,10 +146,10 @@ struct LlamaCppIntegrationTests {
     #expect(!statement.isEmpty, "Parsed statement is empty. Raw: \(result)")
   }
 
-  // MARK: - Test 4: Generation stops at <|im_end|> token
+  // MARK: - Test 4: Generation terminates cleanly, with no template-token leak
 
   @Test(.timeLimit(.minutes(3)))
-  func generationStopsAtImEnd() async throws {
+  func generationTerminatesWithoutTemplateTokenLeak() async throws {
     let service = makeService()
     try await service.loadModel()
     defer { Task { try? await service.unloadModel() } }
@@ -159,97 +162,24 @@ struct LlamaCppIntegrationTests {
       user: "Introduce yourself briefly."
     )
 
-    // Output should not contain leaked <|im_end|> token
+    // Leak check. When the stop path FIRES the sentinel is truncated before
+    // `generate` returns, so this passes; it fails only on a spelled-out
+    // `<|im_end|>` the stop path did NOT catch. ChatML-shaped only — a
+    // Gemma-shaped hallucination (`<|turn>` / `<turn|>`) is matched nowhere
+    // (#1422). Gemma's normal termination is EOG, and the length bound below is
+    // only a runaway proxy for it: it would notice termination failing outright,
+    // but cannot tell EOG from the #907 caught-grammar stop, nor either from a
+    // naturally short answer.
     #expect(
       !result.contains("<|im_end|>"),
       "Raw output contains <|im_end|> — stop token not working. Output: \(result)"
     )
     // Output should be well under maxTokens (1000 tokens ≈ 4000 chars).
-    // A runaway generation hitting maxTokens indicates the stop token failed.
+    // A runaway generation hitting maxTokens indicates termination failed.
     #expect(
       result.count < 2000,
       "Output suspiciously long (\(result.count) chars) — may have hit maxTokens"
     )
-  }
-
-  // MARK: - Test 5a: Streaming yields incremental deltas, isFinal once
-
-  @Test(.timeLimit(.minutes(3)))
-  func streamingYieldsIncrementalDeltas() async throws {
-    let service = makeService()
-    try await service.loadModel()
-    defer { Task { try? await service.unloadModel() } }
-
-    var deltas: [String] = []
-    var finalChunkCount = 0
-    var lastCompletionTokens: Int?
-
-    for try await chunk in service.generateStream(
-      system: """
-        You are a character in a game. Respond ONLY with a JSON object.
-        Required format: {"statement": "your statement here"}
-        """,
-      user: "Introduce yourself briefly."
-    ) {
-      if chunk.isFinal {
-        finalChunkCount += 1
-        lastCompletionTokens = chunk.completionTokens
-      } else {
-        deltas.append(chunk.delta)
-      }
-    }
-
-    // At least two non-final chunks means real streaming happened (rather
-    // than a single-shot fallback).
-    #expect(deltas.count > 1, "Expected multiple chunks, got \(deltas.count)")
-    #expect(finalChunkCount == 1, "Expected exactly one final chunk")
-    #expect(
-      (lastCompletionTokens ?? 0) > 0,
-      "Final chunk should carry completionTokens"
-    )
-
-    // None of the emitted deltas may contain the stop sequence — it must
-    // be detected and trimmed before emission.
-    for delta in deltas {
-      #expect(
-        !delta.contains("<|im_end|>"),
-        "Delta leaked <|im_end|>: \(delta)"
-      )
-    }
-
-    // Concatenation of all deltas produces the same final text the
-    // non-streaming `generate` path would return.
-    let streamedText = deltas.joined()
-    let parsed = try JSONResponseParser().parse(streamedText)
-    let statement = parsed.statement ?? ""
-    #expect(!statement.isEmpty, "Streamed text failed to parse. Raw: \(streamedText)")
-  }
-
-  // MARK: - Test 5b: Stream and non-stream produce equivalent text
-
-  @Test(.timeLimit(.minutes(5)))
-  func streamAndGenerateAgreeOnFinalText() async throws {
-    let service = makeService()
-    try await service.loadModel()
-    defer { Task { try? await service.unloadModel() } }
-
-    let system = "Reply with JSON only: {\"echo\": \"ack\"}"
-    let user = "Echo."
-
-    let nonStreamed = try await service.generate(system: system, user: user)
-
-    var streamed = ""
-    for try await chunk in service.generateStream(system: system, user: user)
-    where !chunk.isFinal {
-      streamed += chunk.delta
-    }
-
-    // Don't expect byte-for-byte equality — sampling is stochastic across
-    // runs — but both paths should parse as JSON and have an echo field.
-    let nonStreamedParsed = try JSONResponseParser().parse(nonStreamed)
-    let streamedParsed = try JSONResponseParser().parse(streamed)
-    #expect(nonStreamedParsed.fields["echo"] != nil)
-    #expect(streamedParsed.fields["echo"] != nil)
   }
 
   // MARK: - Test 6: Multiple sequential generations (KV cache clear)
