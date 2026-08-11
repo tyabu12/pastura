@@ -262,19 +262,10 @@ extension DesignTokensTests {
         ground: PasturaPalette.nightBackground))
   }
 
-  // `mossBadgeStaysTheQuietestOfTheFiveInBothAppearances` and its control
-  // `mossBadgeQuietestControlRejectsALiftedInk` stood here until #1407. They
-  // pinned `mossSoft` + `mossDark` as the quietest of the five §2.6-shaped
-  // badge pairs — a relation that held in both appearances and, crucially, had
-  // not been aimed at, which is what made it worth pinning.
-  //
-  // The three views that rendered that pairing now read `mossInk` (its light
-  // half measured 2.911 against a 4.5:1 bar). Retargeting was rejected: the
-  // repoint *aims* at 4.5:1, so the resulting position is a byproduct rather
-  // than an unaimed consequence, and it no longer holds symmetrically — light
-  // inverts to loudest (6.537 vs the band's 5.389–5.976) while dark stays
-  // quietest (6.505). Nothing renders the old pair, so the claim has no
-  // subject. Replacement: `DesignTokensTests+MossSoftGround`.
+  // The moss badge's quietest-of-the-five pair assertions were retired by #1407
+  // — nothing renders `mossDark` on `mossSoft` any more. `DesignTokensTests+MossSoftGround`
+  // carries the replacement; why the claim was retired rather than retargeted is
+  // in ADR-028 § Amendment 2026-08-12.
 
   /// `nightPage` **sinks** below the body ground, mirroring light's `page` sitting
   /// below `screenBackground` — the workbench stays the dim surface in both

@@ -21,10 +21,8 @@ struct PredictionOutcomeBadge: View {
           .foregroundStyle(Color.muted)
       }
     }
-    // Hit arm reads `mossInk`, not `mossDark`: on the opaque `mossSoft` capsule
-    // below, `mossDark` measured 2.911 in light against a 4.5:1 bar. See
-    // `ContradictionBadge` for the full derivation; asserted by
-    // `DesignTokensTests+MossSoftGround` (#1407).
+    // Hit arm takes `mossInk` for the opaque `mossSoft` capsule below — see
+    // `ContradictionBadge` for the derivation (#1407).
     //
     // The miss arm's `muted` is a separate, still-open gap — `muted` on
     // `bubbleBackground` is 3.475 light / 3.021 dark, and the streak label

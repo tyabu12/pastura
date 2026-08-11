@@ -19,13 +19,12 @@ struct ContradictionBadge: View {
       Text(label)
         .font(.caption.weight(.semibold))
     }
-    // `mossInk`, not the `mossDark` this shipped with: on an **opaque**
-    // `mossSoft` fill `mossDark` measures 2.911 in light against a 4.5:1 bar
-    // (this label is ~12pt, under WCAG "large text"). `mossOnWash` does not
-    // rescue it either — that token is scoped to *translucent* washes and
-    // reaches only 4.292 here. `mossInk` gives 6.537 light / 6.505 dark, which
-    // is the §2.6 `<family>Soft` + `<family>Ink` pairing the alert families
-    // already use. Asserted by `DesignTokensTests+MossSoftGround` (#1407).
+    // On an **opaque** `mossSoft` fill the foreground must be `mossInk` — the
+    // §2.6 `<family>Soft` + `<family>Ink` pairing the alert families use. The
+    // two plausible alternatives both fail the 4.5:1 bar this ~12pt label owes:
+    // `mossDark` at 2.911 in light, and `mossOnWash` at 4.292 (that token is
+    // scoped to *translucent* washes). Asserted, with both rejections, by
+    // `DesignTokensTests+MossSoftGround` (#1407).
     .foregroundStyle(Color.mossInk)
     .padding(.horizontal, 10)
     .padding(.vertical, 5)

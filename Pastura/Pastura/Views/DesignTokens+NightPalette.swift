@@ -290,14 +290,10 @@ extension PasturaPalette {
   /// (`ContradictionBadge`, `PredictionOutcomeBadge`,
   /// `HighlightCandidatesSection`) — a §2.6-shaped Soft/Ink pair, and like those
   /// it gains contrast in dark rather than holding it: 6.505 against light's
-  /// 6.537. Asserted by `DesignTokensTests+MossSoftGround`.
-  ///
-  /// Those three read `mossDark` until #1407, at 5.685 dark against light's
-  /// **2.911** — the light half was under the 4.5:1 bar, which is why they
-  /// moved. A prior revision of this comment also recorded the pair as "the
-  /// quietest badge of the five in both appearances"; that relation was retired
-  /// with the repoint, since `mossInk` inverts it in light (loudest at 6.537,
-  /// against the band's 5.389–5.976) while dark keeps it.
+  /// 6.537, both asserted over the 4.5:1 bar by `DesignTokensTests+MossSoftGround`
+  /// (#1407). Its position *relative* to the other four is not asserted and is
+  /// not a relation to lean on — it falls outside their band on opposite sides
+  /// per appearance (above light's 5.389–5.976, below dark's 7.689–8.374).
   ///
   /// **Hue moved to the moss family (80.9°), not held at light's 47.7°.** A pale
   /// cream-moss is cream *because* it is pale; at 5% luminance the same hue

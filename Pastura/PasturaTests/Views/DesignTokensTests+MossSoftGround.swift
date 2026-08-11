@@ -8,15 +8,12 @@ import Testing
 // Distinct from `DesignTokensTests+MossOnWash.swift`, which guards moss text on
 // a *translucent* moss wash. The two look alike and are not interchangeable:
 // `mossOnWash` was solved from the 4.5:1 target on composited washes, and on
-// this opaque ground it reaches only 4.292. Same family, different ground,
-// different answer — which is why #1407 was split out of #1327 rather than
-// folded into it.
+// this opaque ground it reaches only 4.292 — same family, different ground,
+// different answer.
 //
-// Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
-// § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
-// with the parent and is explicitly forbidden. Inherits the parent's
-// `@MainActor` and `.timeLimit(.minutes(1))`, and reaches the `contrastRatio`
-// helper at the foot of `DesignTokensTests+NightPalette.swift`.
+// Sibling-file extension rather than a fresh `@Suite`, per
+// `.claude/rules/testing.md` § "Splitting a Suite Across Files". `contrastRatio`
+// lives at the foot of `DesignTokensTests+NightPalette.swift`.
 extension DesignTokensTests {
 
   /// The three shipped views that lay text directly on an opaque `mossSoft`
@@ -51,12 +48,10 @@ extension DesignTokensTests {
   /// `mossSoft` here fills the capsule at full opacity, so whatever card or
   /// screen sits behind it is occluded and cannot move the ratio.
   @Test func mossInkClearsAAOnTheOpaqueMossSoftGround() {
-    // Size pin, not decoration: the assertions below do not iterate the
-    // fixture, so an emptied `mossSoftTextSites` would not make them vacuous —
-    // but it *would* silently drop the record of which views this guard speaks
-    // for, which is the fixture's whole job. Residual: it catches a row being
-    // added or removed, never one *renamed* to a view that no longer draws on
-    // this ground.
+    // Size pin: the assertions below don't iterate the fixture, so an emptied
+    // list wouldn't make them vacuous — it would silently drop the record of
+    // which views this guard speaks for. Residual: it catches a row added or
+    // removed, never one *renamed* to a view that no longer draws on this ground.
     #expect(Self.mossSoftTextSites.count == 3)
 
     let light = contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft)
@@ -109,20 +104,19 @@ extension DesignTokensTests {
     #expect(style.background == Color.mossSoft)
   }
 
-  /// The §2.6 convention this repoint restores: every alert family pairs its
-  /// `Soft` fill with its own `Ink` text, and moss was the sole deviation.
+  /// The §2.6 convention: every alert family pairs its `Soft` fill with its own
+  /// `Ink` text, and moss was the sole deviation.
   ///
   /// **Pins the five pairings that exist today, in both appearances** — not the
   /// individual values, which `DesignTokensTests` owns. It fires when one of
   /// these ten ratios is retuned below the bar.
   ///
   /// It does **not** fire when a *sixth* family is added that skips the
-  /// convention: `families` is a hand-written literal, so a new `noticeSoft` /
-  /// `noticeInk` pair would simply not appear here. Deriving the list from
+  /// convention: the lists are hand-written literals, so a new `noticeSoft` /
+  /// `noticeInk` pair simply would not appear here. Deriving them from
   /// `PasturaDynamicPalette.all` by name suffix would buy that, at the cost of
   /// a guard whose subject is a naming pattern rather than a stated convention.
-  /// Left hand-written deliberately; the `count` pins are what make a silent
-  /// shrink visible.
+  /// The `count` pins are what make a silent shrink visible instead.
   @Test func everySoftInkFamilyPairingClearsAAIncludingMoss() {
     // Two members, not three: swiftlint's `large_tuple` caps tuples at two, so
     // the ratio is folded here rather than the token pair carried through.

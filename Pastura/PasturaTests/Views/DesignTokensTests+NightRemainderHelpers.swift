@@ -100,14 +100,6 @@ func lineSeparatesSurfaceFromGround(
     && contrastRatio(line, surface) >= 1.1 && contrastRatio(line, ground) >= 1.1
 }
 
-// `nightBadgePairs` / `isQuietestPair` / `mossBadgeIsQuietest` lived here until
-// #1407. They backed `mossBadgeStaysTheQuietestOfTheFiveInBothAppearances`,
-// which pinned `mossSoft` + `mossDark` as the quietest §2.6-shaped badge pair.
-// That pairing no longer renders anywhere — the three views repointed to
-// `mossInk` — so the claim lost its subject and was retired rather than
-// retargeted. `DesignTokensTests+MossSoftGround` carries the replacement, an
-// absolute 4.5:1 bar on the ground the badges actually draw on.
-
 /// Max minus min sRGB channel — a chroma proxy that needs no colour-space
 /// conversion. Used only to discriminate a moss token from a neutral one at the
 /// same luminance.
