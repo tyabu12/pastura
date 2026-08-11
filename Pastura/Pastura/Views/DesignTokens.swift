@@ -135,7 +135,9 @@ enum PasturaPalette {
   /// doctrine). `mossDark` cannot do this job at any wash opacity — its ceiling
   /// is 4.737:1 even on pure white, so every wash the app ships puts it under the
   /// bar. Valid over moss-family **translucent** washes on light surfaces;
-  /// explicitly NOT over opaque `mossSoft`, where it measures 4.29 (see #1407).
+  /// explicitly NOT over opaque `mossSoft`, where it measures 4.29. That ground
+  /// takes `mossInk` instead — the §2.6 `<family>Soft` + `<family>Ink` pairing,
+  /// 6.537 (#1407, asserted by `DesignTokensTests+MossSoftGround`).
   static let mossOnWash = PasturaColorValue(hex: 0x535D40)
 
   // MARK: §2.4 Meta Contrast Presets (DL progress)
