@@ -286,12 +286,14 @@ extension PasturaPalette {
   /// 7 of its 10 callsites (`ChatBubble`'s 1.5pt rule, `ResultsView`'s timeline
   /// rail, and `strokeBorder`s in `HomePausedCard`, `HomeCompactScenarioRow`,
   /// `ResultDetailView+ResumeBanner` and `ScenarioArtTile` twice). The other
-  /// three are a tinted fill under `mossDark` text
+  /// three are a tinted fill under `mossInk` text
   /// (`ContradictionBadge`, `PredictionOutcomeBadge`,
-  /// `HighlightCandidatesSection`), which lands at 5.685 against light's 2.911 —
-  /// a §2.6-shaped Soft/Ink pair, and like those it gains contrast in dark
-  /// rather than holding it. It stays the quietest badge of the five in both
-  /// appearances, which is the relation that matters and is asserted.
+  /// `HighlightCandidatesSection`) — a §2.6-shaped Soft/Ink pair, and like those
+  /// it gains contrast in dark rather than holding it: 6.505 against light's
+  /// 6.537, both asserted over the 4.5:1 bar by `DesignTokensTests+MossSoftGround`
+  /// (#1407). Its position *relative* to the other four is not asserted and is
+  /// not a relation to lean on — it falls outside their band on opposite sides
+  /// per appearance (above light's 5.389–5.976, below dark's 7.689–8.374).
   ///
   /// **Hue moved to the moss family (80.9°), not held at light's 47.7°.** A pale
   /// cream-moss is cream *because* it is pale; at 5% luminance the same hue

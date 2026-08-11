@@ -100,52 +100,6 @@ func lineSeparatesSurfaceFromGround(
     && contrastRatio(line, surface) >= 1.1 && contrastRatio(line, ground) >= 1.1
 }
 
-/// The four §2.6 Ink-over-Soft badge pairs of one appearance.
-@MainActor
-func nightBadgePairs() -> [(ink: PasturaColorValue, soft: PasturaColorValue)] {
-  [
-    (PasturaPalette.nightInfoInk, PasturaPalette.nightInfoSoft),
-    (PasturaPalette.nightSuccessInk, PasturaPalette.nightSuccessSoft),
-    (PasturaPalette.nightWarningInk, PasturaPalette.nightWarningSoft),
-    (PasturaPalette.nightDangerInk, PasturaPalette.nightDangerSoft)
-  ]
-}
-
-/// True when `ink`-over-`soft` is quieter than every pair in `others`.
-@MainActor
-func isQuietestPair(
-  ink: PasturaColorValue, soft: PasturaColorValue,
-  others: [(ink: PasturaColorValue, soft: PasturaColorValue)]
-) -> Bool {
-  let subject = contrastRatio(ink, soft)
-  return others.allSatisfy { subject < contrastRatio($0.ink, $0.soft) }
-}
-
-/// The moss badge against its appearance's own four §2.6 pairs.
-///
-/// `ink` is injectable **so that the control can reach this wrapper rather than
-/// the inner predicate**. Routed through `isQuietestPair` directly, a control
-/// proves nothing about the eight lines here: collapsing this function to
-/// `return true`, or swapping the two branches, left every test green. With the
-/// substitution applied here instead, both mutations redden — the branches return
-/// different verdicts for the same injected ink, so the swap is caught too.
-@MainActor
-func mossBadgeIsQuietest(dark: Bool, ink: PasturaColorValue? = nil) -> Bool {
-  if dark {
-    return isQuietestPair(
-      ink: ink ?? PasturaPalette.nightMossDark, soft: PasturaPalette.nightMossSoft,
-      others: nightBadgePairs())
-  }
-  return isQuietestPair(
-    ink: ink ?? PasturaPalette.mossDark, soft: PasturaPalette.mossSoft,
-    others: [
-      (PasturaPalette.infoInk, PasturaPalette.infoSoft),
-      (PasturaPalette.successInk, PasturaPalette.successSoft),
-      (PasturaPalette.warningInk, PasturaPalette.warningSoft),
-      (PasturaPalette.dangerInk, PasturaPalette.dangerSoft)
-    ])
-}
-
 /// Max minus min sRGB channel — a chroma proxy that needs no colour-space
 /// conversion. Used only to discriminate a moss token from a neutral one at the
 /// same luminance.

@@ -262,34 +262,10 @@ extension DesignTokensTests {
         ground: PasturaPalette.nightBackground))
   }
 
-  /// `mossSoft` + `mossDark` form a §2.6-shaped Soft/Ink badge pair
-  /// (`ContradictionBadge`, `PredictionOutcomeBadge`, `HighlightCandidatesSection`),
-  /// and its designed property is *relative*: it is the quietest of the five in
-  /// both appearances. Neither token was placed against the other — `mossSoft` by
-  /// its line job, `mossDark` by its ladder position — so this holding is a
-  /// consequence worth pinning rather than a target that was aimed at.
-  @Test func mossBadgeStaysTheQuietestOfTheFiveInBothAppearances() {
-    #expect(mossBadgeIsQuietest(dark: false))
-    #expect(mossBadgeIsQuietest(dark: true))
-  }
-
-  /// The control: substituting `nightInk` for `nightMossDark` lifts the moss
-  /// badge into the §2.6 band and it stops being the quietest. Without this the
-  /// assertion above could pass on a predicate that is simply always true.
-  ///
-  /// Injected **through `mossBadgeIsQuietest`** rather than into `isQuietestPair`
-  /// directly. Aimed at the inner predicate the control skipped the wrapper
-  /// entirely: collapsing `mossBadgeIsQuietest` to `return true`, or swapping its
-  /// two branches, left every test green. Routed through the wrapper both mutations
-  /// redden — the second because the branches disagree on the injected ink, which
-  /// the light-side assertion below pins.
-  @Test func mossBadgeQuietestControlRejectsALiftedInk() {
-    #expect(!mossBadgeIsQuietest(dark: true, ink: PasturaPalette.nightInk))
-    // The branches must not be interchangeable: the same injected ink that stops
-    // being quietest against the dark pairs still is against the light ones, so a
-    // branch swap flips one of these two.
-    #expect(mossBadgeIsQuietest(dark: false, ink: PasturaPalette.nightInk))
-  }
+  // The moss badge's quietest-of-the-five pair assertions were retired by #1407
+  // — nothing renders `mossDark` on `mossSoft` any more. `DesignTokensTests+MossSoftGround`
+  // carries the replacement; why the claim was retired rather than retargeted is
+  // in ADR-028 § Amendment 2026-08-12.
 
   /// `nightPage` **sinks** below the body ground, mirroring light's `page` sitting
   /// below `screenBackground` — the workbench stays the dim surface in both

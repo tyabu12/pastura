@@ -21,7 +21,14 @@ struct PredictionOutcomeBadge: View {
           .foregroundStyle(Color.muted)
       }
     }
-    .foregroundStyle(isHit ? Color.mossDark : Color.muted)
+    // Hit arm takes `mossInk` for the opaque `mossSoft` capsule below — see
+    // `ContradictionBadge` for the derivation (#1407).
+    //
+    // The miss arm's `muted` is a separate, still-open gap — `muted` on
+    // `bubbleBackground` is 3.475 light / 3.021 dark, and the streak label
+    // above is `muted` on `mossSoft` at 2.136 / 2.413. Neither is reachable by
+    // a moss-family change; tracked in #1427.
+    .foregroundStyle(isHit ? Color.mossInk : Color.muted)
     .padding(.horizontal, 10)
     .padding(.vertical, 5)
     .background(
