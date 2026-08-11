@@ -56,8 +56,7 @@ extension DesignTokensTests {
     // but it *would* silently drop the record of which views this guard speaks
     // for, which is the fixture's whole job. Residual: it catches a row being
     // added or removed, never one *renamed* to a view that no longer draws on
-    // this ground. Same class as `PasturaOccluderShadows`' hand-maintained
-    // ground list.
+    // this ground.
     #expect(Self.mossSoftTextSites.count == 3)
 
     let light = contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft)
