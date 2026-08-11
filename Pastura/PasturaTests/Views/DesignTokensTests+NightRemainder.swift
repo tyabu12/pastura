@@ -262,34 +262,19 @@ extension DesignTokensTests {
         ground: PasturaPalette.nightBackground))
   }
 
-  /// `mossSoft` + `mossDark` form a §2.6-shaped Soft/Ink badge pair
-  /// (`ContradictionBadge`, `PredictionOutcomeBadge`, `HighlightCandidatesSection`),
-  /// and its designed property is *relative*: it is the quietest of the five in
-  /// both appearances. Neither token was placed against the other — `mossSoft` by
-  /// its line job, `mossDark` by its ladder position — so this holding is a
-  /// consequence worth pinning rather than a target that was aimed at.
-  @Test func mossBadgeStaysTheQuietestOfTheFiveInBothAppearances() {
-    #expect(mossBadgeIsQuietest(dark: false))
-    #expect(mossBadgeIsQuietest(dark: true))
-  }
-
-  /// The control: substituting `nightInk` for `nightMossDark` lifts the moss
-  /// badge into the §2.6 band and it stops being the quietest. Without this the
-  /// assertion above could pass on a predicate that is simply always true.
-  ///
-  /// Injected **through `mossBadgeIsQuietest`** rather than into `isQuietestPair`
-  /// directly. Aimed at the inner predicate the control skipped the wrapper
-  /// entirely: collapsing `mossBadgeIsQuietest` to `return true`, or swapping its
-  /// two branches, left every test green. Routed through the wrapper both mutations
-  /// redden — the second because the branches disagree on the injected ink, which
-  /// the light-side assertion below pins.
-  @Test func mossBadgeQuietestControlRejectsALiftedInk() {
-    #expect(!mossBadgeIsQuietest(dark: true, ink: PasturaPalette.nightInk))
-    // The branches must not be interchangeable: the same injected ink that stops
-    // being quietest against the dark pairs still is against the light ones, so a
-    // branch swap flips one of these two.
-    #expect(mossBadgeIsQuietest(dark: false, ink: PasturaPalette.nightInk))
-  }
+  // `mossBadgeStaysTheQuietestOfTheFiveInBothAppearances` and its control
+  // `mossBadgeQuietestControlRejectsALiftedInk` stood here until #1407. They
+  // pinned `mossSoft` + `mossDark` as the quietest of the five §2.6-shaped
+  // badge pairs — a relation that held in both appearances and, crucially, had
+  // not been aimed at, which is what made it worth pinning.
+  //
+  // The three views that rendered that pairing now read `mossInk` (its light
+  // half measured 2.911 against a 4.5:1 bar). Retargeting was rejected: the
+  // repoint *aims* at 4.5:1, so the resulting position is a byproduct rather
+  // than an unaimed consequence, and it no longer holds symmetrically — light
+  // inverts to loudest (6.537 vs the band's 5.389–5.976) while dark stays
+  // quietest (6.505). Nothing renders the old pair, so the claim has no
+  // subject. Replacement: `DesignTokensTests+MossSoftGround`.
 
   /// `nightPage` **sinks** below the body ground, mirroring light's `page` sitting
   /// below `screenBackground` — the workbench stays the dim surface in both

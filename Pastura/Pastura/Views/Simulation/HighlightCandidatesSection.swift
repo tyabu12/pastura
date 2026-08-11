@@ -85,7 +85,19 @@ struct HighlightCandidatesSection: View {
   }
 
   /// Emoji + localized word + capsule colors for a candidate's reason chip.
-  private struct ChipStyle {
+  ///
+  /// All three arms are the design-system §2.6 `<family>Soft` fill +
+  /// `<family>Ink` text pairing. The `.revealed` arm shipped as
+  /// `mossSoft` + `mossDark`, which was the sole deviation and measured 2.911
+  /// in light against a 4.5:1 bar — see `ContradictionBadge` for the
+  /// derivation (#1407).
+  ///
+  /// Internal rather than `private` so `DesignTokensTests+MossSoftGround` can
+  /// pin which token the `.revealed` arm reads. `.claude/rules/view-testing.md`
+  /// § "Change-detector tripwire" is why that pin is one alias against itself
+  /// rather than an assertion that two aliases differ — the latter can never
+  /// fire while either side is a paired token.
+  struct ChipStyle {
     let emoji: String
     let word: String
     let background: Color
@@ -102,7 +114,7 @@ struct HighlightCandidatesSection: View {
         emoji = "🎯"
         word = String(localized: "Revealed")
         background = Color.mossSoft
-        textColor = Color.mossDark
+        textColor = Color.mossInk
       case .reaction:
         emoji = "💥"
         word = String(localized: "Turning point")
