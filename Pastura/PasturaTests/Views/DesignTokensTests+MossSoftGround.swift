@@ -24,9 +24,18 @@ extension DesignTokensTests {
   /// changing its ground does **not** silently update the expectation — the row
   /// goes stale and a reviewer has to look.
   ///
-  /// Exhaustive as of #1407, and corroborated rather than merely grepped:
-  /// `nightMossSoft`'s own doc comment partitions the token's ten callsites as
-  /// seven line/border jobs plus exactly these three text grounds.
+  /// Exhaustive as of #1407 **for moss-family text**, and corroborated rather
+  /// than merely grepped: `nightMossSoft`'s own doc comment partitions the
+  /// token's ten callsites as seven line/border jobs plus exactly these three
+  /// text grounds.
+  ///
+  /// That corroboration shares this list's blind spot, though — both enumerate
+  /// `mossSoft` **fill** sites, so neither can see a label drawn on this ground
+  /// by a token from another family. **There is one, and it fails the bar**:
+  /// `PredictionOutcomeBadge`'s streak sub-label is `muted` *inside* the same
+  /// hit-arm capsule, at 2.136 light / 2.413 dark (#1427). So do not read this
+  /// guard as "every label on `mossSoft` clears AA" — it says the moss-family
+  /// ones do.
   static let mossSoftTextSites = [
     "ContradictionBadge",
     "PredictionOutcomeBadge.hitArm",
@@ -45,7 +54,10 @@ extension DesignTokensTests {
     // Size pin, not decoration: the assertions below do not iterate the
     // fixture, so an emptied `mossSoftTextSites` would not make them vacuous —
     // but it *would* silently drop the record of which views this guard speaks
-    // for, which is the fixture's whole job.
+    // for, which is the fixture's whole job. Residual: it catches a row being
+    // added or removed, never one *renamed* to a view that no longer draws on
+    // this ground. Same class as `PasturaOccluderShadows`' hand-maintained
+    // ground list.
     #expect(Self.mossSoftTextSites.count == 3)
 
     let light = contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft)
@@ -101,22 +113,43 @@ extension DesignTokensTests {
   /// The §2.6 convention this repoint restores: every alert family pairs its
   /// `Soft` fill with its own `Ink` text, and moss was the sole deviation.
   ///
-  /// Pins the *relation*, not the four values — `DesignTokensTests` owns those.
-  /// It fires if a future family is added that skips the convention, or if one
-  /// of the existing pairs is retuned below the bar.
+  /// **Pins the five pairings that exist today, in both appearances** — not the
+  /// individual values, which `DesignTokensTests` owns. It fires when one of
+  /// these ten ratios is retuned below the bar.
+  ///
+  /// It does **not** fire when a *sixth* family is added that skips the
+  /// convention: `families` is a hand-written literal, so a new `noticeSoft` /
+  /// `noticeInk` pair would simply not appear here. Deriving the list from
+  /// `PasturaDynamicPalette.all` by name suffix would buy that, at the cost of
+  /// a guard whose subject is a naming pattern rather than a stated convention.
+  /// Left hand-written deliberately; the `count` pins are what make a silent
+  /// shrink visible.
   @Test func everySoftInkFamilyPairingClearsAAIncludingMoss() {
     // Two members, not three: swiftlint's `large_tuple` caps tuples at two, so
     // the ratio is folded here rather than the token pair carried through.
-    let families: [(name: String, ratio: Double)] = [
+    let light: [(name: String, ratio: Double)] = [
       ("info", contrastRatio(PasturaPalette.infoInk, PasturaPalette.infoSoft)),
       ("success", contrastRatio(PasturaPalette.successInk, PasturaPalette.successSoft)),
       ("warning", contrastRatio(PasturaPalette.warningInk, PasturaPalette.warningSoft)),
       ("danger", contrastRatio(PasturaPalette.dangerInk, PasturaPalette.dangerSoft)),
       ("moss", contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft))
     ]
-    #expect(families.count == 5)
-    for family in families {
-      #expect(family.ratio >= Self.textBar, "\(family.name): \(family.ratio)")
+    let dark: [(name: String, ratio: Double)] = [
+      ("info", contrastRatio(PasturaPalette.nightInfoInk, PasturaPalette.nightInfoSoft)),
+      ("success", contrastRatio(PasturaPalette.nightSuccessInk, PasturaPalette.nightSuccessSoft)),
+      ("warning", contrastRatio(PasturaPalette.nightWarningInk, PasturaPalette.nightWarningSoft)),
+      ("danger", contrastRatio(PasturaPalette.nightDangerInk, PasturaPalette.nightDangerSoft)),
+      ("moss", contrastRatio(PasturaPalette.nightMossInk, PasturaPalette.nightMossSoft))
+    ]
+    // Anti-vacuity: the loops below iterate these literals, so an emptied array
+    // would pass silently.
+    #expect(light.count == 5)
+    #expect(dark.count == 5)
+    for family in light {
+      #expect(family.ratio >= Self.textBar, "light \(family.name): \(family.ratio)")
+    }
+    for family in dark {
+      #expect(family.ratio >= Self.textBar, "dark \(family.name): \(family.ratio)")
     }
   }
 }

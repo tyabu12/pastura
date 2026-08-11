@@ -211,7 +211,7 @@
         <tr><td><code>mossInk</code> vs body 地</td><td class="num">10.190</td><td class="num">10.187</td><td>—</td></tr>
         <tr><td><code>inkOnAccent</code> over <code>mossDark</code></td><td class="num">4.737</td><td class="num">7.117</td><td>base <code>moss</code> 上は 3.035 → 6.395</td></tr>
         <tr><td>CTA ラベル（screenBackground on mossInk → nightBackground on nightMossInk）</td><td class="num">10.190</td><td class="num">10.187</td><td>反転を超えてほぼ保存</td></tr>
-        <tr><td>moss バッジ（mossDark on mossSoft）</td><td class="num">2.911</td><td class="num">5.685</td><td>§2.6 の 4 ペアは 5.39–5.98 / 7.69–8.37 — 両外観で最も静か</td></tr>
+        <tr><td>moss バッジ（mossInk on mossSoft）</td><td class="num">6.537</td><td class="num">6.505</td><td>#1407 で mossDark（2.911 / 5.685）から変更。light は §2.6 の 4 ペア（5.39–5.98）より上、dark は（7.69–8.37）より下</td></tr>
         <tr><td><code>link</code> vs body 地</td><td class="num">4.618</td><td class="num">4.631</td><td>—</td></tr>
         <tr><td><code>linkVisited</code> vs body 地</td><td class="num">5.378</td><td class="num">5.378</td><td>—</td></tr>
         <tr><td><code>linkHover</code> vs body 地</td><td class="num">6.345</td><td class="num">6.340</td><td>—</td></tr>
@@ -238,7 +238,8 @@
       <strong><code>mossSoft</code> の色相は moss ファミリへ移した。</strong>light の 47.7° というクリームがかった色相を dark でもそのまま保つと 5% 輝度ではアンバーに読め、<code>nightWarningSoft</code> と衝突する。<code>nightMossSoft</code> は 80.9° の moss 系へ寄せて回避した。
     </p>
     <p class="section-note">
-      <strong>設計せずに一致した 2 つの関係。</strong>CTA ラベルの比（screenBackground on mossInk → nightBackground on nightMossInk）は 10.190 → 10.187 とほぼそのまま生き残り、moss バッジ（mossDark on mossSoft, 2.911 → 5.685）は §2.6 の 4 ペア（light 5.39–5.98 / dark 7.69–8.37）の中で両外観とも最も静かなペアであり続けた。どちらも個別のトークンを追いかけて設計した帰結であって、比そのものを目標に置いたわけではない。
+      <strong>設計せずに一致した関係。</strong>CTA ラベルの比（screenBackground on mossInk → nightBackground on nightMossInk）は 10.190 → 10.187 とほぼそのまま生き残った。個別のトークンを追いかけて設計した帰結であって、比そのものを目標に置いたわけではない。<br>
+      <em>もう 1 つあった関係は #1407 で失効した。</em>moss バッジ（当時 mossDark on mossSoft, 2.911 → 5.685）は §2.6 の 4 ペアの中で両外観とも最も静かなペアであり続けていたが、light の 2.911 が 4.5:1 のバーを割っていたため前景を mossInk へ移した。狙って 4.5:1 を取った結果、この位置は「狙わずに成立した帰結」ではなくなり、対称性も崩れる（light は帯より上、dark は帯より下）。導出は ADR-028 § Amendment 2026-08-12。
     </p>
   </div>
 
