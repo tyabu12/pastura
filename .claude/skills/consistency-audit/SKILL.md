@@ -233,9 +233,11 @@ Only if `auto_fixable` is non-empty AND Step 2 found no open `audit/*` PR:
 everything; this step is the *only* place a finding is dropped, and every drop
 is counted for Step 5.
 
-For each `needs_judgment` finding (already deduped by `target`):
+**Steps 1 and 3 are per-finding; step 2 is not** — it ranks and truncates the
+*whole* surviving set, so it runs once, after step 1 has been applied to every
+`needs_judgment` finding (which the detector has already deduped by `target`).
 
-1. **Dedup across runs:** search issues for the target — **`--state all`, then
+1. **Dedup across runs** — per finding. Search issues for the target — **`--state all`, then
    branch on the close reason**:
 
    ```bash
@@ -245,7 +247,7 @@ For each `needs_judgment` finding (already deduped by `target`):
 
    | Matched issue | Action | Why |
    |---|---|---|
-   | `OPEN` (`stateReason` is `""`) | **skip** | already filed; a human has it |
+   | `OPEN` — any `stateReason` (`""`, or `REOPENED` after a reopen) | **skip** | already filed; a human has it |
    | `CLOSED` / `NOT_PLANNED` | **skip** | a human declined this finding — that is the rejection memory Contract rule 6 asks be kept where the next run can see it |
    | `CLOSED` / `COMPLETED` | **file it** | the drift was *fixed*; its recurrence is a **regression**, not a duplicate |
    | `CLOSED` / `DUPLICATE` | **skip** | folded into another issue, which carries the decision |
@@ -257,11 +259,16 @@ For each `needs_judgment` finding (already deduped by `target`):
    close reason in this repo, so the wrong branch here disables the skill
    quietly rather than rarely.
 
-   **Read `stateReason` as a string, not a nullable.** An open issue returns
-   `""`, not `null` — a predicate written as `.stateReason == "NOT_PLANNED"`
-   therefore drops the open-issue skip (the load-bearing case), while
-   `.stateReason != "COMPLETED"` keeps open issues by luck rather than by
-   intent. Branch on `state` first, then on `stateReason`.
+   **Branch on `state` first, then on `stateReason` — and read the latter as a
+   string, not a nullable.** `stateReason` has four values (`COMPLETED`,
+   `NOT_PLANNED`, `DUPLICATE`, `REOPENED`) and is `""`, not `null`, on an issue
+   that was never closed. So a predicate written as
+   `.stateReason == "NOT_PLANNED"` drops the open-issue skip (the load-bearing
+   case), `.stateReason != "COMPLETED"` keeps open issues by luck rather than
+   intent, and either one mishandles a **reopened** issue — which this repo
+   produces deliberately (CLAUDE.md § "Closing issues in multi-PR splits"
+   prescribes `gh issue reopen` as a recovery step). Deciding on `state` first
+   makes all four values fall out correctly.
 
    Every finding carries a `target` for this — for `dead_link` it is the link path,
    for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
@@ -298,11 +305,15 @@ For each `needs_judgment` finding (already deduped by `target`):
    **Rank key**, declared so the truncation is reproducible rather than
    whatever order the JSON happened to enumerate:
 
-   1. `confidence` — `high` before `medium`. The detector emits **no**
-      `severity` field, so confidence is the only rank signal it carries;
-      adding one would mean inventing a scale no detector currently computes,
-      and the Contract's rank-key requirement is satisfied by a declared total
-      order, not by that specific field name.
+   1. `confidence` — `high` before `medium`, and **an absent `confidence` sorts
+      as `high`**. The field is not universal: `dead_link` emits none (its
+      confidence is authored at filing time, per step 3), so without this clause
+      term 1 would be undefined for the very type term 2 ranks first. Sorting it
+      high keeps the two terms agreeing rather than fighting. The detector emits
+      **no** `severity` field at all, so confidence is the only rank signal it
+      carries; inventing a severity scale no detector computes would buy
+      nothing, and the Contract's rank-key requirement is satisfied by a
+      declared *total* order, not by that specific field name.
    2. Finding type, in this precedence: `dead_link` → `adr_roster_drift` →
       `dangling_adr` → `unparsed_adr_reservation` → `embedded_source_mirror` →
       `adr_navigation_missing`. Ordered by how mechanically checkable the
@@ -315,10 +326,14 @@ For each `needs_judgment` finding (already deduped by `target`):
    not what the detector emitted. In steady state that is **0**: the standing
    findings are already open issues. What the cap has to size against is the
    burst — an ADR renumbering firing a dozen `adr_roster_drift` findings in one
-   run, or a first run against a fresh state. Three is one above the largest
-   detector output measured 2026-08-12, and it is below
-   `AUTOMATION_WIP_CEILING` (5) by construction: a single run should not be able
-   to spend the family's whole review budget.
+   run, or a first run against a state where nothing has been filed yet.
+
+   Three is **exactly** the largest detector output measured 2026-08-12, which
+   is also the *full* backlog — every standing finding, none of them filed. So a
+   first run against that state files all three and truncates nothing, and only
+   genuinely new drift arriving on top of an unfiled backlog is deferred. It is
+   below `AUTOMATION_WIP_CEILING` (5) by construction: a single run should not
+   be able to spend the family's whole review budget.
 
    That measurement differs by **where the run executes**, which is worth
    knowing before reading a report: the main checkout yields 2
@@ -387,8 +402,13 @@ Summarize to the user / transcript, and **publish the output-stage arithmetic**
 (Contract rule 6). Every number below is required even when it is zero — a
 missing line is what makes a too-tight filter invisible:
 
-- **found** — the detector's own `auto_fixable` + `needs_judgment` counts,
-  before any filtering. Never the post-cap number.
+**The arithmetic is per lane** — the two lanes have different dispositions, and
+summing them would balance against nothing. Report each separately.
+
+*Judgment lane* (Step 4):
+
+- **found** — the detector's `needs_judgment` count, before any filtering.
+  Never the post-cap number.
 - **deduped** — findings skipped in Step 4 step 1, each with the matched issue
   number and **which branch fired** (`open` / `NOT_PLANNED` / `DUPLICATE`), so a
   wrong suppression is legible rather than a bare count.
@@ -396,7 +416,15 @@ missing line is what makes a too-tight filter invisible:
   rank position, so a reader can see exactly what a higher cap would have
   surfaced. State the cap value alongside.
 - **surfaced** — issues actually filed, with urls.
-- Auto-fix PR url (or "skipped — open audit PR #N pending" / "none").
+
+These four balance: `found = deduped + capped + surfaced`.
+
+*Auto-fix lane* (Steps 2–3):
+
+- **found** — the detector's `auto_fixable` count.
+- **disposition** — the PR url, or "skipped — open audit PR #N pending", or
+  "none". This lane has no per-finding filter: rule 1 batches every fix into one
+  PR, so the count either all ships or all waits.
 
 The report is the channel; nothing is minted to carry these numbers. The
 **capped** list needs no separate cross-run store because the deterministic

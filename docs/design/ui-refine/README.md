@@ -111,12 +111,24 @@ journal. Pin this constraint before any Routine is wired up.
 3. For a proposal you decide against, set its row to `rejected` with a one-line
    reason — this is what stops it from resurfacing next rotation.
 4. **A `parked` row needs no action.** It is a machine deferral — the quota cut
-   it, nobody judged it — and the next run re-ranks it automatically. Promote it
-   early by setting it to `filed (#N)` if you want it acted on now, or to
-   `rejected` with a reason to take it out of the rotation for good. Leaving it
-   alone is the correct default; do **not** set it to `deferred` unless you mean
-   the human "considered, not now", which does suppress it.
-5. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
+   it, nobody judged it — and the next run re-ranks it automatically, with a
+   starvation guard that eventually forces it to the top. Promote it early by
+   setting it to `filed (#N)` if you want it acted on now, or to `rejected` with
+   a reason to take it out of the rotation for good. Leaving it alone is the
+   correct default; do **not** set it to `deferred` unless you mean the human
+   "considered, not now", which does suppress it.
+5. **A machine-written `rejected` row is final — and you are the only way back.**
+   Unlike `parked`, it *was* judged: the adversarial filter applied a named test
+   and the row records which one (`[filter-drop: <test>]`). Suppressing it
+   permanently is what the Output Contract asks for (a rejection kept where the
+   next run can see it), so the skill will never revisit it on its own.
+   **The caveat is that those tests read the current state** — "already
+   by-design?" and "already covered?" are answered against the design system as
+   it stands. So when a design-system convention changes, grep `ledger.md` for
+   `[filter-drop:]` rows citing the test that relied on it and un-reject the ones
+   whose basis moved (set them back to `proposed`, or delete the row). Nothing
+   automates this; the prefix exists so the sweep is a grep rather than a reread.
+6. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
    the promotion triggered.
 
 ## Known coverage limitations

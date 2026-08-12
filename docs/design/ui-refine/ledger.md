@@ -68,8 +68,8 @@ with the kind prefix above:
 | Prefix | On | Meaning |
 |---|---|---|
 | `[compliance-gap]` | any status | the finding kind (above) |
-| `[filter-drop: <test>]` | `rejected` | which adversarial-filter test rejected it (SKILL § Step 4) |
-| `[quota]` | `parked` | truncated by the run's quota (SKILL § Step 6), not judged |
+| `[filter-drop: <test>]` | `rejected` | which adversarial-filter test rejected it (SKILL § Step 4). A machine rejection is **final** — the skill never revisits it; only a human can, and § Promotion step 5 in [README](README.md) says when to sweep |
+| `[quota ×N]` | `parked` | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it, incremented on each in-place refresh; at `N ≥ 3` Step 6's starvation guard ranks it above everything |
 
 ## Ledger
 

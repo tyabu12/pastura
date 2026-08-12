@@ -75,6 +75,12 @@ human, mirroring consistency-audit's Step 1 note.
    bad merge) or a wrong "Discard" (queued work destroyed) is worse than a miss.
    When the evidence is anything short of decisive, route to "Needs your
    judgment" — never up to "Ready" or "Discard".
+   This survives Output Contract rule 6's 2026-08-12 change intact, and the
+   resemblance to the wording that rule retired is why it says so here:
+   **classification is the output stage.** O enumerates nothing — `gh pr list`
+   hands it the complete Draft set — so being conservative here filters *how a
+   already-enumerated PR is labelled*, never *whether it is looked at*. Rule 6
+   bans the latter only.
 3. **Never present a disposition as an action.** "Ready for your merge decision"
    means *nothing blocks a merge; you decide* — it is never "auto-merge
    eligible". O has no merge authority and must not imply it has.

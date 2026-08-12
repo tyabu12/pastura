@@ -7,7 +7,8 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 # /ui-refine
 
 One UI design-critique cycle: **capture → pick lens → enumerate → adversarial
-filter → dedup → rank &amp; truncate → digest**. The design-layer sibling of `/scenario-refine`: where
+filter → dedup → rank & truncate → digest**.
+The design-layer sibling of `/scenario-refine`: where
 refine evaluates and polishes the existing *scenario* inventory, ui-refine
 evaluates and polishes the existing *UI*. Run from the repository root of the
 **persistent main checkout** (see Safety boundary). Concept + data model:
@@ -279,14 +280,21 @@ rule 6 bans.
   two-section digest (Step 7) groups by kind; it does not raise the ceiling.
 - **Rank key**, declared so the truncation is reproducible rather than
   whatever order the candidates were written in:
-  1. **Kind** — a `compliance-gap` outranks a `design-proposal`. A verified
+  1. **Starvation guard** — a candidate re-derived from a `parked` row already
+     deferred **3 or more times** (`[quota ×N]` in its note, Step 7) outranks
+     *everything*. Without a term above severity, a low-severity proposal parked
+     once is outranked by any fresher higher-severity candidate on every
+     subsequent run, indefinitely — a permanent drop dressed as a deferral,
+     which is exactly what rule 6 forbids. A tiebreak cannot fix that; only a
+     term that eventually wins can.
+  2. **Kind** — a `compliance-gap` outranks a `design-proposal`. A verified
      divergence from a spec-determined value is the higher-confidence finding by
      construction (Step 4 says so already); the quota should never spend its slot
      on judgment while a violation waits.
-  2. **Estimated severity**, then **confidence** (both authored at Step 3).
-  3. **Re-derived from a `parked` row** — a candidate the quota already deferred
-     once wins the tie, so nothing starves at the bottom of the ranking forever.
-  4. Screen name, lexicographically — the tiebreak that makes the order *total*.
+  3. **Estimated severity**, then **confidence** (both authored at Step 3).
+  4. **Re-derived from a `parked` row** (deferred once or twice) — breaks a tie
+     among otherwise equally-ranked candidates.
+  5. Screen name, lexicographically — the tiebreak that makes the order *total*.
 - **Everything below the cut is `parked`, not rejected** — it was never judged
   unworthy, and Step 7 records it as such so the next run can re-rank it.
 
@@ -316,9 +324,14 @@ rule 6 bans.
 
    | Outcome | `status` | `note` prefix | Suppresses future runs? |
    |---|---|---|---|
-   | Surfaced in the digest | `proposed` | `[compliance-gap]` for a gap; none for a design proposal | yes |
+   | Surfaced in the digest | `proposed` | — | yes |
    | Dropped by the Step 4 adversarial filter | `rejected` | `[filter-drop: <failing test>]` | **yes** — it was judged |
-   | Below the Step 6 quota cut | `parked` | `[quota]` | **no** — it was never judged (Step 5 carve-out) |
+   | Below the Step 6 quota cut | `parked` | `[quota ×N]` (`N` = times deferred, starting at 1) | **no** — it was never judged (Step 5 carve-out) |
+
+   `[compliance-gap]` is **orthogonal** and composes with all three — a gap that
+   is filter-dropped or parked keeps it, leading:
+   `[compliance-gap] [quota ×2] …`. It marks the finding *kind*, not the
+   outcome (`ledger.md` § Format).
 
    `parked` is a **machine** status and exists only to hold a deferral; it is
    deliberately distinct from the human-set `deferred`, which does suppress. Do
@@ -327,11 +340,12 @@ rule 6 bans.
 
    **In-place update, narrowly exempted from append-only.** The skill may edit
    exactly one thing: a `parked` row it wrote itself, when a later run
-   re-derives the same concept — refresh its `date`, and flip `status` to
-   `proposed` if it clears the quota this time. This keeps a long-deferred
-   candidate from accreting one duplicate row per rotation. **No other in-place
-   edit is permitted**; every other row, and every human-owned field, stays the
-   human's (README § Ledger lifecycle).
+   re-derives the same concept — refresh its `date`, **increment `N` in
+   `[quota ×N]`** (the counter Step 6's starvation guard reads), and flip
+   `status` to `proposed` if it clears the quota this time. This keeps a
+   long-deferred candidate from accreting one duplicate row per rotation.
+   **No other in-place edit is permitted**; every other row, and every
+   human-owned field, stays the human's (README § Ledger lifecycle).
 
    Keep ids ordered (newest last). **Do not commit or push** — leave the change
    in the working tree for the human (Safety boundary).
