@@ -95,9 +95,9 @@ relaxed, restore the `code-reviewer` pass.
 ## Hard rules (non-negotiable)
 
 Rules 1–3 restate Output Contract **rule 0** (never actuate) and rule 4 restates
-**rule 6** (conservative detection), deliberately duplicated here as the
-operational form: these are the hard-stop invariants an unattended run must not
-have to follow a pointer to find.
+**rule 6** (conservative *output*, exhaustive detection), deliberately
+duplicated here as the operational form: these are the hard-stop invariants an
+unattended run must not have to follow a pointer to find.
 
 Canonicality is a three-hop chain, and edits flow down it in order: claude-kit's
 `docs/automation-output-contract.md` owns the generic core → this repo's
@@ -112,8 +112,18 @@ Pastura-specific operational detail starts here.
 2. **PRs are always Draft.** `--draft` is the first flag of `gh pr create`.
    Never run `gh pr ready`.
 3. **Never close an issue.** Closing happens through the human's merge.
-4. **Conservative detection wins.** Prefer a miss over a wrong flag — a wrong
-   auto-fix PR or a false issue is worse than a missed inconsistency.
+4. **Conservative *output*, exhaustive detection — never withhold at the
+   detection stage.** The precision bias is unchanged — a wrong auto-fix PR or a
+   false issue costs more than a missed inconsistency, so where the evidence is
+   short of decisive, route to the human rather than act — but it applies *after*
+   the finding exists, never as a reason to not surface one. Everything the
+   detector emits reaches Step 4; Step 4 is the only filter (dedup, then the
+   per-run cap), and Step 5 publishes the arithmetic. `audit_docs.py` is a
+   *deterministic* detector, so its thresholds are a predicate reviewable at
+   source rather than a judgment call — the Contract's carve-out for that exempts
+   it from the ban on judgment, **not** from the count. **An uncounted drop is
+   banned**: it is indistinguishable from a finding never made, so the next run
+   re-derives it, drops it again, and nobody learns the bar sits too tight.
 
 ## Step 0 — Preflight (abort on any failure)
 
