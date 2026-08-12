@@ -282,7 +282,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 - `swift-isolation.md` — `nonisolated` annotation traps under default-MainActor isolation. Always-loaded because the diagnostic fires at the use site, not the declaration — and the silent runtime-trap patterns fire none at all.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery). Always-loaded because the gotchas surface during worktree switches and CI debugging, not only when editing tests.
-- `subagent-usage.md` — Subagent output-cap discipline (32K cap, scope budget, Sonnet override). Always-loaded because subagent calls originate from any layer.
+- `subagent-usage.md` — Subagent output-cap discipline (per-model output cap, review-attention scope budget, model choice as a cost lever not a budget one). Always-loaded because subagent calls originate from any layer.
 - `context-budget.md` — Content discipline for always-loaded files. Self-applying — route additions to CLAUDE.md / agent docs / any no-`paths:` rule through its classifier first.
 - `knowledge-layering.md` — Which tier knowledge belongs in (memory / `CLAUDE.md` / `.claude/rules/` / `docs/**`) and how to promote memory → rules. Pairs with `context-budget.md`.
 
