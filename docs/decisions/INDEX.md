@@ -1,6 +1,6 @@
 # Decision Records — Index
 
-Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **No counts, ordinals or superlatives** — a count mirror here is invisible to a count-keyed sweep and goes stale silently; see `.claude/rules/adr-writing.md` §4 for the writing rule. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
+Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **Do not add a count that mirrors a mutable inventory elsewhere** — how many tokens are paired, entries excerptable, sites swept. Such a mirror is invisible to a count-keyed sweep and goes stale silently, which is what happened to the ADR-028 entry repeatedly. A cardinality *of the design* ("two Models enums", "one sibling file per entry") is not a mirror and is fine. This is a rule for what you write next, **not** a claim about the file: entries predating it still carry mirrors, and no exhaustive list of them is kept here — one would inherit the same blind spot. Writing rule: `.claude/rules/adr-writing.md` §4. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
 
 ## ADR-001 — Architecture Overview (Phase 1)
 
@@ -136,7 +136,7 @@ explicit parameter), gated in pre-commit + CI by
 belt-and-braces — pinned by reflection-based tests, since ADR-009 rules out the
 snapshot test that would otherwise be the only detector; asset-catalog colour
 sets are rejected for blinding `check_design_tokens_css.py`'s hex→`tokens.css`
-mirror and `DesignTokensTests`' sRGB assertions. Two further rules bind anyone
+mirror and `DesignTokensTests`' sRGB assertions. Further rules bind anyone
 adding a token: a dark value derives by **several independent arms** — measured
 deltas, role inversion, target-contrast placement, family dimming — not one
 formula, so pick the arm per family and inherit that arm's limits from its
@@ -162,12 +162,13 @@ deliberately not `nonisolated` (its statics read MainActor `PasturaPalette`). A
 probe here must replicate the **dependency** shape, not just the API shape: a
 compile-only one that built tokens inline passed where the real code failed. The
 `all` registry's assertion guards that list's documented size, **not**
-completeness. Still open, per § Revisit trigger: the `ImageRenderer` alias half
-stays armed at the thresholds stated there; several fixes post-date the device
-pass that closed gates 4 and 5 and so head `docs/qa/dark-mode-qa.md`'s re-run
-list, of which one has had a partial re-check with its gaps stated; and the
-`inkSecondary` dark-side gap (#1408) with residual sub-AA badge labels (#1427)
-(Status: Accepted; #1274)
+completeness. Still open, each where it is derived: the `ImageRenderer` alias
+half stays armed at § Revisit trigger's stated thresholds; several fixes
+post-date the device pass that closed gates 4 and 5 and so head
+`docs/qa/dark-mode-qa.md`'s re-run list, one of them partially re-checked with
+its gaps stated (§ Amendment 2026-07-31 → "What is NOT confirmed"); and the
+`inkSecondary` dark-side gap (#1408) with residual sub-AA badge labels (#1427),
+per § Amendment 2026-08-12 (Status: Accepted; #1274)
 
 ## ADR-029 — Shared-scenario highlights (static curated excerpts)
 
@@ -187,10 +188,11 @@ demo-replay drift check. `gallery.json` stays the **single trust root**
 (Decision 4): the paired `highlight_url` + `highlight_sha256` are both-or-neither,
 the app fetch is unconditional / size-limited / hash-verified / uncached, and any
 verification failure — unknown `schema_version` or a missing attestation included
-— hides the section with an `.info` log rather than degrading it, per ADR-021.
-The web build reads the repo file directly and never resolves `highlight_url`.
-**The enforcement point is the gallery gate, not the extractor**:
-`check-gallery-entry.sh` re-derives every check, and
+— hides the section with an `.info` log, which is ADR-021's degrade-by-omission
+stance. The web build reads the repo file directly and never resolves
+`highlight_url`. **The enforcement point is the gallery gate, not the
+extractor**: `check-gallery-entry.sh` re-derives the schema, cap, pairing,
+spoiler and blocklist checks, and
 `scripts/gallery_highlight_extract.py` keeps the same ones only as fail-fast
 convenience, hard-failing on `secret:`-declaring scenarios and unknown phase
 names (ADR-022 tripwire). Decision 6 states the Phase-3 boundary falsifiably —

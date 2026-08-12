@@ -64,10 +64,12 @@ what the skill cannot derive belongs here.
 - **An INDEX entry routes; it does not recapitulate.** Write the mechanism in a
   sentence, the standing invariants, what is still open, and one derivation
   pointer per claim cluster — the same body/amendment split the next bullet
-  applies inside an ADR, applied to the index. **Carry no counts, ordinals or
-  superlatives**: a count mirror is structurally invisible to a count-keyed
-  sweep, which is what let two entries go stale repeatedly (ADR-028 § "A count
-  mirror that a count-keyed sweep structurally cannot find"). Issue and PR
+  applies inside an ADR, applied to the index. **Do not mirror a mutable
+  inventory count** — how many tokens are paired, entries excerptable, sites
+  swept: such a mirror is structurally invisible to a count-keyed sweep, which
+  is what let an entry go stale repeatedly (ADR-028 § "A count mirror that a
+  count-keyed sweep structurally cannot find"). A cardinality *of the design*
+  is not a mirror and is fine. Issue and PR
   numbers do not go stale and stay, but prefer an ADR-internal
   `§ Amendment YYYY-MM-DD` where one exists. INDEX is read on every ADR
   citation, so an entry that restates the ADR is paid for by every reader who

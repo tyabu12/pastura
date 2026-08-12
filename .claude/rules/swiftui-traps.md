@@ -251,7 +251,8 @@ including its `all` registry, and the light alias repointed from `PasturaPalette
 `PasturaDynamicPalette.x.color` — plus steps 3–5. Two silent gaps here: the `all` registry's
 count assertion guards that list's documented size, **not** completeness, so an unregistered
 pair still passes; and the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both**
-pairing files are inert to it — only the new `night*` hex needs a `tokens.css` row. Keep every
+pairing files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are
+inert to it — only the new `night*` hex needs a `tokens.css` row. Keep every
 `DesignTokens+*` filename inside `check_design_tokens_css.py`'s glob; renaming one out blinds
 the gate silently (each file's own header says so). See ADR-028.
 
@@ -369,10 +370,12 @@ that `light` and `dark` collapse into each other, making the parameter you just
 threaded inert. Do not treat a specific alias as fixed without checking
 `PasturaDynamicPalette`, whose doc comment carries the current membership.
 
-**What the gate does not cover.** It guards the injection half only. ADR-009
-rules out snapshots, so any *new* fixed-appearance consumer needs its own pin
-**on the alias half** — and nothing detects that pin's absence; three mechanical
-guards for it were designed and refused (ADR-028 § "Revisit trigger" bullet 1).
+**What the gate does not cover.** It guards the injection half only. The token
+tests assert `PasturaPalette` components *and* the aliases' own resolution, but
+ADR-009 rules out snapshots, so any *new* fixed-appearance consumer needs its own
+pin **on the alias half** — and nothing detects that pin's absence; three
+mechanical guards for it were designed and refused (ADR-028 § "Revisit trigger"
+bullet 1).
 Today's pins are `HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`,
 whose *invariance* arm derives its slots by **reflection** rather than a hand
 list, so a stored property added later reading a paired alias reddens. Two pins
