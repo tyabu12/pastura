@@ -75,6 +75,15 @@ human, mirroring consistency-audit's Step 1 note.
    bad merge) or a wrong "Discard" (queued work destroyed) is worse than a miss.
    When the evidence is anything short of decisive, route to "Needs your
    judgment" — never up to "Ready" or "Discard".
+   This survives Output Contract rule 6's 2026-08-12 change intact; it says so
+   here because it resembles the wording that rule retired. **Classification is
+   the output stage.** O enumerates nothing (GitHub hands it the open Draft
+   set), and its
+   one narrowing — the `^(audit|agent)/` predicate, Step 1 — is a do-not-flag
+   roster in predicate form that reports its ambient total, which rule 6's
+   mechanical carve-out permits. Conservatism here filters *how an
+   already-enumerated PR is labelled*, never *whether it is looked at*; rule 6
+   bans the latter only.
 3. **Never present a disposition as an action.** "Ready for your merge decision"
    means *nothing blocks a merge; you decide* — it is never "auto-merge
    eligible". O has no merge authority and must not imply it has.
@@ -233,6 +242,14 @@ Count, used identically by O (to report) and by each generator (to self-throttle
 WIP=$(gh pr list --state open --draft --json headRefName \
   --jq '[.[] | select(.headRefName | test("^(audit|agent)/"))] | length')
 ```
+
+**Scope: this section bounds the Draft-PR lane only.** The constant and
+predicate above count *open Draft PRs*, so rule-2 judgment **issues** fall
+outside them entirely. That lane has its own per-run cap — `JUDGMENT_ISSUE_CAP`,
+canonical in `.claude/skills/consistency-audit/SKILL.md` (Constants + Step 4
+step 2), since `consistency-audit` is the only generator that files issues
+unattended. Named here as a cross-reference only: it is **not** part of the
+three-file sync rule above, and changing it does not touch this file.
 
 **Why an aggregate ceiling on top of per-generator caps.** Each generator
 already caps its *own* lane (consistency-audit: ≤1 open `audit/*`;

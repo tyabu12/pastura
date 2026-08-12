@@ -37,9 +37,11 @@ contract in context.
   here: `dead_link ledger.md` has reported since long before this detector
   existed (a gitignored-by-design target, so it is absent in every fresh clone),
   and `adr_navigation_missing` reports by design on a property a healthy repo
-  can have. So the per-target open-issue dedup in Step 4 step 1 and the
+  can have. So the per-target issue dedup in Step 4 step 1 and the
   `nav-exempt` opt-out are load-bearing, not theoretical — without them a run
-  re-files what a human already answered.)
+  re-files what a human already answered. That dedup reads **closed** issues
+  too, and branches on the close reason: a declined finding stays declined, a
+  *fixed* one is allowed to re-file because its recurrence is a regression.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
@@ -85,19 +87,24 @@ relaxed, restore the `code-reviewer` pass.
 
 ## Constants
 
-- Detector: `.claude/skills/consistency-audit/scripts/audit_docs.py`
+- Detector: `.claude/skills/consistency-audit/scripts/audit_docs.py`. It reports
+  **no threshold near-miss tally** — declined 2026-08-12; the reasoning and the
+  condition that re-opens it sit beside the thresholds themselves (the
+  `§ Threshold near-miss reporting` block above `MIRROR_MIN_LINES`).
 - Auto-fix PR branch: `audit/docs-<YYYYMMDD>` (collision fallback `-2`, `-3`, …)
 - Auto-fix dedup: **at most one open `audit/*` Draft PR at a time.** A run that
   finds one open skips the auto-fix PR step and reports it pending — all fixes
   batch into one PR, so a second would duplicate the first.
+- Judgment-issue cap: **at most 3 issues filed per run** (`JUDGMENT_ISSUE_CAP`).
+  Canonical here; ranked truncation and rationale in Step 4 step 2.
 - Label: `documentation` (for both PRs and issues)
 
 ## Hard rules (non-negotiable)
 
 Rules 1–3 restate Output Contract **rule 0** (never actuate) and rule 4 restates
-**rule 6** (conservative detection), deliberately duplicated here as the
-operational form: these are the hard-stop invariants an unattended run must not
-have to follow a pointer to find.
+**rule 6** (conservative *output*, exhaustive detection), deliberately
+duplicated here as the operational form: these are the hard-stop invariants an
+unattended run must not have to follow a pointer to find.
 
 Canonicality is a three-hop chain, and edits flow down it in order: claude-kit's
 `docs/automation-output-contract.md` owns the generic core → this repo's
@@ -112,8 +119,17 @@ Pastura-specific operational detail starts here.
 2. **PRs are always Draft.** `--draft` is the first flag of `gh pr create`.
    Never run `gh pr ready`.
 3. **Never close an issue.** Closing happens through the human's merge.
-4. **Conservative detection wins.** Prefer a miss over a wrong flag — a wrong
-   auto-fix PR or a false issue is worse than a missed inconsistency.
+4. **Conservative *output*, exhaustive detection — never withhold at the
+   detection stage.** The precision bias is unchanged — a wrong auto-fix PR or a
+   false issue costs more than a missed inconsistency, so where the evidence is
+   short of decisive, route to the human rather than act — but it applies *after*
+   the finding exists, never as a reason to not surface one. Everything the
+   detector emits reaches Step 4; Step 4 is the only filter (dedup, then the
+   per-run cap), and Step 5 publishes the arithmetic. `audit_docs.py` is a
+   *deterministic* detector, so its thresholds are a predicate reviewable at
+   source rather than a judgment call — the Contract's carve-out for that exempts
+   it from the ban on judgment, **not** from the count. **An uncounted drop is
+   banned**: it is indistinguishable from a finding never made.
 
 ## Step 0 — Preflight (abort on any failure)
 
@@ -211,11 +227,44 @@ Only if `auto_fixable` is non-empty AND Step 2 found no open `audit/*` PR:
 
 ## Step 4 — needs_judgment → issues
 
-For each `needs_judgment` finding (already deduped by `target`):
+**This is the output stage** (Contract rule 6). Detection already enumerated
+everything; this step is the *only* place a finding is dropped, and every drop
+is counted for Step 5.
 
-1. **Dedup across runs:** search open issues for the target; skip if one
-   exists. `gh issue list --state open --search "<target> in:title"`. Every
-   finding carries a `target` for this — for `dead_link` it is the link path,
+**Steps 1 and 3 are per-finding; step 2 is not** — it ranks and truncates the
+*whole* surviving set, so it runs once, after step 1 has been applied to every
+`needs_judgment` finding (already deduped by `target` in the detector).
+
+1. **Dedup across runs** — per finding. Search issues for the target — **`--state all`, then
+   branch on the close reason**:
+
+   ```bash
+   gh issue list --state all --search '"<target>" in:title' \
+     --json number,title,state,stateReason
+   ```
+
+   | Matched issue | Action | Why |
+   |---|---|---|
+   | `OPEN` — any `stateReason` (`""`, or `REOPENED` after a reopen) | **skip** | already filed; a human has it |
+   | `CLOSED` / `NOT_PLANNED` | **skip** | a human declined this finding — that is the rejection memory Contract rule 6 asks be kept where the next run can see it |
+   | `CLOSED` / `COMPLETED` | **file it** | the drift was *fixed*; its recurrence is a **regression**, not a duplicate |
+   | `CLOSED` / `DUPLICATE` | **skip** | folded into another issue, which carries the decision |
+
+   **`COMPLETED` must never suppress** — it is the dominant close reason here, so
+   getting that branch wrong makes every fixed-then-recurring drift permanently
+   invisible, and the failure looks exactly like a clean pass.
+
+   **Branch on `state` first, then on `stateReason` — and read the latter as a
+   string, not a nullable.** It has four values (`COMPLETED`, `NOT_PLANNED`,
+   `DUPLICATE`, `REOPENED`) and is `""`, not `null`, on an issue that was never
+   closed. So a predicate keyed on `stateReason` alone is either wrong
+   (`== "NOT_PLANNED"` drops the open-issue skip, the load-bearing case) or right
+   only by accident (`!= "COMPLETED"` happens to cover both open and **reopened**
+   issues — and this repo produces reopened ones deliberately, CLAUDE.md
+   § "Closing issues in multi-PR splits"). Deciding on `state` first makes all
+   four values fall out correctly.
+
+   Every finding carries a `target` for this — for `dead_link` it is the link path,
    for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
    it is the `<docfile>::<sourcepath>` composite (so the same source mirrored in
    two docs files two distinct issues), for `unparsed_adr_reservation` it is
@@ -225,21 +274,79 @@ For each `needs_judgment` finding (already deduped by `target`):
 
    **The namespacing on the three ADR-keyed types is load-bearing, and it is
    not sufficient.** The search cannot tell finding types apart, so a bare
-   `ADR-NNN` would be permanently suppressed by the open `dangling_adr` issue
-   it exists to explain — most likely exactly when both fire. The prefix stops
+   `ADR-NNN` would be permanently suppressed by the `dangling_adr` issue it
+   exists to explain — most likely exactly when both fire. The prefix stops
    that, but GitHub also matches on tokens rather than whole strings, and
    every one of these targets names its ADR, so `reservation:ADR-006` and
    `ADR-006` can still surface each other. **Before skipping as a duplicate,
    confirm the matched issue's title actually contains the target verbatim**
    — a match on the bare ADR id when the target is namespaced (or vice versa)
-   is a different finding, and skipping on it drops a real one silently.
+   is a different finding, and skipping on it drops a real one silently. The
+   widened `--state all` search enlarges the pool this confirmation guards: a
+   long-closed issue whose title merely tokenises the same ADR id is now a
+   candidate match too, so run the check on closed hits exactly as on open ones.
 
    Quote the target when it contains a `:` — `--search '"roster:ADR-006" in:title'`,
    and likewise `'"nav:ADR-002" in:title'`. Unquoted, GitHub reads `roster:` /
    `nav:` as a search qualifier. (This predates the newer types:
    `embedded_source_mirror`'s `<docfile>::<sourcepath>` composite has the same
    shape.)
-2. File an issue (`--label documentation`) whose body has:
+2. **Rank the survivors, then truncate to `JUDGMENT_ISSUE_CAP` (3).** This is a
+   *quota* in the Contract's sense — rank-then-truncate over an
+   already-enumerated list, never a cap that stops the search — so `found` in
+   Step 5 stays the detector's count and never collapses to the cap.
+
+   **Rank key**, declared so the truncation is reproducible rather than
+   whatever order the JSON happened to enumerate:
+
+   1. `confidence` — `high` before `medium`, and **an absent `confidence` sorts
+      as `high`**. The field is not universal: `dead_link` emits none (its
+      confidence is authored at filing time, per step 3), so without this clause
+      term 1 would be undefined for the very type term 2 ranks first. There is
+      no `severity` field to rank on — the detector emits none, and the
+      Contract's rank-key requirement asks for a declared *total* order, not for
+      that particular field.
+   2. Finding type, in this precedence: `dead_link` → `adr_roster_drift` →
+      `dangling_adr` → `unparsed_adr_reservation` → `embedded_source_mirror` →
+      `adr_navigation_missing`. Ordered by how mechanically checkable the
+      finding is — a link either resolves or does not, whereas a navigation
+      finding is a share a maintainer can reasonably read either way.
+   3. `target`, lexicographically ascending — the tiebreak that makes the order
+      *total*, so two runs over the same repo state truncate identically.
+
+   **Why 3.** The cap counts issues *filed* — what survives step 1's dedup, not
+   what the detector emitted — so in steady state it sees **0**, the standing
+   findings being already-open issues. It sizes against the burst: an ADR
+   renumbering firing a dozen `adr_roster_drift` findings, or a first run
+   against a state where nothing has been filed yet. Three is exactly the
+   largest detector output measured 2026-08-12, which is also the *full*
+   backlog, so that first run files everything and truncates nothing; and it
+   sits below `AUTOMATION_WIP_CEILING` (5) so one run cannot spend the family's
+   whole review budget.
+
+   That measurement differs by **where the run executes**: the main checkout
+   yields 2 (`adr_navigation_missing` ×2), a **fresh worktree — what a scheduled
+   run actually uses** (§ Scheduling) — yields 3, because `dead_link ledger.md`
+   fires there too (Non-goals). Both are pre-dedup detector output, neither is
+   the cap's steady state.
+
+   **Capped findings are deferred, not rejected — and that is why nothing is
+   lost.** The detector is deterministic: the next run re-enumerates them, this
+   run's filings dedup out (step 1), and the deferred remainder rises to the
+   top. What is *not* self-correcting is the signal that the cap bound at all,
+   so Step 5 must publish it.
+
+   **Retune trigger:** if the cap binds on two consecutive runs with no
+   identifiable burst cause, it is too tight — raise it rather than let a
+   standing backlog drip out three at a time.
+
+   **Out of scope, deliberately:** this is a *flow* cap (issues per run).
+   Nothing bounds the *stock* — the total of open judgment issues — so a
+   maintainer who ignores the lane accumulates at up to 3/run. Considered and
+   left open: the per-target dedup already prevents re-filing the same finding,
+   and a stock bound needs a reliable "filed by this skill" predicate that the
+   already-filed issues do not carry.
+3. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
    - **Counter-evidence / why this might be wrong**: e.g. the target may be an
@@ -268,12 +375,42 @@ Never auto-fix these — the whole point is the fix needs judgment.
 
 ## Step 5 — Report
 
-Summarize to the user / transcript: auto-fix PR url (or "skipped — open audit
-PR #N pending" / "none"), issues filed (or skipped-as-duplicate), and the
-dry-run counts. Point at `/tmp/audit.json` for the raw findings. That summary is
-the whole record — for a scheduled run it is the run history entry, and any
-actual change is durably captured by the Draft PR; the skill leaves nothing
-behind in the working tree.
+Summarize to the user / transcript, and **publish the output-stage arithmetic**
+(Contract rule 6). Every number below is required even when it is zero — a
+missing line is what makes a too-tight filter invisible:
+
+**The arithmetic is per lane** — the two lanes have different dispositions, and
+summing them would balance against nothing. Report each separately.
+
+*Judgment lane* (Step 4):
+
+- **found** — the detector's `needs_judgment` count, before any filtering.
+  Never the post-cap number.
+- **deduped** — findings skipped in Step 4 step 1, each with the matched issue
+  number and **which branch fired** (`open` / `NOT_PLANNED` / `DUPLICATE`), so a
+  wrong suppression is legible rather than a bare count.
+- **capped** — findings the Step 4 cap deferred, listed by `target` with their
+  rank position, so a reader can see exactly what a higher cap would have
+  surfaced. State the cap value alongside.
+- **surfaced** — issues actually filed, with urls.
+
+These four balance: `found = deduped + capped + surfaced`.
+
+*Auto-fix lane* (Steps 2–3):
+
+- **found** — the detector's `auto_fixable` count.
+- **disposition** — the PR url, or "skipped — open audit PR #N pending", or
+  "none". This lane has no per-finding filter: rule 1 batches every fix into one
+  PR, so the count either all ships or all waits.
+
+The report is the channel; nothing is minted to carry these numbers — the
+deterministic detector re-enumerates the **capped** list next run (Step 4
+step 2), so what the report preserves is only the signal that the cap bound.
+
+Point at `/tmp/audit.json` for the raw findings. That summary is the whole record
+— for a scheduled run it is the run history entry, and any actual change is
+durably captured by the Draft PR; the skill leaves nothing behind in the working
+tree.
 
 ## Scheduling (how unattended runs work)
 

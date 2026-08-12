@@ -121,6 +121,33 @@ FENCE_DELIM = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 # detector to `id:`-keyed YAML keeps candidate resolution unambiguous (basename
 # = `<id>.yaml`) and excludes illustrative swift/prose snippets by construction.
 YAML_ID = re.compile(r"^id:\s*([A-Za-z0-9_./-]+)\s*$")
+# --- Threshold near-miss reporting: considered, DECLINED (2026-08-12) --------
+# Output Contract rule 6 wants a near-miss tally as cheap evidence that a bar
+# sits too tight, and its deterministic-detector carve-out exempts a predicate
+# from the ban on judgment but NOT from the count. Declined anyway, on the
+# specifics of these two gates:
+#
+#  1. Neither threshold is a gate on its own. A mirror must clear MIRROR_MIN_LINES
+#     *and* MIRROR_MIN_COMPLETENESS *and* MIRROR_MIN_RATIO; a navigation finding
+#     must clear NAV_MIN_LINES *and* NAV_MIN_SHARE — and the NAV pair is fitted
+#     together, one degree of freedom (see its comment). So "N candidates fell
+#     just below MIN_LINES" is not evidence about the bar: a 7-line block at 0.1
+#     completeness is nowhere near firing, and counting it overstates suppression.
+#  2. Making the count meaningful means evaluating the *remaining* terms for every
+#     sub-threshold candidate — i.e. running the part of the detector these gates
+#     exist to short-circuit, on everything. That is a structural change, not a
+#     counter, and it prices in per-term "near" bands that are themselves new
+#     unjustified constants.
+#  3. The cheap approximation needs no permanent code: `wc -l
+#     docs/decisions/ADR-*.md`. Measured 2026-08-12 — three ADRs sit in 500–599
+#     lines (ADR-007 525, ADR-003 518, ADR-020 502), none within 50 of the 600
+#     bar, so the gate is not currently sitting on a cluster.
+#
+# Re-open this if a human ever finds drift the detector should have caught — that
+# is the evidence a tally would stand in for. Until then the run report's
+# found / deduped / capped / surfaced arithmetic (SKILL.md Step 5) is the
+# accounting rule 6 requires, over everything the detector actually emits.
+#
 # A block counts as a mirror only when it is a *near-complete* drifted copy of
 # the resolved source. The primary discriminator is completeness (block length /
 # source length): a real mirror is essentially the whole file (#921's presets.md
@@ -130,9 +157,11 @@ YAML_ID = re.compile(r"^id:\s*([A-Za-z0-9_./-]+)\s*$")
 # margin than an ordered-line similarity ratio would (0.44 vs 0.34 is a knife
 # edge). MIN_LINES kills tiny schema snippets (the 4-line gallery-README `id: … /
 # name: ...`); MIN_RATIO is a secondary anti-coincidence floor so a long block
-# that merely shares a real id but no content stays silent. needs_judgment, so a
-# borderline miss is preferred to a false flag (Output Contract: conservative
-# wins).
+# that merely shares a real id but no content stays silent. needs_judgment, so
+# the predicate is tuned for precision — legitimate only under Output Contract
+# rule 6's *deterministic-detector* carve-out (predicate in code, reviewable at
+# source), which a model-driven detector does not get. The carve-out does not
+# exempt the count: see the near-miss block above.
 MIRROR_MIN_LINES = 8
 MIRROR_MIN_COMPLETENESS = 0.6
 MIRROR_MIN_RATIO = 0.3
@@ -200,8 +229,9 @@ NAV_EXEMPT = re.compile(r"^<!--\s*nav-exempt:")
 # body is a minority of what a reader scrolls past" — a large ADR whose bulk is
 # *body* (ADR-005: 1479 lines, 8%) is not this problem; 600 is the operator's
 # judgment that ADR-021 is past what a reader can hold, set well below the
-# 2355-line/75% case #1382 actually problematised. Conservative per Output
-# Contract rule 6: prefer a miss.
+# 2355-line/75% case #1382 actually problematised. A precision-first bar under
+# the same deterministic-detector carve-out as MIRROR_MIN_LINES above — see there
+# for what the carve-out does and does not exempt.
 #
 # Known false-negative class: ADR-010 records amendments as inline bold
 # (`**Amendment 2026-06-20 …:**`), not as a heading, so it can never fire no
@@ -946,7 +976,8 @@ def mirror_finding(block_lines: list[str], indent: int, open_line: int,
 
     Deliberately silent when the block is identical to the source: an in-sync
     embed is not a current inconsistency, and flagging it would be style-nagging
-    (a false-positive under 'conservative wins'). It surfaces once it drifts."""
+    — a false positive, which the precision-first predicate above exists to
+    avoid. It surfaces once it drifts."""
     block = _dedent_block(block_lines, indent)
     if len(block) < MIRROR_MIN_LINES:
         return None
