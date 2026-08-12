@@ -208,7 +208,8 @@ Agent(subagent_type: "code-reviewer", model: "opus",
 - **FAIL** → fix the confirmed findings, re-run the reviewer once. A
   second FAIL = failed attempt (hard rule 4: retry or block).
 - **SCOPE_TOO_LARGE / incomplete** (count mismatch, or no populated
-  `## Dependency Check`) → hard rule 6: block, no PR. Do not shrink the
+  `## Dependency Check`) → **this skill's** hard rule 6 ("No unreviewed PR",
+  § Hard rules above — *not* Output Contract rule 6): block, no PR. Do not shrink the
   review's scope to force a pass.
 
 ## Step 5 — Draft PR + label release (completes the issue)

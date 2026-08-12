@@ -94,11 +94,6 @@ nothing of theirs reaches the review queue this contract rations.
      uncounted drop is indistinguishable from a finding never made: the next run re-derives it, drops
      it again, and nobody learns the filter is too tight.
 
-**Generator bodies still carrying the pre-2026-08-12 wording** are tracked in
-[#1432](https://github.com/tyabu12/pastura/issues/1432) (`consistency-audit` hard rule 4;
-`ui-refine`'s generation-side quota). Until that lands this rule is the canonical text and their
-duplicates are stale — reconcile them, do not follow them.
-
 ### Why detection must not self-filter
 
 Rule 6's split is a model-behaviour fact, not a style preference, and it is recent. Claude 5-series
@@ -155,9 +150,12 @@ race.
 issues are outside that accounting, and rule 6's exhaustive detection lands its increment precisely
 there. Cap issues per run as well — the number is project-owned by the same test as the ceiling: it
 rests on one maintainer's review attention, so it is *retuned* per repo, never recomputed from
-upstream. **Pastura has not set one** — choosing the value and wiring it in is
-[#1432](https://github.com/tyabu12/pastura/issues/1432). Until it lands, a run that would file an
-unusual number of issues stops and reports instead.
+upstream. **Pastura's is `JUDGMENT_ISSUE_CAP` = 3**, canonical in
+`.claude/skills/consistency-audit/SKILL.md` (§ Constants, with the ranked truncation and the retune
+trigger in Step 4 step 2) — that generator is the only one filing issues unattended, so the cap lives
+in its own skill per rule 4 rather than alongside the Draft-PR ceiling. It bounds the *flow* (issues
+per run); nothing bounds the *stock* of open judgment issues, and that gap is recorded as deliberate
+at the same place.
 
 **The ceiling value (`AUTOMATION_WIP_CEILING`) and the branch predicate that identifies
 automation-origin PRs are project-owned and canonical in
