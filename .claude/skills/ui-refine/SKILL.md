@@ -6,8 +6,8 @@ allowed-tools: Read, Write, Edit, Grep, Glob, Bash
 
 # /ui-refine
 
-One UI design-critique cycle: **capture → pick lens → propose → adversarial
-filter → dedup → digest**. The design-layer sibling of `/scenario-refine`: where
+One UI design-critique cycle: **capture → pick lens → enumerate → adversarial
+filter → dedup → rank &amp; truncate → digest**. The design-layer sibling of `/scenario-refine`: where
 refine evaluates and polishes the existing *scenario* inventory, ui-refine
 evaluates and polishes the existing *UI*. Run from the repository root of the
 **persistent main checkout** (see Safety boundary). Concept + data model:
@@ -55,7 +55,7 @@ Optional args:
 full before Step 0.** It is path-scoped to `.claude/skills/**`, which fires when a
 skill file is *read*, not on this skill's *execution* — a run drives its scripts
 through Bash without reading a skill file, so nothing auto-loads it during a
-run. The two rules that bind a digest-only generator:
+run. The three rules that bind a digest-only generator:
 
 - **Rule 2 — judgment output carries confidence + counter-evidence.** Every
   proposal in the digest carries a confidence and an explicit "why this might be
@@ -63,6 +63,12 @@ run. The two rules that bind a digest-only generator:
   judgment output, so this binds every entry.)
 - **Rule 5 — manual-first.** Trust the digest only after a human has eyeballed
   the output across a full lens rotation at least once.
+- **Rule 6 — conservative *output*, exhaustive detection.** The quota is a
+  **rank-then-truncate over an already-enumerated list** (Step 6), never a cap
+  on generating candidates: a cap that stops the search cannot name what it
+  excluded, and it would reduce `enumerated` in Step 7's arithmetic to the cap
+  itself. Step 3 therefore enumerates without a ceiling; Steps 4–6 are the
+  output stage, and every drop is both counted and given a reason.
 
 The family **WIP ceiling** (`AUTOMATION_WIP_CEILING`, canonical in
 `.claude/skills/triage-guardian/SKILL.md` § Backpressure) is **inert** for this
@@ -170,7 +176,7 @@ Resolve `LENS` to its definition in
 (or use the `lens:` arg if provided). Read that lens's design-system anchors —
 those are the principles a proposal under this lens must cite.
 
-## Step 3 — Generate quota-capped proposals
+## Step 3 — Enumerate candidates (no generation cap)
 
 Read the relevant capture artifacts with vision — the static screenshots (all 14,
 or the `screen:` arg subset) for default lenses, or the motion filmstrip frames
@@ -178,20 +184,39 @@ under `docs/design/motion/<variant>/` for **L4** — read the lens's anchor
 sections in `docs/design/design-system.md`, then generate candidates **strictly
 through today's lens** — do not drift into other lenses' concerns.
 
-- **Quota: at most 1–2 candidates — per run, total across both kinds**
-  (design proposals + compliance gaps), **not per bucket.** The two-section
-  digest (Step 6) groups survivors by kind; it does not raise the ceiling. Force
-  ranking: "if you could change one thing under this lens, what and why." Quality
-  via scarcity.
+- **No ceiling here. Enumerate everything the lens surfaces.** The 1–2 quota
+  used to live at this step, which is exactly the shape Contract rule 6 bans: a
+  cap applied while generating cannot name what it excluded, and the loss is
+  invisible — two surfaced proposals look identical whether the pass found two
+  or twenty. The quota still exists; it moved to **Step 6**, after the filters,
+  where truncation happens over a list that was written down first. Do not
+  re-introduce scarcity here in the name of quality.
+- **If you approach your own coverage ceiling, stop and say so** rather than
+  trimming quietly — an explicit "did not reach screens 09–14" is a finding
+  about the run; a silent short list is not.
 - **Every candidate must carry:** the design-system anchor (or named HIG / WCAG
-  guideline) it advances, the screen(s) it concerns, and a concrete
-  **before → after** — not a vague "make it nicer." A candidate that can't name
-  an anchor or a concrete change is dropped here.
+  guideline) it advances, the screen(s) it concerns, a concrete
+  **before → after** — not a vague "make it nicer" — plus a **confidence**, an
+  **estimated severity**, and a **counter-evidence** line. The last three are
+  the rank key Step 6 truncates on and the fields rule 2 files on: author them
+  now, at detection, not when the digest is written.
+- **The one drop allowed at this step is the evidence precondition**, and it is
+  mechanical, not a judgment: a candidate that cannot name an anchor or state a
+  concrete before → after is not a finding. Count those drops — Step 7 reports
+  them.
 
 ## Step 4 — Adversarial self-filter
 
-For each surviving candidate, switch stance and try to **reject** it. Drop it
-unless it survives every test:
+For each enumerated candidate, switch stance and try to **reject** it. Drop it
+unless it survives every test.
+
+**Every drop here is recorded, not merely discarded** — it becomes a `rejected`
+ledger row with the failing test named (Step 7). This is the rejection memory
+Contract rule 6 requires be kept where the *next* run can see it; without it,
+each rotation re-derives the same candidate, re-rejects it, and nobody learns
+whether the filter is too tight.
+
+Tests:
 
 - **Already by-design?** Does design-system.md or a `.claude/rules/` entry
   already prescribe the current behaviour deliberately?
@@ -206,7 +231,7 @@ unless it survives every test:
     highest-confidence finding — not a design proposal, but never a drop. (The
     dogfood's UR-001 § 5.11 violation is exactly this; the literal "already
     covered → drop" test would have suppressed it.) Route it to the
-    **compliance-gap bucket** (Step 6). It MUST cite the *specific* violated
+    **compliance-gap bucket** (Step 7). It MUST cite the *specific* violated
     anchor **and** the observed-vs-prescribed delta (the same before → after
     rigor Step 3 demands) — a compliance gap that can't show the delta is a
     re-derivation in disguise; drop it.
@@ -222,18 +247,50 @@ unless it survives every test:
 
 Only survivors proceed — *design proposals* and *compliance gaps* alike. Carry
 each survivor's **kind** (`design-proposal` | `compliance-gap`) forward to
-Steps 5–6.
+Steps 5–7.
 
 ## Step 5 — Dedup against the ledger
 
 Read `docs/design/ui-refine/ledger.md`. Drop any survivor that restates an
 existing row's **concept** (match on idea, not exact string) — regardless of that
 row's status (`proposed` / `filed` / `rejected` / `deferred` / `done`). This is
-the linchpin: it stops the same idea resurfacing every rotation. If everything
-dedups away, that is a healthy outcome — write a digest that says "no new
-proposals this run" and append nothing.
+the linchpin: it stops the same idea resurfacing every rotation.
 
-## Step 6 — Write the digest + append the ledger
+**One carve-out: `parked` does not suppress.** A `parked` row is a candidate a
+*previous run's quota* truncated (Step 6) — it was never judged, only deferred,
+so treating it as a duplicate would let the quota do permanently what it is only
+allowed to do for one run. A survivor matching a `parked` row proceeds to Step 6
+and competes for the quota again; note that it is re-derived so Step 6 can break
+ties in its favour. Every other status — including the human-set `deferred` —
+suppresses as before.
+
+If everything dedups away, that is a healthy outcome — write a digest that says
+"no new proposals this run" and append nothing.
+
+## Step 6 — Rank, then truncate to the quota
+
+The quota that used to sit at Step 3. Applied **here**, over a list that has been
+enumerated (Step 3), filtered (Step 4) and deduped (Step 5), it is the
+rank-then-truncate Contract rule 6 permits; applied at generation it was the cap
+rule 6 bans.
+
+- **Quota: at most 1–2 survivors reach the digest — per run, total across both
+  kinds** (design proposals + compliance gaps), **not per bucket.** The
+  two-section digest (Step 7) groups by kind; it does not raise the ceiling.
+- **Rank key**, declared so the truncation is reproducible rather than
+  whatever order the candidates were written in:
+  1. **Kind** — a `compliance-gap` outranks a `design-proposal`. A verified
+     divergence from a spec-determined value is the higher-confidence finding by
+     construction (Step 4 says so already); the quota should never spend its slot
+     on judgment while a violation waits.
+  2. **Estimated severity**, then **confidence** (both authored at Step 3).
+  3. **Re-derived from a `parked` row** — a candidate the quota already deferred
+     once wins the tie, so nothing starves at the bottom of the ranking forever.
+  4. Screen name, lexicographically — the tiebreak that makes the order *total*.
+- **Everything below the cut is `parked`, not rejected** — it was never judged
+  unworthy, and Step 7 records it as such so the next run can re-rank it.
+
+## Step 7 — Write the digest + append the ledger
 
 1. **Digest** — write `docs/design/ui-refine/digests/YYYY-MM-DD-L<n>-<slug>.md`
    (date from `date +%F`). Rank the survivors, grouped into two labeled sections
@@ -248,15 +305,38 @@ proposals this run" and append nothing.
      a concrete before → after, **confidence**, and a **counter-evidence** line
      (Output Contract rule 2 — judgment output carries confidence + counter-evidence).
    Omit a section that is empty; if there are no survivors at all, record that
-   explicitly.
-2. **Ledger** — append one row per survivor to `ledger.md` with the next
-   `UR-NNN` id, today's date, the lens, the screen, a one-line concept summary,
-   status `proposed`, and the rationale in `note`. **Pin the kind in the row:** a
-   compliance gap prefixes its `note` with `[compliance-gap]` (a design proposal
-   needs no prefix), so the kind is visible to dedup (Step 5) and human triage —
-   a digest-only kind would bypass the linchpin dedup memory. Keep ids ordered
-   (newest last). **Do not commit or push** — leave the change in the working
-   tree for the human (Safety boundary).
-3. Report to the user: the digest path, the lens used, how many candidates were
-   generated / filtered / deduped / surfaced, and a reminder that promotion
+   explicitly. Also record, in a short closing section, **what did not reach the
+   digest**: the Step 4 rejections with their failing test, and the Step 6
+   `parked` candidates. The digest is where a human can see the shape of the
+   filter, not just its output.
+2. **Ledger** — append rows to `ledger.md` with the next `UR-NNN` id, today's
+   date, the lens, the screen, a one-line concept summary, and the rationale in
+   `note`. **Three kinds of row, and the status is what distinguishes them for
+   dedup** (Step 5):
+
+   | Outcome | `status` | `note` prefix | Suppresses future runs? |
+   |---|---|---|---|
+   | Surfaced in the digest | `proposed` | `[compliance-gap]` for a gap; none for a design proposal | yes |
+   | Dropped by the Step 4 adversarial filter | `rejected` | `[filter-drop: <failing test>]` | **yes** — it was judged |
+   | Below the Step 6 quota cut | `parked` | `[quota]` | **no** — it was never judged (Step 5 carve-out) |
+
+   `parked` is a **machine** status and exists only to hold a deferral; it is
+   deliberately distinct from the human-set `deferred`, which does suppress. Do
+   not merge the two — the note prefix alone would not be enough, because a
+   human setting `deferred` during promotion is never told to write one.
+
+   **In-place update, narrowly exempted from append-only.** The skill may edit
+   exactly one thing: a `parked` row it wrote itself, when a later run
+   re-derives the same concept — refresh its `date`, and flip `status` to
+   `proposed` if it clears the quota this time. This keeps a long-deferred
+   candidate from accreting one duplicate row per rotation. **No other in-place
+   edit is permitted**; every other row, and every human-owned field, stays the
+   human's (README § Ledger lifecycle).
+
+   Keep ids ordered (newest last). **Do not commit or push** — leave the change
+   in the working tree for the human (Safety boundary).
+3. Report to the user: the digest path, the lens used, the full output-stage
+   arithmetic — **enumerated / precondition-dropped / filtered / deduped /
+   parked / surfaced** (every number, even when zero; a missing line is what
+   makes a too-tight filter invisible) — and a reminder that promotion
    (digest → issue + committing the ledger) is a manual step.
