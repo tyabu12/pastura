@@ -250,7 +250,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
 
 Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares the orchestrator's worktree). Subagents execute **sequentially, one at a time** — never in parallel. The subagent should have access to: `Read, Grep, Glob, Bash, Write, Edit` — do NOT include `EnterWorktree` or `ExitWorktree`.
 
-Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — bound delegated items per its soft-budget heuristics so the subagent's investigation + final commit message fit the 32K output cap.
+Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — bound delegated items per its soft-budget heuristics.
 
 > **Agent prompt template:**
 >
@@ -325,7 +325,7 @@ Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "..
 
 `$REVIEWER_MODEL` is the lowercase form (`opus` / `sonnet`) bound at Step 0 / Step 1 — the surrounding quotes match the Step 3 Sonnet-delegation convention (`Agent(model: "sonnet")`).
 
-Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — large PR diffs may need splitting (per axis or per area) or Sonnet override (where the Coupling rule allows) to avoid `SCOPE_TOO_LARGE` early returns from the reviewer.
+Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — large PR diffs may need splitting (per axis or per area) to avoid `SCOPE_TOO_LARGE` early returns from the reviewer. **Splitting is the only remedy** — a cheaper model buys no headroom (§3 there), so never downgrade `REVIEWER_MODEL` to fit a diff.
 
 > **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
