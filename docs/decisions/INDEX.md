@@ -162,11 +162,12 @@ deliberately not `nonisolated` (its statics read MainActor `PasturaPalette`). A
 probe here must replicate the **dependency** shape, not just the API shape: a
 compile-only one that built tokens inline passed where the real code failed. The
 `all` registry's assertion guards that list's documented size, **not**
-completeness. Still open, per § Revisit
-trigger: the `ImageRenderer` alias half stays armed at the thresholds stated there; the
-screen-background fixes post-date the device pass that closed the gates, so their
-dark QA is unrun; and the `inkSecondary` dark-side gap (#1408) with residual
-sub-AA badge labels (#1427) (Status: Accepted; #1274)
+completeness. Still open, per § Revisit trigger: the `ImageRenderer` alias half
+stays armed at the thresholds stated there; several fixes post-date the device
+pass that closed gates 4 and 5 and so head `docs/qa/dark-mode-qa.md`'s re-run
+list, of which one has had a partial re-check with its gaps stated; and the
+`inkSecondary` dark-side gap (#1408) with residual sub-AA badge labels (#1427)
+(Status: Accepted; #1274)
 
 ## ADR-029 — Shared-scenario highlights (static curated excerpts)
 
