@@ -1,6 +1,6 @@
 # Decision Records — Index
 
-Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **Do not add a count that mirrors a mutable inventory elsewhere** — how many tokens are paired, entries excerptable, sites swept. Such a mirror is invisible to a count-keyed sweep and goes stale silently, which is what happened to the ADR-028 entry repeatedly. A cardinality *of the design* ("two Models enums", "one sibling file per entry") is not a mirror and is fine. This is a rule for what you write next, **not** a claim about the file: entries predating it still carry mirrors, and no exhaustive list of them is kept here — one would inherit the same blind spot. Writing rule: `.claude/rules/adr-writing.md` §4. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
+Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **Do not add a count that mirrors a mutable inventory elsewhere** — how many tokens are paired, entries excerptable, sites swept. Such a mirror is invisible to a count-keyed sweep and goes stale silently, which is what happened to the ADR-028 entry repeatedly. A cardinality *of the design* ("two Models enums", "one sibling file per entry") is not a mirror and is fine. **The test: can the number change without the decision changing?** If yes it is an inventory — and note that ADR-028's own "eight pairs" read as a design cardinality when written and became an inventory. The same question retires a *relative* claim ("the quietest of the five"), which goes stale the same way without carrying a number at all. This is a rule for what you write next, **not** a claim about the file: entries predating it still carry mirrors, and no exhaustive list of them is kept here — one would inherit the same blind spot. Writing rule: `.claude/rules/adr-writing.md` §4. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
 
 ## ADR-001 — Architecture Overview (Phase 1)
 
@@ -166,9 +166,10 @@ completeness. Still open, each where it is derived: the `ImageRenderer` alias
 half stays armed at § Revisit trigger's stated thresholds; several fixes
 post-date the device pass that closed gates 4 and 5 and so head
 `docs/qa/dark-mode-qa.md`'s re-run list, one of them partially re-checked with
-its gaps stated (§ Amendment 2026-07-31 → "What is NOT confirmed"); and the
-`inkSecondary` dark-side gap (#1408) with residual sub-AA badge labels (#1427),
-per § Amendment 2026-08-12 (Status: Accepted; #1274)
+its gaps stated (§ Amendment 2026-07-31 → "What is NOT confirmed"); the
+`inkSecondary` dark-side gap (§ Amendment 2026-08-08 → "What is not covered",
+#1408); and the residual sub-AA badge labels (§ Amendment 2026-08-12, #1427)
+(Status: Accepted; #1274)
 
 ## ADR-029 — Shared-scenario highlights (static curated excerpts)
 
@@ -191,8 +192,11 @@ verification failure — unknown `schema_version` or a missing attestation inclu
 — hides the section with an `.info` log, which is ADR-021's degrade-by-omission
 stance. The web build reads the repo file directly and never resolves
 `highlight_url`. **The enforcement point is the gallery gate, not the
-extractor**: `check-gallery-entry.sh` re-derives the schema, cap, pairing,
-spoiler and blocklist checks, and
+extractor**: `check-gallery-entry.sh` re-derives the schema, cap, `source_field`
+allowlist, the sha three-way that makes the trust root load-bearing (highlight
+pin == `gallery.json` == raw YAML bytes), the `highlight_url` pairing, the
+spoiler position rules and the blocklist re-audit — its own header carries the
+authoritative list — while
 `scripts/gallery_highlight_extract.py` keeps the same ones only as fail-fast
 convenience, hard-failing on `secret:`-declaring scenarios and unknown phase
 names (ADR-022 tripwire). Decision 6 states the Phase-3 boundary falsifiably —

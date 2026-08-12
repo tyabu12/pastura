@@ -64,16 +64,26 @@ what the skill cannot derive belongs here.
 - **An INDEX entry routes; it does not recapitulate.** Write the mechanism in a
   sentence, the standing invariants, what is still open, and one derivation
   pointer per claim cluster — the same body/amendment split the next bullet
-  applies inside an ADR, applied to the index. **Do not mirror a mutable
-  inventory count** — how many tokens are paired, entries excerptable, sites
-  swept: such a mirror is structurally invisible to a count-keyed sweep, which
-  is what let an entry go stale repeatedly (ADR-028 § "A count mirror that a
-  count-keyed sweep structurally cannot find"). A cardinality *of the design*
-  is not a mirror and is fine. Issue and PR
+  applies inside an ADR, applied to the index. Issue and PR
   numbers do not go stale and stay, but prefer an ADR-internal
   `§ Amendment YYYY-MM-DD` where one exists. INDEX is read on every ADR
   citation, so an entry that restates the ADR is paid for by every reader who
   only needed to know which ADR to open.
+- **Do not mirror a mutable inventory count into an INDEX entry** — how many
+  tokens are paired, entries excerptable, sites swept. Such a mirror is
+  structurally invisible to a count-keyed sweep (grepping the current number
+  finds every *up-to-date* mirror and misses exactly the stale ones), which is
+  what let an entry go stale repeatedly: ADR-028 § "A count mirror that a
+  count-keyed sweep structurally cannot find". A cardinality *of the design* —
+  "two Models enums", "one sibling file per entry" — is not a mirror and is
+  fine. **The test: can the number change without the decision changing?** If
+  yes it is an inventory. ADR-028's own "eight pairs" is the counter-case that
+  makes the test worth applying rather than eyeballing — it read as a design
+  cardinality when written and became an inventory. The same question retires a
+  *relative* claim ("the quietest of the five"), which goes stale the same way
+  while carrying no number at all. This governs what you **write next**; it is
+  not a claim that existing entries comply, and no list of the ones that do not
+  is kept, because such a list inherits the blind spot it was drawn from.
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
   recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
   with no file on disk. It is a gap in the listing, not a free slot. Its
