@@ -87,7 +87,11 @@ relaxed, restore the `code-reviewer` pass.
 
 ## Constants
 
-- Detector: `.claude/skills/consistency-audit/scripts/audit_docs.py`
+- Detector: `.claude/skills/consistency-audit/scripts/audit_docs.py`. It reports
+  **no threshold near-miss tally** — considered and declined 2026-08-12; the
+  reasoning lives beside the thresholds themselves (`§ Threshold near-miss
+  reporting: considered, DECLINED`, above `MIRROR_MIN_LINES`), with the
+  condition that re-opens it.
 - Auto-fix PR branch: `audit/docs-<YYYYMMDD>` (collision fallback `-2`, `-3`, …)
 - Auto-fix dedup: **at most one open `audit/*` Draft PR at a time.** A run that
   finds one open skips the auto-fix PR step and reports it pending — all fixes
@@ -307,12 +311,22 @@ For each `needs_judgment` finding (already deduped by `target`):
    3. `target`, lexicographically ascending — the tiebreak that makes the order
       *total*, so two runs over the same repo state truncate identically.
 
-   **Why 3.** Measured steady state on `main` is 2 (`adr_navigation_missing`
-   ×2), so the cap sits one above normal: it does not throttle ordinary passes,
-   and it does stop a burst — an ADR renumbering can fire a dozen
-   `adr_roster_drift` findings in one run. It is below `AUTOMATION_WIP_CEILING`
-   (5) by construction, since a single run should not be able to fill the
-   family's whole review budget on its own.
+   **Why 3.** The cap counts issues *filed*, i.e. what survives step 1's dedup —
+   not what the detector emitted. In steady state that is **0**: the standing
+   findings are already open issues. What the cap has to size against is the
+   burst — an ADR renumbering firing a dozen `adr_roster_drift` findings in one
+   run, or a first run against a fresh state. Three is one above the largest
+   detector output measured 2026-08-12, and it is below
+   `AUTOMATION_WIP_CEILING` (5) by construction: a single run should not be able
+   to spend the family's whole review budget.
+
+   That measurement differs by **where the run executes**, which is worth
+   knowing before reading a report: the main checkout yields 2
+   (`adr_navigation_missing` ×2), while a **fresh worktree — the environment a
+   scheduled run actually uses** (§ Scheduling) — yields 3, because
+   `dead_link ledger.md` fires there too (the gitignored-by-design target absent
+   from every fresh clone, per Non-goals). Neither number is the cap's steady
+   state; both are pre-dedup detector output.
 
    **Capped findings are deferred, not rejected — and that is why nothing is
    lost.** The detector is deterministic: the next run re-enumerates them, and
