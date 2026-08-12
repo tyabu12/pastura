@@ -28,14 +28,24 @@ open-ended critique pass from drowning the human's review attention — the scar
 resource the whole brush-up family is built to protect:
 
 1. **Proposal ledger** (the linchpin) — [`ledger.md`](ledger.md) records every
-   proposal ever surfaced, with status. Each run dedups against it and never
-   re-proposes a tracked or rejected-with-reason item. This is what kills the
-   daily-repetition flood that a diff gate would otherwise prevent.
+   proposal a run **considered**, not only the ones it surfaced: survivors with
+   status `proposed`, adversarial-filter drops as `rejected`, and quota
+   truncations as `parked`. Each run dedups against it and never re-proposes a
+   tracked or rejected-with-reason item. This is what kills the daily-repetition
+   flood that a diff gate would otherwise prevent. **`parked` is the one status
+   that does not suppress** — a candidate the quota deferred was never judged, so
+   it competes again next rotation rather than being silently buried.
 2. **Rotating lens** — [`lenses.md`](lenses.md) defines seven critique lenses;
    each run uses exactly one, selected deterministically by weekday (`date +%u`).
    Forces depth over breadth and spaces proposals across the week.
-3. **Quota + forced ranking** — at most 1–2 proposals per run. "If you could
-   change one thing under today's lens, what and why."
+3. **Quota + forced ranking** — at most 1–2 proposals reach the digest per run.
+   The quota is applied **after** the filters, as a ranked truncation over a list
+   that was enumerated first — never as a cap on generating candidates. That
+   distinction is Output Contract rule 6 and it is not cosmetic: a cap applied
+   while generating cannot name what it excluded, so the loss is invisible (two
+   surfaced proposals look identical whether the pass found two or twenty). The
+   digest still receives 1–2 items — what changed is that everything below the
+   cut is now named and re-rankable.
 4. **Design-system anchor** — every proposal must cite the
    [design-system](../design-system.md) principle (or a HIG / accessibility
    guideline) it advances, plus a concrete before → after. Vague "make it nicer"
@@ -47,13 +57,17 @@ resource the whole brush-up family is built to protect:
    convention is noise → drop; a screen that **violates** a spec-determined value
    is the highest-value finding → keep it as a **compliance gap** (a code-fix,
    surfaced separately from judgment-based *design proposals*). Only survivors
-   reach the digest.
+   reach the digest — but every drop reaches the **ledger**, with the failing
+   test named, so a filter that is too tight becomes visible instead of just
+   producing quiet runs.
 
 This inherits the brush-up family's shared **Output Contract** (canonical text:
 [`.claude/rules/automation-output-contract.md`](../../../.claude/rules/automation-output-contract.md)).
 The binding rules for a digest-only generator are **rule 2**
-(judgment output carries confidence + counter-evidence) and **rule 5**
-(manual-first: eyeball the output before trusting it).
+(judgment output carries confidence + counter-evidence), **rule 5**
+(manual-first: eyeball the output before trusting it), and **rule 6**
+(conservative *output*, exhaustive detection — mechanisms 1, 3 and 5 above are
+its three moving parts here).
 
 ## Ledger lifecycle (read before scheduling)
 
@@ -65,6 +79,21 @@ mutation. A **human commits the ledger append** — naturally bundled into the
 same step that promotes a digest gem to an issue (see *Promotion*). This keeps
 the skill's "files nothing, pushes nothing" posture intact (matching
 scenario-refine's "a dirty working tree can never reach users" safety model).
+
+**One narrow exception to append-only.** The skill may edit *in place* exactly
+one thing: a `parked` row **it wrote itself**, when a later run re-derives the
+same concept — refreshing its date, and flipping it to `proposed` if it clears
+the quota that run. Without this a long-deferred candidate would accrete one
+duplicate row per rotation. Every other row, and every human-owned field, stays
+the human's; the skill never edits a `proposed` / `filed` / `rejected` /
+`deferred` / `done` row.
+
+**Volume note.** Because drops are now recorded, the ledger grows faster than it
+did when only survivors were written — that is the point (an unrecorded drop is
+indistinguishable from a finding never made), but it is a git-tracked file a
+human commits, so watch it across the first full rotation and prune or archive
+if the file becomes unwieldy. No pruning policy is fixed yet; there is not
+enough data to set one.
 
 **Persistence constraint for the deferred scheduling phase:** because the ledger
 must persist to do its job, ui-refine must run in the **persistent main
@@ -81,7 +110,13 @@ journal. Pin this constraint before any Routine is wired up.
    `filed (#N)`.
 3. For a proposal you decide against, set its row to `rejected` with a one-line
    reason — this is what stops it from resurfacing next rotation.
-4. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
+4. **A `parked` row needs no action.** It is a machine deferral — the quota cut
+   it, nobody judged it — and the next run re-ranks it automatically. Promote it
+   early by setting it to `filed (#N)` if you want it acted on now, or to
+   `rejected` with a reason to take it out of the rotation for good. Leaving it
+   alone is the correct default; do **not** set it to `deferred` unless you mean
+   the human "considered, not now", which does suppress it.
+5. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
    the promotion triggered.
 
 ## Known coverage limitations
@@ -135,6 +170,6 @@ in order:
 |------|----------|------|
 | `README.md` | ✅ | This file |
 | `lenses.md` | ✅ | The 7 rotating critique lenses + weekday mapping |
-| `ledger.md` | ✅ | Proposal dedup memory (skill appends, human commits) |
+| `ledger.md` | ✅ | Proposal dedup + rejection memory (skill appends — and may update its own `parked` rows in place; human commits) |
 | `digests/README.md` | ✅ | Explains the digests directory |
 | `digests/*.md` | ❌ gitignored | Per-run digest artifacts |
