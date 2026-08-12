@@ -234,6 +234,14 @@ WIP=$(gh pr list --state open --draft --json headRefName \
   --jq '[.[] | select(.headRefName | test("^(audit|agent)/"))] | length')
 ```
 
+**Scope: this section bounds the Draft-PR lane only.** The constant and
+predicate above count *open Draft PRs*, so rule-2 judgment **issues** fall
+outside them entirely. That lane has its own per-run cap — `JUDGMENT_ISSUE_CAP`,
+canonical in `.claude/skills/consistency-audit/SKILL.md` (Constants + Step 4
+step 2), since `consistency-audit` is the only generator that files issues
+unattended. It is a cross-reference, not a mirrored literal: it is **not** part
+of the three-file sync rule above, and changing it does not touch this file.
+
 **Why an aggregate ceiling on top of per-generator caps.** Each generator
 already caps its *own* lane (consistency-audit: ≤1 open `audit/*`;
 queue-consumer: QUOTA-2 per run). Nothing watches the *sum*. As more generators

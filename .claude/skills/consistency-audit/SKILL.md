@@ -92,6 +92,8 @@ relaxed, restore the `code-reviewer` pass.
 - Auto-fix dedup: **at most one open `audit/*` Draft PR at a time.** A run that
   finds one open skips the auto-fix PR step and reports it pending — all fixes
   batch into one PR, so a second would duplicate the first.
+- Judgment-issue cap: **at most 3 issues filed per run** (`JUDGMENT_ISSUE_CAP`).
+  Canonical here; ranked truncation and rationale in Step 4 step 2.
 - Label: `documentation` (for both PRs and issues)
 
 ## Hard rules (non-negotiable)
@@ -223,6 +225,10 @@ Only if `auto_fixable` is non-empty AND Step 2 found no open `audit/*` PR:
 
 ## Step 4 — needs_judgment → issues
 
+**This is the output stage** (Contract rule 6). Detection already enumerated
+everything; this step is the *only* place a finding is dropped, and every drop
+is counted for Step 5.
+
 For each `needs_judgment` finding (already deduped by `target`):
 
 1. **Dedup across runs:** search issues for the target — **`--state all`, then
@@ -280,7 +286,61 @@ For each `needs_judgment` finding (already deduped by `target`):
    `nav:` as a search qualifier. (This predates the newer types:
    `embedded_source_mirror`'s `<docfile>::<sourcepath>` composite has the same
    shape.)
-2. File an issue (`--label documentation`) whose body has:
+2. **Rank the survivors, then truncate to `JUDGMENT_ISSUE_CAP` (3).** This is a
+   *quota* in the Contract's sense — rank-then-truncate over an
+   already-enumerated list, never a cap that stops the search — so `found` in
+   Step 5 stays the detector's count and never collapses to the cap.
+
+   **Rank key**, declared so the truncation is reproducible rather than
+   whatever order the JSON happened to enumerate:
+
+   1. `confidence` — `high` before `medium`. The detector emits **no**
+      `severity` field, so confidence is the only rank signal it carries;
+      adding one would mean inventing a scale no detector currently computes,
+      and the Contract's rank-key requirement is satisfied by a declared total
+      order, not by that specific field name.
+   2. Finding type, in this precedence: `dead_link` → `adr_roster_drift` →
+      `dangling_adr` → `unparsed_adr_reservation` → `embedded_source_mirror` →
+      `adr_navigation_missing`. Ordered by how mechanically checkable the
+      finding is — a link either resolves or does not, whereas a navigation
+      finding is a share a maintainer can reasonably read either way.
+   3. `target`, lexicographically ascending — the tiebreak that makes the order
+      *total*, so two runs over the same repo state truncate identically.
+
+   **Why 3.** Measured steady state on `main` is 2 (`adr_navigation_missing`
+   ×2), so the cap sits one above normal: it does not throttle ordinary passes,
+   and it does stop a burst — an ADR renumbering can fire a dozen
+   `adr_roster_drift` findings in one run. It is below `AUTOMATION_WIP_CEILING`
+   (5) by construction, since a single run should not be able to fill the
+   family's whole review budget on its own.
+
+   **Capped findings are deferred, not rejected — and that is why nothing is
+   lost.** The detector is deterministic: the next run re-enumerates them, and
+   because this run filed the higher-ranked ones, those dedup out (Step 4 step
+   1) and the deferred remainder rises to the top. The backlog drains without
+   any extra bookkeeping. What is *not* self-correcting is the signal that the
+   cap bound at all, so Step 5 must publish it — an uncounted drop is
+   indistinguishable from a finding never made.
+
+   **Retune trigger:** if the cap binds on two consecutive runs with no
+   identifiable burst cause, it is too tight — raise it rather than let a
+   standing backlog drip out three at a time.
+
+   **Canonical home.** The cap lives here, in this generator's own skill, per
+   Contract rule 4 ("each generator's own cap is canonical in that generator's
+   own skill"). It is deliberately **not** in `triage-guardian/SKILL.md`
+   § Backpressure, which is canonical for `AUTOMATION_WIP_CEILING` and the
+   automation-branch predicate: those are inlined literally by three files and
+   carry a same-PR sync rule, and enlisting a single-consumer constant in that
+   set would buy nothing. That section carries a cross-reference here instead.
+
+   **Out of scope, deliberately:** this is a *flow* cap (issues per run).
+   Nothing bounds the *stock* — the total of open judgment issues — so a
+   maintainer who ignores the lane accumulates at up to 3/run. Considered and
+   left open: the per-target dedup already prevents re-filing the same finding,
+   and a stock bound needs a reliable "filed by this skill" predicate that the
+   already-filed issues do not carry.
+3. File an issue (`--label documentation`) whose body has:
    - **Locations**: every `file:line` the target is referenced from.
    - **Confidence**: how sure the detector is this is a real problem.
    - **Counter-evidence / why this might be wrong**: e.g. the target may be an
@@ -309,12 +369,30 @@ Never auto-fix these — the whole point is the fix needs judgment.
 
 ## Step 5 — Report
 
-Summarize to the user / transcript: auto-fix PR url (or "skipped — open audit
-PR #N pending" / "none"), issues filed (or skipped-as-duplicate), and the
-dry-run counts. Point at `/tmp/audit.json` for the raw findings. That summary is
-the whole record — for a scheduled run it is the run history entry, and any
-actual change is durably captured by the Draft PR; the skill leaves nothing
-behind in the working tree.
+Summarize to the user / transcript, and **publish the output-stage arithmetic**
+(Contract rule 6). Every number below is required even when it is zero — a
+missing line is what makes a too-tight filter invisible:
+
+- **found** — the detector's own `auto_fixable` + `needs_judgment` counts,
+  before any filtering. Never the post-cap number.
+- **deduped** — findings skipped in Step 4 step 1, each with the matched issue
+  number and **which branch fired** (`open` / `NOT_PLANNED` / `DUPLICATE`), so a
+  wrong suppression is legible rather than a bare count.
+- **capped** — findings the Step 4 cap deferred, listed by `target` with their
+  rank position, so a reader can see exactly what a higher cap would have
+  surfaced. State the cap value alongside.
+- **surfaced** — issues actually filed, with urls.
+- Auto-fix PR url (or "skipped — open audit PR #N pending" / "none").
+
+The report is the channel; nothing is minted to carry these numbers. The
+**capped** list needs no separate cross-run store because the deterministic
+detector re-enumerates it next run (Step 4 step 2) — what the report preserves
+is the *signal that the cap bound*, which nothing else records.
+
+Point at `/tmp/audit.json` for the raw findings. That summary is the whole record
+— for a scheduled run it is the run history entry, and any actual change is
+durably captured by the Draft PR; the skill leaves nothing behind in the working
+tree.
 
 ## Scheduling (how unattended runs work)
 
