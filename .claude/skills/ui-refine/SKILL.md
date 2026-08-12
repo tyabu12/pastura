@@ -186,12 +186,9 @@ sections in `docs/design/design-system.md`, then generate candidates **strictly
 through today's lens** — do not drift into other lenses' concerns.
 
 - **No ceiling here. Enumerate everything the lens surfaces.** The 1–2 quota
-  used to live at this step, which is exactly the shape Contract rule 6 bans: a
-  cap applied while generating cannot name what it excluded, and the loss is
-  invisible — two surfaced proposals look identical whether the pass found two
-  or twenty. The quota still exists; it moved to **Step 6**, after the filters,
-  where truncation happens over a list that was written down first. Do not
-  re-introduce scarcity here in the name of quality.
+  lives at **Step 6**, after the filters, where it truncates a list that was
+  written down first. Do not re-introduce scarcity here in the name of quality:
+  a cap applied while generating cannot name what it excluded (Contract rule 6).
 - **If you approach your own coverage ceiling, stop and say so** rather than
   trimming quietly — an explicit "did not reach screens 09–14" is a finding
   about the run; a silent short list is not.
@@ -271,10 +268,8 @@ If everything dedups away, that is a healthy outcome — write a digest that say
 
 ## Step 6 — Rank, then truncate to the quota
 
-The quota that used to sit at Step 3. Applied **here**, over a list that has been
-enumerated (Step 3), filtered (Step 4) and deduped (Step 5), it is the
-rank-then-truncate Contract rule 6 permits; applied at generation it was the cap
-rule 6 bans.
+Applied here — over a list already enumerated (Step 3), filtered (Step 4) and
+deduped (Step 5) — this is the rank-then-truncate Contract rule 6 permits.
 
 - **Quota: at most 1–2 survivors reach the digest — per run, total across both
   kinds** (design proposals + compliance gaps), **not per bucket.** The
@@ -284,10 +279,9 @@ rule 6 bans.
   1. **Starvation guard** — a candidate re-derived from a `parked` row already
      deferred **3 or more times** (`[quota ×N]` in its note, Step 7) outranks
      *everything*. Without a term above severity, a low-severity proposal parked
-     once is outranked by any fresher higher-severity candidate on every
-     subsequent run, indefinitely — a permanent drop dressed as a deferral,
-     which is exactly what rule 6 forbids. A tiebreak cannot fix that; only a
-     term that eventually wins can.
+     once loses to any fresher higher-severity candidate on every subsequent
+     run, indefinitely — a permanent drop dressed as a deferral. A tiebreak
+     cannot fix that; only a term that eventually wins can.
   2. **Kind** — a `compliance-gap` outranks a `design-proposal`. A verified
      divergence from a spec-determined value is the higher-confidence finding by
      construction (Step 4 says so already); the quota should never spend its slot
@@ -334,10 +328,9 @@ rule 6 bans.
    `[compliance-gap] [quota ×2] …`. It marks the finding *kind*, not the
    outcome (`ledger.md` § Format).
 
-   `parked` is a **machine** status and exists only to hold a deferral; it is
-   deliberately distinct from the human-set `deferred`, which does suppress. Do
-   not merge the two — the note prefix alone would not be enough, because a
-   human setting `deferred` during promotion is never told to write one.
+   `parked` is a **machine** status holding a deferral, deliberately distinct
+   from the human-set `deferred`, which does suppress — do not merge the two
+   (`ledger.md` § Format for why a note prefix cannot stand in for it).
 
    **In-place update, narrowly exempted from append-only.** The skill may edit
    exactly one thing: a `parked` row it wrote itself, when a later run
@@ -346,8 +339,7 @@ rule 6 bans.
    (the counter Step 6's starvation guard reads — the guard is only as real as
    this write); if it clears the quota this time, flip `status` to `proposed`
    and **drop the `[quota ×N]` prefix**, which belongs only to a parked row.
-   This keeps a long-deferred candidate from accreting one duplicate row per
-   rotation. **No other in-place edit is permitted**; every other row, and every
+   **No other in-place edit is permitted**; every other row, and every
    human-owned field, stays the human's (README § Ledger lifecycle).
 
    Keep ids ordered (newest last). **Do not commit or push** — leave the change

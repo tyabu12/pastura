@@ -34,12 +34,11 @@ nj_type_len() { echo "$1" | jq --arg t "$2" '[.needs_judgment[] | select(.type==
 # unavoidable while a target names its ADR, and handled in SKILL.md Step 4 by
 # confirming the matched issue before skipping.
 #
-# Also out of reach here: Step 4's `stateReason` branch (a `COMPLETED` close
-# must NOT suppress, a `NOT_PLANNED` one must). That branch is skill prose
-# executed against the live GitHub API, and this harness is deliberately
-# fixture-only and offline — there is no code path to mutate, so a fixture
-# asserting it would be asserting nothing. Named rather than omitted: the next
-# reader should not read this file's silence as coverage.
+# Also out of reach here: Step 4's `stateReason` branch (a `COMPLETED` close must
+# NOT suppress, a `NOT_PLANNED` one must). It is skill prose executed against the
+# live GitHub API, with no code path in this offline fixture-only harness to
+# mutate — a fixture asserting it would assert nothing. Named rather than
+# omitted, so this file's silence is not read as coverage.
 no_target_collision() {
   local n
   n=$(echo "$1" | jq '[.needs_judgment[] | {t:.type, g:.target}] | group_by(.g)

@@ -40,12 +40,10 @@ resource the whole brush-up family is built to protect:
    Forces depth over breadth and spaces proposals across the week.
 3. **Quota + forced ranking** — at most 1–2 proposals reach the digest per run.
    The quota is applied **after** the filters, as a ranked truncation over a list
-   that was enumerated first — never as a cap on generating candidates. That
-   distinction is Output Contract rule 6 and it is not cosmetic: a cap applied
-   while generating cannot name what it excluded, so the loss is invisible (two
-   surfaced proposals look identical whether the pass found two or twenty). The
-   digest still receives 1–2 items — what changed is that everything below the
-   cut is now named and re-rankable.
+   that was enumerated first — never as a cap on generating candidates, which
+   could not name what it excluded (Output Contract rule 6). The digest receives
+   1–2 items either way; the difference is that everything below the cut is named
+   and re-rankable.
 4. **Design-system anchor** — every proposal must cite the
    [design-system](../design-system.md) principle (or a HIG / accessibility
    guideline) it advances, plus a concrete before → after. Vague "make it nicer"
@@ -80,22 +78,18 @@ same step that promotes a digest gem to an issue (see *Promotion*). This keeps
 the skill's "files nothing, pushes nothing" posture intact (matching
 scenario-refine's "a dirty working tree can never reach users" safety model).
 
-**One narrow exception to append-only.** The skill may edit *in place* exactly
-one thing: a `parked` row **it wrote itself**, when a later run re-derives the
-same concept — refreshing its date, then either incrementing `N` in its
-`[quota ×N]` prefix (parked again) or flipping it to `proposed` and dropping
-that prefix (it cleared the quota). Without this a long-deferred candidate would
-accrete one duplicate row per rotation, and the starvation guard that reads `N`
-would never fire. Every other row, and every human-owned field, stays
-the human's; the skill never edits a `proposed` / `filed` / `rejected` /
-`deferred` / `done` row.
+**One narrow exception to append-only:** a `parked` row **the skill wrote
+itself** may be updated in place when a later run re-derives the same concept
+(mechanics in [`ledger.md`](ledger.md) § Format) — without it, a long-deferred
+candidate accretes one duplicate row per rotation and the starvation guard that
+reads `[quota ×N]` never fires. Every other row, and every human-owned field,
+stays the human's.
 
-**Volume note.** Because drops are now recorded, the ledger grows faster than it
-did when only survivors were written — that is the point (an unrecorded drop is
+**Volume note.** Recording drops makes the ledger grow faster than it did when
+only survivors were written — that is the point (an unrecorded drop is
 indistinguishable from a finding never made), but it is a git-tracked file a
-human commits, so watch it across the first full rotation and prune or archive
-if the file becomes unwieldy. No pruning policy is fixed yet; there is not
-enough data to set one.
+human commits, so watch it across the first full rotation and prune or archive if
+it becomes unwieldy. No pruning policy yet; not enough data to set one.
 
 **Persistence constraint for the deferred scheduling phase:** because the ledger
 must persist to do its job, ui-refine must run in the **persistent main
@@ -112,25 +106,22 @@ journal. Pin this constraint before any Routine is wired up.
    `filed (#N)`.
 3. For a proposal you decide against, set its row to `rejected` with a one-line
    reason — this is what stops it from resurfacing next rotation.
-4. **A `parked` row needs no action.** It is a machine deferral — the quota cut
-   it, nobody judged it — and the next run re-ranks it automatically, with a
-   starvation guard that eventually forces it to the top. Promote it early by
-   setting it to `filed (#N)` if you want it acted on now, or to `rejected` with
-   a reason to take it out of the rotation for good — in either case drop the
-   `[quota ×N]` prefix, which belongs only to a `parked` row. Leaving it alone is the
-   correct default; do **not** set it to `deferred` unless you mean the human
+4. **A `parked` row needs no action** — leaving it alone is the correct default.
+   The quota cut it, nobody judged it, and the next run re-ranks it with a
+   starvation guard that eventually forces it to the top. Promote it early with
+   `filed (#N)`, or take it out of the rotation for good with `rejected` + a
+   reason — in either case drop the `[quota ×N]` prefix, which belongs only to a
+   `parked` row. Do **not** set it to `deferred` unless you mean the human
    "considered, not now", which does suppress it.
 5. **A machine-written `rejected` row is final — and you are the only way back.**
    Unlike `parked`, it *was* judged: the adversarial filter applied a named test
-   and the row records which one (`[filter-drop: <test>]`). Suppressing it
-   permanently is what the Output Contract asks for (a rejection kept where the
-   next run can see it), so the skill will never revisit it on its own.
-   **The caveat is that those tests read the current state** — "already
-   by-design?" and "already covered?" are answered against the design system as
-   it stands. So when a design-system convention changes, grep `ledger.md` for
-   `[filter-drop:]` rows citing the test that relied on it and un-reject the ones
-   whose basis moved (set them back to `proposed`, or delete the row). Nothing
-   automates this; the prefix exists so the sweep is a grep rather than a reread.
+   and the row records which one (`[filter-drop: <test>]`), so the skill never
+   revisits it. **The caveat is that those tests read the current state** —
+   "already by-design?" and "already covered?" are answered against the design
+   system as it stands. So when a design-system convention changes, grep
+   `ledger.md` for `[filter-drop:]` rows citing the test that relied on it and
+   un-reject the ones whose basis moved (back to `proposed`, or delete the row).
+   Nothing automates this; the prefix exists so the sweep is a grep.
 6. Commit the `ledger.md` change (and only that) alongside whatever issue/PR work
    the promotion triggered.
 

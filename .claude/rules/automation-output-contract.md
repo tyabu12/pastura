@@ -150,12 +150,10 @@ race.
 issues are outside that accounting, and rule 6's exhaustive detection lands its increment precisely
 there. Cap issues per run as well — the number is project-owned by the same test as the ceiling: it
 rests on one maintainer's review attention, so it is *retuned* per repo, never recomputed from
-upstream. **Pastura's is `JUDGMENT_ISSUE_CAP` = 3**, canonical in
-`.claude/skills/consistency-audit/SKILL.md` (§ Constants, with the ranked truncation and the retune
-trigger in Step 4 step 2) — that generator is the only one filing issues unattended, so the cap lives
-in its own skill per rule 4 rather than alongside the Draft-PR ceiling. It bounds the *flow* (issues
-per run); nothing bounds the *stock* of open judgment issues, and that gap is recorded as deliberate
-at the same place.
+upstream. **Pastura's is `JUDGMENT_ISSUE_CAP` = 3**, owned per rule 4 by the only generator filing
+issues unattended and canonical in `.claude/skills/consistency-audit/SKILL.md` — § Constants for the
+value, Step 4 step 2 for the ranked truncation, the retune trigger, and the deliberately-unbounded
+*stock* of open judgment issues (this caps the *flow* only).
 
 **The ceiling value (`AUTOMATION_WIP_CEILING`) and the branch predicate that identifies
 automation-origin PRs are project-owned and canonical in

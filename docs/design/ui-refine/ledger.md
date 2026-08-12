@@ -35,19 +35,19 @@ One row per candidate, append-only (see the `parked` exception below). Columns:
 | `parked` | **skill only** | below the run's quota cut — **never judged**, only deferred | **no** |
 | `filed (#N)` / `deferred` / `done` | human | promotion outcomes | yes |
 
-**`parked` is the machine deferral and is deliberately NOT `deferred`.** They
-would otherwise collide: `deferred` is a human "considered, not now" — a
-judgment, so it suppresses — while `parked` records only that a quota ran out of
-room that run. Distinguishing them by a `note` prefix alone would not work, since
-a human setting `deferred` during promotion is never told to write one.
+**`parked` is the machine deferral and is deliberately NOT `deferred`.**
+`deferred` is a human "considered, not now" — a judgment, so it suppresses —
+while `parked` records only that a quota ran out of room that run. A shared
+status distinguished by a `note` prefix would not work: a human setting
+`deferred` during promotion is never told to write one.
 
 **In-place exception.** The skill may edit a `parked` row **it wrote itself**
 when a later run re-derives the same concept: refresh `date`; then either
 **increment `N` in `[quota ×N]`** if it is parked again, or flip `status` to
-`proposed` and drop the `[quota ×N]` prefix if it clears the quota that time.
-The increment is load-bearing — Step 6's starvation guard is only as real as
-that write. This keeps one deferred candidate from accreting a duplicate row per
-rotation. No other row and no human-owned field is ever machine-edited.
+`proposed` and drop the prefix if it clears the quota that time. The increment
+is load-bearing — Step 6's starvation guard is only as real as that write — and
+the update keeps one deferred candidate from accreting a row per rotation. No
+other row and no human-owned field is ever machine-edited.
 
 A new run appends rows with status `proposed`, `rejected` or `parked`. The human
 later edits the `status`/`note` of existing rows during promotion. **Dedup
@@ -71,7 +71,7 @@ with the kind prefix above:
 |---|---|---|
 | `[compliance-gap]` | any status | the finding kind (above) |
 | `[filter-drop: <test>]` | `rejected` | which adversarial-filter test rejected it (SKILL § Step 4). A machine rejection is **final** — the skill never revisits it; only a human can, and § Promotion step 5 in [README](README.md) says when to sweep |
-| `[quota ×N]` | `parked` (dropped whenever the row leaves `parked` — by the skill, or by a human at promotion) | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it — incremented on an in-place refresh **that parks it again**, and dropped with the prefix when the row flips to `proposed`; at `N ≥ 3` Step 6's starvation guard ranks it above everything |
+| `[quota ×N]` | `parked` only — dropped whenever the row leaves it, by the skill or by a human at promotion | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it (incremented per the in-place exception above); at `N ≥ 3` Step 6's starvation guard ranks it above everything |
 
 ## Ledger
 

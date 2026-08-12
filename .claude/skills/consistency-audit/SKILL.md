@@ -88,10 +88,9 @@ relaxed, restore the `code-reviewer` pass.
 ## Constants
 
 - Detector: `.claude/skills/consistency-audit/scripts/audit_docs.py`. It reports
-  **no threshold near-miss tally** — considered and declined 2026-08-12; the
-  reasoning lives beside the thresholds themselves (`§ Threshold near-miss
-  reporting: considered, DECLINED`, above `MIRROR_MIN_LINES`), with the
-  condition that re-opens it.
+  **no threshold near-miss tally** — declined 2026-08-12; the reasoning and the
+  condition that re-opens it sit beside the thresholds themselves (the
+  `§ Threshold near-miss reporting` block above `MIRROR_MIN_LINES`).
 - Auto-fix PR branch: `audit/docs-<YYYYMMDD>` (collision fallback `-2`, `-3`, …)
 - Auto-fix dedup: **at most one open `audit/*` Draft PR at a time.** A run that
   finds one open skips the auto-fix PR step and reports it pending — all fixes
@@ -130,8 +129,7 @@ Pastura-specific operational detail starts here.
    *deterministic* detector, so its thresholds are a predicate reviewable at
    source rather than a judgment call — the Contract's carve-out for that exempts
    it from the ban on judgment, **not** from the count. **An uncounted drop is
-   banned**: it is indistinguishable from a finding never made, so the next run
-   re-derives it, drops it again, and nobody learns the bar sits too tight.
+   banned**: it is indistinguishable from a finding never made.
 
 ## Step 0 — Preflight (abort on any failure)
 
@@ -235,7 +233,7 @@ is counted for Step 5.
 
 **Steps 1 and 3 are per-finding; step 2 is not** — it ranks and truncates the
 *whole* surviving set, so it runs once, after step 1 has been applied to every
-`needs_judgment` finding (which the detector has already deduped by `target`).
+`needs_judgment` finding (already deduped by `target` in the detector).
 
 1. **Dedup across runs** — per finding. Search issues for the target — **`--state all`, then
    branch on the close reason**:
@@ -252,23 +250,19 @@ is counted for Step 5.
    | `CLOSED` / `COMPLETED` | **file it** | the drift was *fixed*; its recurrence is a **regression**, not a duplicate |
    | `CLOSED` / `DUPLICATE` | **skip** | folded into another issue, which carries the decision |
 
-   **`COMPLETED` must never suppress** — that is the whole reason this widened
-   past `--state open`. Suppressing on it would silently make every fixed-then-
-   recurring drift permanently invisible: no run would ever re-file it, and the
-   failure would look exactly like a clean pass. `COMPLETED` is also the dominant
-   close reason in this repo, so the wrong branch here disables the skill
-   quietly rather than rarely.
+   **`COMPLETED` must never suppress** — it is the dominant close reason here, so
+   getting that branch wrong makes every fixed-then-recurring drift permanently
+   invisible, and the failure looks exactly like a clean pass.
 
    **Branch on `state` first, then on `stateReason` — and read the latter as a
-   string, not a nullable.** `stateReason` has four values (`COMPLETED`,
-   `NOT_PLANNED`, `DUPLICATE`, `REOPENED`) and is `""`, not `null`, on an issue
-   that was never closed. So a predicate written as
-   `.stateReason == "NOT_PLANNED"` drops the open-issue skip (the load-bearing
-   case), `.stateReason != "COMPLETED"` keeps open issues by luck rather than
-   intent, and either one mishandles a **reopened** issue — which this repo
-   produces deliberately (CLAUDE.md § "Closing issues in multi-PR splits"
-   prescribes `gh issue reopen` as a recovery step). Deciding on `state` first
-   makes all four values fall out correctly.
+   string, not a nullable.** It has four values (`COMPLETED`, `NOT_PLANNED`,
+   `DUPLICATE`, `REOPENED`) and is `""`, not `null`, on an issue that was never
+   closed. So a predicate keyed on `stateReason` alone is either wrong
+   (`== "NOT_PLANNED"` drops the open-issue skip, the load-bearing case) or right
+   only by accident (`!= "COMPLETED"` happens to cover both open and **reopened**
+   issues — and this repo produces reopened ones deliberately, CLAUDE.md
+   § "Closing issues in multi-PR splits"). Deciding on `state` first makes all
+   four values fall out correctly.
 
    Every finding carries a `target` for this — for `dead_link` it is the link path,
    for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
@@ -308,12 +302,10 @@ is counted for Step 5.
    1. `confidence` — `high` before `medium`, and **an absent `confidence` sorts
       as `high`**. The field is not universal: `dead_link` emits none (its
       confidence is authored at filing time, per step 3), so without this clause
-      term 1 would be undefined for the very type term 2 ranks first. Sorting it
-      high keeps the two terms agreeing rather than fighting. The detector emits
-      **no** `severity` field at all, so confidence is the only rank signal it
-      carries; inventing a severity scale no detector computes would buy
-      nothing, and the Contract's rank-key requirement is satisfied by a
-      declared *total* order, not by that specific field name.
+      term 1 would be undefined for the very type term 2 ranks first. There is
+      no `severity` field to rank on — the detector emits none, and the
+      Contract's rank-key requirement asks for a declared *total* order, not for
+      that particular field.
    2. Finding type, in this precedence: `dead_link` → `adr_roster_drift` →
       `dangling_adr` → `unparsed_adr_reservation` → `embedded_source_mirror` →
       `adr_navigation_missing`. Ordered by how mechanically checkable the
@@ -322,46 +314,31 @@ is counted for Step 5.
    3. `target`, lexicographically ascending — the tiebreak that makes the order
       *total*, so two runs over the same repo state truncate identically.
 
-   **Why 3.** The cap counts issues *filed*, i.e. what survives step 1's dedup —
-   not what the detector emitted. In steady state that is **0**: the standing
-   findings are already open issues. What the cap has to size against is the
-   burst — an ADR renumbering firing a dozen `adr_roster_drift` findings in one
-   run, or a first run against a state where nothing has been filed yet.
+   **Why 3.** The cap counts issues *filed* — what survives step 1's dedup, not
+   what the detector emitted — so in steady state it sees **0**, the standing
+   findings being already-open issues. It sizes against the burst: an ADR
+   renumbering firing a dozen `adr_roster_drift` findings, or a first run
+   against a state where nothing has been filed yet. Three is exactly the
+   largest detector output measured 2026-08-12, which is also the *full*
+   backlog, so that first run files everything and truncates nothing; and it
+   sits below `AUTOMATION_WIP_CEILING` (5) so one run cannot spend the family's
+   whole review budget.
 
-   Three is **exactly** the largest detector output measured 2026-08-12, which
-   is also the *full* backlog — every standing finding, none of them filed. So a
-   first run against that state files all three and truncates nothing, and only
-   genuinely new drift arriving on top of an unfiled backlog is deferred. It is
-   below `AUTOMATION_WIP_CEILING` (5) by construction: a single run should not
-   be able to spend the family's whole review budget.
-
-   That measurement differs by **where the run executes**, which is worth
-   knowing before reading a report: the main checkout yields 2
-   (`adr_navigation_missing` ×2), while a **fresh worktree — the environment a
-   scheduled run actually uses** (§ Scheduling) — yields 3, because
-   `dead_link ledger.md` fires there too (the gitignored-by-design target absent
-   from every fresh clone, per Non-goals). Neither number is the cap's steady
-   state; both are pre-dedup detector output.
+   That measurement differs by **where the run executes**: the main checkout
+   yields 2 (`adr_navigation_missing` ×2), a **fresh worktree — what a scheduled
+   run actually uses** (§ Scheduling) — yields 3, because `dead_link ledger.md`
+   fires there too (Non-goals). Both are pre-dedup detector output, neither is
+   the cap's steady state.
 
    **Capped findings are deferred, not rejected — and that is why nothing is
-   lost.** The detector is deterministic: the next run re-enumerates them, and
-   because this run filed the higher-ranked ones, those dedup out (Step 4 step
-   1) and the deferred remainder rises to the top. The backlog drains without
-   any extra bookkeeping. What is *not* self-correcting is the signal that the
-   cap bound at all, so Step 5 must publish it — an uncounted drop is
-   indistinguishable from a finding never made.
+   lost.** The detector is deterministic: the next run re-enumerates them, this
+   run's filings dedup out (step 1), and the deferred remainder rises to the
+   top. What is *not* self-correcting is the signal that the cap bound at all,
+   so Step 5 must publish it.
 
    **Retune trigger:** if the cap binds on two consecutive runs with no
    identifiable burst cause, it is too tight — raise it rather than let a
    standing backlog drip out three at a time.
-
-   **Canonical home.** The cap lives here, in this generator's own skill, per
-   Contract rule 4 ("each generator's own cap is canonical in that generator's
-   own skill"). It is deliberately **not** in `triage-guardian/SKILL.md`
-   § Backpressure, which is canonical for `AUTOMATION_WIP_CEILING` and the
-   automation-branch predicate: those are inlined literally by three files and
-   carry a same-PR sync rule, and enlisting a single-consumer constant in that
-   set would buy nothing. That section carries a cross-reference here instead.
 
    **Out of scope, deliberately:** this is a *flow* cap (issues per run).
    Nothing bounds the *stock* — the total of open judgment issues — so a
@@ -426,10 +403,9 @@ These four balance: `found = deduped + capped + surfaced`.
   "none". This lane has no per-finding filter: rule 1 batches every fix into one
   PR, so the count either all ships or all waits.
 
-The report is the channel; nothing is minted to carry these numbers. The
-**capped** list needs no separate cross-run store because the deterministic
-detector re-enumerates it next run (Step 4 step 2) — what the report preserves
-is the *signal that the cap bound*, which nothing else records.
+The report is the channel; nothing is minted to carry these numbers — the
+deterministic detector re-enumerates the **capped** list next run (Step 4
+step 2), so what the report preserves is only the signal that the cap bound.
 
 Point at `/tmp/audit.json` for the raw findings. That summary is the whole record
 — for a scheduled run it is the run history entry, and any actual change is

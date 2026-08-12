@@ -122,10 +122,10 @@ FENCE_DELIM = re.compile(r"^(\s*)(`{3,}|~{3,})(.*)$")
 # = `<id>.yaml`) and excludes illustrative swift/prose snippets by construction.
 YAML_ID = re.compile(r"^id:\s*([A-Za-z0-9_./-]+)\s*$")
 # --- Threshold near-miss reporting: considered, DECLINED (2026-08-12) --------
-# Output Contract rule 6 calls a near-miss tally "the cheapest evidence there is
-# that a bar sits too tight", and its deterministic-detector carve-out exempts a
-# script's predicate from the ban on judgment but NOT from the count. Declined
-# here anyway, on the specifics of these two gates:
+# Output Contract rule 6 wants a near-miss tally as cheap evidence that a bar
+# sits too tight, and its deterministic-detector carve-out exempts a predicate
+# from the ban on judgment but NOT from the count. Declined anyway, on the
+# specifics of these two gates:
 #
 #  1. Neither threshold is a gate on its own. A mirror must clear MIRROR_MIN_LINES
 #     *and* MIRROR_MIN_COMPLETENESS *and* MIRROR_MIN_RATIO; a navigation finding
@@ -138,17 +138,15 @@ YAML_ID = re.compile(r"^id:\s*([A-Za-z0-9_./-]+)\s*$")
 #     exist to short-circuit, on everything. That is a structural change, not a
 #     counter, and it prices in per-term "near" bands that are themselves new
 #     unjustified constants.
-#  3. The cheap approximation needs no permanent code and is available on demand:
-#     `wc -l docs/decisions/ADR-*.md` shows the size distribution. Measured
-#     2026-08-12 — three ADRs sit in 500–599 lines (ADR-007 525, ADR-003 518,
-#     ADR-020 502) and none within 50 lines of the 600 bar, so the gate is not
-#     currently sitting on a cluster.
+#  3. The cheap approximation needs no permanent code: `wc -l
+#     docs/decisions/ADR-*.md`. Measured 2026-08-12 — three ADRs sit in 500–599
+#     lines (ADR-007 525, ADR-003 518, ADR-020 502), none within 50 of the 600
+#     bar, so the gate is not currently sitting on a cluster.
 #
-# Re-open this if a human ever finds drift the detector should have caught: that
-# is the evidence a tally would have been standing in for. Until then the run
-# report's found / deduped / capped / surfaced arithmetic (SKILL.md Step 5) is
-# the accounting rule 6 requires, and it is complete for everything the detector
-# actually emits.
+# Re-open this if a human ever finds drift the detector should have caught — that
+# is the evidence a tally would stand in for. Until then the run report's
+# found / deduped / capped / surfaced arithmetic (SKILL.md Step 5) is the
+# accounting rule 6 requires, over everything the detector actually emits.
 #
 # A block counts as a mirror only when it is a *near-complete* drifted copy of
 # the resolved source. The primary discriminator is completeness (block length /
@@ -160,11 +158,10 @@ YAML_ID = re.compile(r"^id:\s*([A-Za-z0-9_./-]+)\s*$")
 # edge). MIN_LINES kills tiny schema snippets (the 4-line gallery-README `id: … /
 # name: ...`); MIN_RATIO is a secondary anti-coincidence floor so a long block
 # that merely shares a real id but no content stays silent. needs_judgment, so
-# the predicate is tuned for precision — legitimate here only because this is a
-# *deterministic* detector, which Output Contract rule 6 lets hold its predicate
-# in code, reviewable at source, where a model-driven detector may not
-# self-filter at all. See the near-miss block above for the count that carve-out
-# does not exempt.
+# the predicate is tuned for precision — legitimate only under Output Contract
+# rule 6's *deterministic-detector* carve-out (predicate in code, reviewable at
+# source), which a model-driven detector does not get. The carve-out does not
+# exempt the count: see the near-miss block above.
 MIRROR_MIN_LINES = 8
 MIRROR_MIN_COMPLETENESS = 0.6
 MIRROR_MIN_RATIO = 0.3
@@ -232,11 +229,9 @@ NAV_EXEMPT = re.compile(r"^<!--\s*nav-exempt:")
 # body is a minority of what a reader scrolls past" — a large ADR whose bulk is
 # *body* (ADR-005: 1479 lines, 8%) is not this problem; 600 is the operator's
 # judgment that ADR-021 is past what a reader can hold, set well below the
-# 2355-line/75% case #1382 actually problematised. A precision-first bar, which
-# Output Contract rule 6 permits under its *deterministic-detector* carve-out
-# (predicate in code, reviewable at source) — NOT under its detection-stage rule,
-# which forbids a model filtering this way. Near-miss counting: see the declined
-# block above MIRROR_MIN_LINES.
+# 2355-line/75% case #1382 actually problematised. A precision-first bar under
+# the same deterministic-detector carve-out as MIRROR_MIN_LINES above — see there
+# for what the carve-out does and does not exempt.
 #
 # Known false-negative class: ADR-010 records amendments as inline bold
 # (`**Amendment 2026-06-20 …:**`), not as a heading, so it can never fire no
