@@ -53,8 +53,11 @@ that number. Tracked upstream in
 [anthropics/claude-code#24055](https://github.com/anthropics/claude-code/issues/24055) (OPEN).
 
 **Model pins in this repo**: `code-reviewer.md` keeps `model: opus`
-deliberately — §2 / §4 are calibrated for Opus-class review judgement, not for
-a token budget. The kit-provided `claude-kit:critic` carries no pin, so callers
+deliberately — for Opus-class review *judgement*, not for a token budget. §2's
+numbers are model-independent, so the pin buys the quality of the reading, not
+the size of the budget. `fable` is likewise a valid `Agent(model:)` / frontmatter
+alias: a quality lever, never a budget one.
+The kit-provided `claude-kit:critic` carries no pin, so callers
 pass `model: opus` explicitly (as `/orchestrate` Step 1b does). Skills omit
 `model:` and inherit the session model (a pin would downgrade the main loop;
 re-pin only if the session model ever drops below Opus-class).
@@ -127,8 +130,8 @@ escape valve no longer exists. Pick the model for **capability and cost**,
 never to escape a budget. The one budget-relevant asymmetry is **Haiku at
 half** (32,000): do not hand it a report-heavy task on the assumption every
 model carries the same load. When work genuinely needs more room than the model
-has, **split the scope** — or raise `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (§1), which
-is the only real budget lever and does reach subagents.
+has, **split the scope**. Raising `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (§1) buys
+tokens, not attention, and is never a substitute for splitting.
 
 A cost-driven downgrade is still bounded by the same sensitivity rules
 `/orchestrate` applies:

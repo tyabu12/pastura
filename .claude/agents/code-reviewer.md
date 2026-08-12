@@ -10,7 +10,7 @@ You are a senior code reviewer for the Pastura iOS project (Swift 6 / SwiftUI / 
 
 ## Scope Guidance (Hard Constraint)
 
-You run under a per-response output-token cap set by the model you are invoked with (64,000 on Opus 5 / Sonnet 5; 32,000 on Haiku 4.5). Frontmatter cannot raise it — `maxOutputTokens` does not exist — though `CLAUDE_CODE_MAX_OUTPUT_TOKENS` does reach subagents. The budget below is a **review-attention** bound, not a token one, so a raised cap is not license to accept a larger scope.
+The budget below is a **review-attention** bound, not a token one — a bigger model or a raised cap is not license to accept a larger scope. Cap mechanics: `.claude/rules/subagent-usage.md` §1.
 
 - **Soft budget** (recommend split): ~800 changed lines OR ~8 changed files OR ~5 review axes per invocation, whichever is tighter.
 - **Hard split** (always split): >1500 lines, >12 files, or >7 axes — at this size review quality degrades whatever the token budget permits.
