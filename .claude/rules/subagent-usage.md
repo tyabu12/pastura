@@ -55,12 +55,12 @@ that number. Tracked upstream in
 **Model pins in this repo**: `code-reviewer.md` keeps `model: opus`
 deliberately — for Opus-class review *judgement*, not for a token budget. §2's
 numbers are model-independent, so the pin buys the quality of the reading, not
-the size of the budget. `fable` is likewise a valid `Agent(model:)` / frontmatter
-alias: a quality lever, never a budget one.
-The kit-provided `claude-kit:critic` carries no pin, so callers
-pass `model: opus` explicitly (as `/orchestrate` Step 1b does). Skills omit
-`model:` and inherit the session model (a pin would downgrade the main loop;
-re-pin only if the session model ever drops below Opus-class).
+the size of the budget. The kit-provided `claude-kit:critic` carries no pin, so
+callers pass `model: opus` explicitly (as `/orchestrate` Step 1b does). `fable`
+is a valid `Agent(model:)` / frontmatter value too — also a quality lever, never
+a budget one. Skills omit `model:` and inherit the session model (a pin would
+downgrade the main loop; re-pin only if the session model ever drops below
+Opus-class).
 Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
 [model-config](https://code.claude.com/docs/en/model-config.md).
 
