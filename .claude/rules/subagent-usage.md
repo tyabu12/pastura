@@ -2,9 +2,12 @@
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Everything numeric — the
-> cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical:
-> the thresholds are *derived* from the cap table (smallest practical budget, prose-dense report),
-> so they are recomputed upstream, never retuned here. The one lever a caller controls is report
+> cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical, but
+> two kinds of number live here and they age differently. The **cap table** is Claude Code's
+> platform limit: recomputed when the platform changes, never retuned. The **split thresholds** are
+> a *review-attention* bound and are **NOT** cap-derived — they rest on a *subagent's* attention at
+> a given scope, identical for everyone who installs the kit, so they are revised on review-quality
+> evidence and never by recomputing when a cap moves (§2). The one lever a caller controls is report
 > density per changed line — generated fixtures report far shorter than dense source — and it
 > licenses bounding a call **tighter at the call site, never looser**: split smaller rather than
 > edit §2's numbers or any agent copy of them (today `.claude/agents/code-reviewer.md`).
@@ -17,64 +20,88 @@ this rule must stay visible regardless of which file is being edited.
 
 ## 1. Background
 
-Claude Code subagents (anything launched via the `Agent` tool, including
-custom `code-reviewer` / `claude-kit:critic` / `Explore` / `Plan`) run under a hard
-**output-token cap**. The cap is NOT configurable via frontmatter
-(`maxOutputTokens` does not exist) nor via `CLAUDE_CODE_MAX_OUTPUT_TOKENS`
-(env var applies only to the main session, not subagent API calls).
+Every subagent (anything launched via the `Agent` tool, including custom
+`code-reviewer` / `claude-kit:critic` / `Explore` / `Plan`) runs under an
+**output-token cap per response**. It is the *model's* cap, not a
+subagent-specific one: the request builder has no main/subagent branch and the
+`Agent` tool passes no override. Raising frontmatter `maxTurns` does not help —
+the cap is per response, not per run — and `maxOutputTokens` does not exist as
+a frontmatter key.
 
-Tracked upstream in [anthropics/claude-code#24055](https://github.com/anthropics/claude-code/issues/24055) (OPEN) — revalidate the heuristics below when it ships.
+| Model | Cap | Ceiling via `CLAUDE_CODE_MAX_OUTPUT_TOKENS` |
+|-------|-----|---------------------------------------------|
+| Opus 5 | **64,000** | 128,000 † |
+| Sonnet 5 | **64,000** | 128,000 † |
+| Fable 5 | **64,000** † | 128,000 † |
+| Haiku 4.5 | **32,000** | 64,000 † |
 
-Per-model output cap:
+Measured 2026-08-12 on Claude Code **2.1.228**. Pre-5 generations vary either
+way — Opus 4.6-4.8 also sat at 64,000, Sonnet 4.x at 32,000, Haiku 3.5 at
+8,192 — so **do not extrapolate backwards**. **† = read from the shipped model
+catalog, not behaviourally verified**; only the unmarked caps were observed in
+a live run. Read any model's live cap in about two seconds, without having to
+provoke a truncation:
 
-| Model | Max output tokens |
-|-------|-------------------|
-| Opus 4.x | **32,000** |
-| Sonnet 4.x / 5 | **64,000** |
-| Haiku 4.x | 8,192 |
-| Fable 5 | **undocumented** — see note below |
+```sh
+claude -p --model opus --output-format json "ok" | jq '.modelUsage[].maxOutputTokens'
+```
 
-Raising frontmatter `maxTurns` does not help — the cap is on output tokens, not turns.
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS` is the only real budget lever, and it **does**
+reach subagents — contrary to what this rule claimed before, and confirmed by
+forcing it to 1,200 and finding the subagent's own responses capped at exactly
+that number. Tracked upstream in
+[anthropics/claude-code#24055](https://github.com/anthropics/claude-code/issues/24055) (OPEN).
 
-**Fable 5 note**: `fable` is a valid `Agent(model:)` / frontmatter
-alias, but its subagent cap is undocumented (2026-06-11) — treat a
-`fable` override as a quality lever; Sonnet 64K stays the only known
-**budget** escape valve (§3). `code-reviewer.md` keeps `model: opus`
-deliberately (§2 / §4 are 32K-calibrated); the kit-provided
-`claude-kit:critic` carries no pin, so callers pass `model: opus`
-explicitly (as `/orchestrate` Step 1b does). Skills omit
-`model:` and inherit the session model (a pin would downgrade the main
-loop; re-pin only if the session model ever drops below Opus-class).
+**Model pins in this repo**: `code-reviewer.md` keeps `model: opus`
+deliberately — §2 / §4 are calibrated for Opus-class review judgement, not for
+a token budget. The kit-provided `claude-kit:critic` carries no pin, so callers
+pass `model: opus` explicitly (as `/orchestrate` Step 1b does). Skills omit
+`model:` and inherit the session model (a pin would downgrade the main loop;
+re-pin only if the session model ever drops below Opus-class).
 Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
 [model-config](https://code.claude.com/docs/en/model-config.md).
 
 ## 2. Caller-side scope discipline
 
-When invoking a subagent, bound the work so the final report fits the
-budget (derived — tighten at the call site, don't edit; see the header):
+When invoking a subagent, bound the work so the reviewer's **attention** holds
+— not so the report fits the cap; at these sizes it fits comfortably:
 
 - **Soft budget** (split if over): ~800 changed lines OR ~8 changed
   files OR ~5 review axes per invocation, whichever is tighter.
 - **Hard split** (always split): >1500 changed lines, >12 files, or
-  >7 axes — at this size the report reliably loses its substance
-  before the run completes.
+  >7 axes — at this size review quality degrades whatever the token
+  budget permits.
 
-When numbers fall between soft and hard, prefer splitting. If splitting
-is impractical, see **§3. Sonnet override**.
+When numbers fall between soft and hard, prefer splitting. Model choice is no
+escape from an over-scoped call — see **§3**.
+
+### Why the thresholds are not cap-derived
+
+They used to be, pinned to a cap no spawnable model ever had. The cap was never
+the binding constraint at these scopes; what they buy is **review attention**,
+which does not scale with a model's `max_tokens`. So revise them on
+review-quality evidence, **not** by recomputing when a cap moves — a cap-table
+update (§1) must leave the numbers above untouched.
 
 **A split leaves a seam no shard owns.** Each invocation sees only its own
 slice, so anything spanning the split — a mirrored count, a cross-reference,
 a claim one shard makes about another's files — is unreviewed by
 construction. Name the seam's owner, or add a final pass over the whole.
 
-**What exhaustion looks like.** *Not* a missing summary: review agents
-are built to emit their verdict/summary **first** under cap pressure, so
-it survives exactly when the run is truncated. Look instead for **detail
-missing behind a present summary**, which is mechanically checkable as a
-**count mismatch** — the summary claims more issues, axes, or findings
-than the body actually writes out, or names them with no evidence
-attached. Corroborate with intermediate tool output present and no
-`SCOPE_TOO_LARGE`. That combination is the signal to **split and
+**What a cap hit looks like.** It is **no longer silent**: Claude Code detects
+`stop_reason: max_tokens`, nudges the agent to resume, and retries up to
+**3** times before surfacing an `API Error: … exceeded the N output token
+maximum.` The report usually survives with a **seam** where the cut happened —
+but if every resume also overflows, the run fails outright with that error and
+returns nothing.
+
+The tell is *not* a missing summary: review agents are built to emit their
+verdict/summary **first** under cap pressure, so it survives exactly when the
+run is truncated. Look instead for **detail missing behind a present summary**,
+which is mechanically checkable as a **count mismatch** — the summary claims
+more issues, axes, or findings than the body actually writes out, or names them
+with no evidence attached. Corroborate with intermediate tool output present
+and no `SCOPE_TOO_LARGE`. That combination is the signal to **split and
 re-run** — a report that is short *and internally consistent* is just
 short, and needs nothing. In Pastura the check is arithmetic rather than
 a prose judgement: `code-reviewer`'s summary emits per-severity counts
@@ -92,10 +119,19 @@ zero-issue report truncated right after it reads as consistent. Closing
 that needs a structural check against a pinned Output Format — see
 `queue-consumer` hard rule 6, which carries one for the unattended path.
 
-## 3. Sonnet override (escape valve)
+## 3. Model choice is a cost lever, not a budget lever
 
-`Agent(model: "sonnet")` overrides the agent's frontmatter `model: opus`
-default and unlocks the 64K Sonnet budget. Use sparingly:
+`Agent(model: "sonnet")` no longer buys headroom — Opus 5 and Sonnet 5 are
+both **64,000** — so the "Sonnet override" that used to sit here as a budget
+escape valve no longer exists. Pick the model for **capability and cost**,
+never to escape a budget. The one budget-relevant asymmetry is **Haiku at
+half** (32,000): do not hand it a report-heavy task on the assumption every
+model carries the same load. When work genuinely needs more room than the model
+has, **split the scope** — or raise `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (§1), which
+is the only real budget lever and does reach subagents.
+
+A cost-driven downgrade is still bounded by the same sensitivity rules
+`/orchestrate` applies:
 
 - **Acceptable**: scope-bound mechanical-checklist work that orchestrate's
   Coupling rule does NOT mark Opus-required. Example: a code review
@@ -108,8 +144,8 @@ default and unlocks the 64K Sonnet budget. Use sparingly:
   `claude-kit:critic` plugin agent — invoke it by that namespaced name):
   `critic` makes judgement calls
   (pre-mortem axis generation, bias rebuttal). For plan critique on
-  architectural decisions, prefer **Opus + scope-split** over Sonnet
-  override. Sonnet's reasoning depth is acceptable for routine
+  architectural decisions, prefer **Opus + scope-split** over a cheaper
+  model. Sonnet's reasoning depth is acceptable for routine
   reviews but not for the cases where `critic` is most valuable.
 
 ## 4. Agent self-defense
@@ -119,8 +155,8 @@ with `SCOPE_TOO_LARGE` before any tool_use when the soft budget is
 exceeded. The kit-provided `claude-kit:critic` self-defends differently
 (its `Output Discipline & Scope` section triages: highest-risk axes
 first, explicit deferrals instead of a bail-out). Defense in depth:
-budget exhaustion is silent, so duplicating §2's budget in the agents'
-own bail-out is intentional.
+a cap hit usually shows up as nothing louder than a seam mid-report, so
+duplicating §2's budget in the agents' own bail-out is intentional.
 For what exhaustion actually looks like, see §2 — the detector lives
 there, with the caller-side heuristics it corroborates.
 
