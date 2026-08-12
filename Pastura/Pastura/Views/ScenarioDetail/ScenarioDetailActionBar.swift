@@ -19,8 +19,8 @@ import SwiftUI
 /// Edit / Copy & Edit = `ink` (secondary), Delete = `dangerInk` (destructive).
 ///
 /// The glass rendering is **real-device QA** — the simulator mis-renders iOS 26
-/// bottom chrome (swiftui-traps.md § 5.8) — as is the `InFlightSimulationIndicator`
-/// pill's clearance above this bar.
+/// bottom chrome (`swiftui-traps.md` § "iOS 26 Liquid Glass toolbar capsule") —
+/// as is the `InFlightSimulationIndicator` pill's clearance above this bar.
 struct ScenarioDetailActionBar: View {
   let scenarioId: String
   let scenarioName: String

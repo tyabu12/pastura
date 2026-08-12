@@ -1,6 +1,6 @@
 # Decision Records — Index
 
-Full decision summaries for `docs/decisions/`. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
+Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **No counts, ordinals or superlatives** — a count mirror here is invisible to a count-keyed sweep and goes stale silently; see `.claude/rules/adr-writing.md` §4 for the writing rule. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
 
 ## ADR-001 — Architecture Overview (Phase 1)
 
