@@ -42,8 +42,9 @@ nothing of theirs reaches the review queue this contract rations.
    Draft PR.
 2. **Judgment-needed → issue only, never an auto-fix.** Anything whose fix requires a human
    decision is filed as an issue whose body carries a **confidence score** and an explicit
-   **counter-evidence / "why this might be wrong"** section. This applies to every judgment output
-   a generator emits, including recommendations to discard work.
+   **counter-evidence / "why this might be wrong"** section — both produced back at detection, not
+   composed at filing time (rule 6). This applies to every judgment output a generator emits,
+   including recommendations to discard work.
 3. **The auto-fix path edits authoritative-source-computed values only — never free-form prose —
    and splices at the detected token's exact offset, not by free-text replace.** This bound is what
    makes omitting a code-review pass safe (see below). A detector that wants to auto-fix something
@@ -58,11 +59,73 @@ nothing of theirs reaches the review queue this contract rations.
 5. **Manual-first.** Detectors run dry-run by default. Trust the output only after a human has
    eyeballed it for a given repo state — and never let a skill self-register its own schedule;
    scheduling is a separate, deliberate human act.
-6. **Conservative detection wins.** Prefer a miss over a wrong flag. A wrong auto-fix PR, a false
-   issue, a wrong "ready to merge" (which a human may rubber-stamp), or a wrong "discard this"
-   (which destroys queued work) all cost more than a missed finding — they spend reviewer attention
-   *and* erode trust in the generator; a miss only defers work. When evidence is short of decisive,
-   route to the human-judgment bucket rather than up to "ready" or down to "discard".
+6. **Conservative *output*, exhaustive detection — filter at the output stage and account for the
+   drops.** **Changed 2026-08-12**: this rule used to read *"Conservative detection wins. Prefer a
+   miss over a wrong flag"*, putting the filter in the **detection** stage. The precision bias stays
+   — a wrong auto-fix PR, a false issue, a wrong "ready to merge" (which a human may rubber-stamp),
+   or a wrong "discard this" (which destroys queued work) each spend reviewer attention *and* erode
+   trust in the generator, while a miss only defers work. What it must **not** do is move upstream
+   into the detector (§ Why detection must not self-filter). Split the pass in two:
+   - **Detection is for coverage — do not filter here.** Enumerate every candidate; anything routing
+     to rule 2 carries a **confidence**, an **estimated severity** and a **counter-evidence** line
+     from the moment it is found, so the output stage has a rank key and rule 2's fields are the
+     detector's finding rather than an afterthought at filing time. (Rule 1's mechanical lane needs
+     none of them — its value has exactly one correct answer.) A model-driven detector nearing its
+     coverage ceiling **stops and says so** rather than truncating quietly. The only legitimate
+     suppression here is **mechanical**, and each form owes a count of what it removed:
+     - an enumerated **by-design / do-not-flag roster**, handed to the detector verbatim;
+     - an **evidence precondition** — no exact anchor, no concrete before → after ⇒ not a finding;
+     - a **quota**, meaning *rank-then-truncate over an already-enumerated list* — never a cap on
+       generating candidates: a cap that stops the search cannot name what it excluded, and it
+       reduces `found` in the arithmetic below to the cap itself.
+
+     A deterministic detector — a script, not a model — may hold its predicate in code, reviewable
+     at source; that exempts it from the ban on judgment, not from the count. Pastura's one
+     instance is `.claude/skills/consistency-audit/scripts/audit_docs.py`. A near-miss tally is the
+     cheapest evidence there is that a bar sits too tight.
+   - **The output stage filters, conservatively, and leaves a trail.** Vet, dedup and rank here;
+     when evidence is short of decisive, route to the human-judgment bucket rather than up to
+     "ready" or down to "discard". Publish the arithmetic — **found / filtered / deduped /
+     surfaced**, plus whatever was capped or never reached — into a channel the run already writes;
+     never mint an artifact just to carry it. Keep each rejection and its reason where the *next* run
+     can see it. **The medium is project-owned and already differs by generator**: `code-health-audit`
+     uses a local ledger, `consistency-audit` its open-issue set, and `triage-guardian` — which
+     deliberately writes nothing — its run log. A generator that rejects nothing owes nothing. An
+     uncounted drop is indistinguishable from a finding never made: the next run re-derives it, drops
+     it again, and nobody learns the filter is too tight.
+
+**Generator bodies still carrying the pre-2026-08-12 wording** are tracked in
+[#1432](https://github.com/tyabu12/pastura/issues/1432) (`consistency-audit` hard rule 4;
+`ui-refine`'s generation-side quota). Until that lands this rule is the canonical text and their
+duplicates are stale — reconcile them, do not follow them.
+
+### Why detection must not self-filter
+
+Rule 6's split is a model-behaviour fact, not a style preference, and it is recent. Claude 5-series
+models apply a filtering instruction literally. **Sonnet 5's guide, § "Code review harnesses"**, on
+a review prompt that says *"only report high-severity issues"* or *"be conservative"*: the model
+"may investigate the code just as thoroughly, identify the bugs, and then not report findings it
+judges to be below your stated bar. […] Precision typically rises, but measured recall can fall even
+though the model's underlying bug-finding ability has improved." (`[…]` elides one intervening
+sentence.) That section's recommended finding-stage prompt instead asks for coverage, and for "your
+confidence level and an estimated severity so a downstream filter can rank them" — two of the three
+fields rule 6 requires at detection; counter-evidence is this contract's addition, because rule 2
+files on it. **Opus 5's guide** ("Code review and bug-finding") gives the remedy in one line: "ask
+it to report everything and filter in a separate pass instead."
+
+The loss is **invisible** — three surfaced findings look the same whether the detector found three
+or thirty — and it is worst on a harness carried over from an older model, where the conservative
+wording once bought a genuinely shallower pass. A generator that truly has only one pass takes the
+guides' fallback: state the bar as a concrete predicate (their example: any bug that could cause
+incorrect behavior, a test failure, or a misleading result, omitting only nits like pure style or
+naming), never as a qualitative "important".
+
+Verified 2026-08-12 against
+[prompting-claude-opus-5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-opus-5.md)
+and
+[prompting-claude-sonnet-5](https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/prompting-claude-sonnet-5.md).
+**This block is dated on purpose** — re-check on a model-generation change: the rule survives a
+stale citation, the citation should not outlive its generation unnoticed.
 
 ### Why an auto-fix PR may skip a code-review pass
 
@@ -87,6 +150,16 @@ open Draft" assumes a single writer; two overlapping runs can each observe zero 
 Either serialize runs (never schedule a generator so it can overlap itself) or re-check after
 acting — push the branch, re-query for a sibling, and abandon without opening a PR if one won the
 race.
+
+**The judgment lane is the one nothing here bounds.** Both caps count open Draft PRs; rule 2's
+issues are outside that accounting, and rule 6's exhaustive detection lands its increment precisely
+there. Cap issues per run as well — the number is project-owned by the same test that makes the
+ceiling project-owned: it rests on one maintainer's review attention, which differs per repo and per
+maintainer, so it is *retuned* here rather than recomputed from anything upstream. **Pastura has not
+set it yet**: choosing the value and wiring it into the generators is
+[#1432](https://github.com/tyabu12/pastura/issues/1432). Until then the judgment lane has no
+mechanical bound, so a run that would file an unusual number of issues should stop and report
+instead.
 
 **The ceiling value (`AUTOMATION_WIP_CEILING`) and the branch predicate that identifies
 automation-origin PRs are project-owned and canonical in
