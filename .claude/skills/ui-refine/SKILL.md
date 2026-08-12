@@ -261,9 +261,10 @@ the linchpin: it stops the same idea resurfacing every rotation.
 *previous run's quota* truncated (Step 6) — it was never judged, only deferred,
 so treating it as a duplicate would let the quota do permanently what it is only
 allowed to do for one run. A survivor matching a `parked` row proceeds to Step 6
-and competes for the quota again; note that it is re-derived so Step 6 can break
-ties in its favour. Every other status — including the human-set `deferred` —
-suppresses as before.
+and competes for the quota again; note that it is re-derived, and carry the
+row's `[quota ×N]` count forward — Step 6 breaks ties in its favour, and once
+`N ≥ 3` ranks it above everything. Every other status — including the human-set
+`deferred` — suppresses as before.
 
 If everything dedups away, that is a healthy outcome — write a digest that says
 "no new proposals this run" and append nothing.
@@ -340,11 +341,13 @@ rule 6 bans.
 
    **In-place update, narrowly exempted from append-only.** The skill may edit
    exactly one thing: a `parked` row it wrote itself, when a later run
-   re-derives the same concept — refresh its `date`, **increment `N` in
-   `[quota ×N]`** (the counter Step 6's starvation guard reads), and flip
-   `status` to `proposed` if it clears the quota this time. This keeps a
-   long-deferred candidate from accreting one duplicate row per rotation.
-   **No other in-place edit is permitted**; every other row, and every
+   re-derives the same concept — refresh its `date`, then take exactly one of
+   two branches: if the quota parks it again, **increment `N` in `[quota ×N]`**
+   (the counter Step 6's starvation guard reads — the guard is only as real as
+   this write); if it clears the quota this time, flip `status` to `proposed`
+   and **drop the `[quota ×N]` prefix**, which belongs only to a parked row.
+   This keeps a long-deferred candidate from accreting one duplicate row per
+   rotation. **No other in-place edit is permitted**; every other row, and every
    human-owned field, stays the human's (README § Ledger lifecycle).
 
    Keep ids ordered (newest last). **Do not commit or push** — leave the change

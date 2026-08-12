@@ -82,9 +82,11 @@ scenario-refine's "a dirty working tree can never reach users" safety model).
 
 **One narrow exception to append-only.** The skill may edit *in place* exactly
 one thing: a `parked` row **it wrote itself**, when a later run re-derives the
-same concept — refreshing its date, and flipping it to `proposed` if it clears
-the quota that run. Without this a long-deferred candidate would accrete one
-duplicate row per rotation. Every other row, and every human-owned field, stays
+same concept — refreshing its date, then either incrementing `N` in its
+`[quota ×N]` prefix (parked again) or flipping it to `proposed` and dropping
+that prefix (it cleared the quota). Without this a long-deferred candidate would
+accrete one duplicate row per rotation, and the starvation guard that reads `N`
+would never fire. Every other row, and every human-owned field, stays
 the human's; the skill never edits a `proposed` / `filed` / `rejected` /
 `deferred` / `done` row.
 

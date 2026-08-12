@@ -42,10 +42,12 @@ room that run. Distinguishing them by a `note` prefix alone would not work, sinc
 a human setting `deferred` during promotion is never told to write one.
 
 **In-place exception.** The skill may edit a `parked` row **it wrote itself**
-when a later run re-derives the same concept: refresh `date`, and flip `status`
-to `proposed` if it clears the quota that time. This keeps one deferred candidate
-from accreting a duplicate row per rotation. No other row and no human-owned
-field is ever machine-edited.
+when a later run re-derives the same concept: refresh `date`; then either
+**increment `N` in `[quota ×N]`** if it is parked again, or flip `status` to
+`proposed` and drop the `[quota ×N]` prefix if it clears the quota that time.
+The increment is load-bearing — Step 6's starvation guard is only as real as
+that write. This keeps one deferred candidate from accreting a duplicate row per
+rotation. No other row and no human-owned field is ever machine-edited.
 
 A new run appends rows with status `proposed`, `rejected` or `parked`. The human
 later edits the `status`/`note` of existing rows during promotion. **Dedup
@@ -69,7 +71,7 @@ with the kind prefix above:
 |---|---|---|
 | `[compliance-gap]` | any status | the finding kind (above) |
 | `[filter-drop: <test>]` | `rejected` | which adversarial-filter test rejected it (SKILL § Step 4). A machine rejection is **final** — the skill never revisits it; only a human can, and § Promotion step 5 in [README](README.md) says when to sweep |
-| `[quota ×N]` | `parked` | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it, incremented on each in-place refresh; at `N ≥ 3` Step 6's starvation guard ranks it above everything |
+| `[quota ×N]` | `parked` | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it — incremented on an in-place refresh **that parks it again**, and dropped with the prefix when the row flips to `proposed`; at `N ≥ 3` Step 6's starvation guard ranks it above everything |
 
 ## Ledger
 
