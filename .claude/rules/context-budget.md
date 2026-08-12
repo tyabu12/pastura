@@ -11,12 +11,12 @@ loading-mode rationale. This rule applies to itself. Pairs with `knowledge-layer
 
 Always-loaded files (loaded into every agent session / invocation) — every line is paid on every turn:
 
-- `~/.claude/CLAUDE.md` and `~/.claude/rules/*.md` **without** `paths:` frontmatter (global — per-user, but charged to *this* project's every session too)
+- `~/.claude/CLAUDE.md` and `~/.claude/rules/*.md` **without** `paths:` frontmatter (global — per-user, yet charged to *this* project's every session)
 - `CLAUDE.md` (project top-level) and `.claude/rules/*.md` **without** `paths:`
 - `~/.claude/agents/*.md` and project `.claude/agents/*.md`
 
-The global tier is easy to forget precisely because it is not in this repo. It is charged all the
-same, and a global file that duplicates a project file of the same name is paid twice.
+The global tier is easy to forget because it is not in this repo — and a global file duplicating a
+project file of the same name is paid **twice**.
 
 Path-scoped files (`paths:` frontmatter) load only when a matching path is read — budget looser there.
 

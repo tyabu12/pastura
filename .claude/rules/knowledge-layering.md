@@ -23,11 +23,11 @@ Memory `feedback_*` / `project_*` / `reference_*` entries belong in a rules file
 **Quick test before saving a memory**: *"Would a new contributor with no prior context reliably arrive at the same advice from first principles?"*
 
 - **Yes** → memory (rapid-capture only — the lesson is derivable from code / docs / tooling on demand)
-- **No** → a rules file. **Then pick the tier by audience**, which is the branch this copy used to omit:
-  - a lesson true across *all my projects* (a tool's quirk, a personal workflow rule) → **global `~/.claude/rules/`**, not this repo. Writing it here makes every other project re-derive it, and burdens Pastura contributors with a rule that is not about Pastura.
+- **No** → a rules file. **Then pick the tier by audience**:
+  - a lesson true across *all my projects* (a tool's quirk, a personal workflow rule) → **global `~/.claude/rules/`**, not this repo — writing it here burdens Pastura contributors with a rule that is not about Pastura.
   - a lesson specific to *this project* → Pastura's `.claude/rules/` (path-scoped if domain-specific), or `CLAUDE.md` when it is project-wide.
 
-  A global rule **adds** a personal baseline; it never **replaces** what a shared repo must carry itself — see § "Anti-pattern" below.
+  A global rule **adds** a personal baseline, never **replaces** what a shared repo must carry — § "Anti-pattern" below.
 
 **User-preference carve-out**: feedback flavored as personal preference (e.g., "this user wants critic limited to 2/PR") stays in memory regardless of Pastura-specificity — it's `user_*`-flavored even when the trigger event was project work.
 

@@ -3,14 +3,13 @@
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
 > the generic core is canonical there; reconcile one-way (kit → Pastura). Everything numeric — the
 > cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical, but
-> two kinds of number live here and they age differently. The **cap table** is Claude Code's
-> platform limit: recomputed when the platform changes, never retuned. The **split thresholds** are
-> a *review-attention* bound and are **NOT** cap-derived — they rest on a *subagent's* attention at
-> a given scope, identical for everyone who installs the kit, so they are revised on review-quality
-> evidence and never by recomputing when a cap moves (§2). The one lever a caller controls is report
-> density per changed line — generated fixtures report far shorter than dense source — and it
-> licenses bounding a call **tighter at the call site, never looser**: split smaller rather than
-> edit §2's numbers or any agent copy of them (today `.claude/agents/code-reviewer.md`).
+> the two kinds age differently. The **cap table** is Claude Code's platform limit — recomputed on
+> upgrade, never retuned (§1). The **split thresholds** are a *review-attention* bound, **NOT**
+> cap-derived (§2): they rest on a *subagent's* attention at a given scope — identical for every kit
+> installation — so a cap move never retunes them. The one lever a caller controls is report density
+> per changed line — generated fixtures report far shorter than dense source — and it licenses
+> bounding a call **tighter at the call site, never looser**: split smaller rather than edit §2's
+> numbers or any agent copy of them (today `.claude/agents/code-reviewer.md`).
 > Pastura-specific content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
@@ -53,14 +52,13 @@ that number. Tracked upstream in
 [anthropics/claude-code#24055](https://github.com/anthropics/claude-code/issues/24055) (OPEN).
 
 **Model pins in this repo**: `code-reviewer.md` keeps `model: opus`
-deliberately — for Opus-class review *judgement*, not for a token budget. §2's
-numbers are model-independent, so the pin buys the quality of the reading, not
-the size of the budget. The kit-provided `claude-kit:critic` carries no pin, so
-callers pass `model: opus` explicitly (as `/orchestrate` Step 1b does). `fable`
-is a valid `Agent(model:)` / frontmatter value too — also a quality lever, never
-a budget one. Skills omit `model:` and inherit the session model (a pin would
-downgrade the main loop; re-pin only if the session model ever drops below
-Opus-class).
+deliberately — for Opus-class review *judgement*, not for a token budget (§2's
+numbers are model-independent). The kit-provided `claude-kit:critic` carries no
+pin, so callers pass `model: opus` explicitly (as `/orchestrate` Step 1b does).
+`fable` is a valid `Agent(model:)` / frontmatter value too — also a quality
+lever, never a budget one. Skills omit `model:` and inherit the session model (a
+pin would downgrade the main loop; re-pin only if the session model ever drops
+below Opus-class).
 Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
 [model-config](https://code.claude.com/docs/en/model-config.md).
 

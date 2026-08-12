@@ -153,13 +153,10 @@ race.
 
 **The judgment lane is the one nothing here bounds.** Both caps count open Draft PRs; rule 2's
 issues are outside that accounting, and rule 6's exhaustive detection lands its increment precisely
-there. Cap issues per run as well — the number is project-owned by the same test that makes the
-ceiling project-owned: it rests on one maintainer's review attention, which differs per repo and per
-maintainer, so it is *retuned* here rather than recomputed from anything upstream. **Pastura has not
-set it yet**: choosing the value and wiring it into the generators is
-[#1432](https://github.com/tyabu12/pastura/issues/1432). Until then the judgment lane has no
-mechanical bound, so a run that would file an unusual number of issues should stop and report
-instead.
+there. Cap issues per run as well — the number is project-owned by the same test as the ceiling: it
+rests on one maintainer's review attention, so it is *retuned* per repo, never recomputed from
+upstream. **Pastura has not set one** — until it is set, a run that would file an unusual number of
+issues stops and reports instead.
 
 **The ceiling value (`AUTOMATION_WIP_CEILING`) and the branch predicate that identifies
 automation-origin PRs are project-owned and canonical in
