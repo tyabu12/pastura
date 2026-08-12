@@ -37,9 +37,11 @@ contract in context.
   here: `dead_link ledger.md` has reported since long before this detector
   existed (a gitignored-by-design target, so it is absent in every fresh clone),
   and `adr_navigation_missing` reports by design on a property a healthy repo
-  can have. So the per-target open-issue dedup in Step 4 step 1 and the
+  can have. So the per-target issue dedup in Step 4 step 1 and the
   `nav-exempt` opt-out are load-bearing, not theoretical — without them a run
-  re-files what a human already answered.)
+  re-files what a human already answered. That dedup reads **closed** issues
+  too, and branches on the close reason: a declined finding stays declined, a
+  *fixed* one is allowed to re-file because its recurrence is a regression.)
 - **No merging, no issue closing.** The human reviews each Draft PR; merging
   closes nothing automatically here.
 - **No parallelism — single writer.** One audit run at a time. Two overlapping
@@ -223,9 +225,35 @@ Only if `auto_fixable` is non-empty AND Step 2 found no open `audit/*` PR:
 
 For each `needs_judgment` finding (already deduped by `target`):
 
-1. **Dedup across runs:** search open issues for the target; skip if one
-   exists. `gh issue list --state open --search "<target> in:title"`. Every
-   finding carries a `target` for this — for `dead_link` it is the link path,
+1. **Dedup across runs:** search issues for the target — **`--state all`, then
+   branch on the close reason**:
+
+   ```bash
+   gh issue list --state all --search '"<target>" in:title' \
+     --json number,title,state,stateReason
+   ```
+
+   | Matched issue | Action | Why |
+   |---|---|---|
+   | `OPEN` (`stateReason` is `""`) | **skip** | already filed; a human has it |
+   | `CLOSED` / `NOT_PLANNED` | **skip** | a human declined this finding — that is the rejection memory Contract rule 6 asks be kept where the next run can see it |
+   | `CLOSED` / `COMPLETED` | **file it** | the drift was *fixed*; its recurrence is a **regression**, not a duplicate |
+   | `CLOSED` / `DUPLICATE` | **skip** | folded into another issue, which carries the decision |
+
+   **`COMPLETED` must never suppress** — that is the whole reason this widened
+   past `--state open`. Suppressing on it would silently make every fixed-then-
+   recurring drift permanently invisible: no run would ever re-file it, and the
+   failure would look exactly like a clean pass. `COMPLETED` is also the dominant
+   close reason in this repo, so the wrong branch here disables the skill
+   quietly rather than rarely.
+
+   **Read `stateReason` as a string, not a nullable.** An open issue returns
+   `""`, not `null` — a predicate written as `.stateReason == "NOT_PLANNED"`
+   therefore drops the open-issue skip (the load-bearing case), while
+   `.stateReason != "COMPLETED"` keeps open issues by luck rather than by
+   intent. Branch on `state` first, then on `stateReason`.
+
+   Every finding carries a `target` for this — for `dead_link` it is the link path,
    for `dangling_adr` it is the ADR id (`ADR-099`), for `embedded_source_mirror`
    it is the `<docfile>::<sourcepath>` composite (so the same source mirrored in
    two docs files two distinct issues), for `unparsed_adr_reservation` it is
@@ -235,14 +263,17 @@ For each `needs_judgment` finding (already deduped by `target`):
 
    **The namespacing on the three ADR-keyed types is load-bearing, and it is
    not sufficient.** The search cannot tell finding types apart, so a bare
-   `ADR-NNN` would be permanently suppressed by the open `dangling_adr` issue
-   it exists to explain — most likely exactly when both fire. The prefix stops
+   `ADR-NNN` would be permanently suppressed by the `dangling_adr` issue it
+   exists to explain — most likely exactly when both fire. The prefix stops
    that, but GitHub also matches on tokens rather than whole strings, and
    every one of these targets names its ADR, so `reservation:ADR-006` and
    `ADR-006` can still surface each other. **Before skipping as a duplicate,
    confirm the matched issue's title actually contains the target verbatim**
    — a match on the bare ADR id when the target is namespaced (or vice versa)
-   is a different finding, and skipping on it drops a real one silently.
+   is a different finding, and skipping on it drops a real one silently. The
+   widened `--state all` search enlarges the pool this confirmation guards: a
+   long-closed issue whose title merely tokenises the same ADR id is now a
+   candidate match too, so run the check on closed hits exactly as on open ones.
 
    Quote the target when it contains a `:` — `--search '"roster:ADR-006" in:title'`,
    and likewise `'"nav:ADR-002" in:title'`. Unquoted, GitHub reads `roster:` /

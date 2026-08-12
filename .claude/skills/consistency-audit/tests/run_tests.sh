@@ -23,16 +23,23 @@ fail() { echo "FAIL: $1" >&2; exit 1; }
 af_len() { echo "$1" | jq '.auto_fixable | length'; }
 nj_len() { echo "$1" | jq '.needs_judgment | length'; }
 nj_type_len() { echo "$1" | jq --arg t "$2" '[.needs_judgment[] | select(.type==$t)] | length'; }
-# The SKILL's Step 4 cross-run dedup is `gh issue list --search "<target>
-# in:title"` — type-blind, so two finding types sharing a target silently
-# suppress each other across runs. Called on every fixture run that yields
-# judgment findings, not just the ones where two types fire today.
+# The SKILL's Step 4 cross-run dedup is `gh issue list --state all --search
+# "<target> in:title"` — type-blind, so two finding types sharing a target
+# silently suppress each other across runs. Called on every fixture run that
+# yields judgment findings, not just the ones where two types fire today.
 #
 # Scope, stated because a guard narrower than its claim proves nothing: this
 # tests EXACT target equality only. GitHub's search also matches on tokens, so
 # `reservation:ADR-006` and `ADR-006` can still match each other's titles —
 # unavoidable while a target names its ADR, and handled in SKILL.md Step 4 by
 # confirming the matched issue before skipping.
+#
+# Also out of reach here: Step 4's `stateReason` branch (a `COMPLETED` close
+# must NOT suppress, a `NOT_PLANNED` one must). That branch is skill prose
+# executed against the live GitHub API, and this harness is deliberately
+# fixture-only and offline — there is no code path to mutate, so a fixture
+# asserting it would be asserting nothing. Named rather than omitted: the next
+# reader should not read this file's silence as coverage.
 no_target_collision() {
   local n
   n=$(echo "$1" | jq '[.needs_judgment[] | {t:.type, g:.target}] | group_by(.g)
