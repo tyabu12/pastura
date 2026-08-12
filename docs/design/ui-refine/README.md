@@ -116,7 +116,8 @@ journal. Pin this constraint before any Routine is wired up.
    it, nobody judged it — and the next run re-ranks it automatically, with a
    starvation guard that eventually forces it to the top. Promote it early by
    setting it to `filed (#N)` if you want it acted on now, or to `rejected` with
-   a reason to take it out of the rotation for good. Leaving it alone is the
+   a reason to take it out of the rotation for good — in either case drop the
+   `[quota ×N]` prefix, which belongs only to a `parked` row. Leaving it alone is the
    correct default; do **not** set it to `deferred` unless you mean the human
    "considered, not now", which does suppress it.
 5. **A machine-written `rejected` row is final — and you are the only way back.**

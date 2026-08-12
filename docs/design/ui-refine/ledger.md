@@ -71,7 +71,7 @@ with the kind prefix above:
 |---|---|---|
 | `[compliance-gap]` | any status | the finding kind (above) |
 | `[filter-drop: <test>]` | `rejected` | which adversarial-filter test rejected it (SKILL § Step 4). A machine rejection is **final** — the skill never revisits it; only a human can, and § Promotion step 5 in [README](README.md) says when to sweep |
-| `[quota ×N]` | `parked` | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it — incremented on an in-place refresh **that parks it again**, and dropped with the prefix when the row flips to `proposed`; at `N ≥ 3` Step 6's starvation guard ranks it above everything |
+| `[quota ×N]` | `parked` (dropped whenever the row leaves `parked` — by the skill, or by a human at promotion) | truncated by the run's quota (SKILL § Step 6), not judged. `N` counts how many runs have deferred it — incremented on an in-place refresh **that parks it again**, and dropped with the prefix when the row flips to `proposed`; at `N ≥ 3` Step 6's starvation guard ranks it above everything |
 
 ## Ledger
 
