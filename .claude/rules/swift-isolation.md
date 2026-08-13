@@ -238,8 +238,9 @@ conformance is reached: used **from source** (an explicit `==`, Pattern 5's test
 shape) it is diagnosed during type checking and carries a source location, but
 reached only through a **compiler-synthesized** witness — row 1 of § "Same cause,
 two non-test shapes" — it is realized at SIL generation and prints at
-`<unknown>:0`. Both measured. A location-less diagnostic is the cue that no
-`-typecheck` probe could have caught it.
+`<unknown>:0`. Both measured, as a one-toggle control in a single program. A
+location-less diagnostic is the cue that no `-typecheck` probe could have caught
+it.
 **Compile, don't typecheck** — reuse Pattern 7's *flags* (`-default-isolation
 MainActor` especially, without which nothing is isolated and the probe is green)
 but `-c -o /dev/null` in place of `-typecheck`, `-wmo` for a multi-file probe,
