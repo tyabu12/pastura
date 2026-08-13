@@ -53,7 +53,7 @@ extension DesignTokensTests {
   /// ratio under the figure this fixture asserts. The repoint is still a large
   /// strict improvement there (#1455 measured the pathological bound at 3.690
   /// after versus 1.604 before), and light-appearance device QA is what covers
-  /// the gap. Do not read this row as a bound the way the other seven are.
+  /// the gap. Do not read this row as a bound the way the other rows are.
   static var mossWashSites: [MossWashSite] {
     [
       MossWashSite("GalleryCatalogRow.badgeView", wash: .moss, light: 0.20, dark: 0.20),
@@ -202,8 +202,9 @@ extension DesignTokensTests {
 /// helpers in a sibling file live outside the suite struct.
 struct MossWashSite {
 
-  /// Which token the capsule is filled with. Only two occur across the fixture
-  /// — most fill with base `moss`, while `fieldPill` and `recordedPill` tint
+  /// Which token the capsule is filled with. Only two occur across the fixtures
+  /// this type backs — most fill with base `moss`, while `fieldPill`,
+  /// `recordedPill` and (in `mossInkWashSites`) `GameHeader.statusPill` tint
   /// with `mossDark` itself.
   enum Wash {
     case moss

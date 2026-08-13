@@ -32,8 +32,10 @@ import SwiftUI
 /// family's role tokens and the washes were left byte-identical (#1455).
 ///
 /// Separating the two is the established shape, not a local exception —
-/// every other translucent-wash site in the app already does it, and the
-/// `mossWashSites` / `inkWashSites` fixtures enumerate them. `.completed`
+/// every translucent-wash site that owes AA already does it, and the
+/// `mossWashSites` / `inkWashSites` fixtures enumerate them. The carve-out
+/// is §8's quietude tier, which is why the three `muted` arms above stay a
+/// self-wash and are not a leftover. `.completed`
 /// reads `mossInk` rather than `mossOnWash` because §2.3 assigns that
 /// token the "完了タイトル" role and `ResultsView`'s own completed pill
 /// already renders it on a moss wash; design-system §8 and ADR-028
@@ -86,6 +88,11 @@ public enum GameHeaderStatus: String, Sendable, CaseIterable {
   /// an applied opacity compares unequal to the token it came from, which
   /// would make such a pin impossible. `ScenarioBadgeStyle.fillOpacity` is
   /// the same shape for the same reason.
+  ///
+  /// Deliberately `internal` on a `public` enum: it is a routing detail, not
+  /// part of the pill's contract. The test target reaches it via `@testable`.
+  /// If `GameHeaderStatus` is ever pulled into an SPM module, this and
+  /// ``washToken`` are what the routing and contrast pins would lose.
   static let washAlpha: Double = 0.14
 
   /// Foreground (text) color for the pill. See the type's doc comment for

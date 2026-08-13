@@ -98,7 +98,7 @@ struct GameHeaderStatusTests {
   /// did, so until now nothing pinned them anywhere.
   ///
   /// Token *values* stay `DesignTokensTests`' contract and the contrast
-  /// claims are `DesignTokensTests+MossOnWash`'s / `+MossInkOnWash`'s. This
+  /// claims are `DesignTokensTests+MossOnWash`'s / `+MossInkAsWashLabel`'s. This
   /// suite guards only the routing. Note there is deliberately no "label
   /// differs from wash" assertion — it would be one of the vacuous `!=`
   /// shapes above; the muted arms legitimately route both to the same token,
@@ -124,10 +124,12 @@ struct GameHeaderStatusTests {
     // cannot drift the background tone away from its foreground". That
     // invariant was written before the `*-on-wash` role tokens existed, when
     // label and wash genuinely were one token — and holding it is what made
-    // all four moss arms self-washes below AA in light. Every other
-    // translucent-wash site in the app already separates the two (the
-    // `mossWashSites` / `inkWashSites` fixtures enumerate them), so the split
-    // is the established shape rather than a drift this test should catch.
+    // all four moss arms self-washes below AA in light. Every translucent-wash
+    // site that owes AA already separates the two (the `mossWashSites` /
+    // `inkWashSites` fixtures enumerate them), so the split is the established
+    // shape rather than a drift this test should catch. The carve-out is §8's
+    // quietude tier, where the two legitimately stay one token — this enum's
+    // own `muted` arms are in it, as is `ResultsView.pending`.
     // What survives of the original intent is the pin below: the tone is
     // still derived from one declared token at one declared alpha, not
     // hand-set per case.

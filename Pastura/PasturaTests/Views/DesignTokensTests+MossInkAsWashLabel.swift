@@ -13,11 +13,11 @@ import Testing
 // joins. Naming it for a component would have made the sibling below
 // unaddable.
 //
-// The class has two shipped members and both are enumerated. Only one was ever
-// failing: `GameHeader`'s status pill read `mossDark` as both its label and its
-// own wash (3.832 in light, under the 4.5:1 bar) until #1455 moved the label.
-// `ResultsView`'s completed pill already read `mossInk` and is here as a guard,
-// not a repair — see ``theResultsPillIsEnumeratedNotRepaired``.
+// Only one member was ever failing: `GameHeader`'s status pill read `mossDark`
+// as both its label and its own wash (3.832 in light, under the 4.5:1 bar) until
+// #1455 moved the label. The others already read `mossInk` and are here as
+// guards, not repairs — see ``theResultsPillIsEnumeratedNotRepaired``. The size
+// pin is the authority on how many; this comment deliberately states no count.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -36,27 +36,35 @@ extension DesignTokensTests {
   /// token, at which alpha, per appearance). Neither row re-bases its alpha
   /// between appearances, unlike `mossWashSites`' category-chip row.
   ///
-  /// The two rows are what a sweep of the moss-family translucent washes leaves
-  /// once the non-text fills are dropped:
+  /// The rows are what a sweep of the moss-family translucent washes leaves once
+  /// the genuinely non-text fills are dropped:
   ///
   /// ```sh
   /// rg 'Color\.moss(Dark)?\.opacity\(' Pastura/Pastura/ --type swift
   /// ```
   ///
-  /// That reaches `ResultsView.completed` directly but **not**
-  /// `GameHeader.statusPill`, which composes its wash through
+  /// That reaches `ResultsView.completed` and `HomePausedCard` directly but
+  /// **not** `GameHeader.statusPill`, which composes its wash through
   /// `GameHeaderStatus.washToken` — so the grep is a starting point, not the
-  /// guard. Of its remaining hits, most are gradients, icon tiles and progress
-  /// dots (non-text, so WCAG 1.4.11's 3:1 applies instead); the text-bearing
-  /// ones are already rows of `mossWashSites`. The one genuine neighbour is
-  /// `ActiveModelChip`, which is **cross-family** — `inkSecondary` on a
-  /// `mossDark@0.10` wash — and clears the bar on every ground it can reach
-  /// (worst 4.843, dark). It belongs to neither fixture and is recorded here so
-  /// the next reader does not have to re-derive that.
+  /// guard.
+  ///
+  /// **Triaging its remaining hits by the API that produced them is what misses
+  /// a row.** `HomePausedCard`'s two hits build a `LinearGradient`, and a first
+  /// pass here dropped them as "gradients" alongside the icon tiles and progress
+  /// dots — but that gradient is the card's surface, and text sits on it: the
+  /// eyebrow (already a `mossWashSites` row) and the progress label below. The
+  /// question is what the wash is *under*, never which API drew it. Both text
+  /// rows model the harder 0.16 stop rather than the 0.07 one.
+  ///
+  /// Two neighbours are enumerated and excluded, both **cross-family** and both
+  /// clearing comfortably, so the next reader does not re-derive them:
+  /// `ActiveModelChip` (`inkSecondary` on a `mossDark@0.10` wash, worst 4.843 in
+  /// dark) and `ResultDetailView+ResumeBanner` (`ink` on a `moss@0.08` wash).
   static var mossInkWashSites: [MossWashSite] {
     [
       MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),
-      MossWashSite("ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16)
+      MossWashSite("ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16),
+      MossWashSite("HomePausedCard.progress", wash: .moss, light: 0.16, dark: 0.16)
     ]
   }
 
@@ -84,7 +92,7 @@ extension DesignTokensTests {
     // Size pin, not decoration: the body below is a bare loop over a
     // hand-maintained fixture, so trimming or emptying `mossInkWashSites` would
     // make this arm pass **vacuously** and green would mean nothing.
-    #expect(Self.mossInkWashSites.count == 2)
+    #expect(Self.mossInkWashSites.count == 3)
 
     for site in Self.mossInkWashSites {
       let lightGround = composite(
@@ -104,9 +112,9 @@ extension DesignTokensTests {
   /// A guard's passing case proves nothing on its own — this arm constructs the
   /// state the guard above claims to catch: the status pill's **previous**
   /// label, `mossDark`, painted on the very wash it also filled. It is
-  /// deliberately **one row, not two**; `ResultsView.completed` never read a
-  /// failing token, so a blanket control over both would fail. That the scoping
-  /// is the claim rather than a shortcut is what
+  /// deliberately scoped to **that one row**; the other rows never read a
+  /// failing token, so a blanket control over the fixture would fail. That the
+  /// scoping is the claim rather than a shortcut is what
   /// ``theResultsPillIsEnumeratedNotRepaired`` asserts from the other side.
   @Test func onlyTheStatusPillWasFailingBeforeThisChange() {
     // The exclusion is keyed on a **name string**, so renaming or replacing that
@@ -131,25 +139,37 @@ extension DesignTokensTests {
   /// Executes the "guarded, not repaired" half, which the negative control above
   /// has to leave out.
   ///
-  /// `ResultsView.completed` has read `mossInk` on a moss wash since before
-  /// #1455 and measures 8.807 light / 5.927 dark. It is enumerated here because
-  /// it is the same bug class — #1455 was filed precisely because the sibling
-  /// fixture had *not* enumerated one of its members — not because anything is
-  /// wrong with it. If a future reader concludes "both sites were failing", this
-  /// arm is what corrects them, and it is also what keeps the one-row scoping
-  /// above honest.
+  /// `ResultsView.completed` and `HomePausedCard.progress` have read `mossInk`
+  /// on a moss wash since before #1455 and measure 8.807 light / 5.927 dark —
+  /// identical, because they share a wash token and an alpha. They are
+  /// enumerated because they are the same bug class — #1455 was filed precisely
+  /// because the sibling fixture had *not* enumerated one of its members — not
+  /// because anything is wrong with them. If a future reader concludes "every
+  /// site was failing", this arm corrects them.
+  ///
+  /// It is the **exact complement** of the negative control above rather than a
+  /// hand-listed pair, so the two arms cannot drift apart as the fixture grows:
+  /// a row added and left out of both would redden the size pin here. Both
+  /// appearances are asserted — the light half duplicates
+  /// ``mossInkClearsAAOnEveryMossWashItLabels``, but the dark one is otherwise
+  /// claimed only in prose.
   @Test func theResultsPillIsEnumeratedNotRepaired() {
-    guard let site = Self.mossInkWashSites.first(where: { $0.name == "ResultsView.completed" })
-    else {
-      Issue.record("no mossInkWashSites row named ResultsView.completed")
-      return
-    }
+    let alreadyPassing = Self.mossInkWashSites.filter { $0.name != "GameHeader.statusPill" }
+    #expect(alreadyPassing.count == Self.mossInkWashSites.count - 1)
 
-    let ground = composite(
-      site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)
-    #expect(
-      contrastRatio(PasturaPalette.mossInk, ground) >= Self.mossInkTextBar,
-      "the results pill is supposed to have been passing all along")
+    for site in alreadyPassing {
+      let lightGround = composite(
+        site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)
+      #expect(
+        contrastRatio(PasturaPalette.mossInk, lightGround) >= Self.mossInkTextBar,
+        "\(site.name) is supposed to have been passing all along (light)")
+
+      let darkGround = composite(
+        site.darkToken, over: PasturaPalette.nightBubble, alpha: site.darkAlpha)
+      #expect(
+        contrastRatio(PasturaPalette.nightMossInk, darkGround) >= Self.mossInkTextBar,
+        "\(site.name) is supposed to have been passing all along (dark)")
+    }
   }
 
   /// Rules out the cheap answer, and it is a **pair** of facts, not one.
@@ -161,6 +181,13 @@ extension DesignTokensTests {
   /// For `.completed`, `mossDark`'s limit is 4.538, so it clears *only* in that
   /// same degenerate limit and every alpha the design would actually ship puts
   /// it under.
+  ///
+  /// `DesignTokensTests+MossOnWash` and ADR-028 § "Why not `mossInk`" call that
+  /// same limit **4.737** — the identical alpha→0 ceiling measured on
+  /// `bubbleBackground` (pure white) rather than `screenBackground`. Both are
+  /// right and neither should be edited to match the other; the ground is what
+  /// separates them, and this file uses `screenBackground` because that is the
+  /// light worst case its fixture composites over.
   ///
   /// Asserting only the `moss` half would leave a reader thinking the completed
   /// arm could have been tuned; asserting only the `mossDark` half would suggest
