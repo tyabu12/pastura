@@ -16,26 +16,32 @@ import Testing
 // lives at the foot of `DesignTokensTests+NightPalette.swift`.
 extension DesignTokensTests {
 
-  /// The three shipped views that lay text directly on an opaque `mossSoft`
+  /// The shipped **labels** that lay text directly on an opaque `mossSoft`
   /// capsule. Hand-written against the views rather than derived, so a view
   /// changing its ground does **not** silently update the expectation — the row
   /// goes stale and a reviewer has to look.
   ///
-  /// Exhaustive as of #1407 **for moss-family text**, and corroborated rather
+  /// Exhaustive as of #1427 **for moss-family text**, and corroborated rather
   /// than merely grepped: `nightMossSoft`'s own doc comment partitions the
-  /// token's ten callsites as seven line/border jobs plus exactly these three
-  /// text grounds.
+  /// token's ten callsites as seven line/border jobs plus three tinted fills
+  /// under `mossInk` text.
   ///
-  /// That corroboration shares this list's blind spot, though — both enumerate
-  /// `mossSoft` **fill** sites, so neither can see a label drawn on this ground
-  /// by a token from another family. **There is one, and it fails the bar**:
-  /// `PredictionOutcomeBadge`'s streak sub-label is `muted` *inside* the same
-  /// hit-arm capsule, at 2.136 light / 2.413 dark (#1427). So do not read this
-  /// guard as "every label on `mossSoft` clears AA" — it says the moss-family
-  /// ones do.
+  /// **That corroboration is about grounds, and this list is about labels** —
+  /// four entries against three fills, because `PredictionOutcomeBadge`'s hit
+  /// capsule carries two of them. Do not "reconcile" the counts; they measure
+  /// different things.
+  ///
+  /// The blind spot the two share is structural and outlives the count: both
+  /// start from `mossSoft` **fill** sites, so neither can see a label drawn on
+  /// this ground by a token from another family. There was one until #1427 —
+  /// the streak sub-label below was `muted` at 2.136 light / 2.413 dark — and
+  /// there is none today, which is a fact about the current tree rather than a
+  /// property of this fixture. So still do not read this guard as "every label
+  /// on `mossSoft` clears AA"; it says the moss-family ones do.
   static let mossSoftTextSites = [
     "ContradictionBadge",
     "PredictionOutcomeBadge.hitArm",
+    "PredictionOutcomeBadge.streak",
     "HighlightCandidatesSection.revealedChip"
   ]
 
@@ -52,7 +58,7 @@ extension DesignTokensTests {
     // list wouldn't make them vacuous — it would silently drop the record of
     // which views this guard speaks for. Residual: it catches a row added or
     // removed, never one *renamed* to a view that no longer draws on this ground.
-    #expect(Self.mossSoftTextSites.count == 3)
+    #expect(Self.mossSoftTextSites.count == 4)
 
     let light = contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft)
     #expect(light >= Self.textBar, "light: \(light)")
@@ -94,10 +100,12 @@ extension DesignTokensTests {
   /// *differ* can never fire while either side is a `PasturaDynamicColor`-backed
   /// pair, since those compare by provider instance.
   ///
-  /// Only the chip is reachable: `ContradictionBadge` and
-  /// `PredictionOutcomeBadge` build their colours inline in `body` with no
-  /// extractable style type, so they stay code-review-gated. Extracting a style
-  /// struct for them would be the way to close that, and is not done here.
+  /// `PredictionOutcomeBadge` is no longer the gap this comment used to record:
+  /// #1427 extracted its colours out of `body` into accessors, and
+  /// ``PredictionOutcomeBadgeTokenTests`` pins both of its labels there. That
+  /// leaves `ContradictionBadge`, which still builds its colours inline with no
+  /// extractable style type and stays code-review-gated; the same extraction is
+  /// the way to close it, and is not done here.
   @Test func revealedChipReadsMossInk() {
     let style = HighlightCandidatesSection.ChipStyle(reason: .revealed)
     #expect(style.textColor == Color.mossInk)
