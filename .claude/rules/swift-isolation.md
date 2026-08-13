@@ -230,11 +230,17 @@ removable to the next reader.
 Reference: `PasturaDynamicColor` in
 `Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`; ADR-028 § Consequences.
 
-**A `swiftc -typecheck` probe under-approximates the real target here — build the
-target instead.** A standalone probe of the pair type above passed while the real
-build failed. The tempting explanation (the probe built its token values inline
-rather than reading a MainActor-isolated static) is **wrong** — a probe that does
-read from such a static still passes. The operative difference was not isolated;
-what is established is that a probe can be clean while the target errors, so for
-isolation questions in this family treat `swiftc -typecheck` as a existence check
-for API and `scripts/xcodebuild.sh build` as the verdict.
+**A `swiftc -typecheck` probe under-approximates the real target here — the
+operative variable is the compilation *stage*.** This family's diagnostics split
+across two: `main actor-isolated default value in a nonisolated context` fires
+during type checking, so `-typecheck` sees it, but `[#IsolatedConformances]`
+(Pattern 5's shape) is emitted at SIL generation, which `-typecheck` never
+reaches. **Compile, don't typecheck** — `swiftc -c -o /dev/null` (add `-wmo` for
+a multi-file probe) reddens with the target's verbatim diagnostic. Pattern 7's
+recipe stays `-typecheck` on purpose: a *printed type* is a type-check-stage
+answer. Measured 2026-08-13, Xcode 26.6 / Swift 6.3.3 (#1439) — the dependency
+shape (inline values vs a MainActor-static read), a file split, a use site, and
+the three `-enable-upcoming-feature` flags the target passes all leave the
+outcome unchanged; the first of those was named as the cause by an earlier
+revision and is falsified. `scripts/xcodebuild.sh build` stays the verdict for
+anything a probe cannot state.
