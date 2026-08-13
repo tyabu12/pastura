@@ -259,16 +259,40 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------
-# The total was 91,615 bytes when this was introduced (#1361, 2026-08-05). A
-# slim campaign (#1310 / #1315 style) that lands below the ceiling should
+# The total was 91,615 bytes at introduction (#1361, 2026-08-05) and had drifted
+# to 98,036 — above the ceiling, so the nudge fired on every PR — until #1442
+# evacuated the kit-mirror rules' depth to docs/agent-tooling/ on 2026-08-13,
+# bringing it to 94,038.
+#
+# A slim campaign (#1310 / #1315 style) that lands below the ceiling should
 # re-baseline this default in its own PR — otherwise the nudge decays into
-# permanent wallpaper that everyone scrolls past. The env var exists so the
-# test harness can force the firing branch.
-FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-96000}"
+# permanent wallpaper that everyone scrolls past. #1442 discharged that duty by
+# ratcheting 96,000 -> 95,500. The bar it used, recorded so the next campaign
+# does not re-derive one: leave about one rule section (~1.5 KB) of headroom, no
+# less. Tighter and the nudge trips on roughly one added rule paragraph —
+# wallpaper from over-firing instead of under-firing. That is why -3,211 bytes
+# alone (to 94,825, a mere 1,175 under 96,000) licensed no move, while the
+# further -787 did.
+#
+# Re-measure on your campaign's FINAL commit. Measuring early is the trap —
+# #1442's figure moved three times during code review before settling, and the
+# superseded ones had already been written into this comment.
+#
+# The env var exists so the test harness can force the firing branch. The
+# default is held in a variable because it is needed twice below (the `:-` and
+# the malformed-input fallback, which nothing exercises — it runs only on
+# non-numeric env input, so two literals would let a re-baseline update one and
+# diverge silently). A THIRD copy lives outside this script, in
+# scripts/tests/check-claude-md-modified-test.sh's `run_hook` default; it is
+# inert (fixtures are kilobytes, and the firing cases pass an explicit ceiling),
+# which is exactly why a re-baseline would forget it — update it anyway so the
+# two never read as disagreeing about the production value.
+FOOTPRINT_CEILING_DEFAULT=95500
+FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-$FOOTPRINT_CEILING_DEFAULT}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.
 case "$FOOTPRINT_CEILING" in
-  ''|*[!0-9]*) FOOTPRINT_CEILING=96000 ;;
+  ''|*[!0-9]*) FOOTPRINT_CEILING="$FOOTPRINT_CEILING_DEFAULT" ;;
 esac
 
 # echoes the total byte size of every tracked always-loaded instruction file,

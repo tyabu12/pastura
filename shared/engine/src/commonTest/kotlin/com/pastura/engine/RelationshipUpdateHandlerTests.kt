@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
  * Beyond the 9 Swift cases, [placementDiagnosticFiresWhenNoSignal] /
  * [placementDiagnosticSilentWhenSignalPresent] are a negative control on the no-signal
  * `.debug` diagnostic — the Swift suite only asserts the empty matrix, never that the
- * guard actually fires (see `knowledge-layering.md` § "A detector / guard / gate").
+ * guard actually fires (see `knowledge-layering.md` § "Claims you author are assertions too").
  *
  * Ported for the ADR-023 Stage-3 code-phase port (#501).
  */

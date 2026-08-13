@@ -1,15 +1,12 @@
 # Subagent Usage Rules
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). Everything numeric — the
-> cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical, but
-> the two kinds age differently. The **cap table** is Claude Code's platform limit — recomputed on
-> upgrade, never retuned (§1). The **split thresholds** are a *review-attention* bound, **NOT**
-> cap-derived (§2): they rest on a *subagent's* attention at a given scope — identical for every kit
-> installation — so a cap move never retunes them. The one lever a caller controls is report density
-> per changed line — generated fixtures report far shorter than dense source — and it licenses
-> bounding a call **tighter at the call site, never looser**: split smaller rather than edit §2's
-> numbers or any agent copy of them (today `.claude/agents/code-reviewer.md`).
+> the generic core is canonical there; reconcile one-way (kit → Pastura) **rule + doc as a pair**:
+> since kit#24 depth lives in a paired doc, so diffing rules alone reads it as deletions.
+> Pastura's doc is
+> [`docs/agent-tooling/subagent-output-cap.md`](../../docs/agent-tooling/subagent-output-cap.md);
+> the kit's are `docs/subagent-output-cap.md` (§1–§2) and `docs/code-review-path-scoped-rules.md`
+> (§5) — the latter gets no Pastura counterpart on purpose, #1312 holds this repo's probes.
 > Pastura-specific content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
@@ -21,11 +18,9 @@ this rule must stay visible regardless of which file is being edited.
 
 Every subagent (anything launched via the `Agent` tool, including custom
 `code-reviewer` / `claude-kit:critic` / `Explore` / `Plan`) runs under an
-**output-token cap per response**. It is the *model's* cap, not a
-subagent-specific one: the request builder has no main/subagent branch and the
-`Agent` tool passes no override. Raising frontmatter `maxTurns` does not help —
-the cap is per response, not per run — and `maxOutputTokens` does not exist as
-a frontmatter key.
+**output-token cap per response** — the *model's* cap, with no subagent-specific
+variant. Neither frontmatter knob helps: `maxTurns` raises turns, not the
+per-response cap, and `maxOutputTokens` is not a frontmatter key at all.
 
 | Model | Cap | Ceiling via `CLAUDE_CODE_MAX_OUTPUT_TOKENS` |
 |-------|-----|---------------------------------------------|
@@ -34,22 +29,18 @@ a frontmatter key.
 | Fable 5 | **64,000** † | 128,000 † |
 | Haiku 4.5 | **32,000** | 64,000 † |
 
-Measured 2026-08-12 on Claude Code **2.1.228**. Pre-5 generations vary either
-way — Opus 4.6-4.8 also sat at 64,000, Sonnet 4.x at 32,000, Haiku 3.5 at
-8,192 — so **do not extrapolate backwards**. **† = read from the shipped model
-catalog, not behaviourally verified**; only the unmarked caps were observed in
-a live run. Read any model's live cap in about two seconds, without having to
-provoke a truncation:
+Measured 2026-08-12 on Claude Code **2.1.228**; `†` = catalog-read, not observed.
+**Do not extrapolate to another generation in either direction** — the spread is
+not uniform by family. On a Claude Code upgrade, re-read the live cap and
+update the table; before trusting a pre-5 figure, read the doc's
+§ "The cap table's provenance".
 
 ```sh
 claude -p --model opus --output-format json "ok" | jq '.modelUsage[].maxOutputTokens'
 ```
 
 `CLAUDE_CODE_MAX_OUTPUT_TOKENS` is the only real budget lever, and it **does**
-reach subagents — contrary to what this rule claimed before, and confirmed by
-forcing it to 1,200 and finding the subagent's own responses capped at exactly
-that number. Tracked upstream in
-[anthropics/claude-code#24055](https://github.com/anthropics/claude-code/issues/24055) (OPEN).
+reach subagents (evidence: doc § "The env-var lever reaches subagents").
 
 **Model pins in this repo**: `code-reviewer.md` keeps `model: opus`
 deliberately — for Opus-class review *judgement*, not for a token budget (§2's
@@ -76,60 +67,49 @@ When invoking a subagent, bound the work so the reviewer's **attention** holds
 When numbers fall between soft and hard, prefer splitting. Model choice is no
 escape from an over-scoped call — see **§3**.
 
-### Why the thresholds are not cap-derived
-
-They used to be, pinned to a cap no spawnable model ever had. The cap was never
-the binding constraint at these scopes; what they buy is **review attention**,
-which does not scale with a model's `max_tokens`. So revise them on
-review-quality evidence, **not** by recomputing when a cap moves — a cap-table
-update (§1) must leave the numbers above untouched.
+**These numbers are review-attention bounds, NOT cap-derived** — a cap-table
+change in §1 leaves them untouched unless it drops a cap *below* them, and they
+are kit-canonical rather than a per-project knob. Go **tighter** at the call
+site when the diff is dense; never looser. **Before revising them, or before
+arguing a call is an exception, read
+the doc's § "Why the split thresholds are not cap-derived"** — the only valid
+evidence is about review quality, not about tokens.
 
 **A split leaves a seam no shard owns.** Each invocation sees only its own
 slice, so anything spanning the split — a mirrored count, a cross-reference,
 a claim one shard makes about another's files — is unreviewed by
 construction. Name the seam's owner, or add a final pass over the whole.
 
-**What a cap hit looks like.** It is **no longer silent**: Claude Code detects
-`stop_reason: max_tokens`, nudges the agent to resume, and retries up to
-**3** times before surfacing an `API Error: … exceeded the N output token
-maximum.` The report usually survives with a **seam** where the cut happened —
-but if every resume also overflows, the run fails outright with that error and
-returns nothing.
+**Spotting a cap hit.** A hit is not silent — Claude Code retries the response,
+so what usually survives is a **seam** mid-report rather than a silent loss. The
+tell is a **count mismatch**: the summary claims more issues, axes, or findings
+than the body writes out, or names them with no evidence attached. Corroborate
+with intermediate tool output present and no `SCOPE_TOO_LARGE`, then **split and
+re-run**. In Pastura the check is arithmetic, not a prose judgement:
+`code-reviewer`'s summary emits per-severity counts (`- **Critical**: N issues`)
+to compare the body against. A report that is short *and internally consistent*
+is just short — except in two shapes that leave no count to mismatch:
 
-The tell is *not* a missing summary: review agents are built to emit their
-verdict/summary **first** under cap pressure, so it survives exactly when the
-run is truncated. Look instead for **detail missing behind a present summary**,
-which is mechanically checkable as a **count mismatch** — the summary claims
-more issues, axes, or findings than the body actually writes out, or names them
-with no evidence attached. Corroborate with intermediate tool output present
-and no `SCOPE_TOO_LARGE`. That combination is the signal to **split and
-re-run** — a report that is short *and internally consistent* is just
-short, and needs nothing. In Pastura the check is arithmetic rather than
-a prose judgement: `code-reviewer`'s summary emits per-severity counts
-(`- **Critical**: N issues`) to compare the body against.
+- **No verdict at all** — only the opening sentence returns. Seen on broad
+  **multi-axis verification** prompts, not on large diffs (#1410): re-run
+  narrower by cutting what the prompt asks the agent to *verify*, not how many
+  files it sees. Asking for the verdict up front is cheap insurance.
+- **A zero-issue report** — a summary claiming nothing cannot mismatch, so a cut
+  landing right after it reads as consistent. Closing that needs a structural
+  check against a pinned Output Format; `queue-consumer` hard rule 6 carries one
+  for the unattended path.
 
-**A second failure shape: no verdict at all**, contradicting the guarantee
-above — the run returns only its opening sentence, leaving the count-mismatch
-detector no summary to check a body against. Seen on broad **multi-axis verification** prompts, not on large diffs
-(#1410). **Apply**: treat it as "re-run narrower" rather than as a finding, and
-cut what the prompt asks the agent to *verify*, not how many files it sees.
-Requesting the verdict in the first message is cheap insurance.
-
-**Blind spot**: a summary claiming nothing cannot mismatch, so a
-zero-issue report truncated right after it reads as consistent. Closing
-that needs a structural check against a pinned Output Format — see
-`queue-consumer` hard rule 6, which carries one for the unattended path.
+Both shapes trace to one conditional in the agent definitions. **When a report
+looks truncated and you are deciding whether to re-run, read the doc's § "How a cap hit behaves"** before concluding the run was fine.
 
 ## 3. Model choice is a cost lever, not a budget lever
 
-`Agent(model: "sonnet")` no longer buys headroom — Opus 5 and Sonnet 5 are
-both **64,000** — so the "Sonnet override" that used to sit here as a budget
-escape valve no longer exists. Pick the model for **capability and cost**,
-never to escape a budget. The one budget-relevant asymmetry is **Haiku at
-half** (32,000): do not hand it a report-heavy task on the assumption every
-model carries the same load. When work genuinely needs more room than the model
-has, **split the scope**. Raising `CLAUDE_CODE_MAX_OUTPUT_TOKENS` (§1) buys
-tokens, not attention, and is never a substitute for splitting.
+`Agent(model: "sonnet")` buys no headroom — Opus 5 and Sonnet 5 are both
+**64,000**. Pick the model for **capability and cost**, never to escape a
+budget. The one budget-relevant asymmetry is **Haiku at half** (32,000): do not
+hand it a report-heavy task assuming every model carries the same load. When
+work genuinely needs more room, **split the scope** — raising
+`CLAUDE_CODE_MAX_OUTPUT_TOKENS` (§1) buys tokens, not attention.
 
 A cost-driven downgrade is still bounded by the same sensitivity rules
 `/orchestrate` applies:
@@ -143,31 +123,24 @@ A cost-driven downgrade is still bounded by the same sensitivity rules
   dependency-rule boundaries, ADR/spec edits, etc.
 - **`critic` non-recommendation** (`critic` in prose = the
   `claude-kit:critic` plugin agent — invoke it by that namespaced name):
-  `critic` makes judgement calls
-  (pre-mortem axis generation, bias rebuttal). For plan critique on
-  architectural decisions, prefer **Opus + scope-split** over a cheaper
-  model. Sonnet's reasoning depth is acceptable for routine
+  `critic` makes judgement calls (pre-mortem axis generation, bias rebuttal).
+  For plan critique on architectural decisions, prefer **Opus + scope-split**
+  over a cheaper model. Sonnet's reasoning depth is acceptable for routine
   reviews but not for the cases where `critic` is most valuable.
 
 ## 4. Agent self-defense
 
-`code-reviewer.md` carries an inline `Scope Guidance` section that bails
-with `SCOPE_TOO_LARGE` before any tool_use when the soft budget is
-exceeded. The kit-provided `claude-kit:critic` self-defends differently
-(its `Output Discipline & Scope` section triages: highest-risk axes
-first, explicit deferrals instead of a bail-out). Defense in depth:
-a cap hit usually shows up as nothing louder than a seam mid-report, so
-duplicating §2's budget in the agents' own bail-out is intentional.
-For what exhaustion actually looks like, see §2 — the detector lives
-there, with the caller-side heuristics it corroborates.
+The two defend asymmetrically: `code-reviewer.md` bails with `SCOPE_TOO_LARGE`
+right after its one mandatory `git diff --stat`; `claude-kit:critic` triages
+axes *during* the run. **Keep `code-reviewer.md`'s copy of §2's numbers in
+sync** — critic's is kit-owned and one-way. Do not delete either as redundant:
+the doc's § "Why the agents duplicate the budget" has the reason.
 
 ## 5. Official `/code-review` vs the custom agents
 
 The official `/code-review` skill does **not** replace `code-reviewer`
-or `critic` — the three occupy non-overlapping slots. (For the
-`code-reviewer`-vs-`critic` split itself, see §3's `critic`
-non-recommendation note; this section covers only the official-skill
-axis.)
+or `critic` — the three occupy non-overlapping slots (for the
+`code-reviewer`-vs-`critic` split itself, see §3).
 
 | Tool | Reviews | Runs as | Convention source |
 |------|---------|---------|-------------------|
@@ -178,15 +151,10 @@ axis.)
 **Load-bearing: do NOT slim `code-reviewer`'s general-quality /
 Swift-6-concurrency / secrets sections to "defer to `/code-review`".**
 `code-reviewer` is the *sole* review gate on the unattended path
-(`/queue-consumer` overnight); `/code-review` is a foreground
-interactive skill never wired into a subagent slot, so on that path
-nothing else runs. The official skill also leaves two gaps by design
-(per its plugin definition): it reads `CLAUDE.md` only — never
-`.claude/rules/`, so the trap cheat sheet is invisible to it — and its
-false-positive rule discards generic code-quality / security /
-test-coverage findings unless `CLAUDE.md` demands them. So Dependency
-Rules (in `CLAUDE.md`) may surface via either gate, but `.claude/rules/`
-traps and generic secrets/coverage surface only through `code-reviewer`.
+(`/queue-consumer` overnight), and the official skill misses `.claude/rules/`
+traps and generic secrets/coverage findings entirely. **Before acting on any
+proposal to consolidate the two, read the doc's § "Why `/code-review` cannot substitute"** — the two gaps are load-bearing and one of them has an open
+cause that must not be reasoned forward from.
 
 Reach for `/code-review` (e.g. `/code-review high`) as a **complement** —
 deeper generic bug-hunting or `--fix` auto-apply *on top of* the

@@ -1,7 +1,8 @@
 # Context Budget — Always-Loaded Files
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/context-budget.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific
+> the generic core is canonical there; reconcile one-way (kit → Pastura) — rule-to-rule here, since
+> this one is concept level with no volatile facts and no paired kit `docs/` file. Pastura-specific
 > content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
@@ -22,7 +23,7 @@ Path-scoped files (`paths:` frontmatter) load only when a matching path is read 
 
 ## Principle
 
-Each addition must support the agent's **next decision**, not serve as reference material for a human debugging an issue. Reference material belongs in on-demand docs (`docs/**`), script header doc-comments, or PR history.
+Each addition must support the agent's **next decision**, not serve as reference material for a human debugging an issue. Reference material belongs on-demand: `docs/**`, script header doc-comments, PR / issue history.
 
 ## Classifier
 
@@ -33,8 +34,8 @@ Before adding, classify each paragraph:
 
 If a cheat-sheet entry balloons to 3× surrounding entries — or if it would fire correctly with just lead claim + actionable command + pointer — compact it.
 
-## `(#NNN)` historical attribution
+## `(#NNN)` / issue attribution
 
-- **Drop**: bare parentheticals tagging *which PR introduced something* (e.g., `before xcodebuild ([#293])`).
-- **Keep**: pointers directing the next reader *where to find missing context* (e.g., `see #N for the design discussion`).
+- **Drop**: bare parentheticals tagging *which PR or issue introduced something* (e.g., `before xcodebuild ([#293])`).
+- **Keep**: pointers directing the next reader *where to find missing context* (`see #N for the design discussion`, `ADR-007`).
 - Do NOT treat existing inline-`(#NNN)` as precedent. Apply the rule to the new addition AND sweep neighboring violations if cheap.
