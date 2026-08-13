@@ -576,7 +576,8 @@ a drop-in swap for its non-QAT sibling. Descriptor-side procedure:
 **Two failure modes, and only one of them is the pin's.** The shared-KV
 gap above is a **loader** gap — pin-relative by construction, and a bump
 to **b10327**, the only build measured to load one, clears it (nothing
-between it and b8694 was tested). **Quant kernel coverage is not**: a build whose
+between it and b8694 was tested). **Quant kernel coverage is not**: a
+build whose
 tensors use a type the Metal backend has no kernel for **loads cleanly and
 then SIGSEGVs on the first inference**, because the pipeline lookup returns
 NULL and `ggml_metal_encoder_set_pipeline` dereferences it. Measured on the

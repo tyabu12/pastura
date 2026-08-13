@@ -251,12 +251,16 @@ everything else here.
   **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
   b8694 loads only the incumbent — a bump is therefore sufficient *and* the
   wrapper release exists.
-- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support
-  (`mattt/llama.swift` bumped past b8694).
+- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support — as
+  understood here, "bumped past b8694". In the event the condition was met at
+  **b10327**, the only build measured to load a 541-tensor QAT file; nothing between
+  the two was ever tested, so do not read the original phrasing as a promise about
+  intermediate builds.
 - **Retry**: tracked as #1416, and it **ran** — recorded as the 2026-08-12 entry
   above; the unblock condition was met inside the #1415 spike and the candidate
-  scored a clean NO-GO. (#1416 now carries the QAT-Mobile retry as well, so follow
-  the entry, not the issue, for *this* candidate's outcome.)
+  scored a clean NO-GO. (This pointer is spent: #1416 now serves as the QAT-Mobile
+  retry pointer instead, so follow the entry, not the issue, for *this* candidate's
+  outcome.)
   This entry stays a `BLOCKED` record of 2026-08-08 rather than being relabelled: on
   that date zero inferences ran, so a rejection cannot be dated to it.
 - **Disposition**: **not rejected.**
