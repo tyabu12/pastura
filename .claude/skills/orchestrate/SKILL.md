@@ -323,6 +323,23 @@ After all implementation, run full verification directly from the main session:
    - **FAIL** (`** TEST FAILED **`) → fix the failing tests, verify the fix passes targeted tests locally, then commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items) and re-run the full suite.
    - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
+> **Carve-out — build-irrelevant branches:** the predicate for skipping the full run above is not a
+> judgement call — it is `scripts/precommit-gate-classify.sh` (read its header doc-comment before
+> relying on this). Feed it the branch's changed paths, not just the last commit's — the script
+> reads whatever set it's given, so for a whole branch pipe
+> `git -C {WORKTREE_ROOT} diff --name-only {DEFAULT_BRANCH}...HEAD` into the bare, cwd-relative
+> `scripts/precommit-gate-classify.sh`. No `build` token in its output means every changed path
+> matched its build-irrelevant denylist, so the app target is never compiled and the suite cannot be
+> affected — skip step 1 entirely. No `lint` token means the same for step 2's
+> `swiftlint lint --quiet --strict`. The obvious justification — that CI provides a backstop
+> against a bad skip — does not hold: `.github/workflows/ci.yml` reuses this same script for its
+> PR path-gating, so a build-irrelevant PR skips `lint-and-test` and `ui-test` on CI too. The
+> safety instead comes from two other things: the script is **conservative by inversion** (it
+> skips only when *every* path matches a small denylist; any unrecognized path forces `build`),
+> and a push to `{DEFAULT_BRANCH}` always runs the full iOS suite regardless of paths (CI
+> short-circuits every non-`pull_request` event to `ios=true`), so the post-merge state stays
+> covered. When skipping, state the one-line reason in the PR body (Step 5).
+
 ## Step 4: Review — Gate G3
 
 **Before launching the reviewer,** `git fetch origin {DEFAULT_BRANCH}` and check `git rev-list --count HEAD..origin/{DEFAULT_BRANCH}` — a long session (research → critic → multi-commit implementation) can span hours during which `{DEFAULT_BRANCH}` advances. If the count is non-zero, offer a rebase before review; **mandatory** when the diff touches large generated / data files (xcstrings, lockfiles), where a rebase or non-conflicting auto-merge can drop upstream entries without surfacing a conflict.
