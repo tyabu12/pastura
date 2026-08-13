@@ -9,7 +9,9 @@ paths:
 
 Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface during Pastura UI development. Loaded when a file in the UI layers is read (an edit reads it first).
 
-**Scope** — the globs above are **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI (`grep -rl "import SwiftUI" Pastura/Pastura --include='*.swift'`). Not every one is a *SwiftUI* trap: § "Adding a `Color` design token = 5 files; the 5th fails silently (workflow trap, not SwiftUI)" has later steps landing in a test file and `docs/design/**` — it stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point at all — filename collisions, SwiftLint directive placement — live in `build-traps.md`, whose globs are the union of the two traps' differing reach. `navigation.md` carries AppRouter / `PasturaBackButton` mechanics: this file is the trap catalog, that one is the navigation pattern.
+**Scope** — globs **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI. Not every one is a *SwiftUI* trap — the `Color`-token workflow trap stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point live in `build-traps.md`; `navigation.md` carries the navigation pattern, this file is the trap catalog.
+
+**Do not relocate the occlusion / `ImageRenderer` / `Color`-token sections to `docs/`** on a byte-count audit — ADR-028 (`:380` / `:391` / `:1946`) names this file their *operational form*, and `docs/qa/dark-mode-qa.md:8` points back here, so the move is circular (#1429 comment 1).
 
 ## Toolbar-hide API matrix (iOS 17 → 26)
 
@@ -20,7 +22,7 @@ Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface
 | `.navigationBarBackButtonHidden(true)` | No (bar stays) | No (button hidden) | iOS 17–18: yes / **iOS 26: NO** |
 | `.toolbarBackground(.hidden, for: .navigationBar)` | No (bar stays) | Yes | Yes |
 
-Root cause for the iOS 26 regression on `.navigationBarBackButtonHidden(true)`: SwiftUI sees "no back affordance" and disables `interactivePopGestureRecognizer` system-wide. Contradicts older web articles claiming only `.toolbar(.hidden)` does this.
+Root cause for the iOS 26 regression on `.navigationBarBackButtonHidden(true)`: SwiftUI sees "no back affordance" and disables `interactivePopGestureRecognizer` system-wide.
 
 **Apply**:
 
@@ -43,9 +45,7 @@ distinction is erased.
 symbol name carry the fill toggle. The modifier is LOAD-BEARING —
 removing it silently re-fills every tab.
 
-Reference impl + full rationale (including why `magnifyingglass`, which
-has no `.fill` variant, was the only tab where the symptom was
-diagnosable): the LOAD-BEARING comment in
+Reference impl + full rationale: the LOAD-BEARING comment in
 `Pastura/Pastura/App/RootTabView.swift` (`symbolName(for:isActive:)`).
 
 The a11y modifiers on that same `tabIcon` `Image` are separately unreliable
@@ -58,10 +58,9 @@ adding another identifier there fixes nothing. See `uitest-traps.md`
 Replacing the **top route in place** in a `NavigationStack` path
 (`AppRouter.replaceTop`, used by the ScenarioDetail cross-language toggle)
 is NOT a push, and trips two **device-only** traps (neither reproduces in
-simulator reasoning). Why replace at all: ja/en variants are distinct
-`scenarioId`s = distinct `Route`s, so a plain push grows the stack
-unboundedly on repeated toggling and `pushIfOnTop` can't dedupe them —
-`replaceTop` keeps stack depth constant.
+simulator reasoning). Why replace rather than push: ja/en variants are
+distinct `Route`s, so pushing grows the stack unboundedly on repeated
+toggling and `pushIfOnTop` cannot dedupe them.
 
 1. **Leaf identity is reused by stack position, not by `Route` value.** A
    load-once view (`.task { guard viewModel == nil }`) keeps showing the
@@ -84,9 +83,7 @@ Reference impls: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
 
 When introducing a **production-only side-effecting service** (LLM-output detector, telemetry analyzer, content-rewriting filter, on-the-fly classifier, A/B-flag injector), inject it at the **View boundary**, NOT as a default value on the VM's `init()` signature.
 
-### Why
-
-VM `init()` default arguments run **in tests too**. Fixture-driven tests that pre-load `MockLLMService(responses: [...])` queues construct the VM via the no-arg overload (`SimulationViewModel(simulationRepository: …, …)`). If the VM's `init()` defaults to `SimulationRunner(detector: NLLanguageDetector())`, the detector fires on every output → consumes the mock queue unexpectedly → cascading "Mock exhausted" errors.
+**Why**: VM `init()` default arguments run **in tests too**. A fixture-driven test constructing the VM via the no-arg overload silently gets the production service — a default `SimulationRunner(detector: NLLanguageDetector())` fires on every output, consuming the pre-loaded `MockLLMService` queue → cascading "Mock exhausted" errors.
 
 ### Apply
 
@@ -107,11 +104,10 @@ hover feedback is silent. macOS works correctly. `DropDelegate.dropEntered`
 / `dropExited` are reported to work in `List` but empirically also failed
 in `Form` rows on iOS 26 simulator.
 
-Apple's `.onMove(perform:)` is **deliberately single-`ForEach` only** —
-moving items between two `ForEach` instances is not supported by design
-([Apple Dev Forums thread/674393](https://developer.apple.com/forums/thread/674393)).
-HIG has no cross-collection drag pattern; Apple's documented alternative
-is the **context-menu "Move to X" action**.
+Apple's `.onMove(perform:)` is **deliberately single-`ForEach` only** — moving items
+between two `ForEach` instances is unsupported by design, HIG has no cross-collection
+drag pattern, and Apple's documented alternative is the **context-menu "Move to X"
+action**.
 
 ### Apply
 
@@ -123,8 +119,8 @@ Answer first, before designing:
   iOS. Switch to `ScrollView` + `LazyVStack` (loses List chrome) or drop the
   indicator requirement.
 
-FB numbers, Apple sources, and the workflow lesson "research platform support
-BEFORE plan / critic, not after a full PR cycle": #144 and its comments.
+FB numbers, Apple sources (HIG + forum thread), and the "research platform support
+BEFORE plan / critic" workflow lesson: #144 and its comments.
 
 ## `.accessibilityIdentifier` ordering around `.safeAreaInset`
 
@@ -197,14 +193,12 @@ loci don't drift.
 
 ## Swift 6 makes accessibility env keypaths read-only
 
-Pre-Swift-6, `.environment(\.accessibilityReduceMotion, true)` inside a `#Preview`
-overrode the value for visual testing. Under the project's Swift 6 mode, the system
-accessibility env keypath resolves as `any KeyPath<EnvironmentValues, Bool> & Sendable`,
-NOT `WritableKeyPath`, so `.environment(_:_:)` no longer accepts it (compile error:
-`cannot convert ... to expected argument type 'WritableKeyPath<...>'`). Affects
-`accessibilityReduceMotion`,
-`accessibilityReduceTransparency`, and the other system-set (app-read) accessibility env
-values.
+Under the project's Swift 6 mode a system accessibility env keypath resolves as
+`any KeyPath<EnvironmentValues, Bool> & Sendable`, NOT `WritableKeyPath`, so the
+`#Preview` override `.environment(\.accessibilityReduceMotion, true)` no longer compiles
+(`cannot convert ... to expected argument type 'WritableKeyPath<...>'`). Affects
+`accessibilityReduceMotion`, `accessibilityReduceTransparency`, and the other system-set
+(app-read) accessibility env values.
 
 **Pattern**: extract animation timing into a `nonisolated enum` of pure functions taking
 `reduceMotion: Bool` (see `ModelSelectionAnimations`); the View reads
@@ -311,11 +305,10 @@ survives; the same badge renders fine in a `LazyVStack` or `List`/`Form`.
 2. **These AttributeGraph crashes can be OS-build-specific and self-resolve** — this one
    stopped reproducing within a day and shipped with no code workaround. Before investing in
    one, confirm the repro on the **exact OS build AND a real device** (the sim misleads both
-   ways). If it resurfaces, the candidate workarounds in order: extract the row into a
-   concrete `View` struct → `.compositingGroup()` on the row → `LazyVStack` → drop the
-   enumerated-`\.offset` `ForEach` shape → bisect the container
-   `.background(...ignoresSafeArea())` half the fault stack names → `.geometryGroup()`.
-   Full diagnostic write-up: #901.
+   ways). Candidate workarounds in order, if it resurfaces: concrete `View` struct →
+   `.compositingGroup()` → `LazyVStack` → drop the enumerated-`\.offset` shape → bisect
+   the container `.background(...ignoresSafeArea())` → `.geometryGroup()`. Full
+   diagnostic write-up: #901.
 
 ## Re-projection resets `@State` — put run-scoped display state on the VM
 
