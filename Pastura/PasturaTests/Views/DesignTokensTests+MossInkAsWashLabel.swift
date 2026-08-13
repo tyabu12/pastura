@@ -56,10 +56,27 @@ extension DesignTokensTests {
   /// question is what the wash is *under*, never which API drew it. Both text
   /// rows model the harder 0.16 stop rather than the 0.07 one.
   ///
-  /// Two neighbours are enumerated and excluded, both **cross-family** and both
-  /// clearing comfortably, so the next reader does not re-derive them:
-  /// `ActiveModelChip` (`inkSecondary` on a `mossDark@0.10` wash, worst 4.843 in
-  /// dark) and `ResultDetailView+ResumeBanner` (`ink` on a `moss@0.08` wash).
+  /// **Two criteria decide the rest, and they are stated instead of a list
+  /// because the list keeps turning out incomplete** — twice now, both times
+  /// because a shape was excluded by how it was drawn rather than by what it
+  /// carries:
+  ///
+  /// - **Large text is out.** ≥14pt bold / ≥18pt regular takes WCAG 1.4.11's
+  ///   3:1, not this file's 4.5. `ModelPickerView`'s 26pt-bold `mossInk` title
+  ///   over the `moss@0.10` halo is the same shape as a row here and is excluded
+  ///   on exactly this ground.
+  /// - **Cross-family is out** — it belongs to whichever fixture owns the label's
+  ///   family, not this one. Seen so far: `ActiveModelChip` (`inkSecondary` on
+  ///   `mossDark@0.10`, worst 4.843 dark), `ResultDetailView+ResumeBanner` and
+  ///   `ModelRow`'s selected row (both `ink` on a thin `moss` wash).
+  ///
+  /// Membership here is a **contrast** class, not the set design-system §8's
+  /// exception admits by role — the two are not the same set and this file does
+  /// not certify the second. `HomePausedCard.progress` is the live divergence:
+  /// it is in this class, but "Round X / Y" is none of the roles §2.3 assigns
+  /// `--moss-ink`, so its routing is unjustified even though it clears the bar.
+  /// Tracked separately rather than repointed here, since that is a visual
+  /// change to another screen — #1459.
   static var mossInkWashSites: [MossWashSite] {
     [
       MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),
@@ -68,10 +85,14 @@ extension DesignTokensTests {
     ]
   }
 
-  /// WCAG 1.4.3 normal-text bar. Both labels are under the "large text"
-  /// threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type — the
-  /// status pill is `Typography.pillStatus` at 9pt and the results pill is
-  /// `.caption` + `.semibold`, i.e. 12pt — so 3:1 never applies. At
+  /// WCAG 1.4.3 normal-text bar. Every label in the fixture is under the "large
+  /// text" threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type — the
+  /// status pill is `Typography.pillStatus` at 9pt, the results pill is
+  /// `.caption` + `.semibold` at 12pt, and `HomePausedCard`'s progress readout is
+  /// `HomeHeroLayout.progressFontSize`, also 12pt — so 3:1 never applies. That
+  /// is the fixture's admission criterion, not an incidental property: a
+  /// same-shaped site above the threshold is excluded, which is why
+  /// `ModelPickerView`'s title is not a row. At
   /// accessibility sizes `.caption` scales past 14pt and the 3:1 bar *would*
   /// apply, which only relaxes the requirement, so pinning 4.5 stays
   /// conservative. Do not "correct" this in the other direction.
@@ -148,11 +169,16 @@ extension DesignTokensTests {
   /// site was failing", this arm corrects them.
   ///
   /// It is the **exact complement** of the negative control above rather than a
-  /// hand-listed pair, so the two arms cannot drift apart as the fixture grows:
-  /// a row added and left out of both would redden the size pin here. Both
-  /// appearances are asserted — the light half duplicates
-  /// ``mossInkClearsAAOnEveryMossWashItLabels``, but the dark one is otherwise
-  /// claimed only in prose.
+  /// hand-listed pair, so the two arms cannot drift apart as the fixture grows.
+  /// What the pin below states is narrower than that, though: exactly one row is
+  /// excluded, so the complement can never silently become the whole fixture nor
+  /// — if the fixture were trimmed to the status pill alone — empty with the loop
+  /// running zero times. A row *added* is caught by the size pin in
+  /// ``mossInkClearsAAOnEveryMossWashItLabels``, not here; the two pins are
+  /// complementary and neither subsumes the other.
+  ///
+  /// Both appearances are asserted — the light half duplicates that same arm,
+  /// but the dark one is otherwise claimed only in prose.
   @Test func theResultsPillIsEnumeratedNotRepaired() {
     let alreadyPassing = Self.mossInkWashSites.filter { $0.name != "GameHeader.statusPill" }
     #expect(alreadyPassing.count == Self.mossInkWashSites.count - 1)
