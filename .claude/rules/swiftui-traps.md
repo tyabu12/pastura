@@ -123,8 +123,8 @@ Answer first, before designing:
   iOS. Switch to `ScrollView` + `LazyVStack` (loses List chrome) or drop the
   indicator requirement.
 
-Sources and the workflow lesson "research platform support BEFORE plan / critic,
-not after a full PR cycle": #144.
+FB numbers, Apple sources, and the workflow lesson "research platform support
+BEFORE plan / critic, not after a full PR cycle": #144 and its comments.
 
 ## `.accessibilityIdentifier` ordering around `.safeAreaInset`
 
@@ -263,7 +263,7 @@ ground can render *above* its own backdrop. Judge such a value against a device 
 pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
 § "An occlusion layer ... must be darker than every ground it covers" below — same "what does it
 actually composite over" question, asked of a surface rather than an occluder; keep the two
-pointing at each other. (Ellipsis, not truncation, so a grep for the heading finds this pointer.)
+pointing at each other.
 
 **Measure a contrast ratio with the guard's own helpers** (`composite` /
 `contrastRatio`, `DesignTokensTests+NightPalette.swift`) — an ad-hoc script that
@@ -363,12 +363,14 @@ without injecting. Real-device dark-mode QA is still required; the simulator
 misleads.
 
 **Read `PasturaPalette.<token>.color`, never the `Color.*` alias, and treat that
-as unconditional** — not belt-and-braces. An alias resolves correctly *today*,
-but that was measured on one device and one OS minor; the raw read is what keeps
-the export off a behaviour an SDK change can alter. Its in-repo cost meanwhile is
-that `light` and `dark` collapse into each other, making the parameter you just
-threaded inert. Do not treat a specific alias as fixed without checking
-`PasturaDynamicPalette`, whose doc comment carries the current membership.
+as unconditional** — not belt-and-braces. Under an injection an alias does
+resolve to the requested appearance *today*, but that was measured on one device
+and one OS minor, and the raw read is what keeps the export off a behaviour an
+SDK change can alter. It also costs the choice you just threaded: a palette
+building **both** its families from aliases collapses them into one, since both
+resolve against the same injected scheme. Do not treat a specific alias as fixed
+without checking `PasturaDynamicPalette`, whose doc comment carries the current
+membership.
 
 **What the gate does not cover.** It guards the injection half only. The token
 tests assert `PasturaPalette` components *and* the aliases' own resolution, but
@@ -441,5 +443,4 @@ and ADR-028 § Amendment (#1284, #1373, #1378). Reference: `ModelPickerView`,
 `PasturaShadows`.
 
 Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
-"what does it composite over" question of a *presented surface* rather than an
-occluder; keep the two pointing at each other.
+"what does it composite over" question of a *presented surface* rather than an occluder.

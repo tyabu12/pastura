@@ -1,6 +1,6 @@
 # Decision Records — Index
 
-Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **Do not add a count that mirrors a mutable inventory elsewhere** — how many tokens are paired, entries excerptable, sites swept. Such a mirror is invisible to a count-keyed sweep and goes stale silently, which is what happened to the ADR-028 entry repeatedly. A cardinality *of the design* ("two Models enums", "one sibling file per entry") is not a mirror and is fine. **The test: can the number change without the decision changing?** If yes it is an inventory — and note that ADR-028's own "eight pairs" read as a design cardinality when written and became an inventory. The same question retires a *relative* claim ("the quietest of the five"), which goes stale the same way without carrying a number at all. This is a rule for what you write next, **not** a claim about the file: entries predating it still carry mirrors, and no exhaustive list of them is kept here — one would inherit the same blind spot. Writing rule: `.claude/rules/adr-writing.md` §4. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
+Decision summaries for `docs/decisions/` — each entry routes into its ADR rather than restating it: mechanism, standing invariants, what is still open, and one derivation pointer per claim cluster. **Do not add a count that mirrors a mutable inventory elsewhere** — how many tokens are paired, entries excerptable, sites swept: such a mirror is invisible to a count-keyed sweep and goes stale silently, which is what happened to the ADR-028 entry repeatedly. The test for what counts as one, and the *relative*-claim variant that goes stale the same way carrying no number at all, are in the writing rule — `.claude/rules/adr-writing.md` §4, path-scoped here, so read it before adding an entry. Entries predating that rule may still carry mirrors and no list of them is kept (one would inherit the same blind spot), so confirm any number here against its ADR. `CLAUDE.md` § Reference Documents → ADR roster carries titles only and points here for the detail; its titles are kept byte-identical to this file's `## ADR-NNN — <title>` headings. `consistency-audit`'s `adr_roster_drift` is what diffs them — against each other and against the tracked `ADR-*.md` files — so the heading shape here is load-bearing, not cosmetic.
 
 ## ADR-001 — Architecture Overview (Phase 1)
 
@@ -121,20 +121,17 @@ expressible. `UIUserInterfaceStyle = Light` is removed (#1284) — the app follo
 the device appearance. Pair values live in `DesignTokens+NightPalette.swift` and
 design-system §2.9, not in the ADR; most of the file is amendments, so **enter at
 § "How to read this ADR"**, which routes by question rather than by date, and add
-new content by its placement rule (values and standing invariants → the body;
-derivation, measurement and retracted drafts → the amendment). Do not mirror a
-count here: a count mirror is structurally invisible to count-keyed sweeps and
-has gone stale repeatedly. **Standing invariants** — § Consequences → "Standing
-invariants the pairing created" states both with their derivations: an occlusion
-layer, shadow or scrim, must be **darker than every ground it covers** rather
-than merely fixed in both appearances; and a fixed-appearance export must
-**inject** the appearance it wants (`.environment(\.colorScheme, …)` plus an
-explicit parameter), gated in pre-commit + CI by
-`scripts/check_imagerenderer_injection.py`. Operational forms of both:
-`swiftui-traps.md`. Fixed-appearance palettes therefore build from raw
+new content by the placement rule it states. **Standing invariants** —
+§ Consequences → "Standing invariants the pairing created" states both with their
+derivations: an occlusion layer, shadow or scrim, must be **darker than every
+ground it covers** rather than merely fixed in both appearances; and a
+fixed-appearance export must **inject** the appearance it wants
+(`.environment(\.colorScheme, …)` plus an explicit parameter), gated in
+pre-commit + CI by `scripts/check_imagerenderer_injection.py`, and read raw
 `PasturaPalette` rather than `Color.*` aliases — unconditionally, not
-belt-and-braces — pinned by reflection-based tests, since ADR-009 rules out the
-snapshot test that would otherwise be the only detector; asset-catalog colour
+belt-and-braces. Today's such palettes are pinned by reflection-based tests since
+ADR-009 rules out snapshots, but nothing detects a *new* consumer's missing pin.
+Operational forms of both: `swiftui-traps.md`. Asset-catalog colour
 sets are rejected for blinding `check_design_tokens_css.py`'s hex→`tokens.css`
 mirror and `DesignTokensTests`' sRGB assertions. Further rules bind anyone
 adding a token: a dark value derives by **several independent arms** — measured
@@ -147,22 +144,18 @@ arrive with its sign flipped (§ Amendment 2026-08-05, #1336). **What the gate
 ladder structurally could not see**, kept because the shape recurs: a screen that
 sets *no* background falls through to the system colour, and a raw-colour sweep
 has no syntax to grep for an **absent** modifier — enumerate from the predicate
-("a rendered state shows the system colour"), never from the previous fix list,
-which was itself drawn from sites where the fix already existed (#1354). Gate
-predicates under-reach in the same silent way: a `Views/` + `App/` glob misses
-top-level `PasturaApp.swift` (use `Pastura/Pastura`) and `Assets.xcassets` sat
-outside every one of them. Manual walkthrough: `docs/qa/dark-mode-qa.md`.
-**Isolation**, each observed rather than predicted: the type-level
-`nonisolated` on the pair type is a **runtime** guard, not a compile requirement
-— deleting it still builds — stopping the provider closure being inferred
-`@MainActor` while UIKit may invoke it off-main (`swift-isolation.md`
-Pattern 8); `PasturaDynamicColor` is deliberately not `Equatable` (Pattern 5, via
-`PasturaColorValue`'s MainActor-isolated conformance) and `PasturaDynamicPalette`
-deliberately not `nonisolated` (its statics read MainActor `PasturaPalette`). A
-probe here must replicate the **dependency** shape, not just the API shape: a
-compile-only one that built tokens inline passed where the real code failed. The
-`all` registry's assertion guards that list's documented size, **not**
-completeness. Still open, each where it is derived: the `ImageRenderer` alias
+("a rendered state shows the system colour"), never from the previous fix list
+(#1354). Gate predicates under-reach the same silent way: a `Views/` + `App/`
+glob misses top-level `PasturaApp.swift` (use `Pastura/Pastura`), and
+`Assets.xcassets` sat outside every one of them. Manual walkthrough:
+`docs/qa/dark-mode-qa.md`.
+**Isolation** — three deliberate constraints, each observed rather than
+predicted and derived in § Consequences: the type-level `nonisolated` on the pair
+type is a **runtime** guard that still builds without it, stopping the provider
+closure being inferred `@MainActor` while UIKit may invoke it off-main
+(`swift-isolation.md` Pattern 8), while `PasturaDynamicColor` is deliberately not
+`Equatable` (Pattern 5) and `PasturaDynamicPalette` deliberately not
+`nonisolated`. Still open, each where it is derived: the `ImageRenderer` alias
 half stays armed at § Revisit trigger's stated thresholds; several fixes
 post-date the device pass that closed gates 4 and 5 and so head
 `docs/qa/dark-mode-qa.md`'s re-run list, one of them partially re-checked with
@@ -192,12 +185,11 @@ verification failure — unknown `schema_version` or a missing attestation inclu
 — hides the section with an `.info` log, which is ADR-021's degrade-by-omission
 stance. The web build reads the repo file directly and never resolves
 `highlight_url`. **The enforcement point is the gallery gate, not the
-extractor**: `check-gallery-entry.sh` re-derives the schema, cap, `source_field`
-allowlist, the sha three-way that makes the trust root load-bearing (highlight
-pin == `gallery.json` == raw YAML bytes), the `highlight_url` pairing, the
-spoiler position rules and the blocklist re-audit — its own header carries the
-authoritative list — while
-`scripts/gallery_highlight_extract.py` keeps the same ones only as fail-fast
+extractor**: `check-gallery-entry.sh` re-derives the schema, the caps, the
+spoiler rules, the blocklist re-audit and the sha three-way that makes the trust
+root load-bearing (highlight pin == `gallery.json` == raw YAML bytes) — its own
+header carries the authoritative list — while
+`scripts/gallery_highlight_extract.py` keeps the same checks only as fail-fast
 convenience, hard-failing on `secret:`-declaring scenarios and unknown phase
 names (ADR-022 tripwire). Decision 6 states the Phase-3 boundary falsifiably —
 static text, no replay-source construction, one verified fetch, a capped authored
