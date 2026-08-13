@@ -231,13 +231,15 @@ Reference: `PasturaDynamicColor` in
 `Pastura/Pastura/Views/DesignTokens+DynamicColor.swift`; ADR-028 § Consequences.
 
 **A `swiftc -typecheck` probe under-approximates the real target here — the
-operative variable is the compilation *stage*.** This family's diagnostics split
-across two: `main actor-isolated default value in a nonisolated context` fires
-during type checking, so `-typecheck` sees it, while the isolated-conformance
-error of § "Same cause, two non-test shapes" row 1 is emitted at SIL generation,
-which `-typecheck` never reaches — it prints with **no source location**
-(`<unknown>:0: … [#IsolatedConformances]`), which is the recognition cue —
-measured for that row; Pattern 5's test shape does carry a use-site location.
+operative variable is the compilation *stage*.** `main actor-isolated default
+value in a nonisolated context` fires during type checking, so `-typecheck` sees
+it. `[#IsolatedConformances]` falls on **both** sides, split by how the isolated
+conformance is reached: used **from source** (an explicit `==`, Pattern 5's test
+shape) it is diagnosed during type checking and carries a source location, but
+reached only through a **compiler-synthesized** witness — row 1 of § "Same cause,
+two non-test shapes" — it is realized at SIL generation and prints at
+`<unknown>:0`. Both measured. A location-less diagnostic is the cue that no
+`-typecheck` probe could have caught it.
 **Compile, don't typecheck** — reuse Pattern 7's *flags* (`-default-isolation
 MainActor` especially, without which nothing is isolated and the probe is green)
 but `-c -o /dev/null` in place of `-typecheck`, `-wmo` for a multi-file probe,
@@ -246,8 +248,8 @@ not this error, so it returns empty and reads as green. The probe source is your
 own type, not Pattern 7's. Pattern 7 itself keeps `-typecheck`: a *printed type*
 is a type-check-stage answer. Measured 2026-08-13,
 Xcode 26.6 / Swift 6.3.3 (#1439) — the dependency shape (inline values vs a
-MainActor-static read), a file split, a use site, and the target's
-`-enable-upcoming-feature` flags all leave the outcome unchanged; an earlier
-revision of ADR-028 named the first as the cause and this paragraph then recorded
-it as unexplained, so restore neither. `scripts/xcodebuild.sh build` stays the verdict for anything a
-probe cannot state.
+MainActor-static read), a file split, a use site of the *synthesized* `==`, and
+the target's `-enable-upcoming-feature` flags all leave the outcome unchanged; an
+earlier revision of ADR-028 named the first as the cause and this paragraph then
+recorded it as unexplained, so restore neither. `scripts/xcodebuild.sh build`
+stays the verdict for anything a probe cannot state.
