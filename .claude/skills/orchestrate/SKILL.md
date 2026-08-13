@@ -219,7 +219,7 @@ Handle the critic's output:
 5. Verify: `git branch --show-current`.
 6. **Worktree path hygiene** (holds for the rest of the session): the main checkout at `/Users/tyabu12/Work/pastura` stays on another branch, so a tool that resolves to it instead of this worktree acts on the wrong tree silently.
    - Every absolute Edit/Write path must contain `/worktrees/<name>/` — invalidate any carried over from a *pre-worktree* tool result before reusing it.
-   - Non-isolation subagents (Step 3 `implementer`, Step 4 reviewer) inherit this worktree's cwd, so their git normally resolves here — but embed **already-resolved** absolute paths in their prompts (capture the root once with `git rev-parse --show-toplevel`), never a `$(…)` the subagent re-runs against its own cwd, and never a reused pre-worktree path. A subagent whose git resolved to the main checkout instead would see an **empty phantom diff**.
+   - Non-isolation subagents (Step 3 `implementer`, Step 4 reviewer) inherit this worktree's cwd — but cwd inheritance for a non-isolation subagent is **not documented as guaranteed**, and it has resolved to the *original* checkout in practice, yielding an empty phantom diff that reads as a false FAIL. So don't rely on it: capture the root once with `WORKTREE_ROOT=$(git rev-parse --show-toplevel)` and **embed `git -C {WORKTREE_ROOT}`** into every subagent prompt that runs git — never a bare `git` the subagent resolves against its own cwd, never a `$(…)` it re-runs, and never a reused pre-worktree path.
 
 ## Step 3: Implementation (TDD)
 
@@ -258,6 +258,8 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 >
 > "You are implementing item {K} of a plan for the Pastura iOS project.
 >
+> Work inside `{WORKTREE_ROOT}` — treat every path in this prompt as rooted there; do not rely on inherited cwd.
+>
 > **IMPORTANT: Read `CLAUDE.md` first** — it contains all project conventions you must follow.
 >
 > Key rules (also in CLAUDE.md — read it for the full list):
@@ -284,6 +286,8 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 > - **Do NOT commit** — leave changes unstaged. The orchestrator will review and commit.
 >
 > If tests still fail after your best effort, return with a summary of what you tried and the error output."
+
+**`-C {WORKTREE_ROOT}` applies to `git` only** — `scripts/xcodebuild.sh` invocations inside the prompt above must stay a **bare, cwd-relative** command. `.claude/settings.json`'s allowlist entry matches the **literal prefix** `Bash(scripts/xcodebuild.sh*)`, so a `cd … &&` prefix, an absolute path, or a leading env-var assignment bypasses the match and stalls the delegated subagent on an approval prompt. The wrapper has no `-C` equivalent — it resolves `REPO_ROOT` internally. See `.claude/rules/xcodebuild-cli.md` § "Canonical invocation".
 
 **After the Sonnet subagent returns:**
 1. Verify `git status` shows expected changes (no unexpected files).
@@ -319,7 +323,7 @@ After all implementation, run full verification directly from the main session:
 
 **Before launching the reviewer,** `git fetch origin {DEFAULT_BRANCH}` and check `git rev-list --count HEAD..origin/{DEFAULT_BRANCH}` — a long session (research → critic → multi-commit implementation) can span hours during which `{DEFAULT_BRANCH}` advances. If the count is non-zero, offer a rebase before review; **mandatory** when the diff touches large generated / data files (xcstrings, lockfiles), where a rebase or non-conflicting auto-merge can drop upstream entries without surfacing a conflict.
 
-Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist carries a Pastura-specific trap cheat sheet to keep the Sonnet-reviewer path safe.
+Launch a `code-reviewer` subagent via the Agent tool to review all changes on the feature branch. Pass `model: $REVIEWER_MODEL` (resolved from the plan's `## Metadata` — via Step 0 on resumption, or via Step 1 on a fresh run; defaults to Opus if absent). The Agent tool's `model` parameter takes precedence over the agent frontmatter's `model: opus`. The agent's checklist carries a Pastura-specific trap cheat sheet to keep the Sonnet-reviewer path safe. The reviewer **MUST emit** a `**Verdict**: PASS | FAIL` line — the review-verify-fix loop below parses it, and a reviewer that omits it breaks the gate.
 
 ```
 Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "...", prompt: "...")
@@ -329,7 +333,7 @@ Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "..
 
 Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — large PR diffs may need splitting (per axis or per area) to avoid `SCOPE_TOO_LARGE` early returns from the reviewer. **Splitting is the only remedy** — a cheaper model buys no headroom (§3 there), so never downgrade `REVIEWER_MODEL` to fit a diff.
 
-> **Agent prompt:** "Review all code changes on this feature branch. Run `git diff {DEFAULT_BRANCH}...HEAD` to see the full diff (all commits since branching, not just uncommitted changes). Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
+> **Agent prompt:** "Review all code changes on this feature branch. Run **`git -C {WORKTREE_ROOT} diff {DEFAULT_BRANCH}...HEAD`** for the full diff (all commits since branching, not just uncommitted changes) — use the `-C` path, not cwd; a bare `git` can resolve to the original checkout and show an empty phantom diff. Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 
 **Review-verify-fix loop:**
 1. If the code-reviewer returns **PASS** → proceed directly to Step 5 (PR creation).
@@ -337,7 +341,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
    a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt).
    b. Build the **Review Action Summary** (see below) and present it to the user.
    c. Capture `FIX_BASE=$(git rev-parse HEAD)`, then fix all confirmed issues. Skip false positives.
-   d. Re-run the `code-reviewer` subagent **scoped to the fix diff**: prompt it with `git diff {FIX_BASE}...HEAD` (the fix commits only) plus the prior FAIL items, instructing it to verify each fix and its immediate blast radius — NOT to re-review the full branch. Fall back to a full-branch re-review only when the fixes touched files outside the set reviewed in the previous iteration.
+   d. Re-run the `code-reviewer` subagent **scoped to the fix diff**: prompt it with `git -C {WORKTREE_ROOT} diff {FIX_BASE}...HEAD` (the fix commits only — same `-C` rule as the first-pass prompt) plus the prior FAIL items, instructing it to verify each fix and its immediate blast radius — NOT to re-review the full branch. Fall back to a full-branch re-review only when the fixes touched files outside the set reviewed in the previous iteration.
 3. Hard limit: **3 iterations**. If still FAIL after 3, report remaining issues to the user.
 
 **Review Action Summary** (displayed after each iteration):
