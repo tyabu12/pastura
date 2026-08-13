@@ -86,6 +86,8 @@ After fetching the issue, check for an existing plan comment:
    - CI / build infrastructure (`.github/workflows/**`, `scripts/**`)
    - Project tooling (`CLAUDE.md`, `.claude/{skills,agents,rules}/**`)
    - Content safety surface (ADR-005 related: `ContentFilter`, `PrivacyInfo.xcprivacy`, `Info.plist`)
+   - Database schema migrations (`Data/DatabaseManager+Migrations.swift`) — a defect here corrupts existing users' data irreversibly, and no test on a fresh database reaches it
+   - Integrity / crypto surfaces (`App/ReplayHashing.swift`, the model SHA-256 verification in `App/ModelManager.swift`) — a weakened check fails open, silently accepting a corrupt or substituted GGUF
    - LLM backend code or prompt templates
    - Design system foundations (`docs/design/design-system.md`, `DesignTokens*.swift`)
 
