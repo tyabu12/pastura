@@ -94,7 +94,7 @@ set matters more than the pattern: the doc's § "The rule-assertion case".
 One discipline, three moments where a claim becomes load-bearing and nobody downstream will check it — the author is the only one positioned to run it.
 
 - **Rule-commit** — a `.claude/rules/` or `CLAUDE.md` addition carrying an **executable assertion** (an asserted grep hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a self-quoted byte/line delta** — re-measure that one on the *final* commit) is run against current main state **before commit**. Dispositions: § "Dispositions when an assertion diverges".
-- **Plan-lock** — every load-bearing claim a plan leans on is verified against its authoritative source **before** Step 1b. **Read the doc's § "The claim table"** — it maps each claim shape to the source that settles it, and the shapes are not guessable (a defect framed with `would`; two UI surfaces called "the same metric"; a subagent verdict that *dismisses* a risk).
+- **Plan-lock** — every load-bearing claim a plan leans on is verified against its authoritative source **before** Step 1b. **Read the doc's § "The claim table"** — it maps each claim shape to the source that settles it, and the shapes are not guessable (a defect framed with `would`; two UI surfaces called "the same metric"; a subagent verdict that *dismisses* a risk; a claim **inherited from existing text**).
 - **Authoring** — a why-comment, guard, count, or gap list *you write* asserts behaviour that nobody executes. § "Claims you author are assertions too".
 
 ### Dispositions when an assertion diverges
