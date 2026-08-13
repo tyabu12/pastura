@@ -61,17 +61,29 @@ extension PhaseEditorSheet {
     if key == ScenarioConventions.primaryField(for: phase.type) {
       fieldPill(String(localized: "Primary"), wash: Color.mossDark, label: Color.mossOnWash)
     } else if key == ScenarioConventions.thoughtField(for: phase.type) {
-      fieldPill(String(localized: "Thought"), wash: Color.inkSecondary, label: Color.inkSecondary)
+      fieldPill(String(localized: "Thought"), wash: Color.inkSecondary, label: Color.inkOnWash)
     }
   }
 
-  /// Wash and label are separate parameters because the moss arm needs them to
-  /// differ: the designed wash is `mossDark` at 0.16, but `mossDark` text on it
-  /// measures ≈3.88:1 in light — under the 4.5:1 bar at `caption2` — so the
-  /// label reads the `mossOnWash` role token instead, which brings it to
-  /// ≈5.73:1 (#1327). The ink arm still passes one token twice — its light half
-  /// clears the bar at ≈5.48:1, and its *dark*-side gap (≈4.41:1, the opposite
-  /// asymmetry) is tracked separately in #1408.
+  /// Wash and label are separate parameters because **both** arms need them to
+  /// differ — each label reads its family's `*OnWash` role token rather than the
+  /// token filling the capsule under it.
+  ///
+  /// **Figures below are worst-case per appearance** — composited on
+  /// `screenBackground` in light and `nightBubble` in dark, the convention
+  /// `DesignTokensTests+MossOnWash` / `+InkOnWash` assert against. Earlier
+  /// revisions of this comment measured on `bubbleBackground`, so the light
+  /// numbers here read lower than the ones they replace (moss ≈5.73 → 5.509,
+  /// ink ≈5.48 → 5.270). That is the ground changing, not the contrast.
+  ///
+  /// - **moss arm**: the designed wash is `mossDark` at 0.16, on which `mossDark`
+  ///   text measures 3.737:1 — under the 4.5:1 bar at `caption2`. `mossOnWash`
+  ///   brings it to 5.509:1 (#1327).
+  /// - **ink arm**: the wash is `inkSecondary` at the same 0.16, where
+  ///   `inkSecondary` text was the **opposite asymmetry** — 5.270:1 in light,
+  ///   fine, but 4.413:1 in dark, the worst of the four self-washes and the only
+  ///   one strictly under the bar. `inkOnWash` brings dark to 4.991:1 and leaves
+  ///   light untouched, its two halves being byte-identical (#1408).
   private func fieldPill(_ text: String, wash: Color, label: Color) -> some View {
     Text(text)
       .font(.caption2.weight(.semibold))

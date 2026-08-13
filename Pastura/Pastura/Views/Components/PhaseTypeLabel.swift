@@ -40,25 +40,36 @@ struct PhaseTypeLabel: View {
     .foregroundStyle(badgeText)
   }
 
-  /// Text tint. §2.3 enumerates `moss` for fills / borders, so the readable
-  /// foreground is a darker step — but not the `moss-dark` §2.3 lists for
-  /// accent text: over this capsule's own `moss` @0.15 wash that measures only
-  /// ≈4.11:1 in light, under the 4.5:1 bar at `tagPhase`'s 9.5pt. The
-  /// `moss-on-wash` role token takes it to ≈6.06:1 (#1327).
-  /// Code-driven phases stay on `ink-secondary` (neutral pair).
+  /// Text tint — each arm reads its family's `*OnWash` role token, never the
+  /// token filling the capsule under it.
+  ///
+  /// §2.3 enumerates `moss` for fills / borders, so the readable foreground is a
+  /// darker step — but not the `moss-dark` §2.3 lists for accent text: over this
+  /// capsule's own `moss` @0.15 wash that measures only ≈4.11:1 in light, under
+  /// the 4.5:1 bar at `tagPhase`'s 9.5pt. `moss-on-wash` takes it to ≈6.06:1
+  /// (#1327).
+  ///
+  /// The code-driven arm is the **opposite asymmetry**, which is why it was
+  /// fixed separately: `ink-secondary` on its own @0.15 wash is 5.350:1 in light
+  /// but **4.501:1** in dark — on the bar, green by 0.001. `ink-on-wash` takes
+  /// dark to 5.090:1 and leaves light identical, its two halves being
+  /// byte-identical (#1408). Both dark figures are worst-case per appearance
+  /// (composited on `nightBubble`), the convention
+  /// `DesignTokensTests+InkOnWash` asserts.
   private var badgeText: Color {
     if phaseType.requiresLLM {
       Color.mossOnWash
     } else {
-      Color.inkSecondary
+      Color.inkOnWash
     }
   }
 
   /// Capsule fill (rendered at 15% opacity). LLM phases use the lighter
   /// `moss` so the wash reads as a soft tint; if we used `moss-dark`
   /// here too, the 0.15 wash would skew olive-brown and clash with the
-  /// readable text on top. Code phases reuse their text color since
-  /// `ink-secondary` at 15% lands at a similar neutral wash.
+  /// readable text on top. Code phases fill with `ink-secondary`, which is
+  /// where the label used to read from as well — #1408 moved the label to
+  /// `ink-on-wash` and left the fill here, so the two are no longer one token.
   private var badgeFill: Color {
     if phaseType.requiresLLM {
       Color.moss
