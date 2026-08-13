@@ -189,9 +189,15 @@ class EngineParityTests {
     /**
      * The happy path, with **nothing excused**.
      *
-     * The empty ledger is the assertion: `TranscriptComparator` fails on any
-     * uncovered difference, so this going green means the two engines agree
-     * event for event and field for field across a full four-round run.
+     * "Nothing excused" is asserted rather than implied: the full ledger is
+     * passed in, and the first assertion is that none of it is scoped to this
+     * fixture. Passing `emptyList()` instead would look stronger and be weaker
+     * — a nominal-scoped entry added later would simply never run, so the
+     * ledger's "an entry that stops firing fails" property would not cover it.
+     *
+     * Given that, a green run means the two engines agree event for event and
+     * field for field across a full four-round run: 24 inferences, a vote
+     * tally, a conditional branch, and the summarize template on both arms.
      *
      * **The green was falsified before it was believed.** Without [normalize]
      * this reported 24 uncovered differences, one per `inference_completed`,
@@ -201,7 +207,28 @@ class EngineParityTests {
      * to redden; this note covers the wiring, which nothing else does.
      */
     @Test
-    fun theNominalFixtureAgreesWithAnEmptyLedger() {
-        assertParity(ParityGolden.targetScoreRaceNominal, emptyList())
+    fun theNominalFixtureAgreesWithNothingExcused() {
+        val fixture = ParityGolden.targetScoreRaceNominal
+        val scoped = DivergenceLedger.entries.filter { it.fixture == fixture.name }
+        assertTrue(
+            scoped.isEmpty(),
+            "the happy-path fixture is excusing ${scoped.size} divergence(s), which defeats " +
+                "the point of it being the happy path: $scoped",
+        )
+        assertParity(fixture, DivergenceLedger.entries)
+    }
+
+    /**
+     * The negative control: the ledger's entries must all fire, and nothing
+     * else may differ.
+     *
+     * `Report.isClean` is a conjunction, so this asserts both directions at
+     * once — an unledgered difference fails, **and** so does a ledger entry
+     * that stopped firing. The second is what stops a closed divergence
+     * leaving a standing licence behind.
+     */
+    @Test
+    fun theDivergentFixtureDrivesExactlyItsLedgeredDivergences() {
+        assertParity(ParityGolden.targetScoreRaceDivergent, DivergenceLedger.entries)
     }
 }

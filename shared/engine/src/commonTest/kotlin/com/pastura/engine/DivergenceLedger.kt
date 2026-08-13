@@ -12,13 +12,12 @@ package com.pastura.engine
  * fire. The second half is what stops the ledger widening — a stale entry is a
  * build failure rather than a permanent licence.
  *
- * **Nothing is wired to a real transcript yet.** No `List<LedgerEntry>` instance
- * exists, and `ParityGolden` is read by nothing; the schema, the comparator and
- * the golden are three unconnected pieces until slice 1b (#501; #1387 delivered
- * 1a and is closed) joins them. So
- * this file describes a guard that is proven against synthetic transcripts and
- * not yet against either engine — read the paragraphs below as the contract 1b
- * inherits, not as a gate now running.
+ * **This is now wired to real transcripts.** [entries] is read by
+ * `EngineParityTests`, which replays each `ParityGolden` fixture through the
+ * Kotlin engine and compares. Slice 1b (#1458) joined the schema, the
+ * comparator and the golden, which 1a (#1387) had left as three unconnected
+ * pieces. The paragraphs below describe a gate that runs, not one that is
+ * planned.
  *
  * ## Why entries pin values instead of listing fields to ignore
  *
@@ -108,6 +107,38 @@ internal object DivergenceLedger {
          */
         NUMBER_LITERAL_FORMATTING("JSONResponseParser.kt normalizeValues KDoc"),
     }
+
+    /**
+     * Every accepted divergence, across every fixture.
+     *
+     * `TranscriptComparator.compare` scopes this to one fixture per call, so an
+     * entry can never leak into a fixture it was not written for — and an entry
+     * whose `fixture` names nothing is silently out of scope rather than
+     * unfired, which is what `everyEntryNamesAKnownFixture` exists to catch.
+     *
+     * **Adding an entry is not the default response to a red parity run.** The
+     * regime ADR-023 §12 condition 3 chose is dual-landing: on a surface with a
+     * Kotlin counterpart, a new Swift-only divergence is *fixed*, not excused.
+     * An entry is correct only when the divergence is genuinely accepted and
+     * already documented — which the [DivergenceClass] requirement enforces,
+     * since citing one means the write-up exists.
+     */
+    internal val entries: List<LedgerEntry> = listOf(
+        // Ordinal 0, not 3. The divergent fixture's first three answers drive
+        // アオイ's turn to a skip, so the FIRST `agent_output` Swift emits is
+        // ハルト's — the one carrying the float. Counted against the generated
+        // bytes rather than inferred from the response indices, because those
+        // two disagree exactly when a turn is skipped.
+        LedgerEntry.Value(
+            fixture = "targetScoreRaceDivergent",
+            event = "agent_output",
+            ordinal = 0,
+            path = "fields.confidence",
+            expectedSwift = "1",
+            expectedKotlin = "1.0",
+            divergenceClass = DivergenceClass.NUMBER_LITERAL_FORMATTING,
+        ),
+    )
 
     /** Which engine emits an event the other does not. */
     internal enum class Side { SWIFT_ONLY, KOTLIN_ONLY }
