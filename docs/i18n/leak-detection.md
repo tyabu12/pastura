@@ -269,6 +269,49 @@ visible authority and its silence reads as "all clear."
 | New `+Previews.swift` preview body | None — excluded by Tier 2's filename-suffix filter |
 | New file under `Engine/` | None for catalog (ADR-010 §4); the per-Engine-site translation table in ADR-010 § Step C-1 governs Engine strings |
 
+## Rule-file layering
+
+The Swift-side conventions are split across `.claude/rules/i18n.md` (callsite
+core — loads on **every** app-target Swift read), `i18n-ui.md` (UI-layer traps)
+and `i18n-catalog.md` (catalog editing). CLAUDE.md § "Context-Specific Rules"
+carries each one's globs. Placement is decided here, not in the rules themselves.
+
+**Criterion.** A section belongs in `i18n-ui.md` on **either** arm: (1) it is
+written against a **SwiftUI API** (`Text` plural variants, `LocalizedStringKey`
+labels, `.accessibilityLabel`) and so cannot fire outside a View; or (2) it is a
+catalog / audit procedure whose **entire known instance set** lives in `Views/` /
+`App/` / `PasturaApp.swift` — layer-agnostic mechanism, UI-only reach. Everything
+else stays in the core: **61** `String(localized:)` uses sit outside those UI
+globs (Models 37 / LLM 16 / Data 6 / Engine 1 / Utilities 1), so non-UI slices
+and non-UI Tier 2 candidates are both real — and a core→UI pointer is
+unreachable in exactly the session that needs it.
+
+**These placements are time-indexed, not structural** (measured 2026-08-13 —
+re-check them, don't trust them). Both arms:
+
+- Arm 2 holds only because every `String(localized:)` strictly inside a
+  `#if DEBUG` block sits in `Views/` (`Views/Results/ResultDetailView.swift`,
+  3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`). A future non-UI
+  DEBUG literal hits a rule that no longer injects.
+- Arm 1 holds only because all 24 **app-target** files naming
+  `accessibilityLabel` are under `Views/` / `App/`. Step 1 of
+  `i18n-ui.md` § "Audit triage — `.accessibilityLabel` candidates"
+  exists to hunt getters that sit far from their application site, and one in
+  `Models/` would surface as a Tier 2 candidate in a session that file never
+  reaches.
+
+And separately — not an arm of the criterion — `i18n-ui.md`'s
+`PasturaTests/Localization/**` glob (there for the plural runtime test) reaches
+only that directory: `String(localized:)` also appears under `PasturaTests/App/`
+(4 files), `Views/` (3), `Models/` (2).
+
+**What a split costs.** `i18n.md`'s glob covers `Views/` too, so a UI read
+injects both halves. Measured at the #1431 split: a non-UI read went 19.2 KB →
+9.5 KB, while a UI read went 19.2 KB → 21.3 KB — a *net increase*, since a split
+duplicates a preamble and filename-qualifies every cross-reference. A further
+split only pays on a path matching exactly one half; sum the per-path bytes
+before proposing one.
+
 ## See also
 
 - ADR-010 — Localization (i18n: ja / en) — language-resolution priority,

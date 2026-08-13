@@ -11,13 +11,7 @@ paths:
 
 The UI half of the i18n rules. `i18n.md` carries the layer-independent callsite core (Form A vs Form B) and loads on **every** app-target Swift read, so its `§` references resolve from here — but not the reverse, which is why the core only ever *points* at this file and never depends on it.
 
-## Scope
-
-A section belongs here on **either** arm: (1) it is written against a **SwiftUI API** (`Text` plural variants, `LocalizedStringKey` labels, `.accessibilityLabel`) and so cannot fire outside a View; or (2) it is a catalog / audit procedure whose **entire known instance set** lives in `Views/` / `App/` / `PasturaApp.swift` — layer-agnostic mechanism, UI-only reach. Apply it before moving a section either way; § "Audit triage" is the one audit section here, on arm 1. Everything else stays in `i18n.md`, because **61** `String(localized:)` uses sit outside `Views/`+`App/` (Models 37 / LLM 16 / Data 6 / Engine 1 / Utilities 1) — non-UI slices and non-UI Tier 2 candidates are both real, and a core→here pointer is unreachable in exactly the session that needs it.
-
-The remaining two `paths:` arms: `PasturaTests/Localization/**` for the plural runtime test, `Localizable.xcstrings` because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog — and `i18n-catalog.md` opens by claiming a catalog session loads all three.
-
-**Accepted gaps — both arms are time-indexed, not structural** (measured 2026-08-13; re-check them, don't trust them). Arm 2 holds only because every `String(localized:)` strictly inside a `#if DEBUG` block sits in `Views/` (`Views/Results/ResultDetailView.swift`, 3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`) — a future non-UI DEBUG literal hits a rule that no longer injects. Arm 1 holds only because all 24 files naming `accessibilityLabel` are under `Views/` / `App/`: § "Audit triage" step 1 exists to hunt getters that sit far from their application site, and one in `Models/` would surface as a Tier 2 candidate in a session this file never reaches. The `PasturaTests/Localization/**` arm likewise reaches only that directory — `String(localized:)` also appears under `PasturaTests/App/` (4 files), `Views/` (3), `Models/` (2).
+**Before adding or moving a section**, read `docs/i18n/leak-detection.md` § "Rule-file layering" — it carries the two-arm placement criterion, the measured gaps where each arm is time-indexed rather than structural, and why the `paths:` arms beyond `Views/` are there.
 
 ## Plurals — the sanctioned exception to Form B
 
