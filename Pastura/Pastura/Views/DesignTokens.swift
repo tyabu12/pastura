@@ -125,7 +125,8 @@ enum PasturaPalette {
   /// constraint-free neutral it is everywhere else.
   ///
   /// The light half is deliberately **byte-identical to `inkSecondary`**, not
-  /// inherited from it: light is not broken (5.270–5.595 across the four sites),
+  /// inherited from it: light is not broken (5.270–5.595 across the four sites,
+  /// composited on `screenBackground` — the worst-case light ground),
   /// so this pair exists to give the *dark* half independent control. Copying
   /// the value rather than aliasing is what makes that control possible — see
   /// `nightInkOnWash`, where the two diverge. Valid over ink-family

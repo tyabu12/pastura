@@ -22,8 +22,9 @@ import Testing
 /// here there is one. `rg 'Color\.'` over
 /// `Pastura/Pastura/Views/Results/ResultsView+Timeline.swift` does return hits —
 /// seven, when this was written — but every one belongs to a **different**
-/// element: the rail, the day-section node's border and fill, the day title, the
-/// card surface and its stroke. The day node is deliberately independent of the
+/// element: the record-count subtitle, the rail, the day-section node's border
+/// and fill, the day title, the card surface and its stroke. The day node is
+/// deliberately independent of the
 /// run node and is not governed by this map. The run node's own fill is
 /// `pillForeground(pill.style)` and carries no `Color.` literal, which is the
 /// property that keeps this pin honest — re-run the grep rather than trusting
@@ -50,9 +51,12 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct ResultsPillTokenTests {
 
-  /// `scope` is the only stored property without a default; `@Environment` is
-  /// resolved at render time and `pillForeground` never touches it, so no
-  /// dependency graph is needed to reach the map.
+  /// The memberwise initializer is already reached this way in production —
+  /// `RootTabView` constructs `ResultsView(scope: .aggregate)` from another file
+  /// in the same module — which is the checkable half of "this construction is
+  /// sound". The rest follows: `@Environment` resolves at render time and
+  /// `pillForeground` never reads `dependencies`, so no dependency graph is
+  /// needed to reach the colour map.
   private let sut = ResultsView(scope: .aggregate)
 
   @Test func completedRoutesToTheAccentInkStep() {

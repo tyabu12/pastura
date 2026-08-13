@@ -260,20 +260,18 @@ extension PasturaPalette {
   /// That claim is executed by `DesignTokensTests+InkOnWash`, not just written
   /// here — otherwise a later reader "simplifies" to `nightInk` silently.
   ///
-  /// Lowering the dark wash alpha is the other rejected lever, and it is weak by
-  /// measurement rather than by taste: the self-wash **ceiling** — the alpha→0
-  /// limit, i.e. `nightInkSecondary` bare on `nightBubble` — is 5.975, and
-  /// `PhaseTypeLabel` documents its 15% fill as load-bearing. Retuning
-  /// `nightInkSecondary` itself was rejected on reach: **90 `Color.inkSecondary`
-  /// call sites across 43 files** (app source, excluding the `DesignTokens*`
-  /// declarations themselves — measure it that way or the number will not
-  /// reproduce), of which four are self-washes.
+  /// Two more levers were rejected, both on measurement rather than taste, and
+  /// the derivations live in ADR-028 § Amendment 2026-08-13 (#1408) rather than
+  /// here: lowering the dark wash alpha (cheap — `fieldPill` needs only
+  /// 0.16 → 0.150 — but it buys back the marginless state this change exists to
+  /// leave, and the 15% fill is load-bearing), and retuning `nightInkSecondary`
+  /// itself (93 `Color.inkSecondary` lines across 43 files, four of them
+  /// self-washes).
   ///
   /// Placed by the §2.2 proportional-L relation, **precedent rather than an
   /// independent control** (the same caveat `nightMossOnWash` carries): HSL L
   /// 69.61, 0.198 of the way from `nightInkSecondary`'s 65.10 toward `nightInk`'s
-  /// 87.84. What has teeth is the measurement above. See ADR-028 § Amendment
-  /// 2026-08-13 (#1408).
+  /// 87.84. What has teeth is the measurement above.
   static let nightInkOnWash = PasturaColorValue(hex: 0xBAB7A9)
 
   // MARK: §2.9 Dark counterparts of the §2.3 moss accent

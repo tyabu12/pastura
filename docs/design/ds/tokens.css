@@ -35,6 +35,12 @@
   --muted: #8A8A83;
   --rule: #E0DBCE;
   --ink-on-accent: #FFFFFF;
+  /* Byte-identical to --ink-2 by design (#1408): the light half of the pair is
+     a copy, so the dark half can move independently. The substring gate in
+     check_design_tokens_css.py cannot see this row — the hex was already
+     present as --ink-2 — so it is diff-verified and pinned by
+     DesignTokensTests+InkOnWash's inkOnWashCopiesTheLightHalfAndDivergesOnlyInDark
+     instead. */
   --ink-on-wash: #5A5A55;
 
   /* §2.3 Moss Accent — Pastura's only brand color, 4 steps */

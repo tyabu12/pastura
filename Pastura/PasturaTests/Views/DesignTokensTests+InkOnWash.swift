@@ -27,11 +27,13 @@ extension DesignTokensTests {
   /// look.
   ///
   /// Hand-maintenance is not a convenience here, it is forced: three of the four
-  /// compose the wash **indirectly** (through `ScenarioBadgeStyle.fillToken` /
-  /// `fillOpacity`, through `PhaseTypeLabel.badgeFill`, through
-  /// `ResultsView.pillBackground`), so a `Color.inkSecondary.opacity` grep finds
-  /// only `fieldPill`. Enumerating the bug class is what found the other three;
-  /// nothing mechanical will find a fifth.
+  /// compose the wash **indirectly** — `ScenarioBadgeStyle` through
+  /// `fillToken` / `fillOpacity`, `PhaseTypeLabel` through `badgeFill`, and
+  /// `fieldPill` through a `wash:` parameter the helper opacity-applies. So
+  /// `rg 'Color\.inkSecondary\.opacity' Pastura/Pastura/` returns exactly **one**
+  /// hit, and it is `ResultsView.pillBackground` — the only *direct* site, and the
+  /// one that was not failing. Enumerating the bug class is what found the other
+  /// three; nothing mechanical will find a fifth.
   ///
   /// Unlike ``mossWashSites`` every row fills with the same token, so there is
   /// no `Wash` enum to unroll — the alpha is the only axis, and it does not
@@ -47,7 +49,13 @@ extension DesignTokensTests {
 
   /// WCAG 1.4.3 normal-text bar. Every one of these labels is under the "large
   /// text" threshold (≥14pt bold / ≥18pt regular) — the largest is
-  /// `caption2.semibold` at ~11pt — so 3:1 never applies to any of them.
+  /// `ResultsView`'s pill at `.caption` + `.semibold`, i.e. **12pt**, and the
+  /// smallest is `PhaseTypeLabel` at `Typography.tagPhase`'s 9.5pt — so 3:1
+  /// never applies to any of them.
+  ///
+  /// Not the `~11pt` figure `DesignTokensTests+MossOnWash` states: its seven-site
+  /// set does not include `ResultsView.paused`, so its largest is a different
+  /// label. Re-derived here rather than carried over.
   private static let inkTextBar = 4.5
 
   /// "Clears the bar" and "has margin above it" are different claims, and this
@@ -55,7 +63,28 @@ extension DesignTokensTests {
   /// `PhaseTypeLabel` measure **4.5010** today: green by arithmetic, one wash
   /// tweak from red. This band is what lets ``inkSecondaryHasNoMarginOnTheseWashes``
   /// state that without pretending they are already failing.
-  private static let inkMarginlessBand = 4.55
+  ///
+  /// **The value is derived, not fitted to the observed 4.5010.** On these
+  /// washes the ratio moves ≈0.088 per 0.01 of wash alpha (0.16 → 4.4134,
+  /// 0.15 → 4.5010). `inkTextBar + 0.05` is therefore "less than one alpha step
+  /// of headroom" — the smallest change anyone would plausibly make to a wash is
+  /// enough to cross it. Widening this to 4.6 would stop meaning that, so do not
+  /// nudge it to accommodate a future measurement; re-derive it from the
+  /// sensitivity if the wash alphas change.
+  private static let inkMarginlessBand = inkTextBar + 0.05
+
+  /// The wash alpha for a named fixture row, so an arm that needs one site's
+  /// alpha cannot silently drift from the fixture the way a hardcoded literal
+  /// would. Records an issue rather than defaulting: a missing name means the
+  /// fixture was renamed and the caller is measuring nothing, and the returned
+  /// `NaN` makes every downstream comparison false so the arm fails loudly.
+  private static func inkWashAlpha(_ name: String) -> Double {
+    guard let site = inkWashSites.first(where: { $0.name == name }) else {
+      Issue.record("no inkWashSites row named \(name)")
+      return .nan
+    }
+    return site.alpha
+  }
 
   /// Grounds are the **worst case per appearance**, not the per-site truth —
   /// the convention `DesignTokensTests+MossOnWash.swift` established. These
@@ -106,10 +135,18 @@ extension DesignTokensTests {
   /// `mossOnWash`'s shape: there the ceiling was under the bar, which proved
   /// wash-tuning could not work at all. Here the self-wash ceiling — the
   /// alpha→0 limit, `nightInkSecondary` bare on `nightBubble` — is 5.975, i.e.
-  /// **the lever exists**. It is rejected on other grounds (`PhaseTypeLabel`
-  /// documents its 15% fill as load-bearing, and 0.16→~0.06 is not a tweak),
-  /// which is a design decision and not something this file can prove. Do not
-  /// read a passing ceiling assertion as endorsement of that route.
+  /// **the lever exists, and cheaply**: `fieldPill` needs only 0.16 → 0.150 to
+  /// reach 4.5010, the alpha two sibling rows already ship. So the rejection
+  /// cannot rest on the size of the change, and does not:
+  ///
+  /// - reaching the *bar* leaves the site exactly where the two 0.15 rows
+  ///   already are — the marginless state this whole change exists to leave, so
+  ///   it fixes nothing;
+  /// - reaching the margin the role token gives (4.9908) needs alpha ≈**0.097**,
+  ///   and `PhaseTypeLabel` documents its 15% fill as load-bearing.
+  ///
+  /// That is a design judgement this file cannot prove. Do not read a passing
+  /// ceiling assertion as endorsement of the route.
   @Test func inkSecondaryHasNoMarginOnTheseWashes() {
     // The exclusion is keyed on a **name string**, so renaming or replacing that
     // row would leave the filter matching nothing and this loop silently
@@ -127,14 +164,19 @@ extension DesignTokensTests {
     }
 
     let worst = composite(
-      PasturaPalette.nightInkSecondary, over: PasturaPalette.nightBubble, alpha: 0.16)
+      PasturaPalette.nightInkSecondary, over: PasturaPalette.nightBubble,
+      alpha: Self.inkWashAlpha("PhaseEditorSheet.fieldPill"))
     #expect(
       contrastRatio(PasturaPalette.nightInkSecondary, worst) < Self.inkTextBar,
       "fieldPill is supposed to be the strictly-failing site")
 
     let ceiling = contrastRatio(PasturaPalette.nightInkSecondary, PasturaPalette.nightBubble)
     #expect(ceiling >= Self.inkTextBar, "the self-wash ceiling moved below the bar: \(ceiling)")
-    #expect(ceiling < 6.1, "nightInkSecondary got materially brighter: \(ceiling)")
+    // Headroom matched to the moss sibling's (~5.5%, 4.737 against a 5.0 cap)
+    // rather than hugging the measured 5.975 — a routine `nightInkSecondary`
+    // nudge changes nothing about this pair's justification and should not
+    // redden a guard about the *lever*.
+    #expect(ceiling < 6.3, "nightInkSecondary got materially brighter: \(ceiling)")
   }
 
   /// Executes the "margin, not repair" half of the change, which the negative
@@ -147,11 +189,21 @@ extension DesignTokensTests {
   /// them.
   @Test func pausedPillGainsMarginRatherThanBeingRepaired() {
     let ground = composite(
-      PasturaPalette.nightInkSecondary, over: PasturaPalette.nightBubble, alpha: 0.12)
+      PasturaPalette.nightInkSecondary, over: PasturaPalette.nightBubble,
+      alpha: Self.inkWashAlpha("ResultsView.paused"))
     let before = contrastRatio(PasturaPalette.nightInkSecondary, ground)
     let after = contrastRatio(PasturaPalette.nightInkOnWash, ground)
 
-    #expect(before >= Self.inkTextBar, "the paused pill was supposed to pass already: \(before)")
+    // Clearing the bar is the weaker claim and is not the one the negative
+    // control above depends on. That arm excludes this row on the grounds that a
+    // blanket four-row control would *fail* — which needs this site outside the
+    // marginless band, not merely above 4.5. Without this line a retune pulling
+    // it to 4.52 would leave every arm green while the stated scoping rationale
+    // quietly became false.
+    #expect(
+      before >= Self.inkMarginlessBand,
+      "the paused pill must sit outside the marginless band, else the three-not-four scoping in inkSecondaryHasNoMarginOnTheseWashes is wrong: \(before)"
+    )
     #expect(after > before, "repointing must not cost margin: \(after) vs \(before)")
   }
 

@@ -43,6 +43,12 @@ struct PhaseTypeLabel: View {
   /// Text tint — each arm reads its family's `*OnWash` role token, never the
   /// token filling the capsule under it.
   ///
+  /// **The two arms' figures use different grounds and are not comparable.** The
+  /// ink numbers are the worst-case-per-appearance convention (`screenBackground`
+  /// light / `nightBubble` dark) that `DesignTokensTests+InkOnWash` asserts; the
+  /// moss numbers are inherited #1327 **per-site** figures on this capsule's own
+  /// ground. Do not read one against the other as a before/after.
+  ///
   /// §2.3 enumerates `moss` for fills / borders, so the readable foreground is a
   /// darker step — but not the `moss-dark` §2.3 lists for accent text: over this
   /// capsule's own `moss` @0.15 wash that measures only ≈4.11:1 in light, under
@@ -53,10 +59,13 @@ struct PhaseTypeLabel: View {
   /// fixed separately: `ink-secondary` on its own @0.15 wash is 5.350:1 in light
   /// but **4.501:1** in dark — on the bar, green by 0.001. `ink-on-wash` takes
   /// dark to 5.090:1 and leaves light identical, its two halves being
-  /// byte-identical (#1408). Both dark figures are worst-case per appearance
-  /// (composited on `nightBubble`), the convention
-  /// `DesignTokensTests+InkOnWash` asserts.
-  private var badgeText: Color {
+  /// byte-identical (#1408).
+  ///
+  /// Internal, not `private`, so `PhaseTypeLabelTokenTests` can pin which token
+  /// each arm routes to. That pin is not optional bookkeeping: #1327 repointed
+  /// this same accessor and the structural `PhaseTypeLabelTests` did not notice,
+  /// which is how its doc comment went stale for two releases.
+  var badgeText: Color {
     if phaseType.requiresLLM {
       Color.mossOnWash
     } else {
@@ -70,7 +79,10 @@ struct PhaseTypeLabel: View {
   /// readable text on top. Code phases fill with `ink-secondary`, which is
   /// where the label used to read from as well — #1408 moved the label to
   /// `ink-on-wash` and left the fill here, so the two are no longer one token.
-  private var badgeFill: Color {
+  ///
+  /// Internal for the same reason as ``badgeText`` — the pin covers both, so a
+  /// future edit cannot repoint one and leave the other behind.
+  var badgeFill: Color {
     if phaseType.requiresLLM {
       Color.moss
     } else {
