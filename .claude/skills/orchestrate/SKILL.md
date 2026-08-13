@@ -12,33 +12,13 @@ argument-hint: "[description | issue-number | phase N]"
 Orchestrate the full development workflow: plan → issue → worktree → TDD implementation → review → PR.
 
 > **Project-owned file, hand-reconciled against the claude-kit template — not generated from it.**
-> This skill predates `/claude-kit:orchestrate-creator`; the stamp above records the template
-> revision its content was last reconciled with (#1453), so a re-run reaches Step U-3's
-> principle-level back-port proposals instead of stopping at U-1's "hand-written, report only".
-> Edit this file freely — kit updates never touch it. `/claude-kit:orchestrate-creator` rewrites
-> the stamp line on an upgrade, so anything that must survive belongs in the block below, not in it.
->
-> **Read "up to date" narrowly.** Step U compares hashes first, so an unchanged template reports
-> "up to date" — that means *no template change since the reconcile*, **not** that this file matches
-> the template. It deliberately does not. Most divergences are additions, which an upgrade proposal
-> cannot silently undo; these are the ones a plausible-sounding back-port **would** undo:
->
-> - **Step 1.3's "do not add a blanket 'when in doubt, go up a tier'" guardrail is not in the
->   template's Step 1** — it is a *negative* instruction, so nothing around it looks wrong once it is
->   gone, and it is the direct fix for the defect this file was reconciled to repair (#1453).
->   Reject any proposal to adopt the template's Step 1 wording that drops it.
-> - **The Step 4 reviewer prompt omits the template's selective `.claude/rules/*.md` read** —
->   `.claude/agents/code-reviewer.md`'s Review Process step 3 owns that logic here. Do not add it in
->   both places; if that agent ever loses it, this prompt must gain it, or path-scoped review
->   coverage vanishes silently.
-> - **Pre-flight check 3's degraded-mode `DEFAULT_BRANCH` fallback deliberately differs from the
->   template's** — the template's `git symbolic-ref refs/remotes/origin/HEAD` returns a full ref, not
->   a branch name, and breaks the `git fetch` / `git rev-list` / `git pull` that consume it. Never
->   adopt the template's shorter form; this is a correction, not a stylistic divergence.
-> - **The template's inlined subagent output-cap / split-budget note is omitted, and its "Project
->   parameters (baked at generation)" table has no counterpart** — `.claude/rules/subagent-usage.md`
->   is always-loaded here (inlining pays twice per turn, `.claude/rules/context-budget.md`), and this
->   file's parameters are inline at each step and richer than the table's cells.
+> Edit it freely; kit updates never touch it. Step U-4 rewrites the stamp line on an upgrade, so
+> nothing durable belongs in it. **"Up to date" from Step U means *no template change since the
+> reconcile*, not that this file matches the template** — it deliberately does not, and a back-port
+> proposal must be judged on its merits.
+> Before accepting one, read
+> [`docs/agent-tooling/orchestrate-kit-reconciliation.md`](../../../docs/agent-tooling/orchestrate-kit-reconciliation.md)
+> — the ledger of divergences an upgrade could silently undo, and why each is correct here (#1453).
 
 ## Constants
 
