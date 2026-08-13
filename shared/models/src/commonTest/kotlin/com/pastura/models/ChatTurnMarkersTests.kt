@@ -25,16 +25,24 @@ class ChatTurnMarkersTests {
 
     /**
      * Guards the **structural** `equals` the `data class` modifier synthesizes.
-     * Nothing here reverts to redden it, so read it as a change-detector, not a
-     * regression test: what it catches is a `data class` → `class` demotion or a
-     * hand-written `equals`, either of which would silently break
-     * `JSONResponseParserTurnMarkerTests`' `assertEquals(listOf(chatML),
-     * backend.knownTurnMarkers)` in the sibling module.
+     * A change-detector, not a regression test: what it catches is a
+     * `data class` → `class` demotion or a hand-written `equals`.
      *
-     * Note the asymmetry with Swift, where the equivalent test guards a live
-     * consumer: `LlamaCppService.knownTurnMarkers` decides its union with a
-     * whole-pair `== .chatML` ternary. This module has no such consumer yet —
-     * the Phase 3.0 adapter is where one would appear.
+     * **It is the only thing that catches one** — measured, not assumed.
+     * Demoting the type to `class` and running both modules reddens exactly this
+     * test; `:shared:engine:jvmTest` passes in full. In particular
+     * `JSONResponseParserTurnMarkerTests`' `assertEquals(listOf(chatML),
+     * backend.knownTurnMarkers)` is **not** a dependant: both sides name the same
+     * companion singleton, so element-wise `List.equals` resolves to
+     * `chatML == chatML` on one reference and `Any.equals` identity answers it
+     * without any structural `equals`. A hand-written `equals` comparing only
+     * `start` would pass it too.
+     *
+     * So no Kotlin consumer relies on structural equality today — the asymmetry
+     * with Swift, where `LlamaCppService.knownTurnMarkers` decides its union
+     * with a whole-pair `== .chatML` ternary and the equivalent test therefore
+     * guards a live consumer. The Phase 3.0 adapter is where one would appear
+     * here.
      */
     @Test
     fun equalityDiscriminatesOnEachField() {

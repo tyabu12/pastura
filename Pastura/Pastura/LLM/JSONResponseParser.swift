@@ -30,9 +30,8 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Parse raw LLM output text into a ``TurnOutput``.
   ///
   /// Thin wrapper over ``parse(_:expectedKeys:)`` with no schema-aware
-  /// repair guard. Existing callers that don't have ``Phase/outputSchema``
-  /// in scope (most tests, replay paths) keep the same `TurnOutput`-only
-  /// return shape.
+  /// repair guard. Callers that don't have ``Phase/outputSchema`` in scope
+  /// (today: tests only) keep the same `TurnOutput`-only return shape.
   ///
   /// - Parameters:
   ///   - text: The raw text response from the LLM.

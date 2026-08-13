@@ -196,9 +196,9 @@ internal class JSONResponseParser {
             // empty *marker string* this `continue` and its sibling in the
             // start arm are the only **per-marker** defence — the function's
             // opening `markers.isEmpty()` guard covers an empty *set*, and the
-            // start arm's outer `any { it.start.isNotEmpty() … }` only skips
-            // the arm when *every* start is empty, so neither catches one empty
-            // marker in a mixed set. The two engines agree because these are here.
+            // start arm's outer `any { … }` skips the arm only when no start
+            // both is non-empty and occurs in the text. Neither catches one
+            // empty marker in a mixed set. The engines agree because these are here.
             if (marker.end.isEmpty()) continue
             val index = text.indexOf(marker.end)
             if (index >= 0 && index < cut) cut = index

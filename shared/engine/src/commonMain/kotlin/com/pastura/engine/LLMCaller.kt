@@ -161,10 +161,17 @@ internal class LLMCaller(
                 // Named, not positional: the two `parse` overloads differ in
                 // what their second positional argument means (2-arg:
                 // `turnMarkers`; 3-arg: `expectedKeys`), and Kotlin has no
-                // argument labels to catch a mix-up. `expectedKeys` is
-                // Stage-3-reserved and currently unused, so its eventual
-                // removal would silently rebind this call to the 2-arg
-                // overload with `turnMarkers` in the wrong slot.
+                // argument labels to distinguish them at a glance.
+                //
+                // This documents intent; it is not guarding a silent failure.
+                // Every way of getting it wrong is compile-caught: the two types
+                // don't convert (`List<ChatTurnMarkers>` is not a `Set<String>`),
+                // the 2-arg overload returns a bare `TurnOutput` with no `.first`
+                // for the destructuring below, and dropping `expectedKeys` from
+                // the 3-arg signature would collide with the 2-arg one. What the
+                // named form buys is that a future signature change fails *here*,
+                // at the call that meant something specific, rather than at
+                // whichever call site the compiler happens to reach first.
                 parser.parse(result.rawText, expectedKeys = expectedKeys, turnMarkers = turnMarkers)
             } catch (_: SimulationException) {
                 logParseFailure(agentName, result.rawText, attempt)

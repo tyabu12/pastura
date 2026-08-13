@@ -98,9 +98,9 @@ public interface LLMBackend {
      * warning, where the header *itself* misled ("header-only inspection
      * misleadingly suggests the `swift_name` annotation works") and only an
      * actual Swift compile settled it. So: read the header, then build the
-     * adapter. No analogy to Pattern 3 is intended — that one is about default
-     * *arguments*, a different surface from an interface's default
-     * *implementation*.
+     * adapter. No analogy to Pattern 3's *"default args don't cross"* bullet is
+     * intended — that one is about default **arguments**, a different surface
+     * from an interface's default **implementation**.
      */
     public val knownTurnMarkers: List<ChatTurnMarkers>
         get() = listOf(ChatTurnMarkers.chatML)

@@ -1,10 +1,12 @@
 package com.pastura.engine
 
 import com.pastura.models.ChatTurnMarkers
+import com.pastura.models.SimulationError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
 /**
@@ -76,12 +78,20 @@ class JSONResponseParserTurnMarkerTests {
             <turn|>
             {"statement": "本物", "action": "cooperate"}
         """.trimIndent()
-        assertFailsWith<SimulationException> { parser.parse(leadingEcho, turnMarkers = gemma) }
+        // `assertIs` on the payload, per the sibling suite's idiom: a bare
+        // `assertFailsWith` would keep passing if the throw site ever moved to a
+        // different `SimulationException`, which is the drift a #1452 pin exists
+        // to detect.
+        val leading = assertFailsWith<SimulationException> {
+            parser.parse(leadingEcho, turnMarkers = gemma)
+        }
+        assertIs<SimulationError.JsonParseFailed>(leading.error)
 
         // The counter-example that blocks the `> firstBrace` gate.
-        assertFailsWith<SimulationException> {
+        val fabricated = assertFailsWith<SimulationException> {
             parser.parse("""<|im_end|>{"fake":1}""", turnMarkers = chatMLOnly)
         }
+        assertIs<SimulationError.JsonParseFailed>(fabricated.error)
     }
 
     @Test

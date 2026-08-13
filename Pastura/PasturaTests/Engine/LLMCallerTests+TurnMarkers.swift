@@ -120,8 +120,11 @@ extension LLMCallerTests {
   /// pre-fix" — it did, but so does this one, since pre-#1422 emitted no line at
   /// all for this input: (1) a substring probe couples the control to the
   /// message wording, which this PR then changed; (2) it would miss a
-  /// *differently-worded* warning on this path — a `logParseFailure` line, say —
-  /// which is exactly the kind of noise a silence control should catch.
+  /// *differently-worded* warning on this path — a `logParseFailure` line, say.
+  /// Reason (2) is **forward-looking, not instantiated**: no warning of any kind
+  /// fires on this input today, since the sibling control below shows this raw
+  /// text parses successfully. It is the shape a silence control should have,
+  /// not a failure it currently catches.
   ///
   /// Not vacuous: `leakageDiagnosticWarnsOnBackendStartMarker` above drives the
   /// same raw text to a `.warning`, so warnings are reachable on this input and

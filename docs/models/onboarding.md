@@ -82,25 +82,30 @@ Run from **the primary checkout, not an `/orchestrate` worktree** —
 `data/models/eval-runs/` is gitignored, so it exists only where the harness ran,
 and the path below is relative to that checkout's root.
 
-**There are two ways to record a false zero here, and the loop guards against
-both:**
+**There are two ways to record a false zero here, and only one of them has a
+mechanical guard:**
 
-- **A placeholder left in.** Replace the two `<candidate …>` operands with the
-  candidate's actual marker strings first; left as-is the loop counts the
-  literal text and reports `0`.
-- **A missing corpus.** `grep -r` over an absent directory writes to stderr and
-  the pipeline still prints `0` for every marker — indistinguishable from a real
-  negative. Hence the precondition on the first line.
+- **A missing corpus** — *guarded.* `grep -r` over an absent directory writes to
+  stderr while the pipeline still prints `0` for every marker, indistinguishable
+  from a real negative. The `[ -d … ]` check below skips the loop instead.
+- **A placeholder left in** — *not guarded, your responsibility.* Replace the two
+  `<candidate …>` operands with the candidate's actual marker strings first;
+  left as-is the loop counts the literal text and reports `0`. Nothing detects
+  this, which makes it the likelier of the two.
 
 Both produce the exact failure this paragraph exists to warn about, so treat a
-row of zeros as suspect until the precondition has passed.
+row of zeros as suspect until the corpus check has passed **and** the
+placeholders are replaced.
 
 ```sh
-[ -d data/models/eval-runs ] || { echo 'corpus absent — use the primary checkout' >&2; exit 1; }
-for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' \
-         '<candidate turn-start>' '<candidate turn-end>'; do
-  printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l
-done
+if [ -d data/models/eval-runs ]; then
+  for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' \
+           '<candidate turn-start>' '<candidate turn-end>'; do
+    printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l
+  done
+else
+  echo 'corpus absent — run from the primary checkout, not a worktree' >&2
+fi
 ```
 
 Append the result to [`eval-log.md`](eval-log.md) § "Spelled-out chat-template
