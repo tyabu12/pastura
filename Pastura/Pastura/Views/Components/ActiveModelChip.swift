@@ -104,9 +104,9 @@ struct ActiveModelChip: View {
   private func rowLabel(_ row: ActiveModelChipPresenter.MenuRow) -> some View {
     // Ready rows show just the name; non-ready rows append the localized
     // availability hint. Compose into one verbatim string so the runtime value
-    // is never used as a catalog lookup key (the LocalizedStringKey
-    // interpolation fallback trap, i18n-ui.md); `Label`/`Text` take the String
-    // (verbatim) overloads.
+    // is never used as a catalog lookup key (`.claude/rules/i18n-ui.md`
+    // § "SwiftUI convenience-init label trap"); `Label`/`Text` take the
+    // String (verbatim) overloads.
     let composed = row.detail.map { "\(row.name) · \(detailText($0))" } ?? row.name
     return Group {
       if row.isActive {
