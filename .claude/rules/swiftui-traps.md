@@ -233,9 +233,8 @@ locally:
 `scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
 form, `EXCEPTIONS` exemptions) — but it is a **substring match on the hex** over the raw file, so a
 token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `--bubble-bg`) has
-**no automated detector for its step-5 row**: delete that row and the job still exits 0. Steps 1–3,
-*when done*, still assert the token's value — but nothing enforces that they were. Verify by diff
-(#1299).
+**no automated detector for its step-5 row**: delete that row and the job still exits 0. Nothing
+enforces that steps 1–3 were done either. Verify by diff (#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
 steps above assume a brand-new value. A dark pair adds the `night*` raw token in
@@ -248,24 +247,22 @@ pair still passes; and the CSS gate keys off `PasturaColorValue(hex:)` literals,
 pairing files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are
 inert to it — only the new `night*` hex needs a `tokens.css` row. Keep every
 `DesignTokens+*` filename inside `check_design_tokens_css.py`'s glob; renaming one out blinds
-the gate silently (each file's own header says so). See ADR-028.
+the gate silently. See ADR-028.
 
 **Choosing the value: a token-pair ratio is not a prediction about a *presented* surface.** For a
-sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
-behind and not the surface itself, which can flip the sign, so a pair designed to sit *below* its
-ground can render *above* its own backdrop. Judge such a value against a device screenshot, not the
-pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
-§ "An occlusion layer ... must be darker than every ground it covers" below — same "what does it
-actually composite over" question, asked of a surface rather than an occluder; keep the two
-pointing at each other.
+sheet / overlay fill the comparand is the **composited** backdrop, which presentation dimming moves
+independently of the palette — far enough to flip the sign. Judge such a value against a device
+screenshot, not the pair. Derivation: ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
+§ "An occlusion layer ... must be darker than every ground it covers" below — same question asked of
+a surface rather than an occluder; keep the two pointing at each other.
 
 **Measure a contrast ratio with the guard's own helpers** (`composite` /
 `contrastRatio`, `DesignTokensTests+NightPalette.swift`) — an ad-hoc script that
 quantizes the composited ground back to 0–255 lands off by enough to make a doc
 comment disagree with the test asserting the same value. And **state which ground
 each figure uses**: mixing per-site and worst-case grounds lets an aggregate
-"before → after" range draw its two ends from different sites, which cannot be true.
-ADR-028 § Amendment 2026-08-08.
+"before → after" range draw its two ends from different sites, which cannot be true
+(ADR-028 § Amendment 2026-08-08).
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
@@ -356,27 +353,23 @@ without injecting. Real-device dark-mode QA is still required; the simulator
 misleads.
 
 **Read `PasturaPalette.<token>.color`, never the `Color.*` alias, and treat that
-as unconditional** — not belt-and-braces. Under an injection an alias does
-resolve to the requested appearance *today*, but that was measured on one device
-and one OS minor, and the raw read is what keeps the export off a behaviour an
-SDK change can alter. It also costs the choice you just threaded: a palette
-building **both** its families from aliases collapses them into one, since both
-resolve against the same injected scheme. Do not treat a specific alias as fixed
-without checking `PasturaDynamicPalette`, whose doc comment carries the current
-membership.
+as unconditional** — not belt-and-braces. Under an injection an alias resolves to
+the requested appearance *today*, but the raw read is what keeps the export off a
+behaviour an SDK change can alter. It also costs the choice you just threaded: a
+palette building **both** its families from aliases collapses them into one, since
+both resolve against the same injected scheme. Check `PasturaDynamicPalette`'s doc
+comment for current membership before treating an alias as fixed.
 
-**What the gate does not cover.** It guards the injection half only. The token
-tests assert `PasturaPalette` components *and* the aliases' own resolution, but
-ADR-009 rules out snapshots, so any *new* fixed-appearance consumer needs its own
-pin **on the alias half** — and nothing detects that pin's absence; three
-mechanical guards for it were designed and refused (ADR-028 § "Revisit trigger"
-bullet 1).
-Today's pins are `HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`,
-whose *invariance* arm derives its slots by **reflection** rather than a hand
-list, so a stored property added later reading a paired alias reddens. Two pins
-keep the reflection honest: an expected slot count (a computed-property refactor
-would otherwise make it vacuous) and `colors.count == childCount` (a slot typed
-`AnyShapeStyle` / `LinearGradient` / `UIColor` is invisible to `as? Color`).
+**What the gate does not cover.** It guards the injection half only, and ADR-009
+rules out snapshots, so any *new* fixed-appearance consumer needs its own pin **on
+the alias half** — and nothing detects that pin's absence (three mechanical guards
+were designed and refused, ADR-028 § "Revisit trigger" bullet 1). Today's pins are
+`HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`, whose *invariance*
+arm derives its slots by **reflection**, so a stored property added later reading a
+paired alias reddens. Two pins keep the reflection honest: an expected slot count
+(a computed-property refactor would otherwise make it vacuous) and
+`colors.count == childCount` (a slot typed `AnyShapeStyle` / `LinearGradient` /
+`UIColor` is invisible to `as? Color`).
 
 Measurement, arms and controls: ADR-028 § Amendment 2026-08-06 (#1337).
 Reference: `HighlightCardImageRenderer.render`, `HighlightShareCard`,
@@ -417,20 +410,14 @@ full-bleed fill: does it occlude, or is it a surface?
 
 Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — an
 allowlist (a shadow tint must name `PasturaOccluderShadows` or `PasturaShadows`),
-and **for the shadow half only**.
+and **for the shadow half only**. **A green run still does not mean "this shadow
+is dark enough"**: the rule matches a family **name**, so a member added to either
+family with a too-light tint passes it, and the scrim shape has no lint guard at
+all. `SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and
+`PasturaShadowsTests` carry what lint cannot, asserting the requirement against
+**hand-maintained** ground lists — which is the residual weakness.
 
-**A green run still does not mean "this shadow is dark enough."** The rule
-matches a family **name**, so a member added to either family with a too-light
-tint passes it — which is what `PasturaShadows` itself was until #1378, and what
-the next addition could be. The scrim shape has no lint guard at all: one
-instance, no stable syntax to key on, so a rule would be over-fitted. Tests carry
-what lint cannot — `SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and
-`PasturaShadowsTests` each assert the darker-than-every-ground requirement
-against a **hand-maintained** ground list, which is the residual weakness: a
-night ground added later and darker than the occluder value would not be covered
-automatically.
-
-Values, arithmetic and the measurements behind each revision: design-system §4.3
+Values, arithmetic, and the residual-weakness derivation: design-system §4.3
 and ADR-028 § Amendment (#1284, #1373, #1378). Reference: `ModelPickerView`,
 `InFlightSimulationIndicator`, `SimulationScrimStyle`, `PasturaOccluderShadows`,
 `PasturaShadows`.
