@@ -43,7 +43,15 @@ import SwiftUI
 ///
 /// Cancelled and error currently share the muted palette with paused; if
 /// later UX work calls for differentiating them (e.g. red accent for
-/// `error`), update the color groupings here. The semantic distinction
+/// `error`), update the color groupings here — **and take the contrast
+/// obligation with you.** The guards are keyed on site names, not on
+/// `allCases`: a new arm whose wash is a token no existing row covers passes
+/// every pin in `GameHeaderStatusTests` (add its row and they go green again)
+/// while reaching **no** contrast fixture at all. So route the new label to
+/// that family's `*-on-wash` role token, or take design-system §8's exception
+/// explicitly, and add the arm to `DesignTokensTests+MossOnWash`'s
+/// `mossWashSites` or `+MossInkAsWashLabel`'s `mossInkWashSites`. A red label
+/// on its own red wash at 9pt is the defect #1455 repaired. The semantic distinction
 /// (`.cancelled` vs `.error` vs `.paused`) is preserved at the enum
 /// level so consumers like `SimulationViewModelStatusTests` can pin
 /// derivation precedence even when colors collapse.
@@ -80,8 +88,11 @@ public enum GameHeaderStatus: String, Sendable, CaseIterable {
     }
   }
 
-  /// Opacity applied to ``washToken`` to produce ``background``, per the
-  /// original design hand-off (HEADER_UPDATE.md / §2.12 status pill spec).
+  /// Opacity applied to ``washToken`` to produce ``background``, carried over
+  /// unchanged from the original design hand-off (HEADER_UPDATE.md). The alpha
+  /// itself is recorded nowhere in design-system — §2.12's table is header
+  /// *slot* tokens and has no pill row — so this declaration is its only home;
+  /// the pill's tokens live in §2.3 / §8 and its size in §3's `pill/status`.
   ///
   /// Held apart from the token — rather than folded into `background` —
   /// so a routing pin can compare the *token* by alias. A `Color` carrying
@@ -90,9 +101,11 @@ public enum GameHeaderStatus: String, Sendable, CaseIterable {
   /// the same shape for the same reason.
   ///
   /// Deliberately `internal` on a `public` enum: it is a routing detail, not
-  /// part of the pill's contract. The test target reaches it via `@testable`.
-  /// If `GameHeaderStatus` is ever pulled into an SPM module, this and
-  /// ``washToken`` are what the routing and contrast pins would lose.
+  /// part of the pill's contract. An out-of-module consumer gets *what to
+  /// paint* — label and fill — without the derivation. The test target reaches
+  /// it via `@testable`, which crosses module boundaries too, so an SPM
+  /// extraction would not cost the pins their access; what it would straddle is
+  /// the app test target reading this and `PasturaPalette` from two modules.
   static let washAlpha: Double = 0.14
 
   /// Foreground (text) color for the pill. See the type's doc comment for

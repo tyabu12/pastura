@@ -621,7 +621,7 @@ box-shadow:
 ```
 
 - 左: 6pt 菱形 (leaf) + `tag/phase` + `title/phase` 縦並び
-- 右: `DEMO中`（10pt mono, `--muted`）
+- 右: 上のモックは `GameHeader` 以前の phase header 表記。出荷しているのは `GameHeaderStatus` の7アームのステータスピルで、**トークンは §2.3／§8、寸法は §3 の `pill/status`（9pt mono）が正**。ここの `DEMO中`（10pt mono, `--muted`）を実装の根拠に読まないこと（#1455）
 - 背景: `screen-bg` を 78% 薄めた上に `backdrop-filter: blur(8px) saturate(1.05)`
 - 下線: 1pt rgba(60,62,48,0.07)
 

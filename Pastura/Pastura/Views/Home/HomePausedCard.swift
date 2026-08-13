@@ -102,6 +102,11 @@ struct HomePausedCard: View {
         currentRound: summary.currentRound, totalRounds: summary.rounds) {
         Text(progress)
           .font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))
+          // `mossInk` on this card's own moss wash. The ratio clears AA
+          // (8.807 light / 5.927 dark, pinned by `mossInkWashSites`), but §2.3
+          // assigns this token no role covering a round readout — so the
+          // routing is unjustified rather than wrong. #1459, design-system §8's
+          // closing ⚠️. The eyebrow above already moved to `mossOnWash` (#1327).
           .foregroundStyle(Color.mossInk)
       }
       Spacer()
