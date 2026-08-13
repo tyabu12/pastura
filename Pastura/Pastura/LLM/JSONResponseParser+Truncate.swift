@@ -55,7 +55,7 @@ nonisolated extension JSONResponseParser {
 
     // End arm — unguarded and string-blind. Both properties are accepted
     // gaps, kept because closing either would change behaviour for ChatML
-    // backends, which this change holds fixed. The list is exhaustive:
+    // backends, which this change holds fixed. The two known gaps:
     //
     // 1. String-blind — a marker spelled inside a JSON string value cuts
     //    mid-string. Not a clean parse failure: the cut leaves an unclosed

@@ -570,7 +570,8 @@ durable record in ADR-011.)
 decoded text**, so it is what makes the per-model truncation in
 `JSONResponseParser+Truncate.swift` live rather than dead code (#1422). Why a
 correctly-exported model cannot produce one except as a plaintext hallucination
-is stated once, on `ChatTurnMarkers` (§ "Contract for consumers"). No shipped
+is stated in full on `Pastura/Pastura/Models/ChatTurnMarkers.swift`
+§ "Contract for consumers" (its Kotlin mirror carries the same section). No shipped
 model has been observed doing so — `docs/models/eval-log.md` § "Spelled-out
 chat-template markers" — but read that negative as a statement about **the files
 measured**, not the models. **Do not "simplify" the truncation away on the

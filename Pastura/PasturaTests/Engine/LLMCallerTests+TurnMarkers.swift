@@ -116,11 +116,16 @@ extension LLMCallerTests {
   /// shipped model. Pins the delta rather than merely the fixed behaviour.
   ///
   /// Asserts the absence of **any** `.warning`, not the absence of the string
-  /// `<|turn>`: a substring probe passes on pre-#1422 code for the trivial
-  /// reason that no line is emitted at all, and it also silently couples the
-  /// control to the message wording. Not vacuous — `leakageDiagnosticWarnsOn
-  /// BackendStartMarker` above drives the same raw text to a `.warning`, so
-  /// warnings are reachable on this input and only the marker set differs.
+  /// `<|turn>`. Two reasons, neither of them "the substring probe passed
+  /// pre-fix" — it did, but so does this one, since pre-#1422 emitted no line at
+  /// all for this input: (1) a substring probe couples the control to the
+  /// message wording, which this PR then changed; (2) it would miss a
+  /// *differently-worded* warning on this path — a `logParseFailure` line, say —
+  /// which is exactly the kind of noise a silence control should catch.
+  ///
+  /// Not vacuous: `leakageDiagnosticWarnsOnBackendStartMarker` above drives the
+  /// same raw text to a `.warning`, so warnings are reachable on this input and
+  /// only the marker set differs.
   @Test func leakageDiagnosticIsSilentForNonMatchingMarkers() async throws {
     let mock = MockLLMService(responses: [Self.gemmaHallucination])
     try await mock.loadModel()
@@ -136,7 +141,10 @@ extension LLMCallerTests {
     #expect(!spy.entries.contains { $0.level == .warning })
   }
 
-  /// **Regression.** A ChatML backend keeps the pre-#1422 diagnostic behaviour verbatim.
+  /// **Regression.** A ChatML backend keeps the pre-#1422 severity split and
+  /// marker detection. Not the wording — this PR deliberately reworded the
+  /// message to drop its overclaim (see `logChatTemplateLeakage`), and the
+  /// substring asserted below appears only in the post-#1422 text.
   @Test func leakageDiagnosticStillWarnsOnChatMLStartMarker() async throws {
     let raw = """
       {"statement": "hello"}<|im_end|>

@@ -157,8 +157,11 @@ extension JSONResponseParserTests {
 
   // MARK: - Degenerate inputs
 
-  /// An empty marker string must never match — it would otherwise cut at index
-  /// 0 and destroy every response.
+  /// An empty marker string must never match — absent the `isEmpty` guards in
+  /// `truncateAtTurnMarkers` it would cut at index 0 and destroy every
+  /// response. Counterfactual: with those guards in place an empty pair does
+  /// not over-match, it goes **inert**, which is what
+  /// `ModelRegistryTurnMarkerDivergenceTests` asserts at the catalog.
   @Test func emptyMarkerStrings_areIgnored() throws {
     let input = #"{"statement": "hello"}"#
     let output = try parser.parse(

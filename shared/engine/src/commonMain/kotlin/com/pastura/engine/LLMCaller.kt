@@ -158,7 +158,14 @@ internal class LLMCaller(
             // consumers below, so they cannot drift onto different sets.
             val turnMarkers = backend.knownTurnMarkers
             val parseResult = try {
-                parser.parse(result.rawText, expectedKeys, turnMarkers)
+                // Named, not positional: the two `parse` overloads differ in
+                // what their second positional argument means (2-arg:
+                // `turnMarkers`; 3-arg: `expectedKeys`), and Kotlin has no
+                // argument labels to catch a mix-up. `expectedKeys` is
+                // Stage-3-reserved and currently unused, so its eventual
+                // removal would silently rebind this call to the 2-arg
+                // overload with `turnMarkers` in the wrong slot.
+                parser.parse(result.rawText, expectedKeys = expectedKeys, turnMarkers = turnMarkers)
             } catch (_: SimulationException) {
                 logParseFailure(agentName, result.rawText, attempt)
                 if (attempt < MAX_RETRIES) {
@@ -578,20 +585,28 @@ internal class LLMCaller(
      * spelled-out **start** marker stays reachable even under llama.cpp, whose
      * streaming path strips `stopSequence` alone.
      *
-     * Severity split preserved from the pre-#1422 shape: a start marker is a
-     * fabricated next turn (WARNING), a lone end marker is the ordinary
-     * trailing-sentinel case (DEBUG).
+     * Severity split preserved from the pre-#1422 shape: a start marker is the
+     * more suspicious of the two (WARNING), a lone end marker is the ordinary
+     * trailing-sentinel case (DEBUG). Suspicion, not a verdict — this predicate
+     * is a bare substring test and cannot tell a fabricated next turn from a
+     * header echo or from marker text inside a string value.
      */
     private fun logChatTemplateLeakage(raw: String, markers: List<ChatTurnMarkers>) {
+        // `firstOrNull` picks the first marker in **list order**, not the one
+        // occurring earliest in `raw`, and only one line is emitted either way.
         val startMarker = markers.firstOrNull { it.start.isNotEmpty() && raw.contains(it.start) }
         if (startMarker != null) {
-            // Deliberately does NOT claim the continuation was truncated: the
-            // parser's start arm cuts only after the first structural `{`, so a
-            // leading template-header echo is detected here and left in place.
+            // The message states presence only, with no claim about what the
+            // model did or what the parser then did. `raw.contains` also fires
+            // on a leading template-header echo (which the parser's start arm
+            // deliberately leaves in place) and on a marker spelled inside a
+            // JSON string value. Neither is the model writing past its turn.
+            // Kept byte-identical to the Swift `logChatTemplateLeakage`; no
+            // gate compares log messages across the two engines.
             logger.log(
                 EngineLogLevel.WARNING,
                 LOG_CATEGORY,
-                "Turn-start marker ${startMarker.start} leaked into output — model wrote past its turn",
+                "Turn-start marker ${startMarker.start} present in raw output",
                 EngineLogPrivacy.PUBLIC,
             )
             return

@@ -166,9 +166,22 @@ internal class JSONResponseParser {
      * same trap as in the Swift original, and identical in the Kotlin `Regex`
      * constructor.
      *
-     * **Known gap, matching Swift:** the end arm is string-blind, so a marker
-     * spelled inside a JSON string value cuts mid-string. Closing it would move
-     * ChatML behaviour, which #1422 holds fixed.
+     * **Known gaps, matching Swift** — the enumeration is maintained on the
+     * Swift original's end arm (`JSONResponseParser+Truncate.swift`); keep the
+     * two in step, since no gate compares them:
+     *
+     * 1. The end arm is string-blind, so a marker spelled inside a JSON string
+     *    value cuts mid-string — and Swift's repair pipeline then closes the
+     *    quote and brace, persisting a silently-truncated value. (This port has
+     *    no repair pipeline yet — Stage-3 freight per the class doc — so here
+     *    the same cut merely fails the parse. The **gap** is shared; its
+     *    consequence is not, until that port lands.)
+     * 2. A *leading* end marker cuts at index 0 and destroys the whole payload
+     *    (#1452). Deliberately unchanged on both engines; the obvious
+     *    `> firstBrace` gate is not strictly safer — read #1452 before adding
+     *    one here.
+     *
+     * Closing either would move ChatML behaviour, which #1422 holds fixed.
      */
     private fun truncateAtTurnMarkers(text: String, markers: List<ChatTurnMarkers>): String {
         if (markers.isEmpty() || text.isEmpty()) return text
@@ -177,11 +190,15 @@ internal class JSONResponseParser {
         for (marker in markers) {
             // These `isEmpty()` guards carry more weight here than their Swift
             // counterparts: `String.indexOf("")` returns `startIndex`, so an
-            // empty marker would cut at index 0 and destroy every response.
-            // Swift's helper has a third backstop (`firstIndex` returns `nil`
-            // on an empty pattern); Kotlin's `indexOf` has none, so this
-            // `continue` and its sibling in the start arm are the whole
-            // defence, and the two engines agree only because they are here.
+            // empty marker string would cut at index 0 and destroy every
+            // response. Swift has a third backstop (`firstIndex` returns `nil`
+            // on an empty pattern); Kotlin's `indexOf` has none, so against an
+            // empty *marker string* this `continue` and its sibling in the
+            // start arm are the only **per-marker** defence — the function's
+            // opening `markers.isEmpty()` guard covers an empty *set*, and the
+            // start arm's outer `any { it.start.isNotEmpty() … }` only skips
+            // the arm when *every* start is empty, so neither catches one empty
+            // marker in a mixed set. The two engines agree because these are here.
             if (marker.end.isEmpty()) continue
             val index = text.indexOf(marker.end)
             if (index >= 0 && index < cut) cut = index

@@ -108,8 +108,8 @@ let package = Package(
       name: "PasturaHarnessKitTests",
       // `PasturaCore` is declared because the tests `import` it directly
       // (`ModelProfileTests` asserts on `ChatTurnMarkers`). Without the row it
-      // resolves only by SwiftPM search-path luck, matching `pastura-harness`
-      // above, which lists both.
+      // resolves only by SwiftPM search-path luck. `pastura-harness` above
+      // already lists both.
       dependencies: ["PasturaHarnessKit", "PasturaCore"],
       path: "tools/harness/Tests/PasturaHarnessKitTests",
       swiftSettings: [

@@ -78,15 +78,25 @@ convention across families — Gemma 4's `<|turn>` / `<turn|>` vs ChatML's
 **re-run the marker sweep over the accumulated transcripts** rather than carrying
 forward the last recorded numbers:
 
-Run from the repository root (the corpus path below is repo-relative), and
-**replace the two placeholder operands with the candidate's actual marker
-strings before running** — left as-is the loop counts the literal text
-`<candidate turn-start>`, returns `0`, and that zero is indistinguishable from a
-real negative once it is appended to the log. That is the failure this very
-paragraph warns about, so it is worth being blunt: a placeholder left in is the
-most likely way to record a false zero.
+Run from **the primary checkout, not an `/orchestrate` worktree** —
+`data/models/eval-runs/` is gitignored, so it exists only where the harness ran,
+and the path below is relative to that checkout's root.
+
+**There are two ways to record a false zero here, and the loop guards against
+both:**
+
+- **A placeholder left in.** Replace the two `<candidate …>` operands with the
+  candidate's actual marker strings first; left as-is the loop counts the
+  literal text and reports `0`.
+- **A missing corpus.** `grep -r` over an absent directory writes to stderr and
+  the pipeline still prints `0` for every marker — indistinguishable from a real
+  negative. Hence the precondition on the first line.
+
+Both produce the exact failure this paragraph exists to warn about, so treat a
+row of zeros as suspect until the precondition has passed.
 
 ```sh
+[ -d data/models/eval-runs ] || { echo 'corpus absent — use the primary checkout' >&2; exit 1; }
 for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' \
          '<candidate turn-start>' '<candidate turn-end>'; do
   printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l

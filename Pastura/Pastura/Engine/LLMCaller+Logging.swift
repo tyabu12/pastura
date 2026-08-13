@@ -129,9 +129,10 @@ nonisolated extension LLMCaller {
       // did or what the parser then did. `raw.contains` is a plain substring
       // test, so it also fires on a leading template-header echo (which the
       // parser's start arm deliberately leaves in place) and on a marker
-      // spelled inside a JSON string value (fixture:
-      // `JSONResponseParserTests+TurnMarkers.startMarker_insideStringValue…`).
-      // Neither is the model writing past its turn.
+      // spelled inside a JSON string value. Neither is the model writing past
+      // its turn. The string-value shape has a fixture — a *parser* test, so it
+      // demonstrates the input reaching this predicate, not the warning firing:
+      // `JSONResponseParserTests.startMarker_insideStringValue_isNotATurnBoundary`.
       logger.log(
         .warning, category: Self.logCategory,
         "Turn-start marker \(marker.start) present in raw output",

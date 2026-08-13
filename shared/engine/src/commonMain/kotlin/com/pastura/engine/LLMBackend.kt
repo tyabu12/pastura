@@ -91,13 +91,16 @@ public interface LLMBackend {
      * expected to reach the generated Obj-C protocol as an optional
      * requirement, which would oblige the Phase 3.0 Swift adapter over
      * `LlamaCppService` to state this member explicitly rather than inherit
-     * ChatML-only. **Confirm it against the generated `PasturaShared.h` when
-     * that adapter is written** — both Pattern 1 and Pattern 2 in
-     * `.claude/rules/kmp-interop.md` are cases where reasoning from Kotlin
-     * source alone turned out wrong and only the header settled it. No
-     * analogy to Pattern 3 is intended: that asymmetry is silent, whereas an
-     * unimplemented protocol requirement is compiler-caught, so the cost of
-     * this expectation being wrong is a build error, not a wrong default.
+     * ChatML-only. **Confirm it when that adapter is written, and confirm it by
+     * compiling — not by reading alone.** `.claude/rules/kmp-interop.md`
+     * Pattern 1 is a case where reasoning from Kotlin source was wrong and only
+     * the generated `PasturaShared.h` settled it; Pattern 2 is the sharper
+     * warning, where the header *itself* misled ("header-only inspection
+     * misleadingly suggests the `swift_name` annotation works") and only an
+     * actual Swift compile settled it. So: read the header, then build the
+     * adapter. No analogy to Pattern 3 is intended — that one is about default
+     * *arguments*, a different surface from an interface's default
+     * *implementation*.
      */
     public val knownTurnMarkers: List<ChatTurnMarkers>
         get() = listOf(ChatTurnMarkers.chatML)

@@ -3,6 +3,7 @@ package com.pastura.engine
 import com.pastura.models.ChatTurnMarkers
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -52,6 +53,35 @@ class JSONResponseParserTurnMarkerTests {
 
         // Negative control — the pre-#1422 behaviour on the identical input.
         assertEquals("偽物", parser.parse(fencedHallucination, turnMarkers = chatMLOnly).fields["statement"])
+    }
+
+    /**
+     * **A pin on an accepted trade-off, not an assertion of desired
+     * behaviour** — the Kotlin half of Swift's
+     * `endMarker_leadingMarkerDestroysPayload_acceptedGap`. Read
+     * [#1452](https://github.com/tyabu12/pastura/issues/1452) before changing
+     * it: a failure means the end arm's unguarded cut moved, and the question
+     * is whether #1452 was decided, not whether this expectation is stale.
+     *
+     * The end arm cuts at the first occurrence with no `firstBrace` guard, so a
+     * *leading* end marker discards the whole payload the model then writes.
+     * The symmetric-looking fix — reusing the start arm's `> firstBrace` gate —
+     * is not strictly safer, which is the second assertion: today
+     * `<|im_end|>{"fake":1}` throws; under that gate the fabricated object
+     * would be accepted as the turn's answer.
+     */
+    @Test
+    fun endMarkerLeadingMarkerDestroysPayloadAcceptedGap() {
+        val leadingEcho = """
+            <turn|>
+            {"statement": "本物", "action": "cooperate"}
+        """.trimIndent()
+        assertFailsWith<SimulationException> { parser.parse(leadingEcho, turnMarkers = gemma) }
+
+        // The counter-example that blocks the `> firstBrace` gate.
+        assertFailsWith<SimulationException> {
+            parser.parse("""<|im_end|>{"fake":1}""", turnMarkers = chatMLOnly)
+        }
     }
 
     @Test

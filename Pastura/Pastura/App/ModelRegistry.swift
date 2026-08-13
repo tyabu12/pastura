@@ -61,16 +61,22 @@ enum ModelRegistry {
     // parser and reach `turnMarkers` below. Repointing it would activate a
     // behaviour on an assumption; deferred to #1451 (#1417).
     // Canonical note: `LlamaCppService.stopSequence`. This rationale is
-    // restated across production, the harness profile, and both test pins, and
-    // #1451 has to change all of them (`grep -rn '#1451\|#1417'` enumerates
-    // them) — so keep this pointer; a copy that loses it is the one left behind.
+    // restated at production, harness, test and doc sites, and #1451 has to
+    // change all of them — `grep -rn '#1451\|#1417'` is the enumeration, so no
+    // count is asserted here. Keep this pointer; a copy that loses it is the
+    // one left behind.
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the exact file pinned above: `<|turn>`
     // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`,
-    // vocab 262,144. Neither ChatML string occurs anywhere in that vocabulary
-    // — the one claim here a reader cannot re-derive from the ids above; the
-    // vocabulary sweep that establishes it is `docs/models/onboarding.md`
-    // § "Stage 0 — Harness profile".
+    // vocab 262,144. The ids and `token_type`s come from the GGUF header-read
+    // step in `docs/models/onboarding.md` § "Stage 0 — Harness profile".
+    // The trailing claim — that neither ChatML string occurs anywhere in that
+    // vocabulary — is the one a reader cannot re-derive from those ids, and no
+    // document records the sweep behind it: it is carried as an assertion on
+    // `LlamaCppService.stopSequence` (and ADR-002 for the Gemma 3 syntax). Note
+    // that Stage 0's own "marker sweep" counts markers in **transcripts**,
+    // which is a different claim from vocabulary membership — do not cite it
+    // for this one.
     turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
@@ -93,8 +99,8 @@ enum ModelRegistry {
     stopSequence: "<|im_end|>",
     // Qwen 3 genuinely is ChatML: `<|im_start|>` 151644 / `<|im_end|>` 151645,
     // both CONTROL, and `eos = 151645`. The pre-#1422 hardcoded literal was
-    // correct here and only here. Procedure that produces these ids:
-    // `docs/models/onboarding.md` § "Stage 0 — Harness profile".
+    // correct here and only here. Header-read procedure that produces these
+    // ids: `docs/models/onboarding.md` § "Stage 0 — Harness profile".
     turnMarkers: .chatML,
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/Qwen/Qwen3-4B-GGUF"),
