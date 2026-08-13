@@ -1,7 +1,12 @@
 # Subagent Usage Rules
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). Everything numeric — the
+> the generic core is canonical there; reconcile one-way (kit → Pastura). **Since kit#24 the kit's
+> rules carry firing conditions only, with the depth evacuated to the kit's `docs/` — so reconcile
+> rule + doc as a pair.** Diffing the kit's rule alone reads relocated depth as deletions. This
+> mirror's kit-side pair set is `docs/subagent-output-cap.md` (backs §1–§2) and
+> `docs/code-review-path-scoped-rules.md` (backs §5's path-scoped-invisibility claim); the latter
+> gets no Pastura counterpart doc on purpose — #1312 holds this repo's probes. Everything numeric — the
 > cap table, the `#24055` status, the 800/8/5 and 1500/12/7 split thresholds — is kit-canonical, but
 > the two kinds age differently. The **cap table** is Claude Code's platform limit — recomputed on
 > upgrade, never retuned (§1). The **split thresholds** are a *review-attention* bound, **NOT**
@@ -96,9 +101,13 @@ maximum.` The report usually survives with a **seam** where the cut happened —
 but if every resume also overflows, the run fails outright with that error and
 returns nothing.
 
-The tell is *not* a missing summary: review agents are built to emit their
-verdict/summary **first** under cap pressure, so it survives exactly when the
-run is truncated. Look instead for **detail missing behind a present summary**,
+The tell is *not* a missing summary: the Output Format puts `## Review Summary`
+first, so a cut lands in the body and leaves the header over-claiming. Note what
+this does **not** guarantee — the self-monitoring nudge that makes an agent stop
+investigating and emit the report is *conditional* on it noticing
+(`code-reviewer.md` fires it "near 20+ `tool_use` calls"), so a run that
+exhausts before noticing never reaches the format at all. Look for **detail
+missing behind a present summary**,
 which is mechanically checkable as a **count mismatch** — the summary claims
 more issues, axes, or findings than the body actually writes out, or names them
 with no evidence attached. Corroborate with intermediate tool output present
@@ -108,8 +117,8 @@ short, and needs nothing. In Pastura the check is arithmetic rather than
 a prose judgement: `code-reviewer`'s summary emits per-severity counts
 (`- **Critical**: N issues`) to compare the body against.
 
-**A second failure shape: no verdict at all**, contradicting the guarantee
-above — the run returns only its opening sentence, leaving the count-mismatch
+**A second failure shape: no verdict at all** — the conditional above not
+firing — the run returns only its opening sentence, leaving the count-mismatch
 detector no summary to check a body against. Seen on broad **multi-axis verification** prompts, not on large diffs
 (#1410). **Apply**: treat it as "re-run narrower" rather than as a finding, and
 cut what the prompt asks the agent to *verify*, not how many files it sees.
@@ -180,9 +189,10 @@ Swift-6-concurrency / secrets sections to "defer to `/code-review`".**
 `code-reviewer` is the *sole* review gate on the unattended path
 (`/queue-consumer` overnight); `/code-review` is a foreground
 interactive skill never wired into a subagent slot, so on that path
-nothing else runs. The official skill also leaves two gaps by design
-(per its plugin definition): it reads `CLAUDE.md` only — never
-`.claude/rules/`, so the trap cheat sheet is invisible to it — and its
+nothing else runs. The official skill also leaves two gaps: it names
+`CLAUDE.md` as its convention source and path-scoped rules are **measured**
+not to reach it, so the trap cheat sheet is invisible — the *cause* of that
+is open, so do not reason forward from a mechanism for it — and its
 false-positive rule discards generic code-quality / security /
 test-coverage findings unless `CLAUDE.md` demands them. So Dependency
 Rules (in `CLAUDE.md`) may surface via either gate, but `.claude/rules/`

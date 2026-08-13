@@ -1,7 +1,12 @@
 # Knowledge Layering & Promotion
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/knowledge-layering.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). Pastura-specific
+> the generic core is canonical there; reconcile one-way (kit → Pastura). **Since kit#24 the kit's
+> rules carry firing conditions only, with the depth evacuated to the kit's `docs/` — so reconcile
+> rule + doc as a pair.** Diffing the kit's rule alone reads relocated depth as deletions. This
+> mirror's kit-side pair is `docs/claim-verification.md` (backs § "Verify before you lock it"),
+> plus `docs/code-review-path-scoped-rules.md` for the mid-session non-injection probes — that one
+> gets no Pastura counterpart doc on purpose, #1312 holds this repo's. Pastura-specific
 > content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
