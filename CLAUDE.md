@@ -298,52 +298,48 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 
 ## Reference Documents
 
-`README.md` and `CONTRIBUTING.md` at the project root are public-facing
-mirrors of parts of this document. When updating one of the following in
-this document (or in source), check whether the public docs need the
-same change:
+`README.md` and `CONTRIBUTING.md` are public-facing mirrors of parts of this
+document. When changing one of these — here or in source — check the mirror:
 
-- Architecture / Hard Rules / Dependency Rules → README "Architecture",
-  CONTRIBUTING "Design principles" (anchor links)
-- Tech Stack versions and platform (Swift, iOS minimum, Yams, GRDB) → README "Tech stack"
+- Architecture / Hard Rules / Dependency Rules → README "Architecture", CONTRIBUTING "Design principles"
+- Tech Stack (Swift, iOS minimum, Yams, GRDB) → README "Tech stack"
 - Bundled models (`ModelRegistry.swift`) → README "Supported LLM models"
 - Git Conventions → CONTRIBUTING "Workflow" / "Commits"
 - Directory Structure → README "Project layout"
-- i18n workflow / ContentBlocklist procedure → CONTRIBUTING "Before
-  your first PR"
+- i18n workflow / ContentBlocklist procedure → CONTRIBUTING "Before your first PR"
 
-| Document                              | Content                                                                       |
-|---------------------------------------|-------------------------------------------------------------------------------|
-| `README.md`                           | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
-| `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
-| `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
-| `docs/decisions/INDEX.md`             | Per-ADR decision summaries — the ADR lookup surface; each entry routes into its ADR rather than restating it (roster below is titles only) |
-| `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3) — **reserved, not yet written**; a gap in the sequence, not a free slot (ADR-005 §7.5). Keep as a **table row with the path in cell 1** — `consistency-audit`'s `load_reserved_adrs` parses it to suppress `dangling_adr` false positives |
-| `docs/decisions/adr-writing-guide.md` | ADR inter-citation consistency checklist — run once after drafting / amending (dates, SHAs, `file:line`, period words; projection-vs-measurement and status-flip variants). Companion to `.claude/rules/adr-writing.md` §3 |
-| `docs/kmp-migration-status.md`        | KMP Engine migration (ADR-023 / #501) at-a-glance progress board — stage table + gate-enforced Wave B handler checklist. Progress view only; ADR-023 = design, #501 = execution detail |
-| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
-| `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
-| `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
+| Document | Content |
+|---|---|
+| `README.md` | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
+| `CONTRIBUTING.md` | Public-facing contributor workflow with links into CLAUDE.md anchors |
+| `docs/ROADMAP.md` | Phase scope, Go/No-Go criteria |
+| `docs/decisions/INDEX.md` | Per-ADR decision summaries — the ADR lookup surface (the roster below is titles only) |
+| `docs/decisions/ADR-006.md` | Cloud API implementation details (Phase 3) — **reserved, not yet written**; a gap in the sequence, not a free slot (ADR-005 §7.5). Keep this row's shape — `consistency-audit`'s `load_reserved_adrs` reads the path in cell 1 to suppress `dangling_adr` false positives |
+| `docs/decisions/adr-writing-guide.md` | ADR inter-citation consistency checklist — run once after drafting / amending. Companion to `.claude/rules/adr-writing.md` §3 |
+| `docs/kmp-migration-status.md` | KMP Engine migration progress board — progress view only (ADR-023 = design, #501 = execution detail) |
+| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification |
+| `docs/specs/demo-replay-spec.md` | DL-time demo replay — data format + component design |
+| `docs/specs/demo-replay-ui.md` | DL-time demo replay — visual / behaviour spec |
 | `docs/specs/demo-replay-mockup-prompt.md` | Claude Design prompt for the DL-time demo visual exploration |
-| `docs/design/design-system.md`        | Cross-screen design system (tokens, philosophy, components) |
-| `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML)             |
-| `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
-| `docs/models/onboarding.md`           | Model onboarding two-gate procedure (Stage-0 harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration; intake #979) |
-| `docs/models/eval-log.md`             | Model-eval 判定台帳 — 候補評価の verdict を committed に記録(judgment-only; 生スコアは gitignore の data/models/eval-digest.md; ADR-011 表が追跡する 6GB/1B級以外の候補が対象; #979 intake) |
-| `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
-| `docs/qa/dark-mode-qa.md`             | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5; the six risk classes no test can reach — fixed tokens, materials, fixed-appearance exports, non-SwiftUI surfaces, occlusion layers, a rendered state with no ground behind it) |
-| `docs/ci/xcodebuild-flakes.md`        | CI + local UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
+| `docs/design/design-system.md` | Cross-screen design system (tokens, philosophy, components) |
+| `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML) |
+| `docs/security/release-checklist.md` | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
+| `docs/models/onboarding.md` | Model onboarding two-gate procedure (harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration) |
+| `docs/models/eval-log.md` | Model-eval 判定台帳 — verdict のみ committed（生スコアは gitignore の `data/models/eval-digest.md`）。ADR-011 の表が追跡しない候補が対象 |
+| `docs/qa/navigation-qa.md` | Navigation manual QA walkthroughs |
+| `docs/qa/dark-mode-qa.md` | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5) — the six risk classes no test can reach |
+| `docs/ci/xcodebuild-flakes.md` | CI + local UI-test flake catalog + hang/stall session-recovery walkthrough |
 | `docs/agent-tooling/subagent-output-cap.md` | Depth paired with `.claude/rules/subagent-usage.md` — cap provenance, why the split thresholds are not cap-derived, how a cap hit behaves |
 | `docs/agent-tooling/claim-verification.md` | Depth paired with `.claude/rules/knowledge-layering.md` § "Verify before you lock it" — the claim table, authored-claim shapes in full, promotion mechanics |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
 
 ### ADR roster
 
-Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries a decision summary for every entry below — mechanism, standing invariants, what is still open, and where in the ADR each claim is derived.
+Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries a decision summary for every entry below.
 
 001 Architecture Overview (Phase 1) · 002 llama.cpp interim LLM backend · 003 Background execution · 004 Multi-platform strategy · 005 Content safety architecture · 006 Cloud API implementation details · 007 DL-time demo replay (iOS lifecycle) · 008 Route identity vs render-time hints · 009 View testing strategy · 010 Localization (i18n: ja/en) · 011 6 GB RAM tier · 012 YAML strategy post-kaml · 013 Headless macOS simulation harness · 014 Release automation toolchain · 015 Execution-log retention posture · 016 Home redesign — bottom-tab IA · 017 Simulation focus mode · 018 Format-preserving visual→YAML boundary sync · 019 Raise minimum deployment target to iOS 18 · 020 Shared-scenario backward-compat · 021 Graceful degradation of LLM turn failures · 022 Phase/event extension contract · 023 KMP Engine migration architecture · 024 Scenario semantic lint layer · 025 Gallery scenario ordering · 026 LLM-dynamic Word Wolf topics (near-term no-go) · 027 Generic `pairwise_payoff` scoring logic · 028 Dark-mode token pairing (trait-resolving `PasturaDynamicColor`) · 029 Shared-scenario highlights (static curated excerpts)
 
-Titles are kept byte-identical to INDEX's `## ADR-NNN — <title>` headings. **Nothing prompts an author to append here** — add a new ADR by hand (`adr-writing.md` §4). A `/consistency-audit` run flags the omission afterwards as `adr_roster_drift` — manual and after-the-fact, not a gate. ADR-006 is reserved-unwritten — see its row above.
+Titles stay byte-identical to INDEX's `## ADR-NNN — <title>` headings, and the roster stays **one line alone in its paragraph** — `load_roster` measures the paragraph, so a reflow or a merged neighbouring line reports as drift on every ADR at once. **Nothing prompts an author to append here** — add a new ADR by hand (`adr-writing.md` §4); `/consistency-audit` flags the omission afterwards as `adr_roster_drift`, after the fact, not a gate. ADR-006 is reserved-unwritten — see its row above.
 
 Two cross-cutting gotchas that fire outside their own ADR's subject area:
 
