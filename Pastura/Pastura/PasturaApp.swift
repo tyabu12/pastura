@@ -677,13 +677,14 @@ private struct RootView: View {
 
   /// Builds the on-device `LlamaCppService` from a model path + descriptor.
   /// Extracted so the migration-recovery path (#546) rebuilds it from the
-  /// same five descriptor fields as `finalizeInit`, with no drift.
+  /// same descriptor fields as `finalizeInit`, with no drift.
   private func makeLlamaCppService(
     modelPath: String, descriptor: ModelDescriptor
   ) -> LlamaCppService {
     LlamaCppService(
       modelPath: modelPath,
       stopSequence: descriptor.stopSequence,
+      turnMarkers: descriptor.turnMarkers,
       modelIdentifier: descriptor.displayName,
       systemPromptSuffix: descriptor.systemPromptSuffix,
       assistantPrefix: descriptor.assistantPrefix

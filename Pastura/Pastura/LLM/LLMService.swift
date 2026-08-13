@@ -97,6 +97,24 @@ nonisolated public protocol LLMService: Sendable {
   /// metadata — **not** a stable parse key.
   var backendIdentifier: String { get }
 
+  /// Every turn-marker pair whose **plaintext** form could plausibly appear in
+  /// this backend's decoded output, for consumers that must recognize a
+  /// hallucinated turn boundary (``JSONResponseParser`` truncation, the
+  /// `LLMCaller` chat-template leakage diagnostic).
+  ///
+  /// The set is the loaded model's own pair **unioned with**
+  /// ``ChatTurnMarkers/chatML``, so a backend that cannot name its model
+  /// (``OllamaService``, ``MockLLMService``) keeps the pre-#1422 ChatML-only
+  /// behaviour via the default implementation, and a ChatML model does not
+  /// grow a second, redundant entry.
+  ///
+  /// - Important: Declared **in the protocol body**, not only in an extension.
+  ///   An extension-only declaration is statically dispatched through
+  ///   `any LLMService`, so ``LlamaCppService``'s override would be silently
+  ///   ignored at the `LLMCaller` call site — with no diagnostic, and with the
+  ///   exact failure this requirement exists to remove.
+  var knownTurnMarkers: [ChatTurnMarkers] { get }
+
   /// Generate a completion as a sequence of incremental chunks.
   ///
   /// Backends that can deliver tokens as they are sampled (currently
@@ -155,6 +173,18 @@ extension LLMService {
   /// support cooperative suspend (currently only ``LlamaCppService``) override
   /// this method.
   public func attachSuspendController(_ controller: SuspendController?) async {}
+
+  /// Default: ChatML only — the pre-#1422 hardcoded behaviour, now stated as a
+  /// value rather than baked into each consumer. Backends that know which
+  /// model is loaded override this (currently only ``LlamaCppService``).
+  ///
+  /// Explicitly `nonisolated` for the same reason as `generateStream` below:
+  /// under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` this default impl
+  /// otherwise inherits MainActor and blocks every `nonisolated` conformer.
+  /// Not defensive — measured by dropping the annotation, which fails the
+  /// build with `conformance of 'MockLLMService' to protocol 'LLMService'
+  /// crosses into main actor-isolated code` (and the same for `OllamaService`).
+  nonisolated public var knownTurnMarkers: [ChatTurnMarkers] { [.chatML] }
 
   /// Default `generateStream` implementation: runs the existing
   /// `generateWithMetrics` and yields a single terminal chunk carrying
