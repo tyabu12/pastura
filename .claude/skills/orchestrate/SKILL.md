@@ -20,27 +20,26 @@ Orchestrate the full development workflow: plan → issue → worktree → TDD i
 >
 > **Read "up to date" narrowly.** Step U compares hashes first, so an unchanged template reports
 > "up to date" — that means *no template change since the reconcile*, **not** that this file matches
-> the template. It deliberately does not, in these four places:
+> the template. It deliberately does not. Most divergences are additions, which an upgrade proposal
+> cannot silently undo; these three are the ones a plausible-sounding back-port **would** undo:
 >
-> - **The Step 4 reviewer prompt does not carry the template's selective `.claude/rules/*.md` read** —
+> - **Step 1.3's "do not add a blanket 'when in doubt, go up a tier'" guardrail is not in the
+>   template's Step 1** — it is a *negative* instruction, so nothing around it looks wrong once it is
+>   gone, and it is the direct fix for the defect this file was reconciled to repair (#1453).
+>   Reject any proposal to adopt the template's Step 1 wording that drops it.
+> - **The Step 4 reviewer prompt omits the template's selective `.claude/rules/*.md` read** —
 >   `.claude/agents/code-reviewer.md`'s Review Process step 3 owns that logic here. Do not add it in
 >   both places; if that agent ever loses it, this prompt must gain it, or path-scoped review
 >   coverage vanishes silently.
-> - **The template's inlined subagent output-cap / split-budget note is omitted** —
->   `.claude/rules/subagent-usage.md` is always-loaded in this repo, so inlining it would pay for the
->   same content twice per turn (`.claude/rules/context-budget.md`).
-> - **There is no "Project parameters (baked at generation)" table** — Pastura's parameters are
->   inline at each step and richer than the table's cells (the `scripts/xcodebuild.sh` wrapper
->   conventions, TDD-required, the pre-commit hook as the commit-time gate).
-> - **Project-owned additions the template has no slot for**: the per-item commit hazard, the Opus-
->   required path list, the `## Device QA` section, the two-separate-Bash-calls push/PR sequence that
->   keeps the PR hooks firing, the label table, the Review Action Summary, and Step 1b's literal
->   `Agent(...)` block.
+> - **The template's inlined subagent output-cap / split-budget note is omitted, and its "Project
+>   parameters (baked at generation)" table has no counterpart** — `.claude/rules/subagent-usage.md`
+>   is always-loaded here (inlining pays twice per turn, `.claude/rules/context-budget.md`), and this
+>   file's parameters are inline at each step and richer than the table's cells.
 
 ## Constants
 
 - `PLAN_MARKER`: `<!-- pastura-plan -->` — machine-readable marker embedded in Issue plan comments for detection during resumption.
-- `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls).
+- `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls) — but **after** pre-flight check 1, which decides whether `gh` is usable at all; in degraded mode `OWNER_REPO` is unavailable and every `gh` step below is skipped.
 
 ## Step 0: Input Detection & Pre-flight
 
@@ -69,7 +68,7 @@ After fetching the issue, check for an existing plan comment:
    - Extract `SESSION_MODEL` from `## Metadata` the same way — normalize to lowercase (`opus` / `sonnet`) — and capture its `(reason: …)` tail as `SESSION_RATIONALE` for the Step 2b resume prompt. If `Session` is absent (older plan comment pre-dating this field), default `SESSION_MODEL=opus` (the safe fallback — orchestrator stays on Opus); `SESSION_RATIONALE` is then unused (the resume prompt is Sonnet-gated).
    - Derive `SLUG` from the branch name.
    - **Coupling re-check**: if the resumed plan contains any `🎭` item but `REVIEWER_MODEL=sonnet` **or** `SESSION_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade the affected model(s) to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: a 🎭 item is implemented by the orchestrator (session model) and must never run — or be reviewed — on Sonnet. When `SESSION_MODEL` resolves to (or is upgraded to) `opus`, ensure the running session is actually on Opus (`/model opus`) before resuming implementation.
-   - **All-🎵 re-check**: the `any 🎭` predicate above cannot fire on an all-🎵 plan, but 🎵 does not certify simplicity — Step 1.3's tie-breaker also admits *specifiable but merely hard* items. So when the resumed plan is all 🎵 **and** `REVIEWER_MODEL=sonnet`, re-confirm each item is strictly within the 🎵 simple criteria (Step 1.4's independent test) and offer the same Opus upgrade if any is not. `SESSION_MODEL=sonnet` stays — the cost lever survives an Opus reviewer.
+   - **All-🎵 re-check**: the `any 🎭` predicate above cannot fire on an all-🎵 plan, but 🎵 does not certify simplicity — Step 1.3's tie-breaker also admits *specifiable but merely hard* items. So when the resumed plan is all 🎵 **and** `REVIEWER_MODEL=sonnet`, re-confirm each item is strictly within the 🎵 simple criteria (Step 1.4's independent test) and, if any is not, offer to upgrade `REVIEWER_MODEL` to Opus (the reviewer only — unlike the re-check above, which covers both models). `SESSION_MODEL=sonnet` stays — the cost lever survives an Opus reviewer.
    - If **all items are already checked**: do **not** silently proceed to review. A fully-checked *last* plan usually means its PR already merged — and on an **umbrella issue** that accumulates several historical plan comments, the `tail -1` in the resumption command above lands on that finished plan, so auto-proceeding would re-review completed work instead of planning the new work the user actually wants. Ask the user: "#N's last plan is complete (its PR likely merged) — resume-review it, or start a NEW plan for new work on #N?" Only ensure you are on the feature branch or in the correct worktree and **skip to Step 4** directly on an explicit "resume-review" answer; otherwise treat it as a fresh task and fall through to Step 1 (which then also runs Step 1b, since `RESUMING` no longer applies to this path).
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
@@ -79,7 +78,7 @@ After fetching the issue, check for an existing plan comment:
 1. `gh auth status` — if unauthenticated, run in **degraded mode**: no issue, no checkpoint sync, no resumption — and say so explicitly to the user rather than silently skipping. Skip all remaining `gh` steps; the plan lives only in-session.
 2. `git status` — warn if uncommitted changes exist.
 3. Verify on default branch (skip if `RESUMING=true`):
-   - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')` — in degraded mode, use `git symbolic-ref refs/remotes/origin/HEAD` instead, since this value still feeds Step 4's fetch and the reviewer's diff range.
+   - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')` — this value still feeds Step 4's `git fetch origin {DEFAULT_BRANCH}`, `git rev-list … origin/{DEFAULT_BRANCH}`, and check 4's `git pull`, so degraded mode needs a fallback yielding a **bare branch name**, not a ref: `DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')`. Plain `git symbolic-ref refs/remotes/origin/HEAD` returns `refs/remotes/origin/main` and `--short` alone returns `origin/main` — either shape breaks every consumer above except the two `diff {DEFAULT_BRANCH}...HEAD` uses, which accept a full ref by luck. If `origin/HEAD` is unset (common in a fresh clone), recover with `git remote set-head origin -a`.
    - If current branch != `DEFAULT_BRANCH`, warn and offer `git switch "$DEFAULT_BRANCH"`.
 4. `git pull --ff-only origin "$DEFAULT_BRANCH"` — warn on failure, don't block. Skip if `RESUMING=true`.
 5. If already in a worktree, warn and suggest `ExitWorktree` first (unless `RESUMING=true` and the worktree matches the expected branch).
@@ -321,7 +320,9 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 >
 > If tests still fail after your best effort, return with a summary of what you tried and the error output."
 
-**`-C {WORKTREE_ROOT}` applies to `git` only** — `scripts/xcodebuild.sh` invocations inside the prompt above must stay a **bare, cwd-relative** command. `.claude/settings.json`'s allowlist entry matches the **literal prefix** `Bash(scripts/xcodebuild.sh*)`, so a `cd … &&` prefix, an absolute path, or a leading env-var assignment bypasses the match and stalls the delegated subagent on an approval prompt. The wrapper has no `-C` equivalent — it resolves `REPO_ROOT` internally. See `.claude/rules/xcodebuild-cli.md` § "Canonical invocation".
+**`-C {WORKTREE_ROOT}` applies to `git` only** — `scripts/xcodebuild.sh` invocations inside the prompt above must stay a **bare, cwd-relative** command. Reason, per `.claude/rules/xcodebuild-cli.md` § "Canonical invocation": a `cd … &&` prefix, an absolute path, or a leading env-var assignment misses the allowlist entry and stalls the delegated subagent on an approval prompt, and the wrapper has no `-C` — it resolves `REPO_ROOT` internally. **Do not generalize that into a claim about how the matcher works**: the git allowlist entries are equally bare (`Bash(git diff*)`, …), yet `git -C <path> diff` has been observed to run unprompted, so the two are not the same case and only the xcodebuild one is measured.
+
+> **Residual risk this carve-out does not close.** Because the wrapper resolves `REPO_ROOT` from cwd, a subagent whose cwd landed in the main checkout — the very failure the `-C` mandate exists for — builds and tests **that** tree and returns `** TEST SUCCEEDED **` on unrelated code. Unlike the phantom-diff case, this one reads as success. The path-rooting sentence in the prompt is a soft instruction, not a guarantee, so before trusting a delegated green, confirm the subagent worked here: have it report `pwd`, or compare `git -C {WORKTREE_ROOT} status` against what it claims to have changed. The main-session full-suite re-run at the end of Step 3 is the backstop.
 
 **After the Sonnet subagent returns:**
 1. Verify `git status` shows expected changes (no unexpected files).
@@ -334,7 +335,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 1. Run `git stash -u` to save all of Sonnet's partial work including untracked new files (recoverable via `git stash pop` if needed later), giving the recovery a clean start.
 2. **Escalate by session model:**
    - `SESSION_MODEL=opus` → the orchestrator completes the item directly using the 🎭 complex-item flow.
-   - `SESSION_MODEL=sonnet` → the orchestrator is itself Sonnet, so it must **not** implement judgment-heavy recovery. Delegate to `Agent(subagent_type: "implementer", model: "opus")` **without `isolation`** (shares the worktree), passing the item spec and the Sonnet subagent's error output as context. On return, the orchestrator reviews the diff and commits (same as the 🎵 post-return flow above). If the Opus implementer also fails, report to the user and offer to switch the session to Opus (`/model opus`) and retry directly. (`implementer` pins `effort: medium`; if recovery underperforms, note it and escalate to a high-effort general Opus subagent.)
+   - `SESSION_MODEL=sonnet` → the orchestrator is itself Sonnet, so it must **not** implement judgment-heavy recovery. Delegate to `Agent(subagent_type: "implementer", model: "opus")` **without `isolation`** (shares the worktree), passing the item spec, the Sonnet subagent's error output, **and the same `{WORKTREE_ROOT}` rooting the 🎵 prompt carries** — this is the subagent that writes files, so an inherited cwd landing in the main checkout is the worst case, not the mildest. On return, the orchestrator reviews the diff and commits (same as the 🎵 post-return flow above). If the Opus implementer also fails, report to the user and offer to switch the session to Opus (`/model opus`) and retry directly. (`implementer` pins `effort: medium`; if recovery underperforms, note it and escalate to a high-effort general Opus subagent.)
 
 Note: `git commit` is allowlisted (since #411); the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build + blocklist/gallery gates per CLAUDE.md), which runs on every commit — not a per-commit approval prompt.
 
@@ -357,8 +358,9 @@ After all implementation, run full verification directly from the main session:
 > judgement call — it is `scripts/precommit-gate-classify.sh` (read its header doc-comment before
 > relying on this). Feed it the branch's changed paths, not just the last commit's — the script
 > reads whatever set it's given, so for a whole branch pipe
-> `git -C {WORKTREE_ROOT} diff --name-only {DEFAULT_BRANCH}...HEAD` into the bare, cwd-relative
-> `scripts/precommit-gate-classify.sh`. No `build` token in its output means every changed path
+> `git -C {WORKTREE_ROOT} diff --name-only {DEFAULT_BRANCH}...HEAD` into
+> `scripts/precommit-gate-classify.sh` (cwd-relative; unlike the wrapper it is **not** allowlisted,
+> so expect one approval prompt). No `build` token in its output means every changed path
 > matched its build-irrelevant denylist, so the app target is never compiled and the suite cannot be
 > affected — skip step 1 entirely. No `lint` token means the same for step 2's
 > `swiftlint lint --quiet --strict`. The obvious justification — that CI provides a backstop
@@ -389,7 +391,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 **Review-verify-fix loop:**
 1. If the code-reviewer returns **PASS** → proceed directly to Step 5 (PR creation).
 2. If the code-reviewer returns **FAIL**:
-   a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt).
+   a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt). Root its prompt at `{WORKTREE_ROOT}` and give it `git -C {WORKTREE_ROOT}` like any other subagent — the mandate in Step 2b binds every prompt the orchestrator composes, including ad-hoc ones with no template here.
    b. Build the **Review Action Summary** (see below) and present it to the user.
    c. Capture `FIX_BASE=$(git rev-parse HEAD)`, then fix all confirmed issues. Skip false positives.
    d. Re-run the `code-reviewer` subagent **scoped to the fix diff**: prompt it with `git -C {WORKTREE_ROOT} diff {FIX_BASE}...HEAD` (the fix commits only — same `-C` rule as the first-pass prompt) plus the prior FAIL items, instructing it to verify each fix and its immediate blast radius — NOT to re-review the full branch. Fall back to a full-branch re-review only when the fixes touched files outside the set reviewed in the previous iteration.
