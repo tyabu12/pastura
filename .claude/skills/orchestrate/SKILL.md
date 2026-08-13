@@ -52,7 +52,7 @@ After fetching the issue, check for an existing plan comment:
    - Extract `SESSION_MODEL` from `## Metadata` the same way — normalize to lowercase (`opus` / `sonnet`) — and capture its `(reason: …)` tail as `SESSION_RATIONALE` for the Step 2b resume prompt. If `Session` is absent (older plan comment pre-dating this field), default `SESSION_MODEL=opus` (the safe fallback — orchestrator stays on Opus); `SESSION_RATIONALE` is then unused (the resume prompt is Sonnet-gated).
    - Derive `SLUG` from the branch name.
    - **Coupling re-check**: if the resumed plan contains any `🎭` item but `REVIEWER_MODEL=sonnet` **or** `SESSION_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade the affected model(s) to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: a 🎭 item is implemented by the orchestrator (session model) and must never run — or be reviewed — on Sonnet. When `SESSION_MODEL` resolves to (or is upgraded to) `opus`, ensure the running session is actually on Opus (`/model opus`) before resuming implementation.
-   - **All-🎵 re-check**: the `any 🎭` predicate above cannot fire on an all-🎵 plan, but 🎵 does not certify simplicity — Step 1.3's tie-breaker also admits *specifiable but merely hard* items. So when the resumed plan is all 🎵 **and** `REVIEWER_MODEL=sonnet`, re-confirm each item is strictly within the 🎵 simple criteria (Step 1.4's independent test) and, if any is not, offer to upgrade `REVIEWER_MODEL` to Opus (the reviewer only — unlike the re-check above, which covers both models). `SESSION_MODEL=sonnet` stays — the cost lever survives an Opus reviewer.
+   - **All-🎵 re-check**: the `any 🎭` predicate above cannot fire on an all-🎵 plan, but 🎵 does not certify simplicity — Step 1.3's tie-breaker also admits *specifiable but merely hard* items, marked `🎵 (tb)` at plan time (Step 1.3). A resumed session has no conversation context to re-derive that classification itself — don't try. Instead, when the resumed plan is all 🎵 **and** `REVIEWER_MODEL=sonnet`: grep the plan comment for `🎵 (tb)`. Any hit ⇒ offer to upgrade `REVIEWER_MODEL` to Opus (the reviewer only — unlike the re-check above, which covers both models). **Fail closed on a zero-hit grep too**: a plan comment predating this marker carries no route information at all, and is indistinguishable by grep from a plan that legitimately used zero tie-breaker items — so treat "no `(tb)` found" as inconclusive, not confirmed-safe, and offer the same upgrade rather than asking a context-free session to re-derive the classification. `SESSION_MODEL=sonnet` stays — the cost lever survives an Opus reviewer.
    - If **all items are already checked**: do **not** silently proceed to review. A fully-checked *last* plan usually means its PR already merged — and on an **umbrella issue** that accumulates several historical plan comments, the `tail -1` in the resumption command above lands on that finished plan, so auto-proceeding would re-review completed work instead of planning the new work the user actually wants. Ask the user: "#N's last plan is complete (its PR likely merged) — resume-review it, or start a NEW plan for new work on #N?" Only ensure you are on the feature branch or in the correct worktree and **skip to Step 4** directly on an explicit "resume-review" answer; otherwise treat it as a fresh task and fall through to Step 1 (which then also runs Step 1b, since `RESUMING` no longer applies to this path).
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
@@ -76,12 +76,13 @@ After fetching the issue, check for an existing plan comment:
    - 🎵 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
    - 🎭 **complex** — Implemented by the orchestrator (session model) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
    - **The 🎭 criteria win outright.** They name the *nature* of the work, not its difficulty, so an item matching one stays 🎭 however settled its spec is. The tie-breaker resolves only items matching neither list.
-   - **Tie-breaker — is it fully specifiable?** Not "too hard for Sonnet?": difficulty or size alone does not promote an item. A 🎵 subagent inherits none of this conversation, so ask: can you fill the Step 3 🎵 prompt slots *now* without a new design decision — target file(s), plus an existing pattern to mirror or an acceptance condition? **Yes, even if hard → 🎵.** No, or you can't tell whether the slots are fillable → 🎭 (that specific uncertainty — not general unease). Also promote a 🎵 to 🎭 when subagent prompt + verify overhead exceeds the implementation itself — single-line edits, short doc tweaks; that promotion forces an Opus reviewer via the Coupling rule below, which is intended since the orchestrator implements the item directly.
-   - **Do not add a blanket "when in doubt, go up a tier."** It was removed deliberately: Claude 5 applies such a booster literally, so it fires far harder than it was tuned for and cancels Step 1.5's cost lever. Promotion must name its trigger — a 🎭 criterion, an unfillable prompt slot, or the overhead clause — never a bare feeling of unease.
+   - **Tie-breaker — is it fully specifiable?** Not "too hard for Sonnet?": difficulty or size alone does not promote an item. A 🎵 subagent inherits none of this conversation, so ask: can you fill the Step 3 🎵 prompt slots *now* without a new design decision — target file(s), plus an existing pattern to mirror or an acceptance condition? **Yes, even if hard → 🎵.** No, or you can't tell whether the slots are fillable → 🎭 (that specific uncertainty — not general unease). Also promote a 🎵 to 🎭 when subagent prompt + verify overhead exceeds the implementation itself — single-line edits, short doc tweaks; that promotion forces an Opus reviewer via the Coupling rule below, which is intended since the orchestrator implements the item directly. When the tie-breaker — not the 🎵 criteria list — is what routes an item to 🎵, record that by marking it `🎵 (tb)` in the plan checkbox: without it nothing downstream can tell criteria-🎵 apart from merely-hard-🎵, and both the Sonnet-reviewer-acceptable test (Step 1.4) and the Step 0 resumption re-check depend on that distinction.
+   - **Do not add a blanket "when in doubt, go up a tier."** It was removed deliberately: Claude 5 applies such a booster literally, so it fires far harder than it was tuned for (claude-kit#19; landed here as #1453) and cancels Step 1.5's cost lever. Promotion must name its trigger — a 🎭 criterion, an unfillable prompt slot, or the overhead clause — never a bare feeling of unease.
 
    ```
    - [ ] 1. 🎵 <description> (`<primary-file-path>`)
-   - [ ] 2. 🎭 <description> (`<primary-file-path>`)
+   - [ ] 2. 🎵 (tb) <description> (`<primary-file-path>`)
+   - [ ] 3. 🎭 <description> (`<primary-file-path>`)
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
@@ -106,7 +107,7 @@ After fetching the issue, check for an existing plan comment:
    - New `@Test` cases in an **existing** suite following the file's existing pattern (not new suites, new helpers, or trait changes like `.timeLimit` / `.serialized`)
    - Documentation updates (`docs/ROADMAP.md`, `docs/examples/**`, `docs/gallery/**`, `docs/prototype/**`, doc comments)
    - Simple refactor within a single file without crossing layer boundaries
-   - Design token **application** (existing token to existing View only — new token additions are Opus-required)
+   - Design token **application** (existing token to existing View only — new token additions are Opus-required) — watch the ShapeStyle-vs-`Color` trap right at this bullet: `.foregroundStyle(.muted)` reads as trivial token application but is wrong when `.muted` is a `Color` extension rather than a `ShapeStyle` one; check `.claude/agents/code-reviewer.md`'s trap cheat sheet before calling this Sonnet-acceptable
    - Fix-only PRs where the cause is already diagnosed and localized
 
    **Coupling rule:** If **any** plan item is labeled 🎭, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🎵-plus-Sonnet-reviewer" configuration from putting orchestrator-implemented work through a Sonnet review.
@@ -146,7 +147,7 @@ Agent(subagent_type: "claude-kit:critic", model: "opus", description: "...", pro
 
 The literal block (mirroring Step 4) makes the Opus pin mechanical rather than prose-recalled — an omitted `model` would silently inherit a Sonnet session (the all-🎵 lever, Step 1) and downgrade this mandatory gate.
 
-> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths.
+> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths — and within that same axis, evaluate each item's 🎵/🎭 label and the `Session` choice against the work the item actually describes: you are the only reviewer in this loop running at Opus with no cost incentive to route work to 🎵, so this is the structural check the routing rules otherwise lack.
 >
 > Task: {TASK_DESCRIPTION}
 >
@@ -311,7 +312,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 **After the Sonnet subagent returns:**
 1. Verify `git status` shows expected changes (no unexpected files).
 2. Read the full diff (`git diff`) to understand the changes before composing the commit message.
-3. Spot-check for obvious convention violations (nonisolated, access modifiers, dependency imports).
+3. Spot-check for convention violations against what the changed file itself governs: for Swift changes, `nonisolated`, access modifiers, dependency imports; for non-Swift changes (docs, rules, scripts, config), the conventions the changed file itself asserts. Where the item introduces or changes a rule, grep the whole file for the OLD shape before committing — the prompt's acceptance conditions bound what the subagent was *asked*, not what the item *mandates* (CLAUDE.md § "Scope & Completeness Discipline"). #1453's own item 2 is the worked example: a delegated item satisfied all five of its acceptance conditions and still left one instance of the shape it was removing.
 4. Commit (Conventional Commits + emoji per CLAUDE.md). `git commit` is allowlisted; the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build), not a per-commit approval prompt.
 5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above; skip in degraded mode).
 
@@ -339,22 +340,21 @@ After all implementation, run full verification directly from the main session:
    - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
 > **Carve-out — build-irrelevant branches:** the predicate for skipping the full run above is not a
-> judgement call — it is `scripts/precommit-gate-classify.sh` (read its header doc-comment before
-> relying on this). Feed it the branch's changed paths, not just the last commit's — the script
+> judgement call — it is `scripts/precommit-gate-classify.sh`; read its header doc-comment (the
+> authoritative account of the predicate, per CLAUDE.md) before relying on this. Feed it the
+> branch's changed paths, not just the last commit's — the script
 > reads whatever set it's given, so for a whole branch pipe
 > `git -C {WORKTREE_ROOT} diff --name-only {DEFAULT_BRANCH}...HEAD` into
 > `scripts/precommit-gate-classify.sh` (cwd-relative; unlike the wrapper it is **not** allowlisted,
 > so expect one approval prompt). No `build` token in its output means every changed path
 > matched its build-irrelevant denylist, so the app target is never compiled and the suite cannot be
 > affected — skip step 1 entirely. No `lint` token means the same for step 2's
-> `swiftlint lint --quiet --strict`. The obvious justification — that CI provides a backstop
-> against a bad skip — does not hold: `.github/workflows/ci.yml` reuses this same script for its
-> PR path-gating, so a build-irrelevant PR skips `lint-and-test` and `ui-test` on CI too. The
-> safety instead comes from two other things: the script is **conservative by inversion** (it
-> skips only when *every* path matches a small denylist; any unrecognized path forces `build`),
-> and a push to `{DEFAULT_BRANCH}` always runs the full iOS suite regardless of paths (CI
-> short-circuits every non-`pull_request` event to `ios=true`), so the post-merge state stays
-> covered. When skipping, state the one-line reason in the PR body (Step 5).
+> `swiftlint lint --quiet --strict`. **CI is not a backstop here** — this is not in the script header
+> and is easy to assume otherwise: `.github/workflows/ci.yml` reuses this same script for its PR
+> path-gating, so a build-irrelevant PR skips `lint-and-test` and `ui-test` on CI too. What does
+> cover the post-merge state is that a push to `{DEFAULT_BRANCH}` runs the full iOS suite regardless
+> of paths (`ci.yml` short-circuits every non-`pull_request` event to `ios=true`) — that lives in the
+> workflow, not the script header. When skipping, state the one-line reason in the PR body (Step 5).
 
 ## Step 4: Review — Gate G3
 
