@@ -78,33 +78,29 @@ Utilities/ → depends on nothing
 ## Swift Coding Conventions
 
 - **Automated hooks** — split by gate type. Activate the git side once per clone with `./scripts/setup.sh`.
-  - **Git pre-commit** (`scripts/git-hooks/pre-commit`): on `git commit`, runs `swiftlint lint --strict` + `xcodebuild build`, then a set of `scripts/*-gate.sh` sub-gates. Fail-fast; CI mirrors every check. The sub-gates are **not enumerated here** — the hook is the authoritative list, and each gate's script-header doc-comment carries its trigger paths, flags, and tool prerequisites (some need `jq` / `python3`). What matters at this altitude: each sub-gate **self-gates on its own staged inputs** and stays unconditional (CI re-runs it — defense in depth); and `swiftlint` + `xcodebuild build` are **changeset-gated** by `scripts/precommit-gate-classify.sh` (#625), conservative by inversion — skipped only when every staged path is provably build-irrelevant (`web/`, `docs/`, `.github/`, `.claude/`, …), so a docs/web-only commit skips the iOS build.
-  - **Claude Code hooks** (`.claude/settings.json`): on file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `gh pr create` (`PreToolUse`), `check-claude-md-modified.sh` reminds to record a convention / trap / Phase 2 progress entry unless the branch already touched an agent-instruction file (CLAUDE.md, `.claude/rules/`, `.claude/agents/`); it also nudges when a CLAUDE.md section the "Reference Documents" table mirrors (Architecture / Hard Rules / Dependency Rules / Tech Stack / Directory Structure / Git Conventions → README/CONTRIBUTING) changed without its mirror, via section-range overlap on `HEAD:CLAUDE.md` (the source-driven Bundled-models mirror and the i18n/ContentBlocklist mirror inside Swift Coding Conventions are out of scope); and when the branch grows agent-instruction files past a tiered size threshold, it asks for a `Context-economy:` Keep/Drop record in the PR body (#1361). After a `/orchestrate` ready-PR create (`PostToolUse`, gated via `gated-runner.sh` to the `gh pr create --base` shape so unattended `--draft` flows are excluded), `pr-created-reflection.sh` prompts to restate the change's device-QA steps, surface session observations, and note any memory to write.
-  - Why the split: Claude Code's hook `if` field fails-open on complex Bash, so commit-time gates living there would surface misleading errors on unrelated tool calls. Git's `pre-commit` fires only on `git commit` and is tight by construction.
-  - **Opt-in, per-user — deliberately NOT wired here**: `scripts/prune-stale-worktrees.sh` removes stale auto-named worktrees left by unattended routines. Destructive, and the routines motivating it are per-machine, so wire it as a `SessionStart` hook in your own untracked `.claude/settings.local.json` — never the tracked `settings.json`. Dry-run is the default. Predicate and safety layering: the script's header.
+  - **Git pre-commit** (`scripts/git-hooks/pre-commit`): `swiftlint lint --strict` + `xcodebuild build`, then a set of `scripts/*-gate.sh` sub-gates. Fail-fast; CI mirrors every check. Sub-gates are **not enumerated here** — the hook is the authoritative list, and each gate's script-header doc-comment carries its trigger paths, flags, and tool prerequisites. A new sub-gate **self-gates on its own staged inputs** and stays unconditional (CI re-runs it — defense in depth). `swiftlint` + `xcodebuild build` are **changeset-gated** by `scripts/precommit-gate-classify.sh`, conservative by inversion — so a docs/web-only commit skips the iOS build.
+  - **Claude Code hooks** (`.claude/settings.json`): on file edit (`PostToolUse` Edit|Write), `swift-format` + `swiftlint --fix` auto-format. On `gh pr create` (`PreToolUse`), `check-claude-md-modified.sh` reminds you to record a convention / trap entry, nudges when a mirrored CLAUDE.md section changed without its README / CONTRIBUTING mirror, and **asks for a `Context-economy:` Keep/Drop record in the PR body** once the branch grows agent-instruction files past a size threshold. After a `/orchestrate` ready-PR create, `pr-created-reflection.sh` prompts for device-QA steps, session observations, and any memory to write. Which nudge fires when, which sections count as mirrored, how the ready-PR shape is gated, and why commit-time gates live in git rather than here: the header doc-comments of these scripts and of `scripts/git-hooks/pre-commit`.
+  - **Opt-in, per-user — deliberately NOT wired here**: `scripts/prune-stale-worktrees.sh` removes stale auto-named worktrees left by unattended routines. Destructive and per-machine, so wire it as a `SessionStart` hook in your own **untracked** `.claude/settings.local.json` — never the tracked `settings.json`. Dry-run is the default. Predicate and safety layering: the script's header.
 - **Error types:** Layer-specific — `SimulationError` (Models, co-located with `SimulationEvent`),
   `LLMError` (LLM), `DataError` (Data). App layer catches and maps to UI presentation.
-- **Error message i18n prep:** On `LocalizedError`-conforming types (`SimulationError`, `LLMError`, `DataError`, ...), wrap `errorDescription` literals in `String(localized: "...")`. Tests assert via `.contains(...)` partial matching, not equality. Keeps the current English-only scope while making future translation additive.
-- **User-facing String literals:** Any new user-facing English `String` literal — `Text("...")`, alert / toast / `errorMessage` assignments, accessibility labels — must be wrapped in `String(localized: "...")` so it lands in `Localizable.xcstrings` and gets a `ja` translation. Three-tier enforcement: SwiftLint tripwire (edit-time), `scripts/check_i18n_potential_keys.py` audit (dev-run), `localization-coverage` CI gate. Architecture: `docs/i18n/leak-detection.md`. Workflow conventions: format strings and the Form A fallback hazard → `.claude/rules/i18n.md`; UI-layer traps → `.claude/rules/i18n-ui.md`; `xcstringstool` sync output and catalog editing → `.claude/rules/i18n-catalog.md`.
-- **Debug builds under a suffixed bundle ID** — `app.pastura.Pastura.dev` / display name `Pastura Dev`, via `BUNDLE_ID_SUFFIX` (empty on Release), so a locally-installed dev build coexists with the App Store build. A new bundle-ID-shaped identifier must decide whether it has to **track** the suffix: one declared in `Info.plist` does (use `$(PRODUCT_BUNDLE_IDENTIFIER)` on both sides — a `BGTaskScheduler` identifier mismatch only *logs*, so it ships silently dead), a per-app-container one does not (background `URLSession`; renaming it orphans in-flight downloads). Also shifts `defaults write` domains, and OSLog filtering now matches both installed apps. See #1391 for the accepted-collision list (Universal Links, `pastura://`, duplicated model downloads).
-- **Logger privacy:** OSLog redacts `String` / `Substring` / `Error` interpolations as `<private>` in TestFlight / Release. Annotate non-`.debug` Logger interpolations with `privacy: .public`. Don't Logger-interpolate user content (scenario text, agent outputs) — route through `TurnRecord` persistence. Narrow exceptions for already-persisted diagnostics and public-API parameters are documented as inline comments at `LLMCaller.logParseFailure` and `BackgroundSimulationManager.scheduleRequest`.
+- **Error message i18n prep:** On `LocalizedError`-conforming types (`SimulationError`, `LLMError`, `DataError`, ...), wrap `errorDescription` literals in `String(localized: "...")`. Tests assert via `.contains(...)` partial matching, not equality.
+- **User-facing String literals:** Any new user-facing English `String` literal — `Text("...")`, alert / toast / `errorMessage` assignments, accessibility labels — must be wrapped in `String(localized: "...")` so it lands in `Localizable.xcstrings` and gets a `ja` translation. Enforced at edit time (SwiftLint tripwire), on demand (`scripts/check_i18n_potential_keys.py`) and in CI (`localization-coverage`). Architecture: `docs/i18n/leak-detection.md`. Read before writing one: `.claude/rules/i18n.md` (format strings, the Form A fallback hazard), `.claude/rules/i18n-ui.md` (UI-layer traps), `.claude/rules/i18n-catalog.md` (catalog editing, `xcstringstool`).
+- **Debug builds under a suffixed bundle ID** — `app.pastura.Pastura.dev` / display name `Pastura Dev`, via `BUNDLE_ID_SUFFIX` (empty on Release), so a locally-installed dev build coexists with the App Store build. **A new bundle-ID-shaped identifier must decide whether it has to track the suffix**: one declared in `Info.plist` does — use `$(PRODUCT_BUNDLE_IDENTIFIER)` on both sides, since a `BGTaskScheduler` identifier mismatch only *logs* and ships silently dead; a per-app-container one does not — renaming a background `URLSession` identifier orphans in-flight downloads. Accepted collisions (Universal Links, `pastura://`, duplicated model downloads, OSLog matching both installed apps) and the `defaults write` domain shift: #1391.
+- **Logger privacy:** OSLog redacts `String` / `Substring` / `Error` interpolations as `<private>` in TestFlight / Release. Annotate non-`.debug` Logger interpolations with `privacy: .public`. Don't Logger-interpolate user content (scenario text, agent outputs) — route through `TurnRecord` persistence. The two narrow exceptions are documented as inline comments at `LLMCaller.logParseFailure` and `BackgroundSimulationManager.scheduleRequest`.
 - **Swift 6 Concurrency:** `Sendable` for cross-actor types, `@MainActor` for UI state,
   `AsyncStream` over callbacks. Engine/LLM work runs on non-main actors or default executor.
 - **Default Actor Isolation:** Project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`.
   All types in `Models/`, `LLM/`, `Engine/`, and `Data/` **MUST** be marked `nonisolated` at the
   type level to avoid unnecessary MainActor binding.
   `Views/` and `App/` use the default (MainActor).
-  Specific isolation traps (protocol-ext default impls building escaping closures,
-  custom-witness value types, sibling-file extensions, reference-type sync methods,
-  auto-synth Equatable/Hashable conformance lookup from nonisolated callers) —
-  see `.claude/rules/swift-isolation.md`.
+  The isolation traps this creates — including the ones that raise no diagnostic
+  at all — are catalogued in the always-loaded `.claude/rules/swift-isolation.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what.
 - **Observable bridge for non-`@Observable` state:** When an `@Observable` class exposes
   a computed property that reads mutable state from a `nonisolated` class / actor,
   bridge observation manually — `access(keyPath: \.prop)` in the getter and
-  `withMutation(keyPath: \.prop)` around every write. Without this, SwiftUI observers
-  don't get invalidated when the underlying state changes. Example:
-  `SimulationViewModel.isPaused` bridges to `SimulationRunner.isPaused` (PR #216).
+  `withMutation(keyPath: \.prop)` around **every** write, or SwiftUI observers never
+  invalidate. Example: `SimulationViewModel.isPaused` bridges to `SimulationRunner.isPaused`.
 
 ## Tech Stack
 
@@ -257,27 +253,27 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 `.claude/rules/` contains detailed rules with two loading modes:
 
-**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`; a rule created mid-session never injects there — `knowledge-layering.md` § "A rules file created mid-session never injects in that session"):
+**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`; a rule created mid-session never injects there — `knowledge-layering.md` § "A rules file created mid-session never injects in that session"). Areas below are hints for choosing what to read at *plan* time, when nothing has been injected yet; `head -14 .claude/rules/*.md` prints the authoritative `paths:`.
 
-- `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` (`docs/decisions/**`)
+- `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` — read it before drafting (docs/decisions/)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure). Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
-- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in every Swift target — the § header carries the reach (`Pastura/Pastura/**/*.swift`, `Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `tools/harness/**`)
-- `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (`.github/workflows/**`, `scripts/**`)
-- `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
-- `i18n.md` — Swift-side localization **callsite** conventions, layer-independent: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, partial-conversion orphans, Tier 2 audit planning (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `i18n-catalog.md` — `Localizable.xcstrings` editing + `xcstringstool` sync output. **Loads on a `Read` of the catalog, so a scripted mutation loads nothing** — read it explicitly before one (`Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `i18n-ui.md` — UI-layer i18n traps: plurals, the SwiftUI `LocalizedStringKey` traps, `#if DEBUG` extraction, `.accessibilityLabel` audit triage. Which of the two owns a section is decided by `docs/i18n/leak-detection.md` § "Rule-file layering" — read it before adding or moving one (`Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**`, `Pastura/Pastura/PasturaApp.swift`, `Pastura/PasturaTests/Localization/**`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `kmp-interop.md` — K/N↔Swift boundary traps (ADR-023); grep the K/N type shape at plan time (`shared/**`, `tools/kmp-gate-spike/**`)
-- `lp-content.md` — Public LP content: genre-word zoning, voice rule for new copy (`web/**`)
-- `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
+- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in every Swift target — the § header carries the reach (app, unit tests, UI tests, `tools/harness/`)
+- `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (.github/workflows/, scripts/)
+- `engine.md` — Engine + LLM source
+- `i18n.md` — Swift-side localization **callsite** conventions, layer-independent: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, partial-conversion orphans, Tier 2 audit planning (any app Swift file, plus the catalog)
+- `i18n-catalog.md` — `Localizable.xcstrings` editing + `xcstringstool` sync output. **Loads on a `Read` of the catalog, so a scripted mutation loads nothing** — read it explicitly before one
+- `i18n-ui.md` — UI-layer i18n traps: plurals, the SwiftUI `LocalizedStringKey` traps, `#if DEBUG` extraction, `.accessibilityLabel` audit triage. Which of the two owns a section is decided by `docs/i18n/leak-detection.md` § "Rule-file layering" — read it before adding or moving one (Views/, App/, `PasturaApp.swift`, localization tests, the catalog)
+- `kmp-interop.md` — K/N↔Swift boundary traps (ADR-023); grep the K/N type shape at plan time (shared/, tools/kmp-gate-spike/)
+- `lp-content.md` — Public LP content: genre-word zoning, voice rule for new copy (web/)
+- `models-and-data.md` — Models + Data source
 - `navigation.md` — bottom-tab IA (ADR-016): four per-tab `AppRouter`s under `TabCoordinator`; `navigationDestination(item:|isPresented:)` forbidden inside a view pushed onto a tab's stack. Its own § Scope explains why each glob entry is load-bearing — read it before editing the frontmatter (`Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**`, `Pastura/Pastura/PasturaApp.swift`)
-- `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
-- `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via `currentScenario()` (`Pastura/Pastura/App/ScenarioEditor*`, `Pastura/Pastura/Views/Editor/**`, `Pastura/PasturaTests/App/ScenarioEditorViewModel*`)
-- `swift-testing-parallelism.md` — `.serialized` is intra-suite only; timing assertions need an in-test control (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `tools/**`)
-- `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog for the UI layers; cross-layer build/lint traps live in `build-traps.md` (`Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**`, `Pastura/Pastura/PasturaApp.swift`)
-- `testing.md` — Test target (`Pastura/PasturaTests/**`)
-- `uitest-traps.md` — XCUITest-only traps: structural `Tab` drops its `label:` a11y identifier per-launch (`Pastura/PasturaUITests/**`)
-- `view-testing.md` — View test strategy: extract logic to unit tests, no ViewInspector / snapshot ([ADR-009](docs/decisions/ADR-009.md)) (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**ViewModel.swift`)
+- `presets.md` — Bundled scenario YAML (Resources/)
+- `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via `currentScenario()` (Editor views, `ScenarioEditor*` in App/, their tests)
+- `swift-testing-parallelism.md` — `.serialized` is intra-suite only; timing assertions need an in-test control (tests, tools/)
+- `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog for the UI layers; cross-layer build/lint traps live in `build-traps.md` (Views/, App/, `PasturaApp.swift`)
+- `testing.md` — Test target
+- `uitest-traps.md` — XCUITest-only traps: structural `Tab` drops its `label:` a11y identifier per-launch (UI tests)
+- `view-testing.md` — View test strategy: extract logic to unit tests, no ViewInspector / snapshot ([ADR-009](docs/decisions/ADR-009.md)) (tests, Views/, `App/**ViewModel.swift`)
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
@@ -302,52 +298,48 @@ Record architectural decisions in `docs/decisions/` as `ADR-NNN.md`.
 
 ## Reference Documents
 
-`README.md` and `CONTRIBUTING.md` at the project root are public-facing
-mirrors of parts of this document. When updating one of the following in
-this document (or in source), check whether the public docs need the
-same change:
+`README.md` and `CONTRIBUTING.md` are public-facing mirrors of parts of this
+document. When changing one of these — here or in source — check the mirror:
 
-- Architecture / Hard Rules / Dependency Rules → README "Architecture",
-  CONTRIBUTING "Design principles" (anchor links)
-- Tech Stack versions and platform (Swift, iOS minimum, Yams, GRDB) → README "Tech stack"
+- Architecture / Hard Rules / Dependency Rules → README "Architecture", CONTRIBUTING "Design principles"
+- Tech Stack (Swift, iOS minimum, Yams, GRDB) → README "Tech stack"
 - Bundled models (`ModelRegistry.swift`) → README "Supported LLM models"
 - Git Conventions → CONTRIBUTING "Workflow" / "Commits"
 - Directory Structure → README "Project layout"
-- i18n workflow / ContentBlocklist procedure → CONTRIBUTING "Before
-  your first PR"
+- i18n workflow / ContentBlocklist procedure → CONTRIBUTING "Before your first PR"
 
-| Document                              | Content                                                                       |
-|---------------------------------------|-------------------------------------------------------------------------------|
-| `README.md`                           | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
-| `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
-| `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
-| `docs/decisions/INDEX.md`             | Per-ADR decision summaries — the ADR lookup surface; each entry routes into its ADR rather than restating it (roster below is titles only) |
-| `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3) — **reserved, not yet written**; a gap in the sequence, not a free slot (ADR-005 §7.5). Keep as a **table row with the path in cell 1** — `consistency-audit`'s `load_reserved_adrs` parses it to suppress `dangling_adr` false positives |
-| `docs/decisions/adr-writing-guide.md` | ADR inter-citation consistency checklist — run once after drafting / amending (dates, SHAs, `file:line`, period words; projection-vs-measurement and status-flip variants). Companion to `.claude/rules/adr-writing.md` §3 |
-| `docs/kmp-migration-status.md`        | KMP Engine migration (ADR-023 / #501) at-a-glance progress board — stage table + gate-enforced Wave B handler checklist. Progress view only; ADR-023 = design, #501 = execution detail |
-| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification                                         |
-| `docs/specs/demo-replay-spec.md`      | DL-time demo replay — data format + component design (#152) |
-| `docs/specs/demo-replay-ui.md`        | DL-time demo replay — visual / behaviour spec (#164)        |
+| Document | Content |
+|---|---|
+| `README.md` | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
+| `CONTRIBUTING.md` | Public-facing contributor workflow with links into CLAUDE.md anchors |
+| `docs/ROADMAP.md` | Phase scope, Go/No-Go criteria |
+| `docs/decisions/INDEX.md` | Per-ADR decision summaries — the ADR lookup surface (the roster below is titles only) |
+| `docs/decisions/ADR-006.md` | Cloud API implementation details (Phase 3) — **reserved, not yet written**; a gap in the sequence, not a free slot (ADR-005 §7.5). Keep this row's shape — `consistency-audit`'s `load_reserved_adrs` reads the path in cell 1 to suppress `dangling_adr` false positives |
+| `docs/decisions/adr-writing-guide.md` | ADR inter-citation consistency checklist — run once after drafting / amending. Companion to `.claude/rules/adr-writing.md` §3 |
+| `docs/kmp-migration-status.md` | KMP Engine migration progress board — progress view only (ADR-023 = design, #501 = execution detail) |
+| `docs/specs/pastura-mvp-spec-v0_3.md` | MVP specification |
+| `docs/specs/demo-replay-spec.md` | DL-time demo replay — data format + component design |
+| `docs/specs/demo-replay-ui.md` | DL-time demo replay — visual / behaviour spec |
 | `docs/specs/demo-replay-mockup-prompt.md` | Claude Design prompt for the DL-time demo visual exploration |
-| `docs/design/design-system.md`        | Cross-screen design system (tokens, philosophy, components) |
-| `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML)             |
-| `docs/security/release-checklist.md`  | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
-| `docs/models/onboarding.md`           | Model onboarding two-gate procedure (Stage-0 harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration; intake #979) |
-| `docs/models/eval-log.md`             | Model-eval 判定台帳 — 候補評価の verdict を committed に記録(judgment-only; 生スコアは gitignore の data/models/eval-digest.md; ADR-011 表が追跡する 6GB/1B級以外の候補が対象; #979 intake) |
-| `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
-| `docs/qa/dark-mode-qa.md`             | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5; the six risk classes no test can reach — fixed tokens, materials, fixed-appearance exports, non-SwiftUI surfaces, occlusion layers, a rendered state with no ground behind it) |
-| `docs/ci/xcodebuild-flakes.md`        | CI + local UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
+| `docs/design/design-system.md` | Cross-screen design system (tokens, philosophy, components) |
+| `docs/design/demo-replay-reference.html` | DL-time demo visual reference prototype (HTML) |
+| `docs/security/release-checklist.md` | Operator security checklist (GitHub settings, iOS pre-submission audit, recurring review) |
+| `docs/models/onboarding.md` | Model onboarding two-gate procedure (harness profile → `/model-eval` Mac filter → ADR-011 real-device accept → registration) |
+| `docs/models/eval-log.md` | Model-eval 判定台帳 — verdict のみ committed（生スコアは gitignore の `data/models/eval-digest.md`）。ADR-011 の表が追跡しない候補が対象 |
+| `docs/qa/navigation-qa.md` | Navigation manual QA walkthroughs |
+| `docs/qa/dark-mode-qa.md` | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5) — the six risk classes no test can reach |
+| `docs/ci/xcodebuild-flakes.md` | CI + local UI-test flake catalog + hang/stall session-recovery walkthrough |
 | `docs/agent-tooling/subagent-output-cap.md` | Depth paired with `.claude/rules/subagent-usage.md` — cap provenance, why the split thresholds are not cap-derived, how a cap hit behaves |
 | `docs/agent-tooling/claim-verification.md` | Depth paired with `.claude/rules/knowledge-layering.md` § "Verify before you lock it" — the claim table, authored-claim shapes in full, promotion mechanics |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
 
 ### ADR roster
 
-Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries a decision summary for every entry below — mechanism, standing invariants, what is still open, and where in the ADR each claim is derived.
+Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries a decision summary for every entry below.
 
 001 Architecture Overview (Phase 1) · 002 llama.cpp interim LLM backend · 003 Background execution · 004 Multi-platform strategy · 005 Content safety architecture · 006 Cloud API implementation details · 007 DL-time demo replay (iOS lifecycle) · 008 Route identity vs render-time hints · 009 View testing strategy · 010 Localization (i18n: ja/en) · 011 6 GB RAM tier · 012 YAML strategy post-kaml · 013 Headless macOS simulation harness · 014 Release automation toolchain · 015 Execution-log retention posture · 016 Home redesign — bottom-tab IA · 017 Simulation focus mode · 018 Format-preserving visual→YAML boundary sync · 019 Raise minimum deployment target to iOS 18 · 020 Shared-scenario backward-compat · 021 Graceful degradation of LLM turn failures · 022 Phase/event extension contract · 023 KMP Engine migration architecture · 024 Scenario semantic lint layer · 025 Gallery scenario ordering · 026 LLM-dynamic Word Wolf topics (near-term no-go) · 027 Generic `pairwise_payoff` scoring logic · 028 Dark-mode token pairing (trait-resolving `PasturaDynamicColor`) · 029 Shared-scenario highlights (static curated excerpts)
 
-Titles are kept byte-identical to INDEX's `## ADR-NNN — <title>` headings. **Nothing prompts an author to append here** — add a new ADR by hand (`adr-writing.md` §4). A `/consistency-audit` run flags the omission afterwards as `adr_roster_drift` — manual and after-the-fact, not a gate. ADR-006 is reserved-unwritten — see its row above.
+Titles stay byte-identical to INDEX's `## ADR-NNN — <title>` headings, and the roster stays **one line alone in its paragraph** — `load_roster` measures the paragraph, and on a reflow the audit emits one generic finding and **skips per-ADR drift detection entirely**, so the roster quietly stops being checked. Reserving ADR-006 needs **all three** conjuncts of `load_reserved_adrs`: a pipe-delimited table row, the ADR's own `.md` path in cell 1, and a case-insensitive `reserved` / `not yet written` token anywhere in the line. Keep that row's bold marker — it satisfies the third conjunct a *second* time by accident, via the word inside the function name it cites, so a rewrite dropping both at once breaks reservation silently. **Don't restate all three conjuncts in prose on one line either** — that line would itself parse as a reservation and mask a broken row. **Nothing prompts an author to append here** — add a new ADR by hand (`adr-writing.md` §4); `/consistency-audit` flags the omission afterwards as `adr_roster_drift`, after the fact, not a gate. ADR-006 is reserved-unwritten — see its row above.
 
 Two cross-cutting gotchas that fire outside their own ADR's subject area:
 
