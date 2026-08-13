@@ -136,8 +136,8 @@ extension DesignTokensTests {
     #expect(ceiling < 5.0, "mossDark got materially darker: \(ceiling)")
   }
 
-  /// The dark-side negative control, and it is deliberately **one row, not
-  /// seven**.
+  /// The dark-side negative control, and it is deliberately **one row, not the
+  /// whole fixture**.
   ///
   /// The claim it defends is narrow: dark was not broken in general — the
   /// gallery category chip was the single site already under the bar there,
@@ -202,9 +202,9 @@ extension DesignTokensTests {
 /// helpers in a sibling file live outside the suite struct.
 struct MossWashSite {
 
-  /// Which token the capsule is filled with. Only two occur across the seven
-  /// sites — most fill with base `moss`, while `fieldPill` and `recordedPill`
-  /// tint with `mossDark` itself.
+  /// Which token the capsule is filled with. Only two occur across the fixture
+  /// — most fill with base `moss`, while `fieldPill` and `recordedPill` tint
+  /// with `mossDark` itself.
   enum Wash {
     case moss
     case mossDark
