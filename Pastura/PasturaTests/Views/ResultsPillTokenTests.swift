@@ -18,31 +18,24 @@ import Testing
 ///
 /// **This pin does not go blind to `body`.** The rule warns that extracting a
 /// View's colours into an accessor leaves the pin unable to see a `body` that
-/// re-inlines a token. That failure mode needs *two* places deciding the colour;
-/// here there is one. `rg 'Color\.'` over
-/// `Pastura/Pastura/Views/Results/ResultsView+Timeline.swift` does return hits —
-/// seven, when this was written — but every one belongs to a **different**
-/// element: the record-count subtitle, the rail, the day-section node's border
-/// and fill, the day title, the card surface and its stroke. The day node is
-/// deliberately independent of the
-/// run node and is not governed by this map. The run node's own fill is
-/// `pillForeground(pill.style)` and carries no `Color.` literal, which is the
-/// property that keeps this pin honest — re-run the grep rather than trusting
-/// the count, since a new element would add hits without invalidating anything.
+/// re-inlines a token — but that needs *two* places deciding the colour, and
+/// here there is one: the run node's fill is `pillForeground(pill.style)` with
+/// no `Color.` literal. `rg 'Color\.'` over
+/// `Pastura/Pastura/Views/Results/ResultsView+Timeline.swift` does return hits
+/// (seven, when this was written), every one belonging to a different element —
+/// the rail, the day-section node, titles, the card surface. Re-run the grep
+/// rather than trusting the count; a new element adds hits without invalidating
+/// anything.
 ///
 /// **A failure here is not a bug.** It means a code-review-gated token drifted.
 /// Confirm the change was intended and passed review, then update the
 /// expectation.
 ///
-/// **Why assert the alias, not the hex.** All three tokens are trait-resolving
-/// (`PasturaDynamicPalette`), so an alias comparison follows a pairing slice
-/// without edits here while still reddening on a swap to a *different* token —
-/// the drift actually being guarded. Note this matters more than usual for
-/// `.paused`: `inkOnWash` and `inkSecondary` are **byte-identical in light**, so
-/// a value-based comparison could not tell them apart at all. `Color` compares
-/// by provider instance, which is what makes the arm meaningful; deliberately no
-/// "these two differ" assertion anywhere in this file, since that direction
-/// passes vacuously for the same reason.
+/// **Why assert the alias, not the hex** — `view-testing.md`'s reasoning, plus
+/// one thing specific to `.paused`: `inkOnWash` and `inkSecondary` are **byte-identical in
+/// light**, so a value comparison could not tell them apart at all. `Color`
+/// compares by provider instance, which is what makes the arm meaningful and
+/// equally why no "these two differ" assertion appears anywhere here.
 ///
 /// Token *values* are `DesignTokensTests`' contract, and the contrast claims
 /// behind `.paused`'s token are `DesignTokensTests+InkOnWash`'s. This suite

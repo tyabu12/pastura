@@ -233,15 +233,11 @@ extension PasturaPalette {
 
   // MARK: §2.9 Dark counterpart of the §2.2 on-wash foreground
   //
-  // The half this pair exists for. `inkOnWash`'s light value is `inkSecondary`
-  // copied verbatim because light was never the problem; this token is where the
-  // two separate.
-  //
-  // **The direction is the opposite of #1327's.** There, moss-family label text
-  // failed the 4.5:1 bar in *light* and dark already passed. Here the ink-family
-  // self-wash fails in *dark* and light clears comfortably, so the answer is a
-  // lighter dark half rather than a darker light one — which is exactly why
-  // `mossOnWash` could not be extended to cover these sites.
+  // The half the `inkOnWash` pair exists for — its light half is `inkSecondary`
+  // copied verbatim, so this token is where the two separate. **The direction is
+  // the opposite of #1327's**: there moss label text failed in *light* and dark
+  // passed, here the ink self-wash fails in *dark*. Which is why `mossOnWash`
+  // could not simply be extended over these sites.
 
   /// Neutral text on a translucent ink-family wash under dark mode.
   ///
@@ -260,13 +256,11 @@ extension PasturaPalette {
   /// That claim is executed by `DesignTokensTests+InkOnWash`, not just written
   /// here — otherwise a later reader "simplifies" to `nightInk` silently.
   ///
-  /// Two more levers were rejected, both on measurement rather than taste, and
-  /// the derivations live in ADR-028 § Amendment 2026-08-13 (#1408) rather than
-  /// here: lowering the dark wash alpha (cheap — `fieldPill` needs only
-  /// 0.16 → 0.150 — but it buys back the marginless state this change exists to
-  /// leave, and the 15% fill is load-bearing), and retuning `nightInkSecondary`
-  /// itself (93 `Color.inkSecondary` lines across 43 files, four of them
-  /// self-washes).
+  /// Two more levers were rejected on measurement, derivations in ADR-028
+  /// § Amendment 2026-08-13 (#1408): lowering the dark wash alpha (cheap, but it
+  /// buys back the marginless state this change exists to leave, and the 15%
+  /// fill is load-bearing) and retuning `nightInkSecondary` itself (93
+  /// `Color.inkSecondary` lines across 43 files, four of them self-washes).
   ///
   /// Placed by the §2.2 proportional-L relation, **precedent rather than an
   /// independent control** (the same caveat `nightMossOnWash` carries): HSL L

@@ -71,19 +71,18 @@ extension PhaseEditorSheet {
   ///
   /// **Figures below are worst-case per appearance** — composited on
   /// `screenBackground` in light and `nightBubble` in dark, the convention
-  /// `DesignTokensTests+MossOnWash` / `+InkOnWash` assert against. Earlier
-  /// revisions of this comment measured on `bubbleBackground`, so the light
-  /// numbers here read lower than the ones they replace (moss ≈5.73 → 5.509,
-  /// ink ≈5.48 → 5.270). That is the ground changing, not the contrast.
+  /// `DesignTokensTests+MossOnWash` / `+InkOnWash` assert against. They read
+  /// lower than the per-site ones an earlier revision carried; that is the
+  /// ground changing, not the contrast.
   ///
   /// - **moss arm**: the designed wash is `mossDark` at 0.16, on which `mossDark`
   ///   text measures 3.737:1 — under the 4.5:1 bar at `caption2`. `mossOnWash`
   ///   brings it to 5.509:1 (#1327).
   /// - **ink arm**: the wash is `inkSecondary` at the same 0.16, where
-  ///   `inkSecondary` text was the **opposite asymmetry** — 5.270:1 in light,
+  ///   `inkSecondary` text failed in the *other* appearance — 5.270:1 in light,
   ///   fine, but 4.413:1 in dark, the worst of the four self-washes and the only
   ///   one strictly under the bar. `inkOnWash` brings dark to 4.991:1 and leaves
-  ///   light untouched, its two halves being byte-identical (#1408).
+  ///   light untouched (#1408).
   private func fieldPill(_ text: String, wash: Color, label: Color) -> some View {
     Text(text)
       .font(.caption2.weight(.semibold))

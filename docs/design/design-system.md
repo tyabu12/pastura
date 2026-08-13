@@ -66,7 +66,7 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--ink-on-accent` | `#FFFFFF` | アクセント塗り（`moss` / `moss-dark`）の上に載る文字・グリフ |
 | `--ink-on-wash` | `#5A5A55` | 半透明のインク系ウォッシュに乗る中立文字（バッジ・チップ・ステータスピル）。§2.3 の `--moss-on-wash` のインク側の対応物。ダーク対は §2.9 の `nightInkOnWash`（#1408 で追加。下の「slice 4」には**含まれない**） |
 
-**`--ink-on-wash` の light 値が `--ink-2` と同一なのは偶然ではなく設計。** 別名参照ではなく**値の複製**である。ただし複製が効くのは「dark を独立に動かせるから」ではない — dark 半分は `PasturaDynamicPalette` で独立に宣言されるので、light を別名にしても dark の独立性は損なわれない（この記述の旧版は逆を主張していた。誤り）。複製が買っているのは**逆向きの切り離し**で、将来 `--ink-2` を light 側で再調整したときにこのトークンが黙って追随しないこと。§2.12 の `headerMetaInk` が `metaBaseL3` と同 hex を別役割で複製しているのと同型。壊れていたのは dark だけだったため（4 箇所で 4.413〜4.773:1、うち 2 つは 4.501:1 で「バーちょうど」）light は据え置き、dark だけ `nightInkSecondary` → `nightInkOnWash` に持ち上げた。**したがって light 端末ではこの変更は一切見えない。** 適用先は「同じトークンを文字と半透明ウォッシュの両方に塗っている」4 箇所（*self-wash*）に限る — `PhaseEditorSheet.fieldPill` の thought、`ScenarioBadgeStyle.secondary`、`PhaseTypeLabel` の非 LLM、`ResultsView` の paused ピル。不透明な中立塗りは別問題で、§2.6 の Soft+Ink 対が担当する（#1407 と同じ形）。計測は `DesignTokensTests+InkOnWash` が正本。#1408。
+**`--ink-on-wash` の light 値が `--ink-2` と同一なのは偶然ではなく設計。** 別名参照ではなく**値の複製**である。複製が買っているのは dark の独立性ではなく（dark 半分は `PasturaDynamicPalette` で独立に宣言されるので別名でも保たれる）、**逆向きの切り離し** — 将来 `--ink-2` を light 側で再調整したときにこのトークンが黙って追随しないこと。§2.12 の `headerMetaInk` が `metaBaseL3` と同 hex を別役割で複製しているのと同型。壊れていたのは dark だけだったため（4 箇所で 4.413〜4.773:1、うち 2 つは 4.501:1 で「バーちょうど」）light は据え置き、dark だけ `nightInkSecondary` → `nightInkOnWash` に持ち上げた。**したがって light 端末ではこの変更は一切見えない。** 適用先は「同じトークンを文字と半透明ウォッシュの両方に塗っている」4 箇所（*self-wash*）に限る — `PhaseEditorSheet.fieldPill` の thought、`ScenarioBadgeStyle.secondary`、`PhaseTypeLabel` の非 LLM、`ResultsView` の paused ピル。不透明な中立塗りは別問題で、§2.6 の Soft+Ink 対が担当する（#1407 と同じ形）。計測は `DesignTokensTests+InkOnWash` が正本。#1408。
 
 **`--ink-2` のセクションラベル用途には既知の未適用がある。** 自前のセクションヘッダー `PasturaSection` はヘッダーを `--muted` で描いており、この表と一致しない。対象は設定 / 観察履歴 / さがす といったタブ配下に限らず、ScenarioDetail / GalleryScenarioDetail などの push 先も含む。掃引対象の正は**呼び出し形**の grep — `rg -l 'PasturaSection\(' Pastura/Pastura/Views/`（8画面 + 定義ファイル自身の `#Preview`）。型名だけの grep は `PasturaSectionStyle` の言及も拾って広く出るので使わないこと。#1298 では `ScenarioEditorView` の Personas / Phases ヘッダーだけを表どおり `--ink-2` に揃えた — 隣に `--muted` のカウントが並び、明度がほぼ同じで色相だけ違う組み合わせになっていたため。`PasturaSection` 側はパレット掃引の担当として残す。掃引時に「表に寄せる」か「表を `PasturaSection` に合わせる」かをまとめて決めること — アプリ内には現在この2種類に加えてシステム `secondaryLabel` のままのヘッダーも残っている。
 
@@ -228,10 +228,9 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 + gate 1 を閉じた**後**に増えた役割トークン 2 対 — `mossOnWash`（#1327）と
 `inkOnWash`（#1408））。**後半 2 対はどの slice にも属さない** — 「ダーク値を負っていた
 light トークン」ではなく、新たに存在する必要が生じた light トークンであり、§2.9 が
-パレットの既定になった後なので生まれつきペアだった。ただし**2 対で事情は同じではない**:
-`mossOnWash` は light 自体が壊れていたので新しい値が要り、`inkOnWash` の light 値は
-`--ink-2` の複製で、dark を独立に動かすための器として存在する。したがって上の列挙は
-内訳ではなく由来の一覧。
+パレットの既定になった後なので生まれつきペアだった（ただし `mossOnWash` は light 自体が
+壊れていたので新しい値が要り、`inkOnWash` の light 値は `--ink-2` の複製、と事情は異なる）。
+したがって上の列挙は内訳ではなく由来の一覧。
 **ダーク対を持たないトークンは `headerMetaSubdued` 1 つだけで、しかも未決ではなく解決済み**
 — **両外観で固定**という記録によるもので、gate 1 は designed dark value と同格の充足条件
 としてこれを認めている。したがって **gate 1 に答えを負ったトークンは 0**。

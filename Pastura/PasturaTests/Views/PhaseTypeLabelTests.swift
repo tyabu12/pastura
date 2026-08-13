@@ -10,10 +10,9 @@ import Testing
 ///
 /// Each branch is now **two** tokens rather than one: `moss` / `inkSecondary`
 /// fill the capsule, while the label reads the family's role token,
-/// `mossOnWash` (#1327) / `inkOnWash` (#1408). An earlier revision of this
-/// comment named only `Color.moss` and `Color.inkSecondary`, which stopped
-/// being the label colour at #1327 — the structural check below never saw the
-/// difference, for the reason in the next paragraph.
+/// `mossOnWash` (#1327) / `inkOnWash` (#1408). Which token each side lands on is
+/// `PhaseTypeLabelTokenTests`' job — the structural check below cannot see it,
+/// for the reason in the next paragraph.
 ///
 /// The color check is structural: we only verify that every LLM phase
 /// picks the same side and every code phase picks the other, via the

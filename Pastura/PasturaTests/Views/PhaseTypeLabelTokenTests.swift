@@ -9,34 +9,27 @@ import Testing
 /// ``ScenarioBadgeStyleTokenTests`` and ``ResultsPillTokenTests``.
 ///
 /// **Why this exists, concretely.** ``PhaseTypeLabelTests`` checks the
-/// LLM-vs-code *structure* — that every LLM phase picks one side and every code
-/// phase the other — and is deliberately blind to *which token* each side is.
-/// That blindness has already cost something: #1327 repointed the LLM arm from
-/// `moss` to `mossOnWash`, the structural suite stayed green, and
-/// `PhaseTypeLabelTests`' own doc comment went on naming `Color.moss` as the
-/// label colour until #1408 corrected it. This suite closes that gap for both
-/// arms, which is why `badgeText` / `badgeFill` are internal rather than
-/// `private`.
+/// LLM-vs-code *structure* — every LLM phase picks one side, every code phase
+/// the other — and is deliberately blind to *which token* each side is. That
+/// blindness has already cost something: #1327 repointed the LLM arm from `moss`
+/// to `mossOnWash`, the structural suite stayed green, and that suite's own doc
+/// comment went on naming `Color.moss` as the label colour until #1408. Closing
+/// the gap is why `badgeText` / `badgeFill` are internal rather than `private`.
 ///
 /// **Fill and label are pinned together on purpose.** They were one token per
 /// arm until #1327 / #1408 split them, so the interesting regression is not
-/// either accessor drifting alone but the two silently re-converging — a
-/// well-meaning "these are the same, simplify" edit. Pinning only the label
-/// would not see it.
+/// either accessor drifting alone but the two silently re-converging under a
+/// well-meaning "these are the same, simplify" edit.
 ///
 /// **A failure here is not a bug.** It means a code-review-gated token drifted.
 /// Confirm the change was intended and passed review, then update the
 /// expectation.
 ///
-/// **Why assert the alias, not the hex.** All four tokens are trait-resolving
-/// (`PasturaDynamicPalette`), so an alias comparison follows an ADR-028 pairing
-/// slice without edits here while still reddening on a swap to a *different*
-/// token. This matters more than usual for the code arm: `inkOnWash` and
-/// `inkSecondary` are **byte-identical in light**, so a value-based comparison
-/// could not tell them apart at all. `Color` compares by provider instance,
-/// which is what makes the arm meaningful — and is equally why there is no
-/// "these two differ" assertion anywhere here, since that direction would pass
-/// vacuously.
+/// **Why assert the alias, not the hex** — `view-testing.md`'s reasoning, plus
+/// one thing specific to the code arm: `inkOnWash` and `inkSecondary` are **byte-identical
+/// in light**, so a value comparison could not tell them apart at all. `Color`
+/// compares by provider instance, which is what makes the arm meaningful and
+/// equally why no "these two differ" assertion appears anywhere here.
 ///
 /// Token *values* are `DesignTokensTests`' contract and the contrast claims are
 /// `DesignTokensTests+InkOnWash`'s / `+MossOnWash`'s. This suite guards only the

@@ -36,14 +36,12 @@
   --rule: #E0DBCE;
   --ink-on-accent: #FFFFFF;
   /* Byte-identical to --ink-2 by design (#1408): the light half of the pair is
-     a copy, so the dark half can move independently. The substring gate in
-     check_design_tokens_css.py cannot see this row — the hex was already
-     present as --ink-2 — so the row itself is diff-verified only. What the
-     Swift-side arm
+     a copy, so the dark half can move independently. This row is diff-verified
+     only — check_design_tokens_css.py's substring gate cannot see it (the hex
+     was already present as --ink-2), and the Swift arm
      DesignTokensTests+InkOnWash.inkOnWashCopiesTheLightHalfAndDivergesOnlyInDark
-     pins is the VALUE invariant (light halves equal, dark halves differ), not
-     this row's presence: deleting the line leaves both the gate and that test
-     green. Same residual as --night-ink-on-accent below. */
+     pins the VALUE invariant, not this row's presence, so deleting the line
+     leaves both green. Same residual as --night-ink-on-accent below. */
   --ink-on-wash: #5A5A55;
 
   /* §2.3 Moss Accent — Pastura's only brand color, 4 steps */

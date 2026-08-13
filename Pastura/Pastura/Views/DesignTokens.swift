@@ -124,21 +124,19 @@ enum PasturaPalette {
   /// capsule wash (a *self-wash*), which is where that token stops being the
   /// constraint-free neutral it is everywhere else.
   ///
-  /// The light half is deliberately **byte-identical to `inkSecondary`**, not
-  /// inherited from it: light is not broken (5.270–5.595 across the four sites,
-  /// composited on `screenBackground` — the worst-case light ground), so this
-  /// pair exists to give the *dark* half a value of its own.
+  /// The light half is **byte-identical to `inkSecondary`**: light was not
+  /// broken (5.270–5.595 across the four sites on `screenBackground`, the
+  /// worst-case light ground), so the pair exists to give *dark* a value of its
+  /// own — see `nightInkOnWash`.
   ///
-  /// **What the copy buys is decoupling in the other direction.** The dark half
-  /// is independently declared in `PasturaDynamicPalette`, so writing this as an
-  /// alias of `inkSecondary` would not have cost dark anything — an earlier
-  /// revision of this comment claimed it would, and that was wrong. The copy
-  /// earns its place by making a future retune of `inkSecondary` in *light* not
-  /// silently drag this token with it. Same shape as `headerMetaInk`, which
-  /// duplicates `metaBaseL3`'s hex for a different role (§2.12). Valid over
-  /// ink-family
-  /// **translucent** washes; an opaque neutral fill is a different question and
-  /// takes the §2.6 Soft+Ink pairing (#1407's shape). Asserted by
+  /// **Copied, not aliased**, and the reason runs the other way: an alias would
+  /// have cost dark nothing (that half is declared independently), but it would
+  /// make a future light-side retune of `inkSecondary` silently drag this token
+  /// along. Same shape as `headerMetaInk` duplicating `metaBaseL3`'s hex for a
+  /// different role (§2.12).
+  ///
+  /// Valid over **translucent** ink-family washes only; an opaque neutral fill
+  /// takes the §2.6 Soft+Ink pairing instead (#1407's shape). Asserted by
   /// `DesignTokensTests+InkOnWash` (#1408).
   static let inkOnWash = PasturaColorValue(hex: 0x5A5A55)
 

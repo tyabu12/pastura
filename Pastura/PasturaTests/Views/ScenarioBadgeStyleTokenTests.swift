@@ -59,13 +59,10 @@ struct ScenarioBadgeStyleTokenTests {
   }
 
   @Test func secondaryReadsTheNeutralWashPair() {
-    // No longer one token twice. The fill stays `inkSecondary`; the label moved
-    // to the `inkOnWash` role token in #1408, for the **mirror** of the reason
-    // the tinted arm moved in #1327 — `inkSecondary` on its own @0.15 wash was
-    // 5.350:1 in light but 4.501:1 in dark, i.e. on the bar rather than under
-    // it, with no margin for a later wash tweak. `inkOnWash` reads 5.090:1 there
-    // and is byte-identical in light, so this swap is invisible on a light
-    // device by construction.
+    // No longer one token twice: the fill stays `inkSecondary`, the label moved
+    // to `inkOnWash` in #1408 for the mirror of the reason the tinted arm moved
+    // in #1327 — this wash was on the bar in dark (4.501:1), not under it, with
+    // no margin left. Figures and grounds: `DesignTokensTests+InkOnWash`.
     #expect(ScenarioBadgeStyle.secondary.fillToken == Color.inkSecondary)
     #expect(ScenarioBadgeStyle.secondary.labelToken == Color.inkOnWash)
   }

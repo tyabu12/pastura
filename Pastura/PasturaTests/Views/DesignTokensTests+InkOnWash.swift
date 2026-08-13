@@ -34,10 +34,6 @@ extension DesignTokensTests {
   /// hit, and it is `ResultsView.pillBackground` — the only *direct* site, and the
   /// one that was not failing. Enumerating the bug class is what found the other
   /// three; nothing mechanical will find a fifth.
-  ///
-  /// Unlike ``mossWashSites`` every row fills with the same token, so there is
-  /// no `Wash` enum to unroll — the alpha is the only axis, and it does not
-  /// re-base per appearance for any of these four.
   static var inkWashSites: [InkWashSite] {
     [
       InkWashSite("PhaseEditorSheet.fieldPill", alpha: 0.16),
@@ -134,14 +130,12 @@ extension DesignTokensTests {
   /// would lose the finding; asserting only "no margin" would understate
   /// `fieldPill`. Both are pinned.
   ///
-  /// Paired with the wash-alpha **ceiling**, and note this pair does *not* have
-  /// `mossOnWash`'s shape: there the ceiling was under the bar, which proved
-  /// wash-tuning could not work at all. Here the ceiling is 5.975, i.e. the
-  /// lever exists and is cheap — and is rejected anyway, on grounds this file
-  /// cannot prove. The derivation lives in **ADR-028 § Amendment 2026-08-13
-  /// (#1408)**, matching how `nightInkOnWash`'s own doc comment defers it rather
-  /// than restating it. Do not read a passing ceiling assertion as endorsement
-  /// of the route.
+  /// Paired with the wash-alpha **ceiling**, which does *not* have
+  /// `mossOnWash`'s shape: there the ceiling sat under the bar, proving
+  /// wash-tuning could not work at all. Here it is 5.975 — the lever exists and
+  /// is cheap, and is rejected anyway on grounds this file cannot prove
+  /// (**ADR-028 § Amendment 2026-08-13 (#1408)**). Do not read a passing ceiling
+  /// assertion as endorsement of the route.
   @Test func inkSecondaryHasNoMarginOnTheseWashes() {
     // The exclusion is keyed on a **name string**, so renaming or replacing that
     // row would leave the filter matching nothing and this loop silently
@@ -204,16 +198,13 @@ extension DesignTokensTests {
 
   /// The arm that stops a future reader "simplifying" the token away.
   ///
-  /// Unlike `mossOnWash` there is **no impossibility proof** behind this pair:
-  /// `nightInk` reaches 7.95–8.60 on these same washes and would clear the bar
-  /// on every one of them. So the justification is **role**, per design-system
-  /// §8 — the token replacing a foreground comes from the family that owns the
-  /// ground, and `nightInk` is the body-text rung while these badges are
-  /// documented as deliberately quieter.
-  ///
-  /// That argument is only honest if the cheaper answer really does work, so
-  /// this asserts that it does. A reader who wants to overturn the decision has
-  /// to argue about hierarchy, not rediscover the arithmetic.
+  /// Unlike `mossOnWash` there is **no impossibility proof** behind this pair —
+  /// `nightInk` would clear the bar on every one of these washes, and the
+  /// justification is **role** rather than contrast (`nightInkOnWash`'s doc
+  /// comment carries it). That argument is only honest if the cheaper answer
+  /// really does work, so this asserts that it does: a reader who wants to
+  /// overturn the decision has to argue about hierarchy, not rediscover the
+  /// arithmetic.
   @Test func nightInkWouldAlsoClearTheBarAndIsRejectedOnRoleNotContrast() {
     for site in Self.inkWashSites {
       let ground = composite(
@@ -236,24 +227,20 @@ extension DesignTokensTests {
     #expect(value < relativeLuminance(PasturaPalette.nightInk))
   }
 
-  /// The pair's defining asymmetry, executed rather than described.
-  ///
-  /// `DesignTokens.swift` says the light half is `inkSecondary` **copied, not
-  /// aliased**. This pins the copy (light halves equal) and the separation (dark
-  /// halves differ).
+  /// The pair's defining asymmetry, executed rather than described: the light
+  /// half is `inkSecondary` **copied, not aliased**, so this pins the copy
+  /// (light halves equal) and the separation (dark halves differ).
   ///
   /// **Reddening the equality arm is a decision point, not a repair
-  /// instruction.** The two tokens are *independent by design* — pick one to
-  /// update without dragging the other. So if a legitimate light-side retune of
-  /// `inkSecondary` reddens this, the answer may well be to update the
-  /// expectation and let the values diverge; what the arm buys is that the
+  /// instruction.** The two tokens are independent by design, so a legitimate
+  /// light-side retune of `inkSecondary` may well be answered by updating the
+  /// expectation and letting the values diverge — what the arm buys is that the
   /// divergence is chosen rather than stumbled into. Do **not** read a red here
   /// as "`inkOnWash` forgot to follow" and copy the new value across without
-  /// re-measuring. Wording follows the repo's own precedent for this exact
-  /// shape, ``headerMetaInkSharesHexWithMetaBaseL3``.
-  ///
-  /// The dark clause is the opposite kind: a "these are the same token, collapse
-  /// them" refactor reddens it, and that one really is a repair instruction.
+  /// re-measuring. Same wording as ``headerMetaInkSharesHexWithMetaBaseL3``, the
+  /// repo's precedent for this shape. The dark clause is the opposite kind: a
+  /// "these are the same token, collapse them" refactor reddens it, and that one
+  /// really is a repair instruction.
   ///
   /// Comparing raw `PasturaColorValue`s, never `Color` aliases —
   /// `.claude/rules/view-testing.md` warns that a `PasturaDynamicColor`-backed

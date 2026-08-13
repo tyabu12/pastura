@@ -307,12 +307,9 @@ struct ResultsView: View {
   // below. Alone among the four sites #1408 repointed it was **not failing**
   // (4.773:1 dark), so this buys margin (5.397:1) and consistency; light is
   // byte-identical. `.pending` is a self-wash too but deliberately stays —
-  // design-system §8's quietude tier, swept app-wide by #1448.
-  //
-  // The timeline dot follows, which is intended: `ResultsView+Timeline`
-  // documents this single source so a pill retint repaints the node in lockstep,
-  // and the dot is non-text, so WCAG 1.4.11's 3:1 applies and every candidate
-  // clears it.
+  // design-system §8's quietude tier, swept app-wide by #1448. The timeline dot
+  // follows by design and needs no edit of its own: it is non-text, so WCAG
+  // 1.4.11's 3:1 applies and every candidate clears it.
   func pillForeground(_ style: ResultPill.Style) -> Color {
     switch style {
     case .completed: Color.mossInk

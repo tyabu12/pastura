@@ -77,25 +77,21 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 /// ≈5.78:1 (#1327). In dark it was already passing at ≈4.77:1 and goes to
 /// ≈5.11:1, so that swap bought margin rather than fixing a failure.
 ///
-/// `secondary` is the **opposite asymmetry**, and it was a real failure rather
+/// `secondary` broke in the other appearance, and was a real failure rather
 /// than a margin buy: `inkSecondary` over its own token at 0.15 measures 5.350:1
 /// in light but **4.501:1** in dark — green by 0.001, with no room for a later
 /// wash tweak. `mossOnWash` cannot reach it (wrong family), so #1408 minted
 /// `inkOnWash`, whose light half is `inkSecondary` byte-for-byte and whose dark
 /// half takes this site to 5.090:1.
 ///
-/// **Grounds**: the moss figures above are per-site, composited over
-/// `bubbleBackground` / `nightBubble` — the card this badge actually sits on.
-/// The `secondary` figures are the worst-case-per-appearance convention
-/// (`screenBackground` / `nightBubble`) that `DesignTokensTests+InkOnWash`
-/// asserts, which is why they read slightly under the ≈5.57:1 an earlier
-/// revision recorded for the same light site. Do not compare one against the
-/// other as a before/after.
-///
-/// Every token in these composites is paired, so all of the above are
-/// per-appearance figures rather than absolutes. Do not read § 2.2's ≈3.03 /
-/// ≈4.74 figures as covering either appearance: those are `inkOnAccent` on a
-/// **solid** fill (white only in light), a different pairing.
+/// **The two sets of figures use different grounds** and are not a before/after
+/// of each other: the moss ones are per-site over `bubbleBackground` /
+/// `nightBubble`, the card this badge sits on; the `secondary` ones are the
+/// worst-case-per-appearance convention `DesignTokensTests+InkOnWash` asserts.
+/// Every token in these composites is paired, so all of them are per-appearance
+/// figures rather than absolutes. Do not read § 2.2's ≈3.03 / ≈4.74 figures as
+/// covering either appearance: those are `inkOnAccent` on a **solid** fill
+/// (white only in light), a different pairing.
 ///
 /// These are trait-resolving `Color.*` aliases on purpose: the badge renders
 /// live on-device, so it must follow the device appearance. A fixed-appearance
