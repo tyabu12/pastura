@@ -262,18 +262,31 @@ fi
 # The total was 91,615 bytes when this was introduced (#1361, 2026-08-05); it
 # had drifted to 98,036 — above the then-96,000 ceiling — by 2026-08-13, when
 # #1442 evacuated the kit-mirror rules' depth to docs/agent-tooling/ and brought
-# it to 93,750. A slim campaign (#1310 / #1315 style) that lands below the
-# ceiling should re-baseline this default in its own PR — otherwise the nudge
-# decays into permanent wallpaper that everyone scrolls past. Ratchet it DOWN to
-# just above the new total so the campaign's gain is held; the headroom below is
-# ~1.3%, deliberately tighter than the 4.8% this started with, because the
-# observed drift rate makes a loose ceiling silent for months. The env var
-# exists so the test harness can force the firing branch.
-FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-95000}"
+# it to 94,640 (measured on that PR's final commit — the mid-review figure was
+# 890 bytes lower, which is why this is re-derived rather than quoted forward).
+# A slim campaign (#1310 / #1315 style) that lands below the ceiling should
+# re-baseline this default in its own PR — otherwise the nudge decays into
+# permanent wallpaper that everyone scrolls past. Ratchet it DOWN to just above
+# the new total so the campaign's gain is held. The headroom below is ~0.9%,
+# deliberately far tighter than the 4.8% this started with: the observed drift
+# rate (+6,400 bytes in 8 days) makes a loose ceiling silent for months. The
+# accepted cost is the symmetric failure — at this tightness roughly one added
+# rule paragraph trips it. That is tolerable only because the nudge is
+# non-blocking `additionalContext`, so the remedy is a one-line Context-economy
+# record in the PR body, not a blocked commit. The env var exists so the test
+# harness can force the firing branch.
+#
+# Held in one variable because the value is needed twice (the `:-` default and
+# the malformed-input fallback). Nothing exercises the fallback branch — it runs
+# only on non-numeric env input — so two literals would let a future re-baseline
+# update one and diverge silently, which is the same drift class #1442 was
+# cleaning up when it set this value.
+FOOTPRINT_CEILING_DEFAULT=95500
+FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-$FOOTPRINT_CEILING_DEFAULT}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.
 case "$FOOTPRINT_CEILING" in
-  ''|*[!0-9]*) FOOTPRINT_CEILING=95000 ;;
+  ''|*[!0-9]*) FOOTPRINT_CEILING="$FOOTPRINT_CEILING_DEFAULT" ;;
 esac
 
 # echoes the total byte size of every tracked always-loaded instruction file,

@@ -44,7 +44,9 @@ Trigger a triage pass on memory **count** or **total content size** (`cat memory
 
 ## Procedure
 
-PROMOTE only — retirement is memory-direct and needs no PR. Two steps nothing else enforces, so they belong on the rolling issue's checklist: **update every mirror** of the promoted fact in the same PR (the `code-reviewer` trap cheat sheet, a `CLAUDE.md` parenthetical — mirrors drift silently otherwise), and **delete the source memory only after the rule lands**, since a repo PR cannot enforce a per-machine `command rm`. **Read [`docs/agent-tooling/claim-verification.md`](../../docs/agent-tooling/claim-verification.md) § "Promotion mechanics" before starting one** — it has the full sequence, including the concept-level drafting bar and the provenance-line strip.
+**Any** rules addition — promoted from memory or not — is drafted at **concept level**: WHY + the invariant + a durable pointer, not the exhaustive HOW (grep blocks, enumerations, step lists). This holds for **path-scoped** targets too, where `context-budget.md`'s always-loaded discipline stops and its "budget looser there" does *not* license a dump; expand a section only when a reviewer shows the omitted detail is load-bearing for the rule to fire.
+
+Promotion specifically is PROMOTE-only — retirement is memory-direct and needs no PR. Two steps nothing else enforces, so they belong on the rolling issue's checklist: **update every mirror** of the promoted fact in the same PR (the `code-reviewer` trap cheat sheet, a `CLAUDE.md` parenthetical — mirrors drift silently otherwise), and **delete the source memory only after the rule lands**, since a repo PR cannot enforce a per-machine `command rm`. **Read [`docs/agent-tooling/claim-verification.md`](../../docs/agent-tooling/claim-verification.md) § "Promotion mechanics" before starting one** — it has the full sequence, including the provenance-line strip.
 
 ## Anti-pattern: memory refs in repo-tracked files
 
@@ -65,11 +67,13 @@ repo needs to carry itself.
 acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,
 conversational scratch).
 
-**Detection** — new code must not add hits. A recursive grep answers "which
+**Detection** — new code must not add hits. A recursive search answers "which
 files lie here" while the rule asks "which are **repo-tracked**", and the two
-diverge both ways (dot-dirs like `.claude/` go unscanned; tracked-but-ignored
-files are missed) — so enumerate, don't recurse. `-H` is required: without it
-`grep` drops the filename on a single match and the `file:line` breaks.
+diverge in both directions: a tracked file under an ignored directory is
+missed, never-committed scratch is falsely flagged (and `rg` specifically also
+skips dot-dirs, so `.claude/**` went unscanned for a while). Enumerate, don't
+recurse. `-H` is required: without it `grep` drops the filename on a single
+match and the `file:line` breaks.
 
 ```sh
 git ls-files -z --cached --others --exclude-standard \

@@ -48,7 +48,11 @@ follow from that being wrong.
 
 First, the cap was never the binding constraint at these scopes — a threshold that would not have
 changed had the cap been right was not really derived from it. What the thresholds buy is **review
-attention**, which does not scale with a model's `max_tokens`.
+attention**, which does not scale with a model's `max_tokens`. *That premise is measured, but not
+here*: the kit's `docs/subagent-output-cap.md` backs it with a scan of local transcripts predating
+the work, which found no response anywhere near a cap and zero `stop_reason: max_tokens`. Pastura
+has not re-run that scan — treat the premise as inherited evidence, and go read the kit doc before
+leaning on it for a new decision.
 
 Second, and this is the consequence for future edits: revise them on evidence about *review
 quality* — a reviewer that misses things at 800 changed lines, or does fine at 1,500 — and never by

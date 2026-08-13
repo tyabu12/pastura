@@ -68,8 +68,8 @@ When numbers fall between soft and hard, prefer splitting. Model choice is no
 escape from an over-scoped call — see **§3**.
 
 **These numbers are review-attention bounds, NOT cap-derived** — a cap-table
-change in §1 must leave them untouched, and they are kit-canonical rather than a
-per-project knob. Go **tighter** at the call site when the diff is dense; never
+change in §1 leaves them untouched unless it drops a cap *below* them, and they
+are kit-canonical rather than a per-project knob. Go **tighter** at the call site when the diff is dense; never
 looser. **Before revising them, or before arguing a call is an exception, read
 the doc's § "Why the split thresholds are not cap-derived"** — the only valid
 evidence is about review quality, not about tokens.
@@ -130,11 +130,13 @@ A cost-driven downgrade is still bounded by the same sensitivity rules
 
 ## 4. Agent self-defense
 
-Both review agents restate §2's budget in their own definitions and act on it
-before any tool_use — `code-reviewer.md` bails with `SCOPE_TOO_LARGE`,
-`claude-kit:critic` triages instead. **Keep those copies in sync with §2**, and
-do not delete one as redundant: the doc's § "Why the agents duplicate the
-budget" has the reason.
+The two defend asymmetrically. `code-reviewer.md` restates §2's line/file
+numbers and bails with `SCOPE_TOO_LARGE` **before any tool_use**;
+`claude-kit:critic` carries an axis-only budget (≤5 axes, triage above 7) and
+acts *during* the run, stopping to report at ~15 tool_use calls. **Keep
+`code-reviewer.md`'s copy in sync with §2** — critic's is kit-owned and
+one-way. Do not delete either as redundant: the doc's § "Why the agents
+duplicate the budget" has the reason.
 
 ## 5. Official `/code-review` vs the custom agents
 

@@ -285,7 +285,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery). Always-loaded because the gotchas surface during worktree switches and CI debugging, not only when editing tests.
 - `subagent-usage.md` — Subagent output-cap discipline (per-model output cap, review-attention scope budget, model choice = cost lever, never a budget escape). Always-loaded because subagent calls originate from any layer. Depth in `docs/agent-tooling/subagent-output-cap.md` — **reconcile the pair**, never the rule alone.
 - `context-budget.md` — Content discipline for always-loaded files. Self-applying — route additions to CLAUDE.md / agent docs / any no-`paths:` rule through its classifier first.
-- `knowledge-layering.md` — Which tier knowledge belongs in (memory / `CLAUDE.md` / `.claude/rules/` / `docs/**`) and how to promote memory → rules. Pairs with `context-budget.md`. Depth in `docs/agent-tooling/claim-verification.md` — **reconcile the pair**, never the rule alone.
+- `knowledge-layering.md` — Two halves: which tier knowledge belongs in (memory / `CLAUDE.md` / `.claude/rules/` / `docs/**`) and how to promote memory → rules; **and § "Verify before you lock it"** — executing a load-bearing claim before a rule-commit, a plan-lock, or a why-comment you author. Pairs with `context-budget.md`. Depth in `docs/agent-tooling/claim-verification.md` — **reconcile the pair**, never the rule alone.
 
 ## File Naming
 
