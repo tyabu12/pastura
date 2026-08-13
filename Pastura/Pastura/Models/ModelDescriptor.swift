@@ -51,11 +51,27 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   ///
   /// Contract for consumers: match this against **decoded text only**. It is
   /// not the tokenizer's end-of-turn token, and a backend must not treat it as
-  /// the thing that terminates a normal turn. `"<|im_end|>"` for ChatML models
-  /// such as Qwen 3; Gemma 4 carries that same string although its own markers
-  /// are `<|turn>` / `<turn|>` (#1417). Mechanism, and why a control token can
-  /// never reach the match under llama.cpp: `LlamaCppService.stopSequence`.
+  /// the thing that terminates a normal turn. Mechanism, and why a control
+  /// token can never reach the match under llama.cpp:
+  /// `LlamaCppService.stopSequence`.
+  ///
+  /// `"<|im_end|>"` for ChatML models such as Qwen 3; Gemma 4 carries that same string
+  /// (#1417). It diverges from ``turnMarkers`` deliberately — see there.
   public let stopSequence: String
+
+  /// This model's plaintext turn-boundary sentinels, consumed by parser-side
+  /// hallucinated-turn truncation and by the chat-template leakage diagnostic.
+  ///
+  /// **Deliberately no default**: an inherited wrong pair fails in silence — the
+  /// mechanisms keyed on it simply stop firing, with nothing to observe (#1422).
+  /// `docs/models/onboarding.md` carries the collection step.
+  ///
+  /// For Gemma 4 this and ``stopSequence`` **disagree** on purpose: repointing the
+  /// generation-side sentinel would newly *activate* a behaviour on an assumption rather
+  /// than a demonstration, so it is deferred to #1451.
+  /// `ModelRegistryTurnMarkerDivergenceTests` pins the divergence so a silent
+  /// "consistency fix" reddens.
+  public let turnMarkers: ChatTurnMarkers
 
   /// Minimum physical RAM required to load and run the model (bytes).
   public let minRAM: UInt64
@@ -120,6 +136,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     fileSize: Int64,
     sha256: String,
     stopSequence: String,
+    turnMarkers: ChatTurnMarkers,
     minRAM: UInt64,
     modelInfoURL: URL,
     systemPromptSuffix: String?,
@@ -140,6 +157,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     self.fileSize = fileSize
     self.sha256 = sha256
     self.stopSequence = stopSequence
+    self.turnMarkers = turnMarkers
     self.minRAM = minRAM
     self.modelInfoURL = modelInfoURL
     self.systemPromptSuffix = systemPromptSuffix

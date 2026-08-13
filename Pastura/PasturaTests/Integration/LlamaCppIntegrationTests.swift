@@ -67,6 +67,9 @@ struct LlamaCppIntegrationTests {
       modelPath: LlamaCppConfig.modelPath,
       // Mirrors `ModelRegistry.gemma4E2B` — carries no Gemma marker (#1417).
       stopSequence: "<|im_end|>",
+      // Stated, not defaulted (#1422): a real-GGUF site inheriting the default
+      // would parse under different markers than production.
+      turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
       modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
       systemPromptSuffix: nil
     )

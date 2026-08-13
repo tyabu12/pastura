@@ -13,6 +13,8 @@ func makeTestService(modelPath: String = "/nonexistent.gguf") -> LlamaCppService
   LlamaCppService(
     modelPath: modelPath,
     stopSequence: "<|im_end|>",
+    // Stated because the init has no default (#1422).
+    turnMarkers: .chatML,
     modelIdentifier: "test-model",
     systemPromptSuffix: nil
   )

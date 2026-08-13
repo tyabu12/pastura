@@ -4,6 +4,9 @@ Durable, committed ledger of model-candidate **evaluation verdicts** — the
 judgment that a `/model-eval` (Gate 1) or real-device (Gate 2) pass produced,
 so a verdict survives after the intake issue's comment is buried.
 
+It also carries **corpus observations** (non-gate; § "Corpus observations
+(not candidate verdicts)").
+
 ## What lives where (three record surfaces)
 
 A verdict is recorded in three places with distinct roles — this file is the
@@ -13,7 +16,7 @@ durable, version-controlled one:
 |---|---|---|
 | `data/models/eval-digest.md` | Raw per-cell scorecard (every axis + tok/s), **script-regenerated** by `/model-eval` | Gitignored, **per-machine** — re-sampling rewrites it |
 | GitHub issue #979 | Rolling **intake queue** — triage, candidate proposals | Comment thread, buries over time |
-| **This file** | The **verdict** (`pass` / `borderline` / `fail` / `blocked` + rationale + differentiation) | Committed, PR-reviewed |
+| **This file** | The **verdict** (`pass` / `borderline` / `fail` / `blocked` + rationale + differentiation), plus **corpus observations** (non-gate, § below) | Committed, PR-reviewed |
 
 **Anti-drift rule — entries carry judgment only.** An entry records the verdict,
 date, model id/quant, one-line differentiation, rationale, and an aggregate
@@ -66,6 +69,48 @@ reject them as out-of-tier-scope). This ledger is the general durable home for
 every candidate **absent** from that table — notably full-tier (6.5 GB-minRAM)
 models like Sarashina. Rule: a candidate in ADR-011's table is recorded there;
 everything else here.
+
+---
+
+## Corpus observations (not candidate verdicts)
+
+Cross-candidate measurements over the accumulated harness transcripts. Kept here
+because the transcripts themselves are gitignored and per-machine, so a
+measurement over them is otherwise unrecoverable — but they are **not** verdicts,
+so they carry no gate and live under `###` subheadings here rather than as
+`## <model> — <date> — **VERDICT**` entries.
+
+### Spelled-out chat-template markers — 2026-08-13
+
+**Scope**: every `data/models/eval-runs/**/*.jsonl` harness transcript on the
+maintainer's machine as of this date. Fixed-string (`grep -F`) counts, transcripts
+only — `.stderr.log` mirrors and our own analyst prose in `eval-digest.md` are
+excluded, and the latter is the sole reason `<|turn>` appears in `data/` at all.
+
+| Marker | Sarashina 2.2 3B | Gemma 4 E2B (all variants) | Qwen 3 4B |
+|---|---|---|---|
+| `<\|im_end\|>` | 99 | 0 | 0 |
+| `<\|im_start\|>` | 0 | 0 | 0 |
+| `<\|turn>` / `<turn\|>` | 0 | 0 | 0 |
+
+**The zeros are real negatives, not an empty set**: the 2026-08-12 runs contribute
+6 full Gemma transcripts and 6 full Qwen transcripts, and neither contributes a
+single occurrence. Sarashina's 99 are all trailing `<|im_end|>` after a completed
+payload (2026-07-08 and 2026-07-23 runs).
+
+**What it does and does not license.** It says *Gemma spelling its own markers is
+unobserved as of this date* — nothing stronger, and **not** grounds to drop the
+per-model truncation (#1422). A genuine CONTROL token never decodes into text, so a
+match needs the marker's *characters* written out: either as a per-response
+hallucination (what this table measures) or systematically, via a re-export
+mis-flagging the markers as NORMAL/USER_DEFINED — which actually happened
+to Gemma 3 (unslothai/unsloth#5070, see `.claude/rules/engine.md` § "GGUF source
+*and variant* matter"). That second route is a property of the **file**, not the
+model, so this table bounds only the first route, for the files measured — a
+negative today does not generalize to tomorrow's GGUF.
+
+Re-run this at each onboarding rather than copying the numbers forward — the step
+lives in [`onboarding.md`](onboarding.md) § "Stage 0".
 
 ---
 

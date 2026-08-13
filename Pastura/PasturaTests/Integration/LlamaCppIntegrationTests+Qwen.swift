@@ -72,6 +72,9 @@ extension LlamaCppIntegrationTests {
     LlamaCppService(
       modelPath: QwenConfig.modelPath,
       stopSequence: "<|im_end|>",
+      // Stated rather than defaulted, even though `.chatML` is the value Qwen
+      // wants: a defaulted site stops tracking the descriptor it mirrors (#1422).
+      turnMarkers: .chatML,
       modelIdentifier: "Qwen 3 4B (Q4_K_M)",
       systemPromptSuffix: "/no_think",
       assistantPrefix: "<think>\n\n</think>\n\n"

@@ -191,6 +191,11 @@ struct LanguageAdherenceBenchmark {
     LlamaCppService(
       modelPath: BenchmarkConfig.modelPath,
       stopSequence: "<|im_end|>",
+      // Stated rather than defaulted, even though `.chatML` is the value Qwen
+      // wants: a defaulted site stops tracking the descriptor it mirrors (#1422).
+      // Load-bearing for a benchmark — `parseOK` is the metric, and truncation
+      // is upstream of it.
+      turnMarkers: .chatML,
       modelIdentifier: "Qwen 3 4B (Q4_K_M)",
       systemPromptSuffix: "/no_think",
       assistantPrefix: "<think>\n\n</think>\n\n"

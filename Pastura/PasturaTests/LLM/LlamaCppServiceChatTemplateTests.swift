@@ -75,6 +75,8 @@ struct LlamaCppServiceChatTemplateTests {
     LlamaCppService(
       modelPath: "",
       stopSequence: "<|im_end|>",
+      // Stated because the init has no default (#1422).
+      turnMarkers: .chatML,
       modelIdentifier: "ChatTemplate Test Service",
       systemPromptSuffix: nil,
       assistantPrefix: assistantPrefix

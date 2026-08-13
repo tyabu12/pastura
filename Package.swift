@@ -106,7 +106,9 @@ let package = Package(
     ),
     .testTarget(
       name: "PasturaHarnessKitTests",
-      dependencies: ["PasturaHarnessKit"],
+      // `PasturaCore` is declared because `ModelProfileTests` imports it
+      // directly — without the row it resolves only by search-path luck.
+      dependencies: ["PasturaHarnessKit", "PasturaCore"],
       path: "tools/harness/Tests/PasturaHarnessKitTests",
       swiftSettings: [
         .swiftLanguageMode(.v6)

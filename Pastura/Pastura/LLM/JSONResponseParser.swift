@@ -20,13 +20,6 @@ nonisolated public struct JSONResponseParser: Sendable {
     pattern: #"<think>.*?</think>"#,
     options: .dotMatchesLineSeparators
   )
-  // Chat template tokens — truncate everything from first occurrence onwards.
-  // Catches hallucinated continuations where the model generates past its own turn.
-  // ChatML-only — see the doc on `truncateAtChatTemplateToken`.
-  private static let chatTemplateTokenRegex = try? NSRegularExpression(
-    pattern: #"<\|im_end\|>.*"#,
-    options: .dotMatchesLineSeparators
-  )
   private static let codeBlockRegex = try? NSRegularExpression(
     pattern: #"```(?:json)?\s*\n?(.*?)\n?```"#,
     options: .dotMatchesLineSeparators
@@ -37,15 +30,19 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Parse raw LLM output text into a ``TurnOutput``.
   ///
   /// Thin wrapper over ``parse(_:expectedKeys:)`` with no schema-aware
-  /// repair guard. Existing callers that don't have ``Phase/outputSchema``
-  /// in scope (most tests, replay paths) keep the same `TurnOutput`-only
-  /// return shape.
+  /// repair guard. Callers that don't have ``Phase/outputSchema`` in scope
+  /// (today: tests only) keep the same `TurnOutput`-only return shape.
   ///
-  /// - Parameter text: The raw text response from the LLM.
+  /// - Parameters:
+  ///   - text: The raw text response from the LLM.
+  ///   - turnMarkers: Turn-boundary sentinels to truncate hallucinated turns at; defaults
+  ///     to ChatML only (pre-#1422 behaviour). No production path reaches this overload.
   /// - Returns: A ``TurnOutput`` with all values normalized to `String`.
   /// - Throws: ``LLMError/invalidResponse(raw:)`` if no valid JSON can be extracted.
-  public func parse(_ text: String) throws -> TurnOutput {
-    let (output, _) = try parse(text, expectedKeys: [])
+  public func parse(
+    _ text: String, turnMarkers: [ChatTurnMarkers] = [.chatML]
+  ) throws -> TurnOutput {
+    let (output, _) = try parse(text, expectedKeys: [], turnMarkers: turnMarkers)
     return output
   }
 
@@ -53,8 +50,9 @@ nonisolated public struct JSONResponseParser: Sendable {
   ///
   /// Processing pipeline:
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
-  /// 2. Truncate at the ChatML chat-template token (`<|im_end|>`) — ChatML
-  ///    models only (#1422)
+  /// 2. Truncate at a hallucinated turn boundary, keyed on `turnMarkers` —
+  ///    asymmetric per arm, see `truncateAtTurnMarkers(_:markers:)` in
+  ///    `JSONResponseParser+Truncate.swift` (#1422)
   /// 3. Extract content from markdown code blocks
   /// 4. Extract the first balanced `{...}` object (string-aware), discarding
   ///    any trailing content after its matching close brace
@@ -83,6 +81,14 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// JSON missing any of those keys is rejected — preserves the original
   /// throw rather than fabricating a `TurnOutput` (#194 PR#a Item 2d).
   ///
+  /// - Parameters:
+  ///   - text: The raw text response from the LLM.
+  ///   - expectedKeys: Schema keys a repaired parse must all carry.
+  ///   - turnMarkers: Turn-boundary sentinels to truncate hallucinated turns at.
+  ///     **Engine call sites must pass `LLMService.knownTurnMarkers` explicitly** — this
+  ///     is the overload `LLMCaller` uses, and taking the default there is the #1422 bug
+  ///     (ChatML literals, inert for Gemma). The default serves callers with no backend
+  ///     in scope (today tests only), preserving their pre-#1422 behaviour.
   /// - Returns: tuple of the parsed ``TurnOutput`` plus the applied repair
   ///   kind (`"unclosed_string"` / `"unclosed_brace"`, or `+`-joined for
   ///   the composite). `nil` repair kind means the input parsed cleanly
@@ -90,9 +96,10 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// - Throws: ``LLMError/invalidResponse(raw:)`` when no repair attempt
   ///   yields parseable JSON satisfying the schema guard.
   public func parse(
-    _ text: String, expectedKeys: Set<String>
+    _ text: String, expectedKeys: Set<String>,
+    turnMarkers: [ChatTurnMarkers] = [.chatML]
   ) throws -> (TurnOutput, repairKind: String?) {
-    let cleaned = applyCleanupPipeline(text)
+    let cleaned = applyCleanupPipeline(text, turnMarkers: turnMarkers)
 
     // Try as-is — happy path, no repair needed.
     if let output = tryParse(cleaned, originalText: text) {
@@ -102,7 +109,8 @@ nonisolated public struct JSONResponseParser: Sendable {
     // Schema-guarded multi-object salvage (#907) — recovers a complete-but-
     // followed-by-junk first object before the repair pipeline runs.
     if !expectedKeys.isEmpty {
-      let salvaged = applyCleanupPipeline(text, allowObjectResidue: true)
+      let salvaged = applyCleanupPipeline(
+        text, turnMarkers: turnMarkers, allowObjectResidue: true)
       if let output = tryParse(salvaged, originalText: text),
         hasAllExpectedKeys(output, expectedKeys: expectedKeys) {
         return (output, "multi_object_salvage")
@@ -173,11 +181,11 @@ nonisolated public struct JSONResponseParser: Sendable {
   }
 
   private func applyCleanupPipeline(
-    _ text: String, allowObjectResidue: Bool = false
+    _ text: String, turnMarkers: [ChatTurnMarkers], allowObjectResidue: Bool = false
   ) -> String {
     var cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
     cleaned = stripThinkingTags(cleaned)
-    cleaned = truncateAtChatTemplateToken(cleaned)
+    cleaned = truncateAtTurnMarkers(cleaned, markers: turnMarkers)
     cleaned = extractFromCodeBlock(cleaned)
     cleaned = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
     // Always extract: a `{`/`}`-framed string is NOT proof of a clean single
@@ -282,27 +290,6 @@ nonisolated public struct JSONResponseParser: Sendable {
     }
 
     return result
-  }
-
-  /// Truncate at the first ChatML chat-template token (`<|im_end|>`).
-  ///
-  /// When a **ChatML** model hallucinates past its own turn it emits
-  /// `<|im_end|>` as text, followed by fabricated user/assistant turns.
-  /// Discarding everything from the first such token prevents the greedy JSON
-  /// regex from capturing content across hallucinated turns.
-  ///
-  /// - Important: the token is hardcoded, so for a non-ChatML model this fires
-  ///   only on a spelled-out `<|im_end|>` — not the form a Gemma hallucination
-  ///   would take (Gemma 4's markers are `<|turn>` / `<turn|>`). This type is
-  ///   also backend-agnostic (`LLMCaller` parses llama.cpp, Ollama and
-  ///   Foundation Models through one instance), so do not import the llama.cpp
-  ///   control-token guarantee (`LlamaCppService.stopSequence`) here: a
-  ///   server-decoding backend offers none, which is why
-  ///   `LLMCaller.logChatTemplateLeakage` exists. Per-model sourcing is #1422.
-  private func truncateAtChatTemplateToken(_ text: String) -> String {
-    guard let regex = Self.chatTemplateTokenRegex else { return text }
-    let range = NSRange(text.startIndex..., in: text)
-    return regex.stringByReplacingMatches(in: text, range: range, withTemplate: "")
   }
 
   /// Extract content from markdown code blocks: `` ```json ... ``` `` or `` ``` ... ``` ``

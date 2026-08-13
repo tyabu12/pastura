@@ -63,13 +63,54 @@ The two gates enforce that asymmetrically, and the asymmetry is deliberate:
 
 A candidate from a family not already in `ModelProfile.all` (today: `gemma` /
 `qwen`) needs a prior `tools/harness` PR — landed through `/orchestrate` — adding
-a `ModelProfile` static plus its pin test. The profile mirrors **7** load-bearing
+a `ModelProfile` static plus its pin test. The profile mirrors **8** load-bearing
 registry values under its own field names (`id`, `name`, `stopSequence`,
-`systemPromptSuffix`, `assistantPrefix`, `expectedFileName`, `expectedSHA256`;
-`name` / `expectedFileName` / `expectedSHA256` map to the registry's
-`displayName` / `fileName` / `sha256`); `ModelProfileTests`
+`turnMarkers`, `systemPromptSuffix`, `assistantPrefix`, `expectedFileName`,
+`expectedSHA256`; `name` / `expectedFileName` / `expectedSHA256` map to the
+registry's `displayName` / `fileName` / `sha256`); `ModelProfileTests`
 pins them against the future/planned `ModelRegistry` values so the harness and
 app never drift.
+
+**`turnMarkers` is collected, not copied.** Read the candidate's own turn-start /
+turn-end strings out of the GGUF header (tokenizer-specific, no shared convention
+across families — Gemma 4's `<|turn>` / `<turn|>` vs ChatML's `<|im_start|>` /
+`<|im_end|>`), and record their `token_type` alongside. Then **re-run the marker
+sweep over the accumulated transcripts** rather than carrying forward the last
+recorded numbers:
+
+Run from **the primary checkout, not an `/orchestrate` worktree** —
+`data/models/eval-runs/` is gitignored, so it exists only where the harness ran,
+and the path below is relative to that checkout's root.
+
+**A row of zeros here is only evidence if the sweep actually read transcripts.**
+Known ways to get a false zero — not a closed list, so treat the row as suspect
+until you have positively confirmed otherwise:
+
+- **No transcripts to read** — *guarded.* An absent directory, or one holding no
+  `*.jsonl` (pruned to `.stderr.log`, or a differently-named export), would make
+  `grep -r` match nothing while still printing `0` for every marker — but the
+  precondition below skips the loop in that case, so this route emits no row at all.
+- **A placeholder left in** — *not guarded, your responsibility.* Replace the two
+  `<candidate …>` operands with the candidate's actual marker strings first, or
+  the loop counts the literal text and reports `0`. Nothing detects this — the
+  likeliest false-zero route.
+
+```sh
+if [ -n "$(find data/models/eval-runs -name '*.jsonl' -print -quit 2>/dev/null)" ]; then
+  for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' \
+           '<candidate turn-start>' '<candidate turn-end>'; do
+    printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l
+  done
+else
+  echo 'no *.jsonl transcripts found — run from the primary checkout, not a worktree' >&2
+fi
+```
+
+Append the result to [`eval-log.md`](eval-log.md) § "Spelled-out chat-template
+markers" with the date and scope. Re-run rather than copy forward: a spelled-out
+marker is a property of the GGUF **export**, not the model (see that section for
+why), so a negative on one file says nothing about the next. A wrong pair fails
+silently (#1422).
 
 Budget **one** investigation round per new family for prompt-template traps.
 llama.cpp's `llama_chat_apply_template` reads the GGUF-embedded chat template, so

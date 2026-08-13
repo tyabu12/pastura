@@ -118,6 +118,7 @@ struct ModelRegistryTests {
       fileSize: ModelRegistry.qwen34B.fileSize,
       sha256: ModelRegistry.qwen34B.sha256,
       stopSequence: ModelRegistry.qwen34B.stopSequence,
+      turnMarkers: ModelRegistry.qwen34B.turnMarkers,
       minRAM: ModelRegistry.qwen34B.minRAM,
       modelInfoURL: ModelRegistry.qwen34B.modelInfoURL,
       systemPromptSuffix: ModelRegistry.qwen34B.systemPromptSuffix

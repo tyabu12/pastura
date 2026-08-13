@@ -56,10 +56,20 @@ enum ModelRegistry {
     fileSize: 3_106_735_776,
     sha256: "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845",
     // Carries no Gemma marker, deliberately: `<|im_end|>` is a ChatML sentinel
-    // absent from this model's vocabulary, and replacing it would mean guessing
-    // what text a Gemma hallucination spells out. See the canonical note on
-    // `LlamaCppService.stopSequence` (#1417; behaviour half #1422).
+    // absent from this model's vocabulary, so this generation-side path is
+    // inert here — which is what lets a spelled-out `<turn|>` reach the parser,
+    // keyed on the `turnMarkers` below. Repointing it would activate a behaviour
+    // on an assumption; deferred to #1451, which must change every site
+    // (`grep -rn '#1451'`) (#1417). Canonical note: `LlamaCppService.stopSequence`.
     stopSequence: "<|im_end|>",
+    // Measured from the GGUF header of the exact file pinned above: `<|turn>`
+    // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`,
+    // vocab 262,144. Header-read step: `docs/models/onboarding.md`
+    // § "Stage 0 — Harness profile". The claim that neither ChatML string
+    // occurs in that vocabulary is not re-derivable from these ids — it's
+    // carried as an assertion on `LlamaCppService.stopSequence`, and is
+    // distinct from Stage 0's transcript marker sweep.
+    turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
     systemPromptSuffix: nil,
@@ -79,6 +89,10 @@ enum ModelRegistry {
     fileSize: 2_497_280_256,
     sha256: "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
     stopSequence: "<|im_end|>",
+    // Qwen 3 genuinely is ChatML: `<|im_start|>` 151644 / `<|im_end|>` 151645,
+    // both CONTROL, `eos = 151645`. Header-read: `docs/models/onboarding.md`
+    // § "Stage 0 — Harness profile".
+    turnMarkers: .chatML,
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/Qwen/Qwen3-4B-GGUF"),
     systemPromptSuffix: "/no_think",

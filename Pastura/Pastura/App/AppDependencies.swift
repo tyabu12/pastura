@@ -214,6 +214,7 @@ final class AppDependencies: @unchecked Sendable {
       let newService = LlamaCppService(
         modelPath: modelManager.modelFileURL(for: descriptor).path,
         stopSequence: descriptor.stopSequence,
+        turnMarkers: descriptor.turnMarkers,
         modelIdentifier: descriptor.displayName,
         systemPromptSuffix: descriptor.systemPromptSuffix,
         assistantPrefix: descriptor.assistantPrefix

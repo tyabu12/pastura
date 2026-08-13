@@ -75,6 +75,7 @@ struct ModelManagerTests {
       fileSize: fileSize,
       sha256: sha256,
       stopSequence: "<|im_end|>",
+      turnMarkers: .chatML,
       minRAM: 6_500_000_000,
       modelInfoURL: URL(string: "https://example.com")!,
       systemPromptSuffix: systemPromptSuffix

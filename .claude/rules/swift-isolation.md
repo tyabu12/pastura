@@ -28,6 +28,14 @@ extension LLMService {
 }
 ```
 
+**The escaping closure is sufficient, not necessary — the discriminator is
+sync-vs-`async`.** `LLMService.knownTurnMarkers`, a plain synchronous computed
+property, still breaks every `nonisolated` conformer without `nonisolated`
+(measured by dropping the annotation, #1422), while the `async` members on the
+same extension carry none. `generateStream` satisfies both conditions, so it
+can't tell them apart — read this before deleting a closure-free `nonisolated`
+here as redundant.
+
 Reference: `Pastura/Pastura/LLM/LLMService.swift`.
 
 ## Pattern 2 — Value type with custom witness

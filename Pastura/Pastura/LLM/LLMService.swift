@@ -97,6 +97,20 @@ nonisolated public protocol LLMService: Sendable {
   /// metadata — **not** a stable parse key.
   var backendIdentifier: String { get }
 
+  /// Every turn-marker pair whose **plaintext** form could plausibly appear in
+  /// this backend's decoded output, for consumers that must recognize a
+  /// hallucinated turn boundary (``JSONResponseParser`` truncation, the
+  /// `LLMCaller` chat-template leakage diagnostic).
+  ///
+  /// The set is the loaded model's own pair **unioned with** ``ChatTurnMarkers/chatML``, so a
+  /// backend that cannot name its model (``OllamaService``, ``MockLLMService``) keeps the
+  /// pre-#1422 ChatML-only behaviour via the default implementation.
+  ///
+  /// - Important: Declared **in the protocol body**, not only in an extension. An
+  ///   extension-only declaration is statically dispatched through `any LLMService`, so
+  ///   ``LlamaCppService``'s override would be silently ignored at the `LLMCaller` call site.
+  var knownTurnMarkers: [ChatTurnMarkers] { get }
+
   /// Generate a completion as a sequence of incremental chunks.
   ///
   /// Backends that can deliver tokens as they are sampled (currently
@@ -155,6 +169,16 @@ extension LLMService {
   /// support cooperative suspend (currently only ``LlamaCppService``) override
   /// this method.
   public func attachSuspendController(_ controller: SuspendController?) async {}
+
+  /// Default: ChatML only — the pre-#1422 hardcoded behaviour, now stated as a
+  /// value rather than baked into each consumer. Backends that know which
+  /// model is loaded override this (currently only ``LlamaCppService``).
+  ///
+  /// `nonisolated` because a **synchronous** default impl inherits MainActor under
+  /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and then breaks every `nonisolated`
+  /// conformer. Measured, not defensive: dropping it fails the build on `MockLLMService`
+  /// and `OllamaService` (`.claude/rules/swift-isolation.md` Pattern 1).
+  nonisolated public var knownTurnMarkers: [ChatTurnMarkers] { [.chatML] }
 
   /// Default `generateStream` implementation: runs the existing
   /// `generateWithMetrics` and yields a single terminal chunk carrying

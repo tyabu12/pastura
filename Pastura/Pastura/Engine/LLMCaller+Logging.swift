@@ -1,11 +1,12 @@
 import Foundation
 
-// Log-emission helpers factored out of `LLMCaller` so the core file stays
+// Diagnostics helpers factored out of `LLMCaller` so the core file stays
 // under SwiftLint's `file_length` budget (mirrors `LLMCaller+StreamFailure`).
-// These build the fully-rendered message and route it through the injected
-// ``EngineLogger`` seam (#501 S0.2) — the OSLog `category`, message wire
-// format, level, and privacy are preserved so `scripts/analyze-streaming-diag.sh`
-// keeps parsing the same lines.
+// Mostly log emission, but `parseAndLog` also parses (returns `TurnOutput`) —
+// the marker set is read once and shared with `logChatTemplateLeakage`. The
+// log-emitting members route through the injected ``EngineLogger`` seam
+// (#501 S0.2); category, format, level, privacy stay so
+// `scripts/analyze-streaming-diag.sh` keeps parsing.
 //
 // `nonisolated` on the extension is required because `LLMCaller` is a
 // `nonisolated` Engine type split across sibling files (a plain `extension`
@@ -65,27 +66,63 @@ nonisolated extension LLMCaller {
     )
   }
 
-  /// Detect chat template token leakage and hallucinated continuations.
-  /// `LlamaCppService`'s streaming path strips a spelled-out `<|im_end|>`
-  /// before emission, so this primarily catches non-streaming backends (Mock
-  /// wrap path, Ollama) where the raw string may still contain template
-  /// tokens.
+  /// Parse `raw` with the backend's own turn markers, then emit the two
+  /// success-path diagnostics.
   ///
-  /// - Important: ChatML-only, so a non-ChatML model (Gemma 4) is not covered
-  ///   — #1422. A spelled-out `<|im_start|>` stays reachable even under
-  ///   llama.cpp, whose streaming path strips `stopSequence` (`<|im_end|>`)
-  ///   alone; that is what the #65 TODO on `LlamaCppService.stopSequence` is
-  ///   about.
-  func logChatTemplateLeakage(in raw: String) {
-    if raw.contains("<|im_start|>") {
+  /// Extracted from `call` to stay under the 50-line `function_body_length`
+  /// cap, and so the marker set is read once and shared by the parser and
+  /// the leakage diagnostic (#1422) — see `LLMService.knownTurnMarkers`'s
+  /// doc for why the read goes through `any LLMService`.
+  ///
+  /// - Returns: the parsed output, or `nil` on parse failure (caller owns
+  ///   the retry / `retriesExhausted` decision).
+  func parseAndLog(
+    raw: String, expectedKeys: Set<String>, llm: any LLMService, agent: String
+  ) -> TurnOutput? {
+    let markers = llm.knownTurnMarkers
+    guard
+      let result = try? parser.parse(
+        raw, expectedKeys: expectedKeys, turnMarkers: markers)
+    else { return nil }
+    logRepairIfNeeded(agent: agent, kind: result.repairKind)
+    logChatTemplateLeakage(in: raw, markers: markers)
+    return result.0
+  }
+
+  /// Detect chat template token leakage against the loaded model's own
+  /// markers, not a ChatML literal — before #1422 this was silently blind
+  /// for Gemma 4, the default shipped model.
+  ///
+  /// `LlamaCppService`'s streaming path strips a spelled-out `stopSequence`
+  /// before emission, so this mainly catches non-streaming backends (Mock
+  /// wrap, Ollama). A spelled-out **start** marker still reaches here even
+  /// under llama.cpp, since streaming only strips `stopSequence` — the #65
+  /// TODO on `LlamaCppService.stopSequence`.
+  ///
+  /// Severity mirrors the pre-#1422 shape: start marker = `.warning` (more
+  /// suspicious), end marker alone = `.debug` (ordinary trailing sentinel).
+  /// Suspicion, not a verdict: this is a bare substring test and can't tell
+  /// a fabricated next turn from a header echo or from marker text inside a
+  /// string value.
+  ///
+  /// - Parameters:
+  ///   - raw: The backend's raw text, before parsing.
+  ///   - markers: `LLMService.knownTurnMarkers` for the backend that produced
+  ///     `raw`.
+  func logChatTemplateLeakage(in raw: String, markers: [ChatTurnMarkers]) {
+    // `first(where:)` picks the first marker in **array order**, not the
+    // earliest occurrence in `raw` — read as "some marker present," not "first".
+    if let marker = markers.first(where: { !$0.start.isEmpty && raw.contains($0.start) }) {
+      // String-value fixture (parser-side, not this warning):
+      // `JSONResponseParserTests.startMarker_insideStringValue_isNotATurnBoundary`.
       logger.log(
         .warning, category: Self.logCategory,
-        "Model hallucinated past its turn — continuation truncated at <|im_end|>",
+        "Turn-start marker \(marker.start) present in raw output",
         privacy: .public)
-    } else if raw.contains("<|im_end|>") {
+    } else if let marker = markers.first(where: { !$0.end.isEmpty && raw.contains($0.end) }) {
       logger.log(
         .debug, category: Self.logCategory,
-        "Trailing <|im_end|> token stripped from output", privacy: .public)
+        "Trailing \(marker.end) token stripped from output", privacy: .public)
     }
   }
 

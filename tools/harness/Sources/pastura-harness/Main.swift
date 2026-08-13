@@ -212,6 +212,7 @@ enum Main {
         LlamaCppService(
           modelPath: modelPath,
           stopSequence: profile.stopSequence,
+          turnMarkers: profile.turnMarkers,
           modelIdentifier: profile.name,
           systemPromptSuffix: profile.systemPromptSuffix,
           assistantPrefix: profile.assistantPrefix)

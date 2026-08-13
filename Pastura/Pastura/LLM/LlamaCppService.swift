@@ -103,7 +103,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // renders ""; if it is ALSO EOG, `nextContentTokenOrStop` stops first — a
   // second, independent guard), and a sentinel absent from the vocabulary has
   // no token form to arrive as. So this is a hallucinated-turn guard (sibling of
-  // `JSONResponseParser.truncateAtChatTemplateToken`), NOT what terminates a
+  // `JSONResponseParser.truncateAtTurnMarkers`), NOT what terminates a
   // normal turn — that is EOG, for every model. String-based rather than
   // token-ID because what it must catch is text, which has no single token id.
   //
@@ -113,8 +113,15 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // `<turn|>` (106, EOG). Left as-is rather than replaced by a guess at what a
   // Gemma hallucination would spell (#1417; behaviour half #1422). Read from
   // the descriptor at construction time; future models may differ.
-  // TODO: Consider adding `<|im_start|>` if hallucinated turn starts are observed (#65)
+  // TODO: A generation-side stop on the turn-START marker would end a hallucinated next
+  // turn at its first token instead of burning the remaining budget (#65). Parser-side
+  // truncation (#1422) does NOT supersede this — it discards the turn after the fact, so
+  // the tokens are still spent. Read `turnMarkers.start`, never a ChatML literal.
   let stopSequence: String
+
+  /// This model's own plaintext turn-boundary sentinels, from `ModelDescriptor.turnMarkers`.
+  /// Surfaced through ``knownTurnMarkers``; see there for the union rule.
+  let turnMarkers: ChatTurnMarkers
 
   /// Optional suffix appended to the system prompt at chat-template assembly.
   /// Used for models that require prompt-level mode control (e.g., Qwen's
@@ -188,8 +195,8 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   /// Creates a llama.cpp service.
   ///
-  /// All parameters are required — callers must provide explicit per-descriptor
-  /// values (via `ModelDescriptor.stopSequence` / `.displayName` /
+  /// The per-model parameters are required — callers must provide explicit descriptor
+  /// values (via `ModelDescriptor.stopSequence` / `.turnMarkers` / `.displayName` /
   /// `.systemPromptSuffix`). This avoids silently running Qwen with Gemma's
   /// defaults if a call-site forgets to thread the descriptor through.
   /// Test code can construct via a file-scope helper (see
@@ -202,6 +209,10 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   ///     `ModelManager.modelFileURL(for:).path` at the call-site).
   ///   - stopSequence: Per-model plaintext stop sentinel, matched only against
   ///     text the model spelled out (e.g., `<|im_end|>` for ChatML models).
+  ///   - turnMarkers: This model's own plaintext turn-boundary sentinels
+  ///     (`ModelDescriptor.turnMarkers`). **No default**: a wrong pair inherited in
+  ///     silence is exactly the #1422 bug. Pass ``ChatTurnMarkers/chatML`` explicitly
+  ///     where that is genuinely the intent.
   ///   - modelIdentifier: Human-readable label for exports / replay metadata.
   ///   - systemPromptSuffix: Optional suffix appended to the system prompt
   ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
@@ -211,12 +222,14 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   public init(
     modelPath: String,
     stopSequence: String,
+    turnMarkers: ChatTurnMarkers,
     modelIdentifier: String,
     systemPromptSuffix: String?,
     assistantPrefix: String? = nil
   ) {
     self.modelPath = modelPath
     self.stopSequence = stopSequence
+    self.turnMarkers = turnMarkers
     self.modelIdentifier = modelIdentifier
     self.systemPromptSuffix = systemPromptSuffix
     self.assistantPrefix = assistantPrefix
@@ -426,6 +439,18 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// YAML replay) — not a stable parse key.
   public let modelIdentifier: String
   public let backendIdentifier = "llama.cpp"
+
+  /// The loaded model's own pair, unioned with the ChatML baseline (#1422).
+  ///
+  /// Keeping ChatML in the set for every model is deliberate: instruction-tuned models are
+  /// trained on corpora containing ChatML, so a non-ChatML model spelling `<|im_end|>` is
+  /// not excluded by its vocabulary. Recognizing one costs nothing, and the union is what
+  /// keeps Qwen byte-identical to pre-#1422.
+  ///
+  /// Deduped so a ChatML model yields one entry, not two — consumers iterate this per parse.
+  public var knownTurnMarkers: [ChatTurnMarkers] {
+    turnMarkers == .chatML ? [.chatML] : [turnMarkers, .chatML]
+  }
 
   /// Maps a non-zero `llama_decode` result to either ``LLMError/suspended``
   /// (when an external suspend was requested — usually because iOS denied
