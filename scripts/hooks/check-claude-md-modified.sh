@@ -260,28 +260,38 @@ fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------
 # The total was 91,615 bytes when this was introduced (#1361, 2026-08-05); it
-# had drifted to 98,036 — above the then-96,000 ceiling — by 2026-08-13, when
-# #1442 evacuated the kit-mirror rules' depth to docs/agent-tooling/ and brought
-# it to 94,640 (measured on that PR's final commit — the mid-review figure was
-# 890 bytes lower, which is why this is re-derived rather than quoted forward).
+# had drifted to 98,036 — above the ceiling, so the nudge was firing on every
+# PR — by 2026-08-13, when #1442 evacuated the kit-mirror rules' depth to
+# docs/agent-tooling/ and brought it to 94,825, back under.
+#
 # A slim campaign (#1310 / #1315 style) that lands below the ceiling should
 # re-baseline this default in its own PR — otherwise the nudge decays into
-# permanent wallpaper that everyone scrolls past. Ratchet it DOWN to just above
-# the new total so the campaign's gain is held. The headroom below is ~0.9%,
-# deliberately far tighter than the 4.8% this started with: the observed drift
-# rate (+6,400 bytes in 8 days) makes a loose ceiling silent for months. The
-# accepted cost is the symmetric failure — at this tightness roughly one added
-# rule paragraph trips it. That is tolerable only because the nudge is
-# non-blocking `additionalContext`, so the remedy is a one-line Context-economy
-# record in the PR body, not a blocked commit. The env var exists so the test
-# harness can force the firing branch.
+# permanent wallpaper that everyone scrolls past. #1442 discharged that duty by
+# measuring and deciding NOT to move it, which needs recording or the next
+# campaign re-derives it: a ratchet down to just-above-94,825 leaves under 1%
+# headroom, so the nudge trips on roughly one added rule paragraph and becomes
+# wallpaper from over-firing instead of under-firing. Reduction big enough to
+# ratchet means clearing headroom worth about one rule section (~1.5 KB) below
+# the ceiling; -3,211 bytes did not. At 94,825 the existing 96,000 already sits
+# ~1.2% above the total, which is a live constraint, not a dead one.
 #
-# Held in one variable because the value is needed twice (the `:-` default and
-# the malformed-input fallback). Nothing exercises the fallback branch — it runs
-# only on non-numeric env input — so two literals would let a future re-baseline
-# update one and diverge silently, which is the same drift class #1442 was
-# cleaning up when it set this value.
-FOOTPRINT_CEILING_DEFAULT=95500
+# So: re-measure on your campaign's FINAL commit and move this only if the new
+# total clears that ~1.5 KB. Measuring early is the trap — #1442's figure moved
+# twice during code review (93,750 -> 94,640 -> 94,825) as review fixes landed,
+# and two of those rounds had already been written into this comment.
+#
+# The env var exists so the test harness can force the firing branch.
+#
+# Held in one variable because the value is needed twice in this script (the
+# `:-` default and the malformed-input fallback). Nothing exercises the fallback
+# branch — it runs only on non-numeric env input — so two literals would let a
+# future re-baseline update one and diverge silently, which is the same drift
+# class #1442 was cleaning up when it set this value. A THIRD copy lives outside
+# this script, in scripts/tests/check-claude-md-modified-test.sh's `run_hook`
+# default; it is inert (fixtures are kilobytes, and the firing cases pass an
+# explicit ceiling), which is exactly why a re-baseline would forget it — update
+# it anyway so the two never read as disagreeing about the production value.
+FOOTPRINT_CEILING_DEFAULT=96000
 FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-$FOOTPRINT_CEILING_DEFAULT}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.

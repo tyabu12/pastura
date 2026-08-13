@@ -125,10 +125,9 @@ The rule carries the triggers and the two steps nothing else enforces. The full 
 
 1. File a rolling tracking issue collecting candidate sections.
 2. `/orchestrate` a PR landing the additions to `.claude/rules/` (or `CLAUDE.md` for project-wide
-   rules), drafted at **concept level** — WHY + the invariant + a durable pointer, not the
-   exhaustive HOW (grep blocks, enumerations, step lists). This holds for **path-scoped** targets
-   too, where `context-budget.md`'s always-loaded discipline stops; expand a section only when a
-   reviewer shows the omitted detail is load-bearing for the rule to fire.
+   rules), at the concept-level drafting bar. That bar is **not** promotion-specific — it governs
+   any rules addition — so it lives in the rule itself (`knowledge-layering.md` § "Procedure"),
+   not here. One copy on purpose.
 3. Strip `Source memory: feedback_*` provenance lines from drafts before commit — a repo-tracked
    file referring to per-user memory by name is a dead link for other contributors.
 4. Update **every mirror** of the promoted fact in the same PR — the `code-reviewer` trap cheat

@@ -68,12 +68,14 @@ acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,
 conversational scratch).
 
 **Detection** — new code must not add hits. A recursive search answers "which
-files lie here" while the rule asks "which are **repo-tracked**", and the two
-diverge in both directions: a tracked file under an ignored directory is
-missed, never-committed scratch is falsely flagged (and `rg` specifically also
-skips dot-dirs, so `.claude/**` went unscanned for a while). Enumerate, don't
-recurse. `-H` is required: without it `grep` drops the filename on a single
-match and the `file:line` breaks.
+files lie here" while the rule asks "which are **repo-tracked**", and it misses
+in one direction or the other depending on the searcher: a gitignore-respecting
+one (`rg`) skips a tracked file staged under an ignored directory — and skips
+dot-dirs entirely without `--hidden`, which is how `.claude/**` went unscanned
+for a while — while a plain `grep -r` flags ignored scratch the enumeration
+below deliberately excludes. Enumerate, don't recurse. `-H` is required:
+without it `grep` drops the filename on a single match and the `file:line`
+breaks.
 
 ```sh
 git ls-files -z --cached --others --exclude-standard \

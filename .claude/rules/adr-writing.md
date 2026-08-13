@@ -26,7 +26,7 @@ Before committing a fact-claim line:
 
 The 5–10 minute investment per commit prevents the kind of 3-review-round cycle that landed 4 fact-errors in ADR-010 body (see #370).
 
-Pairs with `knowledge-layering.md` § "Verify before you lock it" — different surface, same shape: execute every load-bearing assertion before commit. An ADR draft hits **both** of that section's first two moments: Plan-lock for the claims the decision rests on, and Rule-commit for the draft's own cited `file:line` / `(#N)` / delta lines — including its re-measure-on-the-final-commit clause.
+Pairs with `knowledge-layering.md` § "Verify before you lock it" — different surface, same shape: execute every load-bearing assertion before commit. An ADR draft hits **both** of that section's first two moments: Plan-lock for the claims the decision rests on, and the Rule-commit *shape* for the draft's own cited `file:line` / `(#N)` / delta lines — including its re-measure-on-the-final-commit clause. (That bullet names `.claude/rules/` and `CLAUDE.md` as its subject; an ADR is neither, which is why the shape and not the bullet's scope is what carries over.)
 
 ## 2. Mechanism contract over pinned model thresholds
 

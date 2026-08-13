@@ -69,8 +69,9 @@ escape from an over-scoped call — see **§3**.
 
 **These numbers are review-attention bounds, NOT cap-derived** — a cap-table
 change in §1 leaves them untouched unless it drops a cap *below* them, and they
-are kit-canonical rather than a per-project knob. Go **tighter** at the call site when the diff is dense; never
-looser. **Before revising them, or before arguing a call is an exception, read
+are kit-canonical rather than a per-project knob. Go **tighter** at the call
+site when the diff is dense; never looser. **Before revising them, or before
+arguing a call is an exception, read
 the doc's § "Why the split thresholds are not cap-derived"** — the only valid
 evidence is about review quality, not about tokens.
 
@@ -131,12 +132,12 @@ A cost-driven downgrade is still bounded by the same sensitivity rules
 ## 4. Agent self-defense
 
 The two defend asymmetrically. `code-reviewer.md` restates §2's line/file
-numbers and bails with `SCOPE_TOO_LARGE` **before any tool_use**;
-`claude-kit:critic` carries an axis-only budget (≤5 axes, triage above 7) and
-acts *during* the run, stopping to report at ~15 tool_use calls. **Keep
-`code-reviewer.md`'s copy in sync with §2** — critic's is kit-owned and
-one-way. Do not delete either as redundant: the doc's § "Why the agents
-duplicate the budget" has the reason.
+numbers and bails with `SCOPE_TOO_LARGE` after its one mandatory
+`git diff --stat` call, before any other tool_use; `claude-kit:critic` carries
+an axis-only budget (≤5 axes, triage above 7) and acts *during* the run,
+stopping to report at ~15 tool_use calls. **Keep `code-reviewer.md`'s copy in
+sync with §2** — critic's is kit-owned and one-way. Do not delete either as
+redundant: the doc's § "Why the agents duplicate the budget" has the reason.
 
 ## 5. Official `/code-review` vs the custom agents
 

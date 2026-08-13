@@ -49,10 +49,13 @@ follow from that being wrong.
 First, the cap was never the binding constraint at these scopes — a threshold that would not have
 changed had the cap been right was not really derived from it. What the thresholds buy is **review
 attention**, which does not scale with a model's `max_tokens`. *That premise is measured, but not
-here*: the kit's `docs/subagent-output-cap.md` backs it with a scan of local transcripts predating
-the work, which found no response anywhere near a cap and zero `stop_reason: max_tokens`. Pastura
-has not re-run that scan — treat the premise as inherited evidence, and go read the kit doc before
-leaning on it for a new decision.
+here*: `docs/subagent-output-cap.md` **in the kit repository linked above** backs it with a scan of
+local transcripts predating the work, which found no response anywhere near a cap and zero
+`stop_reason: max_tokens`. Pastura has not re-run that scan — treat the premise as inherited
+evidence and read the kit's copy before leaning on it for a new decision. (The kit also installs
+that file to a per-user path; this doc deliberately cites the repository instead, because a
+`~/.claude/...` path in a repo-tracked file is the dead link § "Anti-pattern: memory refs in
+repo-tracked files" of `knowledge-layering.md` forbids.)
 
 Second, and this is the consequence for future edits: revise them on evidence about *review
 quality* — a reviewer that misses things at 800 changed lines, or does fine at 1,500 — and never by
@@ -96,11 +99,14 @@ all. That is the mechanism behind both escape shapes the rule lists:
 
 ## Why the agents duplicate the budget
 
-`code-reviewer.md` bails with `SCOPE_TOO_LARGE` before any `tool_use` when the soft budget is
-exceeded; the kit-provided `claude-kit:critic` triages instead (highest-risk axes first, explicit
-deferrals). Restating the caller-side budget inside the agents looks redundant and is not: a cap hit
-usually shows up as nothing louder than a seam mid-report, so a second line of defense that fires
-*before* the work starts is worth its duplication.
+`code-reviewer.md` restates this rule's line/file numbers and bails with `SCOPE_TOO_LARGE` after its
+one mandatory `git diff --stat` call and before any other `tool_use`. `claude-kit:critic` does
+something different: an axis-only budget (≤5 axes, triage above 7) that it applies *during* the run,
+plus a stop-and-report at ~15 `tool_use` calls. Restating a budget inside the agents looks redundant
+and is not: a cap hit usually shows up as nothing louder than a seam mid-report, so a second line of
+defense inside the agent — pre-work for `code-reviewer`, mid-run for critic — is worth its
+duplication. Only `code-reviewer.md`'s copy is ours to keep in sync; critic's definition ships with
+the plugin and reconciles one-way.
 
 ## Why `/code-review` cannot substitute
 
