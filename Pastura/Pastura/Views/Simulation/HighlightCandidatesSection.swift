@@ -75,7 +75,7 @@ struct HighlightCandidatesSection: View {
     let style = ChipStyle(reason: reason)
     // `style.word` is already `String(localized:)`-resolved; compose verbatim
     // so the emoji-prefixed string isn't re-read as a LocalizedStringKey lookup
-    // (`.claude/rules/i18n.md` § convenience-init label trap).
+    // (`.claude/rules/i18n-ui.md` § "SwiftUI convenience-init label trap").
     return Text(verbatim: "\(style.emoji) \(style.word)")
       .font(.system(size: 10, weight: .bold))
       .padding(.horizontal, 7)

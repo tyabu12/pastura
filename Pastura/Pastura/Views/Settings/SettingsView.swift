@@ -297,7 +297,7 @@ struct SettingsView: View {
 
   /// Simulation-behaviour toggles: keep-running-on-leave (opt-in, ADR-017
   /// Phase B, #682) and viewer prediction (opt-out, #915). Label-closure form
-  /// per the i18n convenience-init convention (`.claude/rules/i18n.md`).
+  /// per the i18n convenience-init convention (`.claude/rules/i18n-ui.md`).
   private var simulationSection: some View {
     PasturaSection(String(localized: "Simulation"), style: .grouped) {
       Toggle(isOn: $keepRunningOnLeave) {

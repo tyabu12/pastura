@@ -117,7 +117,9 @@ gets a Japanese translation. SwiftLint has a tripwire for this, and CI
 checks coverage. See
 [`docs/i18n/leak-detection.md`](docs/i18n/leak-detection.md) for the
 architecture, [`.claude/rules/i18n.md`](.claude/rules/i18n.md) for the
-Swift-side conventions, and
+Swift-side callsite conventions,
+[`.claude/rules/i18n-ui.md`](.claude/rules/i18n-ui.md) for the UI-layer
+traps (plurals, SwiftUI `LocalizedStringKey`), and
 [`.claude/rules/i18n-catalog.md`](.claude/rules/i18n-catalog.md) when you
 edit `Localizable.xcstrings` itself.
 
