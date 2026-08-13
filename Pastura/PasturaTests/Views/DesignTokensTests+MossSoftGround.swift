@@ -26,18 +26,16 @@ extension DesignTokensTests {
   /// token's ten callsites as seven line/border jobs plus three tinted fills
   /// under `mossInk` text.
   ///
-  /// **That corroboration is about grounds, and this list is about labels** —
-  /// four entries against three fills, because `PredictionOutcomeBadge`'s hit
-  /// capsule carries two of them. Do not "reconcile" the counts; they measure
-  /// different things.
+  /// **That corroboration counts grounds, this list counts labels** — four
+  /// entries against three fills, because `PredictionOutcomeBadge`'s hit capsule
+  /// carries two. Do not "reconcile" them.
   ///
-  /// The blind spot the two share is structural and outlives the count: both
-  /// start from `mossSoft` **fill** sites, so neither can see a label drawn on
-  /// this ground by a token from another family. There was one until #1427 —
-  /// the streak sub-label below was `muted` at 2.136 light / 2.413 dark — and
-  /// there is none today, which is a fact about the current tree rather than a
-  /// property of this fixture. So still do not read this guard as "every label
-  /// on `mossSoft` clears AA"; it says the moss-family ones do.
+  /// The blind spot they share outlives the count: both start from `mossSoft`
+  /// **fill** sites, so neither sees a label drawn on this ground by another
+  /// family's token. #1427 repointed the last one (the streak sub-label, `muted`
+  /// at 2.136 / 2.413), but that is a fact about today's tree, not a property of
+  /// this fixture — so still read this guard as "the moss-family labels clear
+  /// AA", never "every label on `mossSoft` does".
   static let mossSoftTextSites = [
     "ContradictionBadge",
     "PredictionOutcomeBadge.hitArm",
@@ -45,7 +43,7 @@ extension DesignTokensTests {
     "HighlightCandidatesSection.revealedChip"
   ]
 
-  /// WCAG 1.4.3 normal-text bar. All three labels are under the "large text"
+  /// WCAG 1.4.3 normal-text bar. All four labels are under the "large text"
   /// threshold (≥14pt bold / ≥18pt regular) — the largest is `caption`-class at
   /// ~12pt and the chip is 10pt bold — so 3:1 never applies to any of them.
   private static let textBar = 4.5
@@ -100,12 +98,10 @@ extension DesignTokensTests {
   /// *differ* can never fire while either side is a `PasturaDynamicColor`-backed
   /// pair, since those compare by provider instance.
   ///
-  /// `PredictionOutcomeBadge` is no longer the gap this comment used to record:
-  /// #1427 extracted its colours out of `body` into accessors, and
-  /// ``PredictionOutcomeBadgeTokenTests`` pins both of its labels there. That
-  /// leaves `ContradictionBadge`, which still builds its colours inline with no
-  /// extractable style type and stays code-review-gated; the same extraction is
-  /// the way to close it, and is not done here.
+  /// `PredictionOutcomeBadge` has its own pin since #1427 extracted its colours
+  /// into accessors (``PredictionOutcomeBadgeTokenTests``). That leaves
+  /// `ContradictionBadge`, still inline with no extractable style type and so
+  /// code-review-gated; the same extraction would close it.
   @Test func revealedChipReadsMossInk() {
     let style = HighlightCandidatesSection.ChipStyle(reason: .revealed)
     #expect(style.textColor == Color.mossInk)

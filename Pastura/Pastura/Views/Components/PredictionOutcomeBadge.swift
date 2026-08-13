@@ -37,48 +37,28 @@ struct PredictionOutcomeBadge: View {
 
 extension PredictionOutcomeBadge {
 
-  /// Capsule fill: the §2.6-shaped `mossSoft` on a hit, the neutral card
-  /// surface on a miss.
   var fillToken: Color {
     isHit ? Color.mossSoft : Color.bubbleBackground
   }
 
-  /// Icon + primary label foreground.
-  ///
-  /// The hit arm takes `mossInk` for the opaque `mossSoft` capsule — the §2.6
-  /// `<family>Soft` + `<family>Ink` pairing, 6.537 light / 6.505 dark (#1407,
-  /// derivation in `ContradictionBadge`).
-  ///
-  /// The miss arm reads `inkSecondary` on `bubbleBackground` at 6.934 / 5.975,
-  /// replacing `muted`'s 3.475 / 3.021 — sub-AA in *both* appearances (#1427).
-  /// `metaBaseL3` would also clear the bar (8.577 / 8.161) and is what
-  /// design-system §8 names for must-read meta info, but it is rejected here on
-  /// **hierarchy**: at 8.6 the failure state would out-shout the hit arm's 6.5,
-  /// and ADR-028 records that a supporting element must not become the loudest
-  /// thing in the row. `inkSecondary` lands at parity instead.
+  /// Icon + primary label. Hit: §2.6's `<family>Soft` + `<family>Ink` pairing on
+  /// the opaque capsule, 6.537 light / 6.505 dark (#1407). Miss: `inkSecondary`
+  /// on `bubbleBackground`, 6.934 / 5.975, replacing `muted`'s sub-AA
+  /// 3.475 / 3.021. `metaBaseL3` clears the bar too, but at 8.6 the *failure*
+  /// state would out-shout the hit arm — rejection derived in ADR-028
+  /// § Amendment 2026-08-13 (#1427).
   var labelToken: Color {
     isHit ? Color.mossInk : Color.inkSecondary
   }
 
-  /// Streak sub-label foreground. Only rendered on the hit arm, so the ground is
-  /// always the opaque `mossSoft` capsule — which makes this the same §2.6
-  /// pairing as ``labelToken``'s hit arm, at 6.537 light / 6.505 dark. Replaces
-  /// `muted`, which measured 2.136 / 2.413 there — the worst `muted` instance in
-  /// the app (#1427).
+  /// Streak sub-label. Rendered on the hit arm only, so the ground is always the
+  /// opaque `mossSoft` capsule and the answer is ``labelToken``'s hit pairing.
+  /// The two quieter candidates were refused — `inkSecondary` reaches only 4.262
+  /// in light, `metaBaseL3` is a §2.4 rung — ADR-028 § Amendment 2026-08-13.
   ///
-  /// **Two quieter candidates were rejected on measurement, not taste.**
-  /// `inkSecondary` does not rescue this ground (4.262 light, though it *does*
-  /// pass at 4.772 in dark — the rejection is light-only). `metaBaseL3` clears it
-  /// at 5.272 / 6.518 and would have preserved colour subordination, but it is a
-  /// §2.4 DL-progress ladder rung: ADR-028 § "Three narrower rejections" refuses
-  /// borrowing one ("borrowing it would couple two families"), and
-  /// `DesignTokens+ExtendedPalette.swift` minted `headerMetaInk` at the *same
-  /// hex* rather than collapse the two. §8's binding requirement is the ratio;
-  /// the family that owns the ground supplies the token.
-  ///
-  /// **Accepted cost:** this is the same token as the hit label, so subordination
-  /// to "Correct!" rides on weight (`.medium` vs `.semibold`), not colour. Gated
-  /// on ADR-028 gate 4 device QA in both appearances.
+  /// **Accepted cost:** same token as the hit label, so subordination to
+  /// "Correct!" rides on weight, not colour. Pending ADR-028 gate 4 device QA in
+  /// both appearances.
   var streakToken: Color {
     Color.mossInk
   }
