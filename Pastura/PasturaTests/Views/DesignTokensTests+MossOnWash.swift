@@ -6,9 +6,15 @@ import Testing
 // Contrast guard for `mossOnWash` / `nightMossOnWash` (#1327).
 //
 // The token exists for one reason — moss-family label text over a translucent
-// moss-family wash was below WCAG AA in light at all seven of its sites. That
+// moss-family wash was below WCAG AA in light at every site that read it. That
 // reason is a *measurement*, so it is asserted here rather than written into a
 // doc comment and left to rot.
+//
+// The fixture grows as sites adopt the token (#1327 enumerated the original
+// set; #1455 added the `GameHeader` status pill on the same grounds). The count
+// pin inside ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` is the authority on its
+// size — not restated as a number in prose here, because a prose count goes
+// stale.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -31,6 +37,22 @@ extension DesignTokensTests {
   /// the chip was the one site already failing in **dark** before this token
   /// existed (4.39 — asserted by
   /// ``onlyTheCategoryChipWasFailingInDarkBeforeThisToken``, not just stated).
+  ///
+  /// `GameHeaderStatus.active` is **one row for three enum cases**: `.simulating`
+  /// / `.demoing` / `.replaying` share a foreground and render through the one
+  /// `GameHeader.statusPill`, so this is a single site, not three. The fourth
+  /// moss arm, `.completed`, is that same pill on a different route and does not
+  /// read this token at all — `DesignTokensTests+MossInkAsWashLabel.swift`
+  /// guards it.
+  ///
+  /// That row is also the first whose true ground is **not** an opaque surface:
+  /// `GameHeader` composites `screenBackground.opacity(0.78)` over
+  /// `.ultraThinMaterial`, with the screen's content scrolling beneath. So for
+  /// that row alone the ground pinned below is *nominal* rather than a worst
+  /// case — dark enough content under the bar puts the real ratio below what
+  /// this fixture asserts (#1455 measured the pathological bound at 3.690, still
+  /// a large strict improvement on 1.604 before). Light-appearance device QA is
+  /// what covers the gap; do not read this row as a bound the way the others are.
   static var mossWashSites: [MossWashSite] {
     [
       MossWashSite("GalleryCatalogRow.badgeView", wash: .moss, light: 0.20, dark: 0.20),
@@ -40,7 +62,8 @@ extension DesignTokensTests {
       MossWashSite("HomePausedCard.eyebrow", wash: .moss, light: 0.16, dark: 0.16),
       MossWashSite("PhaseEditorSheet.fieldPill", wash: .mossDark, light: 0.16, dark: 0.16),
       MossWashSite(
-        "GalleryHighlightRunFigure.recordedPill", wash: .mossDark, light: 0.14, dark: 0.14)
+        "GalleryHighlightRunFigure.recordedPill", wash: .mossDark, light: 0.14, dark: 0.14),
+      MossWashSite("GameHeaderStatus.active", wash: .moss, light: 0.14, dark: 0.14)
     ]
   }
 
@@ -66,7 +89,7 @@ extension DesignTokensTests {
     // make this arm pass **vacuously** and green would mean nothing. The
     // negative control has its two non-loop ceiling assertions as a floor;
     // this arm had none.
-    #expect(Self.mossWashSites.count == 7)
+    #expect(Self.mossWashSites.count == 8)
 
     for site in Self.mossWashSites {
       let lightGround = composite(
@@ -112,8 +135,8 @@ extension DesignTokensTests {
     #expect(ceiling < 5.0, "mossDark got materially darker: \(ceiling)")
   }
 
-  /// The dark-side negative control, and it is deliberately **one row, not
-  /// seven**.
+  /// The dark-side negative control, and it is deliberately **one row, not the
+  /// whole fixture**.
   ///
   /// The claim it defends is narrow: dark was not broken in general — the
   /// gallery category chip was the single site already under the bar there,
@@ -122,10 +145,11 @@ extension DesignTokensTests {
   /// fixture doc, `nightMossOnWash`'s doc comment, and ADR-028 § Amendment
   /// 2026-08-08) and was executed by nothing until this test.
   ///
-  /// A blanket dark control over all seven would **fail**: the other six give
-  /// `nightMossDark` 4.77–5.62, i.e. they pass. Widening this loop would
-  /// therefore not strengthen the guard, it would break it — which is the
-  /// tell that the chip-scoping is the claim, not a shortcut.
+  /// A blanket dark control over the whole fixture would **fail**: every other
+  /// row gives `nightMossDark` 4.77–5.62, i.e. they pass. Widening this loop
+  /// would therefore not strengthen the guard, it would break it — which is the
+  /// tell that the chip-scoping is the claim, not a shortcut. The range still
+  /// holds with #1455's row in (5.397), so only the count moved.
   @Test func onlyTheCategoryChipWasFailingInDarkBeforeThisToken() {
     let chipGround = composite(
       PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.24)
@@ -177,9 +201,10 @@ extension DesignTokensTests {
 /// helpers in a sibling file live outside the suite struct.
 struct MossWashSite {
 
-  /// Which token the capsule is filled with. Only two occur across the seven
-  /// sites — most fill with base `moss`, while `fieldPill` and `recordedPill`
-  /// tint with `mossDark` itself.
+  /// Which token the capsule is filled with. Only two occur across the fixtures
+  /// this type backs — most fill with base `moss`, while `fieldPill`,
+  /// `recordedPill` and (in `mossInkWashSites`) `GameHeader.statusPill` tint
+  /// with `mossDark` itself.
   enum Wash {
     case moss
     case mossDark

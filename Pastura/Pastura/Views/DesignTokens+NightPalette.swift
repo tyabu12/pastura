@@ -339,7 +339,7 @@ extension PasturaPalette {
   static let nightMossSoft = PasturaColorValue(hex: 0x384029)
   /// Accent text on a translucent moss wash under dark mode.
   ///
-  /// Arm 3: measured over the seven shipped washes it lands 4.70–6.03, clearing
+  /// Arm 3: measured over every shipped wash it lands 4.70–6.03, clearing
   /// the 4.5:1 text bar on all of them (composited on `nightBubble`, the harder
   /// of the two grounds for light-on-dark — the same worst-case convention
   /// `DesignTokensTests+MossOnWash.swift` asserts). The thinnest is the gallery
