@@ -17,7 +17,7 @@ Orchestrate the full development workflow: plan → issue → worktree → TDD i
 ## Step 0: Input Detection & Pre-flight
 
 Interpret `$ARGUMENTS`:
-- **`#N`** (digits after `#`): Fetch issue via `gh issue view N`, use title/body as task spec. Then check for an existing plan (see **Resumption Detection** below).
+- **`#N`** (digits after `#`): Fetch issue via `gh issue view N`, use title/body as task spec. Then check for an existing plan (see **Resumption Detection** below). In degraded mode (unauthenticated — see pre-flight check 1 below), `#N` cannot be fetched and resumption is unavailable; the task spec must come from the user inline instead.
 - **`phase N`** (e.g., `phase 1`, `phase 2`): Read ONLY that Phase section from `docs/ROADMAP.md`.
 - **(empty)**: Ask user what to implement.
 - **Other text**: Use as inline task description.
@@ -48,10 +48,10 @@ After fetching the issue, check for an existing plan comment:
 3. If no plan comment found: proceed normally (Step 1 creates the plan, Step 2 attaches it).
 
 **Pre-flight checks** (run in order):
-1. `gh auth status` — warn and skip GitHub steps if unauthenticated.
+1. `gh auth status` — if unauthenticated, run in **degraded mode**: no issue, no checkpoint sync, no resumption — and say so explicitly to the user rather than silently skipping. Skip all remaining `gh` steps; the plan lives only in-session.
 2. `git status` — warn if uncommitted changes exist.
 3. Verify on default branch (skip if `RESUMING=true`):
-   - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')`
+   - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')` — in degraded mode, use `git symbolic-ref refs/remotes/origin/HEAD` instead, since this value still feeds Step 4's fetch and the reviewer's diff range.
    - If current branch != `DEFAULT_BRANCH`, warn and offer `git switch "$DEFAULT_BRANCH"`.
 4. `git pull --ff-only origin "$DEFAULT_BRANCH"` — warn on failure, don't block. Skip if `RESUMING=true`.
 5. If already in a worktree, warn and suggest `ExitWorktree` first (unless `RESUMING=true` and the worktree matches the expected branch).
@@ -157,6 +157,9 @@ Handle the critic's output:
 **If `RESUMING=true`** (plan already exists on issue `#N`):
 - Skip issue creation and plan attachment entirely.
 
+**Degraded mode (unauthenticated):**
+- Skip issue creation and plan attachment; keep the plan in-session (no resumption).
+
 **If from `#N`** (existing issue, no plan yet):
 - Post the plan as a comment on issue `#N`:
   ```bash
@@ -177,7 +180,7 @@ Handle the critic's output:
   ```
   Set `ISSUE_NUMBER=N`. When emitting `{REVIEWER_MODEL}` and `{SESSION_MODEL}` into Metadata, title-case the values (`Opus` / `Sonnet`) for readability — Step 0's parser normalizes back to lowercase on read.
 
-**Otherwise** (new task — always create issue, because checkpoint sync and resumption require a `COMMENT_ID` on a real Issue):
+**Otherwise** (new task — create an issue whenever authenticated, because checkpoint sync and resumption require a `COMMENT_ID` on a real Issue; in degraded mode this step is already skipped above):
 - Determine `LABEL` from `TASK_TYPE` using the label mapping table in Step 5.
 - Create a new issue:
   ```bash
@@ -241,7 +244,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
 3. Write implementation.
 4. Run targeted tests — confirm pass (same command as step 2).
 5. Commit (Conventional Commits + emoji per CLAUDE.md).
-6. **Sync checkpoint to GitHub Issue** — update the plan comment to check off the completed item:
+6. **Sync checkpoint to GitHub Issue** (skip in degraded mode) — update the plan comment to check off the completed item:
    ```bash
    BODY=$(gh api "repos/${OWNER_REPO}/issues/comments/${COMMENT_ID}" --jq '.body')
    UPDATED=$(echo "$BODY" | sed "s/^- \[ \] ${K}\./- [x] ${K}./")
@@ -295,7 +298,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 2. Read the full diff (`git diff`) to understand the changes before composing the commit message.
 3. Spot-check for obvious convention violations (nonisolated, access modifiers, dependency imports).
 4. Commit (Conventional Commits + emoji per CLAUDE.md). `git commit` is allowlisted; the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build), not a per-commit approval prompt.
-5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above).
+5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above; skip in degraded mode).
 
 **Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **take over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted, then:
 1. Run `git stash -u` to save all of Sonnet's partial work including untracked new files (recoverable via `git stash pop` if needed later), giving the recovery a clean start.
@@ -360,6 +363,8 @@ Show the final review report, then proceed to Step 5 (PR creation).
 
 ## Step 5: PR Creation
 
+**Degraded mode:** skip PR creation entirely — report that the branch is ready to push / PR manually, and stop.
+
 Derive base branch: `gh repo view --json defaultBranchRef -q '.defaultBranchRef.name'`
 
 Determine label from the commit prefix (TASK_TYPE or dominant commit type):
@@ -387,7 +392,7 @@ Config / docs / shell / test-only changes with no such surface do **not** need d
 
 Present the PR draft (title + body + label) for visibility — this is informational; the PR is created automatically, with no confirmation gate:
 - Title: Emoji prefix + Conventional format, under 70 chars (same emoji convention as CLAUDE.md commits)
-- Body: Summary bullets + test plan + a `## Device QA` section + an issue reference. Use `Closes #N` only when this PR completes the issue; for a non-final PR of a multi-PR or umbrella issue, use `Part of #N` instead so merging it does not prematurely auto-close the issue (see CLAUDE.md § "Git Conventions" → "Closing issues in multi-PR splits"). The `## Device QA` section lists the concrete on-device steps a reviewer must run, or a single `実機QA不要` line with the one-line reason when none apply.
+- Body: Summary bullets + test plan + a `## Device QA` section + an issue reference (omit the issue reference in degraded mode — there is no issue). Use `Closes #N` only when this PR completes the issue; for a non-final PR of a multi-PR or umbrella issue, use `Part of #N` instead so merging it does not prematurely auto-close the issue (see CLAUDE.md § "Git Conventions" → "Closing issues in multi-PR splits"). The `## Device QA` section lists the concrete on-device steps a reviewer must run, or a single `実機QA不要` line with the one-line reason when none apply.
 - Label: from the table above
 
 Push the branch first as its **own** Bash tool call: `git push -u origin <branch>`. Then create the PR as a **separate** call — never combine the two with `&&`, or the `gh pr create --base`-gated PreToolUse (`check-claude-md`) and PostToolUse (`pr-created-reflection`) hooks won't fire (their prefix gate is anchored at position 0, so a leading `git push` breaks the match):
