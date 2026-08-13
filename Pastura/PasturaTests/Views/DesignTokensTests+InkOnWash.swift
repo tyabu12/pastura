@@ -136,23 +136,12 @@ extension DesignTokensTests {
   ///
   /// Paired with the wash-alpha **ceiling**, and note this pair does *not* have
   /// `mossOnWash`'s shape: there the ceiling was under the bar, which proved
-  /// wash-tuning could not work at all. Here the self-wash ceiling — the
-  /// alpha→0 limit, `nightInkSecondary` bare on `nightBubble` — is 5.975, i.e.
-  /// **the lever exists, and cheaply**: `fieldPill` needs only 0.16 → 0.150 to
-  /// reach 4.5010, the alpha two sibling rows already ship. So the rejection
-  /// cannot rest on the size of the change, and does not:
-  ///
-  /// - reaching the *bar* leaves the site exactly where the two 0.15 rows
-  ///   already are — the marginless state this whole change exists to leave, so
-  ///   it fixes nothing;
-  /// - reaching the margin the role token gives (4.9908) needs alpha ≈**0.097**,
-  ///   and `PhaseTypeLabel` documents its 15% fill as load-bearing. The two
-  ///   clauses name different sites, so note the figure is class-wide rather
-  ///   than `fieldPill`'s alone: `PhaseTypeLabel`'s own 0.15 row also needs
-  ///   ≈0.097 for the same margin.
-  ///
-  /// That is a design judgement this file cannot prove. Do not read a passing
-  /// ceiling assertion as endorsement of the route.
+  /// wash-tuning could not work at all. Here the ceiling is 5.975, i.e. the
+  /// lever exists and is cheap — and is rejected anyway, on grounds this file
+  /// cannot prove. The derivation lives in **ADR-028 § Amendment 2026-08-13
+  /// (#1408)**, matching how `nightInkOnWash`'s own doc comment defers it rather
+  /// than restating it. Do not read a passing ceiling assertion as endorsement
+  /// of the route.
   @Test func inkSecondaryHasNoMarginOnTheseWashes() {
     // The exclusion is keyed on a **name string**, so renaming or replacing that
     // row would leave the filter matching nothing and this loop silently
@@ -250,11 +239,21 @@ extension DesignTokensTests {
   /// The pair's defining asymmetry, executed rather than described.
   ///
   /// `DesignTokens.swift` says the light half is `inkSecondary` **copied, not
-  /// aliased**, and that the copy exists so the dark half can move
-  /// independently. Both clauses are claims: this pins the copy (light halves
-  /// equal) and the independence (dark halves differ). A future retune of
-  /// `inkSecondary` that forgets `inkOnWash` reddens the first; a "these are the
-  /// same token, collapse them" refactor reddens the second.
+  /// aliased**. This pins the copy (light halves equal) and the separation (dark
+  /// halves differ).
+  ///
+  /// **Reddening the equality arm is a decision point, not a repair
+  /// instruction.** The two tokens are *independent by design* — pick one to
+  /// update without dragging the other. So if a legitimate light-side retune of
+  /// `inkSecondary` reddens this, the answer may well be to update the
+  /// expectation and let the values diverge; what the arm buys is that the
+  /// divergence is chosen rather than stumbled into. Do **not** read a red here
+  /// as "`inkOnWash` forgot to follow" and copy the new value across without
+  /// re-measuring. Wording follows the repo's own precedent for this exact
+  /// shape, ``headerMetaInkSharesHexWithMetaBaseL3``.
+  ///
+  /// The dark clause is the opposite kind: a "these are the same token, collapse
+  /// them" refactor reddens it, and that one really is a repair instruction.
   ///
   /// Comparing raw `PasturaColorValue`s, never `Color` aliases —
   /// `.claude/rules/view-testing.md` warns that a `PasturaDynamicColor`-backed

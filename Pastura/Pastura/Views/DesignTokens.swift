@@ -126,10 +126,17 @@ enum PasturaPalette {
   ///
   /// The light half is deliberately **byte-identical to `inkSecondary`**, not
   /// inherited from it: light is not broken (5.270–5.595 across the four sites,
-  /// composited on `screenBackground` — the worst-case light ground),
-  /// so this pair exists to give the *dark* half independent control. Copying
-  /// the value rather than aliasing is what makes that control possible — see
-  /// `nightInkOnWash`, where the two diverge. Valid over ink-family
+  /// composited on `screenBackground` — the worst-case light ground), so this
+  /// pair exists to give the *dark* half a value of its own.
+  ///
+  /// **What the copy buys is decoupling in the other direction.** The dark half
+  /// is independently declared in `PasturaDynamicPalette`, so writing this as an
+  /// alias of `inkSecondary` would not have cost dark anything — an earlier
+  /// revision of this comment claimed it would, and that was wrong. The copy
+  /// earns its place by making a future retune of `inkSecondary` in *light* not
+  /// silently drag this token with it. Same shape as `headerMetaInk`, which
+  /// duplicates `metaBaseL3`'s hex for a different role (§2.12). Valid over
+  /// ink-family
   /// **translucent** washes; an opaque neutral fill is a different question and
   /// takes the §2.6 Soft+Ink pairing (#1407's shape). Asserted by
   /// `DesignTokensTests+InkOnWash` (#1408).

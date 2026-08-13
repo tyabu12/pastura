@@ -45,6 +45,33 @@ presented surface composites differently (§ Amendment 2026-08-05 (#1336)'s whol
 Note a groundless sheet if one looks wrong on a dark device; do not file it as a
 class-F regression.
 
+**#1408's contrast figures inherit that open edge for one site.** The `inkOnWash`
+guard composites every self-wash on `nightBubble` as the worst-case dark ground,
+but `PhaseEditorSheet.fieldPill` actually sits on the `Form`'s system grouped
+background, which is *darker* — so its real ratio is higher than the 4.991 the
+guard asserts, and the assertion is conservative rather than wrong. Recorded
+because "conservative" is a claim nobody measured: the true ground is a system
+colour this repo does not own, which is exactly why the class edge is open.
+
+## Dark-only repoints from #1408 — walk these four
+
+A dark-only change with a byte-identical light half: **light QA cannot confirm or
+refute any of it.** Set the device to dark.
+
+- **Editor → a phase with a thought field** — the `Thought` pill (`fieldPill`).
+  Was the worst site at 4.413.
+- **さがす (Browse) → an installed scenario** — the `Installed` badge
+  (`ScenarioBadgeStyle.secondary`).
+- **Any code-driven phase label** (`score_calc` / `narrate` in the Editor's phase
+  list, or a `phaseStarted` entry in Simulation) — `PhaseTypeLabel`'s non-LLM arm.
+- **観察履歴 (History) → a paused run** — the status pill *and* the timeline dot
+  beside it, which now follows the pill's token.
+
+The falsifiable question is not "is it legible" — the arithmetic already says yes.
+It is **does `#BAB7A9` badge text still read *subordinate* to `nightInk` body
+copy?** If the badges now compete with body copy, the role justification is what
+is wrong, not the value.
+
 ## 1. Launch → splash (class D)
 
 The static launch screen and the SwiftUI splash must agree at the handoff, or
