@@ -121,7 +121,7 @@ After user approval, proceed to Step 1b (mandatory critic review).
 
 ## Step 1b: Plan Critique (REQUIRED)
 
-**⚠️ MANDATORY (unless `RESUMING=true`): You MUST complete this step before proceeding to Step 2.**
+This step is a review gate: complete it before Step 2. Skipped only when `RESUMING=true`.
 
 After the user approves the plan (G1), launch a `claude-kit:critic` subagent via the Agent tool to review the plan for blind spots. The agent comes from the claude-kit plugin (`enabledPlugins` in `.claude/settings.json` — Pastura keeps no local copy); it carries no model pin, so **pass `model: opus` explicitly** at invocation. If the agent type is unavailable (plugin not yet trusted/installed on this machine), stop and surface that instead of silently skipping the critique.
 
