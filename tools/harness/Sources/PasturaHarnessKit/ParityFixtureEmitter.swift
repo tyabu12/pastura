@@ -203,23 +203,42 @@ package enum ParityFixtureEmitter {
       callCount: responder.callCount)
   }
 
-  /// Zeroes the one measured quantity a `SimulationEvent` payload carries.
+  /// Drops the payload fields no cross-language comparison could survive.
   ///
   /// Pinning `EventLineMapper`'s `t` and `attempt` removes the harness's own
-  /// clock reads, but `inferenceCompleted` carries `durationSeconds` **inside
-  /// the event**, measured per call. Left alone it changes on every run, so
-  /// `--check` would report drift against itself and the two engines could
-  /// never agree. `tokenCount` needs no arm: this responder reports none, and
-  /// the Kotlin fixtures script none either — if that ever changes, the
-  /// mismatch surfaces as a parity diff rather than as flakiness.
+  /// clock reads, but two payload-internal fields remain, for different
+  /// reasons — one non-deterministic, one structurally absent on the far side:
   ///
-  /// Deliberately an `if case` rather than an exhaustive `switch`: this is a
-  /// narrow denylist of measured fields, and a new case is normalization-free
-  /// until someone shows otherwise. The exhaustiveness obligation belongs to
+  /// - **`inferenceCompleted.durationSeconds`** is measured per call. Left
+  ///   alone it changes on every run, so `--check` would report drift against
+  ///   itself and the two engines could never agree. `tokenCount` needs no arm:
+  ///   this responder reports none, and the Kotlin fixtures script none either
+  ///   — if that ever changes, the mismatch surfaces as a parity diff rather
+  ///   than as flakiness.
+  /// - **`agentOutput.rawText`** has no Kotlin counterpart at all.
+  ///   `TurnOutput.kt`'s class KDoc records the omission as deliberate: it is
+  ///   "parser provenance metadata … not part of the wire-shape contract", and
+  ///   re-adding it is named there as an Engine-port decision, not a Stage-4
+  ///   one. Keeping it would put a `raw_text` value diff on **every**
+  ///   `agent_output` — 24 in the nominal fixture — each pinning a string the
+  ///   fixture's own `responses` array already freezes verbatim. So the ledger
+  ///   would carry two dozen entries and learn nothing: the comparison would
+  ///   measure a model-port decision that is already documented, in place of
+  ///   engine behaviour. Nothing is lost by dropping it, precisely because
+  ///   `responses` is the authority on what the model said.
+  ///
+  /// Deliberately an `if case` chain rather than an exhaustive `switch`: this
+  /// is a narrow denylist, and a new case is normalization-free until someone
+  /// shows otherwise. The exhaustiveness obligation belongs to
   /// `EventLineMapper`, which already carries it.
   private static func normalize(_ event: SimulationEvent) -> SimulationEvent {
     if case .inferenceCompleted(let agent, _, let tokenCount) = event {
       return .inferenceCompleted(agent: agent, durationSeconds: 0, tokenCount: tokenCount)
+    }
+    if case .agentOutput(let agent, let output, let phaseType) = event {
+      return .agentOutput(
+        agent: agent, output: TurnOutput(fields: output.fields, rawText: nil),
+        phaseType: phaseType)
     }
     return event
   }
