@@ -22,7 +22,7 @@ Orchestrate the full development workflow: plan → issue → worktree → TDD i
 
 ## Constants
 
-- `PLAN_MARKER`: `<!-- pastura-plan -->` — machine-readable marker embedded in Issue plan comments for detection during resumption.
+- `PLAN_MARKER`: `<!-- pastura-plan -->` — machine-readable marker embedded in Issue plan comments for detection during resumption. **Project-unique by construction** — never change it to a generic name: a marker shared with another skill or repo makes resumption pick up foreign plans.
 - `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls) — but **after** pre-flight check 1, which decides whether `gh` is usable at all. The numbered pre-flight list below runs in its written order; **check 1 additionally hoists above the two sections that read earlier than the list** — the `#N` fetch and Resumption Detection — because both depend on its verdict. In degraded mode `OWNER_REPO` is unavailable and every `gh` step is skipped.
 
 ## Step 0: Input Detection & Pre-flight
@@ -226,7 +226,7 @@ Handle the critic's output:
 5. **If `SESSION_MODEL=sonnet`**, prompt the user to switch first: "This plan recommends a **Sonnet** session ({SESSION_RATIONALE}). Run `/model sonnet` now, then confirm." Then **Ask: "Resume from item {NEXT_ITEM}/{TOTAL}?"**
 
 **Otherwise** (normal flow):
-1. Display: "Issue #{ISSUE_NUMBER} created. Branch: `{TASK_TYPE}/{SLUG}`"
+1. Display: "Issue #{ISSUE_NUMBER} created. Branch: `{TASK_TYPE}/{SLUG}`" — in degraded mode 2a was skipped and `ISSUE_NUMBER` is unbound, so report the branch alone.
 2. **If `SESSION_MODEL=sonnet`**, tell the user to switch before implementation begins: "Session recommendation: **Sonnet** ({SESSION_RATIONALE}). Run `/model sonnet` now (or keep Opus by ignoring), then confirm below." Then **Ask: "Create worktree and start?"**
 3. Call `EnterWorktree` with `name: "{TASK_TYPE}/{SLUG}"`.
    - On failure: suggest alternative name or cleanup. Check `git ls-remote --heads origin <branch>` for remote collisions too; append `-2` suffix if needed.
