@@ -45,7 +45,7 @@ If a plan surfaces a quantitative gate, surface the trade-off to the user at pla
 
 The guide carries the four-step grep checklist (dates / short SHAs / `file:line` / period words) and two recurring variants beyond plain arithmetic — projection-vs-measurement, and status-flip staleness on amendment. It lives outside this file because it is a once-per-draft mechanical pass, not something an ADR *reader* needs in context.
 
-## 4. Numbering facts this repo carries
+## 4. Index and numbering facts this repo carries
 
 Kept deliberately short: `/claude-kit:write-adr` already handles sentinel ids,
 reservation lookup, the conditional Options table, and the roadmap phase read.
@@ -54,13 +54,34 @@ header — the drift surface `subagent-usage.md` et al. exist to prevent. Only
 what the skill cannot derive belongs here.
 
 - **A new ADR must be hand-appended to two indexes**, neither of which the
-  skill writes: `docs/decisions/INDEX.md` (full summary paragraph) and
-  `CLAUDE.md` § "Reference Documents" → ADR roster (title only, kept
-  **byte-identical** to the INDEX `## ADR-NNN — <title>` heading). Nothing at
+  skill writes: `docs/decisions/INDEX.md` and `CLAUDE.md` § "Reference
+  Documents" → ADR roster (title only, kept **byte-identical** to the INDEX
+  `## ADR-NNN — <title>` heading). Nothing at
   commit or merge time catches a skip. `consistency-audit`'s `adr_roster_drift`
   compares the roster, the INDEX headings and the **tracked** `ADR-*.md` files
   and files an issue — but only when someone runs it, and it does not demand
   listings for an ADR whose file is still untracked (third bullet).
+- **An INDEX entry routes; it does not recapitulate.** Write the mechanism in a
+  sentence, the standing invariants, what is still open, and one derivation
+  pointer per claim cluster — the body/amendment split of the "Amending a large
+  ADR" bullet below, applied to the index. Operational detail a `.claude/rules/`
+  file already carries stays there. Issue and PR numbers do not go stale and
+  stay, but prefer an ADR-internal `§ Amendment YYYY-MM-DD` where one exists.
+  INDEX is read on every ADR citation, so an entry that restates the ADR is paid
+  for by every reader who only needed to know which ADR to open.
+- **Do not mirror a mutable inventory count into an INDEX entry** — tokens
+  paired, entries excerptable, sites swept. A count-keyed sweep structurally
+  cannot find such a mirror: grepping the current number matches every
+  *up-to-date* copy and misses exactly the stale ones, which is what let
+  ADR-028's entry go stale repeatedly (§ "A count mirror that a count-keyed
+  sweep structurally cannot find"). **The test: can the number change without
+  the decision changing?** If yes it is an inventory; a cardinality *of the
+  design* ("two Models enums") is not. Apply the test rather than eyeballing —
+  ADR-028's own "eight pairs" read as a design cardinality when written and
+  became an inventory. It also retires a *relative* claim ("the quietest of the
+  five"), stale the same way while carrying no number at all. This governs what
+  you **write next**; existing entries are not audited against it, and no list
+  of the non-complying ones is kept, because it would inherit their blind spot.
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
   recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
   with no file on disk. It is a gap in the listing, not a free slot. Its

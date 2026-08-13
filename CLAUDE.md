@@ -320,7 +320,7 @@ same change:
 | `README.md`                           | Public-facing developer intro (Architecture, Tech stack, Project layout, Supported models) |
 | `CONTRIBUTING.md`                     | Public-facing contributor workflow with links into CLAUDE.md anchors          |
 | `docs/ROADMAP.md`                     | Phase scope, Go/No-Go criteria              |
-| `docs/decisions/INDEX.md`             | Full ADR decision summaries — the ADR lookup surface (roster below is titles only) |
+| `docs/decisions/INDEX.md`             | Per-ADR decision summaries — the ADR lookup surface; each entry routes into its ADR rather than restating it (roster below is titles only) |
 | `docs/decisions/ADR-006.md`           | Cloud API implementation details (Phase 3) — **reserved, not yet written**; a gap in the sequence, not a free slot (ADR-005 §7.5). Keep as a **table row with the path in cell 1** — `consistency-audit`'s `load_reserved_adrs` parses it to suppress `dangling_adr` false positives |
 | `docs/decisions/adr-writing-guide.md` | ADR inter-citation consistency checklist — run once after drafting / amending (dates, SHAs, `file:line`, period words; projection-vs-measurement and status-flip variants). Companion to `.claude/rules/adr-writing.md` §3 |
 | `docs/kmp-migration-status.md`        | KMP Engine migration (ADR-023 / #501) at-a-glance progress board — stage table + gate-enforced Wave B handler checklist. Progress view only; ADR-023 = design, #501 = execution detail |
@@ -340,7 +340,7 @@ same change:
 
 ### ADR roster
 
-Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries the full decision summary for every entry below.
+Titles only — **read [`docs/decisions/INDEX.md`](docs/decisions/INDEX.md) before citing an ADR**; it carries a decision summary for every entry below — mechanism, standing invariants, what is still open, and where in the ADR each claim is derived.
 
 001 Architecture Overview (Phase 1) · 002 llama.cpp interim LLM backend · 003 Background execution · 004 Multi-platform strategy · 005 Content safety architecture · 006 Cloud API implementation details · 007 DL-time demo replay (iOS lifecycle) · 008 Route identity vs render-time hints · 009 View testing strategy · 010 Localization (i18n: ja/en) · 011 6 GB RAM tier · 012 YAML strategy post-kaml · 013 Headless macOS simulation harness · 014 Release automation toolchain · 015 Execution-log retention posture · 016 Home redesign — bottom-tab IA · 017 Simulation focus mode · 018 Format-preserving visual→YAML boundary sync · 019 Raise minimum deployment target to iOS 18 · 020 Shared-scenario backward-compat · 021 Graceful degradation of LLM turn failures · 022 Phase/event extension contract · 023 KMP Engine migration architecture · 024 Scenario semantic lint layer · 025 Gallery scenario ordering · 026 LLM-dynamic Word Wolf topics (near-term no-go) · 027 Generic `pairwise_payoff` scoring logic · 028 Dark-mode token pairing (trait-resolving `PasturaDynamicColor`) · 029 Shared-scenario highlights (static curated excerpts)
 

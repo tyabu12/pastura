@@ -123,14 +123,8 @@ Answer first, before designing:
   iOS. Switch to `ScrollView` + `LazyVStack` (loses List chrome) or drop the
   indicator requirement.
 
-For the workflow lesson "research platform support BEFORE plan / critic,
-not after a full PR cycle" see #144.
-
-### Sources
-
-- [Apple Dev Forums thread/674393](https://developer.apple.com/forums/thread/674393) (cross-section drag)
-- [Apple Dev Forums thread/730367](https://developer.apple.com/forums/thread/730367) (dropDestination in List)
-- [HIG — Drag and drop](https://developer.apple.com/design/human-interface-guidelines/drag-and-drop)
+FB numbers, Apple sources, and the workflow lesson "research platform support
+BEFORE plan / critic, not after a full PR cycle": #144 and its comments.
 
 ## `.accessibilityIdentifier` ordering around `.safeAreaInset`
 
@@ -234,7 +228,7 @@ When token-izing `.foregroundStyle(.secondary)`, always switch to `Color.tokenNa
 
 A new color token needs five edits — miss the **5th** (the CSS mirror) and *at best only* the standalone
 `Design tokens drift guard` CI job reddens; build / unit / lint stay green, so it's invisible
-locally (first hit PR #953):
+locally:
 
 1. `DesignTokens+ExtendedPalette.swift` — raw `PasturaColorValue(hex:)` token
 2. `DesignTokens+SwiftUI.swift` — SwiftUI `Color` alias
@@ -250,31 +244,30 @@ token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `
 (#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
-steps above assume a brand-new value. A dark pair adds: the `night*` raw token, which goes in
-`DesignTokens+NightPalette.swift` rather than step 1's file; its `Color` alias; a
-`PasturaDynamicColor` entry in `DesignTokens+DynamicPalette.swift`'s
-`PasturaDynamicPalette` (including its `all` registry — its count assertion guards
-that list's documented size, not completeness: an unregistered pair still passes), the
-light alias repointed from `PasturaPalette.x.color` to `PasturaDynamicPalette.x.color`, plus
-steps 3–5. Note the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both** pairing
-files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are inert to
-it — only the new `night*` hex needs a `tokens.css` row. Keep every `DesignTokens+*` filename
-inside `check_design_tokens_css.py`'s glob; renaming one out blinds the gate silently (each
-file's own header says so). See ADR-028.
+steps above assume a brand-new value. A dark pair adds the `night*` raw token in
+`DesignTokens+NightPalette.swift` (not step 1's file), its `Color` alias, a
+`PasturaDynamicColor` entry in `DesignTokens+DynamicPalette.swift`'s `PasturaDynamicPalette`
+including its `all` registry, and the light alias repointed from `PasturaPalette.x.color` to
+`PasturaDynamicPalette.x.color` — plus steps 3–5. Two silent gaps here: the `all` registry's
+count assertion guards that list's documented size, **not** completeness, so an unregistered
+pair still passes; and the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both**
+pairing files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are
+inert to it — only the new `night*` hex needs a `tokens.css` row. Keep every
+`DesignTokens+*` filename inside `check_design_tokens_css.py`'s glob; renaming one out blinds
+the gate silently (each file's own header says so). See ADR-028.
 
 **Choosing the value: a token-pair ratio is not a prediction about a *presented* surface.** For a
 sheet / overlay fill, the comparand is the **composited** backdrop — the presentation dims what is
-behind and not the surface itself, which can flip the sign. `nightPage` sits 1.099 *below*
-`nightBackground` by design and renders 1.031 *above* its own backdrop. Judge such a value against a
-device screenshot, not the pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
+behind and not the surface itself, which can flip the sign, so a pair designed to sit *below* its
+ground can render *above* its own backdrop. Judge such a value against a device screenshot, not the
+pair. ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
 § "An occlusion layer ... must be darker than every ground it covers" below — same "what does it
 actually composite over" question, asked of a surface rather than an occluder; keep the two
-pointing at each other. (Quoted with an ellipsis, not truncated, so a grep for the heading finds
-this pointer too.)
+pointing at each other.
 
 **Measure a contrast ratio with the guard's own helpers** (`composite` /
 `contrastRatio`, `DesignTokensTests+NightPalette.swift`) — an ad-hoc script that
-quantizes the composited ground back to 0–255 lands ~0.01 off, enough to make a doc
+quantizes the composited ground back to 0–255 lands off by enough to make a doc
 comment disagree with the test asserting the same value. And **state which ground
 each figure uses**: mixing per-site and worst-case grounds lets an aggregate
 "before → after" range draw its two ends from different sites, which cannot be true.
@@ -303,10 +296,9 @@ Adding an **unconditional** subview (an `Image`/glyph, a `.background(_, in: Cap
 badge like `PhaseTypeLabel`) to a `ForEach` that renders inside a plain **`ScrollView` →
 eager `VStack`** (custom card, NOT `List`/`Form`/`LazyVStack`) under a `NavigationStack`
 with a `.large` title + `.safeAreaInset` + a `.background(...ignoresSafeArea())` can crash
-on iOS 26 with `EXC_BAD_ACCESS` the instant the screen appears — a pure-SwiftUI fault stack
-(`ForEachChild.updateValue → PairPreferenceCombiner → ContainerBackgroundKeys.NavigationKey
-→ AttributeGraph`), no app frame. A row with a *conditional* extra subview survives;
-the same badge renders fine in a `LazyVStack` (Sim conversation) or `List`/`Form` (editor).
+on iOS 26 with `EXC_BAD_ACCESS` the instant the screen appears — a pure-SwiftUI
+AttributeGraph fault stack with no app frame. A row with a *conditional* extra subview
+survives; the same badge renders fine in a `LazyVStack` or `List`/`Form`.
 
 **Two load-bearing lessons — the crash itself is now secondary:**
 
@@ -316,15 +308,14 @@ the same badge renders fine in a `LazyVStack` (Sim conversation) or `List`/`Form
    lands on ScenarioDetail: `PasturaUITests/BackGestureTests/testBackGestureFromScenarioDetailReturnsToHome`).
    Diagnose from `~/Library/Logs/DiagnosticReports/Pastura-*.ips` frames, not the XCUITest
    assertion message.
-2. **These AttributeGraph crashes can be OS-build-specific and self-resolve.** This one
-   (`ScenarioDetailView.phasesSection`, #901) was real on iOS 26.5 on 2026-07-03 but no
-   longer reproduced on iOS 26.5 (23F77) — sim OR real device — on 2026-07-04, so the glyph
-   shipped with **no** code workaround. Before investing in a workaround, confirm the repro
-   on the **exact OS build AND a real device** (the sim misleads both ways). If one does
-   resurface, the candidate workarounds, in order: extract the row into a concrete `View`
-   struct → `.compositingGroup()` on the row → `LazyVStack` → drop the enumerated-`\.offset`
-   `ForEach` shape → bisect the container `.background(...ignoresSafeArea())` half the fault
-   stack names → `.geometryGroup()`. See #901 for the full diagnostic write-up.
+2. **These AttributeGraph crashes can be OS-build-specific and self-resolve** — this one
+   stopped reproducing within a day and shipped with no code workaround. Before investing in
+   one, confirm the repro on the **exact OS build AND a real device** (the sim misleads both
+   ways). If it resurfaces, the candidate workarounds in order: extract the row into a
+   concrete `View` struct → `.compositingGroup()` on the row → `LazyVStack` → drop the
+   enumerated-`\.offset` `ForEach` shape → bisect the container
+   `.background(...ignoresSafeArea())` half the fault stack names → `.geometryGroup()`.
+   Full diagnostic write-up: #901.
 
 ## Re-projection resets `@State` — put run-scoped display state on the VM
 
@@ -352,179 +343,104 @@ adopt early-return comment in `SimulationView`).
 `ImageRenderer` rasterizes its content in a **default** environment — it does
 NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
 diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
-
-**A paired alias inside `ImageRenderer` content resolves against the render
-environment's `colorScheme`** — the value you inject, or **light** when you inject
-nothing, even on an ambient-dark device. Ambient state reaches the renderer
-through neither channel: with an injection present an explicit
-`UITraitCollection` flip moves not one byte, and this holds for `GraphicsContext`
-inside a `Canvas` exactly as it does for plain `View` content. Measured in #1337
-on the iOS 26.5 **simulator**, which is adequate here because the claim is about
-which trait the provider is handed — plumbing, not appearance — and does **not**
-relax the real-device requirement below. Arms, controls and figures: ADR-028
-§ Amendment 2026-08-06 (#1337).
+A paired alias inside the content resolves against the *render* environment's
+`colorScheme`: the value you inject, or **light** when you inject nothing, even
+on an ambient-dark device.
 
 **So the hazard is a consumer that omits the injection, not one that reads an
-alias.** A fixed-appearance export with no `.environment(\.colorScheme, …)`
-silently rasterizes light — a dark-mode user's card comes out light, which is the
-#1070 bug. The rest of the aliases are fixed anyway (unpaired light tokens,
-`night*`, time-of-day, chart). **The paired set grows with each gate-1 slice** —
-do not treat a specific alias as fixed without checking `PasturaDynamicPalette`,
-whose doc comment carries the current membership and its slice-by-slice
-provenance.
+alias.** An export with no `.environment(\.colorScheme, …)` silently rasterizes
+light — a dark-mode user's card comes out light (#1070). The question to ask of a
+new fixed-appearance consumer is therefore **does it inject the appearance and
+take it as a parameter?**, not "does it read a view that reads an alias".
 
-**Apply**: pass the appearance in **explicitly** — capture
-`@Environment(\.colorScheme)` at the call site, and drive the view's palette from
-that value (an explicit `colorScheme` parameter). **The injection is the
-load-bearing half**: omit it and the export goes light. Since #1337 that half is
-gated — `scripts/check_imagerenderer_injection.py`, wired into the pre-commit
-hook and CI, fails any app-target file that constructs an `ImageRenderer` without
-injecting.
+**Apply**: capture `@Environment(\.colorScheme)` at the call site and drive the
+view's palette from that value (an explicit `colorScheme` parameter), and set
+`.environment(\.colorScheme, …)` on the rendered content for system-colored
+subviews (SF Symbols, asset images). **The injection is the load-bearing half**,
+and it is gated — `scripts/check_imagerenderer_injection.py`, in the pre-commit
+hook and CI, fails any **app-target** file constructing an `ImageRenderer`
+without injecting. Real-device dark-mode QA is still required; the simulator
+misleads.
 
 **Read `PasturaPalette.<token>.color`, never the `Color.*` alias, and treat that
-as unconditional** — not as belt-and-braces. An alias would resolve correctly
-*today*, but that was measured on one device and one OS minor (iOS 26.5
-simulator); the raw read is what keeps the export off a behaviour an SDK change
-can alter. Its in-repo cost meanwhile is that `light` and `dark` collapse into
-each other, making the parameter you just threaded inert. Also set
-`.environment(\.colorScheme, …)` on the rendered content for any system-colored
-subviews (SF Symbols, asset images). Real-device dark-mode QA required — the
-simulator misleads.
+as unconditional** — not belt-and-braces. Under an injection an alias does
+resolve to the requested appearance *today*, but that was measured on one device
+and one OS minor, and the raw read is what keeps the export off a behaviour an
+SDK change can alter. It also costs the choice you just threaded: a palette
+building **both** its families from aliases collapses them into one, since both
+resolve against the same injected scheme. Do not treat a specific alias as fixed
+without checking `PasturaDynamicPalette`, whose doc comment carries the current
+membership.
 
-**What catches a regression here**: the token tests assert `PasturaPalette`
-components *and* the aliases' own resolution, and both consumers carry a pin —
-`HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`. Since #1337 the *invariance*
-arm of each derives its slots by **reflection**, not a hand list (the mapping
-assertions still name slots, correctly — a mapping needs the name), so a stored property added
-later reading a paired alias reddens; before that it did not, measured. Two pins
+**What the gate does not cover.** It guards the injection half only. The token
+tests assert `PasturaPalette` components *and* the aliases' own resolution, but
+ADR-009 rules out snapshots, so any *new* fixed-appearance consumer needs its own
+pin **on the alias half** — and nothing detects that pin's absence; three
+mechanical guards for it were designed and refused (ADR-028 § "Revisit trigger"
+bullet 1).
+Today's pins are `HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`,
+whose *invariance* arm derives its slots by **reflection** rather than a hand
+list, so a stored property added later reading a paired alias reddens. Two pins
 keep the reflection honest: an expected slot count (a computed-property refactor
 would otherwise make it vacuous) and `colors.count == childCount` (a slot typed
 `AnyShapeStyle` / `LinearGradient` / `UIColor` is invisible to `as? Color`).
 
-ADR-009 rules out snapshots, so any *new* fixed-appearance consumer still needs
-its own equivalent pin **on the alias half** — nothing detects its absence. Three
-mechanical guards for that half were designed and refused (all recorded under
-ADR-028 § "Revisit trigger" bullet 1): a SwiftLint rule, which cannot express the
-predicate; an enumeration guard over palette types, which cannot redden on the
-shape that actually happened, below; and an A/B render-invariance probe over the
-production path, which has **no reachable failure to detect** now that the
-injection is known to cover every read inside the export. A probe that cannot
-fail is worse than an acknowledged gap, so what shipped instead is the injection
-check above, which guards the other half only.
-Reference consumers: `HighlightCardPalette`, and `SheepAvatarPalette` for the
-avatar that card draws.
-
-**The consumer is not always the view you migrated.** A component a
-fixed-appearance consumer *draws* does not appear in any consumer list, which is
-how pairing §2.5 silently un-pinned `HighlightShareCard`'s `SheepAvatar` (#1319).
-The reach is real, but nothing propagates to the drawn component: an alias read
-inside it resolves against the export's injected `colorScheme` like any other
-read, so the requirement sits on the **export**. The question to ask of a new
-fixed-appearance consumer is therefore **does it inject the appearance and take
-it as a parameter?** — not "does one read a view that reads an alias" (the #1319 form,
-superseded in ADR-028 § Amendment 2026-08-06). A drawn component becomes exposed
-only when some *new* export draws it without injecting, which is that export's
-omitted injection rather than a property of the component.
-
-Reference: `HighlightCardImageRenderer.render` + `HighlightShareCard` (#1070).
+Measurement, arms and controls: ADR-028 § Amendment 2026-08-06 (#1337).
+Reference: `HighlightCardImageRenderer.render`, `HighlightShareCard`,
+`HighlightCardPalette`, and `SheepAvatarPalette` for the avatar that card draws.
 
 ## An occlusion layer — shadow or scrim — must be darker than every ground it covers
 
-A shadow is an occlusion cue, not a surface, so it wants a colour that stays
-dark in **both** appearances. A paired alias inverts instead: `Color.ink`
-resolves `nightInk` (#E8E5D8) in dark, `Color.moss` → `nightMoss`,
-`Color.mossInk` → `nightMossInk` (#C6CBB1) — the drop shadow becomes a pale
-**halo** under the element it should sit beneath. Silent: no diagnostic, and
-the light build looks correct.
+A shadow or scrim is an occlusion cue, not a surface, so it needs a colour that
+stays dark in **both** appearances. A paired alias inverts instead — `Color.ink`
+resolves `nightInk` in dark — and the drop shadow becomes a pale **halo** under
+the element it should sit beneath. Silent: no diagnostic, and the light build
+looks correct.
 
-design-system §4.3 already takes this position — every shadow token is fixed and
-none pairs. The three ad-hoc `shadow(color:)` sites were simply written before
-the aliases paired.
+The requirement is **not** "fixed in both appearances" — it is **darker than
+every ground it covers**. Fixed is merely how you satisfy it when one value sits
+below all of them; a fixed value still *lighter* than a night ground washes the
+screen instead of dimming it, which is why the occluder family and
+`PasturaPalette.scrim` are a warm near-black rather than `ink` or a moss tint.
 
-**Apply**: read `PasturaShadows` (design-system §4.3) or `PasturaOccluderShadows`
-(§4.3.1) inside `shadow(color:)` — since #1378 both carry #0B0C0A and differ only
-in geometry, so pick on that. Never `Color.<token>` — and since #1377, **a raw
-`PasturaPalette.<token>.color` is not sufficient either** and is flagged at
-`severity: error`: dropping the alias fixes the inversion but not the direction,
-which is the #1373 defect and the whole subject of the paragraphs below. Reach
-for the raw palette only where an export needs a *chosen* appearance (the
+**Apply**: inside `shadow(color:)` read `PasturaShadows` (design-system §4.3) or
+`PasturaOccluderShadows` (§4.3.1) — both carry the same near-black and differ
+only in geometry, so pick on that. Never `Color.<token>`, and **a raw
+`PasturaPalette.<token>.color` is not sufficient either** (flagged at
+`severity: error`): dropping the alias fixes the inversion but not the direction.
+Reach for the raw palette only where an export needs a *chosen* appearance (the
 `ImageRenderer` trap above) — the opposite reason, since an occlusion cue needs
 *none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads *against*
 the surface, so it follows the appearance and keeps the alias.
 
-**A full-bleed dimming scrim is the same trap wearing different clothes**, and
-it is louder — but it also corrects the rule above. `Color.ink.opacity(0.4)`
-behind the model-load overlay composited to **#6D6D64** over the #1B1D17 night
-ground, *lighter* than what it covers, so it washed the screen pale. Swapping in
-the raw palette fixes the direction and **still fails the requirement**: `ink`
-#2D2E26 over that ground gives #22241D, lighter again, and over `nightBubble` it
-moves one channel by one step. `0.4·C + 0.6·ground` cannot fall below `ground`
-when `C` is lighter than it.
-
-So the requirement is not "fixed" — it is **darker than every ground it covers**.
-Fixed is merely how you satisfy that when one value sits below all of them, which
-is why `PasturaPalette.scrim` is a warm near-black (#0B0C0A at 0.4: #979692 in
-light, #10110E in dark) rather than `ink`.
-
-**A shadow does not get away with a lighter value either** — an earlier revision
-of this section said it did, on the grounds that shadows are drawn against local
-surfaces rather than the app ground. That premise is false for any element that
-*floats on* the ground. Measured directly under the ModelPicker card, a raw,
-fixed `moss` at 0.22 rendered **#2B2F24** on a #1B1D17 ground: a green glow. The
-three such sites now read `PasturaOccluderShadows` (design-system §4.3.1), which
-reuses the scrim's #0B0C0A (#1373).
-
-Two consequences worth carrying:
-
-- **A near-black cannot keep the moss tint**, so §4.3's "彩度は苔系" is gone
-  rather than silently violated — it was scoped to an exception for the occluder
-  family by #1373, then dropped outright by #1378 when the general recipe took
-  the same tint. Arithmetic: §4.3.
-- **`PasturaShadows.tight` / `.soft` carried the same defect** and were fixed the
-  same way (#1378), so **every** §4.3 shadow is now #0B0C0A and the two families
-  differ only in geometry — reach for whichever geometry fits. What generalises
-  is the trap, not the split: pairing a shadow tint looks like it preserves
-  light's hue for free, but the dark half is a near-black regardless, so the
-  choice is only ever about light. Measurements: ADR-028 § Amendment 2026-08-05
-  (#1378).
-
-**Ask what the element can actually sit on, not what the palette contains.** A
+**Ask what the element can actually sit on, not what the palette contains** — a
 "floats over everything" component still only covers the grounds its visibility
-predicate lets it reach — the first value here was rejected against a ground no
-member could ever meet. Worked instance: ADR-028 § Amendment 2026-08-05 (#1373).
+predicate lets it reach. And hold the occluder/surface distinction: a scrim is
+the occluder, while the card it fronts is a **surface** and stays paired — as
+does `Color.<paired>.opacity(n)` used as a **wash under a surface**
+(`screenBackground.opacity(0.78)` in `GameHeader` / `SimulationView`,
+`ResultsView`'s status tints). Do not sweep those. Same test for any new
+full-bleed fill: does it occlude, or is it a surface?
 
-The distinction to hold: the scrim is the **occluder**; the card it fronts
-(`.regularMaterial`, its `Color.ink` title, its `Color.muted` subtitle) is a
-**surface** and stays paired. Same test for any new full-bleed fill — does it
-occlude, or is it a surface?
+Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — an
+allowlist (a shadow tint must name `PasturaOccluderShadows` or `PasturaShadows`),
+and **for the shadow half only**.
 
-`Color.<paired>.opacity(n)` used as a **wash under a surface** — `GameHeader`'s
-and `SimulationView`'s `screenBackground.opacity(0.78)`, `ResultsView`'s status
-tints — is the surface case and correctly stays paired. Do not sweep those.
+**A green run still does not mean "this shadow is dark enough."** The rule
+matches a family **name**, so a member added to either family with a too-light
+tint passes it — which is what `PasturaShadows` itself was until #1378, and what
+the next addition could be. The scrim shape has no lint guard at all: one
+instance, no stable syntax to key on, so a rule would be over-fitted. Tests carry
+what lint cannot — `SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and
+`PasturaShadowsTests` each assert the darker-than-every-ground requirement
+against a **hand-maintained** ground list, which is the residual weakness: a
+night ground added later and darker than the occluder value would not be covered
+automatically.
 
-Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — **for the
-shadow half only**. As first written (then named `shadow_color_paired_alias`) it
-was a denylist keyed on a leading-dot `Color.*` and so never saw the shape that
-actually shipped three times: a raw
-`PasturaPalette.<lightToken>.color.opacity(…)`, fixed but above the ground.
-#1377 inverted it to an **allowlist** — a shadow tint must name
-`PasturaOccluderShadows` or `PasturaShadows`, and anything else is flagged — so
-the syntactic gap is closed.
-
-**A green run still does not mean "this shadow is dark enough."** The rule matches
-a family **name**, so a member added to either family with a too-light tint passes
-it — which is what `PasturaShadows` itself was until #1378, and what the next
-addition could be. The scrim shape has no lint guard at all: one instance, no
-stable syntax to key on, so a rule would be over-fitted.
-
-Tests carry what lint cannot — `SimulationScrimStyleTests`,
-`PasturaOccluderShadowsTests` and `PasturaShadowsTests` each assert the
-darker-than-every-ground requirement against a **hand-maintained** ground list,
-which is the residual weakness: a night ground added later and darker than
-#0B0C0A would not be covered automatically. Reference: `ModelPickerView`,
+Values, arithmetic and the measurements behind each revision: design-system §4.3
+and ADR-028 § Amendment (#1284, #1373, #1378). Reference: `ModelPickerView`,
 `InFlightSimulationIndicator`, `SimulationScrimStyle`, `PasturaOccluderShadows`,
-`PasturaShadows`; ADR-028 § Amendment (#1284, #1373, #1378).
+`PasturaShadows`.
 
 Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
-"what does it composite over" question of a *presented surface* rather than an
-occluder; keep the two pointing at each other.
+"what does it composite over" question of a *presented surface* rather than an occluder.
