@@ -61,15 +61,19 @@ internal object DivergenceLedger {
      * The gap list inherited the blind spot of the list it was drawn from,
      * which is a hazard of gap lists generally, not a one-off.
      *
-     * **A third gap, found the hard way (#501).** Neither assertion above sees a
-     * case and its entry being deleted **together** — which is what resolving a
-     * divergence does. Nothing is left unfired, and "every case is cited" holds
-     * over the survivors, so the negative control can silently lose an entire
-     * entry *kind* while staying green. Only a **kind-coverage** assertion (the
-     * divergent fixture drives >= 1 [LedgerEntry.Structural] *and* >= 1
-     * [LedgerEntry.Value]) reddens on it. ADR-021's Amendment 2026-08-06 retired
-     * `SCHEMA_GUARD_POSITION` and cost the fixture its only structural arm
-     * exactly this way.
+     * **The third gap is closed too**, by `someFixtureDrivesBothEntryKinds`.
+     * Neither assertion above sees a case and its entry deleted **together** —
+     * which is what resolving a divergence does. Nothing is left unfired, and
+     * "every case is accounted for" quantifies over survivors, so the negative
+     * control can lose an entire entry *kind* while staying green. ADR-021's
+     * Amendment 2026-08-06 retired `SCHEMA_GUARD_POSITION` and cost the control
+     * its only structural arm exactly this way.
+     *
+     * That guard was verified by reproducing the incident rather than by
+     * argument: converging the engines on the fixture's divergent turn, then
+     * deleting [DivergenceClass.MULTI_OBJECT_SALVAGE] together with its entries,
+     * leaves `EngineParityTests` fully green and both assertions above green —
+     * and reddens only the kind-coverage one.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
         /**
@@ -111,6 +115,25 @@ internal object DivergenceLedger {
          * literal. ADR-023 Stage 4 is asked to rule on which side changes.
          */
         NUMBER_LITERAL_FORMATTING("JSONResponseParser.kt normalizeValues KDoc"),
+
+        /**
+         * Swift's schema-guarded multi-object salvage (#907) accepts the first
+         * object of `{...}{...}` when every expected key is present and
+         * non-empty; Kotlin's `extractFirstJsonObject` returns object-like
+         * residue unchanged, so the parse fails and the turn exhausts its
+         * retries into a `turnSkipped`.
+         *
+         * Pinned on both sides by paired parser tests fed byte-identical
+         * input: `JSONResponseParserTests+Repair.swift`'s
+         * `salvagesFirstObjectFromMultiObjectResponseWhenSchemaGuardPasses`
+         * and `JSONResponseParserTests.kt`'s
+         * `multiObjectResponseFailsTheParseEvenWithASatisfiedSchema`.
+         */
+        MULTI_OBJECT_SALVAGE(
+            "JSONResponseParser.swift multi_object_salvage (#907) vs " +
+                "JSONResponseParser.kt extractFirstJsonObject; paired parser tests in both " +
+                "languages",
+        ),
     }
 
     /**
@@ -142,6 +165,128 @@ internal object DivergenceLedger {
             expectedSwift = "1",
             expectedKotlin = "1.0",
             divergenceClass = DivergenceClass.NUMBER_LITERAL_FORMATTING,
+        ),
+
+        // --- parityStructuralControl -------------------------------------
+        //
+        // Ada's turn (call 0) carries the same float key, so this fixture
+        // drives one divergence of EACH entry kind by itself — which is what
+        // `kindCoverage` holds it to.
+        LedgerEntry.Value(
+            fixture = "parityStructuralControl",
+            event = "agent_output",
+            ordinal = 0,
+            path = "fields.confidence",
+            expectedSwift = "1",
+            expectedKotlin = "1.0",
+            divergenceClass = DivergenceClass.NUMBER_LITERAL_FORMATTING,
+        ),
+
+        // Bo's turn (call 1) is the structural arm. Swift salvages in one
+        // call and emits an `agentOutput`; Kotlin fails the parse and burns
+        // two more attempts before skipping. Every attempt emits its own
+        // `inference_started` / `inference_completed` pair, so the surplus
+        // shows up as four Kotlin-only lines BEFORE the `turnSkipped` — the
+        // part an estimate based on "one event each way" misses.
+        //
+        // ⚠️ The two `inference_started` lines are BYTE-IDENTICAL, as are the
+        // two `inference_completed` ones: `t` and `attempt` are pinned to 0,
+        // so nothing in the text distinguishes attempt 2 from attempt 3. That
+        // is exactly why `Structural` keys on an ordinal as well as the line —
+        // without it, one entry would satisfy both positions and the walk
+        // would re-sync a line early, absorbing an ordering regression.
+        LedgerEntry.Structural(
+            fixture = "parityStructuralControl",
+            side = Side.SWIFT_ONLY,
+            event = "agent_output",
+            ordinal = 1,
+            expectedLine = """{"agent":"Bo","attempt":0,"event":"agent_output","fields":{"inner_thought":"thinking","statement":"hello"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
+        ),
+        LedgerEntry.Structural(
+            fixture = "parityStructuralControl",
+            side = Side.KOTLIN_ONLY,
+            event = "inference_started",
+            ordinal = 2,
+            expectedLine = """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
+        ),
+        LedgerEntry.Structural(
+            fixture = "parityStructuralControl",
+            side = Side.KOTLIN_ONLY,
+            event = "inference_completed",
+            ordinal = 2,
+            expectedLine = """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
+        ),
+        LedgerEntry.Structural(
+            fixture = "parityStructuralControl",
+            side = Side.KOTLIN_ONLY,
+            event = "inference_started",
+            ordinal = 3,
+            expectedLine = """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
+        ),
+        LedgerEntry.Structural(
+            fixture = "parityStructuralControl",
+            side = Side.KOTLIN_ONLY,
+            event = "inference_completed",
+            ordinal = 3,
+            expectedLine = """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
+        ),
+        LedgerEntry.Structural(
+            fixture = "parityStructuralControl",
+            side = Side.KOTLIN_ONLY,
+            event = "turn_skipped",
+            ordinal = 0,
+            expectedLine = """{"agent":"Bo","attempt":0,"event":"turn_skipped","phase_type":"speak_all","t":0,"type":"event","value":"retries exhausted"}""",
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
+        ),
+    )
+
+    /**
+     * A fixture where the two engines issue different numbers of backend calls.
+     *
+     * @property expectedKotlin what the Kotlin engine must issue. Pinned, not
+     *   bounded: a *different* surplus is a different divergence, so it fails
+     *   the same way an unexpected one does.
+     */
+    internal data class CallCountDivergence(
+        val expectedKotlin: Int,
+        val divergenceClass: DivergenceClass,
+    )
+
+    /**
+     * Retry-budget divergences, keyed by fixture.
+     *
+     * `callCount` sits outside the transcript, so neither [LedgerEntry.Value]
+     * (event kind + ordinal + path) nor [LedgerEntry.Structural] (a whole
+     * expected line) has a key shape for it — which is why it gets its own map
+     * rather than a third entry kind.
+     *
+     * **Pinned rather than excused, and that is the point.** A structural
+     * divergence in which one engine retries and the other does not IS a
+     * retry-count divergence; `ParityGolden.Fixture.callCount` exists as a
+     * first-class field for exactly that reason. Absent this map the honest
+     * choices were to relax the equality assertion — which would stop
+     * detecting an unintended extra call anywhere — or to let the fixture fail.
+     * Pinning both sides keeps the surplus itself under assertion.
+     *
+     * A fixture absent from here must match Swift's count exactly.
+     * `everyCallCountDivergenceNamesAKnownFixture` keeps the keys honest, and
+     * a divergence that closes fails on the pinned value rather than passing
+     * quietly.
+     */
+    internal val callCountDivergences: Map<String, CallCountDivergence> = mapOf(
+        // Swift salvages the multi-object answer in one call; Kotlin fails the
+        // parse and burns the full `LLMCaller.MAX_RETRIES + 1` window before
+        // skipping the turn. 2 + 2 surplus = 4. Measured against the generated
+        // golden, not derived from the retry constant alone — the two agree
+        // here only because the divergent turn is the run's last.
+        "parityStructuralControl" to CallCountDivergence(
+            expectedKotlin = 4,
+            divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
         ),
     )
 

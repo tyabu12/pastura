@@ -171,12 +171,25 @@ class EngineParityTests {
         // After the transcript, not before: a call-count difference with an
         // identical transcript is the interesting case, and putting this first
         // would mask the transcript diff that usually explains it.
+        //
+        // A fixture absent from `callCountDivergences` must match Swift's count
+        // exactly. One that is present pins the surplus rather than relaxing
+        // the check, so an unintended extra call still fails.
+        val pinned = DivergenceLedger.callCountDivergences[fixture.name]
         assertEquals(
-            fixture.callCount,
+            pinned?.expectedKotlin ?: fixture.callCount,
             callCount,
-            "${fixture.name}: the two engines issued different numbers of backend calls. " +
-                "This is a hard failure by design — `callCount` sits outside the transcript, " +
-                "so no LedgerEntry shape can key on it.",
+            if (pinned == null) {
+                "${fixture.name}: the two engines issued different numbers of backend calls, " +
+                    "and no retry-budget divergence is ledgered for this fixture. " +
+                    "`callCount` sits outside the transcript, so no LedgerEntry shape can key " +
+                    "on it — add a DivergenceLedger.callCountDivergences row, or fix the cause."
+            } else {
+                "${fixture.name}: the ledgered retry-budget divergence " +
+                    "(${pinned.divergenceClass}) moved. Swift issues ${fixture.callCount}; " +
+                    "Kotlin was pinned at ${pinned.expectedKotlin}. A different surplus is a " +
+                    "different divergence — re-derive it rather than widening the pin."
+            },
         )
     }
 
@@ -230,5 +243,14 @@ class EngineParityTests {
     @Test
     fun theDivergentFixtureDrivesExactlyItsLedgeredDivergences() {
         assertParity(ParityGolden.targetScoreRaceDivergent, DivergenceLedger.entries)
+    }
+
+    /**
+     * The structural control: one fixture driving one divergence of each entry
+     * kind, plus the retry-budget divergence the transcript alone cannot show.
+     */
+    @Test
+    fun theStructuralControlDrivesExactlyItsLedgeredDivergences() {
+        assertParity(ParityGolden.parityStructuralControl, DivergenceLedger.entries)
     }
 }

@@ -1,0 +1,46 @@
+# ADR-023 Stage-4 parity fixture — NOT a shipped preset.
+#
+# Lives under tools/harness/ deliberately: it is machinery coverage, not
+# content. `PresetLoader` never sees it, `pastura-harness lint` does not glob
+# this directory, and nothing bundles it into the app. The parity claim about
+# *real* scenarios rides on the fixtures built from Presets/; this one exists
+# so the negative control can drive a STRUCTURAL divergence without dragging a
+# shipped preset's scoring semantics into the ledger.
+#
+# Shape is load-bearing and minimal on purpose:
+# - one round, one `speak_all`, two agents => exactly two LLM turns;
+# - the divergent turn is therefore the LAST turn of the run, so the Kotlin
+#   engine's surplus retry calls fall into the parity suite's padding instead
+#   of shifting every later answer (the responses list is positional);
+# - `output:` declares `statement`, which is what makes Swift's schema-guarded
+#   multi-object salvage accept where Kotlin's parser fails.
+#
+# Deterministic: the responder answers from the schema, never the prompt, and
+# no phase here injects RNG.
+id: parity_structural
+language: en
+name: Parity Structural Control
+description: >
+  Two turns, one phase. Drives the multi-object salvage divergence on the
+  final turn so the parity negative control has a structural arm.
+agents: 2
+rounds: 1
+context: >
+  A fixture scenario for cross-language parity testing. Content is irrelevant
+  to the measurement; the responder never reads this.
+
+personas:
+  - name: Ada
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+  - name: Bo
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+
+phases:
+  - type: speak_all
+    prompt: >
+      Say one short sentence.
+    output:
+      statement: string
+      inner_thought: string

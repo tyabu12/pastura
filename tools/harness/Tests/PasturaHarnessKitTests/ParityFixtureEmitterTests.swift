@@ -78,51 +78,61 @@ struct ParityFixtureEmitterTests {
 
   // MARK: - Determinism
 
+  // The three cases below run over EVERY spec rather than `specs.first`. They
+  // are properties of the emitter, so a representative sample only ever proved
+  // them of whichever fixture happened to be declared first — and this file
+  // already records one incident (see `everyFixtureExercisesVotingNotJustItsShape`)
+  // of a defect surviving in the sibling a single-element scope could not see.
+
   @Test("two runs of the same spec produce byte-identical fixtures")
   func emitterIsDeterministic() async throws {
-    guard let spec = ParityFixtureEmitter.specs.first else {
-      Issue.record("no fixture specs declared")
-      return
-    }
-    let first = try await ParityFixtureEmitter.run(spec)
-    let second = try await ParityFixtureEmitter.run(spec)
+    #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
+    for spec in ParityFixtureEmitter.specs {
+      let first = try await ParityFixtureEmitter.run(spec)
+      let second = try await ParityFixtureEmitter.run(spec)
 
-    // The reason this can pass at all: `EventLineMapper` takes `t` / `attempt`
-    // as parameters, and `ParityFixtureEmitter.normalize` zeroes the one
-    // measured quantity a payload carries. Remove either and this reddens —
-    // `inferenceCompleted.durationSeconds` was observed varying per call before
-    // the normalization landed.
-    #expect(first == second)
+      // The reason this can pass at all: `EventLineMapper` takes `t` / `attempt`
+      // as parameters, and `ParityFixtureEmitter.normalize` zeroes the one
+      // measured quantity a payload carries. Remove either and this reddens —
+      // `inferenceCompleted.durationSeconds` was observed varying per call before
+      // the normalization landed.
+      #expect(first == second, "\(spec.name)")
+    }
   }
 
   @Test("no transcript line carries a measured duration")
   func transcriptCarriesNoMeasuredDuration() async throws {
-    guard let spec = ParityFixtureEmitter.specs.first else {
-      Issue.record("no fixture specs declared")
-      return
-    }
-    let fixture = try await ParityFixtureEmitter.run(spec)
+    #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
+    for spec in ParityFixtureEmitter.specs {
+      let fixture = try await ParityFixtureEmitter.run(spec)
 
-    // Asserted on the value, not on the key's absence: the key is legitimately
-    // present, and a check for absence would pass for the wrong reason if the
-    // event stopped being emitted at all.
-    let durations = fixture.transcript.filter { $0.contains("\"duration_seconds\"") }
-    #expect(
-      !durations.isEmpty, "no inference_completed line — the assertion below would be vacuous")
-    #expect(durations.allSatisfy { $0.contains("\"duration_seconds\":0") })
+      // Asserted on the value, not on the key's absence: the key is legitimately
+      // present, and a check for absence would pass for the wrong reason if the
+      // event stopped being emitted at all.
+      let durations = fixture.transcript.filter { $0.contains("\"duration_seconds\"") }
+      #expect(
+        !durations.isEmpty,
+        "\(spec.name): no inference_completed line — the assertion below would be vacuous")
+      #expect(durations.allSatisfy { $0.contains("\"duration_seconds\":0") }, "\(spec.name)")
+    }
   }
 
   @Test("the run drives the engine end to end")
   func emitterProducesACompleteRun() async throws {
-    guard let spec = ParityFixtureEmitter.specs.first else {
-      Issue.record("no fixture specs declared")
-      return
-    }
-    let fixture = try await ParityFixtureEmitter.run(spec)
+    #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
+    for spec in ParityFixtureEmitter.specs {
+      let fixture = try await ParityFixtureEmitter.run(spec)
 
-    #expect(fixture.callCount == fixture.responses.count)
-    #expect(fixture.transcript.contains { $0.contains("\"simulation_completed\"") })
-    #expect(fixture.scenarioJSON.contains("target_score_race"))
+      #expect(fixture.callCount == fixture.responses.count, "\(spec.name)")
+      #expect(
+        fixture.transcript.contains { $0.contains("\"simulation_completed\"") }, "\(spec.name)")
+      // Keyed on the spec's own scenario path rather than a hard-coded preset
+      // id, which was only ever true of the two `target_score_race` fixtures.
+      let scenarioId =
+        spec.scenarioPath
+        .split(separator: "/").last?.replacingOccurrences(of: ".yaml", with: "") ?? ""
+      #expect(fixture.scenarioJSON.contains(scenarioId), "\(spec.name): expected id \(scenarioId)")
+    }
   }
 
   @Test("no run emits a language mismatch")
@@ -158,11 +168,19 @@ struct ParityFixtureEmitterTests {
     // emitter still succeeds and `--check` merely asks for a regeneration, after
     // which the fixture drives a different divergence than its own KDoc claims.
     // Nothing else on the Swift side reddens, so these two assertions are it.
-    guard let nominal = ParityFixtureEmitter.specs.first,
-      let divergent = ParityFixtureEmitter.specs.last,
-      nominal.name != divergent.name
+    // Selected BY NAME, not by position. `specs.last` used to be the divergent
+    // spec and silently became `parityStructuralControl` when a third fixture
+    // was appended — the assertions below then measured the wrong pair and
+    // failed for a reason that had nothing to do with their subject. A
+    // positional handle into a list that grows is a latent mis-selection.
+    guard
+      let nominal = ParityFixtureEmitter.specs.first(where: { $0.name == "targetScoreRaceNominal" }
+      ),
+      let divergent = ParityFixtureEmitter.specs.first(where: {
+        $0.name == "targetScoreRaceDivergent"
+      })
     else {
-      Issue.record("expected a nominal and a divergent spec")
+      Issue.record("expected the nominal and divergent specs to exist by name")
       return
     }
     let nominalRun = try await ParityFixtureEmitter.run(nominal)
@@ -205,8 +223,26 @@ struct ParityFixtureEmitterTests {
     // divergent one on the diagonal, because its retry window shifts the global
     // call stream by two.
     #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
+    var scoringFixtures = 0
     for spec in ParityFixtureEmitter.specs {
       let fixture = try await ParityFixtureEmitter.run(spec)
+
+      // Not every fixture scores. `parityStructuralControl` is a single
+      // `speak_all` turn pair with no vote, no `score_calc` and no
+      // `conditional` — the assertions below are meaningless there, and would
+      // fail for the right shape and the wrong reason.
+      //
+      // **Derived from the run, never hand-listed by name.** A name-based skip
+      // is the same shape as the `specs.first` scoping this test's own comment
+      // records as how the second instance survived: it silently stops covering
+      // any fixture added later. The counter below then rejects the vacuous
+      // case, where a scenario change leaves nothing scoring at all and every
+      // iteration skips.
+      let runsAVotePhase = fixture.transcript.contains {
+        $0.contains("\"event\":\"phase_started\"") && $0.contains("\"phase_type\":\"vote\"")
+      }
+      guard runsAVotePhase else { continue }
+      scoringFixtures += 1
 
       #expect(
         fixture.transcript.contains {
@@ -231,6 +267,9 @@ struct ParityFixtureEmitterTests {
         fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
         "\(spec.name): the then-branch is never taken — the node runs but decides nothing")
     }
+    #expect(
+      scoringFixtures > 0,
+      "no fixture ran a vote phase — every assertion above was skipped and this passed vacuously")
   }
 
   // MARK: - Raw-string safety guard

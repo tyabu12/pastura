@@ -58,6 +58,61 @@ class DivergenceLedgerTests {
         )
     }
 
+    /**
+     * The third gap: some fixture must drive **both** entry kinds.
+     *
+     * This is the only assertion that reddens on the incident that motivated
+     * it. ADR-021's Amendment 2026-08-06 converged the engines and retired
+     * `SCHEMA_GUARD_POSITION`, deleting the case **and** its entry together —
+     * and both other guards stayed green through it, by construction:
+     *
+     * - nothing was left unfired, so `Report.isClean` was satisfied;
+     * - "every case is accounted for" quantifies over surviving cases, so a
+     *   paired deletion is invisible to it.
+     *
+     * The control silently lost an entire entry *kind* and kept passing. Only
+     * counting kinds catches that.
+     *
+     * **Held per fixture, not across the set.** A set-level version would be
+     * satisfied by two fixtures driving one kind each, which is exactly the
+     * state that hides the next paired deletion: losing one fixture's only
+     * kind still leaves the other's. Requiring one fixture to exhibit both
+     * costs a single extra override on `parityStructuralControl` and is
+     * strictly stronger.
+     */
+    @Test
+    fun someFixtureDrivesBothEntryKinds() {
+        val byFixture = DivergenceLedger.entries.groupBy { it.fixture }
+        val bothKinds = byFixture.filterValues { entries ->
+            entries.any { it is DivergenceLedger.LedgerEntry.Structural } &&
+                entries.any { it is DivergenceLedger.LedgerEntry.Value }
+        }
+        assertTrue(
+            bothKinds.isNotEmpty(),
+            "no fixture drives BOTH a Structural and a Value entry, so the parity suite can " +
+                "no longer prove either entry kind is reachable. Per-fixture kind counts: " +
+                byFixture.mapValues { (_, entries) ->
+                    "Structural=${entries.count { it is DivergenceLedger.LedgerEntry.Structural }}, " +
+                        "Value=${entries.count { it is DivergenceLedger.LedgerEntry.Value }}"
+                } +
+                ". Resolving a divergence retires the class its fixture arm exercised and takes " +
+                "the arm with it — re-arm the control rather than deleting this assertion.",
+        )
+    }
+
+    /** A retry-budget pin naming no fixture is as silent as a mis-keyed entry. */
+    @Test
+    fun everyCallCountDivergenceNamesAKnownFixture() {
+        val known = ParityGolden.all.map { it.name }.toSet()
+        val unknown = DivergenceLedger.callCountDivergences.keys - known
+        assertEquals(
+            emptySet(),
+            unknown,
+            "callCountDivergences key(s) naming a fixture that does not exist: $unknown. " +
+                "Known fixtures: $known",
+        )
+    }
+
     /** An unreachable declaration without a reason is a bare "not reachable". */
     @Test
     fun everyUnreachableDeclarationCarriesAReason() {
