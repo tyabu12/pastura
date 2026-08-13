@@ -65,6 +65,13 @@ struct PhaseTypeLabel: View {
   /// each arm routes to. That pin is not optional bookkeeping: #1327 repointed
   /// this same accessor and the structural `PhaseTypeLabelTests` did not notice,
   /// which is how its doc comment went stale for two releases.
+  ///
+  /// **Keep `body` free of `Color.` references.** Extracting the colours into an
+  /// accessor creates a second place that can decide them, and the pin cannot
+  /// see `body` — a `body` that re-inlines a token diverges while the pin stays
+  /// green. Holding that invariant makes the divergence a grep instead
+  /// (`view-testing.md` § "Change-detector tripwire"; same posture as
+  /// `PredictionOutcomeBadge`).
   var badgeText: Color {
     if phaseType.requiresLLM {
       Color.mossOnWash

@@ -51,7 +51,10 @@ extension DesignTokensTests {
   /// text" threshold (≥14pt bold / ≥18pt regular) — the largest is
   /// `ResultsView`'s pill at `.caption` + `.semibold`, i.e. **12pt**, and the
   /// smallest is `PhaseTypeLabel` at `Typography.tagPhase`'s 9.5pt — so 3:1
-  /// never applies to any of them.
+  /// never applies to any of them at default Dynamic Type. At accessibility
+  /// sizes `.caption` scales past 14pt and the large-text 3:1 bar *would* apply,
+  /// which only **relaxes** the requirement — so pinning 4.5 stays conservative.
+  /// Do not "correct" this in the other direction.
   ///
   /// Not the `~11pt` figure `DesignTokensTests+MossOnWash` states: its seven-site
   /// set does not include `ResultsView.paused`, so its largest is a different
@@ -143,7 +146,10 @@ extension DesignTokensTests {
   ///   already are — the marginless state this whole change exists to leave, so
   ///   it fixes nothing;
   /// - reaching the margin the role token gives (4.9908) needs alpha ≈**0.097**,
-  ///   and `PhaseTypeLabel` documents its 15% fill as load-bearing.
+  ///   and `PhaseTypeLabel` documents its 15% fill as load-bearing. The two
+  ///   clauses name different sites, so note the figure is class-wide rather
+  ///   than `fieldPill`'s alone: `PhaseTypeLabel`'s own 0.15 row also needs
+  ///   ≈0.097 for the same margin.
   ///
   /// That is a design judgement this file cannot prove. Do not read a passing
   /// ceiling assertion as endorsement of the route.
