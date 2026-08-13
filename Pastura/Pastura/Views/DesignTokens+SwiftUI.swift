@@ -9,17 +9,19 @@ import SwiftUI
 // MARK: - Color extension (SwiftUI-facing aliases)
 
 extension Color {
-  // The 68 aliases sourced from `PasturaDynamicPalette` resolve light/dark
+  // The 69 aliases sourced from `PasturaDynamicPalette` resolve light/dark
   // against the ambient interface style (§2.9 — ADR-028's original eight, the
   // §2.6/§2.7 slice in #1282, the §2.4 meta presets plus two §2.12 header
-  // slots in #1313, the §2.5 character palette in #1319, and the §2.1/§2.3/§2.8
-  // remainder plus `inkOnAccent` in slice 4, which closed gate 1). **Exactly one
+  // slots in #1313, the §2.5 character palette in #1319, the §2.1/§2.3/§2.8
+  // remainder plus `inkOnAccent` in slice 4, which closed gate 1, and then the
+  // two post-gate-1 role tokens `mossOnWash` in #1327 and `inkOnWash` in
+  // #1408). **Exactly one
   // light token is left in pairing scope and it is resolved, not pending**:
   // `headerMetaSubdued`, fixed in both appearances by decision — see
   // `DesignTokens+NightPalette`'s §2.12 MARK. The remaining aliases below are
-  // outside that scope entirely: the 68 §2.9 `night*` ones are the dark halves
+  // outside that scope entirely: the 69 §2.9 `night*` ones are the dark halves
   // themselves (note `night` alone is §2.10, not one of them — grepping the
-  // prefix returns 69), and §2.10 time-of-day / §2.11 chart are decorative
+  // prefix returns 70), and §2.10 time-of-day / §2.11 chart are decorative
   // reservations that were never candidates for pairing. `Info.plist`'s
   // `UIUserInterfaceStyle` lock has been removed (ADR-028 gates 4/5), so every
   // half-dark surface now renders on a device set to dark appearance — nothing
@@ -53,6 +55,7 @@ extension Color {
   static let muted = PasturaDynamicPalette.muted.color
   static let rule = PasturaDynamicPalette.rule.color
   static let inkOnAccent = PasturaDynamicPalette.inkOnAccent.color
+  static let inkOnWash = PasturaDynamicPalette.inkOnWash.color
 
   // §2.3 Moss
   static let moss = PasturaDynamicPalette.moss.color
@@ -198,6 +201,7 @@ extension Color {
   static let nightMossInk = PasturaPalette.nightMossInk.color
   static let nightMossSoft = PasturaPalette.nightMossSoft.color
   static let nightMossOnWash = PasturaPalette.nightMossOnWash.color
+  static let nightInkOnWash = PasturaPalette.nightInkOnWash.color
   static let nightLink = PasturaPalette.nightLink.color
   static let nightLinkVisited = PasturaPalette.nightLinkVisited.color
   static let nightLinkHover = PasturaPalette.nightLinkHover.color

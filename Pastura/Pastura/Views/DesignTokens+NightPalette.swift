@@ -231,6 +231,49 @@ extension PasturaPalette {
   /// Foreground for text / glyphs on an accent fill under dark mode.
   static let nightInkOnAccent = PasturaColorValue(hex: 0x2C2F28)
 
+  // MARK: §2.9 Dark counterpart of the §2.2 on-wash foreground
+  //
+  // The half this pair exists for. `inkOnWash`'s light value is `inkSecondary`
+  // copied verbatim because light was never the problem; this token is where the
+  // two separate.
+  //
+  // **The direction is the opposite of #1327's.** There, moss-family label text
+  // failed the 4.5:1 bar in *light* and dark already passed. Here the ink-family
+  // self-wash fails in *dark* and light clears comfortably, so the answer is a
+  // lighter dark half rather than a darker light one — which is exactly why
+  // `mossOnWash` could not be extended to cover these sites.
+
+  /// Neutral text on a translucent ink-family wash under dark mode.
+  ///
+  /// Arm 3: measured over the four shipped self-washes (composited on
+  /// `nightBubble`, the worst-case ground for light-on-dark and the convention
+  /// `DesignTokensTests+MossOnWash.swift` established) it lands **4.991–5.397**,
+  /// clearing the 4.5:1 text bar on all of them. Under `nightInkSecondary` today
+  /// the same four give 4.413 / 4.501 / 4.501 / 4.773 — two under the bar, two
+  /// *on* it, and `ResultsView`'s `paused` pill the only one with real margin.
+  ///
+  /// **There is no impossibility proof here, unlike `mossOnWash`.** `nightInk`
+  /// reaches 7.955–8.602 on these same washes and would clear the bar easily, so
+  /// the justification is **role**, per design-system §8: the token replacing a
+  /// foreground comes from the family that owns the ground, and `nightInk` is the
+  /// body-text rung while these badges are documented as deliberately quieter.
+  /// That claim is executed by `DesignTokensTests+InkOnWash`, not just written
+  /// here — otherwise a later reader "simplifies" to `nightInk` silently.
+  ///
+  /// Lowering the dark wash alpha is the other rejected lever, and it is weak by
+  /// measurement rather than by taste: the self-wash **ceiling** — the alpha→0
+  /// limit, i.e. `nightInkSecondary` bare on `nightBubble` — is 5.975, and
+  /// `PhaseTypeLabel` documents its 15% fill as load-bearing. Retuning
+  /// `nightInkSecondary` itself was rejected on reach: 93 call sites across 43
+  /// files, of which four are self-washes.
+  ///
+  /// Placed by the §2.2 proportional-L relation, **precedent rather than an
+  /// independent control** (the same caveat `nightMossOnWash` carries): HSL L
+  /// 69.61, 0.198 of the way from `nightInkSecondary`'s 65.10 toward `nightInk`'s
+  /// 87.84. What has teeth is the measurement above. See ADR-028 § Amendment
+  /// 2026-08-13 (#1408).
+  static let nightInkOnWash = PasturaColorValue(hex: 0xBAB7A9)
+
   // MARK: §2.9 Dark counterparts of the §2.3 moss accent
   //
   // **The family compresses, and it inverts.** `nightMoss` was placed by arm 1

@@ -57,48 +57,49 @@ extension DesignTokensTests {
   // channel and whatever `Color.Resolved` does to it.
 
   @Test func pairedAliasesResolveDarkUnderDarkColorScheme() {
-    let cases: [(alias: Color, dark: PasturaColorValue)] = [
-      (.screenBackground, PasturaPalette.nightBackground),
-      (.bubbleBackground, PasturaPalette.nightBubble),
-      (.whisperBubble, PasturaPalette.nightWhisperBubble),
-      (.ink, PasturaPalette.nightInk),
-      (.inkSecondary, PasturaPalette.nightInkSecondary),
-      (.muted, PasturaPalette.nightMuted),
-      (.rule, PasturaPalette.nightRule),
-      (.moss, PasturaPalette.nightMoss),
-      (.info, PasturaPalette.nightInfo),
-      (.infoSoft, PasturaPalette.nightInfoSoft),
-      (.infoInk, PasturaPalette.nightInfoInk),
-      (.success, PasturaPalette.nightSuccess),
-      (.successSoft, PasturaPalette.nightSuccessSoft),
-      (.successInk, PasturaPalette.nightSuccessInk),
-      (.warning, PasturaPalette.nightWarning),
-      (.warningSoft, PasturaPalette.nightWarningSoft),
-      (.warningInk, PasturaPalette.nightWarningInk),
-      (.danger, PasturaPalette.nightDanger),
-      (.dangerSoft, PasturaPalette.nightDangerSoft),
-      (.dangerInk, PasturaPalette.nightDangerInk),
-      (.hover, PasturaPalette.nightHover),
-      (.pressed, PasturaPalette.nightPressed),
-      (.selected, PasturaPalette.nightSelected),
-      (.focusRing, PasturaPalette.nightFocusRing),
-      (.disabledText, PasturaPalette.nightDisabledText),
-      (.disabledBackground, PasturaPalette.nightDisabledBackground),
-      (.metaBaseL1, PasturaPalette.nightMetaBaseL1),
-      (.metaStrongL1, PasturaPalette.nightMetaStrongL1),
-      (.metaDotOnL1, PasturaPalette.nightMetaDotOnL1),
-      (.metaBaseL2, PasturaPalette.nightMetaBaseL2),
-      (.metaStrongL2, PasturaPalette.nightMetaStrongL2),
-      (.metaDotOnL2, PasturaPalette.nightMetaDotOnL2),
-      (.metaBaseL3, PasturaPalette.nightMetaBaseL3),
-      (.metaStrongL3, PasturaPalette.nightMetaStrongL3),
-      (.metaDotOnL3, PasturaPalette.nightMetaDotOnL3),
-      (.metaBaseL4, PasturaPalette.nightMetaBaseL4),
-      (.metaStrongL4, PasturaPalette.nightMetaStrongL4),
-      (.metaDotOnL4, PasturaPalette.nightMetaDotOnL4),
-      (.headerRule, PasturaPalette.nightHeaderRule),
-      (.headerMetaInk, PasturaPalette.nightHeaderMetaInk)
-    ] + avatarDarkPairs() + remainderDarkPairs()
+    let cases: [(alias: Color, dark: PasturaColorValue)] =
+      [
+        (.screenBackground, PasturaPalette.nightBackground),
+        (.bubbleBackground, PasturaPalette.nightBubble),
+        (.whisperBubble, PasturaPalette.nightWhisperBubble),
+        (.ink, PasturaPalette.nightInk),
+        (.inkSecondary, PasturaPalette.nightInkSecondary),
+        (.muted, PasturaPalette.nightMuted),
+        (.rule, PasturaPalette.nightRule),
+        (.moss, PasturaPalette.nightMoss),
+        (.info, PasturaPalette.nightInfo),
+        (.infoSoft, PasturaPalette.nightInfoSoft),
+        (.infoInk, PasturaPalette.nightInfoInk),
+        (.success, PasturaPalette.nightSuccess),
+        (.successSoft, PasturaPalette.nightSuccessSoft),
+        (.successInk, PasturaPalette.nightSuccessInk),
+        (.warning, PasturaPalette.nightWarning),
+        (.warningSoft, PasturaPalette.nightWarningSoft),
+        (.warningInk, PasturaPalette.nightWarningInk),
+        (.danger, PasturaPalette.nightDanger),
+        (.dangerSoft, PasturaPalette.nightDangerSoft),
+        (.dangerInk, PasturaPalette.nightDangerInk),
+        (.hover, PasturaPalette.nightHover),
+        (.pressed, PasturaPalette.nightPressed),
+        (.selected, PasturaPalette.nightSelected),
+        (.focusRing, PasturaPalette.nightFocusRing),
+        (.disabledText, PasturaPalette.nightDisabledText),
+        (.disabledBackground, PasturaPalette.nightDisabledBackground),
+        (.metaBaseL1, PasturaPalette.nightMetaBaseL1),
+        (.metaStrongL1, PasturaPalette.nightMetaStrongL1),
+        (.metaDotOnL1, PasturaPalette.nightMetaDotOnL1),
+        (.metaBaseL2, PasturaPalette.nightMetaBaseL2),
+        (.metaStrongL2, PasturaPalette.nightMetaStrongL2),
+        (.metaDotOnL2, PasturaPalette.nightMetaDotOnL2),
+        (.metaBaseL3, PasturaPalette.nightMetaBaseL3),
+        (.metaStrongL3, PasturaPalette.nightMetaStrongL3),
+        (.metaDotOnL3, PasturaPalette.nightMetaDotOnL3),
+        (.metaBaseL4, PasturaPalette.nightMetaBaseL4),
+        (.metaStrongL4, PasturaPalette.nightMetaStrongL4),
+        (.metaDotOnL4, PasturaPalette.nightMetaDotOnL4),
+        (.headerRule, PasturaPalette.nightHeaderRule),
+        (.headerMetaInk, PasturaPalette.nightHeaderMetaInk)
+      ] + avatarDarkPairs() + remainderDarkPairs()
 
     // The list is hand-written on purpose — it is what proves the *alias* is
     // wired, which iterating `all` cannot show. This pins its size to the
@@ -113,48 +114,49 @@ extension DesignTokensTests {
   }
 
   @Test func pairedAliasesStillResolveLightUnderLightColorScheme() {
-    let cases: [(alias: Color, light: PasturaColorValue)] = [
-      (.screenBackground, PasturaPalette.screenBackground),
-      (.bubbleBackground, PasturaPalette.bubbleBackground),
-      (.whisperBubble, PasturaPalette.whisperBubble),
-      (.ink, PasturaPalette.ink),
-      (.inkSecondary, PasturaPalette.inkSecondary),
-      (.muted, PasturaPalette.muted),
-      (.rule, PasturaPalette.rule),
-      (.moss, PasturaPalette.moss),
-      (.info, PasturaPalette.info),
-      (.infoSoft, PasturaPalette.infoSoft),
-      (.infoInk, PasturaPalette.infoInk),
-      (.success, PasturaPalette.success),
-      (.successSoft, PasturaPalette.successSoft),
-      (.successInk, PasturaPalette.successInk),
-      (.warning, PasturaPalette.warning),
-      (.warningSoft, PasturaPalette.warningSoft),
-      (.warningInk, PasturaPalette.warningInk),
-      (.danger, PasturaPalette.danger),
-      (.dangerSoft, PasturaPalette.dangerSoft),
-      (.dangerInk, PasturaPalette.dangerInk),
-      (.hover, PasturaPalette.hover),
-      (.pressed, PasturaPalette.pressed),
-      (.selected, PasturaPalette.selected),
-      (.focusRing, PasturaPalette.focusRing),
-      (.disabledText, PasturaPalette.disabledText),
-      (.disabledBackground, PasturaPalette.disabledBackground),
-      (.metaBaseL1, PasturaPalette.metaBaseL1),
-      (.metaStrongL1, PasturaPalette.metaStrongL1),
-      (.metaDotOnL1, PasturaPalette.metaDotOnL1),
-      (.metaBaseL2, PasturaPalette.metaBaseL2),
-      (.metaStrongL2, PasturaPalette.metaStrongL2),
-      (.metaDotOnL2, PasturaPalette.metaDotOnL2),
-      (.metaBaseL3, PasturaPalette.metaBaseL3),
-      (.metaStrongL3, PasturaPalette.metaStrongL3),
-      (.metaDotOnL3, PasturaPalette.metaDotOnL3),
-      (.metaBaseL4, PasturaPalette.metaBaseL4),
-      (.metaStrongL4, PasturaPalette.metaStrongL4),
-      (.metaDotOnL4, PasturaPalette.metaDotOnL4),
-      (.headerRule, PasturaPalette.headerRule),
-      (.headerMetaInk, PasturaPalette.headerMetaInk)
-    ] + avatarLightPairs() + remainderLightPairs()
+    let cases: [(alias: Color, light: PasturaColorValue)] =
+      [
+        (.screenBackground, PasturaPalette.screenBackground),
+        (.bubbleBackground, PasturaPalette.bubbleBackground),
+        (.whisperBubble, PasturaPalette.whisperBubble),
+        (.ink, PasturaPalette.ink),
+        (.inkSecondary, PasturaPalette.inkSecondary),
+        (.muted, PasturaPalette.muted),
+        (.rule, PasturaPalette.rule),
+        (.moss, PasturaPalette.moss),
+        (.info, PasturaPalette.info),
+        (.infoSoft, PasturaPalette.infoSoft),
+        (.infoInk, PasturaPalette.infoInk),
+        (.success, PasturaPalette.success),
+        (.successSoft, PasturaPalette.successSoft),
+        (.successInk, PasturaPalette.successInk),
+        (.warning, PasturaPalette.warning),
+        (.warningSoft, PasturaPalette.warningSoft),
+        (.warningInk, PasturaPalette.warningInk),
+        (.danger, PasturaPalette.danger),
+        (.dangerSoft, PasturaPalette.dangerSoft),
+        (.dangerInk, PasturaPalette.dangerInk),
+        (.hover, PasturaPalette.hover),
+        (.pressed, PasturaPalette.pressed),
+        (.selected, PasturaPalette.selected),
+        (.focusRing, PasturaPalette.focusRing),
+        (.disabledText, PasturaPalette.disabledText),
+        (.disabledBackground, PasturaPalette.disabledBackground),
+        (.metaBaseL1, PasturaPalette.metaBaseL1),
+        (.metaStrongL1, PasturaPalette.metaStrongL1),
+        (.metaDotOnL1, PasturaPalette.metaDotOnL1),
+        (.metaBaseL2, PasturaPalette.metaBaseL2),
+        (.metaStrongL2, PasturaPalette.metaStrongL2),
+        (.metaDotOnL2, PasturaPalette.metaDotOnL2),
+        (.metaBaseL3, PasturaPalette.metaBaseL3),
+        (.metaStrongL3, PasturaPalette.metaStrongL3),
+        (.metaDotOnL3, PasturaPalette.metaDotOnL3),
+        (.metaBaseL4, PasturaPalette.metaBaseL4),
+        (.metaStrongL4, PasturaPalette.metaStrongL4),
+        (.metaDotOnL4, PasturaPalette.metaDotOnL4),
+        (.headerRule, PasturaPalette.headerRule),
+        (.headerMetaInk, PasturaPalette.headerMetaInk)
+      ] + avatarLightPairs() + remainderLightPairs()
 
     #expect(cases.count == PasturaDynamicPalette.all.count)
 
@@ -206,7 +208,7 @@ extension DesignTokensTests {
   // which is exactly the independence that makes them worth having.
 
   /// §2.1/§2.2/§2.3/§2.8 rows, extracted for the same reason as the §2.5 ones
-  /// above: appending eleven more rows inline pushes both table bodies past
+  /// above: appending twelve more rows inline pushes both table bodies past
   /// swiftlint's `function_body_length`, and `build-traps.md` rules out the
   /// disable-directive route on a declaration carrying a doc comment.
   func remainderDarkPairs() -> [(alias: Color, dark: PasturaColorValue)] {
@@ -219,13 +221,14 @@ extension DesignTokensTests {
       (.mossInk, PasturaPalette.nightMossInk),
       (.mossSoft, PasturaPalette.nightMossSoft),
       (.mossOnWash, PasturaPalette.nightMossOnWash),
+      (.inkOnWash, PasturaPalette.nightInkOnWash),
       (.link, PasturaPalette.nightLink),
       (.linkVisited, PasturaPalette.nightLinkVisited),
       (.linkHover, PasturaPalette.nightLinkHover)
     ]
   }
 
-  /// Light halves of the same eleven. See `remainderDarkPairs()`.
+  /// Light halves of the same twelve. See `remainderDarkPairs()`.
   func remainderLightPairs() -> [(alias: Color, light: PasturaColorValue)] {
     [
       (.page, PasturaPalette.page),
@@ -236,6 +239,7 @@ extension DesignTokensTests {
       (.mossInk, PasturaPalette.mossInk),
       (.mossSoft, PasturaPalette.mossSoft),
       (.mossOnWash, PasturaPalette.mossOnWash),
+      (.inkOnWash, PasturaPalette.inkOnWash),
       (.link, PasturaPalette.link),
       (.linkVisited, PasturaPalette.linkVisited),
       (.linkHover, PasturaPalette.linkHover)

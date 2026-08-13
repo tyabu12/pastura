@@ -78,6 +78,18 @@ struct DesignTokensTests {
     #expect(approxEqual(token.opacity, 1.0))
   }
 
+  /// The light half of the `inkOnWash` pair, which is `inkSecondary`'s value
+  /// **copied rather than aliased** — light was never the failing appearance
+  /// (#1408). The copy is what lets the dark half move independently; the
+  /// equality itself, and the dark divergence it enables, are pinned by
+  /// `DesignTokensTests+InkOnWash`.
+  @Test func inkOnWashMatchesSpec() {
+    let token = PasturaPalette.inkOnWash
+    #expect(approxEqual(token.red, 0x5A / 255.0))
+    #expect(approxEqual(token.green, 0x5A / 255.0))
+    #expect(approxEqual(token.blue, 0x55 / 255.0))
+  }
+
   // MARK: - §2.3 Moss Accent
 
   @Test func mossPrimaryMatchesSpec() {
