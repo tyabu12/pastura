@@ -252,8 +252,8 @@ the gate silently (each file's own header says so). See ADR-028.
 
 **Choosing the value: a token-pair ratio is not a prediction about a *presented* surface.** For a
 sheet / overlay fill the comparand is the **composited** backdrop, which presentation dimming moves
-independently of the palette — and can move it far enough to flip the sign. Judge such a value against a device
-screenshot, not the pair. Derivation: ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
+independently of the palette — and can move it far enough to flip the sign. Judge such a value
+against a device screenshot, not the pair. Derivation: ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
 § "An occlusion layer ... must be darker than every ground it covers" below — same question asked of
 a surface rather than an occluder; keep the two pointing at each other.
 
@@ -304,7 +304,7 @@ survives; the same badge renders fine in a `LazyVStack` or `List`/`Form`.
    stopped reproducing within a day and shipped with no code workaround. Before investing in
    one, confirm the repro on the **exact OS build AND a real device** (the sim misleads both
    ways). Candidate workarounds in order, if it resurfaces: extract the row into a
-   concrete `View` struct → `.compositingGroup()` → `LazyVStack` → drop the
+   concrete `View` struct → `.compositingGroup()` on the row → `LazyVStack` → drop the
    enumerated-`\.offset` `ForEach` shape → bisect the container
    `.background(...ignoresSafeArea())` half the fault stack names → `.geometryGroup()`.
    Full diagnostic write-up: #901.
