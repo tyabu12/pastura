@@ -67,6 +67,14 @@ class EngineParityTests {
      * window plus one, which is the smallest padding that lets a diverging
      * Kotlin run consume a whole extra turn's budget and still reach the
      * assertions.
+     *
+     * **For `parityStructuralControl` two of the three are consumed by the
+     * expected run, not held as slack.** That fixture's `responses` list stops
+     * at 2 — Swift's count — while Kotlin is pinned at 4, so Bo's attempts 2
+     * and 3 are served by [padScript]. The ledgered structural arm and the
+     * pinned call count therefore both run *on* the padding, and the margin
+     * left over is one call rather than three. Raising `MAX_RETRIES` without
+     * raising this would exhaust the backend inside that arm.
      */
     private val padding = LLMCaller.MAX_RETRIES + 1
 
@@ -76,6 +84,19 @@ class EngineParityTests {
      * Deliberately not a copy of the last real answer: that would let an
      * overrun slip into the transcript looking like a plausible turn, and the
      * only signal left would be `callCount`.
+     *
+     * **"Visible" describes an unintended overrun only** — where it is consumed
+     * on purpose it is load-bearing. `parityStructuralControl` reaches its
+     * `turn_skipped` *because* this payload parses yet carries no `statement`,
+     * the phase's declared canonical primary (`.claude/rules/kmp-interop.md`
+     * Pattern 4's empty-primary skip rule). A padding payload that satisfied
+     * the declared schema lets Bo's attempt 2 succeed instead: measured by
+     * making exactly that edit, the fixture reports four uncovered differences
+     * and **three** unfired `Structural` entries — the ordinal-3 pair and the
+     * `turn_skipped`. So the coupling announces itself rather than silently
+     * disarming the arm. The call-count pin would break too, but
+     * [assertParity] compares the transcript first, so that is not the message
+     * to expect.
      */
     private fun padScript() =
         ScriptedLLMBackend.Script.completing("""{"__padding__": "unscripted extra call"}""")
@@ -99,9 +120,9 @@ class EngineParityTests {
      * as the parity diff this suite is for.
      *
      * The handle is cancelled on the way out. Without it a run that timed out
-     * would keep executing on `Dispatchers.Default` after the test method
-     * returned, and with three fixtures in one suite an orphan can overlap the
-     * next case.
+     * would keep executing on `Dispatchers.Default` after its call returned,
+     * and since every fixture is replayed from one loop an orphan can overlap
+     * the next iteration.
      */
     private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
         val backend = ScriptedLLMBackend(scriptsFor(fixture))
@@ -181,6 +202,11 @@ class EngineParityTests {
      * `Report.describe()` leads with the desync note when the walk lost
      * alignment, which is the first thing to act on — so it is passed through
      * verbatim rather than summarized.
+     *
+     * `Report.isClean` is a conjunction, so a green call asserts both
+     * directions at once — an unledgered difference fails, **and** so does a
+     * ledger entry that stopped firing. The second is what stops a closed
+     * divergence leaving a standing licence behind.
      */
     private fun assertParity(fixture: ParityGolden.Fixture, ledger: List<LedgerEntry>) {
         val (events, callCount) = runBlockingReplay(fixture)
@@ -226,17 +252,23 @@ class EngineParityTests {
     }
 
     /**
-     * The happy path, with **nothing excused**.
+     * Every fixture in the generated roster, replayed and compared.
      *
-     * "Nothing excused" is asserted rather than implied: the full ledger is
-     * passed in, and the first assertion is that none of it is scoped to this
-     * fixture. Passing `emptyList()` instead would look stronger and be weaker
-     * — a nominal-scoped entry added later would simply never run, so the
-     * ledger's "an entry that stops firing fails" property would not cover it.
+     * **Iterated rather than one `@Test` per fixture, which is the hazard
+     * [ParityGolden.all] exists to close.** Against hand-listed properties, a
+     * fourth fixture would be picked up by `ParityScenarioDecodeTests` and
+     * `DivergenceLedgerTests` — both iterate `all` — while never being replayed
+     * here. `TranscriptComparator.compare` scopes the ledger by fixture name,
+     * so any entry written for it would be neither applied nor reported
+     * unfired, and the suite would stay green over a fixture no engine ever
+     * ran. Per-fixture diagnosis survives the merge: every assertion below
+     * leads with `fixture.name`, and the three fixtures' individual jobs are
+     * documented on their `ParityGolden` properties.
      *
-     * Given that, a green run means the two engines agree event for event and
-     * field for field across a full four-round run: 24 inferences, a vote
-     * tally, a conditional branch, and the summarize template on both arms.
+     * A green run means the two engines agree event for event and field for
+     * field on every fixture, with only the ledger's own entries excused — for
+     * the nominal one that is nothing at all, which
+     * [theNominalFixtureExcusesNothing] asserts separately.
      *
      * **The green was falsified before it was believed.** Without [normalize]
      * this reported 24 uncovered differences, one per `inference_completed`,
@@ -246,7 +278,33 @@ class EngineParityTests {
      * to redden; this note covers the wiring, which nothing else does.
      */
     @Test
-    fun theNominalFixtureAgreesWithNothingExcused() {
+    fun everyGoldenFixtureAgreesWithExactlyItsLedgeredDivergences() {
+        // An empty roster would make the loop below green for the wrong reason,
+        // and this is now the only replay driver. Asserted here rather than
+        // left to `ParityScenarioDecodeTests` so the guard does not depend on a
+        // sibling suite still existing.
+        assertTrue(ParityGolden.all.isNotEmpty(), "the generated fixture roster is empty")
+
+        for (fixture in ParityGolden.all) {
+            assertParity(fixture, DivergenceLedger.entries)
+        }
+    }
+
+    /**
+     * The happy path excuses **nothing** — asserted rather than implied.
+     *
+     * That is Stage 4's actual goal, and it is a property of the ledger's
+     * contents rather than of a run, so it needs no replay of its own:
+     * [everyGoldenFixtureAgreesWithExactlyItsLedgeredDivergences] does the
+     * comparison, passing the full ledger. Passing `emptyList()` for this
+     * fixture instead would look stronger and be weaker — a nominal-scoped
+     * entry added later would simply never run, so the ledger's "an entry that
+     * stops firing fails" property would not cover it. This assertion is the
+     * other half: nothing may be scoped to the nominal fixture in the first
+     * place.
+     */
+    @Test
+    fun theNominalFixtureExcusesNothing() {
         val fixture = ParityGolden.targetScoreRaceNominal
         val scoped = DivergenceLedger.entries.filter { it.fixture == fixture.name }
         assertTrue(
@@ -254,29 +312,5 @@ class EngineParityTests {
             "the happy-path fixture is excusing ${scoped.size} divergence(s), which defeats " +
                 "the point of it being the happy path: $scoped",
         )
-        assertParity(fixture, DivergenceLedger.entries)
-    }
-
-    /**
-     * The negative control: the ledger's entries must all fire, and nothing
-     * else may differ.
-     *
-     * `Report.isClean` is a conjunction, so this asserts both directions at
-     * once — an unledgered difference fails, **and** so does a ledger entry
-     * that stopped firing. The second is what stops a closed divergence
-     * leaving a standing licence behind.
-     */
-    @Test
-    fun theDivergentFixtureDrivesExactlyItsLedgeredDivergences() {
-        assertParity(ParityGolden.targetScoreRaceDivergent, DivergenceLedger.entries)
-    }
-
-    /**
-     * The structural control: one fixture driving one divergence of each entry
-     * kind, plus the retry-budget divergence the transcript alone cannot show.
-     */
-    @Test
-    fun theStructuralControlDrivesExactlyItsLedgeredDivergences() {
-        assertParity(ParityGolden.parityStructuralControl, DivergenceLedger.entries)
     }
 }

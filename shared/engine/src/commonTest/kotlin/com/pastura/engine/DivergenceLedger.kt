@@ -280,6 +280,15 @@ internal object DivergenceLedger {
      * `everyCallCountDivergenceNamesAKnownFixture` keeps the keys honest, and
      * a divergence that closes fails on the pinned value rather than passing
      * quietly.
+     *
+     * **A row must still describe a divergence**, which
+     * `everyCallCountDivergenceStillDiverges` enforces. This map has no
+     * counterpart to `Report.unfired`: a row whose [CallCountDivergence.expectedKotlin]
+     * equals the fixture's own `callCount` asserts nothing, yet still counts as
+     * a citation in `DivergenceLedgerTests.citedClasses` — so "fixing" a failed
+     * pin by copying Swift's number would keep a retired [DivergenceClass]
+     * accounted for and suppress the cite-or-declare-unreachable choice the
+     * partition test exists to force. Delete the row instead.
      */
     internal val callCountDivergences: Map<String, CallCountDivergence> = mapOf(
         // Swift salvages the multi-object answer in one call; Kotlin fails the
@@ -287,6 +296,12 @@ internal object DivergenceLedger {
         // skipping the turn. 2 + 2 surplus = 4. Measured against the generated
         // golden, not derived from the retry constant alone — the two agree
         // here only because the divergent turn is the run's last.
+        //
+        // The surplus is served by `EngineParityTests`' padding scripts, not by
+        // the fixture's `responses` — that list stops at Swift's 2. So this pin
+        // and the Structural entries above both depend on the padding payload
+        // staying schema-invalid; `EngineParityTests.padScript` carries the
+        // other end of that coupling.
         "parityStructuralControl" to CallCountDivergence(
             expectedKotlin = 4,
             divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,

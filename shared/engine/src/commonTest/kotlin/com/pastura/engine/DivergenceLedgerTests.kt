@@ -3,6 +3,7 @@ package com.pastura.engine
 import com.pastura.engine.DivergenceLedger.DivergenceClass
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -121,6 +122,41 @@ class DivergenceLedgerTests {
                 ". Resolving a divergence retires the class its fixture arm exercised and takes " +
                 "the arm with it — re-arm the control rather than deleting this assertion.",
         )
+    }
+
+    /**
+     * A retry-budget pin that agrees with Swift is a no-op citation.
+     *
+     * The asymmetry this closes: `entries` is policed from both ends —
+     * `Report.unfired` turns a row that stopped describing reality into a build
+     * failure — while `callCountDivergences` is read only where the pin is
+     * compared, so a row equal to the fixture's own `callCount` passes forever
+     * and asserts nothing. It still counts as a citation in [citedClasses],
+     * which means it keeps a retired `DivergenceClass` "accounted for" and
+     * suppresses the deliberate cite-or-declare-unreachable choice
+     * [everyDivergenceClassIsCitedOrDeclaredUnreachable] exists to force.
+     *
+     * The shape it catches is the plausible one, not a hypothetical: converging
+     * the engines drops Kotlin to Swift's count, the pin reddens, and editing
+     * the pinned number is the obvious way to make the failure go away.
+     */
+    @Test
+    fun everyCallCountDivergenceStillDiverges() {
+        val byName = ParityGolden.all.associateBy { it.name }
+        for ((name, pinned) in DivergenceLedger.callCountDivergences) {
+            // A key naming no fixture is `everyCallCountDivergenceNamesAKnownFixture`'s
+            // finding; reporting it twice would attribute it to the wrong cause.
+            val fixture = byName[name] ?: continue
+            assertNotEquals(
+                fixture.callCount,
+                pinned.expectedKotlin,
+                "callCountDivergences[\"$name\"] pins Kotlin at the same ${fixture.callCount} " +
+                    "calls Swift issues, so it excuses nothing while still citing " +
+                    "${pinned.divergenceClass}. If the divergence closed, delete the row — " +
+                    "widening it to match keeps a retired class accounted for and hides that " +
+                    "the class now needs an entry, an unreachable declaration, or deletion.",
+            )
+        }
     }
 
     /** A retry-budget pin naming no fixture is as silent as a mis-keyed entry. */
