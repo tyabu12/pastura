@@ -1,9 +1,9 @@
 # Subagent Usage Rules
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/subagent-usage.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura), **rule + doc as a pair**:
-> since kit#24 both sides carry firing conditions here and depth in a paired doc, so diffing rules
-> alone reads relocated depth as deletions. Pastura's doc is
+> the generic core is canonical there; reconcile one-way (kit → Pastura) **rule + doc as a pair**:
+> since kit#24 depth lives in a paired doc, so diffing rules alone reads it as deletions.
+> Pastura's doc is
 > [`docs/agent-tooling/subagent-output-cap.md`](../../docs/agent-tooling/subagent-output-cap.md);
 > the kit's are `docs/subagent-output-cap.md` (§1–§2) and `docs/code-review-path-scoped-rules.md`
 > (§5) — the latter gets no Pastura counterpart on purpose, #1312 holds this repo's probes.
@@ -90,11 +90,10 @@ re-run**. In Pastura the check is arithmetic, not a prose judgement:
 to compare the body against. A report that is short *and internally consistent*
 is just short — except in two shapes that leave no count to mismatch:
 
-- **No verdict at all** — the run returns only its opening sentence. Seen on
-  broad **multi-axis verification** prompts, not on large diffs (#1410). Treat
-  it as "re-run narrower", not as a finding: cut what the prompt asks the agent
-  to *verify*, not how many files it sees. Requesting the verdict in the first
-  message is cheap insurance.
+- **No verdict at all** — only the opening sentence returns. Seen on broad
+  **multi-axis verification** prompts, not on large diffs (#1410): re-run
+  narrower by cutting what the prompt asks the agent to *verify*, not how many
+  files it sees. Asking for the verdict up front is cheap insurance.
 - **A zero-issue report** — a summary claiming nothing cannot mismatch, so a cut
   landing right after it reads as consistent. Closing that needs a structural
   check against a pinned Output Format; `queue-consumer` hard rule 6 carries one
@@ -131,13 +130,11 @@ A cost-driven downgrade is still bounded by the same sensitivity rules
 
 ## 4. Agent self-defense
 
-The two defend asymmetrically. `code-reviewer.md` restates §2's line/file
-numbers and bails with `SCOPE_TOO_LARGE` after its one mandatory
-`git diff --stat` call, before any other tool_use; `claude-kit:critic` carries
-an axis-only budget (≤5 axes, triage above 7) and acts *during* the run,
-stopping to report at ~15 tool_use calls. **Keep `code-reviewer.md`'s copy in
-sync with §2** — critic's is kit-owned and one-way. Do not delete either as
-redundant: the doc's § "Why the agents duplicate the budget" has the reason.
+The two defend asymmetrically: `code-reviewer.md` bails with `SCOPE_TOO_LARGE`
+right after its one mandatory `git diff --stat`; `claude-kit:critic` triages
+axes *during* the run. **Keep `code-reviewer.md`'s copy of §2's numbers in
+sync** — critic's is kit-owned and one-way. Do not delete either as redundant:
+the doc's § "Why the agents duplicate the budget" has the reason.
 
 ## 5. Official `/code-review` vs the custom agents
 

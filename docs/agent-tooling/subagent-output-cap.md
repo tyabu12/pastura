@@ -9,12 +9,9 @@ which of them move on what trigger.
 `docs/subagent-output-cap.md`; its rule is `rules/subagent-usage.md`. Diffing either half alone
 reads relocated depth as a deletion.
 
-**Why this is a doc and not a `paths:`-scoped rule.** A path-scoped rule injects on a `Read` whose
-path matches its globs, so it would still leave the always-loaded budget. It was not chosen because
-the moment this content is needed — sizing a subagent call — happens in *any* file, and no glob
-covers "any". Keeping the trigger in the always-loaded rule and the evidence here is the honest
-split. The cost, accepted: this file loads only when something reads it, so the rule's pointers to
-it are written as instructions, not as "see also".
+**Why this is a doc and not a `paths:`-scoped rule.** Same reasoning as the identically-titled note
+in [`claim-verification.md`](claim-verification.md): the moment this content is needed — sizing a
+subagent call — happens in *any* file, and no glob covers "any".
 
 ## The cap table's provenance
 

@@ -1,13 +1,12 @@
 # Knowledge Layering & Promotion
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/knowledge-layering.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). **Since kit#24 the kit's
-> rules carry firing conditions only, with the depth evacuated to the kit's `docs/` — so reconcile
-> rule + doc as a pair.** Diffing the kit's rule alone reads relocated depth as deletions. This
-> mirror's kit-side pair is `docs/claim-verification.md` (backs § "Verify before you lock it"),
-> plus `docs/code-review-path-scoped-rules.md` for the mid-session non-injection probes — that one
-> gets no Pastura counterpart doc on purpose, #1312 holds this repo's. Pastura-specific
-> content lives only in this copy.
+> the generic core is canonical there; reconcile one-way (kit → Pastura) **rule + doc as a pair**:
+> since kit#24 the kit's rules carry firing conditions only, so diffing one alone reads relocated
+> depth as deletions. Kit-side pair: `docs/claim-verification.md` (backs § "Verify before you lock
+> it"), plus `docs/code-review-path-scoped-rules.md` for the mid-session non-injection probes — that
+> one gets no Pastura counterpart on purpose, #1312 holds this repo's. Pastura-specific content
+> lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
@@ -67,15 +66,12 @@ repo needs to carry itself.
 acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,
 conversational scratch).
 
-**Detection** — new code must not add hits. A recursive search answers "which
-files lie here" while the rule asks "which are **repo-tracked**", and it misses
-in one direction or the other depending on the searcher: a gitignore-respecting
-one (`rg`) skips a tracked file staged under an ignored directory — and skips
-dot-dirs entirely without `--hidden`, which is how `.claude/**` went unscanned
-for a while — while a plain `grep -r` flags ignored scratch the enumeration
-below deliberately excludes. Enumerate, don't recurse. `-H` is required:
-without it `grep` drops the filename on a single match and the `file:line`
-breaks.
+**Detection** — new code must not add hits. Enumerate, don't recurse: a
+recursive search answers "which files lie here", not "which are
+**repo-tracked**", and misses either way depending on the searcher (`rg` skips
+dot-dirs without `--hidden` — how `.claude/**` went unscanned — and tracked
+files staged under an ignored directory; plain `grep -r` flags ignored scratch).
+`-H` is required, or `grep` drops the filename on a single match.
 
 ```sh
 git ls-files -z --cached --others --exclude-standard \
@@ -95,7 +91,7 @@ set matters more than the pattern: the doc's § "The rule-assertion case".
 
 ## Verify before you lock it
 
-One discipline, three moments where a claim becomes load-bearing and nobody downstream will check it. A reviewer evaluates a rule's *content*, not the check the rule prescribes; the Step 1b `claude-kit:critic` tests internal consistency, not external truth. The author is the only one positioned to run it.
+One discipline, three moments where a claim becomes load-bearing and nobody downstream will check it — the author is the only one positioned to run it.
 
 - **Rule-commit** — a `.claude/rules/` or `CLAUDE.md` addition carrying an **executable assertion** (an asserted grep hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a self-quoted byte/line delta** — re-measure that one on the *final* commit) is run against current main state **before commit**. Dispositions: § "Dispositions when an assertion diverges".
 - **Plan-lock** — every load-bearing claim a plan leans on is verified against its authoritative source **before** Step 1b. **Read the doc's § "The claim table"** — it maps each claim shape to the source that settles it, and the shapes are not guessable (a defect framed with `would`; two UI surfaces called "the same metric"; a subagent verdict that *dismisses* a risk).
@@ -122,7 +118,7 @@ A why-comment, guard, count or gap list asserts behaviour as the reason a mechan
 
 **A probe's outcome gets misread in both directions.** Assert that the mutation's anchor matched — a `replace` that silently no-ops reads as verified. And treat a **green** probe as a finding about the *fixtures*, not a redundant guard. When a check is too expensive to run, say the cause was not isolated: a reader can act on an acknowledged gap; a wrong cause they can only inherit.
 
-**Before writing a guard, a negative control, or a why-comment you cannot cheaply test, read the doc's § "Authored claims — the four shapes in full" and § "Reading a probe's outcome".** Each shape has an elaboration that is where it actually goes wrong — the sibling arm that reddens a control for the wrong reason, the concessive clause that marks an already-broken category, the two sets that read as a partition.
+**Before writing a guard, a negative control, or a why-comment you cannot cheaply test, read the doc's § "Authored claims — the four shapes in full" and § "Reading a probe's outcome".** Each shape's elaboration — the sibling arm that reddens a control for the wrong reason, the concessive clause marking an already-broken category, two sets that read as a partition — is where it actually goes wrong.
 
 ### A rules file created mid-session never injects in that session
 

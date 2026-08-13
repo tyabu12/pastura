@@ -259,39 +259,35 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------
-# The total was 91,615 bytes when this was introduced (#1361, 2026-08-05); it
-# had drifted to 98,036 — above the ceiling, so the nudge was firing on every
-# PR — by 2026-08-13, when #1442 evacuated the kit-mirror rules' depth to
-# docs/agent-tooling/ and brought it to 94,825, back under.
+# The total was 91,615 bytes at introduction (#1361, 2026-08-05) and had drifted
+# to 98,036 — above the ceiling, so the nudge fired on every PR — until #1442
+# evacuated the kit-mirror rules' depth to docs/agent-tooling/ on 2026-08-13,
+# bringing it to 94,038.
 #
 # A slim campaign (#1310 / #1315 style) that lands below the ceiling should
 # re-baseline this default in its own PR — otherwise the nudge decays into
 # permanent wallpaper that everyone scrolls past. #1442 discharged that duty by
-# measuring and deciding NOT to move it, which needs recording or the next
-# campaign re-derives it: a ratchet down to just-above-94,825 leaves under 1%
-# headroom, so the nudge trips on roughly one added rule paragraph and becomes
-# wallpaper from over-firing instead of under-firing. Reduction big enough to
-# ratchet means clearing headroom worth about one rule section (~1.5 KB) below
-# the ceiling; -3,211 bytes did not. At 94,825 the existing 96,000 already sits
-# ~1.2% above the total, which is a live constraint, not a dead one.
+# ratcheting 96,000 -> 95,500. The bar it used, recorded so the next campaign
+# does not re-derive one: leave about one rule section (~1.5 KB) of headroom, no
+# less. Tighter and the nudge trips on roughly one added rule paragraph —
+# wallpaper from over-firing instead of under-firing. That is why -3,211 bytes
+# alone (to 94,825, a mere 1,175 under 96,000) licensed no move, while the
+# further -787 did.
 #
-# So: re-measure on your campaign's FINAL commit and move this only if the new
-# total clears that ~1.5 KB. Measuring early is the trap — #1442's figure moved
-# twice during code review (93,750 -> 94,640 -> 94,825) as review fixes landed,
-# and two of those rounds had already been written into this comment.
+# Re-measure on your campaign's FINAL commit. Measuring early is the trap —
+# #1442's figure moved three times during code review before settling, and the
+# superseded ones had already been written into this comment.
 #
-# The env var exists so the test harness can force the firing branch.
-#
-# Held in one variable because the value is needed twice in this script (the
-# `:-` default and the malformed-input fallback). Nothing exercises the fallback
-# branch — it runs only on non-numeric env input — so two literals would let a
-# future re-baseline update one and diverge silently, which is the same drift
-# class #1442 was cleaning up when it set this value. A THIRD copy lives outside
-# this script, in scripts/tests/check-claude-md-modified-test.sh's `run_hook`
-# default; it is inert (fixtures are kilobytes, and the firing cases pass an
-# explicit ceiling), which is exactly why a re-baseline would forget it — update
-# it anyway so the two never read as disagreeing about the production value.
-FOOTPRINT_CEILING_DEFAULT=96000
+# The env var exists so the test harness can force the firing branch. The
+# default is held in a variable because it is needed twice below (the `:-` and
+# the malformed-input fallback, which nothing exercises — it runs only on
+# non-numeric env input, so two literals would let a re-baseline update one and
+# diverge silently). A THIRD copy lives outside this script, in
+# scripts/tests/check-claude-md-modified-test.sh's `run_hook` default; it is
+# inert (fixtures are kilobytes, and the firing cases pass an explicit ceiling),
+# which is exactly why a re-baseline would forget it — update it anyway so the
+# two never read as disagreeing about the production value.
+FOOTPRINT_CEILING_DEFAULT=95500
 FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-$FOOTPRINT_CEILING_DEFAULT}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.

@@ -337,8 +337,8 @@ same change:
 | `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
 | `docs/qa/dark-mode-qa.md`             | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5; the six risk classes no test can reach — fixed tokens, materials, fixed-appearance exports, non-SwiftUI surfaces, occlusion layers, a rendered state with no ground behind it) |
 | `docs/ci/xcodebuild-flakes.md`        | CI + local UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
-| `docs/agent-tooling/subagent-output-cap.md` | Depth paired with `.claude/rules/subagent-usage.md` — cap provenance, why the split thresholds are not cap-derived, how a cap hit behaves. Reconcile rule + doc as a pair |
-| `docs/agent-tooling/claim-verification.md` | Depth paired with `.claude/rules/knowledge-layering.md` § "Verify before you lock it" — the claim table, authored-claim shapes in full, promotion mechanics. Reconcile rule + doc as a pair |
+| `docs/agent-tooling/subagent-output-cap.md` | Depth paired with `.claude/rules/subagent-usage.md` — cap provenance, why the split thresholds are not cap-derived, how a cap hit behaves |
+| `docs/agent-tooling/claim-verification.md` | Depth paired with `.claude/rules/knowledge-layering.md` § "Verify before you lock it" — the claim table, authored-claim shapes in full, promotion mechanics |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
 
 ### ADR roster

@@ -1,9 +1,9 @@
 # Context Budget — Always-Loaded Files
 
 > Derived from [claude-kit](https://github.com/tyabu12/claude-kit) `rules/context-budget.md` —
-> the generic core is canonical there; reconcile one-way (kit → Pastura). Concept level — no
-> volatile facts to keep numerically in sync, and no paired kit `docs/` file, so this one
-> reconciles rule-to-rule. Pastura-specific content lives only in this copy.
+> the generic core is canonical there; reconcile one-way (kit → Pastura) — rule-to-rule here, since
+> this one is concept level with no volatile facts and no paired kit `docs/` file. Pastura-specific
+> content lives only in this copy.
 
 Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
 loading-mode rationale. This rule applies to itself. Pairs with `knowledge-layering.md` (location choice across memory / rules / `CLAUDE.md` / `docs/**`); this rule covers content discipline within always-loaded files.
