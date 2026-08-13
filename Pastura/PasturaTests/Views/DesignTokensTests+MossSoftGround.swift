@@ -16,30 +16,34 @@ import Testing
 // lives at the foot of `DesignTokensTests+NightPalette.swift`.
 extension DesignTokensTests {
 
-  /// The three shipped views that lay text directly on an opaque `mossSoft`
+  /// The shipped **labels** that lay text directly on an opaque `mossSoft`
   /// capsule. Hand-written against the views rather than derived, so a view
   /// changing its ground does **not** silently update the expectation — the row
   /// goes stale and a reviewer has to look.
   ///
-  /// Exhaustive as of #1407 **for moss-family text**, and corroborated rather
+  /// Exhaustive as of #1427 **for moss-family text**, and corroborated rather
   /// than merely grepped: `nightMossSoft`'s own doc comment partitions the
-  /// token's ten callsites as seven line/border jobs plus exactly these three
-  /// text grounds.
+  /// token's ten callsites as seven line/border jobs plus three tinted fills
+  /// under `mossInk` text.
   ///
-  /// That corroboration shares this list's blind spot, though — both enumerate
-  /// `mossSoft` **fill** sites, so neither can see a label drawn on this ground
-  /// by a token from another family. **There is one, and it fails the bar**:
-  /// `PredictionOutcomeBadge`'s streak sub-label is `muted` *inside* the same
-  /// hit-arm capsule, at 2.136 light / 2.413 dark (#1427). So do not read this
-  /// guard as "every label on `mossSoft` clears AA" — it says the moss-family
-  /// ones do.
+  /// **That corroboration counts grounds, this list counts labels** — four
+  /// entries against three fills, because `PredictionOutcomeBadge`'s hit capsule
+  /// carries two. Do not "reconcile" them.
+  ///
+  /// The blind spot they share outlives the count: both start from `mossSoft`
+  /// **fill** sites, so neither sees a label drawn on this ground by another
+  /// family's token. #1427 repointed the last one (the streak sub-label, `muted`
+  /// at 2.136 / 2.413), but that is a fact about today's tree, not a property of
+  /// this fixture — so still read this guard as "the moss-family labels clear
+  /// AA", never "every label on `mossSoft` does".
   static let mossSoftTextSites = [
     "ContradictionBadge",
     "PredictionOutcomeBadge.hitArm",
+    "PredictionOutcomeBadge.streak",
     "HighlightCandidatesSection.revealedChip"
   ]
 
-  /// WCAG 1.4.3 normal-text bar. All three labels are under the "large text"
+  /// WCAG 1.4.3 normal-text bar. All four labels are under the "large text"
   /// threshold (≥14pt bold / ≥18pt regular) — the largest is `caption`-class at
   /// ~12pt and the chip is 10pt bold — so 3:1 never applies to any of them.
   private static let textBar = 4.5
@@ -52,7 +56,7 @@ extension DesignTokensTests {
     // list wouldn't make them vacuous — it would silently drop the record of
     // which views this guard speaks for. Residual: it catches a row added or
     // removed, never one *renamed* to a view that no longer draws on this ground.
-    #expect(Self.mossSoftTextSites.count == 3)
+    #expect(Self.mossSoftTextSites.count == 4)
 
     let light = contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft)
     #expect(light >= Self.textBar, "light: \(light)")
@@ -94,10 +98,10 @@ extension DesignTokensTests {
   /// *differ* can never fire while either side is a `PasturaDynamicColor`-backed
   /// pair, since those compare by provider instance.
   ///
-  /// Only the chip is reachable: `ContradictionBadge` and
-  /// `PredictionOutcomeBadge` build their colours inline in `body` with no
-  /// extractable style type, so they stay code-review-gated. Extracting a style
-  /// struct for them would be the way to close that, and is not done here.
+  /// `PredictionOutcomeBadge` has its own pin since #1427 extracted its colours
+  /// into accessors (``PredictionOutcomeBadgeTokenTests``). That leaves
+  /// `ContradictionBadge`, still inline with no extractable style type and so
+  /// code-review-gated; the same extraction would close it.
   @Test func revealedChipReadsMossInk() {
     let style = HighlightCandidatesSection.ChipStyle(reason: .revealed)
     #expect(style.textColor == Color.mossInk)

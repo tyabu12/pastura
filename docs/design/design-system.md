@@ -841,7 +841,9 @@ Sim 画面に限った2つの例外的コンポーネント。Source: `Simulatio
 
 - 本文の最小コントラスト比: 7:1（AAA）を目標に `--ink` と `--screen-bg` の組み合わせで達成
 - **判読が要るメタ情報**（DL 進捗・ステータス等、確実に読ませる必要があるもの）は § 2.4 の L3 コントラストプリセット（`--meta-base` #4A4E3D ≈ 8:1）で 4.5:1 以上を確保する
-- **`--muted`（#8A8A83）quietude 階層は意図的に sub-AA**（#FCFAF4 上で ≈ 3.3:1）。一覧キャプション（`provenance · N agents · N rounds`）・脚注・アンビエントなラベル（`DEMO中` など）に使う、§1 の「静謐・観察」を体現する控えめなティアで、上の 4.5:1 要件の対象外とする意図的な判断。これにより § 2.2（`--muted` をメタ情報・脚注に割り当て）と本節の整合を取る。判読が要る情報をこのティアに置かないこと（その場合は上の L3 プリセットへ）
+- **`--muted`（#8A8A83）quietude 階層は意図的に sub-AA**（#FCFAF4 上で ≈ 3.3:1）。一覧キャプション（`provenance · N agents · N rounds`）・脚注・アンビエントなラベル（`DEMO中` など）に使う、§1 の「静謐・観察」を体現する控えめなティアで、上の 4.5:1 要件の対象外とする意図的な判断。これにより § 2.2（`--muted` をメタ情報・脚注に割り当て）と本節の整合を取る。判読が要る情報をこのティアに置かないこと
+- ⚠️ **上の免除は「測った地」にしか及ばない。** ≈ 3.3:1 は `screen-bg` 上の値で、`muted` は出荷している12の地（両外観 6 ずつ）で **2.136〜4.152** に散る。最悪は `--moss-soft` 上の 2.136、ダークで最もバーに近いのが `night-page` 上の 4.152（バーの 8% 下）。**ページ地で正当にアンビエントなラベルが、色付きの塗りの上では大きく下回っていても「§8 公認」に見える** — 地を変えたら測り直すこと。12組は `DesignTokensTests+MutedAsContent` が pin しており、残りサイトのアプリ全体掃引は #1448
+- **置き換えるトークンは「地を所有するファミリ」が供給する。** §8 が縛るのは**比**であって特定のトークンではない。不透明な `--moss-soft` 上なら §2.3/§2.6 の Soft+Ink ペアリングで `--moss-ink`、中立なカード面なら `--ink-2`（`PasturaApp` の DB 移行失敗文が先例）。**§2.4 の L3 プリセットの段を借りないこと** — 値が合っても §2.4 は DL 進捗の役割を持つ梯子で、借りると2つのファミリが結合する（ADR-028 § "Three narrower rejections"）。同じ #4A4E3D が別の役割で要るとき、このリポジトリは `--header-meta-ink` を**別トークンとして起こした**（§2.12）。L3 が正解なのは §2.4 自身のメタ面。導出は ADR-028 § Amendment 2026-08-13（#1427）
 - DL 進捗は `role="status" aria-live="polite"` / SwiftUI は `.accessibilityAddTraits(.updatesFrequently)`
 - アバター・犬マークは `aria-hidden="true"` / `.accessibilityHidden(true)`（飾りだから）
 - タップ領域は 44pt 未満の要素（THINKING トグル等）でも 44pt 確保。SwiftUI では `.padding(.vertical, N).contentShape(Rectangle()).onTapGesture{...}.padding(.vertical, -N)` の **negative-padding トリック**で、視覚上のサイズを変えずヒット判定だけ拡張する（`.contentShape(Rectangle())` 単独では view 自身の bounds までしか広がらない）
