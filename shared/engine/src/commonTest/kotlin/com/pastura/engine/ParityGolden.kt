@@ -389,4 +389,17 @@ internal object ParityGolden {
         ),
         callCount = 26,
     )
+
+    /**
+     * Every fixture, so a consumer cannot silently scope itself to one.
+     *
+     * The named properties above are the readable handles; this is what
+     * tests iterate. A guard written over a hand-listed subset keeps
+     * passing when a fixture is added, and an unexercised fixture looks
+     * exactly like a green one.
+     */
+    internal val all: List<Fixture> = listOf(
+        targetScoreRaceNominal,
+        targetScoreRaceDivergent,
+    )
 }
