@@ -9,23 +9,15 @@ paths:
 
 # i18n Rules — UI layer
 
-The UI half of the i18n rules. `i18n.md` carries the callsite-form core (Form A vs Form B and its catalog consequences) and loads on **every** app-target Swift read; this file loads only where its content can fire. Both load together in a UI or catalog session, so a `§` reference in either direction resolves here — but not from a non-UI session, which is why the core keeps no dependency on this file.
+The UI half of the i18n rules; `i18n.md` carries the layer-independent callsite core (Form A vs Form B) and loads on **every** app-target Swift read. Both load together in a UI or catalog session, so `§` references resolve in either direction here — never from a non-UI session, which is why the core depends on nothing in this file.
 
 ## Scope
 
-A section belongs here when **either** arm holds:
+A section belongs here on **either** arm: (1) it is written against a **SwiftUI API** (`Text` plural variants, `LocalizedStringKey` labels, `.accessibilityLabel`) and so cannot fire outside a View; or (2) it is a catalog / audit procedure whose **entire known instance set** lives in `Views/` / `App/` / `PasturaApp.swift` — layer-agnostic mechanism, UI-only reach.
 
-1. It is written against a **SwiftUI API** — `Text` plural variants, `LocalizedStringKey` convenience-init labels, `.accessibilityLabel`. Such a trap cannot fire outside a View.
-2. It is a **catalog or audit procedure whose entire known instance set** lives in `Views/` / `App/` / `PasturaApp.swift`. The mechanism is layer-agnostic; only its reach is not.
+Everything else stays in `i18n.md`, including `### The partial-conversion trap` and `### Apply when planning a partial-scope i18n slice`: 59 `String(localized:)` uses sit outside `Views/`+`App/` (LLM 16 / Models 37 / Data 6), so non-UI slices are real — and a core→here pointer is unreachable in exactly the session that needs it. `PasturaTests/Localization/**` is an arm for the plural runtime test; `Localizable.xcstrings` is an arm because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog, without which `i18n-catalog.md`'s opening claim would be false.
 
-Everything else — anything a `Models/` or `Data/` author writing a `LocalizedError.errorDescription` could need — stays in `i18n.md`. That is why `### The partial-conversion trap` and `### Apply when planning a partial-scope i18n slice` are **not** here despite reading as UI work: 59 `String(localized:)` uses sit outside `Views/`+`App/` (LLM 16 / Models 37 / Data 6), so non-UI slices are real, and a pointer from the core into this file would be unreachable in exactly the session that needs it.
-
-`PasturaTests/Localization/**` is an arm because the plural runtime test lives there. `Localizable.xcstrings` is an arm because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog — without it, `i18n-catalog.md`'s opening claim that a catalog session gets the plural and audit-planning material would be false.
-
-**Accepted gaps.**
-
-- Arm 2 is **time-indexed**, not structural. It holds today because every `String(localized:)` strictly inside a `#if DEBUG` block sits in `Views/` (measured 2026-08-13: `Views/Results/ResultDetailView.swift`, 3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`). A future non-UI DEBUG literal would hit a rule that no longer injects — re-check the arm rather than trusting it.
-- The `PasturaTests/Localization/**` arm covers only that directory. `String(localized:)` also appears in `PasturaTests/` under `App/` (4 files), `Views/` (3), and `Models/` (2), all outside every arm here.
+**Accepted gaps.** Arm 2 is **time-indexed**, not structural: it holds only because every `String(localized:)` strictly inside a `#if DEBUG` block sits in `Views/` today (measured 2026-08-13 — `Views/Results/ResultDetailView.swift`, 3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`). A future non-UI DEBUG literal hits a rule that no longer injects — re-check the arm, don't trust it. Separately, the `PasturaTests/Localization/**` arm reaches only that directory: `String(localized:)` also appears under `PasturaTests/App/` (4 files), `Views/` (3), `Models/` (2).
 
 ## Plurals — the sanctioned exception to Form B
 
