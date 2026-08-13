@@ -13,10 +13,31 @@ import SwiftUI
 /// included ahead of need so the future Results-screen `GameHeader`
 /// adoption can reuse this enum without an additive API change.
 ///
-/// Color grouping (background = `foreground.opacity(0.14)`):
-/// - **active** (`simulating` / `demoing` / `replaying`) → `moss`
-/// - **completed** → `mossDark` (distinct accent for "successfully done")
+/// Color grouping — the label (``foreground``) and the capsule wash
+/// (``washToken``) are **separate** tokens, so the pill reads as
+/// `<label> on <wash>`:
+/// - **active** (`simulating` / `demoing` / `replaying`) → `mossOnWash`
+///   on a `moss` wash
+/// - **completed** → `mossInk` on a `mossDark` wash (distinct accent for
+///   "successfully done", kept distinct at the *label* level too)
 /// - **terminal-exception** (`paused` / `cancelled` / `error`) → `muted`
+///   on a `muted` wash
+///
+/// The label used to be the wash's own token at 100% (`background` was
+/// `foreground.opacity(0.14)`), which made all four moss arms self-washes
+/// under WCAG AA in light — 2.561 and 3.832 against a 4.5:1 bar, since
+/// ``Typography/pillStatus`` is 9pt. Raising the wash alpha cannot repair
+/// that: `moss`'s alpha→0 ceiling on `screenBackground` is 2.908, i.e.
+/// below the bar even with the capsule erased. So the label moved to the
+/// family's role tokens and the washes were left byte-identical (#1455).
+///
+/// Separating the two is the established shape, not a local exception —
+/// every other translucent-wash site in the app already does it, and the
+/// `mossWashSites` / `inkWashSites` fixtures enumerate them. `.completed`
+/// reads `mossInk` rather than `mossOnWash` because §2.3 assigns that
+/// token the "完了タイトル" role and `ResultsView`'s own completed pill
+/// already renders it on a moss wash; design-system §8 and ADR-028
+/// § Amendment 2026-08-14 carry the discriminator and its limits.
 ///
 /// Cancelled and error currently share the muted palette with paused; if
 /// later UX work calls for differentiating them (e.g. red accent for
@@ -57,8 +78,35 @@ public enum GameHeaderStatus: String, Sendable, CaseIterable {
     }
   }
 
-  /// Foreground (text) color for the pill.
+  /// Opacity applied to ``washToken`` to produce ``background``, per the
+  /// original design hand-off (HEADER_UPDATE.md / §2.12 status pill spec).
+  ///
+  /// Held apart from the token — rather than folded into `background` —
+  /// so a routing pin can compare the *token* by alias. A `Color` carrying
+  /// an applied opacity compares unequal to the token it came from, which
+  /// would make such a pin impossible. `ScenarioBadgeStyle.fillOpacity` is
+  /// the same shape for the same reason.
+  static let washAlpha: Double = 0.14
+
+  /// Foreground (text) color for the pill. See the type's doc comment for
+  /// why this is not the same token as ``washToken``.
   public var foreground: Color {
+    switch self {
+    case .simulating, .demoing, .replaying:
+      return Color.mossOnWash
+    case .completed:
+      return Color.mossInk
+    case .paused, .cancelled, .error:
+      return Color.muted
+    }
+  }
+
+  /// Base color of the capsule fill, before ``washAlpha`` is applied.
+  ///
+  /// Unchanged by #1455 — all three washes are byte-identical to what
+  /// shipped before the label moved off them, so the pill's visual weight
+  /// and the active-vs-completed wash difference are untouched.
+  var washToken: Color {
     switch self {
     case .simulating, .demoing, .replaying:
       return Color.moss
@@ -69,9 +117,8 @@ public enum GameHeaderStatus: String, Sendable, CaseIterable {
     }
   }
 
-  /// Background tint for the pill (capsule fill). Computed as
-  /// `foreground.opacity(0.14)` per design hand-off.
+  /// Background tint for the pill (capsule fill).
   public var background: Color {
-    foreground.opacity(0.14)
+    washToken.opacity(Self.washAlpha)
   }
 }
