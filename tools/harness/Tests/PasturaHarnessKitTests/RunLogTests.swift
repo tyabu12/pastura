@@ -87,6 +87,55 @@ struct RunLogTests {
     #expect(line.relationships == ["A": ["B": -1], "B": ["A": 2]])
   }
 
+  /// Pins the exact bytes of a line with **every** `EventLine` field populated.
+  ///
+  /// The ADR-023 Stage-4 Kotlin mirror
+  /// (`shared/engine/src/commonTest/.../EventLineMapper.kt`) has to reproduce
+  /// this shape, and kotlinx.serialization matches none of it by default. This
+  /// test is that contract in executable form, so the mirror is written against
+  /// measured bytes rather than the parity fixtures' observed lines — a field
+  /// those fixtures never populate is exactly the one that bites later. Four
+  /// behaviours it fixes, each re-implemented by the mirror:
+  ///
+  /// - **Keys sort at every depth**, not just the top level (`relationships`
+  ///   sorts its outer *and* inner maps).
+  /// - **`nil` is omitted**, never encoded as `null`.
+  /// - **`.convertToSnakeCase` leaves a trailing digit alone** — `agent2` and
+  ///   `action1` stay as-is because they contain no uppercase, while
+  ///   `totalRounds` becomes `total_rounds`. Measured, not derived from the
+  ///   strategy's documentation.
+  /// - **An integral `Double` drops its `.0`** (`t`, `duration_seconds` → `0`)
+  ///   while a fractional one keeps its decimals. `JSONEncoder` behaviour,
+  ///   unrelated to the ADR-023 divergence-6 ruling on `JSONResponseParser`'s
+  ///   value normalization — that one is engine behaviour inside `fields`, this
+  ///   one is the transcript encoder. Do not resolve either by pointing at the
+  ///   other.
+  @Test func fullyPopulatedLinePinsTheWireShape() throws {
+    let line = EventLine(
+      t: 0, attempt: 0, event: "probe", agent: "b", round: 2, totalRounds: 4,
+      scores: ["z": 1, "a": 2], phaseType: "vote", phasePath: [1, 0],
+      fields: ["z": "1", "a": "2"], rawText: "raw", value: "val",
+      votes: ["z": "a", "a": "z"], tallies: ["z": 1, "a": 2], agent2: "c",
+      action1: "x", action2: "y", voteCount: 3, condition: "s >= 1", result: true,
+      durationSeconds: 0, tokenCount: 7, detected: "en", expected: "ja",
+      error: "boom", relationships: ["z": ["b": -1, "a": 1]])
+    #expect(
+      try JSONL.encode(line)
+        == #"{"action1":"x","action2":"y","agent":"b","agent2":"c","attempt":0,"condition":"s >= 1","detected":"en","duration_seconds":0,"error":"boom","event":"probe","expected":"ja","fields":{"a":"2","z":"1"},"phase_path":[1,0],"phase_type":"vote","raw_text":"raw","relationships":{"z":{"a":1,"b":-1}},"result":true,"round":2,"scores":{"a":2,"z":1},"t":0,"tallies":{"a":2,"z":1},"token_count":7,"total_rounds":4,"type":"event","value":"val","vote_count":3,"votes":{"a":"z","z":"a"}}"#
+    )
+
+    // The integral case above is `JSONEncoder` dropping a trailing `.0`, NOT a
+    // blanket integer cast — so the mirror must special-case integral doubles
+    // rather than truncate. Also shows the outer map of `relationships` sorting.
+    let fractional = EventLine(
+      t: 1.5, attempt: 0, event: "probe", scores: ["b": 1],
+      durationSeconds: 2.25, relationships: ["z": ["a": 1], "b": ["c": 2]])
+    #expect(
+      try JSONL.encode(fractional)
+        == #"{"attempt":0,"duration_seconds":2.25,"event":"probe","relationships":{"b":{"c":2},"z":{"a":1}},"scores":{"b":1},"t":1.5,"type":"event"}"#
+    )
+  }
+
   @Test func everyEventKindExceptStreamAndCheckpointProducesALine() {
     // Completeness canary: if SimulationEvent gains a case, the mapper's
     // switch breaks compilation; this test documents the two deliberate nils

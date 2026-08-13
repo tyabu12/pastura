@@ -1,5 +1,10 @@
 package com.pastura.engine
 
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.update
+
 /**
  * Test doubles for the ADR-023 §5.2 inference boundary.
  *
@@ -55,27 +60,60 @@ internal class ScriptedLLMBackend(
         }
     }
 
-    private var callIndex = 0
+    /**
+     * **Every observable this double exposes is atomic**, because all three are
+     * written on the engine's worker context and read from the test thread.
+     *
+     * Not for mutual exclusion — the engine issues calls sequentially — but for
+     * **visibility**. `EngineParityTests` asserts [callCount] as its
+     * retry-budget detector, and a plain `var` would reach that assertion only
+     * through whatever happens-before edge the surrounding poll incidentally
+     * provides. A stale read there is the shape that presents as a K/N-only
+     * flake in the one assertion whose whole job is to be exact — the race
+     * [Collector]'s KDoc describes.
+     *
+     * **Held uniformly rather than only where a suite reads it today.** No
+     * `SimulationEngine`-driven test asserts [requests] or [cancelCount] yet,
+     * so leaving them plain would break nothing now and hand the first such
+     * assertion exactly that flake, with nothing saying why one member carried
+     * the treatment and its siblings did not.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private val callIndex = AtomicInt(0)
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val recorded = AtomicReference<List<GenerationRequest>>(emptyList())
+
+    @OptIn(ExperimentalAtomicApi::class)
+    private val cancels = AtomicInt(0)
 
     /** Every request received, in call order. */
-    val requests: MutableList<GenerationRequest> = mutableListOf()
+    @OptIn(ExperimentalAtomicApi::class)
+    val requests: List<GenerationRequest> get() = recorded.load()
 
     /** How many times a returned [StreamHandle] was cancelled. */
-    var cancelCount: Int = 0
-        private set
+    @OptIn(ExperimentalAtomicApi::class)
+    val cancelCount: Int get() = cancels.load()
 
     /** How many calls have been issued — the retry-budget observable. */
-    val callCount: Int get() = callIndex
+    @OptIn(ExperimentalAtomicApi::class)
+    val callCount: Int get() = callIndex.load()
 
+    @OptIn(ExperimentalAtomicApi::class)
     override fun generateStream(request: GenerationRequest, callbacks: StreamCallbacks): StreamHandle {
-        requests += request
-        val script = scripts.getOrNull(callIndex)
+        recorded.update { it + request }
+        // `fetchAndAdd` rather than a load / store pair: the pair is a
+        // non-atomic read-modify-write, sound only by the sequential-calls
+        // argument this class is trying not to depend on. So the counter
+        // advances BEFORE the script lookup — a call with no script left was
+        // still issued, and the message below reports it as such.
+        val index = callIndex.fetchAndAdd(1)
+        val script = scripts.getOrNull(index)
             ?: throw IllegalStateException(
-                "ScriptedLLMBackend exhausted: call #${callIndex + 1} was issued but only " +
+                "ScriptedLLMBackend exhausted: call #${index + 1} was issued but only " +
                     "${scripts.size} script(s) were provided. An unexpected extra call usually " +
                     "means the retry budget was consumed by something the test did not intend.",
             )
-        callIndex++
 
         // `isFinal` marks the last chunk of a COMPLETED stream only. A suspended or
         // failed stream has no final chunk — it is cut off — mirroring Swift, where
@@ -93,7 +131,7 @@ internal class ScriptedLLMBackend(
         callbacks.onTerminal(script.terminal)
         return object : StreamHandle {
             override fun cancel() {
-                cancelCount++
+                cancels.fetchAndAdd(1)
             }
         }
     }

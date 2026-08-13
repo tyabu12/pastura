@@ -72,28 +72,32 @@ machine-checked — see the maintenance invariant above.
 
 ## Stages 4–5 — remaining integration
 
-- **Stage 4** (parity harness): 🔄 in progress — slice 1a landed; 1b next; no parity rung live yet.
-  See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
-  [#1387](https://github.com/tyabu12/pastura/issues/1387) (slice 1a, closed) and
+- **Stage 4** (parity harness): 🔄 in progress — **both parity rungs are live**; the residue is
+  scope, not machinery. See [ADR-023](decisions/ADR-023.md) §6 Stage 4,
+  [#1387](https://github.com/tyabu12/pastura/issues/1387) (slice 1a, closed),
+  [#1458](https://github.com/tyabu12/pastura/issues/1458) (slice 1b, closed) and
   [#501](https://github.com/tyabu12/pastura/issues/501) (remaining Stage-4 work).
-  ⚠️ The divergent fixture's negative control now drives a **value** divergence only:
-  ADR-021 § Amendment 2026-08-06 resolved `SCHEMA_GUARD_POSITION` (both engines skip a turn
-  whose declared canonical primary is empty), and none of the three *currently-ledgered*
-  structural classes is reachable from a scripted fixture (see `ParityFixtureEmitter`'s
-  `purpose` for the per-class reason). That is an enumeration over today's `DivergenceClass`
-  cases, **not** a proof that no structural arm exists: an unledgered one does. Swift's
-  schema-guarded salvage (#907) accepts a multi-object response
-  (`{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}`) that Kotlin's `extractFirstJsonObject`
-  refuses, yielding Swift `agent_output` vs Kotlin `turn_skipped` — the same structural shape
-  that was just lost. The asymmetry is pinned by paired parser tests in both languages; adding
-  the `DivergenceClass` case and the fixture arm is deliberately deferred, because a case with
-  no entry is the "pre-approved licence" `DivergenceLedger` warns about, and nothing consumes
-  `ParityGolden` yet to verify the arm end-to-end.
-  ⚠️ The guard that would have caught this loss is **kind-coverage** — an assertion that the
-  divergent fixture drives ≥1 `Structural` *and* ≥1 `Value` entry. Not the unfired-entry
-  assertion, and not the "every case is cited" test `DivergenceLedger` already prescribes: the
-  case and its entry were deleted *together*, so both stay green. Re-arming and the
-  kind-coverage guard are tracked on
-  [#501](https://github.com/tyabu12/pastura/issues/501) (#1387 is closed).
+
+  `EngineParityTests` replays each `ParityGolden` fixture through the Kotlin engine and walks
+  the transcripts against `DivergenceLedger`. It runs per-PR on the JVM (`:shared:engine:jvmTest`
+  in `kmp-build-test`) and nightly on Kotlin/Native (`:shared:engine:build` includes
+  `macosArm64Test`); `parity-emit --check` in `harness-build` guards the generated golden from
+  either drift direction. **The happy-path fixture agrees with nothing excused** — a full
+  four-round run, event for event and field for field, less four fields held constant:
+  `duration_seconds` and `raw_text` are normalized away (`ParityFixtureEmitter.normalize`), while
+  `t` and `attempt` are pinned to 0 by the emitter — which is why a `Structural` ledger entry has
+  byte-identical lines to tell apart and keys on an ordinal.
+
+  Of the three fixtures the nominal one carries the real-scenario parity claim; the two controls
+  exist so the ledger's own mechanisms stay provably reachable, with
+  `someFixtureDrivesBothEntryKinds` keeping the structural one armed. Why each is shaped as it
+  is: the `purpose` strings on `ParityFixtureEmitter.specs`.
+
+  Residue, all scope rather than mechanism: **S3** RNG-bearing presets + the remaining 6 phase
+  handlers, **S4** the cancellation event tail, **S5** ADR-023 §5.2 invariant 1's
+  suspend-then-succeed assertion, **S6** the divergence-6 ruling (pinned as a ledger entry;
+  deciding which side changes moves shipped Swift behaviour). `SimulationEvent.ErrorEvent`'s
+  projection is known to disagree across languages and is unexercised by every fixture — S4 is
+  the likely first driver.
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.

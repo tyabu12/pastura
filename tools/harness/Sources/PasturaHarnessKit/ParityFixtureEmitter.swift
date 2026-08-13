@@ -60,20 +60,30 @@ package enum ParityFixtureEmitter {
     package let scenarioJSON: String
     /// Model answers in call order — what Kotlin's `ScriptedLLMBackend` replays.
     ///
-    /// **Positional, with no per-call alignment tag.** If the two engines ever
+    /// **Positional, with no per-call alignment key.** If the two engines
     /// issue different call counts mid-run, every later answer shifts and the
-    /// downstream transcript diff becomes noise attributed to the engines.
-    /// [callCount] catches the total mismatch, but only after a whole diverged
-    /// transcript has been produced. Slice 1b should add a parallel tag list
-    /// (`<agent>/<phase>/<attempt>`) so the Kotlin side can fail at the first
-    /// drift with a locatable message rather than at the end with a wall of
-    /// diffs.
+    /// downstream transcript diff becomes noise about alignment rather than
+    /// about the engines.
+    ///
+    /// A parallel *tag* list (`<agent>/<phase>/<attempt>`) was once planned to
+    /// localize the first drift; it is deliberately not implemented, because a
+    /// tag labels the drift rather than preventing it, and localization already
+    /// exists — `TranscriptComparator` sets `Report.desynced` at the first
+    /// uncovered structural difference and leads its report with "fix the first
+    /// one and re-run", while ``callCount`` catches the total. The real
+    /// constraint, found while re-arming the structural control (#1458), is
+    /// that a surplus must be **reabsorbed**: either the divergent turn is the
+    /// run's last, so the extra calls fall into the replay padding, or the
+    /// following indices deliberately burn a matching surplus on the other
+    /// engine. Keying responses by `<agent>/<phase>/<attempt>` instead of by
+    /// position would fix that; tagging would not. It is a schema change.
     package let responses: [String]
     /// One JSON object per surviving event, in emission order.
     package let transcript: [String]
-    /// Backend calls the Swift Engine issued. A first-class field because the
-    /// schema-guard divergence is a retry-count divergence the transcript alone
-    /// cannot show.
+    /// Backend calls the Swift Engine issued. A first-class field because a
+    /// divergence where one engine retries and the other does not is a
+    /// retry-count divergence the transcript alone cannot show — today the
+    /// multi-object salvage, before ADR-021's Amendment the schema guard.
     package let callCount: Int
 
     /// Explicit because the implicit memberwise init is `internal`, and the
@@ -123,43 +133,27 @@ package enum ParityFixtureEmitter {
         so this fixture drives documented divergences on purpose and the parity \
         suite fails if one stops firing.
 
-        **It currently drives a VALUE divergence only.** It used to drive one of \
-        each entry kind: calls 0-2 answer the first agent's schema-declaring \
-        `speak_all` turn with present-but-empty canonical fields across the \
-        whole retry window, which Swift returned as an `agentOutput` while \
-        Kotlin's parser guard exhausted retries into a `turnSkipped` — a \
-        STRUCTURAL divergence. ADR-021 § Amendment 2026-08-06 resolved it: both \
-        engines now skip that turn, so the arm no longer fires and \
-        `SCHEMA_GUARD_POSITION` was retired from the ledger. The empty-field \
+        **It drives a VALUE divergence only, by design rather than by loss.** \
+        It used to drive one of each entry kind: calls 0-2 answer the first \
+        agent's schema-declaring `speak_all` turn with present-but-empty \
+        canonical fields across the whole retry window, which Swift returned as \
+        an `agentOutput` while Kotlin's parser guard exhausted retries into a \
+        `turnSkipped`. ADR-021 § Amendment 2026-08-06 resolved that — both \
+        engines now skip — retiring `SCHEMA_GUARD_POSITION`. The empty-field \
         overrides are kept because they still exercise the retry window \
         identically on both sides.
 
-        No **currently-ledgered** structural class is reachable from a scripted \
-        fixture: `CANCELLATION_EVENT_TAIL` needs a mid-run cancellation this \
-        emitter never performs, `DETECTOR_UNWIRED` is deliberately guarded off \
-        (a real detector would make the golden vary by host — see \
-        `parityRunEmitsNoLanguageMismatch`), and `VALIDATOR_UNPORTED` needs a \
-        scenario Swift rejects, which would produce no transcript.
+        The structural arm was re-armed in `parityStructuralControl` instead, \
+        because the surviving scriptable divergence costs Kotlin two extra \
+        backend calls and `responses` is positional — the surplus has to land \
+        on the run's LAST call, which here is a `vote` whose loss cascades \
+        through the tally. So do not read a clean structural comparison here as \
+        evidence the structural path is exercised; \
+        `someFixtureDrivesBothEntryKinds` is what keeps that honest.
 
-        That is an enumeration over today's `DivergenceClass` cases, so it \
-        cannot see a structural divergence that is not yet ledgered — and one \
-        is: Swift's schema-guarded multi-object salvage (#907) accepts \
-        `{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}` on a \
-        schema-declaring turn, while Kotlin's `extractFirstJsonObject` returns object-like \
-        residue unchanged and fails the parse into a `turnSkipped`. Scripting \
-        that response here re-arms a structural arm. It is deferred, not \
-        impossible: the arm needs a new `DivergenceClass` case, and a case with \
-        no entry is exactly the pre-approved licence `DivergenceLedger` warns \
-        about — while nothing consumes `ParityGolden` yet to verify the arm \
-        end-to-end. The asymmetry is instead pinned by paired \
-        `JSONResponseParser` tests in both languages. Tracked on #501.
-
-        Do not read a clean structural comparison here as evidence the \
-        structural path is exercised.
-
-        The float-valued key below is the surviving arm. Swift normalizes `1.0` \
-        to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves \
-        the literal as "1.0". That is a VALUE divergence, and the one \
+        The float-valued key below is this fixture's arm. Swift normalizes \
+        `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin \
+        preserves the literal as "1.0" — the VALUE divergence \
         `JSONResponseParser.kt` routes to Stage 4 to rule on.
         """,
       overrides: [
@@ -167,6 +161,43 @@ package enum ParityFixtureEmitter {
         1: #"{"statement": "", "inner_thought": ""}"#,
         2: #"{"statement": "", "inner_thought": ""}"#,
         3: #"{"statement": "s", "inner_thought": "t", "confidence": 1.0}"#
+      ]
+    ),
+    FixtureSpec(
+      name: "parityStructuralControl",
+      scenarioPath: "tools/harness/Fixtures/parity_structural.yaml",
+      purpose: """
+        Structural negative control. The sibling divergent fixture drives a \
+        VALUE divergence only; this one exists so the ledger's kind-coverage \
+        guard has a `Structural` entry to hold, and so a divergence class and \
+        its entries cannot be deleted together unnoticed — the way ADR-021 \
+        § Amendment 2026-08-06 retired `SCHEMA_GUARD_POSITION` and silently \
+        cost the control its only structural arm.
+
+        Call 1 drives it. Swift's schema-guarded multi-object salvage (#907) \
+        accepts the first object when every expected key is present and \
+        non-empty, returning an `agentOutput` after ONE backend call. Kotlin's \
+        `extractFirstJsonObject` returns object-like residue unchanged, so the \
+        parse fails and the turn exhausts its retry budget into a `turnSkipped` \
+        after THREE. Paired parser tests fed byte-identical input pin both \
+        behaviours, so neither can drift silently.
+
+        **Why its own scenario rather than an override on the sibling.** \
+        `Fixture.responses` is positional, so Kotlin's two surplus calls \
+        consume whatever answers follow; placed mid-run they shift every later \
+        turn and the diff becomes noise about alignment rather than about the \
+        engines. Here the divergent turn is the run's LAST, so the surplus \
+        falls into the parity suite's padding. The cost is pinned instead of \
+        hidden: the two engines issue different call counts, and that is \
+        asserted rather than excused.
+
+        Call 0 carries the float-valued key as well, so this fixture drives one \
+        divergence of EACH entry kind by itself — kind coverage then holds \
+        per-fixture rather than only across the set, for one extra override.
+        """,
+      overrides: [
+        0: #"{"statement": "s", "inner_thought": "t", "confidence": 1.0}"#,
+        1: #"{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}"#
       ]
     )
   ]
@@ -203,23 +234,47 @@ package enum ParityFixtureEmitter {
       callCount: responder.callCount)
   }
 
-  /// Zeroes the one measured quantity a `SimulationEvent` payload carries.
+  /// Drops the payload fields no cross-language comparison could survive.
   ///
   /// Pinning `EventLineMapper`'s `t` and `attempt` removes the harness's own
-  /// clock reads, but `inferenceCompleted` carries `durationSeconds` **inside
-  /// the event**, measured per call. Left alone it changes on every run, so
-  /// `--check` would report drift against itself and the two engines could
-  /// never agree. `tokenCount` needs no arm: this responder reports none, and
-  /// the Kotlin fixtures script none either — if that ever changes, the
-  /// mismatch surfaces as a parity diff rather than as flakiness.
+  /// clock reads, but two payload-internal fields remain, for different
+  /// reasons — one non-deterministic, one structurally absent on the far side:
   ///
-  /// Deliberately an `if case` rather than an exhaustive `switch`: this is a
-  /// narrow denylist of measured fields, and a new case is normalization-free
-  /// until someone shows otherwise. The exhaustiveness obligation belongs to
+  /// - **`inferenceCompleted.durationSeconds`** is measured per call. Left
+  ///   alone it changes on every run, so `--check` would report drift against
+  ///   itself and the two engines could never agree. `tokenCount` needs no arm:
+  ///   this responder reports none, and the Kotlin fixtures script none either
+  ///   — if that ever changes, the mismatch surfaces as a parity diff rather
+  ///   than as flakiness.
+  /// - **`agentOutput.rawText`** has no Kotlin counterpart at all;
+  ///   `TurnOutput.kt`'s class KDoc records the omission as a deliberate
+  ///   Engine-port decision, not a Stage-4 one. Keeping it would put a
+  ///   `raw_text` diff on **every** `agent_output` — 24 in the nominal
+  ///   fixture — each pinning a string `responses` already freezes verbatim, so
+  ///   the ledger would carry two dozen entries measuring a documented
+  ///   model-port decision in place of engine behaviour.
+  ///
+  ///   What it costs, rather than "nothing is lost": `responses` is the
+  ///   authority on what the model **offered**, not on which offer a turn
+  ///   **accepted**, and `attempt` is pinned to 0 on every line — so `rawText`
+  ///   was the last per-event record of retry outcome. What compensates is
+  ///   `callCount` (a whole-run aggregate two offsetting changes could cancel)
+  ///   and the paired `JSONResponseParser` tests in both languages. That is
+  ///   weaker than a per-event record, and is the price of comparing a field
+  ///   one side does not model.
+  ///
+  /// Deliberately an `if case` chain rather than an exhaustive `switch`: this
+  /// is a narrow denylist, and a new case is normalization-free until someone
+  /// shows otherwise. The exhaustiveness obligation belongs to
   /// `EventLineMapper`, which already carries it.
   private static func normalize(_ event: SimulationEvent) -> SimulationEvent {
     if case .inferenceCompleted(let agent, _, let tokenCount) = event {
       return .inferenceCompleted(agent: agent, durationSeconds: 0, tokenCount: tokenCount)
+    }
+    if case .agentOutput(let agent, let output, let phaseType) = event {
+      return .agentOutput(
+        agent: agent, output: TurnOutput(fields: output.fields, rawText: nil),
+        phaseType: phaseType)
     }
     return event
   }
@@ -232,140 +287,6 @@ package enum ParityFixtureEmitter {
   /// The command that regenerates it, quoted in the file header and in the
   /// drift-gate failure message.
   package static let regenerateCommand = "swift run pastura-harness parity-emit --write"
-
-  /// Renders every fixture as a Kotlin source file of raw-string constants.
-  ///
-  /// **Why generated Kotlin rather than a resource file.** No test anywhere
-  /// under `shared/` reads from disk outside `jvmTest` — the two that do use
-  /// `getResourceAsStream` / `java.io.File`, both JVM-only. ADR-023 Decision 5
-  /// requires the Kotlin/Native `macosArm64` rung as well, and an embedded
-  /// source constant is the only form that reaches it. The trade-off bought is
-  /// a generated file, which is what `parity-emit --check` exists to guard.
-  ///
-  /// **That gate runs in CI only** — `harness-build`, next to `emit-golden
-  /// --check`; no git hook builds this package, so a local commit is unguarded.
-  /// Deferring it to slice 1b weighed the wrong thing — staleness in a
-  /// *generated* file needs no consumer, and #1397 changed it unwatched.
-  package static func kotlinSource(from fixtures: [Fixture]) throws -> String {
-    var lines: [String] = [
-      "// Generated by `\(regenerateCommand)` — DO NOT edit by hand.",
-      "//",
-      "// ADR-023 Stage-4 cross-language parity fixtures. Each entry carries the",
-      "// scenario, the exact model answers the Swift Engine consumed, the event",
-      "// transcript it produced, and the backend call count. `EngineParityTests`",
-      "// replays the answers through the Kotlin Engine and compares.",
-      "//",
-      "// The transcript is `EventLineMapper`'s projection with `t` and `attempt`",
-      "// pinned to 0 — see `ParityFixtureEmitter` for why that projection and not",
-      "// a `SimulationEvent` encoding.",
-      "",
-      "package com.pastura.engine",
-      "",
-      "internal object ParityGolden {",
-      "",
-      "    /** One frozen Swift-side run. */",
-      "    internal data class Fixture(",
-      "        val name: String,",
-      "        val scenarioJson: String,",
-      "        val responses: List<String>,",
-      "        val transcript: List<String>,",
-      "        val callCount: Int,",
-      "    )"
-    ]
-
-    for fixture in fixtures {
-      try assertRawStringSafe(fixture)
-      lines.append("")
-      lines.append(contentsOf: kdoc(fixture.purpose))
-      lines.append("    internal val \(fixture.name): Fixture = Fixture(")
-      lines.append("        name = \"\(fixture.name)\",")
-      // `.trimIndent()` because Kotlin — unlike a Java text block — keeps the
-      // newline after the opening `"""` and the one before the closing one.
-      // Without it this one field's bytes would be `"\n" + <what Swift emitted>
-      // + "\n"` while `responses` and `transcript` are exact, and slice 1b's
-      // consumer would have to know which fields to trim. `trimIndent` strips
-      // the blank first/last lines and finds no common indentation to remove,
-      // since the JSON sits at column 0.
-      lines.append("        scenarioJson = \"\"\"")
-      lines.append(fixture.scenarioJSON)
-      lines.append("\"\"\".trimIndent(),")
-      lines.append(contentsOf: stringList("responses", fixture.responses))
-      lines.append(contentsOf: stringList("transcript", fixture.transcript))
-      lines.append("        callCount = \(fixture.callCount),")
-      lines.append("    )")
-    }
-
-    lines.append("}")
-    lines.append("")
-    return lines.joined(separator: "\n")
-  }
-
-  /// Renders a `listOf(...)` of raw strings, one entry per line.
-  private static func stringList(_ label: String, _ values: [String]) -> [String] {
-    guard !values.isEmpty else { return ["        \(label) = emptyList(),"] }
-    var lines = ["        \(label) = listOf("]
-    for value in values {
-      lines.append("            \"\"\"\(value)\"\"\",")
-    }
-    lines.append("        ),")
-    return lines
-  }
-
-  /// Wraps a purpose string as a KDoc block.
-  private static func kdoc(_ purpose: String) -> [String] {
-    var lines = ["    /**"]
-    for line in purpose.split(separator: "\n", omittingEmptySubsequences: false) {
-      lines.append(line.isEmpty ? "     *" : "     * \(line)")
-    }
-    lines.append("     */")
-    return lines
-  }
-
-  /// Rejects bytes a Kotlin raw string would mangle.
-  ///
-  /// `"""` closes the literal early and `$` is read as template interpolation.
-  /// Scenario prose is author-controlled, so this exists to fail loudly at
-  /// generation time rather than emit a file that does not compile — or worse,
-  /// one that compiles carrying silently different bytes.
-  private static func assertRawStringSafe(_ fixture: Fixture) throws {
-    let payloads = [fixture.scenarioJSON] + fixture.responses + fixture.transcript
-    for payload in payloads {
-      if payload.contains("\"\"\"") {
-        throw ParityFixtureError.rawStringUnsafe(fixture.name, #"a """ sequence"#)
-      }
-      if payload.contains("$") {
-        throw ParityFixtureError.rawStringUnsafe(fixture.name, "a $ (Kotlin interpolates it)")
-      }
-      // A payload ending in `"` abuts the closing delimiter and yields `""""`,
-      // which Kotlin cannot parse. Unreachable today — every payload is a JSON
-      // object ending in `}` — so this keeps the guard as wide as its own claim
-      // rather than as wide as today's inputs.
-      if payload.hasSuffix("\"") {
-        throw ParityFixtureError.rawStringUnsafe(fixture.name, "a trailing quote")
-      }
-      // Symmetry, not an asserted parse failure. Kotlin's documented raw-string
-      // limitation is the *trailing* quote — the opener is exactly three quotes,
-      // so a fourth at the start is content. A leading quote is rejected here as
-      // conservatism rather than because it is known to break the parse; the
-      // claim is deliberately weaker than the trailing arm's, which is verified.
-      if payload.hasPrefix("\"") {
-        throw ParityFixtureError.rawStringUnsafe(fixture.name, "a leading quote")
-      }
-    }
-    // The name is interpolated as a Kotlin *identifier* (`internal val <name>`),
-    // not into a string, so it has its own way to produce a file that does not
-    // compile.
-    if !fixture.name.allSatisfy({ $0.isLetter || $0.isNumber || $0 == "_" }) {
-      throw ParityFixtureError.rawStringUnsafe(
-        fixture.name, "a non-identifier character in its name")
-    }
-    // `purpose` is not a raw-string payload but IS emitted into a KDoc block, so
-    // it has its own way to break the build.
-    if fixture.purpose.contains("*/") {
-      throw ParityFixtureError.rawStringUnsafe(
-        fixture.name, "a */ in its purpose (closes the KDoc)")
-    }
-  }
 
   /// Encodes the scenario with sorted keys so `--check` reports real drift
   /// rather than dictionary-order churn.
