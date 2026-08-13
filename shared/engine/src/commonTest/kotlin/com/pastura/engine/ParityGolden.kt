@@ -201,13 +201,11 @@ internal object ParityGolden {
     /**
      * Negative control. A ledger whose entries never fire ships unexercised, so this fixture drives documented divergences on purpose and the parity suite fails if one stops firing.
      *
-     * **This fixture drives a VALUE divergence only, and that is now by design rather than by loss.** It used to drive one of each entry kind: calls 0-2 answer the first agent's schema-declaring `speak_all` turn with present-but-empty canonical fields across the whole retry window, which Swift returned as an `agentOutput` while Kotlin's parser guard exhausted retries into a `turnSkipped` — a STRUCTURAL divergence. ADR-021 § Amendment 2026-08-06 resolved it: both engines now skip that turn, so the arm stopped firing and `SCHEMA_GUARD_POSITION` was retired from the ledger. The empty-field overrides are kept because they still exercise the retry window identically on both sides.
+     * **It drives a VALUE divergence only, by design rather than by loss.** It used to drive one of each entry kind: calls 0-2 answer the first agent's schema-declaring `speak_all` turn with present-but-empty canonical fields across the whole retry window, which Swift returned as an `agentOutput` while Kotlin's parser guard exhausted retries into a `turnSkipped`. ADR-021 § Amendment 2026-08-06 resolved that — both engines now skip — retiring `SCHEMA_GUARD_POSITION`. The empty-field overrides are kept because they still exercise the retry window identically on both sides.
      *
-     * The structural arm was re-armed in `parityStructuralControl` rather than here, and the reason is structural rather than aesthetic. The surviving scriptable divergence — Swift's schema-guarded multi-object salvage (#907) versus Kotlin's parse failure — costs Kotlin two extra backend calls, and `responses` is positional, so a mid-run placement shifts every later answer and the diff becomes noise about alignment instead of about the engines. Only a placement at the run's LAST call avoids that, and this scenario's last call is a `vote` whose loss cascades through the tally into four more events. The sibling fixture exists so the arm lands on a turn with nothing downstream of it.
+     * The structural arm was re-armed in `parityStructuralControl` instead, because the surviving scriptable divergence costs Kotlin two extra backend calls and `responses` is positional — the surplus has to land on the run's LAST call, which here is a `vote` whose loss cascades through the tally. So do not read a clean structural comparison here as evidence the structural path is exercised; `someFixtureDrivesBothEntryKinds` is what keeps that honest.
      *
-     * Do not read a clean structural comparison here as evidence the structural path is exercised — `parityStructuralControl` is what exercises it, and `someFixtureDrivesBothEntryKinds` is what keeps that true.
-     *
-     * The float-valued key below is this fixture's arm. Swift normalizes `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the literal as "1.0". That is a VALUE divergence, and the one `JSONResponseParser.kt` routes to Stage 4 to rule on.
+     * The float-valued key below is this fixture's arm. Swift normalizes `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the literal as "1.0" — the VALUE divergence `JSONResponseParser.kt` routes to Stage 4 to rule on.
      */
     internal val targetScoreRaceDivergent: Fixture = Fixture(
         name = "targetScoreRaceDivergent",
@@ -391,11 +389,11 @@ internal object ParityGolden {
     /**
      * Structural negative control. The sibling divergent fixture drives a VALUE divergence only; this one exists so the ledger's kind-coverage guard has a `Structural` entry to hold, and so a divergence class and its entries cannot be deleted together unnoticed — the way ADR-021 § Amendment 2026-08-06 retired `SCHEMA_GUARD_POSITION` and silently cost the control its only structural arm.
      *
-     * Call 1 drives it. Swift's schema-guarded multi-object salvage (#907) accepts the first object when every expected key is present and non-empty, so it returns an `agentOutput` after ONE backend call. Kotlin's `extractFirstJsonObject` returns object-like residue unchanged, the parse fails, and the turn exhausts its retry budget into a `turnSkipped` after THREE. Both behaviours are pinned by paired parser tests fed byte-identical input, so neither can drift silently.
+     * Call 1 drives it. Swift's schema-guarded multi-object salvage (#907) accepts the first object when every expected key is present and non-empty, returning an `agentOutput` after ONE backend call. Kotlin's `extractFirstJsonObject` returns object-like residue unchanged, so the parse fails and the turn exhausts its retry budget into a `turnSkipped` after THREE. Paired parser tests fed byte-identical input pin both behaviours, so neither can drift silently.
      *
-     * **Why this needs its own scenario rather than an override on the sibling.** `Fixture.responses` is positional, so Kotlin's two surplus calls consume whatever answers follow. Placed mid-run they shift every later turn and the transcript diff becomes noise about alignment rather than about the engines. Here the divergent turn is the run's LAST, so the surplus falls into the parity suite's padding and nothing downstream moves. The cost is visible and pinned instead: the two engines issue different call counts, which is the divergence's most distinctive observable and is asserted rather than excused.
+     * **Why its own scenario rather than an override on the sibling.** `Fixture.responses` is positional, so Kotlin's two surplus calls consume whatever answers follow; placed mid-run they shift every later turn and the diff becomes noise about alignment rather than about the engines. Here the divergent turn is the run's LAST, so the surplus falls into the parity suite's padding. The cost is pinned instead of hidden: the two engines issue different call counts, and that is asserted rather than excused.
      *
-     * Call 0 carries the float-valued key as well, so this fixture drives one divergence of EACH entry kind by itself. Kind coverage then holds per-fixture rather than only across the fixture set — the stronger form, and it costs one override.
+     * Call 0 carries the float-valued key as well, so this fixture drives one divergence of EACH entry kind by itself — kind coverage then holds per-fixture rather than only across the set, for one extra override.
      */
     internal val parityStructuralControl: Fixture = Fixture(
         name = "parityStructuralControl",
@@ -426,9 +424,8 @@ internal object ParityGolden {
      * Every fixture, so a consumer cannot silently scope itself to one.
      *
      * The named properties above are the readable handles; this is what
-     * tests iterate. A guard written over a hand-listed subset keeps
-     * passing when a fixture is added, and an unexercised fixture looks
-     * exactly like a green one.
+     * tests iterate. A guard over a hand-listed subset keeps passing when
+     * a fixture is added, and an unexercised fixture looks green.
      */
     internal val all: List<Fixture> = listOf(
         targetScoreRaceNominal,

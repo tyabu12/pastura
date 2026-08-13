@@ -21,10 +21,9 @@ import kotlinx.coroutines.withTimeout
  * [snapshot] trivially consistent (it reads one immutable value rather than
  * copying a mutating list).
  *
- * Lives at package scope rather than nested in one suite because
- * [SimulationEngineTests] and [EngineParityTests] both drive a real run.
- * Duplicating a concurrency primitive is how the two copies drift, and a drift
- * in this one would present as a flake on the K/N rung only.
+ * At package scope, not nested in one suite: [SimulationEngineTests] and
+ * [EngineParityTests] both drive a real run, and a drift between two copies of
+ * this primitive would present as a flake on the K/N rung only.
  */
 @OptIn(ExperimentalAtomicApi::class)
 internal class Collector {

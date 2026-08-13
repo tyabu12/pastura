@@ -78,11 +78,11 @@ struct ParityFixtureEmitterTests {
 
   // MARK: - Determinism
 
-  // The three cases below run over EVERY spec rather than `specs.first`. They
-  // are properties of the emitter, so a representative sample only ever proved
-  // them of whichever fixture happened to be declared first — and this file
-  // already records one incident (see `everyFixtureExercisesVotingNotJustItsShape`)
-  // of a defect surviving in the sibling a single-element scope could not see.
+  // The three cases below run over EVERY spec rather than `specs.first`: they
+  // are properties of the emitter, so a sample only ever proved them of
+  // whichever fixture happened to be declared first — and this file already
+  // records one such defect surviving in the unscoped sibling (see
+  // `everyFixtureExercisesVotingNotJustItsShape`).
 
   @Test("two runs of the same spec produce byte-identical fixtures")
   func emitterIsDeterministic() async throws {
@@ -129,7 +129,7 @@ struct ParityFixtureEmitterTests {
       // Keyed on the spec's own scenario path rather than a hard-coded preset
       // id, which was only ever true of the two `target_score_race` fixtures.
       // `#require`, not `?? ""`: `String.contains("")` is `true`, so an empty
-      // fallback would pass vacuously — the shape this file elsewhere refuses.
+      // fallback would pass vacuously.
       let basename = try #require(spec.scenarioPath.split(separator: "/").last)
       let scenarioId = basename.replacingOccurrences(of: ".yaml", with: "")
       #expect(fixture.scenarioJSON.contains(scenarioId), "\(spec.name): expected id \(scenarioId)")
@@ -169,11 +169,10 @@ struct ParityFixtureEmitterTests {
     // emitter still succeeds and `--check` merely asks for a regeneration, after
     // which the fixture drives a different divergence than its own KDoc claims.
     // Nothing else on the Swift side reddens, so these two assertions are it.
-    // Selected BY NAME, not by position. `specs.last` used to be the divergent
+    // Selected BY NAME, not by position: `specs.last` used to be the divergent
     // spec and silently became `parityStructuralControl` when a third fixture
-    // was appended — the assertions below then measured the wrong pair and
-    // failed for a reason that had nothing to do with their subject. A
-    // positional handle into a list that grows is a latent mis-selection.
+    // was appended, so the assertions below measured the wrong pair and failed
+    // for a reason unrelated to their subject.
     guard
       let nominal = ParityFixtureEmitter.specs.first(where: { $0.name == "targetScoreRaceNominal" }
       ),
@@ -230,22 +229,21 @@ struct ParityFixtureEmitterTests {
     for spec in ParityFixtureEmitter.specs {
       let fixture = try await ParityFixtureEmitter.run(spec)
 
-      // Not every fixture scores. `parityStructuralControl` is a single
+      // Not every fixture scores: `parityStructuralControl` is a single
       // `speak_all` turn pair with no vote, no `score_calc` and no
-      // `conditional` — the assertions below are meaningless there, and would
-      // fail for the right shape and the wrong reason.
+      // `conditional`, so the assertions below would fail there for the right
+      // shape and the wrong reason.
       //
-      // **Derived from the run, never hand-listed by name.** A name-based skip
-      // is the same shape as the `specs.first` scoping this test's own comment
-      // records as how the second instance survived: it silently stops covering
-      // any fixture added later.
+      // **Derived from the run, never hand-listed by name** — a name-based skip
+      // silently stops covering any fixture added later, the same shape as the
+      // `specs.first` scoping above.
       //
       // **One predicate per assertion, not one for all three.** A single
       // vote-keyed guard would skip a fixture running `score_calc` and
       // `conditional` without a `vote` — a shape nothing forbids — while the
       // counter stayed positive on the two `target_score_race` fixtures, so the
-      // loss would be silent. That is the same defect displaced from names onto
-      // one phase type rather than removed.
+      // loss would be silent: the same defect displaced onto one phase type
+      // rather than removed.
       func runsPhase(_ type: String) -> Bool {
         fixture.transcript.contains {
           $0.contains("\"event\":\"phase_started\"") && $0.contains("\"phase_type\":\"\(type)\"")

@@ -5,11 +5,7 @@ import Foundation
 // producing a `Fixture` (the specs, `run`, `normalize`, `encodeScenario`) stays
 // there; turning fixtures into generated Kotlin lives here.
 //
-// The move is byte-faithful for `header`, `fixtureBlock`, `stringList`, `kdoc`
-// and `assertRawStringSafe` — `kotlinSource` was decomposed but emits the same
-// output. `allList(_:)` and the `all` roster it renders are NEW, not relocated;
-// read the generated diff with that in mind. No `nonisolated`
-// marker is needed on the extension — `PasturaHarnessKit` declares no
+// The extension needs no `nonisolated` marker — `PasturaHarnessKit` declares no
 // `.defaultIsolation(MainActor.self)` in `Package.swift`, unlike `PasturaCore`,
 // so `swift-isolation.md` Pattern 3 does not reach this target.
 extension ParityFixtureEmitter {
@@ -25,8 +21,6 @@ extension ParityFixtureEmitter {
   ///
   /// **That gate runs in CI only** — `harness-build`, next to `emit-golden
   /// --check`; no git hook builds this package, so a local commit is unguarded.
-  /// Deferring it to slice 1b weighed the wrong thing — staleness in a
-  /// *generated* file needs no consumer, and #1397 changed it unwatched.
   package static func kotlinSource(from fixtures: [Fixture]) throws -> String {
     var lines = header()
     for fixture in fixtures {
@@ -76,11 +70,11 @@ extension ParityFixtureEmitter {
     lines.append("        name = \"\(fixture.name)\",")
     // `.trimIndent()` because Kotlin — unlike a Java text block — keeps the
     // newline after the opening `"""` and the one before the closing one.
-    // Without it this one field's bytes would be `"\n" + <what Swift emitted>
-    // + "\n"` while `responses` and `transcript` are exact, and the consumer
-    // would have to know which fields to trim. `trimIndent` strips the blank
-    // first/last lines and finds no common indentation to remove, since the
-    // JSON sits at column 0.
+    // Without it this one field would read `"\n" + <what Swift emitted> + "\n"`
+    // while `responses` and `transcript` are exact, and the consumer would have
+    // to know which fields to trim. `trimIndent` strips the blank first/last
+    // lines and finds no common indentation to remove, the JSON being at
+    // column 0.
     lines.append("        scenarioJson = \"\"\"")
     lines.append(fixture.scenarioJSON)
     lines.append("\"\"\".trimIndent(),")
@@ -99,9 +93,8 @@ extension ParityFixtureEmitter {
       "     * Every fixture, so a consumer cannot silently scope itself to one.",
       "     *",
       "     * The named properties above are the readable handles; this is what",
-      "     * tests iterate. A guard written over a hand-listed subset keeps",
-      "     * passing when a fixture is added, and an unexercised fixture looks",
-      "     * exactly like a green one.",
+      "     * tests iterate. A guard over a hand-listed subset keeps passing when",
+      "     * a fixture is added, and an unexercised fixture looks green.",
       "     */",
       "    internal val all: List<Fixture> = listOf("
     ]
@@ -157,9 +150,8 @@ extension ParityFixtureEmitter {
       }
       // Symmetry, not an asserted parse failure. Kotlin's documented raw-string
       // limitation is the *trailing* quote — the opener is exactly three quotes,
-      // so a fourth at the start is content. A leading quote is rejected here as
-      // conservatism rather than because it is known to break the parse; the
-      // claim is deliberately weaker than the trailing arm's, which is verified.
+      // so a fourth at the start is content. Rejected here as conservatism, a
+      // deliberately weaker claim than the verified trailing arm's.
       if payload.hasPrefix("\"") {
         throw ParityFixtureError.rawStringUnsafe(fixture.name, "a leading quote")
       }

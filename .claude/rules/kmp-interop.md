@@ -155,12 +155,11 @@ resolves it and passes — only `compileCommonMainKotlinMetadata` fails. **Run
 instances found so far carry their own why-comments at the call site (`RegexOption.DOT_MATCHES_ALL`,
 `String.codePointCount`, `Map.toSortedMap`); the rule here is the task, not the list.
 
-One instance bites **test authoring** specifically and carries a consequence the others do not:
-`KClass.sealedSubclasses` is JVM-only, and it is the natural way to prove a test roster covers a
-sealed hierarchy. Because ADR-023 Decision 5 requires the `macosArm64` rung, roster completeness
-in `commonTest` can only ever be a **pin** (an asserted count) plus the `else`-free `when` that
-breaks the build — never a proof. Say so where you write the pin, or the next reader takes it for
-one.
+One instance bites **test authoring** specifically: `KClass.sealedSubclasses` is JVM-only, and it
+is the natural way to prove a test roster covers a sealed hierarchy. Since ADR-023 Decision 5
+requires the `macosArm64` rung, roster completeness in `commonTest` can only be a **pin** (an
+asserted count) plus the `else`-free `when` that breaks the build — never a proof. Say so where
+you write the pin, or the next reader takes it for one.
 
 **Divergences from the Swift original** (the first fails loudly at the port site; the second is the
 compile-clean one):
@@ -250,35 +249,32 @@ Worked example: `NarrateHandlerTests` (#1331).
 **Resolving a divergence silently disarms whatever parity fixture arm drove it.** Converging the
 engines retires the `DivergenceClass` an arm exercised, and the arm goes with it — with no
 assertion seeing the case and its entry deleted **together**. `someFixtureDrivesBothEntryKinds`
-now reddens on it (#1458); the two guards that do *not* live in `DivergenceLedgerTests`, and why
-neither can — plus the reproduction that confirmed both stay green through it — is in
-`DivergenceLedger.kt`'s `DivergenceClass` KDoc.
+now reddens on it (#1458); why the other guards stay green, and the reproduction confirming it,
+are in `DivergenceLedger.kt`'s `DivergenceClass` KDoc.
 **Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only
 instance of that entry kind; if so, re-arm rather than recording a bare "not reachable", which is
 an enumeration over *existing* cases and cannot see an unledgered divergence. Motivating incident:
 ADR-021 § Amendment 2026-08-06 retiring `SCHEMA_GUARD_POSITION`.
 
 **A parity fixture's `responses` list is positional, so a retry-count divergence must have its
-surplus reabsorbed.** When one engine accepts an answer the other retries on, the retrying side
-consumes the *following* turns' answers — which are valid same-schema JSON, so it often succeeds
-with shifted content instead of diverging as intended, and everything after is noise about
-alignment rather than about the engines. **Apply**: pick the placement before scripting it. Only
-the run's **last** LLM call (surplus falls into the replay padding) or a deliberate compensating
-burn on the following indices works, so give the divergence a scenario whose last turn has nothing
-downstream — `parity_structural.yaml` exists for that. Per-call alignment *tags* do not help;
-keying responses by `<agent>/<phase>/<attempt>` would, and that is a schema change. Worked
-reasoning: #1458.
+surplus reabsorbed.** The retrying engine consumes the *following* turns' answers — valid
+same-schema JSON, so it often succeeds with shifted content instead of diverging as intended, and
+everything after is noise about alignment rather than about the engines. **Apply**: pick the
+placement before scripting it. Only the run's **last** LLM call (surplus falls into the replay
+padding) or a deliberate compensating burn on the following indices works, so give the divergence
+a scenario whose last turn has nothing downstream — `parity_structural.yaml` exists for that.
+Per-call alignment *tags* do not help; keying responses by `<agent>/<phase>/<attempt>` would, and
+that is a schema change. Worked reasoning: #1458.
 
 **A Kotlin mirror of a Swift `Codable` wire shape matches `JSONEncoder` in none of three
 behaviours by default.** Sorted keys apply at *every* depth; `nil` is omitted rather than written
 as `null`; and an integral `Double` drops its `.0` (`0.0` → `0`) while a fractional one keeps its
-decimals. The third is the one that bites silently: `TranscriptComparator` compares
-`JsonPrimitive.content` as **text**, and `EventLine.t` is non-optional on every line, so a bare
-`JsonPrimitive(0.0)` puts a diff on 100% of them. **Apply**: build the line as a `JsonObject`
-rather than a `@Serializable data class` — that fixes all three at once — and write it against a
-*measured* Swift line, never against the fixtures' observed lines: a field no fixture populates is
-exactly the one that bites later. `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that
-measurement, and it carries the per-key surprises (`.convertToSnakeCase` splits on uppercase only)
-so they do not have to live here. Unrelated to ADR-023's divergence-6 ruling, which is
-`JSONResponseParser` normalizing model values inside `fields` — don't resolve either by pointing
-at the other.
+decimals. The third bites silently: `TranscriptComparator` compares `JsonPrimitive.content` as
+**text**, and `EventLine.t` is non-optional on every line, so a bare `JsonPrimitive(0.0)` puts a
+diff on 100% of them. **Apply**: build the line as a `JsonObject` rather than a `@Serializable
+data class` — that fixes all three at once — and write it against a *measured* Swift line, never
+against the fixtures' observed lines: a field no fixture populates is exactly the one that bites
+later. `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that measurement, and carries the
+per-key surprises (`.convertToSnakeCase` splits on uppercase only). Unrelated to ADR-023's
+divergence-6 ruling, which is `JSONResponseParser` normalizing model values inside `fields` —
+don't resolve either by pointing at the other.

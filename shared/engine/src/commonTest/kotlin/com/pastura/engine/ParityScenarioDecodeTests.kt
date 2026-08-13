@@ -52,10 +52,9 @@ class ParityScenarioDecodeTests {
 
     /**
      * The roster is generated (`parity-emit --write`), so an empty one is a
-     * plausible failure rather than a theoretical one — and every loop in this
-     * file would then pass while measuring nothing. This file is the declared
-     * first gate for the slice, so it states the precondition rather than
-     * inheriting it.
+     * plausible failure — and every loop in this file would then pass while
+     * measuring nothing. Stated here rather than inherited, since this file is
+     * the slice's declared first gate.
      */
     @Test
     fun theGoldenRosterIsNotEmpty() {
@@ -114,12 +113,11 @@ class ParityScenarioDecodeTests {
      *
      * Without it the green result above is unfalsifiable: a decoder that ignored
      * unknown keys would pass every assertion in this file while silently
-     * accepting exactly the drift the gate is for. The key is injected at the
-     * top level (reaching [Scenario]) and again inside the phase list (reaching
-     * `Phase`), because a nested descriptor is where a Swift-side field addition
-     * would most plausibly land — `ignoreUnknownKeys` is one setting on the
-     * `Json` instance and applies at every depth, so the second case is
-     * corroboration rather than a distinct mechanism.
+     * accepting exactly the drift the gate is for. Injected at the top level
+     * (reaching [Scenario]) and inside the phase list (reaching `Phase`), where
+     * a Swift-side field addition would most plausibly land —
+     * `ignoreUnknownKeys` is one setting applying at every depth, so the second
+     * case is corroboration rather than a distinct mechanism.
      */
     @Test
     fun strictDecodingRejectsAKeyKotlinDoesNotKnow() {
@@ -149,11 +147,9 @@ class ParityScenarioDecodeTests {
      * shape varies by error class, and some variants quote the offending input
      * — which would carry the key and let a key-only check pass a *parse*
      * failure. The one broken-document case probed here (a structural break
-     * placed before the key) does not: it raises `Unexpected JSON token at
-     * offset 1 … at path: $`, with no input dump, so the key conjunct alone
-     * would already have reddened it. Treat the phrase as making the guarantee
-     * explicit rather than as a check known to be load-bearing — and note that
-     * a break placed *after* the key is unreachable, because strict mode
+     * before the key) does not: it raises `Unexpected JSON token at offset 1 …
+     * at path: $` with no input dump, so the key conjunct alone would already
+     * have reddened it. A break *after* the key is unreachable — strict mode
      * rejects the key before the parser gets there.
      */
     private fun assertRejectsInjectedKey(where: String, mutated: String, original: String) {
@@ -184,10 +180,9 @@ class ParityScenarioDecodeTests {
         const val INJECTED_KEY = "__notAKnownKey__"
 
         /**
-         * kotlinx's strict-mode wording. Matched alongside [INJECTED_KEY]
-         * because the key alone cannot separate a rejection from a parse
-         * failure — the exception message quotes the document, which contains
-         * the key either way.
+         * kotlinx's strict-mode wording, matched alongside [INJECTED_KEY] —
+         * see [assertRejectsInjectedKey] for how far that conjunct is
+         * demonstrated.
          */
         const val UNKNOWN_KEY_PHRASE = "Encountered an unknown key"
     }

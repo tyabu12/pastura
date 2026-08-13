@@ -93,9 +93,9 @@ struct RunLogTests {
   /// (`shared/engine/src/commonTest/.../EventLineMapper.kt`) has to reproduce
   /// this shape, and kotlinx.serialization matches none of it by default. This
   /// test is that contract in executable form, so the mirror is written against
-  /// measured bytes rather than against the two parity fixtures' observed lines
-  /// — a field those fixtures never populate is exactly the one that would bite
-  /// later. Four behaviours it fixes, each of which the mirror re-implements:
+  /// measured bytes rather than the parity fixtures' observed lines — a field
+  /// those fixtures never populate is exactly the one that bites later. Four
+  /// behaviours it fixes, each re-implemented by the mirror:
   ///
   /// - **Keys sort at every depth**, not just the top level (`relationships`
   ///   sorts its outer *and* inner maps).
@@ -105,11 +105,11 @@ struct RunLogTests {
   ///   `totalRounds` becomes `total_rounds`. Measured, not derived from the
   ///   strategy's documentation.
   /// - **An integral `Double` drops its `.0`** (`t`, `duration_seconds` → `0`)
-  ///   while a fractional one keeps its decimals. This is `JSONEncoder`
-  ///   behaviour, and it is unrelated to the ADR-023 divergence-6 ruling on
-  ///   `JSONResponseParser`'s value normalization — that one is engine
-  ///   behaviour inside `fields`, this one is the transcript encoder. Do not
-  ///   resolve either by pointing at the other.
+  ///   while a fractional one keeps its decimals. `JSONEncoder` behaviour,
+  ///   unrelated to the ADR-023 divergence-6 ruling on `JSONResponseParser`'s
+  ///   value normalization — that one is engine behaviour inside `fields`, this
+  ///   one is the transcript encoder. Do not resolve either by pointing at the
+  ///   other.
   @Test func fullyPopulatedLinePinsTheWireShape() throws {
     let line = EventLine(
       t: 0, attempt: 0, event: "probe", agent: "b", round: 2, totalRounds: 4,

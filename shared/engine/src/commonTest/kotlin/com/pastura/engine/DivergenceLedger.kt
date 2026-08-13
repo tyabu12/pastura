@@ -12,12 +12,10 @@ package com.pastura.engine
  * fire. The second half is what stops the ledger widening — a stale entry is a
  * build failure rather than a permanent licence.
  *
- * **This is now wired to real transcripts.** [entries] is read by
- * `EngineParityTests`, which replays each `ParityGolden` fixture through the
- * Kotlin engine and compares. Slice 1b (#1458) joined the schema, the
- * comparator and the golden, which 1a (#1387) had left as three unconnected
- * pieces. The paragraphs below describe a gate that runs, not one that is
- * planned.
+ * [entries] is read by `EngineParityTests`, which replays each `ParityGolden`
+ * fixture through the Kotlin engine and compares — so the paragraphs below
+ * describe a gate that runs. Slice 1b (#1458) joined the schema, the comparator
+ * and the golden, which 1a (#1387) had left as three unconnected pieces.
  *
  * ## Why entries pin values instead of listing fields to ignore
  *
@@ -47,36 +45,28 @@ internal object DivergenceLedger {
      * the source that documents it, so an entry cannot cite something that was
      * never written down.
      *
-     * **Two gaps this file used to name are now closed** by
-     * `DivergenceLedgerTests` (#1458): a case that outlives its entries is a
-     * pre-approved licence, and an entry with a typo'd `fixture` is silently
-     * out of scope rather than unfired, so it vanishes with no signal when the
-     * divergence it covered also closes.
-     *
-     * The first gap's *prescribed remedy* — "a test asserting every case is
-     * cited" — turned out to be unsatisfiable, and the correction is worth
-     * keeping visible: four of the six cases below are documented divergences
-     * no fixture can structurally reach, so that assertion would have been red
-     * the day it landed. [unreachableClasses] carries the shape that works.
-     * The gap list inherited the blind spot of the list it was drawn from,
-     * which is a hazard of gap lists generally, not a one-off.
-     *
-     * **The third gap is closed too**, by `someFixtureDrivesBothEntryKinds`.
-     * Neither assertion above sees a case and its entry deleted **together** —
-     * which is what resolving a divergence does. Nothing is left unfired, and
-     * "every case is accounted for" quantifies over survivors, so the negative
-     * control can lose an entire entry *kind* while staying green. ADR-021's
-     * Amendment 2026-08-06 retired `SCHEMA_GUARD_POSITION` and cost the control
-     * its only structural arm exactly this way.
+     * `DivergenceLedgerTests` (#1458) guards the three ways this file rots: a
+     * case that outlives its entries (a pre-approved licence), an entry whose
+     * `fixture` names nothing (silently out of scope rather than unfired), and
+     * a case deleted **together** with its entries — which is what resolving a
+     * divergence does, and which the first two miss by construction: nothing is
+     * left unfired, and the accounted-for partition quantifies over survivors.
+     * ADR-021's Amendment 2026-08-06 retired `SCHEMA_GUARD_POSITION` and cost
+     * the control its only structural arm exactly that way; only
+     * `someFixtureDrivesBothEntryKinds` reddens on it.
      *
      * That guard was verified by reproducing the incident rather than by
-     * argument: converging the engines on the fixture's divergent turn, then
-     * deleting [DivergenceClass.MULTI_OBJECT_SALVAGE] together with **both** the
-     * [entries] rows and the [callCountDivergences] row that cite it — leaving
-     * either behind fails to compile, and leaving the map row in place would
-     * redden the call-count assertion instead, falsifying the "only the
-     * kind-coverage one reddens" claim. Done that way, `EngineParityTests` goes
-     * fully green and both assertions above stay green.
+     * argument: converge the engines on the control's divergent turn, then
+     * delete [DivergenceClass.MULTI_OBJECT_SALVAGE] with **both** the [entries]
+     * rows and the [callCountDivergences] row citing it — leaving either behind
+     * fails to compile, and leaving the map row would redden the call-count
+     * assertion instead, falsifying the "only kind-coverage reddens" claim.
+     * Done that way, `EngineParityTests` goes green and the other two guards
+     * stay green.
+     *
+     * A case no fixture can drive is declared in [unreachableClasses] rather
+     * than cited: the plain "every case is cited" test this KDoc once
+     * prescribed is unsatisfiable, and that property's KDoc records why.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
         /**
@@ -126,11 +116,11 @@ internal object DivergenceLedger {
          * residue unchanged, so the parse fails and the turn exhausts its
          * retries into a `turnSkipped`.
          *
-         * Pinned on both sides by paired parser tests fed byte-identical
-         * input: `JSONResponseParserTests+Repair.swift`'s
+         * Both sides are pinned by parser tests fed byte-identical input:
          * `salvagesFirstObjectFromMultiObjectResponseWhenSchemaGuardPasses`
-         * and `JSONResponseParserTests.kt`'s
-         * `multiObjectResponseFailsTheParseEvenWithASatisfiedSchema`.
+         * (`JSONResponseParserTests+Repair.swift`) and
+         * `multiObjectResponseFailsTheParseEvenWithASatisfiedSchema`
+         * (`JSONResponseParserTests.kt`).
          */
         MULTI_OBJECT_SALVAGE(
             "JSONResponseParser.swift multi_object_salvage (#907) vs " +
@@ -143,23 +133,22 @@ internal object DivergenceLedger {
      * Every accepted divergence, across every fixture.
      *
      * `TranscriptComparator.compare` scopes this to one fixture per call, so an
-     * entry can never leak into a fixture it was not written for — and an entry
+     * entry can never leak into a fixture it was not written for — and one
      * whose `fixture` names nothing is silently out of scope rather than
-     * unfired, which is what `everyEntryNamesAKnownFixture` exists to catch.
+     * unfired, which `everyEntryNamesAKnownFixture` catches.
      *
-     * **Adding an entry is not the default response to a red parity run.** The
-     * regime ADR-023 §12 condition 3 chose is dual-landing: on a surface with a
-     * Kotlin counterpart, a new Swift-only divergence is *fixed*, not excused.
-     * An entry is correct only when the divergence is genuinely accepted and
-     * already documented — which the [DivergenceClass] requirement enforces,
-     * since citing one means the write-up exists.
+     * **Adding an entry is not the default response to a red parity run.**
+     * ADR-023 §12 condition 3 chose dual-landing: on a surface with a Kotlin
+     * counterpart, a new Swift-only divergence is *fixed*, not excused. An
+     * entry is correct only for a divergence genuinely accepted and already
+     * documented — which citing a [DivergenceClass] enforces.
      */
     internal val entries: List<LedgerEntry> = listOf(
-        // Ordinal 0, not 3. The divergent fixture's first three answers drive
+        // Ordinal 0, not 3: the divergent fixture's first three answers drive
         // アオイ's turn to a skip, so the FIRST `agent_output` Swift emits is
         // ハルト's — the one carrying the float. Counted against the generated
-        // bytes rather than inferred from the response indices, because those
-        // two disagree exactly when a turn is skipped.
+        // bytes, not inferred from the response indices, because those two
+        // disagree exactly when a turn is skipped.
         LedgerEntry.Value(
             fixture = "targetScoreRaceDivergent",
             event = "agent_output",
@@ -174,7 +163,7 @@ internal object DivergenceLedger {
         //
         // Ada's turn (call 0) carries the same float key, so this fixture
         // drives one divergence of EACH entry kind by itself — which is what
-        // `kindCoverage` holds it to.
+        // `someFixtureDrivesBothEntryKinds` holds it to.
         LedgerEntry.Value(
             fixture = "parityStructuralControl",
             event = "agent_output",
@@ -185,19 +174,19 @@ internal object DivergenceLedger {
             divergenceClass = DivergenceClass.NUMBER_LITERAL_FORMATTING,
         ),
 
-        // Bo's turn (call 1) is the structural arm. Swift salvages in one
-        // call and emits an `agentOutput`; Kotlin fails the parse and burns
-        // two more attempts before skipping. Every attempt emits its own
-        // `inference_started` / `inference_completed` pair, so the surplus
-        // shows up as four Kotlin-only lines BEFORE the `turnSkipped` — the
-        // part an estimate based on "one event each way" misses.
+        // Bo's turn (call 1) is the structural arm. Swift salvages in one call
+        // and emits an `agentOutput`; Kotlin fails the parse and burns two more
+        // attempts before skipping. Each attempt emits its own
+        // `inference_started` / `inference_completed` pair, so the surplus is
+        // four Kotlin-only lines BEFORE the `turnSkipped` — the part an estimate
+        // based on "one event each way" misses.
         //
-        // ⚠️ The two `inference_started` lines are BYTE-IDENTICAL, as are the
-        // two `inference_completed` ones: `t` and `attempt` are pinned to 0,
-        // so nothing in the text distinguishes attempt 2 from attempt 3. That
-        // is exactly why `Structural` keys on an ordinal as well as the line —
-        // without it, one entry would satisfy both positions and the walk
-        // would re-sync a line early, absorbing an ordering regression.
+        // ⚠️ Both `inference_started` lines are BYTE-IDENTICAL, as are both
+        // `inference_completed` ones: with `t` and `attempt` pinned to 0,
+        // nothing distinguishes attempt 2 from attempt 3. Hence `Structural`
+        // keying on an ordinal as well as the line — otherwise one entry would
+        // satisfy both positions and the walk would re-sync a line early,
+        // absorbing an ordering regression.
         LedgerEntry.Structural(
             fixture = "parityStructuralControl",
             side = Side.SWIFT_ONLY,
@@ -268,27 +257,15 @@ internal object DivergenceLedger {
      * expected line) has a key shape for it — which is why it gets its own map
      * rather than a third entry kind.
      *
-     * **Pinned rather than excused, and that is the point.** A structural
-     * divergence in which one engine retries and the other does not IS a
-     * retry-count divergence; `ParityGolden.Fixture.callCount` exists as a
-     * first-class field for exactly that reason. Absent this map the honest
-     * choices were to relax the equality assertion — which would stop
-     * detecting an unintended extra call anywhere — or to let the fixture fail.
-     * Pinning both sides keeps the surplus itself under assertion.
-     *
-     * A fixture absent from here must match Swift's count exactly.
-     * `everyCallCountDivergenceNamesAKnownFixture` keeps the keys honest, and
-     * a divergence that closes fails on the pinned value rather than passing
-     * quietly.
-     *
-     * **A row must still describe a divergence**, which
-     * `everyCallCountDivergenceStillDiverges` enforces. This map has no
-     * counterpart to `Report.unfired`: a row whose [CallCountDivergence.expectedKotlin]
-     * equals the fixture's own `callCount` asserts nothing, yet still counts as
-     * a citation in `DivergenceLedgerTests.citedClasses` — so "fixing" a failed
-     * pin by copying Swift's number would keep a retired [DivergenceClass]
-     * accounted for and suppress the cite-or-declare-unreachable choice the
-     * partition test exists to force. Delete the row instead.
+     * **Pinned rather than excused, and that is the point.** Absent this map
+     * the honest choices were to relax the equality assertion — which would
+     * stop detecting an unintended extra call anywhere — or to let the fixture
+     * fail. A fixture absent from here must match Swift's count exactly, and a
+     * divergence that closes fails on the pinned value rather than passing
+     * quietly. `everyCallCountDivergenceStillDiverges` and
+     * `everyCallCountDivergenceNamesAKnownFixture` keep the rows honest; the
+     * former's KDoc has the asymmetry with `Report.unfired` that makes it
+     * necessary.
      */
     internal val callCountDivergences: Map<String, CallCountDivergence> = mapOf(
         // Swift salvages the multi-object answer in one call; Kotlin fails the
@@ -313,16 +290,16 @@ internal object DivergenceLedger {
      *
      * **Why this exists rather than a plain "every case is cited" test.** That
      * is what this file's gap list prescribed, and it is unsatisfiable: four of
-     * the six cases are documented divergences the fixtures structurally
-     * cannot reach, so the assertion would have been red on the day it landed.
-     * The remedy inherited the blind spot of the list it came from.
+     * the six cases are documented divergences the fixtures structurally cannot
+     * reach, so the assertion would have been red the day it landed. (The gap
+     * list inherited the blind spot of the list it was drawn from — a hazard of
+     * gap lists generally.)
      *
-     * What survives of the original intent is the part that matters — a case
-     * with no entry must not sit there as a pre-approved licence. So every case
-     * is accounted for exactly once, either by a firing [entries] row or by a
-     * row here, and `everyDivergenceClassIsCitedOrDeclaredUnreachable` enforces
-     * the partition in both directions. Adding a case then forces a choice that
-     * shows up in review, which is the property the gap was about.
+     * What survives of the intent is the part that matters — a case with no
+     * entry must not sit there as a pre-approved licence. So every case is
+     * accounted for exactly once, by a firing [entries] row or by a row here,
+     * with `everyDivergenceClassIsCitedOrDeclaredUnreachable` enforcing the
+     * partition both ways. Adding a case then forces a choice visible in review.
      *
      * A reason here is a claim about the *fixtures*, not about the divergence:
      * when a fixture gains the ability to drive one of these, the row moves to

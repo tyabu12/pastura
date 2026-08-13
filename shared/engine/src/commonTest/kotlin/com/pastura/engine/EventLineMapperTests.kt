@@ -24,15 +24,12 @@ import kotlin.test.assertTrue
  *
  * They do not replace the end-to-end fixtures and are not replaced by them: a
  * fixture exercises whichever events its scenario happens to produce, while
- * [everyKind] reaches every kind — including the ~18 that no fixture drives,
- * where a wrong field name would otherwise ship silently.
+ * [everyKind] reaches every kind — including the ~18 that no fixture drives.
  *
  * **What the pinned lines are and are not evidence of.** Their initial values
- * were derived from the Swift original arm by arm (`EventLineMapper.swift`
- * plus the encoder rules the Swift pin measures), not read back from this
- * mapper's output. What they buy afterwards is regression protection: a
- * renamed key or a dropped field fails here rather than in a fixture that may
- * not exercise the arm at all.
+ * were derived from the Swift original arm by arm (`EventLineMapper.swift` plus
+ * the encoder rules the Swift pin measures), not read back from this mapper's
+ * output. Afterwards they buy regression protection, nothing more.
  */
 class EventLineMapperTests {
 
@@ -129,12 +126,11 @@ class EventLineMapperTests {
     )
 
     /**
-     * Every arm projects to its pinned line — including the ~18 no fixture
-     * drives.
+     * Every arm projects to its pinned line.
      *
-     * This is the assertion that makes the roster worth having. Without it the
-     * only coverage for most arms was "does not return null", under which a
-     * wrong key name or a swapped payload passes.
+     * The assertion that makes the roster worth having: the alternative
+     * coverage, "does not return null", passes on a wrong key name or a swapped
+     * payload.
      */
     @Test
     fun everyKindProjectsToItsPinnedLine() {
@@ -159,17 +155,15 @@ class EventLineMapperTests {
      * Keeps [everyKind] honest about being a roster rather than a sample.
      *
      * **This is a pin, not a proof, and the distinction is load-bearing.** The
-     * check that would actually prove coverage —
-     * `SimulationEvent::class.sealedSubclasses` — is JVM-only reflection, and
-     * this suite must also compile and run on `macosArm64` per ADR-023
-     * Decision 5, so it is unavailable here. What genuinely breaks on a new
+     * check that would prove coverage — `SimulationEvent::class.sealedSubclasses`
+     * — is JVM-only reflection, unavailable in a suite that must also run on
+     * `macosArm64` (ADR-023 Decision 5). What genuinely breaks on a new
      * `SimulationEvent` case is [EventLineMapper]'s `else`-free `when`; this
-     * assertion's job is narrower — to make the author who just fixed that
-     * compile error notice that the roster needs the case too, instead of
-     * leaving the projection they just wrote unasserted.
+     * assertion's narrower job is to make the author who just fixed that
+     * compile error notice the roster needs the case too.
      *
-     * Same shape as `PhaseTypeTests`' `allCases.count == 14` pin, and it shares
-     * that pin's weakness: bumping the number is as easy as adding the entry.
+     * Same shape as `PhaseTypeTests`' `allCases.count == 14` pin, with the same
+     * weakness: bumping the number is as easy as adding the entry.
      */
     @Test
     fun theRosterIsOneEntryPerKindAndItsSizeIsPinned() {
@@ -210,8 +204,8 @@ class EventLineMapperTests {
     fun nullPayloadFieldsAreOmittedRatherThanEncodedAsNull() {
         // `tokenCount` and `detected` are the two nullable payload fields the
         // projection reads; Swift omits a `nil` rather than writing `null`.
-        // Their non-null shapes are pinned in the roster above, so these
-        // assertions cannot pass because the key never appears at all.
+        // Their non-null shapes are pinned in the roster above, so neither
+        // assertion can pass because the key never appears at all.
         val noTokens = assertNotNull(
             EventLineMapper.map(
                 SimulationEvent.InferenceCompleted(

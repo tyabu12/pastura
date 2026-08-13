@@ -83,22 +83,15 @@ machine-checked — see the maintenance invariant above.
   in `kmp-build-test`) and nightly on Kotlin/Native (`:shared:engine:build` includes
   `macosArm64Test`); `parity-emit --check` in `harness-build` guards the generated golden from
   either drift direction. **The happy-path fixture agrees with nothing excused** — a full
-  four-round run, event for event and field for field, less four fields held constant by two
-  different mechanisms: `duration_seconds` and `raw_text` are normalized away (see
-  `ParityFixtureEmitter.normalize` for why each is excluded), while `t` and `attempt` are
-  pinned to 0 by the emitter's `EventLineMapper.map(…, t: 0, attempt: 0)` call rather than
-  normalized — which is why a `Structural` ledger entry has byte-identical lines to tell apart
-  and keys on an ordinal.
+  four-round run, event for event and field for field, less four fields held constant:
+  `duration_seconds` and `raw_text` are normalized away (`ParityFixtureEmitter.normalize`), while
+  `t` and `attempt` are pinned to 0 by the emitter — which is why a `Structural` ledger entry has
+  byte-identical lines to tell apart and keys on an ordinal.
 
-  Three fixtures, and the split is load-bearing: the nominal one carries the real-scenario
-  parity claim, and the two controls exist so the ledger's own mechanisms are provably
-  reachable. `parityStructuralControl` uses a `tools/harness/`-owned scenario rather than a
-  shipped preset because the surviving scriptable structural divergence costs Kotlin two extra
-  backend calls, and `Fixture.responses` is positional — the surplus has to land on the run's
-  last turn or it shifts every later answer. `someFixtureDrivesBothEntryKinds` keeps the control
-  honest: it is the only assertion that reddens when a `DivergenceClass` and its entries are
-  deleted *together*, which is what resolving a divergence does and how ADR-021's Amendment
-  2026-08-06 silently cost the control its structural arm.
+  Of the three fixtures the nominal one carries the real-scenario parity claim; the two controls
+  exist so the ledger's own mechanisms stay provably reachable, with
+  `someFixtureDrivesBothEntryKinds` keeping the structural one armed. Why each is shaped as it
+  is: the `purpose` strings on `ParityFixtureEmitter.specs`.
 
   Residue, all scope rather than mechanism: **S3** RNG-bearing presets + the remaining 6 phase
   handlers, **S4** the cancellation event tail, **S5** ADR-023 §5.2 invariant 1's

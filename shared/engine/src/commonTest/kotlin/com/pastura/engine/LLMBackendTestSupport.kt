@@ -69,16 +69,14 @@ internal class ScriptedLLMBackend(
      * retry-budget detector, and a plain `var` would reach that assertion only
      * through whatever happens-before edge the surrounding poll incidentally
      * provides. A stale read there is the shape that presents as a K/N-only
-     * flake in the one assertion whose whole job is to be exact.
+     * flake in the one assertion whose whole job is to be exact — the race
+     * [Collector]'s KDoc describes.
      *
      * **Held uniformly rather than only where a suite reads it today.** No
-     * `SimulationEngine`-driven test asserts [requests] or [cancelCount] yet —
-     * every current reader drives a handler directly — so leaving them plain
-     * would break nothing now and hand the first such assertion exactly the
-     * flake described above, with nothing in the file saying why one member
-     * carried the treatment and its siblings did not. The same reasoning is
-     * what [Collector]'s KDoc calls "a genuine data race … undefined behaviour
-     * on Kotlin/Native".
+     * `SimulationEngine`-driven test asserts [requests] or [cancelCount] yet,
+     * so leaving them plain would break nothing now and hand the first such
+     * assertion exactly that flake, with nothing saying why one member carried
+     * the treatment and its siblings did not.
      */
     @OptIn(ExperimentalAtomicApi::class)
     private val callIndex = AtomicInt(0)
@@ -105,11 +103,10 @@ internal class ScriptedLLMBackend(
     override fun generateStream(request: GenerationRequest, callbacks: StreamCallbacks): StreamHandle {
         recorded.update { it + request }
         // `fetchAndAdd` rather than a load / store pair: the pair is a
-        // non-atomic read-modify-write, sound here only by the sequential-calls
-        // argument above, which is the argument this class is trying not to
-        // depend on. The counter therefore advances BEFORE the script lookup —
-        // a call with no script left was still issued, and the message below
-        // reports it as such.
+        // non-atomic read-modify-write, sound only by the sequential-calls
+        // argument this class is trying not to depend on. So the counter
+        // advances BEFORE the script lookup — a call with no script left was
+        // still issued, and the message below reports it as such.
         val index = callIndex.fetchAndAdd(1)
         val script = scripts.getOrNull(index)
             ?: throw IllegalStateException(

@@ -3,15 +3,15 @@
 # Lives under tools/harness/ deliberately: it is machinery coverage, not
 # content. `PresetLoader` never sees it, `pastura-harness lint` does not glob
 # this directory, and nothing bundles it into the app. The parity claim about
-# *real* scenarios rides on the fixtures built from Presets/; this one exists
-# so the negative control can drive a STRUCTURAL divergence without dragging a
-# shipped preset's scoring semantics into the ledger.
+# *real* scenarios rides on the fixtures built from Presets/; this one lets the
+# negative control drive a STRUCTURAL divergence without dragging a shipped
+# preset's scoring semantics into the ledger.
 #
 # Shape is load-bearing and minimal on purpose:
 # - one round, one `speak_all`, two agents => exactly two LLM turns;
-# - the divergent turn is therefore the LAST turn of the run, so the Kotlin
-#   engine's surplus retry calls fall into the parity suite's padding instead
-#   of shifting every later answer (the responses list is positional);
+# - the divergent turn is therefore the LAST of the run, so the Kotlin engine's
+#   surplus retry calls fall into the parity suite's padding instead of shifting
+#   every later answer (the responses list is positional);
 # - `output:` declares `statement`, which is what makes Swift's schema-guarded
 #   multi-object salvage accept where Kotlin's parser fails.
 #

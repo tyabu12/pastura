@@ -9,16 +9,12 @@ import kotlin.test.assertTrue
 /**
  * Structural guards on the ledger itself, closing gaps its own KDoc named.
  *
- * These are distinct from `EngineParityTests`, which checks whether the entries
- * describe reality. These check whether the ledger is *well-formed* — a
- * malformed one fails silently rather than loudly, which is why it needs its
- * own tests:
- *
- * - a `DivergenceClass` with no entry is a pre-approved licence a later author
- *   can attach to with no enum diff at all;
- * - an entry whose `fixture` matches no fixture is filtered out of scope by
- *   `TranscriptComparator.compare`, so it is neither applied nor reported
- *   unfired — it vanishes with no signal.
+ * Distinct from `EngineParityTests`, which checks whether the entries describe
+ * reality. These check that the ledger is *well-formed*, which it can stop
+ * being without any test reddening: a `DivergenceClass` with no entry is a
+ * pre-approved licence, and an entry whose `fixture` matches nothing is
+ * filtered out of scope by `TranscriptComparator.compare` — neither applied nor
+ * reported unfired.
  */
 class DivergenceLedgerTests {
 
@@ -29,12 +25,11 @@ class DivergenceLedgerTests {
      * Every citation of a [DivergenceClass], across **both** containers.
      *
      * `callCountDivergences` cites classes too, and reading only `entries` left
-     * a hole exactly where this file's guards are supposed to be tight: a class
-     * cited solely by a retry-budget row and also listed in
-     * `unreachableClasses` satisfied both halves of the partition — absent from
-     * `cited`, so nothing looked unaccounted; absent from the intersection, so
-     * nothing looked doubly-declared. A demonstrably reachable divergence would
-     * then sit on record as unreachable with no signal.
+     * a hole: a class cited solely by a retry-budget row and also listed in
+     * `unreachableClasses` satisfied both halves of the partition below —
+     * absent from `cited`, so nothing looked unaccounted; absent from the
+     * intersection, so nothing looked doubly-declared. A demonstrably reachable
+     * divergence would then sit on record as unreachable with no signal.
      */
     private val citedClasses: Set<DivergenceClass>
         get() = (
@@ -79,24 +74,16 @@ class DivergenceLedgerTests {
     /**
      * The third gap: some fixture must drive **both** entry kinds.
      *
-     * This is the only assertion that reddens on the incident that motivated
-     * it. ADR-021's Amendment 2026-08-06 converged the engines and retired
-     * `SCHEMA_GUARD_POSITION`, deleting the case **and** its entry together —
-     * and both other guards stayed green through it, by construction:
-     *
-     * - nothing was left unfired, so `Report.isClean` was satisfied;
-     * - "every case is accounted for" quantifies over surviving cases, so a
-     *   paired deletion is invisible to it.
-     *
-     * The control silently lost an entire entry *kind* and kept passing. Only
-     * counting kinds catches that.
+     * The only assertion that reddens on the incident that motivated it — see
+     * `DivergenceLedger.DivergenceClass`'s KDoc for the incident and for why
+     * the other guards stay green through a paired deletion.
      *
      * **Held per fixture, not across the set.** A set-level version would be
      * satisfied by two fixtures driving one kind each, which is exactly the
-     * state that hides the next paired deletion: losing one fixture's only
-     * kind still leaves the other's. Requiring one fixture to exhibit both
-     * costs a single extra override on `parityStructuralControl` and is
-     * strictly stronger.
+     * state that hides the next paired deletion: losing one fixture's only kind
+     * still leaves the other's. Requiring one fixture to exhibit both costs a
+     * single extra override on `parityStructuralControl` and is strictly
+     * stronger.
      */
     @Test
     fun someFixtureDrivesBothEntryKinds() {
@@ -132,13 +119,11 @@ class DivergenceLedgerTests {
      * failure — while `callCountDivergences` is read only where the pin is
      * compared, so a row equal to the fixture's own `callCount` passes forever
      * and asserts nothing. It still counts as a citation in [citedClasses],
-     * which means it keeps a retired `DivergenceClass` "accounted for" and
-     * suppresses the deliberate cite-or-declare-unreachable choice
-     * [everyDivergenceClassIsCitedOrDeclaredUnreachable] exists to force.
-     *
-     * The shape it catches is the plausible one, not a hypothetical: converging
-     * the engines drops Kotlin to Swift's count, the pin reddens, and editing
-     * the pinned number is the obvious way to make the failure go away.
+     * keeping a retired `DivergenceClass` "accounted for" and suppressing the
+     * choice [everyDivergenceClassIsCitedOrDeclaredUnreachable] exists to
+     * force. And the shape is the plausible one: converging the engines drops
+     * Kotlin to Swift's count, the pin reddens, and editing the pinned number
+     * is the obvious way to make that go away.
      */
     @Test
     fun everyCallCountDivergenceStillDiverges() {
@@ -186,13 +171,12 @@ class DivergenceLedgerTests {
      * An entry naming a fixture that does not exist is silently out of scope.
      *
      * `TranscriptComparator.compare` filters by `fixture` name, so a typo
-     * removes the entry from every comparison — it is neither applied nor
-     * reported unfired. It then disappears without a signal when the divergence
-     * it covered closes, which is the second gap the ledger's KDoc named.
+     * removes the entry from every comparison — neither applied nor reported
+     * unfired — and it then disappears without a signal when the divergence it
+     * covered closes.
      *
-     * This is checkable only because `ParityGolden` carries a generated `all`
-     * roster; against the hand-listed properties it would itself have been a
-     * subset that drifts.
+     * Checkable only because `ParityGolden` carries a generated `all` roster;
+     * against the hand-listed properties it would itself be a drifting subset.
      */
     @Test
     fun everyEntryNamesAKnownFixture() {

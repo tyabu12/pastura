@@ -25,12 +25,10 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * ## The `when` is exhaustive with no `else`, deliberately
  *
- * That is the compile-time canary: a new `SimulationEvent` case breaks this
- * file rather than silently projecting to nothing. It mirrors the obligation
- * the Swift original carries in its third tier, and the reason is the same —
- * a `SimulationEvent` addition that reaches only one engine's transcript is
- * exactly the drift the parity suite exists to catch, and a case falling into
- * an `else` would present as "no divergence".
+ * The compile-time canary the Swift original also carries: a `SimulationEvent`
+ * addition reaching only one engine's transcript is exactly the drift the
+ * parity suite exists to catch, and a case falling into an `else` would present
+ * as "no divergence".
  *
  * ## What has to match, and what does not
  *
@@ -41,7 +39,7 @@ import kotlinx.serialization.json.JsonPrimitive
  * content**, because `TranscriptComparator.render` reads `JsonPrimitive.content`
  * verbatim. The Swift side's exact bytes are pinned by
  * `RunLogTests.fullyPopulatedLinePinsTheWireShape`; this file is written
- * against that measurement, not against the two fixtures' observed lines.
+ * against that measurement, not against the fixtures' observed lines.
  */
 internal object EventLineMapper {
 
@@ -85,12 +83,10 @@ internal object EventLineMapper {
                 "phase_path" to path(event.phasePath),
             )
             // No `raw_text` arm: Kotlin's `TurnOutput` carries no `rawText`, an
-            // omission its own class KDoc records as deliberate ("parser
-            // provenance metadata … not part of the wire-shape contract"). The
-            // Swift emitter strips it in `ParityFixtureEmitter.normalize` so the
-            // two sides compare like for like — see that function for why
-            // dropping it loses nothing (`Fixture.responses` already freezes
-            // the model's literal answer).
+            // omission its own class KDoc records as deliberate. The Swift
+            // emitter strips its own in `ParityFixtureEmitter.normalize` so the
+            // two sides compare like for like — see that function for what the
+            // stripping costs.
             is SimulationEvent.AgentOutput -> fields(
                 "event" to JsonPrimitive("agent_output"),
                 "agent" to JsonPrimitive(event.agent),
@@ -144,11 +140,10 @@ internal object EventLineMapper {
                 "condition" to JsonPrimitive(event.condition),
                 "result" to JsonPrimitive(event.result),
             )
-            // Both payloads are optional (`case eventInjected(event: String?)`
-            // Swift-side), so a Kotlin null omits the key exactly as Swift's
-            // `nil` does. Unexercised by every fixture — no scenario here runs
-            // an `event_inject` phase — which is a coverage note, not a caveat
-            // about the shapes.
+            // Optional on both sides (`case eventInjected(event: String?)`), so
+            // a Kotlin null omits the key exactly as Swift's `nil` does. No
+            // fixture runs an `event_inject` phase, so this arm is unexercised
+            // end to end.
             is SimulationEvent.EventInjected -> fields(
                 "event" to JsonPrimitive("event_injected"),
                 "value" to event.event?.let { JsonPrimitive(it) },
@@ -162,19 +157,15 @@ internal object EventLineMapper {
                 "phase_path" to path(event.phasePath),
             )
             // ⚠️ KNOWN TO DISAGREE WITH SWIFT, AND UNEXERCISED — but DETERMINISTIC,
-            // which `toString()` was not.
+            // which `toString()` was not: `SimulationError`'s singletons are
+            // plain `object`s, so `toString()` falls through to `Any.toString()`
+            // and yields `…SimulationError$Cancelled@7ceb3185`, whose identity
+            // hash changes every run. No fixture reaches an error path today, so
+            // nothing was red; the first one that does would have made the
+            // golden drift against itself.
             //
-            // `SimulationError`'s singleton cases are plain `object`s, not `data
-            // object`s, so `toString()` falls through to `Any.toString()` and
-            // yields `com.pastura.models.SimulationError$Cancelled@7ceb3185` —
-            // measured, and the identity hash changes every run. No fixture
-            // reaches an error path today, so nothing was red; the first one
-            // that does would have made the golden drift against itself.
-            // `simpleName` is stable and is the "normalize to the case name"
-            // arm #501's 2026-08-06 comment names.
-            //
-            // It still will not match Swift, which projects via
-            // `String(describing: error)` and yields the lowercase enum case
+            // `simpleName` still will not match Swift, which projects via
+            // `String(describing: error)` and yields the lowercase case
             // (`cancelled` vs `Cancelled`); and a payload-carrying case loses
             // its payload here where Swift keeps it. Whoever first drives an
             // error path — S4's cancellation tail is the likely trigger — must
@@ -237,12 +228,11 @@ internal object EventLineMapper {
      *
      * The two sides' collation can in principle disagree on non-ASCII keys
      * (Kotlin compares UTF-16 code units), a cousin of the ledgered
-     * `SCOREBOARD_ORDERING` class. It would not affect the *path-based* field
-     * comparison — but it would change a [DivergenceLedger.LedgerEntry.Structural]
-     * entry's pinned bytes, which is exactly why the class KDoc above says key
-     * order is fixed here for those entries. It does not arise in the current
-     * fixtures: every agent name is BMP (katakana or ASCII), where the two
-     * orderings coincide.
+     * `SCOREBOARD_ORDERING` class. That would not affect the *path-based* field
+     * comparison, but it would change a
+     * [DivergenceLedger.LedgerEntry.Structural] entry's pinned bytes. It does
+     * not arise in the current fixtures: every agent name is BMP (katakana or
+     * ASCII), where the two orderings coincide.
      */
     private fun sorted(map: Map<String, JsonElement>): JsonObject =
         JsonObject(map.entries.sortedBy { it.key }.associate { it.key to it.value })
@@ -261,14 +251,13 @@ internal object EventLineMapper {
      * That one is engine behaviour and is pinned as a ledger entry; this one is
      * the transcript encoder. Do not resolve either by pointing at the other.
      *
-     * The `toLong` conversion is safe over this domain — `t` and
-     * `durationSeconds` are second counts — and is not claimed beyond it.
-     *
-     * The fractional branch is **unreachable on the fixture path** and measured
-     * only at exactly-representable values (`1.5`, `2.25`): the emitter passes
-     * `t: 0, attempt: 0` and normalizes `durationSeconds` to `0`. A future
-     * non-zero `t` would expose Swift's `1e-05` against Kotlin's `1.0E-5`, so
-     * do not read the green suite as evidence that branch agrees.
+     * `toLong` is safe over this domain — `t` and `durationSeconds` are second
+     * counts — and is not claimed beyond it. The fractional branch is
+     * **unreachable on the fixture path** (the emitter passes `t: 0` and
+     * normalizes `durationSeconds` to `0`) and measured only at
+     * exactly-representable values (`1.5`, `2.25`): a future non-zero `t` would
+     * expose Swift's `1e-05` against Kotlin's `1.0E-5`, so do not read the green
+     * suite as evidence that branch agrees.
      */
     private fun number(value: Double): JsonPrimitive =
         if (value.isFinite() && floor(value) == value) {
