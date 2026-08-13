@@ -6,7 +6,7 @@ import UIKit
 
 // §2.9 dark-mode token-pair tests. Protects ADR-028's mechanism decision:
 // `PasturaDynamicColor` resolves a light/dark pair through a `UIColor` dynamic
-// provider, and the 68 paired `Color.*` aliases are actually wired to it.
+// provider, and the 69 paired `Color.*` aliases are actually wired to it.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -110,13 +110,13 @@ extension DesignTokensTests {
     #expect(PasturaDynamicPalette.headerMetaInk.dark == PasturaPalette.nightHeaderMetaInk)
   }
 
-  /// Guards the registry's documented size, NOT completeness: declaring a 69th
-  /// pair without appending it to `all` leaves the count at 68 and passes. What it
+  /// Guards the registry's documented size, NOT completeness: declaring a 70th
+  /// pair without appending it to `all` leaves the count at 69 and passes. What it
   /// does catch outright is a copy-paste duplicate in `all` (the `Set` line).
   /// Per-alias coverage lives in `DesignTokensTests+DarkModeWiring`.
-  @Test func exactlySixtyEightPairsAreWired() {
-    #expect(PasturaDynamicPalette.all.count == 68)
-    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 68)
+  @Test func exactlySixtyNinePairsAreWired() {
+    #expect(PasturaDynamicPalette.all.count == 69)
+    #expect(Set(PasturaDynamicPalette.all.map(\.name)).count == 69)
   }
 
   /// The false-green guard the tolerance note above is really asking for.

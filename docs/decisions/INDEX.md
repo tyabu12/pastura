@@ -159,13 +159,13 @@ closure being inferred `@MainActor` while UIKit may invoke it off-main
 half stays armed at § Revisit trigger's stated thresholds; several fixes
 post-date the device pass that closed gates 4 and 5 and so head
 `docs/qa/dark-mode-qa.md`'s re-run list, one of them partially re-checked with
-its gaps stated (§ Amendment 2026-07-31 → "What is NOT confirmed"); and the
-`inkSecondary` dark-side gap (§ Amendment 2026-08-08 → "What is not covered",
-#1408). **A token's contrast exemption is scoped to the grounds it was measured
+its gaps stated (§ Amendment 2026-07-31 → "What is NOT confirmed"). The `inkSecondary`
+dark-side gap is **closed** by a paired role token (§ Amendment 2026-08-13
+(#1408)). **A token's contrast exemption is scoped to the grounds it was measured
 on** — design-system §8 exempts `muted` from the 4.5:1 bar on the strength of one
 ground, so a label ambient there can be far below the bar on a tinted fill; the
 family that owns the ground supplies the replacement, never a §2.4 preset rung
-(§ Amendment 2026-08-13, whose app-wide sweep is #1448)
+(§ Amendment 2026-08-13 (#1427), whose app-wide sweep is #1448)
 (Status: Accepted; #1274)
 
 ## ADR-029 — Shared-scenario highlights (static curated excerpts)

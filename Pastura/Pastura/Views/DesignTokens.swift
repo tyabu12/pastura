@@ -116,6 +116,29 @@ enum PasturaPalette {
   static let muted = PasturaColorValue(hex: 0x8A8A83)
   /// Rule / divider lines.
   static let rule = PasturaColorValue(hex: 0xE0DBCE)
+  /// Neutral text on a translucent ink-family wash — badges, chips, status pills.
+  ///
+  /// The ink-family sibling of `mossOnWash`, and **not a fifth rung** of the
+  /// ladder above for the same reason: its job is to read against a ground.
+  /// Four sites paint `inkSecondary` as both the label and its own translucent
+  /// capsule wash (a *self-wash*), which is where that token stops being the
+  /// constraint-free neutral it is everywhere else.
+  ///
+  /// The light half is **byte-identical to `inkSecondary`**: light was not
+  /// broken (5.270–5.595 across the four sites on `screenBackground`, the
+  /// worst-case light ground), so the pair exists to give *dark* a value of its
+  /// own — see `nightInkOnWash`.
+  ///
+  /// **Copied, not aliased**, and the reason runs the other way: an alias would
+  /// have cost dark nothing (that half is declared independently), but it would
+  /// make a future light-side retune of `inkSecondary` silently drag this token
+  /// along. Same shape as `headerMetaInk` duplicating `metaBaseL3`'s hex for a
+  /// different role (§2.12).
+  ///
+  /// Valid over **translucent** ink-family washes only; an opaque neutral fill
+  /// takes the §2.6 Soft+Ink pairing instead (#1407's shape). Asserted by
+  /// `DesignTokensTests+InkOnWash` (#1408).
+  static let inkOnWash = PasturaColorValue(hex: 0x5A5A55)
 
   // MARK: §2.3 Moss Accent — Pastura's only brand color, 4 steps + 1 role token
 

@@ -302,10 +302,18 @@ struct ResultsView: View {
 
   // Internal (not private) so the timeline node reuses the pill tint as its
   // dot color (single source — see `ResultsView+Timeline.timelineRow`).
+  //
+  // `.paused` reads `inkOnWash`, not the `inkSecondary` filling its capsule
+  // below. Alone among the four sites #1408 repointed it was **not failing**
+  // (4.773:1 dark), so this buys margin (5.397:1) and consistency; light is
+  // byte-identical. `.pending` is a self-wash too but deliberately stays —
+  // design-system §8's quietude tier, swept app-wide by #1448. The timeline dot
+  // follows by design and needs no edit of its own: it is non-text, so WCAG
+  // 1.4.11's 3:1 applies and every candidate clears it.
   func pillForeground(_ style: ResultPill.Style) -> Color {
     switch style {
     case .completed: Color.mossInk
-    case .paused: Color.inkSecondary
+    case .paused: Color.inkOnWash
     case .pending: Color.muted
     }
   }

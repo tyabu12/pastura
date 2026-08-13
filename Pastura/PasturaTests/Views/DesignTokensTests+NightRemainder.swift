@@ -39,6 +39,7 @@ extension DesignTokensTests {
       (PasturaPalette.nightPromoBackground, 0x282C24),
       (PasturaPalette.nightPromoBorder, 0x35392F),
       (PasturaPalette.nightInkOnAccent, 0x2C2F28),
+      (PasturaPalette.nightInkOnWash, 0xBAB7A9),
       (PasturaPalette.nightMossDark, 0xB3C197),
       (PasturaPalette.nightMossInk, 0xC6CBB1),
       (PasturaPalette.nightMossSoft, 0x384029),

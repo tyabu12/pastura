@@ -64,34 +64,34 @@ nonisolated enum ScenarioBadgeStyle: Equatable {
 ///
 /// Token choice follows the ``PhaseTypeLabel`` precedent and design-system
 /// § 2.3, which keeps base `moss` for fills / borders. So the tinted badge takes
-/// `moss` for its wash; the quieter `secondary` uses `inkSecondary` for both.
-/// The wash opacities are **not** shared with `PhaseTypeLabel` (which uses 0.15
-/// for both) — the tinted badge sits on a card background and needs 0.2 to read.
+/// `moss` for its wash and the quieter `secondary` takes `inkSecondary`; each
+/// **label** then reads its family's `*OnWash` role token rather than the wash
+/// token itself. The wash opacities are **not** shared with `PhaseTypeLabel`
+/// (which uses 0.15 for both) — the tinted badge sits on a card background and
+/// needs 0.2 to read.
 ///
-/// The tinted **label** is the `mossOnWash` role token, not the `mossDark` that
-/// §2.3 lists for accent text. `mossDark` was the shipped choice and it did not
-/// reach the 4.5:1 bar on any wash the app renders: measured on this composite
-/// (label over `moss` @0.2 over `bubbleBackground`), **light appearance**,
-/// `mossDark` gives **≈3.92:1** — better than the ≈2.51:1 a `moss` label would
-/// give, but still short. `mossOnWash` brings it to **≈5.78:1** (#1327).
-/// `secondary` measures ≈5.57:1, also light.
+/// The tinted label is `mossOnWash`, not the `mossDark` §2.3 lists for accent
+/// text. `mossDark` was the shipped choice and reached the 4.5:1 bar on no wash
+/// the app renders: over `moss` @0.2, **light**, it gives ≈3.92:1 — better than
+/// the ≈2.51:1 a `moss` label would give, but short. `mossOnWash` brings it to
+/// ≈5.78:1 (#1327). In dark it was already passing at ≈4.77:1 and goes to
+/// ≈5.11:1, so that swap bought margin rather than fixing a failure.
 ///
-/// Every token in that composite is paired, so these are light-appearance
-/// figures rather than absolutes — the three grounds since ADR-028 slice 4,
-/// and `mossOnWash` from birth as the 68th pair (#1327), which is *not* from
-/// any slice. Measured on the dark
-/// composite (`nightMossOnWash` label over a `nightMoss` wash at the same 0.2
-/// fill opacity, composited over `nightBubble` → composited wash #454A3B):
-/// **≈5.11:1**, up from ≈4.77:1 under `nightMossDark`. Dark already passed the
-/// bar before this change — the #1327 gap was light-only — so the swap buys
-/// margin here rather than fixing a failure.
-/// The `secondary` style is the opposite trade: `nightInkSecondary` over its own
-/// token at 0.15 measures **≈4.5:1**, i.e. it lands ON the bar in dark where
-/// light clears it at ≈5.57:1. That one is not fixed here — `mossOnWash` is a
-/// moss-family token and does not reach the ink family; tracked in #1408.
-/// Do not read § 2.2's ≈3.03 / ≈4.74 figures as covering either appearance:
-/// those are `inkOnAccent` on a **solid** fill (white only in light), a
-/// different pairing.
+/// `secondary` broke in the other appearance, and was a real failure rather
+/// than a margin buy: `inkSecondary` over its own token at 0.15 measures 5.350:1
+/// in light but **4.501:1** in dark — green by 0.001, with no room for a later
+/// wash tweak. `mossOnWash` cannot reach it (wrong family), so #1408 minted
+/// `inkOnWash`, whose light half is `inkSecondary` byte-for-byte and whose dark
+/// half takes this site to 5.090:1.
+///
+/// **The two sets of figures use different grounds** and are not a before/after
+/// of each other: the moss ones are per-site over `bubbleBackground` /
+/// `nightBubble`, the card this badge sits on; the `secondary` ones are the
+/// worst-case-per-appearance convention `DesignTokensTests+InkOnWash` asserts.
+/// Every token in these composites is paired, so all of them are per-appearance
+/// figures rather than absolutes. Do not read § 2.2's ≈3.03 / ≈4.74 figures as
+/// covering either appearance: those are `inkOnAccent` on a **solid** fill
+/// (white only in light), a different pairing.
 ///
 /// These are trait-resolving `Color.*` aliases on purpose: the badge renders
 /// live on-device, so it must follow the device appearance. A fixed-appearance
@@ -123,7 +123,7 @@ extension ScenarioBadgeStyle {
   var labelToken: Color {
     switch self {
     case .tint: return Color.mossOnWash
-    case .secondary: return Color.inkSecondary
+    case .secondary: return Color.inkOnWash
     }
   }
 

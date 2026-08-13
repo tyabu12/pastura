@@ -9,7 +9,7 @@
 #
 # ja / light only, and light is now a CHOICE this script enforces rather than a
 # property of the app: #1284 removed Info.plist's UIUserInterfaceStyle, so the
-# app follows the device and all 67 ADR-028 pairs resolve. A dark marketing set
+# app follows the device and all 69 ADR-028 pairs resolve. A dark marketing set
 # is deferred (#1274 discussion) — until someone decides to add one, this
 # captures light. Local-run only by design — MarketingShotTests is CI-skipped
 # (6.9"-pinned, UI-test flake class).

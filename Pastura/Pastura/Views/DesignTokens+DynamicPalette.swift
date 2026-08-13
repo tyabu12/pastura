@@ -22,19 +22,20 @@ import SwiftUI
 
 /// The light↔dark token pairs wired into the app's `Color.*` aliases.
 ///
-/// **68 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
+/// **69 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
 /// §2.7 interactive states from slice 1 of gate 1 (#1282), plus the §2.4 meta
 /// presets and two of the three §2.12 header slots from slice 2 (#1313), plus
 /// the §2.5 character palette from slice 3 (#1319), plus the §2.1/§2.3/§2.8
 /// remainder and `inkOnAccent` from slice 4 — the last one, which **closed
 /// gate 1**.
 ///
-/// The slices account for 67 of those. The 68th, `mossOnWash`, is the first
-/// pair added **after** gate 1 closed, and it arrived for a different reason:
-/// not a light token owed a dark half, but a new light token that had to exist
-/// at all, born paired because §2.9 is now how the palette works (#1327). So
-/// "which slice is it from?" has no answer for it, and the enumeration above is
-/// a provenance list rather than a partition of the count.
+/// The slices account for 67 of those. The remaining two are the **role
+/// tokens**, `mossOnWash` (#1327) and `inkOnWash` (#1408), both added *after*
+/// gate 1 closed and for a different reason than any slice: not a light token
+/// owed a dark half, but a new light token that had to exist at all, born
+/// paired because §2.9 is now how the palette works. So "which slice is it
+/// from?" has no answer for either, and the enumeration above is a provenance
+/// list rather than a partition of the count.
 ///
 /// Exactly **one** light token remains unpaired, and gate 1 owes an answer for
 /// **none**. `headerMetaSubdued` is that one: slice 2 recorded it as fixed in
@@ -264,6 +265,9 @@ enum PasturaDynamicPalette {
   /// §2.3 — accent text on a moss wash.
   static let mossOnWash = PasturaDynamicColor(
     light: PasturaPalette.mossOnWash, dark: PasturaPalette.nightMossOnWash)
+  /// §2.2 — neutral text on an ink wash.
+  static let inkOnWash = PasturaDynamicColor(
+    light: PasturaPalette.inkOnWash, dark: PasturaPalette.nightInkOnWash)
   /// §2.8 — link, default state.
   static let link = PasturaDynamicColor(
     light: PasturaPalette.link, dark: PasturaPalette.nightLink)
@@ -278,10 +282,10 @@ enum PasturaDynamicPalette {
   ///
   /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
   /// does and does not catch: the registry is hand-maintained, so declaring a
-  /// 69th pair and *not* appending it here leaves `all.count == 68` and passes.
+  /// 70th pair and *not* appending it here leaves `all.count == 69` and passes.
   /// The count guards this list against its own documented size, nothing more —
   /// the real per-alias coverage is the wiring tests in
-  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 68 `Color.*`
+  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 69 `Color.*`
   /// aliases under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
@@ -349,6 +353,7 @@ enum PasturaDynamicPalette {
     ("mossInk", mossInk),
     ("mossSoft", mossSoft),
     ("mossOnWash", mossOnWash),
+    ("inkOnWash", inkOnWash),
     ("link", link),
     ("linkVisited", linkVisited),
     ("linkHover", linkHover)

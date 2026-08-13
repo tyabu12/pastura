@@ -89,7 +89,7 @@ dark-mode QA coverage. Against the six classes in
 So B is partially covered, F's *empty / error* surfaces are on tour with the
 class already swept, and the other four are not covered. Everything else
 the dark set shows is the ordinary paired-token surfaces, which gate 1
-closed by measurement and `DesignTokensTests` asserts for all 68 pairs.
+closed by measurement and `DesignTokensTests` asserts for all 69 pairs.
 Treat a finding here as a design observation, not as a defect the device
 walkthrough would have caught.
 

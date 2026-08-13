@@ -20,14 +20,14 @@ import Testing
 /// most likely in an unrelated refactor or an ADR-028 pairing slice. Confirm the
 /// change was intended and passed review, then update the expectation.
 ///
-/// **Why assert the alias, not the hex.** All three tokens this suite reads —
-/// `Color.moss`, `Color.inkSecondary`, `Color.mossOnWash` — are trait-resolving
-/// (`PasturaDynamicPalette`). `mossDark`, which the tinted label read until
-/// #1327, was the one still fixed when this suite landed, and ADR-028 gate 1
-/// slice 4 (#1325) paired it without a line changing here — which was the point
-/// of comparing against the alias. It still reddens if a token is swapped for a
-/// *different* one, the actual drift being guarded; #1327 is that case, and it
-/// reddened as designed.
+/// **Why assert the alias, not the hex.** All four tokens this suite reads —
+/// `Color.moss`, `Color.inkSecondary`, `Color.mossOnWash`, `Color.inkOnWash` —
+/// are trait-resolving (`PasturaDynamicPalette`). `mossDark`, which the tinted
+/// label read until #1327, was the one still fixed when this suite landed, and
+/// ADR-028 gate 1 slice 4 (#1325) paired it without a line changing here — which
+/// was the point of comparing against the alias. It still reddens if a token is
+/// swapped for a *different* one, the actual drift being guarded; #1327 and
+/// #1408 are both that case, and both reddened as designed.
 ///
 /// `@MainActor` is required twice over, which is why it is not removable: this
 /// suite reads the `Color.*` statics directly, and the token members it calls
@@ -58,9 +58,13 @@ struct ScenarioBadgeStyleTokenTests {
     #expect(ScenarioBadgeStyle.tint.labelToken == Color.mossOnWash)
   }
 
-  @Test func secondaryReadsTheNeutralTokenForBoth() {
+  @Test func secondaryReadsTheNeutralWashPair() {
+    // No longer one token twice: the fill stays `inkSecondary`, the label moved
+    // to `inkOnWash` in #1408 for the mirror of the reason the tinted arm moved
+    // in #1327 — this wash was on the bar in dark (4.501:1), not under it, with
+    // no margin left. Figures and grounds: `DesignTokensTests+InkOnWash`.
     #expect(ScenarioBadgeStyle.secondary.fillToken == Color.inkSecondary)
-    #expect(ScenarioBadgeStyle.secondary.labelToken == Color.inkSecondary)
+    #expect(ScenarioBadgeStyle.secondary.labelToken == Color.inkOnWash)
   }
 
   @Test func washOpacitiesAreTheReviewedValues() {

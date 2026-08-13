@@ -3,10 +3,16 @@ import Testing
 @testable import Pastura
 
 /// Pins the LLM-vs-code color pairing on `PhaseTypeLabel`. After the
-/// #171 token retrofit, the two branches land on `Color.moss` (LLM,
-/// accent) and `Color.inkSecondary` (code, neutral) — a regression to
+/// #171 token retrofit, the two branches land on the moss family (LLM,
+/// accent) and the ink family (code, neutral) — a regression to
 /// system-saturated `.purple` / `.orange` would reintroduce the §1
 /// "no saturated colors" violation the retrofit explicitly fixes.
+///
+/// Each branch is now **two** tokens rather than one: `moss` / `inkSecondary`
+/// fill the capsule, while the label reads the family's role token,
+/// `mossOnWash` (#1327) / `inkOnWash` (#1408). Which token each side lands on is
+/// `PhaseTypeLabelTokenTests`' job — the structural check below cannot see it,
+/// for the reason in the next paragraph.
 ///
 /// The color check is structural: we only verify that every LLM phase
 /// picks the same side and every code phase picks the other, via the

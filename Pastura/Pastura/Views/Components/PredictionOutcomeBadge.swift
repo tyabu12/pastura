@@ -54,7 +54,9 @@ extension PredictionOutcomeBadge {
   /// Streak sub-label. Rendered on the hit arm only, so the ground is always the
   /// opaque `mossSoft` capsule and the answer is ``labelToken``'s hit pairing.
   /// The two quieter candidates were refused — `inkSecondary` reaches only 4.262
-  /// in light, `metaBaseL3` is a §2.4 rung — ADR-028 § Amendment 2026-08-13.
+  /// in light, `metaBaseL3` is a §2.4 rung — ADR-028 § Amendment 2026-08-13
+  /// (#1427). The issue number disambiguates: #1408 added a second amendment
+  /// carrying that same date.
   ///
   /// **Accepted cost:** same token as the hit label, so subordination to
   /// "Correct!" rides on weight, not colour. Pending ADR-028 gate 4 device QA in
