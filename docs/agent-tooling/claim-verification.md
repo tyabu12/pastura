@@ -40,6 +40,7 @@ Verify each against its authoritative source *before* the plan locks.
 | An external standard (SEO, RFC, sitemap/robots, OAuth, HTTP semantics) | WebSearch + WebFetch the authority (Google Search Central, the RFC, MDN); verbatim-cite before critic |
 | Vendor feature availability (free/paid/plan tier) | WebFetch the canonical docs; verbatim-quote the "Who can use this feature" box — never infer from search snippets |
 | A subagent's verdict on an external platform fact (SDK annotation, threading contract, API availability) | Re-derive it yourself — a verdict that *dismisses* a risk ends inquiry and is the expensive one to get wrong. Then run the prescribed check against a **known-positive control**; `.claude/rules/swift-isolation.md` § Pattern 7 is the worked instance |
+| A claim **inherited from existing text** — carried into a new file, summary, or INDEX entry from a doc/rule/ADR that already states it | grep the always-loaded `.claude/rules/**` for a **retraction**, not only the source you copied from. Checking the source agrees *by construction*, so that check cannot see that another document has since withdrawn the claim — and it returns a confident "verified". #1439 is the worked instance: a probe-methodology cause was carried out of ADR-028 while Pattern 8 had already retracted it |
 
 This applies to **non-grep claims** too: cited file paths (`find` to confirm existence), `(PR #N)`
 claims about PR body content (`gh pr view N` to verify), heading anchors in cross-doc refs (`grep`
