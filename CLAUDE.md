@@ -283,9 +283,9 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 - `swift-isolation.md` — `nonisolated` annotation traps under default-MainActor isolation. Always-loaded because the diagnostic fires at the use site, not the declaration — and the silent runtime-trap patterns fire none at all.
 - `xcodebuild-cli.md` — xcodebuild CLI playbook (test commands, DerivedData layout, timeout/recovery). Always-loaded because the gotchas surface during worktree switches and CI debugging, not only when editing tests.
-- `subagent-usage.md` — Subagent output-cap discipline (per-model output cap, review-attention scope budget, model choice = cost lever, never a budget escape). Always-loaded because subagent calls originate from any layer.
+- `subagent-usage.md` — Subagent output-cap discipline (per-model output cap, review-attention scope budget, model choice = cost lever, never a budget escape). Always-loaded because subagent calls originate from any layer. Depth in `docs/agent-tooling/subagent-output-cap.md` — **reconcile the pair**, never the rule alone.
 - `context-budget.md` — Content discipline for always-loaded files. Self-applying — route additions to CLAUDE.md / agent docs / any no-`paths:` rule through its classifier first.
-- `knowledge-layering.md` — Which tier knowledge belongs in (memory / `CLAUDE.md` / `.claude/rules/` / `docs/**`) and how to promote memory → rules. Pairs with `context-budget.md`.
+- `knowledge-layering.md` — Which tier knowledge belongs in (memory / `CLAUDE.md` / `.claude/rules/` / `docs/**`) and how to promote memory → rules. Pairs with `context-budget.md`. Depth in `docs/agent-tooling/claim-verification.md` — **reconcile the pair**, never the rule alone.
 
 ## File Naming
 
@@ -337,6 +337,8 @@ same change:
 | `docs/qa/navigation-qa.md`            | Navigation manual QA walkthroughs (numbered scenarios; extracted from `.claude/rules/navigation.md`) |
 | `docs/qa/dark-mode-qa.md`             | Dark-appearance manual QA walkthrough (ADR-028 gates 4/5; the six risk classes no test can reach — fixed tokens, materials, fixed-appearance exports, non-SwiftUI surfaces, occlusion layers, a rendered state with no ground behind it) |
 | `docs/ci/xcodebuild-flakes.md`        | CI + local UI-test flake catalog + hang/stall session-recovery walkthrough (extracted from `.claude/rules/xcodebuild-cli.md`) |
+| `docs/agent-tooling/subagent-output-cap.md` | Depth paired with `.claude/rules/subagent-usage.md` — cap provenance, why the split thresholds are not cap-derived, how a cap hit behaves. Reconcile rule + doc as a pair |
+| `docs/agent-tooling/claim-verification.md` | Depth paired with `.claude/rules/knowledge-layering.md` § "Verify before you lock it" — the claim table, authored-claim shapes in full, promotion mechanics. Reconcile rule + doc as a pair |
 | `docs/prototype/among_them_prototype.py` | Python prototype (reference implementation) |
 
 ### ADR roster
