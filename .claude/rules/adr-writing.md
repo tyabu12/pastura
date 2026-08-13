@@ -26,7 +26,7 @@ Before committing a fact-claim line:
 
 The 5–10 minute investment per commit prevents the kind of 3-review-round cycle that landed 4 fact-errors in ADR-010 body (see #370).
 
-Pairs with `knowledge-layering.md` § "Rule-writing self-check" — different surface, same shape: execute every load-bearing assertion before commit.
+Pairs with `knowledge-layering.md` § "Verify before you lock it" — different surface, same shape: execute every load-bearing assertion before commit. An ADR draft sits at that section's **Plan-lock** moment.
 
 ## 2. Mechanism contract over pinned model thresholds
 

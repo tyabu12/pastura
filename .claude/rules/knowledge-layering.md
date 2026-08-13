@@ -92,13 +92,13 @@ Known carve-outs (where inline rationale would be too dense to migrate):
 See PR #420 for the motivating incident. Long-term, both carve-outs
 should migrate to inline rationale or a public doc home.
 
-## Rule-writing self-check
+## Verify before you lock it
 
-When adding a `.claude/rules/` section (or `CLAUDE.md` content) that includes an **executable assertion** — a grep command with an asserted hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a self-quoted byte/line delta** (re-measure on the *final* commit) — execute it against current main state **before commit**.
+One discipline, three moments where a claim becomes load-bearing and nobody downstream will check it. A reviewer evaluates a rule's *content*, not the check the rule prescribes; the Step 1b `claude-kit:critic` tests internal consistency, not external truth. The author is the only one positioned to run it.
 
-Pre-impl critic and code-reviewer reviews have repeatedly missed this class: they evaluate the *content* of the rule but rarely run the *check* the rule itself prescribes. The writer is the only one who reliably can.
-
-The same "verify before you lock it" discipline extends past rule assertions to **any load-bearing claim a plan leans on**, checked **before plan-lock (Step 1b `claude-kit:critic`)**. The critic's axes are codebase-internal (dependency rules, phase scope, integration risk), so a claim that is *externally* false but internally plausible passes critic and surfaces only at code-review or in production — the plan author is the one positioned to check. Verify each against its authoritative source:
+- **Rule-commit** — a `.claude/rules/` or `CLAUDE.md` addition carrying an **executable assertion** (an asserted grep hit count, a cited `file:line`, a `(PR #N)` claim, a cross-doc heading anchor, **or a self-quoted byte/line delta** — re-measure that one on the *final* commit) is run against current main state **before commit**. Dispositions: § "Apply (verification table)".
+- **Plan-lock** — every load-bearing claim a plan leans on is verified against its authoritative source **before** Step 1b. The critic's axes are codebase-internal (dependency rules, phase scope, integration risk), so an externally-false but internally-plausible claim passes it and surfaces only at code-review or in production. Per-shape checks: the table below.
+- **Authoring** — a why-comment, guard, count, or gap list *you write* asserts behaviour that nobody executes. § "Claims you author are assertions too".
 
 | Claim a plan leans on | Verify by |
 |---|---|
