@@ -43,6 +43,33 @@ extension JSONResponseParserTests {
     #expect(unfixed.fields["statement"] == "偽物")
   }
 
+  /// **A pin on an accepted trade-off, not an assertion of desired behaviour.**
+  /// Read [#1452](https://github.com/tyabu12/pastura/issues/1452) before
+  /// changing it — a failure here means the end arm's unguarded cut moved, and
+  /// the question is whether #1452 was decided, not whether this expectation is
+  /// stale.
+  ///
+  /// The end arm cuts at the first occurrence with no `firstBrace` guard, so a
+  /// *leading* end marker discards the whole payload the model then writes.
+  /// The symmetric-looking fix — reuse the start arm's `> firstBrace` gate —
+  /// is not strictly safer, which is the second `#expect` below: today
+  /// `<|im_end|>{"fake":1}` fails and retries; under that gate the fabricated
+  /// object would be accepted as the turn's answer. Both arms stay as they are
+  /// until #1452 picks a side.
+  @Test func endMarker_leadingMarkerDestroysPayload_acceptedGap() throws {
+    let leadingEcho = """
+      <turn|>
+      {"statement": "本物", "action": "cooperate"}
+      """
+    #expect(throws: LLMError.self) { try parser.parse(leadingEcho, turnMarkers: gemma) }
+
+    // The counter-example that blocks the `> firstBrace` gate: gating the end
+    // arm would turn this throw into an accepted fabricated object.
+    #expect(throws: LLMError.self) {
+      try parser.parse(#"<|im_end|>{"fake":1}"#, turnMarkers: [.chatML])
+    }
+  }
+
   // MARK: - Start arm
 
   /// A start marker **after** the first structural `{` is a fabricated next

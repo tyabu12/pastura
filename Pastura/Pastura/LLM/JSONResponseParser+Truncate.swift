@@ -53,10 +53,21 @@ nonisolated extension JSONResponseParser {
     let chars = Array(text)
     var cut = chars.count
 
-    // End arm — unguarded and string-blind. String-blindness is a known,
-    // accepted gap (a marker spelled inside a JSON string value cuts
-    // mid-string): closing it would change behaviour for ChatML backends,
-    // which this change holds fixed. See the PR body for #1422.
+    // End arm — unguarded and string-blind. Both properties are accepted
+    // gaps, kept because closing either would change behaviour for ChatML
+    // backends, which this change holds fixed. The list is exhaustive:
+    //
+    // 1. String-blind — a marker spelled inside a JSON string value cuts
+    //    mid-string. Not a clean parse failure: the cut leaves an unclosed
+    //    string, the repair pipeline closes the quote and the brace, and the
+    //    silently-truncated value parses and persists (#1422 PR body).
+    // 2. Leading end marker — one occurring before the first structural `{`
+    //    cuts at that index and destroys the entire payload, so a model that
+    //    opens by echoing its own turn-close sentinel loses the object it
+    //    then writes → parse_failed → retry. Deliberately unchanged; the
+    //    obvious `> firstBrace` guard is not strictly safer, because it makes
+    //    `<|im_end|>{"fake":1}` an accepted fabricated object where today it
+    //    fails and retries. Tracked in #1452.
     for marker in markers where !marker.end.isEmpty {
       if let index = Self.firstIndex(of: marker.end, in: chars, from: 0) {
         cut = min(cut, index)

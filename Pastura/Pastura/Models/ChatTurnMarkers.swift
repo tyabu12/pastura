@@ -1,5 +1,3 @@
-import Foundation
-
 /// The turn-boundary sentinels a model's chat template writes around one turn,
 /// **as plaintext**.
 ///

@@ -1,8 +1,11 @@
 import Foundation
 
-// Log-emission helpers factored out of `LLMCaller` so the core file stays
+// Diagnostics helpers factored out of `LLMCaller` so the core file stays
 // under SwiftLint's `file_length` budget (mirrors `LLMCaller+StreamFailure`).
-// These build the fully-rendered message and route it through the injected
+// Mostly log emission, but `parseAndLog` also *parses* and returns a
+// `TurnOutput` — it lives here because the turn-marker set has to be read once
+// and shared with `logChatTemplateLeakage`.
+// The log-emitting members build the fully-rendered message and route it through the injected
 // ``EngineLogger`` seam (#501 S0.2) — the OSLog `category`, message wire
 // format, level, and privacy are preserved so `scripts/analyze-streaming-diag.sh`
 // keeps parsing the same lines.
@@ -106,22 +109,32 @@ nonisolated extension LLMCaller {
   /// what the #65 TODO on `LlamaCppService.stopSequence` is about.
   ///
   /// Severity split is preserved from the pre-#1422 shape: a start marker is
-  /// a fabricated next turn (`.warning`), a lone end marker is the ordinary
-  /// trailing-sentinel case (`.debug`).
+  /// the more suspicious of the two (`.warning`), a lone end marker is the
+  /// ordinary trailing-sentinel case (`.debug`). Suspicion, not a verdict —
+  /// this predicate is a bare substring test and cannot tell a fabricated next
+  /// turn from a header echo or from marker text inside a string value.
   ///
   /// - Parameters:
   ///   - raw: The backend's raw text, before parsing.
   ///   - markers: `LLMService.knownTurnMarkers` for the backend that produced
   ///     `raw`.
   func logChatTemplateLeakage(in raw: String, markers: [ChatTurnMarkers]) {
+    // Both `first(where:)` calls pick the first marker in **array order**, not
+    // the one occurring earliest in `raw`. Only one line is emitted either
+    // way, so with a multi-pair set the reported marker is set-order
+    // arbitrary — read the line as "some marker is present", never as "this
+    // one came first".
     if let marker = markers.first(where: { !$0.start.isEmpty && raw.contains($0.start) }) {
-      // Deliberately does NOT claim the continuation was truncated: the
-      // parser's start arm cuts only after the first structural `{`, so a
-      // leading template-header echo is detected here and left in place
-      // (`JSONResponseParser.truncateAtTurnMarkers`).
+      // The message states presence only, with no claim about what the model
+      // did or what the parser then did. `raw.contains` is a plain substring
+      // test, so it also fires on a leading template-header echo (which the
+      // parser's start arm deliberately leaves in place) and on a marker
+      // spelled inside a JSON string value (fixture:
+      // `JSONResponseParserTests+TurnMarkers.startMarker_insideStringValue…`).
+      // Neither is the model writing past its turn.
       logger.log(
         .warning, category: Self.logCategory,
-        "Turn-start marker \(marker.start) leaked into output — model wrote past its turn",
+        "Turn-start marker \(marker.start) present in raw output",
         privacy: .public)
     } else if let marker = markers.first(where: { !$0.end.isEmpty && raw.contains($0.end) }) {
       logger.log(

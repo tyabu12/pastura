@@ -54,7 +54,10 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// Processing pipeline:
   /// 1. Strip thinking tags (`<think>...`, `<|channel>thought...`)
   /// 2. Truncate at a hallucinated turn boundary, keyed on `turnMarkers` —
-  ///    asymmetric per arm, see ``truncateAtTurnMarkers(_:markers:)`` (#1422)
+  ///    asymmetric per arm, see `truncateAtTurnMarkers(_:markers:)` in
+  ///    `JSONResponseParser+Truncate.swift` (#1422). Plain code span, not a
+  ///    DocC link: that member is internal, so a `` `` link from this public
+  ///    symbol does not resolve.
   /// 3. Extract content from markdown code blocks
   /// 4. Extract the first balanced `{...}` object (string-aware), discarding
   ///    any trailing content after its matching close brace
@@ -83,6 +86,15 @@ nonisolated public struct JSONResponseParser: Sendable {
   /// JSON missing any of those keys is rejected — preserves the original
   /// throw rather than fabricating a `TurnOutput` (#194 PR#a Item 2d).
   ///
+  /// - Parameters:
+  ///   - text: The raw text response from the LLM.
+  ///   - expectedKeys: Schema keys a repaired parse must all carry.
+  ///   - turnMarkers: Turn-boundary sentinels to truncate hallucinated turns
+  ///     at. **Engine call sites must pass `LLMService.knownTurnMarkers`
+  ///     explicitly** — this is the overload `LLMCaller` uses, and taking the
+  ///     default there is the #1422 bug (ChatML literals, inert for Gemma).
+  ///     The default exists only for callers with no backend in scope, namely
+  ///     replay and tests, whose pre-#1422 behaviour it preserves.
   /// - Returns: tuple of the parsed ``TurnOutput`` plus the applied repair
   ///   kind (`"unclosed_string"` / `"unclosed_brace"`, or `+`-joined for
   ///   the composite). `nil` repair kind means the input parsed cleanly

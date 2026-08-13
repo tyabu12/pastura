@@ -36,6 +36,11 @@ nonisolated final class GemmaMarkerLLMService: LLMService, @unchecked Sendable {
 }
 
 /// End-to-end threading of the per-model markers through `LLMCaller` (#1422).
+///
+/// Each test is labelled **Regression** (fails if the fix is reverted) or
+/// **Control** (passes both before and after — it exists to give a Regression
+/// test its contrast). Three of the five are regression tests; do not read the
+/// file's length as five independent guards.
 extension LLMCallerTests {
   /// The raw shape that actually loses the payload: a **fenced** fabricated
   /// continuation, which `extractFromCodeBlock` lifts out ahead of the
@@ -51,7 +56,7 @@ extension LLMCallerTests {
     ```
     """
 
-  /// `LLMCaller` must read the marker set from the live backend. This is the
+  /// **Regression.** `LLMCaller` must read the marker set from the live backend. This is the
   /// integration half of the D2 dynamic-dispatch pin: the caller holds
   /// `any LLMService`, so a statically-dispatched declaration would silently
   /// fall back to ChatML here.
@@ -69,7 +74,7 @@ extension LLMCallerTests {
     #expect(result.statement == "本物")
   }
 
-  /// Negative control on the identical response: a ChatML-only backend takes
+  /// **Control.** Negative control on the identical response: a ChatML-only backend takes
   /// the fabricated continuation. This is the bug #1422 fixes, so it must be
   /// demonstrated rather than asserted — without it, the test above could pass
   /// for reasons unrelated to the marker set.
@@ -87,7 +92,7 @@ extension LLMCallerTests {
     #expect(result.statement == "偽物")
   }
 
-  /// The leakage diagnostic is model-aware: a Gemma turn-start marker now
+  /// **Regression.** The leakage diagnostic is model-aware: a Gemma turn-start marker now
   /// raises the `.warning`, where before #1422 it raised nothing at all.
   @Test func leakageDiagnosticWarnsOnBackendStartMarker() async throws {
     let gemma = GemmaMarkerLLMService(responses: [Self.gemmaHallucination])
@@ -106,9 +111,16 @@ extension LLMCallerTests {
     #expect(warnings.allSatisfy { $0.privacy == .public })
   }
 
-  /// The same raw text through a ChatML-only backend raises **no** warning —
-  /// the silence that made this diagnostic useless for the default shipped
-  /// model. Pins the delta rather than merely the fixed behaviour.
+  /// **Control.** The same raw text through a ChatML-only backend raises **no**
+  /// warning — the silence that made this diagnostic useless for the default
+  /// shipped model. Pins the delta rather than merely the fixed behaviour.
+  ///
+  /// Asserts the absence of **any** `.warning`, not the absence of the string
+  /// `<|turn>`: a substring probe passes on pre-#1422 code for the trivial
+  /// reason that no line is emitted at all, and it also silently couples the
+  /// control to the message wording. Not vacuous — `leakageDiagnosticWarnsOn
+  /// BackendStartMarker` above drives the same raw text to a `.warning`, so
+  /// warnings are reachable on this input and only the marker set differs.
   @Test func leakageDiagnosticIsSilentForNonMatchingMarkers() async throws {
     let mock = MockLLMService(responses: [Self.gemmaHallucination])
     try await mock.loadModel()
@@ -121,10 +133,10 @@ extension LLMCallerTests {
       suspendController: SuspendController(),
       emitter: collector.emit)
 
-    #expect(!spy.entries.contains { $0.message.contains("<|turn>") })
+    #expect(!spy.entries.contains { $0.level == .warning })
   }
 
-  /// A ChatML backend keeps the pre-#1422 diagnostic behaviour verbatim.
+  /// **Regression.** A ChatML backend keeps the pre-#1422 diagnostic behaviour verbatim.
   @Test func leakageDiagnosticStillWarnsOnChatMLStartMarker() async throws {
     let raw = """
       {"statement": "hello"}<|im_end|>

@@ -196,10 +196,12 @@ nonisolated struct LLMCaller: Sendable {
     let completionTokens: Int?
   }
 
-  // Log-emission helpers (`logParseFailure`, `emitRetryCause`,
-  // `logRepairIfNeeded`, `logChatTemplateLeakage`, `logEmptyFields`,
-  // `emitLangCheckSkipped`) live in `LLMCaller+Logging.swift` to keep this
-  // file under SwiftLint's `file_length` budget.
+  // Diagnostics helpers (`logParseFailure`, `emitRetryCause`,
+  // `logRepairIfNeeded`, `parseAndLog`, `logChatTemplateLeakage`,
+  // `logEmptyFields`, `emitLangCheckSkipped`) live in
+  // `LLMCaller+Logging.swift` to keep this file under SwiftLint's
+  // `file_length` budget. `parseAndLog` is the one that is not pure log
+  // emission — it parses and returns a `TurnOutput` (#1422).
 
   // `hasEmptyFields`, `canonicalPrimaryIsMissing` and `shouldRetryEmptyFields`
   // live in `LLMCaller+EmptyPrimary.swift` to keep this file under SwiftLint's

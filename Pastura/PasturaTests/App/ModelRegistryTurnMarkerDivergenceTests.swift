@@ -54,8 +54,14 @@ struct ModelRegistryTurnMarkerDivergenceTests {
 
   /// Every catalog entry must state a usable pair. `turnMarkers` has no default
   /// value precisely so this cannot be reached by omission — but a descriptor
-  /// could still pass empty strings, which would make the truncation predicate
-  /// match at every index.
+  /// could still pass empty strings, and the failure mode is **silence, not
+  /// over-matching**: `truncateAtTurnMarkers` guards `isEmpty` three times (the
+  /// two `where` clauses on the arm loops and `firstIndex`'s own `guard`), so
+  /// an empty pair never matches and the truncation simply stops existing for
+  /// that model — which is #1422's bug, reintroduced one descriptor at a time.
+  /// That silence is why this has to be asserted at the catalog rather than
+  /// left to the truncator, whose graceful degradation is itself pinned by
+  /// `JSONResponseParserTests.emptyMarkerStrings_areIgnored`.
   @Test func everyCatalogEntryHasNonEmptyMarkers() {
     for descriptor in ModelRegistry.catalog {
       #expect(!descriptor.turnMarkers.start.isEmpty, "\(descriptor.id) start")

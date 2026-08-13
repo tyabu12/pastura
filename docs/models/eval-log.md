@@ -4,6 +4,11 @@ Durable, committed ledger of model-candidate **evaluation verdicts** — the
 judgment that a `/model-eval` (Gate 1) or real-device (Gate 2) pass produced,
 so a verdict survives after the intake issue's comment is buried.
 
+It carries one other record class: **corpus observations** — cross-candidate
+measurements over the accumulated harness transcripts, which are gitignored and
+per-machine and so have nowhere else durable to live. They are not verdicts and
+gate nothing; see § "Corpus observations (not candidate verdicts)".
+
 ## What lives where (three record surfaces)
 
 A verdict is recorded in three places with distinct roles — this file is the
@@ -13,7 +18,7 @@ durable, version-controlled one:
 |---|---|---|
 | `data/models/eval-digest.md` | Raw per-cell scorecard (every axis + tok/s), **script-regenerated** by `/model-eval` | Gitignored, **per-machine** — re-sampling rewrites it |
 | GitHub issue #979 | Rolling **intake queue** — triage, candidate proposals | Comment thread, buries over time |
-| **This file** | The **verdict** (`pass` / `borderline` / `fail` / `blocked` + rationale + differentiation) | Committed, PR-reviewed |
+| **This file** | The **verdict** (`pass` / `borderline` / `fail` / `blocked` + rationale + differentiation), plus **corpus observations** (non-gate, § below) | Committed, PR-reviewed |
 
 **Anti-drift rule — entries carry judgment only.** An entry records the verdict,
 date, model id/quant, one-line differentiation, rationale, and an aggregate
@@ -74,7 +79,8 @@ everything else here.
 Cross-candidate measurements over the accumulated harness transcripts. Kept here
 because the transcripts themselves are gitignored and per-machine, so a
 measurement over them is otherwise unrecoverable — but they are **not** verdicts,
-so they carry no gate and use this section rather than a `##` entry heading.
+so they carry no gate and live under `###` subheadings here rather than as
+`## <model> — <date> — **VERDICT**` entries.
 
 ### Spelled-out chat-template markers — 2026-08-13
 

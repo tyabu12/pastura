@@ -60,10 +60,17 @@ enum ModelRegistry {
     // inert here — which is what lets a spelled-out `<turn|>` survive to the
     // parser and reach `turnMarkers` below. Repointing it would activate a
     // behaviour on an assumption; deferred to #1451 (#1417).
+    // Canonical note: `LlamaCppService.stopSequence`. This rationale is
+    // restated across production, the harness profile, and both test pins, and
+    // #1451 has to change all of them (`grep -rn '#1451\|#1417'` enumerates
+    // them) — so keep this pointer; a copy that loses it is the one left behind.
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the exact file pinned above: `<|turn>`
     // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`,
-    // vocab 262,144. Neither ChatML string occurs anywhere in that vocabulary.
+    // vocab 262,144. Neither ChatML string occurs anywhere in that vocabulary
+    // — the one claim here a reader cannot re-derive from the ids above; the
+    // vocabulary sweep that establishes it is `docs/models/onboarding.md`
+    // § "Stage 0 — Harness profile".
     turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
@@ -86,7 +93,8 @@ enum ModelRegistry {
     stopSequence: "<|im_end|>",
     // Qwen 3 genuinely is ChatML: `<|im_start|>` 151644 / `<|im_end|>` 151645,
     // both CONTROL, and `eos = 151645`. The pre-#1422 hardcoded literal was
-    // correct here and only here.
+    // correct here and only here. Procedure that produces these ids:
+    // `docs/models/onboarding.md` § "Stage 0 — Harness profile".
     turnMarkers: .chatML,
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/Qwen/Qwen3-4B-GGUF"),

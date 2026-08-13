@@ -86,13 +86,18 @@ public interface LLMBackend {
      * name-for-name, including where the union is computed, so the two seams
      * stay comparable.
      *
-     * ⚠️ **This default does not cross Kotlin/Native.** A Kotlin interface's
-     * default implementation is not carried into the generated Obj-C protocol
-     * as an optional requirement, so the future Swift adapter over
-     * `LlamaCppService` must state this member explicitly — it will **not**
-     * silently inherit ChatML-only. Same asymmetry class as the default-args
-     * one in `.claude/rules/kmp-interop.md` Pattern 3. That is the safe
-     * direction (the compiler asks), but do not plan around inheritance.
+     * ⚠️ **Expected — not verified — that this default does not cross
+     * Kotlin/Native.** A Kotlin interface's default implementation is not
+     * expected to reach the generated Obj-C protocol as an optional
+     * requirement, which would oblige the Phase 3.0 Swift adapter over
+     * `LlamaCppService` to state this member explicitly rather than inherit
+     * ChatML-only. **Confirm it against the generated `PasturaShared.h` when
+     * that adapter is written** — both Pattern 1 and Pattern 2 in
+     * `.claude/rules/kmp-interop.md` are cases where reasoning from Kotlin
+     * source alone turned out wrong and only the header settled it. No
+     * analogy to Pattern 3 is intended: that asymmetry is silent, whereas an
+     * unimplemented protocol requirement is compiler-caught, so the cost of
+     * this expectation being wrong is a build error, not a wrong default.
      */
     public val knownTurnMarkers: List<ChatTurnMarkers>
         get() = listOf(ChatTurnMarkers.chatML)

@@ -178,9 +178,15 @@ extension LLMService {
   /// value rather than baked into each consumer. Backends that know which
   /// model is loaded override this (currently only ``LlamaCppService``).
   ///
-  /// Explicitly `nonisolated` for the same reason as `generateStream` below:
-  /// under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` this default impl
-  /// otherwise inherits MainActor and blocks every `nonisolated` conformer.
+  /// Explicitly `nonisolated` because this is a **synchronous** member: under
+  /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` a sync default impl inherits
+  /// MainActor and then blocks every `nonisolated` conformer. The `async`
+  /// members on this same extension — `generateWithMetrics`,
+  /// `attachSuspendController` — carry no annotation and compile fine, which
+  /// is what isolates sync-ness as the cause. (Not the escaping-closure
+  /// mechanism `generateStream` below cites; that one is `nonisolated` for
+  /// both reasons at once, so it cannot tell the two apart.)
+  ///
   /// Not defensive — measured by dropping the annotation, which fails the
   /// build with `conformance of 'MockLLMService' to protocol 'LLMService'
   /// crosses into main actor-isolated code` (and the same for `OllamaService`).

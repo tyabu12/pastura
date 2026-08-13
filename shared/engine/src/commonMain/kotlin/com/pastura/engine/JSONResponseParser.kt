@@ -175,6 +175,13 @@ internal class JSONResponseParser {
         var cut = text.length
 
         for (marker in markers) {
+            // These `isEmpty()` guards carry more weight here than their Swift
+            // counterparts: `String.indexOf("")` returns `startIndex`, so an
+            // empty marker would cut at index 0 and destroy every response.
+            // Swift's helper has a third backstop (`firstIndex` returns `nil`
+            // on an empty pattern); Kotlin's `indexOf` has none, so this
+            // `continue` and its sibling in the start arm are the whole
+            // defence, and the two engines agree only because they are here.
             if (marker.end.isEmpty()) continue
             val index = text.indexOf(marker.end)
             if (index >= 0 && index < cut) cut = index

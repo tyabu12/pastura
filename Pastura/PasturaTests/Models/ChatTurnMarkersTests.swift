@@ -30,9 +30,12 @@ struct ChatTurnMarkersTests {
     #expect(lhs.hashValue == rhs.hashValue)
   }
 
-  /// Equality must discriminate on **both** fields — the effective-set union
-  /// in `LLMService.knownTurnMarkers` dedupes by `Hashable`, so a pair that
-  /// compared equal on `start` alone would silently drop a distinct `end`.
+  /// Equality must discriminate on **both** fields. The effective-set union
+  /// does not hash — `LlamaCppService.knownTurnMarkers` decides with a single
+  /// `turnMarkers == .chatML` ternary — so an `==` that ignored `end` would
+  /// collapse a descriptor sharing ChatML's `start` but carrying a distinct
+  /// `end` into the bare `[.chatML]` arm, silently dropping that `end` from
+  /// the set the truncator iterates.
   @Test func hashable_discriminatesOnEachField() {
     let base = ChatTurnMarkers(start: "<a>", end: "</a>")
     #expect(base != ChatTurnMarkers(start: "<b>", end: "</a>"))

@@ -78,8 +78,17 @@ convention across families — Gemma 4's `<|turn>` / `<turn|>` vs ChatML's
 **re-run the marker sweep over the accumulated transcripts** rather than carrying
 forward the last recorded numbers:
 
+Run from the repository root (the corpus path below is repo-relative), and
+**replace the two placeholder operands with the candidate's actual marker
+strings before running** — left as-is the loop counts the literal text
+`<candidate turn-start>`, returns `0`, and that zero is indistinguishable from a
+real negative once it is appended to the log. That is the failure this very
+paragraph warns about, so it is worth being blunt: a placeholder left in is the
+most likely way to record a false zero.
+
 ```sh
-for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' '<the candidate pair>'; do
+for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' \
+         '<candidate turn-start>' '<candidate turn-end>'; do
   printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l
 done
 ```

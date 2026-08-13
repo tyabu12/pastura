@@ -46,12 +46,12 @@ class JSONResponseParserTurnMarkerTests {
 
     @Test
     fun endMarkerTruncatesFencedFabricatedContinuation() {
-        val output = parser.parse(fencedHallucination, gemma)
+        val output = parser.parse(fencedHallucination, turnMarkers = gemma)
         assertEquals("本物", output.fields["statement"])
         assertEquals("cooperate", output.fields["action"])
 
         // Negative control — the pre-#1422 behaviour on the identical input.
-        assertEquals("偽物", parser.parse(fencedHallucination, chatMLOnly).fields["statement"])
+        assertEquals("偽物", parser.parse(fencedHallucination, turnMarkers = chatMLOnly).fields["statement"])
     }
 
     @Test
@@ -64,8 +64,8 @@ class JSONResponseParserTurnMarkerTests {
             ```
         """.trimIndent()
 
-        assertEquals("本物", parser.parse(input, gemma).fields["statement"])
-        assertEquals("偽物", parser.parse(input, chatMLOnly).fields["statement"])
+        assertEquals("本物", parser.parse(input, turnMarkers = gemma).fields["statement"])
+        assertEquals("偽物", parser.parse(input, turnMarkers = chatMLOnly).fields["statement"])
     }
 
     /**
@@ -83,7 +83,7 @@ class JSONResponseParserTurnMarkerTests {
             {"statement": "本物", "action": "cooperate"}
         """.trimIndent()
 
-        val output = parser.parse(input, gemma)
+        val output = parser.parse(input, turnMarkers = gemma)
         assertEquals("本物", output.fields["statement"])
         assertEquals("cooperate", output.fields["action"])
     }
@@ -96,7 +96,7 @@ class JSONResponseParserTurnMarkerTests {
     fun startMarkerInsideStringValueIsNotATurnBoundary() {
         val input = """{"statement": "テンプレートは <|im_start|> から始まる", "action": "cooperate"}"""
 
-        val output = parser.parse(input, chatMLOnly)
+        val output = parser.parse(input, turnMarkers = chatMLOnly)
         assertEquals("テンプレートは <|im_start|> から始まる", output.fields["statement"])
         assertEquals("cooperate", output.fields["action"])
     }
@@ -108,8 +108,8 @@ class JSONResponseParserTurnMarkerTests {
             That is my answer for this round.
         """.trimIndent()
 
-        val chatML = parser.parse(input, chatMLOnly)
-        val withGemma = parser.parse(input, gemma)
+        val chatML = parser.parse(input, turnMarkers = chatMLOnly)
+        val withGemma = parser.parse(input, turnMarkers = gemma)
         assertEquals(chatML.fields, withGemma.fields)
         assertEquals("hello", chatML.fields["statement"])
     }
@@ -123,8 +123,8 @@ class JSONResponseParserTurnMarkerTests {
             <|im_end|>
         """.trimIndent()
 
-        val baseline = parser.parse(input, chatMLOnly)
-        val widened = parser.parse(input, gemma)
+        val baseline = parser.parse(input, turnMarkers = chatMLOnly)
+        val widened = parser.parse(input, turnMarkers = gemma)
         assertEquals(baseline.fields, widened.fields)
         assertEquals("こんにちは", widened.fields["statement"])
     }
@@ -137,14 +137,14 @@ class JSONResponseParserTurnMarkerTests {
     fun emptyMarkerStringsAreIgnored() {
         val output = parser.parse(
             """{"statement": "hello"}""",
-            listOf(ChatTurnMarkers(start = "", end = "")),
+            turnMarkers = listOf(ChatTurnMarkers(start = "", end = "")),
         )
         assertEquals("hello", output.fields["statement"])
     }
 
     @Test
     fun emptyMarkerSetLeavesTextUntouched() {
-        val output = parser.parse("""{"statement": "hello"}<|im_end|>garbage""", emptyList())
+        val output = parser.parse("""{"statement": "hello"}<|im_end|>garbage""", turnMarkers = emptyList())
         assertEquals("hello", output.fields["statement"])
     }
 
@@ -155,7 +155,7 @@ class JSONResponseParserTurnMarkerTests {
     @Test
     fun defaultMarkerSetIsChatMLOnly() {
         val input = """{"statement": "hello"}<|im_end|> trailing"""
-        assertEquals(parser.parse(input, chatMLOnly).fields, parser.parse(input).fields)
+        assertEquals(parser.parse(input, turnMarkers = chatMLOnly).fields, parser.parse(input).fields)
     }
 
     /**
