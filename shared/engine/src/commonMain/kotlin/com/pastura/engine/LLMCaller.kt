@@ -1,5 +1,6 @@
 package com.pastura.engine
 
+import com.pastura.models.ChatTurnMarkers
 import com.pastura.models.OutputSchema
 import com.pastura.models.PhaseType
 import com.pastura.models.ScenarioConventions
@@ -152,8 +153,12 @@ internal class LLMCaller(
             }
             emitInferenceCompleted(agentName, startMark, result.completionTokens, emitter)
 
+            // Read from the live backend so truncation keys on the loaded
+            // model's own sentinels (#1422). Read once and used by both
+            // consumers below, so they cannot drift onto different sets.
+            val turnMarkers = backend.knownTurnMarkers
             val parseResult = try {
-                parser.parse(result.rawText, expectedKeys)
+                parser.parse(result.rawText, expectedKeys, turnMarkers)
             } catch (_: SimulationException) {
                 logParseFailure(agentName, result.rawText, attempt)
                 if (attempt < MAX_RETRIES) {
@@ -164,7 +169,7 @@ internal class LLMCaller(
             }
             val output = parseResult.first
             logRepairIfNeeded(agentName, parseResult.second)
-            logChatTemplateLeakage(result.rawText)
+            logChatTemplateLeakage(result.rawText, turnMarkers)
 
             // Empty-field retry, and the ADR-021 § Amendment 2026-08-06 skip when
             // the declared canonical primary is what came back missing. Throws
@@ -563,28 +568,40 @@ internal class LLMCaller(
     }
 
     /**
-     * Detect chat-template token leakage. The Swift `LlamaCppService` streaming path
-     * strips a spelled-out `<|im_end|>` before emission, so this primarily catches
-     * non-streaming backends where the raw string may still contain template tokens.
+     * Detect chat-template token leakage, against the loaded model's own
+     * markers rather than a ChatML literal (#1422 — before that, this was
+     * silently blind for Gemma 4, the default shipped model).
      *
-     * ChatML-only, mirroring the Swift original: a non-ChatML model (Gemma 4) is
-     * not covered — #1422. A spelled-out `<|im_start|>` stays reachable even
-     * under llama.cpp, whose streaming path strips `stopSequence` (`<|im_end|>`)
-     * alone.
+     * The Swift `LlamaCppService` streaming path strips a spelled-out
+     * `stopSequence` before emission, so this primarily catches non-streaming
+     * backends where the raw string may still contain template tokens. A
+     * spelled-out **start** marker stays reachable even under llama.cpp, whose
+     * streaming path strips `stopSequence` alone.
+     *
+     * Severity split preserved from the pre-#1422 shape: a start marker is a
+     * fabricated next turn (WARNING), a lone end marker is the ordinary
+     * trailing-sentinel case (DEBUG).
      */
-    private fun logChatTemplateLeakage(raw: String) {
-        if (raw.contains("<|im_start|>")) {
+    private fun logChatTemplateLeakage(raw: String, markers: List<ChatTurnMarkers>) {
+        val startMarker = markers.firstOrNull { it.start.isNotEmpty() && raw.contains(it.start) }
+        if (startMarker != null) {
+            // Deliberately does NOT claim the continuation was truncated: the
+            // parser's start arm cuts only after the first structural `{`, so a
+            // leading template-header echo is detected here and left in place.
             logger.log(
                 EngineLogLevel.WARNING,
                 LOG_CATEGORY,
-                "Model hallucinated past its turn — continuation truncated at <|im_end|>",
+                "Turn-start marker ${startMarker.start} leaked into output — model wrote past its turn",
                 EngineLogPrivacy.PUBLIC,
             )
-        } else if (raw.contains("<|im_end|>")) {
+            return
+        }
+        val endMarker = markers.firstOrNull { it.end.isNotEmpty() && raw.contains(it.end) }
+        if (endMarker != null) {
             logger.log(
                 EngineLogLevel.DEBUG,
                 LOG_CATEGORY,
-                "Trailing <|im_end|> token stripped from output",
+                "Trailing ${endMarker.end} token stripped from output",
                 EngineLogPrivacy.PUBLIC,
             )
         }

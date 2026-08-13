@@ -1,5 +1,6 @@
 package com.pastura.engine
 
+import com.pastura.models.ChatTurnMarkers
 import com.pastura.models.OutputSchema
 
 /**
@@ -71,6 +72,30 @@ public interface LLMBackend {
      * @return A handle for cancelling this call.
      */
     public fun generateStream(request: GenerationRequest, callbacks: StreamCallbacks): StreamHandle
+
+    /**
+     * Every turn-marker pair whose **plaintext** form could plausibly appear in
+     * this backend's decoded output, for consumers that must recognize a
+     * hallucinated turn boundary — [JSONResponseParser] truncation and the
+     * [LLMCaller] chat-template leakage diagnostic (#1422).
+     *
+     * The set is the loaded model's own pair **unioned with**
+     * [ChatTurnMarkers.chatML], so a backend that cannot name its model keeps
+     * the pre-#1422 ChatML-only behaviour, and a ChatML model does not grow a
+     * second, redundant entry. Mirrors Swift's `LLMService.knownTurnMarkers`
+     * name-for-name, including where the union is computed, so the two seams
+     * stay comparable.
+     *
+     * ⚠️ **This default does not cross Kotlin/Native.** A Kotlin interface's
+     * default implementation is not carried into the generated Obj-C protocol
+     * as an optional requirement, so the future Swift adapter over
+     * `LlamaCppService` must state this member explicitly — it will **not**
+     * silently inherit ChatML-only. Same asymmetry class as the default-args
+     * one in `.claude/rules/kmp-interop.md` Pattern 3. That is the safe
+     * direction (the compiler asks), but do not plan around inheritance.
+     */
+    public val knownTurnMarkers: List<ChatTurnMarkers>
+        get() = listOf(ChatTurnMarkers.chatML)
 }
 
 /**

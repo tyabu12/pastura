@@ -1,5 +1,6 @@
 package com.pastura.engine
 
+import com.pastura.models.ChatTurnMarkers
 import com.pastura.models.SimulationError
 import com.pastura.models.TurnOutput
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -58,18 +59,6 @@ internal class JSONResponseParser {
         /** Common thinking-model format: `<think>...</think>` (DeepSeek, Qwen). */
         val THINK_TAG = Regex("""<think>[\s\S]*?</think>""")
 
-        /**
-         * Chat-template token — truncate everything from the first occurrence.
-         *
-         * ChatML-only, mirroring the Swift original: for a non-ChatML model this
-         * fires only on a spelled-out `<|im_end|>` — not the form a Gemma
-         * hallucination would take (Gemma 4's markers are `<|turn>` / `<turn|>`).
-         * The type is also backend-agnostic, so do not import the llama.cpp
-         * control-token guarantee here: a server-decoding backend offers none.
-         * Per-model sourcing is #1422.
-         */
-        val CHAT_TEMPLATE_TOKEN = Regex("""<\|im_end\|>[\s\S]*""")
-
         val CODE_BLOCK = Regex("""```(?:json)?\s*\n?([\s\S]*?)\n?```""")
 
         /**
@@ -95,7 +84,10 @@ internal class JSONResponseParser {
      * @throws SimulationException wrapping [SimulationError.JsonParseFailed] when
      *   no valid JSON can be extracted.
      */
-    fun parse(text: String): TurnOutput = parse(text, expectedKeys = emptySet()).first
+    fun parse(
+        text: String,
+        turnMarkers: List<ChatTurnMarkers> = listOf(ChatTurnMarkers.chatML),
+    ): TurnOutput = parse(text, expectedKeys = emptySet(), turnMarkers = turnMarkers).first
 
     /**
      * Parse the happy path. No schema guard runs here — see [expectedKeys].
@@ -118,22 +110,99 @@ internal class JSONResponseParser {
      * @throws SimulationException wrapping [SimulationError.JsonParseFailed].
      */
     @Suppress("UNUSED_PARAMETER")
-    fun parse(text: String, expectedKeys: Set<String>): Pair<TurnOutput, String?> {
-        val cleaned = applyCleanupPipeline(text)
+    fun parse(
+        text: String,
+        expectedKeys: Set<String>,
+        turnMarkers: List<ChatTurnMarkers> = listOf(ChatTurnMarkers.chatML),
+    ): Pair<TurnOutput, String?> {
+        val cleaned = applyCleanupPipeline(text, turnMarkers)
         val output = tryParse(cleaned) ?: throw SimulationException(SimulationError.JsonParseFailed(raw = text))
         return output to null
     }
 
     // MARK: - Pipeline
 
-    private fun applyCleanupPipeline(text: String): String {
+    private fun applyCleanupPipeline(text: String, turnMarkers: List<ChatTurnMarkers>): String {
         var cleaned = text.trim()
         cleaned = CHANNEL_THINKING.replace(cleaned, "")
         cleaned = THINK_TAG.replace(cleaned, "")
-        cleaned = CHAT_TEMPLATE_TOKEN.replace(cleaned, "")
+        cleaned = truncateAtTurnMarkers(cleaned, turnMarkers)
         cleaned = extractFromCodeBlock(cleaned)
         cleaned = cleaned.trim()
         return extractFirstJsonObject(cleaned)
+    }
+
+    /**
+     * Truncate at the first hallucinated turn boundary, keying on the loaded
+     * model's own markers rather than a hardcoded ChatML literal (#1422).
+     *
+     * Port of `JSONResponseParser+Truncate.swift`; the two must agree on the
+     * same inputs, and **no gate enforces that** — `check-prompt-literal-parity.py`
+     * covers `pickLanguage` literals only. The crafted-string fixtures in
+     * `JSONResponseParserTurnMarkerTests` are deliberately the same on both
+     * sides so a divergence shows up as a failing test rather than a drift.
+     *
+     * ### The two arms are deliberately asymmetric
+     *
+     * - **End marker** — a turn boundary wherever it occurs. Cut unguarded from
+     *   the first occurrence. This is the pre-#1422 behaviour generalized from
+     *   one hardcoded string to a set, so a ChatML backend is unchanged.
+     * - **Start marker** — cut **only** at an occurrence after the first
+     *   structural `{`, and only outside a string literal. A *leading* start
+     *   marker is the model echoing its own template header with the payload
+     *   still behind it; cutting there deletes the payload, deterministically,
+     *   so the run walks parse-failure → `RetriesExhausted` → an ADR-021 turn
+     *   skip rather than recovering. One *after* the first `{` is a fabricated
+     *   next turn, and [extractFromCodeBlock] runs **before** the balanced scan
+     *   and takes the first match unconditionally — so a fenced fabricated
+     *   continuation would otherwise be extracted and accepted silently.
+     *
+     * ### `indexOf`, not `Regex`
+     *
+     * Interpolating a marker into a `Regex` is a live trap, not a style
+     * preference: Gemma's `<|turn>` contains a bare `|`, which compiles as the
+     * alternation `<` **or** `turn>` and would cut at the first `<` anywhere in
+     * the output — mass payload destruction for the default shipped model. The
+     * same trap as in the Swift original, and identical in the Kotlin `Regex`
+     * constructor.
+     *
+     * **Known gap, matching Swift:** the end arm is string-blind, so a marker
+     * spelled inside a JSON string value cuts mid-string. Closing it would move
+     * ChatML behaviour, which #1422 holds fixed.
+     */
+    private fun truncateAtTurnMarkers(text: String, markers: List<ChatTurnMarkers>): String {
+        if (markers.isEmpty() || text.isEmpty()) return text
+        var cut = text.length
+
+        for (marker in markers) {
+            if (marker.end.isEmpty()) continue
+            val index = text.indexOf(marker.end)
+            if (index >= 0 && index < cut) cut = index
+        }
+
+        if (markers.any { it.start.isNotEmpty() && text.contains(it.start) }) {
+            val insideString = mapStringSpans(text)
+            val firstBrace = text.indices.firstOrNull { text[it] == '{' && !insideString[it] }
+            if (firstBrace != null) {
+                for (marker in markers) {
+                    if (marker.start.isEmpty()) continue
+                    var searchFrom = firstBrace + 1
+                    while (true) {
+                        val index = text.indexOf(marker.start, startIndex = searchFrom)
+                        if (index < 0) break
+                        // A marker inside a string literal is payload content,
+                        // not a turn boundary — skip past it and keep looking.
+                        if (!insideString[index]) {
+                            if (index < cut) cut = index
+                            break
+                        }
+                        searchFrom = index + 1
+                    }
+                }
+            }
+        }
+
+        return if (cut == text.length) text else text.substring(0, cut)
     }
 
     private fun extractFromCodeBlock(text: String): String {
