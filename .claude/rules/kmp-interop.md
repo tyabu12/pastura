@@ -240,13 +240,37 @@ own assertion ever running. Over-script (`MAX_RETRIES + 1`) so the written asser
 Decisive in §12 perturbation work, where "it reddened" IS the evidence: read *which* message fired.
 Worked example: `NarrateHandlerTests` (#1331).
 
-**Resolving a divergence silently disarms whatever parity fixture arm drove it.** The negative
-control in `ParityFixtureEmitter` is *intended* to drive one divergence per entry kind — today it
-does not, and that is the incident: converging the engines retires the `DivergenceClass` an arm
-exercised, and the arm goes with it. No existing assertion sees a case and its entry deleted
-**together**; only a *kind-coverage* one (≥1 `Structural` **and** ≥1 `Value` driven) would.
-**Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only instance
-of that entry kind; if so, re-arm or record the loss with a concrete re-arm candidate — never a
-bare "not reachable", which is an enumeration over *existing* cases and cannot see an unledgered
-divergence. Motivating incident: ADR-021 § Amendment 2026-08-06 retiring `SCHEMA_GUARD_POSITION`;
-residue and the kind-coverage guard tracked on #501.
+**Resolving a divergence silently disarms whatever parity fixture arm drove it.** Converging the
+engines retires the `DivergenceClass` an arm exercised, and the arm goes with it — with no
+assertion seeing the case and its entry deleted **together**. `someFixtureDrivesBothEntryKinds`
+now reddens on it (#1458); the two guards that do *not* are named in `DivergenceLedgerTests`, and
+both were confirmed green against a reproduction of the incident rather than by argument.
+**Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only
+instance of that entry kind; if so, re-arm rather than recording a bare "not reachable", which is
+an enumeration over *existing* cases and cannot see an unledgered divergence. Motivating incident:
+ADR-021 § Amendment 2026-08-06 retiring `SCHEMA_GUARD_POSITION`.
+
+**A parity fixture's `responses` list is positional, so a retry-count divergence must have its
+surplus reabsorbed.** When one engine accepts an answer the other retries on, the retrying side
+consumes the *following* turns' answers — which are valid same-schema JSON, so it often succeeds
+with shifted content instead of diverging as intended, and everything after is noise about
+alignment rather than about the engines. Only two placements work: the run's **last** LLM call, so
+the surplus falls into the replay padding, or a deliberate compensating burn on the following
+indices. **Apply**: when scripting a divergence that changes the retry budget, pick the placement
+first and give it a scenario whose last turn has nothing downstream — `parity_structural.yaml`
+exists for that. Adding per-call alignment *tags* does not help; keying responses by
+`<agent>/<phase>/<attempt>` would, and that is a schema change. Worked reasoning: #1458.
+
+**A Kotlin mirror of a Swift `Codable` wire shape matches `JSONEncoder` in none of three
+behaviours by default.** Sorted keys apply at *every* depth; `nil` is omitted rather than written
+as `null`; and an integral `Double` drops its `.0` (`0.0` → `0`) while a fractional one keeps its
+decimals. The third is the one that bites silently: `TranscriptComparator` compares
+`JsonPrimitive.content` as **text**, and `EventLine.t` is non-optional on every line, so a bare
+`JsonPrimitive(0.0)` puts a diff on 100% of them. **Apply**: build the line as a `JsonObject`
+rather than a `@Serializable data class` — that fixes all three at once — and write it against a
+*measured* Swift line (`RunLogTests.fullyPopulatedLinePinsTheWireShape` pins one with every field
+set), never against the fixtures' observed lines: a field no fixture populates is exactly the one
+that bites later. Note `.convertToSnakeCase` splits on uppercase only, so `agent2` / `action1`
+keep their trailing digit while `totalRounds` becomes `total_rounds`. Unrelated to ADR-023's
+divergence-6 ruling, which is `JSONResponseParser` normalizing model values inside `fields` —
+don't resolve either by pointing at the other.
