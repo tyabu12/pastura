@@ -167,7 +167,7 @@ internal class LLMCaller(
                 // Every way of getting it wrong is compile-caught: the two types
                 // don't convert (`List<ChatTurnMarkers>` is not a `Set<String>`),
                 // the 2-arg overload returns a bare `TurnOutput` with no `.first`
-                // for the destructuring below, and dropping `expectedKeys` from
+                // for the property reads below, and dropping `expectedKeys` from
                 // the 3-arg signature would collide with the 2-arg one. What the
                 // named form buys is that a future signature change fails *here*,
                 // at the call that meant something specific, rather than at

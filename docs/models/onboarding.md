@@ -93,9 +93,10 @@ mechanical guard:**
   left as-is the loop counts the literal text and reports `0`. Nothing detects
   this, which makes it the likelier of the two.
 
-Both produce the exact failure this paragraph exists to warn about, so treat a
-row of zeros as suspect until the corpus check has passed **and** the
-placeholders are replaced.
+Both *would* produce the exact failure this paragraph exists to warn about;
+since the corpus check emits no row at all, only the placeholder route can still
+reach it. So treat a row of zeros as suspect until you have confirmed the
+placeholders were replaced.
 
 ```sh
 if [ -d data/models/eval-runs ]; then

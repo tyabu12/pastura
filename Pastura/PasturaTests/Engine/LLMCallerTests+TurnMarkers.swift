@@ -122,9 +122,11 @@ extension LLMCallerTests {
   /// message wording, which this PR then changed; (2) it would miss a
   /// *differently-worded* warning on this path — a `logParseFailure` line, say.
   /// Reason (2) is **forward-looking, not instantiated**: no warning of any kind
-  /// fires on this input today, since the sibling control below shows this raw
-  /// text parses successfully. It is the shape a silence control should have,
-  /// not a failure it currently catches.
+  /// fires on this input today, since
+  /// `chatMLOnlyBackendStillTakesTheFabricatedContinuation` shows this raw text
+  /// parses successfully, so `logParseFailure` — the only other `.warning` site —
+  /// never runs either. It is the shape a silence control should have, not a
+  /// failure it currently catches.
   ///
   /// Not vacuous: `leakageDiagnosticWarnsOnBackendStartMarker` above drives the
   /// same raw text to a `.warning`, so warnings are reachable on this input and
