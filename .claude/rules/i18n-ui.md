@@ -9,25 +9,22 @@ paths:
 
 # i18n Rules — UI layer
 
-The UI half of the i18n rules; `i18n.md` carries the layer-independent callsite core (Form A vs Form B) and loads on **every** app-target Swift read. Both load together in a UI or catalog session, so `§` references resolve in either direction here — never from a non-UI session, which is why the core depends on nothing in this file.
+The UI half of the i18n rules. `i18n.md` carries the layer-independent callsite core (Form A vs Form B) and loads on **every** app-target Swift read, so its `§` references resolve from here — but not the reverse, which is why the core only ever *points* at this file and never depends on it.
 
 ## Scope
 
-A section belongs here on **either** arm: (1) it is written against a **SwiftUI API** (`Text` plural variants, `LocalizedStringKey` labels, `.accessibilityLabel`) and so cannot fire outside a View; or (2) it is a catalog / audit procedure whose **entire known instance set** lives in `Views/` / `App/` / `PasturaApp.swift` — layer-agnostic mechanism, UI-only reach. Apply this before moving a section either way.
+A section belongs here on **either** arm: (1) it is written against a **SwiftUI API** (`Text` plural variants, `LocalizedStringKey` labels, `.accessibilityLabel`) and so cannot fire outside a View; or (2) it is a catalog / audit procedure whose **entire known instance set** lives in `Views/` / `App/` / `PasturaApp.swift` — layer-agnostic mechanism, UI-only reach. Apply it before moving a section either way; § "Audit triage" is the one audit section here, on arm 1. Everything else stays in `i18n.md`, because **61** `String(localized:)` uses sit outside `Views/`+`App/` (Models 37 / LLM 16 / Data 6 / Engine 1 / Utilities 1) — non-UI slices and non-UI Tier 2 candidates are both real, and a core→here pointer is unreachable in exactly the session that needs it.
 
-Everything else stays in `i18n.md` — `### The partial-conversion trap`, `### Apply when planning a partial-scope i18n slice`, and `## Audit planning`: **61** `String(localized:)` uses sit outside `Views/`+`App/` (Models 37 / LLM 16 / Data 6 / Engine 1 / Utilities 1), so non-UI slices and non-UI Tier 2 candidates are both real — and a core→here pointer is unreachable in exactly the session that needs it. Only § "Audit triage" is here, because `.accessibilityLabel` is arm 1.
+The remaining two `paths:` arms: `PasturaTests/Localization/**` for the plural runtime test, `Localizable.xcstrings` because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog — and `i18n-catalog.md` opens by claiming a catalog session loads all three.
 
-`PasturaTests/Localization/**` is an arm for the plural runtime test; `Localizable.xcstrings` is an arm because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog, without which `i18n-catalog.md`'s opening claim would be false.
-
-**Accepted gaps.** Arm 2 is **time-indexed**, not structural: it holds only because every `String(localized:)` strictly inside a `#if DEBUG` block sits in `Views/` today (measured 2026-08-13 — `Views/Results/ResultDetailView.swift`, 3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`). A future non-UI DEBUG literal hits a rule that no longer injects — re-check the arm, don't trust it. **Arm 1 is time-indexed for `.accessibilityLabel` too**, despite reading as structural: § "Audit triage" step 1 exists to hunt getters that sit far from their application site, and one in `Models/` would surface as a Tier 2 candidate in a session this file never reaches. It holds only because all 24 files naming `accessibilityLabel` are under `Views/` / `App/` (measured 2026-08-13). Separately, the `PasturaTests/Localization/**` arm reaches only that directory: `String(localized:)` also appears under `PasturaTests/App/` (4 files), `Views/` (3), `Models/` (2).
+**Accepted gaps — both arms are time-indexed, not structural** (measured 2026-08-13; re-check them, don't trust them). Arm 2 holds only because every `String(localized:)` strictly inside a `#if DEBUG` block sits in `Views/` (`Views/Results/ResultDetailView.swift`, 3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`) — a future non-UI DEBUG literal hits a rule that no longer injects. Arm 1 holds only because all 24 files naming `accessibilityLabel` are under `Views/` / `App/`: § "Audit triage" step 1 exists to hunt getters that sit far from their application site, and one in `Models/` would surface as a Tier 2 candidate in a session this file never reaches. The `PasturaTests/Localization/**` arm likewise reaches only that directory — `String(localized:)` also appears under `PasturaTests/App/` (4 files), `Views/` (3), `Models/` (2).
 
 ## Plurals — the sanctioned exception to Form B
 
-Form B (`i18n.md` § "Format-string pattern") does **not** pluralize: the count is
-substituted by `String(format:)` *after* the catalog lookup, so the lookup
-never sees it and the same form renders for every count ("1 records"). A
-count-aware plural needs the count to reach the localization layer, which
-means **interpolation** — the one place interpolation is correct.
+Form B (`i18n.md` § "Format-string pattern") does **not** pluralize: `String(format:)`
+substitutes the count *after* the catalog lookup, so the same form renders for every
+count ("1 records"). A count-aware plural needs the count to reach the localization
+layer — **interpolation** is correct here and nowhere else.
 
 Three rules, all load-bearing (first plural: `"%lld records"`, UR-003):
 
@@ -117,10 +114,9 @@ Stepper(value: $prob, in: 0...1) {
 Same pattern for `Toggle("...\(x)...", isOn:)`, `Picker("...\(x)...",
 selection:)`, etc. Switch to the explicit label-closure overload and
 format the string through the canonical `String(format: String(localized:))`
-path documented in `i18n.md` § "Format-string pattern". Same observable
-symptom as that file's § "Form A is a runtime hazard at user-facing callsites"
-— both produce silent English fallback from a `\(…)`-interpolated literal —
-but from a `LocalizedStringKey` literal rather than a `String(localized:)` one.
+path documented in `i18n.md` § "Format-string pattern". That file's § "Form A is a
+runtime hazard at user-facing callsites" is this trap's `String(localized:)` sibling —
+same silent English fallback from a `\(…)`-interpolated literal.
 
 ### Why Tier 1 / Tier 2 don't catch this
 
@@ -184,7 +180,7 @@ runs `xcstringstool extract` + `sync` *before* the xcodebuild that emits the
 `.stringsdata`, and extract does not traverse the `#if DEBUG` branch reliably, so
 the key stays absent. `check_localization_coverage.py` then **passes** — the key
 simply isn't present to fail on — yet on a ja device the string falls back to the
-English literal (same observable symptom as Form A, different cause).
+English literal.
 
 **Fix:** add the key to the catalog **manually** (Apple-canonical alphabetical
 position, ` : ` separators), build once, and confirm sync **keeps** it (a used key
