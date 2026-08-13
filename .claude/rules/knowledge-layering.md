@@ -55,7 +55,7 @@ File a rolling tracking issue collecting candidate sections, then `/orchestrate`
 ## Anti-pattern: memory refs in repo-tracked files
 
 Auto-memory at `~/.claude/projects/<workspace>/memory/` is **per-user /
-per-machine**. Any reference of the form `` memory `foo.md` `` inside a
+per-machine**. Any reference of the form `` memory `<name>.md` `` inside a
 repo-tracked file (CLAUDE.md, CONTRIBUTING.md, ADRs, source comments,
 script header docs) is a **dead link** for everyone except the
 maintainer who wrote the memory.
@@ -71,10 +71,15 @@ repo needs to carry itself.
 acceptable **only** in never-committed places (`~/.claude/CLAUDE.md`,
 conversational scratch).
 
-**Detection** — new code must not add hits to this grep:
+**Detection** — new code must not add hits. A recursive grep answers "which
+files lie here" while the rule asks "which are **repo-tracked**", and the two
+diverge both ways (dot-dirs like `.claude/` go unscanned; tracked-but-ignored
+files are missed) — so enumerate, don't recurse. `-H` is required: without it
+`grep` drops the filename on a single match and the `file:line` breaks.
 
-```
-rg -n 'memory `[a-z_]+\.md`' --glob '!**/memory/**' --glob '!.git/**'
+```sh
+git ls-files -z --cached --others --exclude-standard \
+  | xargs -0 grep -nHE 'memory `[a-z_]+\.md`'
 ```
 
 Known carve-outs (where inline rationale would be too dense to migrate):
