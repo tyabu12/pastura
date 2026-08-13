@@ -236,15 +236,18 @@ across two: `main actor-isolated default value in a nonisolated context` fires
 during type checking, so `-typecheck` sees it, while the isolated-conformance
 error of § "Same cause, two non-test shapes" row 1 is emitted at SIL generation,
 which `-typecheck` never reaches — it prints with **no source location**
-(`<unknown>:0: … [#IsolatedConformances]`), which is the recognition cue.
-**Compile, don't typecheck** — swap `-typecheck` for `-c -o /dev/null` in
-Pattern 7's recipe above (add `-wmo` for a multi-file probe) and it reddens with
-the target's verbatim diagnostic; that recipe's other flags, `-default-isolation
-MainActor` especially, stay load-bearing. Pattern 7 itself keeps `-typecheck` on
-purpose: a *printed type* is a type-check-stage answer. Measured 2026-08-13,
+(`<unknown>:0: … [#IsolatedConformances]`), which is the recognition cue —
+measured for that row; Pattern 5's test shape does carry a use-site location.
+**Compile, don't typecheck** — reuse Pattern 7's *flags* (`-default-isolation
+MainActor` especially, without which nothing is isolated and the probe is green)
+but `-c -o /dev/null` in place of `-typecheck`, `-wmo` for a multi-file probe,
+and **drop its `| grep "cannot convert"`**: that filter matches a printed type,
+not this error, so it returns empty and reads as green. The probe source is your
+own type, not Pattern 7's. Pattern 7 itself keeps `-typecheck`: a *printed type*
+is a type-check-stage answer. Measured 2026-08-13,
 Xcode 26.6 / Swift 6.3.3 (#1439) — the dependency shape (inline values vs a
 MainActor-static read), a file split, a use site, and the target's
-`-enable-upcoming-feature` flags all leave the outcome unchanged; earlier
-revisions of this paragraph and of ADR-028 named the first as the cause, so do
-not restore it. `scripts/xcodebuild.sh build` stays the verdict for anything a
+`-enable-upcoming-feature` flags all leave the outcome unchanged; an earlier
+revision of ADR-028 named the first as the cause and this paragraph then recorded
+it as unexplained, so restore neither. `scripts/xcodebuild.sh build` stays the verdict for anything a
 probe cannot state.
