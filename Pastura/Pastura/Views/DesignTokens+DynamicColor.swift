@@ -56,11 +56,9 @@ import UIKit
 /// ``PasturaColorValue`` takes the target's default isolation
 /// (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`) — `swift-isolation.md` Pattern 5.
 /// Observed, not predicted: with the conformance present the build fails with
-/// "main actor-isolated conformance of 'PasturaColorValue' to 'Equatable' cannot be
-/// used in nonisolated context". Not `SWIFT_APPROACHABLE_CONCURRENCY`, which an
-/// earlier revision credited — measured, the error reproduces with that setting's
-/// feature flags absent and stops only when `-default-isolation MainActor` is
-/// dropped (ADR-028 § Consequences).
+/// "main actor-isolated conformance of 'PasturaColorValue' to 'Equatable' cannot
+/// be used in nonisolated context". Not `SWIFT_APPROACHABLE_CONCURRENCY`, which
+/// an earlier revision credited (measured; ADR-028 § Consequences).
 /// Compare `.light` / `.dark` individually from a MainActor context instead. Do
 /// not "restore" the conformance without also marking `PasturaColorValue`
 /// `nonisolated`, which Pattern 5 reserves for ≥2 nonisolated call sites.

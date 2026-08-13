@@ -235,22 +235,21 @@ operative variable is the compilation *stage*.** `main actor-isolated default
 value in a nonisolated context` fires during type checking, so `-typecheck` sees
 it. `[#IsolatedConformances]` falls on **both** sides, split by how the isolated
 conformance is reached: used **from source** (an explicit `==`, Pattern 5's test
-shape) it is diagnosed during type checking and carries a source location, but
-reached only through a **compiler-synthesized** witness — row 1 of § "Same cause,
-two non-test shapes" — it is realized at SIL generation and prints at
-`<unknown>:0`. Both measured, as a one-toggle control in a single program. A
-location-less diagnostic is the cue that no `-typecheck` probe could have caught
-it.
+shape) it is type-checked and carries a source location; reached only through a
+**compiler-synthesized** witness — row 1 of § "Same cause, two non-test shapes" —
+it is realized at SIL generation and prints at `<unknown>:0`. Both measured, as a
+one-toggle control in a single program: a location-less diagnostic is the cue
+that no `-typecheck` probe could have caught it.
 **Compile, don't typecheck** — reuse Pattern 7's *flags* (`-default-isolation
 MainActor` especially, without which nothing is isolated and the probe is green)
 but `-c -o /dev/null` in place of `-typecheck`, `-wmo` for a multi-file probe,
 and **drop its `| grep "cannot convert"`**: that filter matches a printed type,
-not this error, so it returns empty and reads as green. The probe source is your
-own type, not Pattern 7's. Pattern 7 itself keeps `-typecheck`: a *printed type*
-is a type-check-stage answer. Measured 2026-08-13,
-Xcode 26.6 / Swift 6.3.3 (#1439) — the dependency shape (inline values vs a
-MainActor-static read), a file split, a use site of the *synthesized* `==`, and
-the target's `-enable-upcoming-feature` flags all leave the outcome unchanged; an
-earlier revision of ADR-028 named the first as the cause and this paragraph then
-recorded it as unexplained, so restore neither. `scripts/xcodebuild.sh build`
-stays the verdict for anything a probe cannot state.
+not this error, so it returns empty and reads as green. Probe your own type, not
+Pattern 7's — which keeps `-typecheck` on purpose: a *printed type* is a
+type-check-stage answer. Measured 2026-08-13, Xcode 26.6 / Swift 6.3.3 (#1439);
+null results — the dependency shape (inline values vs a MainActor-static read), a
+file split, a use site of the *synthesized* `==`, the target's
+`-enable-upcoming-feature` flags. An earlier ADR-028 revision named the dependency
+shape as the cause and this paragraph then called the gap unexplained: restore
+neither.
+`scripts/xcodebuild.sh build` stays the verdict for anything a probe cannot state.
