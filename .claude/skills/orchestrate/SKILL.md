@@ -5,9 +5,37 @@ allowed-tools: Read, Grep, Glob, Bash, Agent, Write, Edit, EnterWorktree, ExitWo
 argument-hint: "[description | issue-number | phase N]"
 ---
 
+<!-- generated-from: claude-kit skills/orchestrate-creator/orchestrate-template.md sha256:1fbc1aadc87e reconciled:2026-08-13 -->
+
 # /orchestrate
 
 Orchestrate the full development workflow: plan → issue → worktree → TDD implementation → review → PR.
+
+> **Project-owned file, hand-reconciled against the claude-kit template — not generated from it.**
+> This skill predates `/claude-kit:orchestrate-creator`; the stamp above records the template
+> revision its content was last reconciled with (#1453), so a re-run reaches Step U-3's
+> principle-level back-port proposals instead of stopping at U-1's "hand-written, report only".
+> Edit this file freely — kit updates never touch it. `/claude-kit:orchestrate-creator` rewrites
+> the stamp line on an upgrade, so anything that must survive belongs in the block below, not in it.
+>
+> **Read "up to date" narrowly.** Step U compares hashes first, so an unchanged template reports
+> "up to date" — that means *no template change since the reconcile*, **not** that this file matches
+> the template. It deliberately does not, in these four places:
+>
+> - **The Step 4 reviewer prompt does not carry the template's selective `.claude/rules/*.md` read** —
+>   `.claude/agents/code-reviewer.md`'s Review Process step 3 owns that logic here. Do not add it in
+>   both places; if that agent ever loses it, this prompt must gain it, or path-scoped review
+>   coverage vanishes silently.
+> - **The template's inlined subagent output-cap / split-budget note is omitted** —
+>   `.claude/rules/subagent-usage.md` is always-loaded in this repo, so inlining it would pay for the
+>   same content twice per turn (`.claude/rules/context-budget.md`).
+> - **There is no "Project parameters (baked at generation)" table** — Pastura's parameters are
+>   inline at each step and richer than the table's cells (the `scripts/xcodebuild.sh` wrapper
+>   conventions, TDD-required, the pre-commit hook as the commit-time gate).
+> - **Project-owned additions the template has no slot for**: the per-item commit hazard, the Opus-
+>   required path list, the `## Device QA` section, the two-separate-Bash-calls push/PR sequence that
+>   keeps the PR hooks firing, the label table, the Review Action Summary, and Step 1b's literal
+>   `Agent(...)` block.
 
 ## Constants
 
