@@ -19,6 +19,7 @@ struct ModelDescriptorTests {
       fileSize: 3_100_000_000,
       sha256: "abc123def456",
       stopSequence: "<|im_end|>",
+      turnMarkers: .chatML,
       minRAM: 6_000_000_000,
       modelInfoURL: URL(string: "https://huggingface.co/google/gemma-4-e2b")!,
       systemPromptSuffix: nil
@@ -66,6 +67,7 @@ struct ModelDescriptorTests {
       fileSize: 3_100_000_000,
       sha256: "abc123def456",
       stopSequence: "<|im_end|>",
+      turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
       minRAM: 6_000_000_000,
       modelInfoURL: modelInfoURL,
       systemPromptSuffix: "/no_think",
@@ -83,6 +85,8 @@ struct ModelDescriptorTests {
     #expect(descriptor.fileSize == 3_100_000_000)
     #expect(descriptor.sha256 == "abc123def456")
     #expect(descriptor.stopSequence == "<|im_end|>")
+    #expect(descriptor.turnMarkers.start == "<|turn>")
+    #expect(descriptor.turnMarkers.end == "<turn|>")
     #expect(descriptor.minRAM == 6_000_000_000)
     #expect(descriptor.modelInfoURL == modelInfoURL)
     #expect(descriptor.systemPromptSuffix == "/no_think")
