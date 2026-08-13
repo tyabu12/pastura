@@ -253,27 +253,27 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 `.claude/rules/` contains detailed rules with two loading modes:
 
-**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`; a rule created mid-session never injects there — `knowledge-layering.md` § "A rules file created mid-session never injects in that session"):
+**Path-scoped** (injected when a matching path is read, not from a diff / `Grep`; a rule created mid-session never injects there — `knowledge-layering.md` § "A rules file created mid-session never injects in that session"). Areas below are hints for choosing what to read at *plan* time, when nothing has been injected yet; `head -14 .claude/rules/*.md` prints the authoritative `paths:`.
 
-- `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` (`docs/decisions/**`)
+- `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` — read it before drafting (docs/decisions/)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure). Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
-- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in every Swift target — the § header carries the reach (`Pastura/Pastura/**/*.swift`, `Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `tools/harness/**`)
-- `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (`.github/workflows/**`, `scripts/**`)
-- `engine.md` — Engine + LLM source (`Pastura/Pastura/Engine/**`, `Pastura/Pastura/LLM/**`)
-- `i18n.md` — Swift-side localization **callsite** conventions, layer-independent: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, partial-conversion orphans, Tier 2 audit planning (`Pastura/Pastura/**/*.swift`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `i18n-catalog.md` — `Localizable.xcstrings` editing + `xcstringstool` sync output. **Loads on a `Read` of the catalog, so a scripted mutation loads nothing** — read it explicitly before one (`Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `i18n-ui.md` — UI-layer i18n traps: plurals, the SwiftUI `LocalizedStringKey` traps, `#if DEBUG` extraction, `.accessibilityLabel` audit triage. Which of the two owns a section is decided by `docs/i18n/leak-detection.md` § "Rule-file layering" — read it before adding or moving one (`Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**`, `Pastura/Pastura/PasturaApp.swift`, `Pastura/PasturaTests/Localization/**`, `Pastura/Pastura/Resources/Localizable.xcstrings`)
-- `kmp-interop.md` — K/N↔Swift boundary traps (ADR-023); grep the K/N type shape at plan time (`shared/**`, `tools/kmp-gate-spike/**`)
-- `lp-content.md` — Public LP content: genre-word zoning, voice rule for new copy (`web/**`)
-- `models-and-data.md` — Models + Data source (`Pastura/Pastura/Models/**`, `Pastura/Pastura/Data/**`)
+- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in every Swift target — the § header carries the reach (app, unit tests, UI tests, `tools/harness/`)
+- `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (.github/workflows/, scripts/)
+- `engine.md` — Engine + LLM source
+- `i18n.md` — Swift-side localization **callsite** conventions, layer-independent: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, partial-conversion orphans, Tier 2 audit planning (any app Swift file, plus the catalog)
+- `i18n-catalog.md` — `Localizable.xcstrings` editing + `xcstringstool` sync output. **Loads on a `Read` of the catalog, so a scripted mutation loads nothing** — read it explicitly before one
+- `i18n-ui.md` — UI-layer i18n traps: plurals, the SwiftUI `LocalizedStringKey` traps, `#if DEBUG` extraction, `.accessibilityLabel` audit triage. Which of the two owns a section is decided by `docs/i18n/leak-detection.md` § "Rule-file layering" — read it before adding or moving one (Views/, App/, localization tests, the catalog)
+- `kmp-interop.md` — K/N↔Swift boundary traps (ADR-023); grep the K/N type shape at plan time (shared/, tools/kmp-gate-spike/)
+- `lp-content.md` — Public LP content: genre-word zoning, voice rule for new copy (web/)
+- `models-and-data.md` — Models + Data source
 - `navigation.md` — bottom-tab IA (ADR-016): four per-tab `AppRouter`s under `TabCoordinator`; `navigationDestination(item:|isPresented:)` forbidden inside a view pushed onto a tab's stack. Its own § Scope explains why each glob entry is load-bearing — read it before editing the frontmatter (`Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**`, `Pastura/Pastura/PasturaApp.swift`)
-- `presets.md` — Bundled scenario YAML (`Pastura/Pastura/Resources/**`)
-- `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via `currentScenario()` (`Pastura/Pastura/App/ScenarioEditor*`, `Pastura/Pastura/Views/Editor/**`, `Pastura/PasturaTests/App/ScenarioEditorViewModel*`)
-- `swift-testing-parallelism.md` — `.serialized` is intra-suite only; timing assertions need an in-test control (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `tools/**`)
-- `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog for the UI layers; cross-layer build/lint traps live in `build-traps.md` (`Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**`, `Pastura/Pastura/PasturaApp.swift`)
-- `testing.md` — Test target (`Pastura/PasturaTests/**`)
-- `uitest-traps.md` — XCUITest-only traps: structural `Tab` drops its `label:` a11y identifier per-launch (`Pastura/PasturaUITests/**`)
-- `view-testing.md` — View test strategy: extract logic to unit tests, no ViewInspector / snapshot ([ADR-009](docs/decisions/ADR-009.md)) (`Pastura/PasturaTests/**`, `Pastura/PasturaUITests/**`, `Pastura/Pastura/Views/**`, `Pastura/Pastura/App/**ViewModel.swift`)
+- `presets.md` — Bundled scenario YAML (Resources/)
+- `scenario-editor.md` — ScenarioEditor dual-buffer funnel invariant: visual fields and `yamlText` reconcile only via `currentScenario()` (Editor views + `ScenarioEditor*` in App/)
+- `swift-testing-parallelism.md` — `.serialized` is intra-suite only; timing assertions need an in-test control (tests, tools/)
+- `swiftui-traps.md` — SwiftUI / Swift 6 trap catalog for the UI layers; cross-layer build/lint traps live in `build-traps.md` (Views/, App/)
+- `testing.md` — Test target
+- `uitest-traps.md` — XCUITest-only traps: structural `Tab` drops its `label:` a11y identifier per-launch (UI tests)
+- `view-testing.md` — View test strategy: extract logic to unit tests, no ViewInspector / snapshot ([ADR-009](docs/decisions/ADR-009.md)) (tests, Views/, `App/**ViewModel.swift`)
 
 **Always-loaded** (no frontmatter `paths:` — relevant from any layer):
 
