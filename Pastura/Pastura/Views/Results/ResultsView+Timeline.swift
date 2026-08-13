@@ -50,7 +50,7 @@ extension ResultsView {
     // SwiftUI `Text("\(count)…")` form — the `String(localized: "…\(x)…")`
     // form is blocked by the `form_a_localized_interpolation` SwiftLint rule,
     // which can't tell an Int-plural count from a String-substitution hazard.
-    // See .claude/rules/i18n.md § "Plurals — the sanctioned exception to Form B". Key stays "%lld records".
+    // See .claude/rules/i18n-ui.md § "Plurals — the sanctioned exception to Form B". Key stays "%lld records".
     Text("\(count) records")
       .textStyle(Typography.metaValue)
       .foregroundStyle(Color.muted)

@@ -103,7 +103,7 @@ rule (loaded per Review Process step 3) for depth. Flag a Warning when a change 
 - **`@Suite` `.timeLimit(.minutes(1))`** — required on every suite under `PasturaTests/`; load-bearing CI-hang diagnostic, do not remove. → `testing.md` §"`.timeLimit` Trait on Every Suite"
 - **`@Suite(.serialized)`** — required for suites creating `SimulationRunner` / other global-state consumers. → `testing.md` §"Swift Testing Parallelism"
 - **Error i18n prep** — `errorDescription` literals wrapped in `String(localized:)`; tests assert via `.contains(...)`, not equality. → `CLAUDE.md` (always-loaded)
-- **i18n leak — Tier 1/2 blind spots** — new VM properties; helper-returned / computed `String` shown via `Text(_:)`. → `i18n.md` §"Why Tier 1 / Tier 2 don't catch this" + `docs/i18n/leak-detection.md`
+- **i18n leak — Tier 1/2 blind spots** — new VM properties; helper-returned / computed `String` shown via `Text(_:)`. → `i18n-ui.md` §"Why Tier 1 / Tier 2 don't catch this" + `docs/i18n/leak-detection.md`
 - **Navigation root-stack scope** — no `navigationDestination(item:|isPresented:)` in a view pushed onto a tab stack (sheets exempt); no `router.path` mutation outside `AppRouter` (grep in the rule). → `navigation.md` §"Forbidden inside a tab's stack" / §"PR review checklist"
 - **`.sheet(item:)` source type** — bind `Optional<SomeIdentifiableModel>`, never `Int: Identifiable`. → `swiftui-traps.md` §"`.sheet(item:)`"
 - **ViewModel ownership** — never instantiate an `@Observable` VM in a factory func / computed property; host with `@State`. → `swiftui-traps.md` §"Never instantiate a ViewModel in a factory func"

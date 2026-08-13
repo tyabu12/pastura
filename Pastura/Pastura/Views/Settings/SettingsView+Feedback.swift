@@ -59,7 +59,7 @@ extension SettingsView {
   /// `LocalizedStringKey` is a real alternative — but it needs
   /// `extractionState: "manual"` on every key, which trades this leak for a
   /// silent orphan on the next copy rename. Both measured; the trade-off table
-  /// is `.claude/rules/i18n.md` § "A custom func's `LocalizedStringKey`
+  /// is `.claude/rules/i18n-ui.md` § "A custom func's `LocalizedStringKey`
   /// parameter is not extracted". Revisit if this helper gains more callers.
   func externalLinkRow(
     title: String,

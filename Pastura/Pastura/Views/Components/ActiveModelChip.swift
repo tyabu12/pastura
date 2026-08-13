@@ -105,7 +105,7 @@ struct ActiveModelChip: View {
     // Ready rows show just the name; non-ready rows append the localized
     // availability hint. Compose into one verbatim string so the runtime value
     // is never used as a catalog lookup key (the LocalizedStringKey
-    // interpolation fallback trap, i18n.md); `Label`/`Text` take the String
+    // interpolation fallback trap, i18n-ui.md); `Label`/`Text` take the String
     // (verbatim) overloads.
     let composed = row.detail.map { "\(row.name) · \(detailText($0))" } ?? row.name
     return Group {
