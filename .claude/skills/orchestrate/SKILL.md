@@ -23,7 +23,7 @@ Orchestrate the full development workflow: plan → issue → worktree → TDD i
 ## Constants
 
 - `PLAN_MARKER`: `<!-- pastura-plan -->` — machine-readable marker embedded in Issue plan comments for detection during resumption. **Project-unique by construction** — never change it to a generic name: a marker shared with another skill or repo makes resumption pick up foreign plans.
-- `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls) — but **after** pre-flight check 1, which decides whether `gh` is usable at all. The numbered pre-flight list below runs in its written order; **check 1 additionally hoists above the two sections that read earlier than the list** — the `#N` fetch and Resumption Detection — because both depend on its verdict. In degraded mode `OWNER_REPO` is unavailable and every `gh` step is skipped.
+- `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls) — but **after** pre-flight check 1, which decides whether `gh` is usable at all and therefore runs before every `gh`-dependent step, including the ones written earlier than it. In degraded mode `OWNER_REPO` is unavailable and every `gh` step is skipped.
 
 ## Step 0: Input Detection & Pre-flight
 
@@ -52,14 +52,14 @@ After fetching the issue, check for an existing plan comment:
    - Extract `SESSION_MODEL` from `## Metadata` the same way — normalize to lowercase (`opus` / `sonnet`) — and capture its `(reason: …)` tail as `SESSION_RATIONALE` for the Step 2b resume prompt. If `Session` is absent (older plan comment pre-dating this field), default `SESSION_MODEL=opus` (the safe fallback — orchestrator stays on Opus); `SESSION_RATIONALE` is then unused (the resume prompt is Sonnet-gated).
    - Derive `SLUG` from the branch name.
    - **Coupling re-check**: if the resumed plan contains any `🎭` item but `REVIEWER_MODEL=sonnet` **or** `SESSION_MODEL=sonnet` (e.g., from a post-plan Metadata edit that bypassed the Step 1 coupling rule), warn the user and offer to upgrade the affected model(s) to Opus before continuing — that is, before proceeding to Step 2 in the normal flow, or before the Step 4 review when all items are already complete. Reason: a 🎭 item is implemented by the orchestrator (session model) and must never run — or be reviewed — on Sonnet. When `SESSION_MODEL` resolves to (or is upgraded to) `opus`, ensure the running session is actually on Opus (`/model opus`) before resuming implementation.
-   - **All-🎵 re-check**: the `any 🎭` predicate above cannot fire on an all-🎵 plan, but 🎵 does not certify simplicity — Step 1.3's tie-breaker also admits *specifiable but merely hard* items, marked `🎵 (tb)` at plan time (Step 1.3). A resumed session has no conversation context to re-derive that classification itself — don't try. Instead, when the resumed plan is all 🎵 **and** `REVIEWER_MODEL=sonnet`: grep the plan comment for `🎵 (tb)`. Any hit ⇒ offer to upgrade `REVIEWER_MODEL` to Opus (the reviewer only — unlike the re-check above, which covers both models). **Fail closed on a zero-hit grep too**: a plan comment predating this marker carries no route information at all, and is indistinguishable by grep from a plan that legitimately used zero tie-breaker items — so treat "no `(tb)` found" as inconclusive, not confirmed-safe, and offer the same upgrade rather than asking a context-free session to re-derive the classification. `SESSION_MODEL=sonnet` stays — the cost lever survives an Opus reviewer.
+   - **All-🎵 re-check**: the `any 🎭` predicate above cannot fire on an all-🎵 plan, but 🎵 does not certify simplicity — Step 1.3's tie-breaker also admits *specifiable but merely hard* items, marked `🎵 (tb)` at plan time. A resumed session has no conversation context to re-derive that classification itself — don't try. Instead, when the resumed plan is all 🎵 **and** `REVIEWER_MODEL=sonnet`: grep the plan comment for `🎵 (tb)`. Any hit ⇒ offer to upgrade `REVIEWER_MODEL` to Opus (the reviewer only — unlike the re-check above, which covers both models). **Fail closed on a zero-hit grep too**: a plan comment predating this marker carries no route information at all, and is indistinguishable by grep from a plan that legitimately used zero tie-breaker items — so treat "no `(tb)` found" as inconclusive, not confirmed-safe, and offer the same upgrade. `SESSION_MODEL=sonnet` stays — the cost lever survives an Opus reviewer.
    - If **all items are already checked**: do **not** silently proceed to review. A fully-checked *last* plan usually means its PR already merged — and on an **umbrella issue** that accumulates several historical plan comments, the `tail -1` in the resumption command above lands on that finished plan, so auto-proceeding would re-review completed work instead of planning the new work the user actually wants. Ask the user: "#N's last plan is complete (its PR likely merged) — resume-review it, or start a NEW plan for new work on #N?" Only ensure you are on the feature branch or in the correct worktree and **skip to Step 4** directly on an explicit "resume-review" answer; otherwise treat it as a fresh task and fall through to Step 1 (which then also runs Step 1b, since `RESUMING` no longer applies to this path).
    - Report to user: "Found existing plan on issue #N. {DONE}/{TOTAL} items complete. Resuming from item {NEXT_ITEM}."
    - **Skip Step 1 and Step 1b entirely** → proceed to Step 2.
 3. If no plan comment found: proceed normally (Step 1 creates the plan, Step 2 attaches it).
 
 **Pre-flight checks** (run in order):
-1. `gh auth status` — **run this first, before the `#N` fetch and Resumption Detection above**, since both make `gh` calls that depend on its verdict. If unauthenticated, run in **degraded mode**: no issue, no checkpoint sync, no resumption — and say so explicitly to the user rather than silently skipping. Skip every `gh` step in this skill, including the ones that read earlier than this line — `OWNER_REPO`'s `gh repo view`, the `#N` fetch, and Resumption Detection's `gh api`; the plan lives only in-session.
+1. `gh auth status` — **run this first, before the `#N` fetch and Resumption Detection above**, since both make `gh` calls that depend on its verdict. If unauthenticated, run in **degraded mode** and say so explicitly rather than silently skipping: no issue, no checkpoint sync, no resumption, and every `gh` step in this skill skipped — including the ones written earlier than this line (`OWNER_REPO`'s `gh repo view`, the `#N` fetch, Resumption Detection's `gh api`). The plan lives only in-session.
 2. `git status` — warn if uncommitted changes exist.
 3. Verify on default branch (skip if `RESUMING=true`):
    - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')` — this value still feeds Step 4's `git fetch origin {DEFAULT_BRANCH}`, `git rev-list … origin/{DEFAULT_BRANCH}`, and check 4's `git pull`, so degraded mode needs a fallback yielding a **bare branch name**, not a ref: `DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')`. Plain `git symbolic-ref refs/remotes/origin/HEAD` returns `refs/remotes/origin/main` and `--short` alone returns `origin/main` — either shape breaks every consumer above except the two `diff {DEFAULT_BRANCH}...HEAD` uses, which accept a full ref by luck. If `origin/HEAD` is unset (common in a fresh clone), recover with `git remote set-head origin -a`.
@@ -107,7 +107,7 @@ After fetching the issue, check for an existing plan comment:
    - New `@Test` cases in an **existing** suite following the file's existing pattern (not new suites, new helpers, or trait changes like `.timeLimit` / `.serialized`)
    - Documentation updates (`docs/ROADMAP.md`, `docs/examples/**`, `docs/gallery/**`, `docs/prototype/**`, doc comments)
    - Simple refactor within a single file without crossing layer boundaries
-   - Design token **application** (existing token to existing View only — new token additions are Opus-required) — watch the ShapeStyle-vs-`Color` trap right at this bullet: `.foregroundStyle(.muted)` reads as trivial token application but is wrong when `.muted` is a `Color` extension rather than a `ShapeStyle` one; check `.claude/agents/code-reviewer.md`'s trap cheat sheet before calling this Sonnet-acceptable
+   - Design token **application** (existing token to existing View only — new token additions are Opus-required) — the ShapeStyle-vs-`Color` trap lives right at this bullet: `.foregroundStyle(.muted)` reads as trivial token application but is wrong when `.muted` is a `Color` extension rather than a `ShapeStyle` one; check `.claude/agents/code-reviewer.md`'s trap cheat sheet before calling it Sonnet-acceptable
    - Fix-only PRs where the cause is already diagnosed and localized
 
    **Coupling rule:** If **any** plan item is labeled 🎭, the reviewer MUST be Opus — even if the target paths look Sonnet-eligible. This prevents the "all-🎵-plus-Sonnet-reviewer" configuration from putting orchestrator-implemented work through a Sonnet review.
@@ -313,7 +313,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 1. Verify `git status` shows expected changes (no unexpected files).
 2. Read the full diff (`git diff`) to understand the changes before composing the commit message.
 3. Spot-check for convention violations against what the changed file itself governs: for Swift changes, `nonisolated`, access modifiers, dependency imports; for non-Swift changes (docs, rules, scripts, config), the conventions the changed file itself asserts. Where the item introduces or changes a rule, grep the whole file for the OLD shape before committing — the prompt's acceptance conditions bound what the subagent was *asked*, not what the item *mandates* (CLAUDE.md § "Scope & Completeness Discipline"). #1453's own item 2 is the worked example: a delegated item satisfied all five of its acceptance conditions and still left one instance of the shape it was removing.
-4. Commit (Conventional Commits + emoji per CLAUDE.md). `git commit` is allowlisted; the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build), not a per-commit approval prompt.
+4. Commit (Conventional Commits + emoji per CLAUDE.md) — the commit-time gate is the pre-commit hook, not a per-commit approval prompt.
 5. Sync checkpoint to GitHub Issue (same `gh api` PATCH as the complex flow above; skip in degraded mode).
 
 **Fallback:** If the Sonnet subagent reports test failure (could not make tests pass), **take over immediately** — do not retry with Sonnet. Read the Sonnet error output to understand what was attempted, then:
@@ -339,22 +339,21 @@ After all implementation, run full verification directly from the main session:
    - **FAIL** (`** TEST FAILED **`) → fix the failing tests, verify the fix passes targeted tests locally, then commit with `🐛 fix:` prefix (no checkpoint sync needed — these are not plan items) and re-run the full suite.
    - **Hard limit: 3 iterations.** If still failing after 3, report remaining failures to the user and ask whether to proceed to Step 4.
 
-> **Carve-out — build-irrelevant branches:** the predicate for skipping the full run above is not a
-> judgement call — it is `scripts/precommit-gate-classify.sh`; read its header doc-comment (the
-> authoritative account of the predicate, per CLAUDE.md) before relying on this. Feed it the
-> branch's changed paths, not just the last commit's — the script
-> reads whatever set it's given, so for a whole branch pipe
-> `git -C {WORKTREE_ROOT} diff --name-only {DEFAULT_BRANCH}...HEAD` into
-> `scripts/precommit-gate-classify.sh` (cwd-relative; unlike the wrapper it is **not** allowlisted,
-> so expect one approval prompt). No `build` token in its output means every changed path
-> matched its build-irrelevant denylist, so the app target is never compiled and the suite cannot be
-> affected — skip step 1 entirely. No `lint` token means the same for step 2's
-> `swiftlint lint --quiet --strict`. **CI is not a backstop here** — this is not in the script header
-> and is easy to assume otherwise: `.github/workflows/ci.yml` reuses this same script for its PR
-> path-gating, so a build-irrelevant PR skips `lint-and-test` and `ui-test` on CI too. What does
-> cover the post-merge state is that a push to `{DEFAULT_BRANCH}` runs the full iOS suite regardless
-> of paths (`ci.yml` short-circuits every non-`pull_request` event to `ios=true`) — that lives in the
-> workflow, not the script header. When skipping, state the one-line reason in the PR body (Step 5).
+> **Carve-out — build-irrelevant branches:** the skip predicate is not a judgement call — it is
+> `scripts/precommit-gate-classify.sh`, whose header doc-comment is its authoritative account (per
+> CLAUDE.md); read that before relying on this. Feed it the **branch's** changed paths, not just the
+> last commit's — the script reads whatever set it's given:
+> `git -C {WORKTREE_ROOT} diff --name-only {DEFAULT_BRANCH}...HEAD | scripts/precommit-gate-classify.sh`
+> (cwd-relative, and unlike the wrapper **not** allowlisted — expect one approval prompt). No `build`
+> token in its output means every changed path matched its build-irrelevant denylist, so the app
+> target is never compiled and the suite cannot be affected — skip step 1 entirely; no `lint` token
+> means the same for step 2's `swiftlint lint --quiet --strict`. **CI is not a backstop here** — easy
+> to assume otherwise, and not in the script header: `.github/workflows/ci.yml` reuses this same
+> script for its PR path-gating, so a build-irrelevant PR skips `lint-and-test` and `ui-test` on CI
+> too. What does cover the post-merge state is that a push to `{DEFAULT_BRANCH}` runs the full iOS
+> suite regardless of paths (`ci.yml` short-circuits every non-`pull_request` event to `ios=true`) —
+> that lives in the workflow, not the script header. When skipping, state the one-line reason in the
+> PR body (Step 5).
 
 ## Step 4: Review — Gate G3
 
@@ -375,7 +374,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 **Review-verify-fix loop:**
 1. If the code-reviewer returns **PASS** → proceed directly to Step 5 (PR creation).
 2. If the code-reviewer returns **FAIL**:
-   a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt). Root its prompt at `{WORKTREE_ROOT}` and give it `git -C {WORKTREE_ROOT}` like any other subagent — the mandate in Step 2b binds every prompt the orchestrator composes, including ad-hoc ones with no template here.
+   a. Launch 1 read-only verification agent to check each FAIL item for false positives (e.g., test code flagged for force unwrap, which is exempt). Root its prompt at `{WORKTREE_ROOT}` and give it `git -C {WORKTREE_ROOT}` like any other subagent — Step 2b's mandate binds ad-hoc prompts too, not just the templated ones.
    b. Build the **Review Action Summary** (see below) and present it to the user.
    c. Capture `FIX_BASE=$(git rev-parse HEAD)`, then fix all confirmed issues. Skip false positives.
    d. Re-run the `code-reviewer` subagent **scoped to the fix diff**: prompt it with `git -C {WORKTREE_ROOT} diff {FIX_BASE}...HEAD` (the fix commits only — same `-C` rule as the first-pass prompt) plus the prior FAIL items, instructing it to verify each fix and its immediate blast radius — NOT to re-review the full branch. Fall back to a full-branch re-review only when the fixes touched files outside the set reviewed in the previous iteration.
@@ -443,7 +442,7 @@ IMPLEMENT_PR_BODY
 )"
 ```
 
-**Label fallback:** if `--label "$LABEL"` fails (the label doesn't exist in the repo), retry the command without `--label` (or offer to create the label first) — never block PR creation on a missing label.
+**Label fallback:** same as Step 2a — if `--label "$LABEL"` fails, retry without it rather than blocking PR creation.
 
 After creation:
 - Print the PR URL.
