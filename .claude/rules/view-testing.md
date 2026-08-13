@@ -61,6 +61,16 @@ value* it carries to `DesignTokensTests`. Probe + the fixed-appearance exception
 `ScenarioBadgeStyleTokenTests` (#1296) and `swiftui-traps.md` § "`ImageRenderer`
 does not inherit the ambient environment".
 
+**Extracting a View's inline colours to make them pinnable leaves the pin blind
+to `body`.** Before the extraction one place decides the colour; after it there
+are two, and a pin reading the accessor stays green when `body` re-inlines a
+token. The pin cannot carry the claim it rests on. Keep `body` free of `Color.`
+references so the divergence is a grep rather than a device-only surprise, and
+state that where the extraction lives — ADR-009 rules out the snapshot that
+would close it mechanically. Worked instance: `PredictionOutcomeBadge` +
+`PredictionOutcomeBadgeTokenTests` (#1427). `ContradictionBadge` is the same
+shape, not yet extracted, and stays code-review-gated until it is.
+
 Canonical example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests`
 (the `.languageMismatch` drift toast; #456 / ADR-009 § Amendment 2026-06-23).
 

@@ -28,9 +28,17 @@ extension DesignTokensTests {
   /// under the "large text" threshold, so 3:1 never applies to either.
   private static let contentTextBar = 4.5
 
-  /// Every opaque ground `muted` is drawn on, per appearance. Hand-written
-  /// against the palette rather than derived from `PasturaDynamicPalette.all`,
-  /// which would sweep in fills that never carry text.
+  /// Every opaque ground the app ships that `muted` is or could be drawn on,
+  /// per appearance. Hand-written against the palette rather than derived from
+  /// `PasturaDynamicPalette.all`, which would sweep in fills that never carry
+  /// text.
+  ///
+  /// Deliberately **not** "grounds `muted` is drawn on today". After #1427 no
+  /// `muted` label sits on `mossSoft` at all — `DesignTokensTests+MossSoftGround`
+  /// says so in as many words — and which of the others still carry one is the
+  /// per-site question #1448 answers. The bar applies to the ground either way,
+  /// so scoping this fixture to current occupancy would make it churn on every
+  /// unrelated repoint.
   ///
   /// The two lists are deliberately symmetric — six against six. An earlier
   /// draft of #1427 enumerated five dark grounds, omitting `nightPromoBackground`,
@@ -84,9 +92,11 @@ extension DesignTokensTests {
   ///
   /// A range ("2.1–4.2, all sub-AA") reads as a safety claim while hiding which
   /// ground is nearest the bar, and it is exactly what goes stale when a ground
-  /// is added or retuned. `nightMuted` on `nightPage` sits **8%** below 4.5, not
-  /// the ~19% the light figures alone would suggest — so a modest retune of
-  /// either token flips this ground first, and it is the one to re-measure.
+  /// is added or retuned. `nightMuted` on `nightPage` sits **7.7%** below 4.5,
+  /// where the narrowest *light* margin — `muted` on `bubbleBackground` at
+  /// 3.475 — is **22.8%**. So a modest retune of either token flips this ground
+  /// first, and it is the one to re-measure. Both narrowest grounds are
+  /// asserted by name below rather than left to the prose.
   @Test func nightPageIsTheGroundNearestTheBar() {
     let worst = Self.mutedDarkGrounds.max(by: { $0.ratio < $1.ratio })
     #expect(worst?.name == "nightPage", "narrowest dark margin moved to \(worst?.name ?? "nil")")
