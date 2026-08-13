@@ -15,7 +15,9 @@ The UI half of the i18n rules; `i18n.md` carries the layer-independent callsite 
 
 A section belongs here on **either** arm: (1) it is written against a **SwiftUI API** (`Text` plural variants, `LocalizedStringKey` labels, `.accessibilityLabel`) and so cannot fire outside a View; or (2) it is a catalog / audit procedure whose **entire known instance set** lives in `Views/` / `App/` / `PasturaApp.swift` — layer-agnostic mechanism, UI-only reach.
 
-Everything else stays in `i18n.md`, including `### The partial-conversion trap` and `### Apply when planning a partial-scope i18n slice`: 59 `String(localized:)` uses sit outside `Views/`+`App/` (LLM 16 / Models 37 / Data 6), so non-UI slices are real — and a core→here pointer is unreachable in exactly the session that needs it. `PasturaTests/Localization/**` is an arm for the plural runtime test; `Localizable.xcstrings` is an arm because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog, without which `i18n-catalog.md`'s opening claim would be false.
+Everything else stays in `i18n.md` — `### The partial-conversion trap`, `### Apply when planning a partial-scope i18n slice`, and `## Audit planning`: **61** `String(localized:)` uses sit outside `Views/`+`App/` (Models 37 / LLM 16 / Data 6 / Engine 1 / Utilities 1), so non-UI slices and non-UI Tier 2 candidates are both real — and a core→here pointer is unreachable in exactly the session that needs it. Only § "Audit triage" is here, because `.accessibilityLabel` is arm 1.
+
+`PasturaTests/Localization/**` is an arm for the plural runtime test; `Localizable.xcstrings` is an arm because §§ Plurals and `#if DEBUG` prescribe hand-edits to the catalog, without which `i18n-catalog.md`'s opening claim would be false.
 
 **Accepted gaps.** Arm 2 is **time-indexed**, not structural: it holds only because every `String(localized:)` strictly inside a `#if DEBUG` block sits in `Views/` today (measured 2026-08-13 — `Views/Results/ResultDetailView.swift`, 3 sites; zero in `Engine/` / `LLM/` / `Models/` / `Data/`). A future non-UI DEBUG literal hits a rule that no longer injects — re-check the arm, don't trust it. Separately, the `PasturaTests/Localization/**` arm reaches only that directory: `String(localized:)` also appears under `PasturaTests/App/` (4 files), `Views/` (3), `Models/` (2).
 
@@ -206,13 +208,3 @@ For i18n Tier 2 audit candidates whose target is `.accessibilityLabel(...)`, run
 Apply during initial plan drafting, not at critic time — saves a Critical-verdict re-revision cycle.
 
 Canonical case study: `Pastura/Pastura/Views/Components/SheepAvatar.swift` `Character.accessibilityLabel` returned color-slot canonical names ("Alice"/"Bob"/"Carol"/"Dave"), not agent display names. Wrapping with ja would have committed those as translatable personal names and amplified the VoiceOver dissonance for ja-locale users. Fix: `.accessibilityHidden(true)` (avatar is decorative; adjacent `Text(agent)` carries identity).
-
-## Audit planning — three checks before drafting a Tier 2 wrap PR
-
-Run these against a Tier 2 candidate list (`scripts/check_i18n_potential_keys.py`) **before** planning catalog edits — each is otherwise a late Critical the pre-impl critic catches only at review time.
-
-1. **Existing key ⇒ zero new catalog entries.** The audit groups by `(file, line, key)` and flags every wrap-site; xcstringstool dedupes by the literal string alone. Wrapping a literal that already exists in `Localizable.xcstrings` (from a prior wrap elsewhere) creates **no** new key — grep the catalog for the exact string first and drop it from the plan's "new keys" count. Don't pre-plan a `ja` translation; the existing one is reused.
-
-2. **Does the wrap canonicalize a structural bug?** A `String(format:)` literal may hardcode an assumption that should be data-derived (a model size, a count, a unit suffix, a vendor name). Wrapping verbatim freezes that bug into the catalog as the translator source-of-truth, so the later fix costs a Swift edit **plus** a catalog rename **plus** every `ja` update. Scan the literal; if it hardcodes such a value, either parameterize it in the same PR (preferred) or skip the wrap and file a follow-up bundling the wrap with the structural fix.
-
-3. **Intentional deferral needs a documented home.** The audit is stateless — it re-flags the same candidate every run. When a candidate is deliberately left un-wrapped pending a gating event (design-pending copy, deferred multi-model fix), an inline `// TODO` is invisible to the next audit session. Register the deferral as a row in `docs/i18n/leak-detection.md` § "Explicitly-deferred or permanent carve-outs" (source location, gating event, expected resolution), and point the inline comment at that section.

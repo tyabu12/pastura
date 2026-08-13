@@ -6,9 +6,9 @@ paths:
 # Localizable.xcstrings — catalog & tooling procedures
 
 Editing the catalog itself, and surviving `xcrun xcstringstool sync`'s output. The
-Swift-authoring side is split by layer: the callsite core — Form B, the Form A fallback hazard —
-is `i18n.md`; plurals and audit planning are `i18n-ui.md`. Both match this path too, so a catalog
-session loads all three.
+Swift-authoring side is split by layer: the callsite core — Form B, the Form A fallback hazard,
+audit planning — is `i18n.md`; plurals and the SwiftUI traps are `i18n-ui.md`. Both match this
+path too, so a catalog session loads all three.
 
 ⚠️ **This file loads on a `Read` of the catalog — not on a script run.** A batch ja-fill
 or `scripts/xcstrings-prune-stale.py` mutates the catalog without any agent `Read`, so
