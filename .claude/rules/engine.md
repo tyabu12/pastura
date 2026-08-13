@@ -575,14 +575,15 @@ a drop-in swap for its non-QAT sibling. Descriptor-side procedure:
 
 **Two failure modes, and only one of them is the pin's.** The shared-KV
 gap above is a **loader** gap — pin-relative by construction, and a bump
-past b8694 clears it. **Quant kernel coverage is not**: a build whose
+to **b10327**, the only build measured to load one, clears it (nothing
+between it and b8694 was tested). **Quant kernel coverage is not**: a build whose
 tensors use a type the Metal backend has no kernel for **loads cleanly and
 then SIGSEGVs on the first inference**, because the pipeline lookup returns
 NULL and `ggml_metal_encoder_set_pipeline` dereferences it. Measured on the
 QAT-Mobile `UD-Q2_K_XL` export: llama.cpp ships no `TQ`-family Metal
-kernels, and still did not tens of builds later. So **do not read a pin
-bump as unblocking a whole variant family**, and treat "it loaded" as no
-evidence at all here.
+kernels, and still shipped none at b10375. So **do not read a pin bump as
+unblocking a whole variant family**, and treat "it loaded" as no evidence
+at all here.
 
 **Apply**: before pulling any GGUF using a quant the catalog has not shipped
 before, grep the release xcframework binary for that quant's kernel names —

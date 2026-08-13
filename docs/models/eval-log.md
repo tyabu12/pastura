@@ -100,8 +100,10 @@ everything else here.
   judge drift has been measured at up to −17 points on a single model — so **do not
   compare this figure to any other dated entry.** n=1 per cell, one judge, one
   session, and the gap leans on `prisoners_dilemma` ja: its control cell was the
-  outlier driving most of the margin, so that cell alone was re-sampled (11 → 18) and
-  **both** samples are recorded; against the first sample the control totals 100.
+  outlier driving most of the margin, so that cell alone was re-sampled (11 → 18;
+  point-in-time — the digest holds only the re-sample, since `append_eval.py`
+  replaces by key, so **both** samples survive only in the issue comment) and against
+  the first sample the control totals 100.
   Only the control was re-sampled, which can only move the comparison in the
   incumbent's favour. Treat +14 as a screening signal, not a measured delta.
   ADR-011 **P1** (non-gated, Apache-2.0, anonymous resolve 302 → CDN 200) and **P2**
@@ -126,10 +128,7 @@ everything else here.
   `gemma-4-e2b-qat-q4-k-xl`, with the control arm under `gemma-4-e2b-q4-k-m` of the
   same date (gitignored, per-machine — the **durable** backing is the issue comment
   next) · full derivation → [#1416 comment][eval-20260813] · pin-bump implications →
-  [#1415 comment][eval-20260812] · intake → #979.
-
-[eval-20260813]: https://github.com/tyabu12/pastura/issues/1416#issuecomment-5275995869
-[eval-20260812]: https://github.com/tyabu12/pastura/issues/1415#issuecomment-5275999544
+  [#1415 comment][payoff-20260813] · intake → #979.
 
 ---
 
@@ -145,7 +144,7 @@ everything else here.
   **−29.6 %** against the shipped Q4_K_M, the largest saving anywhere in this family.
   A GGUF conversion of Google's [QAT Mobile][qat-mobile] line, which publishes no
   GGUF itself; its `wNa8o8` scheme reads concretely from the header as `TQ2_0`×61 /
-  `Q8_0`×70 / `Q4_0`×146 / `F32`×263.
+  `Q8_0`×70 / `Q4_0`×146 / `F32`×263 / `F16`×1 — 541, matching the shared-KV count.
 - **Differentiation**: **UNASSESSABLE** — zero inferences completed, so the
   2-bit-decoder-layer quality question is *untested*, not answered.
 - **Snapshot**: 1 cell run, 0 `ok`, **0 inferences**; no rubric scores exist. The
@@ -180,8 +179,6 @@ everything else here.
   including the lldb trace and the kernel sweep →
   [#1416 comment][eval-20260813] · intake → #979.
 
-[qat-mobile]: https://huggingface.co/collections/google/gemma-4-qat-mobile
-
 ---
 
 ## Gemma 4 E2B QAT Q4_0 (`google/gemma-4-E2B-it-qat-q4_0-gguf`) — 2026-08-12 — **FAIL (NO-GO)**
@@ -201,7 +198,8 @@ everything else here.
   the *same* pin. ⚠️ **Neither number is in the digest.** The spike deliberately did
   not run `append_eval.py` — its `(date, profile_id)` section key carries no pin or
   GGUF dimension, so the incumbent and the candidate (same family, same day) would
-  have overwritten each other. The durable record is the #1415 comment below.
+  have overwritten each other. The durable record is the [#1415 spike
+  comment][spike-20260812].
   ⚠️ **Not comparable to the 2026-08-13 entries above** (121 / 107): those were
   scored in a different session, and this pair's own incumbent leg (113) sits 6
   points above the 2026-08-13 control (107) on the *same build* — which is the
@@ -214,7 +212,7 @@ everything else here.
   *family* is not rejected by this: it is a fact about the `Q4_0` build only, and the
   two unsloth re-exports were evaluated separately above.
 - **Pointers**: spike result, with the full method and the same-session control arms
-  → [#1415 comment][eval-20260812] · pin spike → #1415 · intake → #979.
+  → [#1415 comment][spike-20260812] · pin spike → #1415 · intake → #979.
 
 ---
 
@@ -255,8 +253,10 @@ everything else here.
   wrapper release exists.
 - **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support
   (`mattt/llama.swift` bumped past b8694).
-- **Retry**: **ran, and is recorded as the 2026-08-12 entry above** — the unblock
-  condition was met inside the #1415 spike and the candidate scored a clean NO-GO.
+- **Retry**: tracked as #1416, and it **ran** — recorded as the 2026-08-12 entry
+  above; the unblock condition was met inside the #1415 spike and the candidate
+  scored a clean NO-GO. (#1416 now carries the QAT-Mobile retry as well, so follow
+  the entry, not the issue, for *this* candidate's outcome.)
   This entry stays a `BLOCKED` record of 2026-08-08 rather than being relabelled: on
   that date zero inferences ran, so a rejection cannot be dated to it.
 - **Disposition**: **not rejected.**
@@ -265,8 +265,10 @@ everything else here.
   CONTROL flags (`<|turn>` id 105, `<turn|>` id 106, both `token_type=3`); EOG set
   `{1, 50, 106, 212}` is a **superset** of the incumbent's `{50, 106, 212}`, so
   `<turn|>` terminates generation on both builds and there is no runaway-generation
-  risk. The two unsloth QAT re-exports this entry flagged as worth evaluating
-  alongside have since been measured — both carry their own 2026-08-13 entries above.
+  risk. The unsloth QAT re-export this entry flagged as worth evaluating alongside —
+  and the QAT-Mobile re-export that #1415's scope correction later added, which this
+  entry had **missed** — have since been measured; both carry their own 2026-08-13
+  entries above.
   **P3–P5 remain untouched** (Gate 2).
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-08 ·
   gemma-4-e2b-q4-k-m (gitignored, and replaced by key `(date, profile_id)` — which
@@ -316,3 +318,14 @@ everything else here.
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-07-23
   (gitignored) · intake → #979 · harness `language_mismatch`-detector bug
   surfaced during this eval → #1234.
+
+---
+
+<!-- Reference-link definitions. Kept file-scoped rather than inside an entry:
+     entries are appended newest-first and older ones get pruned, which would
+     silently break a label another entry still uses. -->
+
+[eval-20260813]: https://github.com/tyabu12/pastura/issues/1416#issuecomment-5275995869
+[payoff-20260813]: https://github.com/tyabu12/pastura/issues/1415#issuecomment-5275999544
+[spike-20260812]: https://github.com/tyabu12/pastura/issues/1415#issuecomment-5259871611
+[qat-mobile]: https://huggingface.co/collections/google/gemma-4-qat-mobile
