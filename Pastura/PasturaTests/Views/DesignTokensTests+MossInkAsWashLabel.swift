@@ -69,6 +69,10 @@ extension DesignTokensTests {
   ///   family, not this one. Seen so far: `ActiveModelChip` (`inkSecondary` on
   ///   `mossDark@0.10`, worst 4.843 dark), `ResultDetailView+ResumeBanner` and
   ///   `ModelRow`'s selected row (both `ink` on a thin `moss` wash).
+  /// - **A role-token label is out** even though it is same-family: this file is
+  ///   about the §2.3 **Ink** step specifically, so `mossOnWash` labels are
+  ///   `mossWashSites`' business. `ModelRow` supplies one of each — its selected
+  ///   row above, and its `recommendedTag` here.
   ///
   /// Membership here is a **contrast** class, not the set design-system §8's
   /// exception admits by role — the two are not the same set and this file does
@@ -170,10 +174,11 @@ extension DesignTokensTests {
   ///
   /// It is the **exact complement** of the negative control above rather than a
   /// hand-listed pair, so the two arms cannot drift apart as the fixture grows.
-  /// What the pin below states is narrower than that, though: exactly one row is
-  /// excluded, so the complement can never silently become the whole fixture nor
-  /// — if the fixture were trimmed to the status pill alone — empty with the loop
-  /// running zero times. A row *added* is caught by the size pin in
+  /// What the pins below state is narrower than that: exactly one row is
+  /// excluded and the complement is non-empty, so it can neither silently become
+  /// the whole fixture nor — if the fixture were trimmed to the status pill
+  /// alone — collapse to a zero-iteration loop. A row *added* is caught by the
+  /// size pin in
   /// ``mossInkClearsAAOnEveryMossWashItLabels``, not here; the two pins are
   /// complementary and neither subsumes the other.
   ///
@@ -182,6 +187,10 @@ extension DesignTokensTests {
   @Test func theResultsPillIsEnumeratedNotRepaired() {
     let alreadyPassing = Self.mossInkWashSites.filter { $0.name != "GameHeader.statusPill" }
     #expect(alreadyPassing.count == Self.mossInkWashSites.count - 1)
+    // `count - 1` alone is satisfied by an empty complement (0 == 0) if the
+    // fixture were ever trimmed to the status pill, and the loop below would
+    // then run zero times. This is what bars that.
+    #expect(!alreadyPassing.isEmpty)
 
     for site in alreadyPassing {
       let lightGround = composite(
