@@ -8,20 +8,15 @@ package com.pastura.models
  *
  * ### Contract for consumers
  *
- * Match these against **decoded text only**. They are not the tokenizer's
- * turn-boundary *tokens*: under llama.cpp a genuine CONTROL token decodes to
- * the empty string and an end-of-generation token returns before its piece is
- * appended, so a marker can only ever reach a text match when the model
- * **hallucinates it as ordinary characters**.
+ * Match these against **decoded text only**, never the tokenizer's turn-boundary tokens — a
+ * genuine CONTROL token never decodes to visible text. See the Swift original for the full
+ * argument.
  *
  * ### Why per-model
  *
- * The values are tokenizer-specific and share no convention across families.
- * ChatML models (Qwen 3) use `<|im_start|>` / `<|im_end|>`; Gemma 4 uses
- * `<|turn>` / `<turn|>` and carries neither ChatML string anywhere in its
- * 262,144-token vocabulary. Hardcoding the ChatML pair — as both engines did
- * until #1422 — leaves every mechanism keyed on it silently inert for the
- * default shipped model.
+ * Values are tokenizer-specific with no shared convention: ChatML (Qwen 3) uses
+ * `<|im_start|>`/`<|im_end|>`, Gemma 4 uses `<|turn>`/`<turn|>`. Hardcoding the ChatML pair, as
+ * both engines did until #1422, left every consumer silently inert for the default shipped model.
  *
  * **Deliberately not `@Serializable`.** It is a runtime parameter of the parse
  * path, never a persisted or K/N-serialized payload, so it does not cross

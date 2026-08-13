@@ -67,10 +67,8 @@ struct LlamaCppIntegrationTests {
       modelPath: LlamaCppConfig.modelPath,
       // Mirrors `ModelRegistry.gemma4E2B` — carries no Gemma marker (#1417).
       stopSequence: "<|im_end|>",
-      // Stated, not defaulted. This suite drives the real Gemma GGUF, so the
-      // `.chatML` default would have it parse under different markers than
-      // production — exactly the descriptor/runtime divergence #1422 is about,
-      // and invisible here because the suite asserts on parsed output.
+      // Stated, not defaulted (#1422): a real-GGUF site inheriting the default
+      // would parse under different markers than production.
       turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
       modelIdentifier: "Gemma 4 E2B (Q4_K_M)",
       systemPromptSuffix: nil

@@ -14,8 +14,7 @@ nonisolated struct LLMCaller: Sendable {
 
   // `internal` so the sibling `LLMCaller+StreamFailure` extension can read it.
   static let maxRetries = 2
-  /// `internal` (not `private`) so the sibling `LLMCaller+Logging` extension's
-  /// `parseAndLog` can reach it — same reason as `logger` below.
+  /// `internal` so `LLMCaller+Logging`'s `parseAndLog` can reach it (see `logger` below).
   let parser = JSONResponseParser()
   private let extractor = PartialOutputExtractor()
 
@@ -200,8 +199,8 @@ nonisolated struct LLMCaller: Sendable {
   // `logRepairIfNeeded`, `parseAndLog`, `logChatTemplateLeakage`,
   // `logEmptyFields`, `emitLangCheckSkipped`) live in
   // `LLMCaller+Logging.swift` to keep this file under SwiftLint's
-  // `file_length` budget. `parseAndLog` is the one that is not pure log
-  // emission — it parses and returns a `TurnOutput` (#1422).
+  // `file_length` budget. `parseAndLog` also parses — it is the sole
+  // production caller of `JSONResponseParser.parse` (#1422).
 
   // `hasEmptyFields`, `canonicalPrimaryIsMissing` and `shouldRetryEmptyFields`
   // live in `LLMCaller+EmptyPrimary.swift` to keep this file under SwiftLint's

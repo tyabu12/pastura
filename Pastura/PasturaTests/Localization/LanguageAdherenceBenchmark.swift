@@ -192,9 +192,9 @@ struct LanguageAdherenceBenchmark {
       modelPath: BenchmarkConfig.modelPath,
       stopSequence: "<|im_end|>",
       // Stated rather than defaulted, even though `.chatML` is the value Qwen
-      // wants: a real-GGUF site that inherits the default stops tracking the
-      // descriptor it claims to mirror (#1422). Load-bearing for a benchmark —
-      // `parseOK` is the metric, and truncation is upstream of it.
+      // wants: a defaulted site stops tracking the descriptor it mirrors (#1422).
+      // Load-bearing for a benchmark — `parseOK` is the metric, and truncation
+      // is upstream of it.
       turnMarkers: .chatML,
       modelIdentifier: "Qwen 3 4B (Q4_K_M)",
       systemPromptSuffix: "/no_think",

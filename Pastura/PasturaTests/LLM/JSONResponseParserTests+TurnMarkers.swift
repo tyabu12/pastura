@@ -7,10 +7,9 @@ import Testing
 /// § "Splitting a Suite Across Files".
 ///
 /// Every test that asserts the fix also runs the **same input** through the
-/// pre-#1422 ChatML-only set as a negative control — without one, a test that
+/// pre-#1422 ChatML-only set as a negative control — otherwise a test that
 /// happens to pass for an unrelated reason (the balanced-brace scan already
-/// discards trailing prose, so most hallucination shapes parse correctly with
-/// no truncation at all) would read as proof that truncation fired.
+/// discards trailing prose) would read as proof truncation fired.
 extension JSONResponseParserTests {
   private var gemma: [ChatTurnMarkers] {
     [ChatTurnMarkers(start: "<|turn>", end: "<turn|>"), .chatML]
@@ -18,10 +17,9 @@ extension JSONResponseParserTests {
 
   // MARK: - End arm
 
-  /// A fenced fabricated continuation is the shape that actually loses the
-  /// payload: `extractFromCodeBlock` runs **before** the balanced-brace scan
-  /// and takes `firstMatch` unconditionally, so it lifts the fabricated object
-  /// out of the fence and the real (unfenced) answer is discarded silently.
+  /// A fenced fabricated continuation loses the payload: `extractFromCodeBlock`
+  /// runs before the balanced-brace scan and takes `firstMatch`
+  /// unconditionally, discarding the real unfenced answer.
   @Test func endMarker_truncatesFencedFabricatedContinuation() throws {
     let input = """
       {"statement": "本物", "action": "cooperate"}<turn|>
@@ -43,19 +41,15 @@ extension JSONResponseParserTests {
     #expect(unfixed.fields["statement"] == "偽物")
   }
 
-  /// **A pin on an accepted trade-off, not an assertion of desired behaviour.**
-  /// Read [#1452](https://github.com/tyabu12/pastura/issues/1452) before
-  /// changing it — a failure here means the end arm's unguarded cut moved, and
-  /// the question is whether #1452 was decided, not whether this expectation is
-  /// stale.
+  /// **A pin on an accepted trade-off, not desired behaviour.** Read
+  /// [#1452](https://github.com/tyabu12/pastura/issues/1452) before changing —
+  /// a failure means the unguarded cut moved, not that this is stale.
   ///
-  /// The end arm cuts at the first occurrence with no `firstBrace` guard, so a
-  /// *leading* end marker discards the whole payload the model then writes.
-  /// The symmetric-looking fix — reuse the start arm's `> firstBrace` gate —
-  /// is not strictly safer, which is the second `#expect` below: today
-  /// `<|im_end|>{"fake":1}` fails and retries; under that gate the fabricated
-  /// object would be accepted as the turn's answer. Both arms stay as they are
-  /// until #1452 picks a side.
+  /// The end arm cuts at the first occurrence with no `firstBrace` gate, so a *leading*
+  /// end marker discards the whole payload the model then writes.
+  /// The symmetric-looking fix — reusing the start arm's `> firstBrace` gate —
+  /// is not strictly safer: the second `#expect` shows `<|im_end|>{"fake":1}`
+  /// would then be accepted rather than failing and retrying.
   @Test func endMarker_leadingMarkerDestroysPayload_acceptedGap() throws {
     let leadingEcho = """
       <turn|>
@@ -70,15 +64,10 @@ extension JSONResponseParserTests {
     }
   }
 
-  /// **Regression.** A non-ChatML end marker inside a JSON string value is
-  /// payload content, not a turn boundary. Without the guard the cut lands
-  /// mid-value, the repair pipeline closes the quote and brace, and a truncated
-  /// value is persisted as the agent's answer — measured before the fix as
-  /// `["statement": "テンプレートは"]` with `action` gone entirely.
-  ///
-  /// Reachable specifically because `stopSequence` still strips only
-  /// `<|im_end|>` (#1451), so `<turn|>` is the first end marker that survives
-  /// generation and arrives here un-stripped.
+  /// **Regression.** A non-ChatML end marker inside a string value is payload,
+  /// not a boundary — pre-fix measured as `["statement": "テンプレートは"]` with
+  /// `action` gone. Reachable because `stopSequence` strips only `<|im_end|>`
+  /// (#1451), so `<turn|>` survives un-stripped.
   @Test func endMarker_insideStringValue_isNotATurnBoundary() throws {
     let input = #"{"statement": "テンプレートは <turn|> で終わる", "action": "cooperate"}"#
 
@@ -87,15 +76,10 @@ extension JSONResponseParserTests {
     #expect(output.fields["action"] == "cooperate")
   }
 
-  /// **Control — the byte-identical-for-ChatML criterion.** The same shape with
-  /// ChatML's *own* end marker still cuts string-blind, because guarding it
-  /// would move shipped ChatML behaviour and #1422 holds that fixed. So the
-  /// guard above is keyed on `.chatML.end` by literal, and this test is what
-  /// pins the exception rather than letting it drift into "all end markers".
-  ///
-  /// A failure here means someone widened the guard. That may well be the right
-  /// call on its own merits — but it is a separate decision from #1422, and it
-  /// changes Qwen.
+  /// **Control — byte-identical-for-ChatML criterion.** ChatML's own end
+  /// marker still cuts string-blind (keyed on `.chatML.end` by literal). A
+  /// failure means someone widened the guard — a separate decision from
+  /// #1422, and it changes Qwen.
   @Test func endMarker_chatMLInsideStringValue_stillCutsBlind() throws {
     let input = #"{"note": "テンプレートは <|im_end|> で終わる"}"#
 
@@ -107,9 +91,8 @@ extension JSONResponseParserTests {
 
   // MARK: - Start arm
 
-  /// A start marker **after** the first structural `{` is a fabricated next
-  /// turn, so it truncates — covering the hallucination shape that emits no
-  /// end marker at all.
+  /// A start marker after the first structural `{` is a fabricated next turn,
+  /// so it truncates — covers the hallucination shape with no end marker.
   @Test func startMarker_afterFirstBrace_truncates() throws {
     let input = """
       {"statement": "本物"}
@@ -123,15 +106,12 @@ extension JSONResponseParserTests {
     #expect(try parser.parse(input, turnMarkers: [.chatML]).fields["statement"] == "偽物")
   }
 
-  /// **The asymmetry's load-bearing half.** A *leading* start marker is the
-  /// model echoing its own template header with the payload still behind it.
-  /// Truncating there deletes the payload — and deterministically, since the
-  /// backend's template config reproduces on every retry, so the run walks
-  /// `parse_failed` → `retriesExhausted` → an ADR-021 turn skip rather than
-  /// recovering.
+  /// **The asymmetry's load-bearing half.** A leading start marker is the
+  /// model echoing its own template header; truncating there deterministically
+  /// deletes the payload.
   ///
   /// Revert the `firstBrace + 1` search origin to `0` and this test throws
-  /// while every other test in this file still passes.
+  /// while every other test here still passes.
   @Test func startMarker_leadingHeaderEcho_isNotATurnBoundary() throws {
     let input = """
       <|turn>model
@@ -143,11 +123,9 @@ extension JSONResponseParserTests {
     #expect(output.fields["action"] == "cooperate")
   }
 
-  /// The start arm is string-aware: a marker spelled inside a JSON string
-  /// value is payload content, not a turn boundary. Without the check the cut
-  /// lands mid-string, the repair pipeline closes the quote and brace, and a
-  /// silently-truncated field value is persisted as if it were the model's
-  /// answer.
+  /// The start arm is string-aware: a marker inside a JSON string value is
+  /// payload content, not a turn boundary. Without the check the cut lands
+  /// mid-string and a silently-truncated value is persisted as the answer.
   @Test func startMarker_insideStringValue_isNotATurnBoundary() throws {
     let input = #"{"statement": "テンプレートは <|im_start|> から始まる", "action": "cooperate"}"#
 
@@ -159,9 +137,8 @@ extension JSONResponseParserTests {
   // MARK: - Qwen / ChatML equivalence
 
   /// The end arm is byte-identical for every backend, and the start arm is a
-  /// no-op on inputs that carry no post-`{` start marker — which is every
-  /// input in the shipped corpus. Demonstrated on the trailing-prose residue
-  /// shape, the one the balanced-brace scan handles on its own.
+  /// no-op on inputs with no post-`{` start marker — every input in the
+  /// shipped corpus. Demonstrated on the trailing-prose residue shape.
   @Test func markerFreeInput_parsesIdenticallyUnderEitherSet() throws {
     let input = """
       {"statement": "hello", "action": "cooperate"}
@@ -192,15 +169,12 @@ extension JSONResponseParserTests {
 
   // MARK: - Degenerate inputs
 
-  /// An empty marker string must never match. The counterfactual is worth
-  /// stating precisely: it is `firstIndex`'s own `guard !pattern.isEmpty` that
-  /// stops the index-0 cut, so deleting only the three `isEmpty` checks inside
-  /// `truncateAtTurnMarkers` destroys nothing — all four together are what
-  /// hold. With them in place an empty pair does not over-match, it goes
-  /// **inert**, and that inertness is *why*
-  /// `ModelRegistryTurnMarkerDivergenceTests` asserts non-empty markers at the
-  /// catalog — the mechanism is silent, so the catalog is the only place it can
-  /// be caught.
+  /// An empty marker string must never match. It's `firstIndex`'s own
+  /// `guard !pattern.isEmpty` that stops the index-0 cut, so deleting only the
+  /// three `isEmpty` checks inside `truncateAtTurnMarkers` destroys nothing —
+  /// all four together are what hold. An empty pair goes **inert** rather than
+  /// over-matching, which is why `ModelRegistryTurnMarkerDivergenceTests`
+  /// asserts non-empty markers at the catalog instead.
   @Test func emptyMarkerStrings_areIgnored() throws {
     let input = #"{"statement": "hello"}"#
     let output = try parser.parse(

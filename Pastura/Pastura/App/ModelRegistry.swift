@@ -57,26 +57,18 @@ enum ModelRegistry {
     sha256: "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845",
     // Carries no Gemma marker, deliberately: `<|im_end|>` is a ChatML sentinel
     // absent from this model's vocabulary, so this generation-side path is
-    // inert here — which is what lets a spelled-out `<turn|>` survive to the
-    // parser and reach `turnMarkers` below. Repointing it would activate a
-    // behaviour on an assumption; deferred to #1451 (#1417).
-    // Canonical note: `LlamaCppService.stopSequence`. This rationale is
-    // restated at production, harness, test and doc sites, and #1451 has to
-    // change all of them — `grep -rn '#1451\|#1417'` is the enumeration, so no
-    // count is asserted here. Keep this pointer; a copy that loses it is the
-    // one left behind.
+    // inert here — which is what lets a spelled-out `<turn|>` reach the parser,
+    // keyed on the `turnMarkers` below. Repointing it would activate a behaviour
+    // on an assumption; deferred to #1451, which must change every site
+    // (`grep -rn '#1451'`) (#1417). Canonical note: `LlamaCppService.stopSequence`.
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the exact file pinned above: `<|turn>`
     // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`,
-    // vocab 262,144. The ids and `token_type`s come from the GGUF header-read
-    // step in `docs/models/onboarding.md` § "Stage 0 — Harness profile".
-    // The trailing claim — that neither ChatML string occurs anywhere in that
-    // vocabulary — is the one a reader cannot re-derive from those ids, and no
-    // document records the sweep behind it: it is carried as an assertion on
-    // `LlamaCppService.stopSequence` (and ADR-002 for the Gemma 3 syntax). Note
-    // that Stage 0's own "marker sweep" counts markers in **transcripts**,
-    // which is a different claim from vocabulary membership — do not cite it
-    // for this one.
+    // vocab 262,144. Header-read step: `docs/models/onboarding.md`
+    // § "Stage 0 — Harness profile". The claim that neither ChatML string
+    // occurs in that vocabulary is not re-derivable from these ids — it's
+    // carried as an assertion on `LlamaCppService.stopSequence`, and is
+    // distinct from Stage 0's transcript marker sweep.
     turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
@@ -98,9 +90,8 @@ enum ModelRegistry {
     sha256: "7485fe6f11af29433bc51cab58009521f205840f5b4ae3a32fa7f92e8534fdf5",
     stopSequence: "<|im_end|>",
     // Qwen 3 genuinely is ChatML: `<|im_start|>` 151644 / `<|im_end|>` 151645,
-    // both CONTROL, and `eos = 151645`. The pre-#1422 hardcoded literal was
-    // correct here and only here. Header-read procedure that produces these
-    // ids: `docs/models/onboarding.md` § "Stage 0 — Harness profile".
+    // both CONTROL, `eos = 151645`. Header-read: `docs/models/onboarding.md`
+    // § "Stage 0 — Harness profile".
     turnMarkers: .chatML,
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/Qwen/Qwen3-4B-GGUF"),

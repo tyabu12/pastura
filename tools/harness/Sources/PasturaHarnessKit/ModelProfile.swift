@@ -20,15 +20,8 @@ package struct ModelProfile: Sendable, Equatable {
   /// canonical mechanism note is on `LlamaCppService.stopSequence` (#1417).
   package let stopSequence: String
   /// This model's plaintext turn-boundary sentinels, mirroring
-  /// `ModelDescriptor.turnMarkers` (#1422).
-  ///
-  /// Distinct from ``stopSequence``, and for Gemma the two deliberately
-  /// **disagree** — see the app-side note; repointing the generation-side
-  /// sentinel is deferred to #1451.
-  ///
-  /// No default, mirroring the app descriptor: a wrong inherited pair fails
-  /// silently, so a new profile must state it. `docs/models/onboarding.md`
-  /// carries the collection step.
+  /// `ModelDescriptor.turnMarkers` (#1422). No default — a wrong inherited
+  /// pair fails silently, same reason as there; see that doc for #1451.
   package let turnMarkers: ChatTurnMarkers
   /// Optional suffix appended to every system prompt.
   package let systemPromptSuffix: String?
@@ -70,8 +63,7 @@ package struct ModelProfile: Sendable, Equatable {
     // (#1417).
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the pinned file: `<|turn>` id 105 /
-    // `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`, vocab
-    // 262,144. Neither ChatML string occurs in that vocabulary at all.
+    // `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`, vocab 262,144.
     turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
     systemPromptSuffix: nil,
     assistantPrefix: nil,
@@ -127,16 +119,11 @@ package struct ModelProfile: Sendable, Equatable {
     // `/no_think` suffix nor a `<think>` assistant prefill. The stop sequence
     // is the plain eos `</s>`; suffix and prefix are nil.
     stopSequence: "</s>",
-    // Derived from the turn format already recorded on `stopSequence` above,
-    // NOT from a fresh GGUF header read — this candidate is NO-GO and has no
-    // registry entry, so re-reading it was not worth a download. Re-verify at
-    // Gate-2 registration if it is ever revived (`docs/models/onboarding.md`
-    // § "Stage 0"). Sarashina wraps turns in `<|system|>` / `<|user|>` /
-    // `<|assistant|>` with `</s>` closing each; the start marker is per-role,
-    // so there is no single pair, and `<|assistant|>` is the one whose
-    // appearance mid-output means a fabricated next turn. Note this is also
-    // the one model empirically observed to spell ChatML markers out
-    // (`docs/models/eval-log.md`), which the ChatML baseline already covers.
+    // Derived from the turn format on `stopSequence` above, NOT a fresh GGUF
+    // header read — NO-GO candidate, no registry entry; re-verify at Gate-2
+    // registration if revived (`docs/models/onboarding.md` § "Stage 0").
+    // Start markers are per-role (no single pair); `<|assistant|>` mid-output
+    // is the one signaling a fabricated next turn.
     turnMarkers: ChatTurnMarkers(start: "<|assistant|>", end: "</s>"),
     systemPromptSuffix: nil,
     assistantPrefix: nil,

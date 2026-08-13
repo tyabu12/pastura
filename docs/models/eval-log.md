@@ -4,10 +4,8 @@ Durable, committed ledger of model-candidate **evaluation verdicts** — the
 judgment that a `/model-eval` (Gate 1) or real-device (Gate 2) pass produced,
 so a verdict survives after the intake issue's comment is buried.
 
-It carries one other record class: **corpus observations** — cross-candidate
-measurements over the accumulated harness transcripts, which are gitignored and
-per-machine and so have nowhere else durable to live. They are not verdicts and
-gate nothing; see § "Corpus observations (not candidate verdicts)".
+It also carries **corpus observations** (non-gate; § "Corpus observations
+(not candidate verdicts)").
 
 ## What lives where (three record surfaces)
 
@@ -101,16 +99,15 @@ single occurrence. Sarashina's 99 are all trailing `<|im_end|>` after a complete
 payload (2026-07-08 and 2026-07-23 runs).
 
 **What it does and does not license.** It says *Gemma spelling its own markers is
-unobserved as of this date* — nothing stronger. It is **not** grounds to drop the
-per-model truncation (#1422). A genuine CONTROL token never decodes into text, so
-a match needs the model to write the marker's *characters* — either as the
-per-response hallucination this table measures as unobserved, or systematically,
-via a re-export mis-flagging the markers as NORMAL/USER_DEFINED. The second
-actually happened to Gemma 3 (unslothai/unsloth#5070, see
-`.claude/rules/engine.md` § "GGUF source *and variant* matter"), and it is a
-property of the **file**, not of the model — so a corpus negative taken on
-today's GGUF cannot generalize to tomorrow's. This table bounds only the first
-route, and only for the files measured.
+unobserved as of this date* — nothing stronger, and **not** grounds to drop the
+per-model truncation (#1422). A genuine CONTROL token never decodes into text, so a
+match needs the marker's *characters* written out: either as a per-response
+hallucination (what this table measures) or systematically, via a re-export
+mis-flagging the markers as NORMAL/USER_DEFINED — which actually happened
+to Gemma 3 (unslothai/unsloth#5070, see `.claude/rules/engine.md` § "GGUF source
+*and variant* matter"). That second route is a property of the **file**, not the
+model, so this table bounds only the first route, for the files measured — a
+negative today does not generalize to tomorrow's GGUF.
 
 Re-run this at each onboarding rather than copying the numbers forward — the step
 lives in [`onboarding.md`](onboarding.md) § "Stage 0".

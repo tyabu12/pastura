@@ -74,33 +74,22 @@ public interface LLMBackend {
     public fun generateStream(request: GenerationRequest, callbacks: StreamCallbacks): StreamHandle
 
     /**
-     * Every turn-marker pair whose **plaintext** form could plausibly appear in
-     * this backend's decoded output, for consumers that must recognize a
-     * hallucinated turn boundary — [JSONResponseParser] truncation and the
-     * [LLMCaller] chat-template leakage diagnostic (#1422).
+     * Every turn-marker pair whose **plaintext** form could plausibly appear in this backend's
+     * decoded output, for consumers that must recognize a hallucinated turn boundary —
+     * [JSONResponseParser] truncation and the [LLMCaller] chat-template leakage diagnostic
+     * (#1422).
      *
-     * The set is the loaded model's own pair **unioned with**
-     * [ChatTurnMarkers.chatML], so a backend that cannot name its model keeps
-     * the pre-#1422 ChatML-only behaviour, and a ChatML model does not grow a
-     * second, redundant entry. Mirrors Swift's `LLMService.knownTurnMarkers`
-     * name-for-name, including where the union is computed, so the two seams
-     * stay comparable.
+     * The set is the loaded model's own pair **unioned with** [ChatTurnMarkers.chatML], so a
+     * backend that cannot name its model keeps the pre-#1422 ChatML-only behaviour. Mirrors
+     * Swift's `LLMService.knownTurnMarkers` name-for-name.
      *
-     * ⚠️ **Expected — not verified — that this default does not cross
-     * Kotlin/Native.** A Kotlin interface's default implementation is not
-     * expected to reach the generated Obj-C protocol as an optional
-     * requirement, which would oblige the Phase 3.0 Swift adapter over
-     * `LlamaCppService` to state this member explicitly rather than inherit
-     * ChatML-only. **Confirm it when that adapter is written, and confirm it by
-     * compiling — not by reading alone.** `.claude/rules/kmp-interop.md`
-     * Pattern 1 is a case where reasoning from Kotlin source was wrong and only
-     * the generated `PasturaShared.h` settled it; Pattern 2 is the sharper
-     * warning, where the header *itself* misled ("header-only inspection
-     * misleadingly suggests the `swift_name` annotation works") and only an
-     * actual Swift compile settled it. So: read the header, then build the
-     * adapter. No analogy to Pattern 3's *"default args don't cross"* bullet is
-     * intended — that one is about default **arguments**, a different surface
-     * from an interface's default **implementation**.
+     * ⚠️ **Expected — not verified — that this default does not cross Kotlin/Native.** A Kotlin
+     * interface default implementation may not reach the generated Obj-C protocol as an optional
+     * requirement, which would oblige the Phase 3.0 Swift adapter over `LlamaCppService` to state
+     * this member explicitly rather than inherit ChatML-only. **Confirm by compiling that
+     * adapter, not by reading the generated `PasturaShared.h` alone** —
+     * `.claude/rules/kmp-interop.md` Pattern 2 is the precedent where the header itself misled.
+     * Distinct from Pattern 3's default-**argument** bullet, which settles nothing here.
      */
     public val knownTurnMarkers: List<ChatTurnMarkers>
         get() = listOf(ChatTurnMarkers.chatML)

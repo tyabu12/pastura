@@ -55,25 +55,22 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// token can never reach the match under llama.cpp:
   /// `LlamaCppService.stopSequence`.
   ///
-  /// `"<|im_end|>"` for ChatML models such as Qwen 3. Gemma 4 carries that same
-  /// string even though ``turnMarkers`` states its real pair — so this path is
-  /// inert for Gemma, which is what keeps a spelled-out `<turn|>` reaching the
-  /// parser. Repointing it is deferred to #1451, not an oversight (#1417).
+  /// `"<|im_end|>"` for ChatML models such as Qwen 3; Gemma 4 carries that same string
+  /// (#1417). It diverges from ``turnMarkers`` deliberately — see there.
   public let stopSequence: String
 
   /// This model's plaintext turn-boundary sentinels, consumed by parser-side
   /// hallucinated-turn truncation and by the chat-template leakage diagnostic.
   ///
-  /// **Deliberately has no default value**: a new descriptor must state its
-  /// markers, because the failure mode of an inherited wrong pair is silence —
-  /// the mechanisms keyed on it simply stop firing, with nothing to observe
-  /// (#1422). `docs/models/onboarding.md` carries the collection step.
+  /// **Deliberately no default**: an inherited wrong pair fails in silence — the
+  /// mechanisms keyed on it simply stop firing, with nothing to observe (#1422).
+  /// `docs/models/onboarding.md` carries the collection step.
   ///
-  /// Distinct from ``stopSequence`` on purpose, and the two currently
-  /// **disagree** for Gemma 4: repointing the generation-side sentinel would
-  /// newly *activate* a behaviour on an assumption rather than a demonstration,
-  /// so it is deferred to #1451. `ModelRegistryTurnMarkerDivergenceTests` pins
-  /// the divergence so a silent "consistency fix" reddens.
+  /// For Gemma 4 this and ``stopSequence`` **disagree** on purpose: repointing the
+  /// generation-side sentinel would newly *activate* a behaviour on an assumption rather
+  /// than a demonstration, so it is deferred to #1451.
+  /// `ModelRegistryTurnMarkerDivergenceTests` pins the divergence so a silent
+  /// "consistency fix" reddens.
   public let turnMarkers: ChatTurnMarkers
 
   /// Minimum physical RAM required to load and run the model (bytes).

@@ -102,17 +102,13 @@ nonisolated public protocol LLMService: Sendable {
   /// hallucinated turn boundary (``JSONResponseParser`` truncation, the
   /// `LLMCaller` chat-template leakage diagnostic).
   ///
-  /// The set is the loaded model's own pair **unioned with**
-  /// ``ChatTurnMarkers/chatML``, so a backend that cannot name its model
-  /// (``OllamaService``, ``MockLLMService``) keeps the pre-#1422 ChatML-only
-  /// behaviour via the default implementation, and a ChatML model does not
-  /// grow a second, redundant entry.
+  /// The set is the loaded model's own pair **unioned with** ``ChatTurnMarkers/chatML``, so a
+  /// backend that cannot name its model (``OllamaService``, ``MockLLMService``) keeps the
+  /// pre-#1422 ChatML-only behaviour via the default implementation.
   ///
-  /// - Important: Declared **in the protocol body**, not only in an extension.
-  ///   An extension-only declaration is statically dispatched through
-  ///   `any LLMService`, so ``LlamaCppService``'s override would be silently
-  ///   ignored at the `LLMCaller` call site — with no diagnostic, and with the
-  ///   exact failure this requirement exists to remove.
+  /// - Important: Declared **in the protocol body**, not only in an extension. An
+  ///   extension-only declaration is statically dispatched through `any LLMService`, so
+  ///   ``LlamaCppService``'s override would be silently ignored at the `LLMCaller` call site.
   var knownTurnMarkers: [ChatTurnMarkers] { get }
 
   /// Generate a completion as a sequence of incremental chunks.
@@ -178,18 +174,10 @@ extension LLMService {
   /// value rather than baked into each consumer. Backends that know which
   /// model is loaded override this (currently only ``LlamaCppService``).
   ///
-  /// Explicitly `nonisolated` because this is a **synchronous** member: under
-  /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` a sync default impl inherits
-  /// MainActor and then blocks every `nonisolated` conformer. The `async`
-  /// members on this same extension — `generateWithMetrics`,
-  /// `attachSuspendController` — carry no annotation and compile fine, which
-  /// is what isolates sync-ness as the cause. (Not the escaping-closure
-  /// mechanism `generateStream` below cites; that one is `nonisolated` for
-  /// both reasons at once, so it cannot tell the two apart.)
-  ///
-  /// Not defensive — measured by dropping the annotation, which fails the
-  /// build with `conformance of 'MockLLMService' to protocol 'LLMService'
-  /// crosses into main actor-isolated code` (and the same for `OllamaService`).
+  /// `nonisolated` because a **synchronous** default impl inherits MainActor under
+  /// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` and then breaks every `nonisolated`
+  /// conformer. Measured, not defensive: dropping it fails the build on `MockLLMService`
+  /// and `OllamaService` (`.claude/rules/swift-isolation.md` Pattern 1).
   nonisolated public var knownTurnMarkers: [ChatTurnMarkers] { [.chatML] }
 
   /// Default `generateStream` implementation: runs the existing

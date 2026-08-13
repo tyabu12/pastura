@@ -103,7 +103,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // renders ""; if it is ALSO EOG, `nextContentTokenOrStop` stops first — a
   // second, independent guard), and a sentinel absent from the vocabulary has
   // no token form to arrive as. So this is a hallucinated-turn guard (sibling of
-  // `JSONResponseParser.truncateAtChatTemplateToken`), NOT what terminates a
+  // `JSONResponseParser.truncateAtTurnMarkers`), NOT what terminates a
   // normal turn — that is EOG, for every model. String-based rather than
   // token-ID because what it must catch is text, which has no single token id.
   //
@@ -113,17 +113,14 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // `<turn|>` (106, EOG). Left as-is rather than replaced by a guess at what a
   // Gemma hallucination would spell (#1417; behaviour half #1422). Read from
   // the descriptor at construction time; future models may differ.
-  // TODO: A generation-side stop on the turn-START marker would end a
-  // hallucinated next turn at its first token instead of burning the remaining
-  // budget on it (#65). Parser-side truncation (#1422) does NOT supersede this:
-  // it discards the fabricated turn after the fact, so the tokens are still
-  // spent. What #1422 does change is that the marker is now per-model — read
-  // `turnMarkers.start`, never a ChatML literal.
+  // TODO: A generation-side stop on the turn-START marker would end a hallucinated next
+  // turn at its first token instead of burning the remaining budget (#65). Parser-side
+  // truncation (#1422) does NOT supersede this — it discards the turn after the fact, so
+  // the tokens are still spent. Read `turnMarkers.start`, never a ChatML literal.
   let stopSequence: String
 
-  /// This model's own plaintext turn-boundary sentinels, threaded from
-  /// `ModelDescriptor.turnMarkers`. Surfaced to consumers through
-  /// ``knownTurnMarkers``; see that property for the union rule.
+  /// This model's own plaintext turn-boundary sentinels, from `ModelDescriptor.turnMarkers`.
+  /// Surfaced through ``knownTurnMarkers``; see there for the union rule.
   let turnMarkers: ChatTurnMarkers
 
   /// Optional suffix appended to the system prompt at chat-template assembly.
@@ -198,16 +195,10 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   /// Creates a llama.cpp service.
   ///
-  /// The generation-affecting parameters are required — callers must provide
-  /// explicit per-descriptor values (via `ModelDescriptor.stopSequence` /
-  /// `.displayName` / `.systemPromptSuffix`). This avoids silently running Qwen
-  /// with Gemma's defaults if a call-site forgets to thread the descriptor
-  /// through. `turnMarkers` is required for the same reason: it is the one place
-  /// the descriptor→runtime hand-off can actually be dropped, and
-  /// `ModelDescriptor.turnMarkers` / `ModelProfile.turnMarkers` are non-defaulted
-  /// precisely so a wrong pair cannot be inherited in silence. A default here
-  /// would break that chain at its weakest link with nothing to catch it — the
-  /// #1422 bug, one call site at a time.
+  /// The per-model parameters are required — callers must provide explicit descriptor
+  /// values (via `ModelDescriptor.stopSequence` / `.turnMarkers` / `.displayName` /
+  /// `.systemPromptSuffix`). This avoids silently running Qwen with Gemma's
+  /// defaults if a call-site forgets to thread the descriptor through.
   /// Test code can construct via a file-scope helper (see
   /// `LlamaCppServiceTests`) to centralize the test values. Not a pin of the
   /// shipped descriptor — the path and identifier are synthetic, while the
@@ -219,11 +210,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   ///   - stopSequence: Per-model plaintext stop sentinel, matched only against
   ///     text the model spelled out (e.g., `<|im_end|>` for ChatML models).
   ///   - turnMarkers: This model's own plaintext turn-boundary sentinels
-  ///     (`ModelDescriptor.turnMarkers`). **Required**, no default: wrong
-  ///     *recognition* is exactly the #1422 bug, so "it only affects
-  ///     recognition" is a reason to enforce it rather than to relax it. Pass
-  ///     ``ChatTurnMarkers/chatML`` explicitly where that is genuinely the
-  ///     intent.
+  ///     (`ModelDescriptor.turnMarkers`). **No default**: a wrong pair inherited in
+  ///     silence is exactly the #1422 bug. Pass ``ChatTurnMarkers/chatML`` explicitly
+  ///     where that is genuinely the intent.
   ///   - modelIdentifier: Human-readable label for exports / replay metadata.
   ///   - systemPromptSuffix: Optional suffix appended to the system prompt
   ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
@@ -453,15 +442,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
 
   /// The loaded model's own pair, unioned with the ChatML baseline (#1422).
   ///
-  /// Keeping ChatML in the set for every model is deliberate: a hallucinated
-  /// marker is by definition text the model was not supposed to emit, and
-  /// instruction-tuned models are trained on corpora containing ChatML, so a
-  /// non-ChatML model spelling `<|im_end|>` is not excluded by its vocabulary.
-  /// Recognizing one costs nothing; the union is also what keeps Qwen's
-  /// behaviour byte-identical to pre-#1422.
+  /// Keeping ChatML in the set for every model is deliberate: instruction-tuned models are
+  /// trained on corpora containing ChatML, so a non-ChatML model spelling `<|im_end|>` is
+  /// not excluded by its vocabulary. Recognizing one costs nothing, and the union is what
+  /// keeps Qwen byte-identical to pre-#1422.
   ///
-  /// Deduped so a ChatML model yields one entry rather than two identical ones
-  /// — consumers iterate this set per parse.
+  /// Deduped so a ChatML model yields one entry, not two — consumers iterate this per parse.
   public var knownTurnMarkers: [ChatTurnMarkers] {
     turnMarkers == .chatML ? [.chatML] : [turnMarkers, .chatML]
   }

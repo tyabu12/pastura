@@ -2,13 +2,11 @@ import Foundation
 
 // Diagnostics helpers factored out of `LLMCaller` so the core file stays
 // under SwiftLint's `file_length` budget (mirrors `LLMCaller+StreamFailure`).
-// Mostly log emission, but `parseAndLog` also *parses* and returns a
-// `TurnOutput` — it lives here because the turn-marker set has to be read once
-// and shared with `logChatTemplateLeakage`.
-// The log-emitting members build the fully-rendered message and route it through the injected
-// ``EngineLogger`` seam (#501 S0.2) — the OSLog `category`, message wire
-// format, level, and privacy are preserved so `scripts/analyze-streaming-diag.sh`
-// keeps parsing the same lines.
+// Mostly log emission, but `parseAndLog` also parses (returns `TurnOutput`) —
+// the marker set is read once and shared with `logChatTemplateLeakage`. The
+// log-emitting members route through the injected ``EngineLogger`` seam
+// (#501 S0.2); category, format, level, privacy stay so
+// `scripts/analyze-streaming-diag.sh` keeps parsing.
 //
 // `nonisolated` on the extension is required because `LLMCaller` is a
 // `nonisolated` Engine type split across sibling files (a plain `extension`
@@ -68,21 +66,16 @@ nonisolated extension LLMCaller {
     )
   }
 
-  /// Parse `raw` with the backend's own turn markers, and emit the two
-  /// diagnostics that belong to a *successful* parse.
+  /// Parse `raw` with the backend's own turn markers, then emit the two
+  /// success-path diagnostics.
   ///
-  /// Extracted from `call` so that body stays under the 50-line
-  /// `function_body_length` cap, and so the marker set is read once and used
-  /// by both consumers — the parser and the leakage diagnostic — with no way
-  /// for them to drift onto different sets.
+  /// Extracted from `call` to stay under the 50-line `function_body_length`
+  /// cap, and so the marker set is read once and shared by the parser and
+  /// the leakage diagnostic (#1422) — see `LLMService.knownTurnMarkers`'s
+  /// doc for why the read goes through `any LLMService`.
   ///
-  /// `knownTurnMarkers` is read from the live backend, so truncation keys on
-  /// the loaded model's own sentinels (#1422). The read goes through
-  /// `any LLMService`, which is exactly why that requirement is declared in
-  /// the protocol body rather than an extension — see its doc comment.
-  ///
-  /// - Returns: the parsed output, or `nil` when the parse failed (the caller
-  ///   owns the retry / `retriesExhausted` decision).
+  /// - Returns: the parsed output, or `nil` on parse failure (caller owns
+  ///   the retry / `retriesExhausted` decision).
   func parseAndLog(
     raw: String, expectedKeys: Set<String>, llm: any LLMService, agent: String
   ) -> TurnOutput? {
@@ -96,42 +89,31 @@ nonisolated extension LLMCaller {
     return result.0
   }
 
-  /// Detect chat template token leakage and hallucinated continuations,
-  /// against the loaded model's own markers rather than a ChatML literal
-  /// (#1422 — before that, this was silently blind for Gemma 4, the default
-  /// shipped model).
+  /// Detect chat template token leakage against the loaded model's own
+  /// markers, not a ChatML literal — before #1422 this was silently blind
+  /// for Gemma 4, the default shipped model.
   ///
   /// `LlamaCppService`'s streaming path strips a spelled-out `stopSequence`
-  /// before emission, so this primarily catches non-streaming backends (Mock
-  /// wrap path, Ollama) where the raw string may still contain template
-  /// tokens. A spelled-out **start** marker stays reachable even under
-  /// llama.cpp, whose streaming path strips `stopSequence` alone — that is
-  /// what the #65 TODO on `LlamaCppService.stopSequence` is about.
+  /// before emission, so this mainly catches non-streaming backends (Mock
+  /// wrap, Ollama). A spelled-out **start** marker still reaches here even
+  /// under llama.cpp, since streaming only strips `stopSequence` — the #65
+  /// TODO on `LlamaCppService.stopSequence`.
   ///
-  /// Severity split is preserved from the pre-#1422 shape: a start marker is
-  /// the more suspicious of the two (`.warning`), a lone end marker is the
-  /// ordinary trailing-sentinel case (`.debug`). Suspicion, not a verdict —
-  /// this predicate is a bare substring test and cannot tell a fabricated next
-  /// turn from a header echo or from marker text inside a string value.
+  /// Severity mirrors the pre-#1422 shape: start marker = `.warning` (more
+  /// suspicious), end marker alone = `.debug` (ordinary trailing sentinel).
+  /// Suspicion, not a verdict: this is a bare substring test and can't tell
+  /// a fabricated next turn from a header echo or from marker text inside a
+  /// string value.
   ///
   /// - Parameters:
   ///   - raw: The backend's raw text, before parsing.
   ///   - markers: `LLMService.knownTurnMarkers` for the backend that produced
   ///     `raw`.
   func logChatTemplateLeakage(in raw: String, markers: [ChatTurnMarkers]) {
-    // Both `first(where:)` calls pick the first marker in **array order**, not
-    // the one occurring earliest in `raw`. Only one line is emitted either
-    // way, so with a multi-pair set the reported marker is set-order
-    // arbitrary — read the line as "some marker is present", never as "this
-    // one came first".
+    // `first(where:)` picks the first marker in **array order**, not the
+    // earliest occurrence in `raw` — read as "some marker present," not "first".
     if let marker = markers.first(where: { !$0.start.isEmpty && raw.contains($0.start) }) {
-      // The message states presence only, with no claim about what the model
-      // did or what the parser then did. `raw.contains` is a plain substring
-      // test, so it also fires on a leading template-header echo (which the
-      // parser's start arm deliberately leaves in place) and on a marker
-      // spelled inside a JSON string value. Neither is the model writing past
-      // its turn. The string-value shape has a fixture — a *parser* test, so it
-      // demonstrates the input reaching this predicate, not the warning firing:
+      // String-value fixture (parser-side, not this warning):
       // `JSONResponseParserTests.startMarker_insideStringValue_isNotATurnBoundary`.
       logger.log(
         .warning, category: Self.logCategory,

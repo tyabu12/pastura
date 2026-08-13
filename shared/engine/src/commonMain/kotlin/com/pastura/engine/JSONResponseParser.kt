@@ -136,53 +136,26 @@ internal class JSONResponseParser {
      * Truncate at the first hallucinated turn boundary, keying on the loaded
      * model's own markers rather than a hardcoded ChatML literal (#1422).
      *
-     * Port of `JSONResponseParser+Truncate.swift`; the two must agree on the
-     * same inputs, and **no gate enforces that** — `check-prompt-literal-parity.py`
-     * covers `pickLanguage` literals only. The crafted-string fixtures in
-     * `JSONResponseParserTurnMarkerTests` are deliberately the same on both
-     * sides so a divergence shows up as a failing test rather than a drift.
+     * Port of `JSONResponseParser+Truncate.swift`; the two must agree on the same inputs, and
+     * **no gate enforces that** — `check-prompt-literal-parity.py` covers `pickLanguage` only —
+     * so the crafted-string fixtures in `JSONResponseParserTurnMarkerTests` are the guard.
      *
-     * ### The two arms are deliberately asymmetric
+     * - **End marker**: cut unguarded from the first occurrence anywhere. Pre-#1422 behaviour
+     *   generalized from one literal to a set. See the Swift original for why.
+     * - **Start marker**: cut only after the first structural `{`, outside a string literal —
+     *   a leading one is a template-header echo, not a boundary. See the Swift original.
      *
-     * - **End marker** — a turn boundary wherever it occurs. Cut unguarded from
-     *   the first occurrence. This is the pre-#1422 behaviour generalized from
-     *   one hardcoded string to a set, so a ChatML backend is unchanged.
-     * - **Start marker** — cut **only** at an occurrence after the first
-     *   structural `{`, and only outside a string literal. A *leading* start
-     *   marker is the model echoing its own template header with the payload
-     *   still behind it; cutting there deletes the payload, deterministically,
-     *   so the run walks parse-failure → `RetriesExhausted` → an ADR-021 turn
-     *   skip rather than recovering. One *after* the first `{` is a fabricated
-     *   next turn, and [extractFromCodeBlock] runs **before** the balanced scan
-     *   and takes the first match unconditionally — so a fenced fabricated
-     *   continuation would otherwise be extracted and accepted silently.
+     * **`indexOf`, not `Regex`**: Gemma's `<|turn>` contains a bare `|`, which as a `Regex`
+     * compiles to the alternation `<` **or** `turn>` and cuts at the first `<` anywhere in the
+     * output. Same trap as the Swift original, identical in Kotlin's `Regex` constructor.
      *
-     * ### `indexOf`, not `Regex`
-     *
-     * Interpolating a marker into a `Regex` is a live trap, not a style
-     * preference: Gemma's `<|turn>` contains a bare `|`, which compiles as the
-     * alternation `<` **or** `turn>` and would cut at the first `<` anywhere in
-     * the output — mass payload destruction for the default shipped model. The
-     * same trap as in the Swift original, and identical in the Kotlin `Regex`
-     * constructor.
-     *
-     * **Known gaps, matching Swift** — the enumeration is maintained on the
-     * Swift original's end arm (`JSONResponseParser+Truncate.swift`); keep the
-     * two in step, since no gate compares them:
-     *
-     * 1. The end arm is string-blind **for ChatML's own end marker only**. Every
-     *    other end marker is string-aware, because a mid-value cut is the silent
-     *    kind: on Swift the repair pipeline closes the quote and brace and
-     *    persists a truncated value. (This port has no repair pipeline yet —
-     *    Stage-3 freight per the class doc — so the same cut merely fails the
-     *    parse here. The **predicate** is mirrored regardless, so the engines
-     *    stay comparable when that port lands.)
-     * 2. A *leading* end marker cuts at index 0 and destroys the whole payload
-     *    (#1452). Deliberately unchanged on both engines; the obvious
-     *    `> firstBrace` gate is not strictly safer — read #1452 before adding
-     *    one here.
-     *
-     * Closing either would move ChatML behaviour, which #1422 holds fixed.
+     * **Known gaps, matching Swift** (enumerated on `JSONResponseParser+Truncate.swift`'s end
+     * arm — keep in step, no gate compares them): (1) the end arm is string-blind for ChatML's
+     * own end marker only, because a mid-value cut is the *silent* kind — on Swift the repair
+     * pipeline closes the quote and brace and persists a truncated value. This port has no
+     * repair pipeline yet (Stage-3 freight), so the same cut merely fails the parse here; the
+     * predicate stays mirrored for when that port lands. (2) a leading end marker cuts at
+     * index 0 and destroys the payload (#1452), deliberately unchanged on both engines.
      */
     private fun truncateAtTurnMarkers(text: String, markers: List<ChatTurnMarkers>): String {
         if (markers.isEmpty() || text.isEmpty()) return text
@@ -202,22 +175,13 @@ internal class JSONResponseParser {
         val insideString = if (needsStringScan) mapStringSpans(text) else null
 
         for (marker in markers) {
-            // These `isEmpty()` guards carry more weight here than their Swift
-            // counterparts: `String.indexOf("")` returns `startIndex`, so an
-            // empty marker string would cut at index 0 and destroy every
-            // response. Swift has a third backstop (`firstIndex` returns `nil`
-            // on an empty pattern); Kotlin's `indexOf` has none, so against an
-            // empty *marker string* this `continue` and its sibling in the
-            // start arm are the only **per-marker** defence — the function's
-            // opening `markers.isEmpty()` guard covers an empty *set*, and the
-            // start arm's outer `any { … }` skips the arm only when no start is
-            // both non-empty and present in the text. Neither catches one empty
-            // marker in a mixed set. The engines agree because these are here.
+            // `String.indexOf("")` returns 0, so an empty marker string would cut at index 0 and
+            // destroy every response. Swift has a third backstop (`firstIndex` on an empty
+            // pattern); Kotlin's `indexOf` has none, so this `continue` (and its start-arm
+            // sibling) is the only per-marker defence against one empty marker in a mixed set.
             if (marker.end.isEmpty()) continue
-            // String-aware for every end marker except ChatML's own, which stays
-            // blind so ChatML backends are byte-identical to pre-#1422. See the
-            // Swift original's end arm for why the exception is keyed on the
-            // literal value.
+            // String-aware for every end marker except ChatML's own — kept blind for byte parity
+            // with pre-#1422. See the Swift original's end arm for why.
             val index =
                 if (marker.end == ChatTurnMarkers.chatML.end || insideString == null) {
                     text.indexOf(marker.end)
@@ -243,11 +207,9 @@ internal class JSONResponseParser {
     }
 
     /**
-     * First index at or after [from] where [needle] occurs **outside** a JSON
-     * string literal, or `-1`. An occurrence inside one is payload content, not
-     * a turn boundary, so it is skipped and the scan continues past it.
-     *
-     * Returns `-1` rather than `null` to match `String.indexOf`, which both call
+     * First index at or after [from] where [needle] occurs **outside** a JSON string literal,
+     * or `-1` — an inside-string occurrence is payload content, not a turn boundary, so the scan
+     * skips past it. Returns `-1` rather than `null` to match `String.indexOf`, which both call
      * sites compare against with `>= 0`.
      */
     private fun indexOfOutsideStrings(

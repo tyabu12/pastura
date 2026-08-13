@@ -72,11 +72,11 @@ pins them against the future/planned `ModelRegistry` values so the harness and
 app never drift.
 
 **`turnMarkers` is collected, not copied.** Read the candidate's own turn-start /
-turn-end strings out of the GGUF header (they are tokenizer-specific and share no
-convention across families — Gemma 4's `<|turn>` / `<turn|>` vs ChatML's
-`<|im_start|>` / `<|im_end|>`), and record their `token_type` alongside. Then
-**re-run the marker sweep over the accumulated transcripts** rather than carrying
-forward the last recorded numbers:
+turn-end strings out of the GGUF header (tokenizer-specific, no shared convention
+across families — Gemma 4's `<|turn>` / `<turn|>` vs ChatML's `<|im_start|>` /
+`<|im_end|>`), and record their `token_type` alongside. Then **re-run the marker
+sweep over the accumulated transcripts** rather than carrying forward the last
+recorded numbers:
 
 Run from **the primary checkout, not an `/orchestrate` worktree** —
 `data/models/eval-runs/` is gitignored, so it exists only where the harness ran,
@@ -87,14 +87,13 @@ Known ways to get a false zero — not a closed list, so treat the row as suspec
 until you have positively confirmed otherwise:
 
 - **No transcripts to read** — *guarded.* An absent directory, or one holding no
-  `*.jsonl` (pruned to `.stderr.log`, or a differently-named export), makes
-  `grep -r` match nothing while the pipeline still prints `0` for every marker.
-  The precondition below requires at least one `*.jsonl` and skips the loop
-  otherwise, so this route emits no row at all.
+  `*.jsonl` (pruned to `.stderr.log`, or a differently-named export), would make
+  `grep -r` match nothing while still printing `0` for every marker — but the
+  precondition below skips the loop in that case, so this route emits no row at all.
 - **A placeholder left in** — *not guarded, your responsibility.* Replace the two
-  `<candidate …>` operands with the candidate's actual marker strings first;
-  left as-is the loop counts the literal text and reports `0`. Nothing detects
-  this, which makes it the likeliest route.
+  `<candidate …>` operands with the candidate's actual marker strings first, or
+  the loop counts the literal text and reports `0`. Nothing detects this — the
+  likeliest false-zero route.
 
 ```sh
 if [ -n "$(find data/models/eval-runs -name '*.jsonl' -print -quit 2>/dev/null)" ]; then
@@ -108,14 +107,10 @@ fi
 ```
 
 Append the result to [`eval-log.md`](eval-log.md) § "Spelled-out chat-template
-markers" with the date and scope. Two things make the re-run load-bearing rather
-than ceremonial: a spelled-out marker is a property of the **GGUF export** (a
-re-export can mis-flag a CONTROL marker as NORMAL, and then it decodes into
-text — unslothai/unsloth#5070), so a negative taken on one file says nothing
-about the next; and the sweep is only meaningful against transcripts that
-**exist**, so note which models the corpus actually covers before reading a zero
-as evidence. Both fields feed the same silent-failure mode: a wrong pair makes
-the truncation and leakage mechanisms inert with nothing to observe (#1422).
+markers" with the date and scope. Re-run rather than copy forward: a spelled-out
+marker is a property of the GGUF **export**, not the model (see that section for
+why), so a negative on one file says nothing about the next. A wrong pair fails
+silently (#1422).
 
 Budget **one** investigation round per new family for prompt-template traps.
 llama.cpp's `llama_chat_apply_template` reads the GGUF-embedded chat template, so

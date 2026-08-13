@@ -6,10 +6,8 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct ChatTurnMarkersTests {
   /// `.chatML` is the baseline every consumer unions into its effective set,
-  /// so backends with no descriptor to consult (Ollama, `MockLLMService`,
-  /// FoundationModels) keep their pre-#1422 behaviour. Pinning the literals
-  /// here means a reword of either one shows up as a deliberate edit rather
-  /// than as a silently-widened or silently-narrowed match set.
+  /// so backends with no descriptor (Ollama, `MockLLMService`,
+  /// FoundationModels) keep pre-#1422 behaviour.
   @Test func chatML_carriesTheChatMLPair() {
     #expect(ChatTurnMarkers.chatML.start == "<|im_start|>")
     #expect(ChatTurnMarkers.chatML.end == "<|im_end|>")
@@ -30,12 +28,11 @@ struct ChatTurnMarkersTests {
     #expect(lhs.hashValue == rhs.hashValue)
   }
 
-  /// Equality must discriminate on **both** fields. The effective-set union
-  /// does not hash — `LlamaCppService.knownTurnMarkers` decides with a single
-  /// `turnMarkers == .chatML` ternary — so an `==` that ignored `end` would
-  /// collapse a descriptor sharing ChatML's `start` but carrying a distinct
-  /// `end` into the bare `[.chatML]` arm, silently dropping that `end` from
-  /// the set the truncator iterates.
+  /// Equality must discriminate on **both** fields: `LlamaCppService.knownTurnMarkers`
+  /// decides its union with a `turnMarkers == .chatML` ternary, so an `==`
+  /// ignoring `end` would collapse a descriptor sharing ChatML's `start` into
+  /// the bare `[.chatML]` arm, silently dropping its `end` from the set the
+  /// truncator iterates.
   @Test func hashable_discriminatesOnEachField() {
     let base = ChatTurnMarkers(start: "<a>", end: "</a>")
     #expect(base != ChatTurnMarkers(start: "<b>", end: "</a>"))

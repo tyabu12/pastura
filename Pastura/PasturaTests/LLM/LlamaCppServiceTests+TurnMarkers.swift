@@ -16,9 +16,8 @@ extension LlamaCppServiceTests {
     )
   }
 
-  /// A non-ChatML model surfaces **both** its own pair and the ChatML baseline
-  /// — the union rule (#1422 D3). Order is load-bearing only in that the
-  /// model's own pair must be present at all.
+  /// A non-ChatML model surfaces both its own pair and the ChatML baseline —
+  /// the union rule (#1422 D3).
   @Test func knownTurnMarkers_unionsModelPairWithChatMLBaseline() {
     let markers = gemmaShapedService().knownTurnMarkers
     #expect(markers.contains(ChatTurnMarkers(start: "<|turn>", end: "<turn|>")))
@@ -34,13 +33,12 @@ extension LlamaCppServiceTests {
   }
 
   /// **The D2 regression test.** `knownTurnMarkers` is declared in the
-  /// `LLMService` protocol *body*, so it dispatches dynamically; moving the
-  /// declaration into an extension would statically dispatch through
-  /// `any LLMService` and silently return the default `[.chatML]` at the
-  /// `LLMCaller` call site — which is exactly how the caller holds its backend.
+  /// `LLMService` protocol body so it dispatches dynamically; moving it to an
+  /// extension would statically dispatch through `any LLMService` and
+  /// silently return `[.chatML]` at the `LLMCaller` call site.
   ///
-  /// Revert the declaration to extension-only and this test fails while the
-  /// two above still pass, because they hold a concrete `LlamaCppService`.
+  /// Revert to extension-only and this test fails while the two above still
+  /// pass, since they hold a concrete `LlamaCppService`.
   @Test func knownTurnMarkers_dispatchesDynamicallyThroughExistential() {
     let service: any LLMService = gemmaShapedService()
     #expect(service.knownTurnMarkers.contains(ChatTurnMarkers(start: "<|turn>", end: "<turn|>")))

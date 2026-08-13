@@ -12,17 +12,16 @@ import kotlin.test.assertTrue
 /**
  * Per-model hallucinated-turn truncation (#1422) — the Kotlin half.
  *
- * **The fixtures are deliberately byte-identical to the Swift
- * `JSONResponseParserTests+TurnMarkers.swift` ones.** No gate enforces
- * Swift↔Kotlin parser parity (`check-prompt-literal-parity.py` covers
- * `pickLanguage` literals only), so a shared fixture set is what makes a
- * divergence in the truncation predicate show up as a failing test rather than
- * as silent drift.
+ * **Fixtures are deliberately byte-identical to the Swift
+ * `JSONResponseParserTests+TurnMarkers.swift` ones** — no gate enforces
+ * Swift↔Kotlin parser parity (`check-prompt-literal-parity.py` covers only
+ * `pickLanguage`), so a shared fixture set turns a predicate divergence into
+ * a failing test instead of silent drift.
  *
  * Every test that asserts the fix also runs the **same input** through the
- * pre-#1422 ChatML-only set as a negative control — without one, a test that
- * happens to pass for an unrelated reason (the balanced-brace scan already
- * discards trailing prose) would read as proof that truncation fired.
+ * pre-#1422 ChatML-only set as a negative control — otherwise a test passing
+ * for an unrelated reason (the balanced-brace scan discards trailing prose)
+ * would read as proof truncation fired.
  */
 class JSONResponseParserTurnMarkerTests {
 
@@ -32,9 +31,8 @@ class JSONResponseParserTurnMarkerTests {
     private val chatMLOnly = listOf(ChatTurnMarkers.chatML)
 
     /**
-     * A fenced fabricated continuation is the shape that actually loses the
-     * payload: `extractFromCodeBlock` runs before the balanced-brace scan and
-     * takes the first match unconditionally.
+     * A fenced fabricated continuation loses the payload: `extractFromCodeBlock`
+     * runs before the balanced-brace scan and takes the first match unconditionally.
      */
     private val fencedHallucination = """
         {"statement": "本物", "action": "cooperate"}<turn|>
@@ -58,19 +56,11 @@ class JSONResponseParserTurnMarkerTests {
     }
 
     /**
-     * **A pin on an accepted trade-off, not an assertion of desired
-     * behaviour** — the Kotlin half of Swift's
-     * `endMarker_leadingMarkerDestroysPayload_acceptedGap`. Read
-     * [#1452](https://github.com/tyabu12/pastura/issues/1452) before changing
-     * it: a failure means the end arm's unguarded cut moved, and the question
-     * is whether #1452 was decided, not whether this expectation is stale.
-     *
-     * The end arm cuts at the first occurrence with no `firstBrace` guard, so a
-     * *leading* end marker discards the whole payload the model then writes.
-     * The symmetric-looking fix — reusing the start arm's `> firstBrace` gate —
-     * is not strictly safer, which is the second assertion: today
-     * `<|im_end|>{"fake":1}` throws; under that gate the fabricated object
-     * would be accepted as the turn's answer.
+     * **A pin on an accepted trade-off, not desired behaviour** — Kotlin half of
+     * Swift's `endMarker_leadingMarkerDestroysPayload_acceptedGap`. Read
+     * [#1452](https://github.com/tyabu12/pastura/issues/1452) before changing.
+     * The symmetric-looking fix — the start arm's `> firstBrace` gate — is not
+     * strictly safer: it would accept `<|im_end|>{"fake":1}` instead of throwing.
      */
     @Test
     fun endMarkerLeadingMarkerDestroysPayloadAcceptedGap() {
@@ -78,10 +68,8 @@ class JSONResponseParserTurnMarkerTests {
             <turn|>
             {"statement": "本物", "action": "cooperate"}
         """.trimIndent()
-        // `assertIs` on the payload, per the sibling suite's idiom: a bare
-        // `assertFailsWith` would keep passing if the throw site ever moved to a
-        // different `SimulationException`, which is the drift a #1452 pin exists
-        // to detect.
+        // `assertIs` on the payload — a bare `assertFailsWith` would pass even if
+        // the throw site moved to a different `SimulationException`.
         val leading = assertFailsWith<SimulationException> {
             parser.parse(leadingEcho, turnMarkers = gemma)
         }
@@ -95,11 +83,9 @@ class JSONResponseParserTurnMarkerTests {
     }
 
     /**
-     * A non-ChatML end marker inside a JSON string value is payload content, not
-     * a turn boundary. Mirrors Swift's
-     * `endMarker_insideStringValue_isNotATurnBoundary`; on Swift the unguarded
-     * cut is silently *persisted* via the repair pipeline, which this port does
-     * not have yet — the predicate is mirrored so the engines stay comparable.
+     * A non-ChatML end marker inside a JSON string value is payload content,
+     * not a turn boundary. Mirrors Swift's
+     * `endMarker_insideStringValue_isNotATurnBoundary`.
      */
     @Test
     fun endMarkerInsideStringValueIsNotATurnBoundary() {
@@ -111,11 +97,9 @@ class JSONResponseParserTurnMarkerTests {
     }
 
     /**
-     * **Control — the byte-identical-for-ChatML criterion.** ChatML's *own* end
-     * marker still cuts string-blind, so the guard stays keyed on
-     * `ChatTurnMarkers.chatML.end` by literal rather than applying to every end
-     * marker. Swift's counterpart additionally pins the repair kind, which this
-     * port has no pipeline for; here the same cut fails the parse.
+     * **Control — byte-identical-for-ChatML criterion.** ChatML's own end marker
+     * still cuts string-blind (keyed on `.chatML.end` by literal); this port has
+     * no repair pipeline, so the cut just fails the parse.
      */
     @Test
     fun endMarkerChatMLInsideStringValueStillCutsBlind() {
@@ -142,9 +126,8 @@ class JSONResponseParserTurnMarkerTests {
     }
 
     /**
-     * The asymmetry's load-bearing half: a *leading* start marker is the model
-     * echoing its own template header with the payload still behind it, so
-     * cutting there would delete the payload deterministically.
+     * The asymmetry's load-bearing half: a leading start marker is the model
+     * echoing its own template header, so cutting there deletes the payload.
      *
      * Change the start-arm search origin from `firstBrace + 1` to `0` and this
      * test fails while every other test here still passes.

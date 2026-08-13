@@ -153,25 +153,14 @@ internal class LLMCaller(
             }
             emitInferenceCompleted(agentName, startMark, result.completionTokens, emitter)
 
-            // Read from the live backend so truncation keys on the loaded
-            // model's own sentinels (#1422). Read once and used by both
-            // consumers below, so they cannot drift onto different sets.
+            // Read once from the live backend so truncation keys on the loaded model's own
+            // sentinels (#1422), and both consumers below share the same set.
             val turnMarkers = backend.knownTurnMarkers
             val parseResult = try {
-                // Named, not positional: the two `parse` overloads differ in
-                // what their second positional argument means (2-arg:
-                // `turnMarkers`; 3-arg: `expectedKeys`), and Kotlin has no
-                // argument labels to distinguish them at a glance.
-                //
-                // This documents intent; it is not guarding a silent failure.
-                // Every way of getting it wrong is compile-caught: the two types
-                // don't convert (`List<ChatTurnMarkers>` is not a `Set<String>`),
-                // the 2-arg overload returns a bare `TurnOutput` with no `.first`
-                // for the property reads below, and dropping `expectedKeys` from
-                // the 3-arg signature would collide with the 2-arg one. What the
-                // named form buys is that a future signature change fails *here*,
-                // at the call that meant something specific, rather than at
-                // whichever call site the compiler happens to reach first.
+                // Named, not positional: the two `parse` overloads differ in what their second
+                // positional argument means, and Kotlin has no argument labels to disambiguate at
+                // a glance. Every way of getting it wrong is compile-caught, so this documents
+                // intent rather than guarding a silent failure.
                 parser.parse(result.rawText, expectedKeys = expectedKeys, turnMarkers = turnMarkers)
             } catch (_: SimulationException) {
                 logParseFailure(agentName, result.rawText, attempt)
@@ -582,34 +571,25 @@ internal class LLMCaller(
     }
 
     /**
-     * Detect chat-template token leakage, against the loaded model's own
-     * markers rather than a ChatML literal (#1422 — before that, this was
-     * silently blind for Gemma 4, the default shipped model).
+     * Detect chat-template token leakage against the loaded model's own markers, rather than a
+     * ChatML literal (#1422 — before that, this was silently blind for Gemma 4, the default
+     * shipped model).
      *
-     * The Swift `LlamaCppService` streaming path strips a spelled-out
-     * `stopSequence` before emission, so this primarily catches non-streaming
-     * backends where the raw string may still contain template tokens. A
-     * spelled-out **start** marker stays reachable even under llama.cpp, whose
-     * streaming path strips `stopSequence` alone.
+     * The Swift `LlamaCppService` streaming path strips a spelled-out `stopSequence` before
+     * emission, so this primarily catches non-streaming backends; a spelled-out **start** marker
+     * stays reachable even under llama.cpp.
      *
-     * Severity split preserved from the pre-#1422 shape: a start marker is the
-     * more suspicious of the two (WARNING), a lone end marker is the ordinary
-     * trailing-sentinel case (DEBUG). Suspicion, not a verdict — this predicate
-     * is a bare substring test and cannot tell a fabricated next turn from a
-     * header echo or from marker text inside a string value.
+     * Severity split preserved from the pre-#1422 shape: a start marker is WARNING, a lone end
+     * marker is DEBUG. See the Swift original's `logChatTemplateLeakage` for why this is
+     * suspicion, not a verdict.
      */
     private fun logChatTemplateLeakage(raw: String, markers: List<ChatTurnMarkers>) {
         // `firstOrNull` picks the first marker in **list order**, not the one
         // occurring earliest in `raw`, and only one line is emitted either way.
         val startMarker = markers.firstOrNull { it.start.isNotEmpty() && raw.contains(it.start) }
         if (startMarker != null) {
-            // The message states presence only, with no claim about what the
-            // model did or what the parser then did. `raw.contains` also fires
-            // on a leading template-header echo (which the parser's start arm
-            // deliberately leaves in place) and on a marker spelled inside a
-            // JSON string value. Neither is the model writing past its turn.
-            // Kept byte-identical to the Swift `logChatTemplateLeakage`; no
-            // gate compares log messages across the two engines.
+            // Kept byte-identical to the Swift `logChatTemplateLeakage`; no gate compares log
+            // messages across the two engines.
             logger.log(
                 EngineLogLevel.WARNING,
                 LOG_CATEGORY,

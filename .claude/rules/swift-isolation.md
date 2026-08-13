@@ -29,13 +29,12 @@ extension LLMService {
 ```
 
 **The escaping closure is sufficient, not necessary — the discriminator is
-sync-vs-`async`.** A *synchronous* default impl needs `nonisolated` even with no
-closure anywhere: `LLMService.knownTurnMarkers` is a plain computed property and
-still breaks every `nonisolated` conformer without it (measured by dropping the
-annotation, #1422), while the `async` members on the same extension
-(`generateWithMetrics`, `attachSuspendController`) carry none. `generateStream`
-satisfies both conditions at once, so it cannot tell them apart. Read this before
-deleting a closure-free `nonisolated` here as redundant.
+sync-vs-`async`.** `LLMService.knownTurnMarkers`, a plain synchronous computed
+property, still breaks every `nonisolated` conformer without `nonisolated`
+(measured by dropping the annotation, #1422), while the `async` members on the
+same extension carry none. `generateStream` satisfies both conditions, so it
+can't tell them apart — read this before deleting a closure-free `nonisolated`
+here as redundant.
 
 Reference: `Pastura/Pastura/LLM/LLMService.swift`.
 
