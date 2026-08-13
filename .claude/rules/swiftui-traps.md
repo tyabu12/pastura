@@ -9,9 +9,9 @@ paths:
 
 Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface during Pastura UI development. Loaded when a file in the UI layers is read (an edit reads it first).
 
-**Scope** — globs **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI. Not every one is a *SwiftUI* trap — the `Color`-token workflow trap stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point live in `build-traps.md`; `navigation.md` carries the navigation pattern, this file is the trap catalog.
+**Scope** — globs **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI (`grep -rl "import SwiftUI" Pastura/Pastura --include='*.swift'`). Not every one is a *SwiftUI* trap — the `Color`-token workflow trap stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point live in `build-traps.md`; `navigation.md` carries the navigation pattern, this file is the trap catalog.
 
-**Do not relocate the occlusion / `ImageRenderer` / `Color`-token sections to `docs/`** on a byte-count audit — ADR-028 (`:380` / `:391` / `:1946`) names this file their *operational form*, and `docs/qa/dark-mode-qa.md:8` points back here, so the move is circular (#1429 comment 1).
+**Do not relocate the occlusion / `ImageRenderer` / `Color`-token sections to `docs/`** on a byte-count audit — ADR-028 names this file their *operational form* (`:380`, `:391`) and records the promotion (`:1946`), and `docs/qa/dark-mode-qa.md:8` points back here, so the move is circular (#1429 comment 1).
 
 ## Toolbar-hide API matrix (iOS 17 → 26)
 
@@ -233,8 +233,9 @@ locally:
 `scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
 form, `EXCEPTIONS` exemptions) — but it is a **substring match on the hex** over the raw file, so a
 token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `--bubble-bg`) has
-**no automated detector for its step-5 row**: delete that row and the job still exits 0. Nothing
-enforces that steps 1–3 were done either. Verify by diff (#1299).
+**no automated detector for its step-5 row**: delete that row and the job still exits 0. Steps 1–3,
+*when done*, still assert the token's value — but nothing enforces that they were. Verify by diff
+(#1299).
 
 **Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
 steps above assume a brand-new value. A dark pair adds the `night*` raw token in
@@ -247,11 +248,11 @@ pair still passes; and the CSS gate keys off `PasturaColorValue(hex:)` literals,
 pairing files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are
 inert to it — only the new `night*` hex needs a `tokens.css` row. Keep every
 `DesignTokens+*` filename inside `check_design_tokens_css.py`'s glob; renaming one out blinds
-the gate silently. See ADR-028.
+the gate silently (each file's own header says so). See ADR-028.
 
 **Choosing the value: a token-pair ratio is not a prediction about a *presented* surface.** For a
 sheet / overlay fill the comparand is the **composited** backdrop, which presentation dimming moves
-independently of the palette — far enough to flip the sign. Judge such a value against a device
+independently of the palette — and can move it far enough to flip the sign. Judge such a value against a device
 screenshot, not the pair. Derivation: ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
 § "An occlusion layer ... must be darker than every ground it covers" below — same question asked of
 a surface rather than an occluder; keep the two pointing at each other.
@@ -302,10 +303,11 @@ survives; the same badge renders fine in a `LazyVStack` or `List`/`Form`.
 2. **These AttributeGraph crashes can be OS-build-specific and self-resolve** — this one
    stopped reproducing within a day and shipped with no code workaround. Before investing in
    one, confirm the repro on the **exact OS build AND a real device** (the sim misleads both
-   ways). Candidate workarounds in order, if it resurfaces: concrete `View` struct →
-   `.compositingGroup()` → `LazyVStack` → drop the enumerated-`\.offset` shape → bisect
-   the container `.background(...ignoresSafeArea())` → `.geometryGroup()`. Full
-   diagnostic write-up: #901.
+   ways). Candidate workarounds in order, if it resurfaces: extract the row into a
+   concrete `View` struct → `.compositingGroup()` → `LazyVStack` → drop the
+   enumerated-`\.offset` `ForEach` shape → bisect the container
+   `.background(...ignoresSafeArea())` half the fault stack names → `.geometryGroup()`.
+   Full diagnostic write-up: #901.
 
 ## Re-projection resets `@State` — put run-scoped display state on the VM
 
@@ -360,7 +362,8 @@ palette building **both** its families from aliases collapses them into one, sin
 both resolve against the same injected scheme. Check `PasturaDynamicPalette`'s doc
 comment for current membership before treating an alias as fixed.
 
-**What the gate does not cover.** It guards the injection half only, and ADR-009
+**What the gate does not cover.** It guards the injection half only. The token tests
+assert `PasturaPalette` components *and* the aliases' own resolution, but ADR-009
 rules out snapshots, so any *new* fixed-appearance consumer needs its own pin **on
 the alias half** — and nothing detects that pin's absence (three mechanical guards
 were designed and refused, ADR-028 § "Revisit trigger" bullet 1). Today's pins are
@@ -415,7 +418,8 @@ is dark enough"**: the rule matches a family **name**, so a member added to eith
 family with a too-light tint passes it, and the scrim shape has no lint guard at
 all. `SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and
 `PasturaShadowsTests` carry what lint cannot, asserting the requirement against
-**hand-maintained** ground lists — which is the residual weakness.
+**hand-maintained** ground lists — the residual weakness: a night ground added
+later and darker than #0B0C0A is not covered automatically, so add it by hand.
 
 Values, arithmetic, and the residual-weakness derivation: design-system §4.3
 and ADR-028 § Amendment (#1284, #1373, #1378). Reference: `ModelPickerView`,
