@@ -52,12 +52,14 @@ import UIKit
 /// non-test shapes" for the two build-error shapes this file also hits.
 /// Deliberately NOT `Equatable`, unlike ``PasturaColorValue``: a synthesized
 /// `==` would need `PasturaColorValue`'s own `Equatable` conformance from this
-/// `nonisolated` context, and that conformance is MainActor-isolated (the target
-/// sets `SWIFT_APPROACHABLE_CONCURRENCY = YES`, which enables
-/// `InferIsolatedConformances`) — `swift-isolation.md` Pattern 5. Observed, not
-/// predicted: with the conformance present the build fails with "main actor-isolated
-/// conformance of 'PasturaColorValue' to 'Equatable' cannot be used in nonisolated
-/// context".
+/// `nonisolated` context, and that conformance is MainActor-isolated because
+/// ``PasturaColorValue`` takes the target's default isolation
+/// (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`) — `swift-isolation.md` Pattern 5.
+/// Observed, not predicted: with the conformance present the build fails with
+/// "main actor-isolated conformance of 'PasturaColorValue' to 'Equatable' cannot be
+/// used in nonisolated context". Not `SWIFT_APPROACHABLE_CONCURRENCY`, which an
+/// earlier revision credited — measured, the error survives disabling
+/// `InferIsolatedConformances` (ADR-028 § Consequences).
 /// Compare `.light` / `.dark` individually from a MainActor context instead. Do
 /// not "restore" the conformance without also marking `PasturaColorValue`
 /// `nonisolated`, which Pattern 5 reserves for ≥2 nonisolated call sites.
