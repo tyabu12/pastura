@@ -262,12 +262,12 @@ ADR-021 § Amendment 2026-08-06 retiring `SCHEMA_GUARD_POSITION`.
 surplus reabsorbed.** When one engine accepts an answer the other retries on, the retrying side
 consumes the *following* turns' answers — which are valid same-schema JSON, so it often succeeds
 with shifted content instead of diverging as intended, and everything after is noise about
-alignment rather than about the engines. Only two placements work: the run's **last** LLM call, so
-the surplus falls into the replay padding, or a deliberate compensating burn on the following
-indices. **Apply**: when scripting a divergence that changes the retry budget, pick the placement
-first and give it a scenario whose last turn has nothing downstream — `parity_structural.yaml`
-exists for that. Adding per-call alignment *tags* does not help; keying responses by
-`<agent>/<phase>/<attempt>` would, and that is a schema change. Worked reasoning: #1458.
+alignment rather than about the engines. **Apply**: pick the placement before scripting it. Only
+the run's **last** LLM call (surplus falls into the replay padding) or a deliberate compensating
+burn on the following indices works, so give the divergence a scenario whose last turn has nothing
+downstream — `parity_structural.yaml` exists for that. Per-call alignment *tags* do not help;
+keying responses by `<agent>/<phase>/<attempt>` would, and that is a schema change. Worked
+reasoning: #1458.
 
 **A Kotlin mirror of a Swift `Codable` wire shape matches `JSONEncoder` in none of three
 behaviours by default.** Sorted keys apply at *every* depth; `nil` is omitted rather than written
@@ -276,9 +276,9 @@ decimals. The third is the one that bites silently: `TranscriptComparator` compa
 `JsonPrimitive.content` as **text**, and `EventLine.t` is non-optional on every line, so a bare
 `JsonPrimitive(0.0)` puts a diff on 100% of them. **Apply**: build the line as a `JsonObject`
 rather than a `@Serializable data class` — that fixes all three at once — and write it against a
-*measured* Swift line (`RunLogTests.fullyPopulatedLinePinsTheWireShape` pins one with every field
-set), never against the fixtures' observed lines: a field no fixture populates is exactly the one
-that bites later. Note `.convertToSnakeCase` splits on uppercase only, so `agent2` / `action1`
-keep their trailing digit while `totalRounds` becomes `total_rounds`. Unrelated to ADR-023's
-divergence-6 ruling, which is `JSONResponseParser` normalizing model values inside `fields` —
-don't resolve either by pointing at the other.
+*measured* Swift line, never against the fixtures' observed lines: a field no fixture populates is
+exactly the one that bites later. `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that
+measurement, and it carries the per-key surprises (`.convertToSnakeCase` splits on uppercase only)
+so they do not have to live here. Unrelated to ADR-023's divergence-6 ruling, which is
+`JSONResponseParser` normalizing model values inside `fields` — don't resolve either by pointing
+at the other.
