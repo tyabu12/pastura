@@ -570,18 +570,17 @@ durable record in ADR-011.)
 unsloth's alike — ship a shared-KV tail layer the pinned llama.cpp cannot
 load (`missing tensor 'blk.15.attn_k.weight'`), so a `-qat-` repo is never
 a drop-in swap for its non-QAT sibling. Descriptor-side procedure:
-`docs/models/onboarding.md`; measurements: `docs/models/eval-log.md`, whose
-2026-08-08 / 08-12 / 08-13 entries carry the QAT family.
+`docs/models/onboarding.md`; measurements: the QAT-family entries in
+`docs/models/eval-log.md`.
 
-**Two failure modes, and only one of them is the pin's.** The shared-KV
-gap above is a **loader** gap — pin-relative by construction, and a bump
-to **b10327**, the only build measured to load one, clears it (nothing
-between it and b8694 was tested). **Quant kernel coverage is not**: a
-build whose
-tensors use a type the Metal backend has no kernel for **loads cleanly and
-then SIGSEGVs on the first inference**, because the pipeline lookup returns
-NULL and `ggml_metal_encoder_set_pipeline` dereferences it. Measured on the
-QAT-Mobile `UD-Q2_K_XL` export: llama.cpp ships no `TQ`-family Metal
+**Two failure modes, and only one is the pin's.** That shared-KV gap is a
+**loader** gap and pin-relative — a bump to **b10327** (the only build
+measured to load one) clears it. **Quant kernel coverage is not
+pin-relative**: a build whose tensors use a type the Metal backend has no
+kernel for **loads cleanly and then SIGSEGVs on the first inference**,
+because the pipeline lookup returns NULL and
+`ggml_metal_encoder_set_pipeline` dereferences it. Measured on the
+QAT-Mobile `UD-Q2_K_XL` export — llama.cpp ships no `TQ`-family Metal
 kernels, and still shipped none at b10375. So **do not read a pin bump as
 unblocking a whole variant family**, and treat "it loaded" as no evidence
 at all here.

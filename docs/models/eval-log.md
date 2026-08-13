@@ -85,8 +85,8 @@ everything else here.
   No Stage-0 profile of its own; a throwaway candidate profile was used so the run
   logs self-describe.
 - **Differentiation**: **not a new catalog character — the question is
-  REPLACE-the-build, not earn-a-new-slot.** This is the *same* Gemma 4 E2B at a
-  different quantisation, so character is indistinguishable from the incumbent by
+  REPLACE-the-build, not earn-a-new-slot.** Same Gemma 4 E2B at a different
+  quantisation, so character is indistinguishable from the incumbent by
   construction; that is the point. Against a same-session control it is not merely
   non-regressive: it converts two cells where the incumbent's premise never fired
   (`prisoners_dilemma` ja collapsed to an all-cooperate five-way tie;
@@ -95,34 +95,31 @@ everything else here.
   It is **weaker than the incumbent on `bokete` in both languages**, where it
   produced self-votes the incumbent did not.
 - **Snapshot** (point-in-time; raw scores in the digest): rubric **121** against a
-  **same-session** incumbent control arm at **107**. The control was re-run today
-  rather than compared against the recorded 2026-07-08 numbers, because cross-session
-  judge drift has been measured at up to −17 points on a single model — so **do not
-  compare this figure to any other dated entry.** n=1 per cell, one judge, one
-  session, and the gap leans on `prisoners_dilemma` ja: its control cell was the
-  outlier driving most of the margin, so that cell alone was re-sampled (11 → 18;
-  point-in-time — the digest holds only the re-sample, since `append_eval.py`
-  replaces by key, so **both** samples survive only in the issue comment) and against
-  the first sample the control totals 100.
-  Only the control was re-sampled, which can only move the comparison in the
-  incumbent's favour. Treat +14 as a screening signal, not a measured delta.
+  **same-session** incumbent control arm at **107** — a control re-run rather than
+  the recorded 2026-07-08 numbers, since cross-session judge drift has measured up
+  to −17 points on a single model. **Do not compare this figure to any other dated
+  entry.** n=1 per cell, one judge, one session, and the margin leans on one outlier
+  control cell (`prisoners_dilemma` ja), re-sampled 11 → 18; against its first sample
+  the control totals 100. Re-sampling touched only the control, which can only move
+  the comparison in the incumbent's favour, so treat +14 as a screening signal, not a
+  measured delta. (The digest holds only the re-sample — `append_eval.py` replaces by
+  key — so **both** samples survive only in the issue comment.)
   ADR-011 **P1** (non-gated, Apache-2.0, anonymous resolve 302 → CDN 200) and **P2**
   (`<|turn>` id 105 / `<turn|>` id 106 both `token_type=3`) verified for this
   re-export; **P3–P5 untouched**.
 - **Rationale**: the Mac filter cannot accept, only reject — and there is nothing
   here to reject on. Mechanical floor clean, no measured quality regression, and the
   largest download saving of any QAT build that actually runs.
-- **Disposition**: **advances to the ADR-011 real-device PoC (P3–P5). This is not an
+- **Disposition**: **advances to the ADR-011 real-device PoC (P3–P5) — not an
   adoption**, and two costs sit outside the −0.49 GB headline. (1) It cannot run at
   all on `main`'s pin, so adoption is gated on the #1415 bump landing first — whose
   device-only risk (Metal behaviour, the 8 GB minimum-RAM sizing in ADR-002
   § "Supported Devices", binary size) is entirely unmeasured, as is the DRY sampler
-  that bump rewrites.
-  (2) Swapping a build is not an in-place update: per `ModelRegistry`'s supersede
-  convention it means a new `id` **and** `fileName` with the old entry removed, so
-  **existing users re-download 2.62 GB** and the superseded 3.11 GB file becomes an
-  orphan they must delete by hand (ADR-015 / #548) — the saving accrues to *new*
-  installs. The retired id must move into `RETIRED_MODEL_IDS` in
+  that bump rewrites. (2) Swapping a build is not an in-place update: per
+  `ModelRegistry`'s supersede convention it means a new `id` **and** `fileName` with
+  the old entry removed, so **existing users re-download 2.62 GB** and the superseded
+  3.11 GB file orphans until deleted by hand (ADR-015 / #548) — the saving accrues to
+  *new* installs, and the retired id must move into `RETIRED_MODEL_IDS` in
   `scripts/gallery_highlight_validate.py` in the same PR (ADR-029).
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-13 ·
   `gemma-4-e2b-qat-q4-k-xl`, with the control arm under `gemma-4-e2b-q4-k-m` of the
@@ -169,8 +166,8 @@ everything else here.
 - **Unblocked by**: llama.cpp's Metal backend gaining `TQ2_0` kernels — at minimum
   `kernel_mul_mm_tq2_0_f32` — **and** a `llama.swift` release at that build. Stated
   as text deliberately, so the gate survives the retry issue being renamed or closed.
-  Cheap re-check before downloading anything: grep the release xcframework binary for
-  `tq2_0` kernel names, keeping a known-present kernel in the same grep as a control.
+  Cheap re-check before downloading anything: the kernel-name grep in
+  `.claude/rules/engine.md` § "GGUF source *and variant* matter".
 - **Retry**: #1416.
 - **Disposition**: **not rejected.** At −29.6 % it remains the largest download
   saving in the family and is worth re-testing if that upstream gap closes.
@@ -195,14 +192,13 @@ everything else here.
   beats the incumbent on `prisoners_dilemma` ja only because that particular
   incumbent run drifted into Korean.
 - **Snapshot** (point-in-time): rubric **103** against **113** for the incumbent on
-  the *same* pin. ⚠️ **Neither number is in the digest.** The spike deliberately did
-  not run `append_eval.py` — its `(date, profile_id)` section key carries no pin or
-  GGUF dimension, so the incumbent and the candidate (same family, same day) would
-  have overwritten each other. The durable record is the [#1415 spike
-  comment][spike-20260812].
-  ⚠️ **Not comparable to the 2026-08-13 entries above** (121 / 107): those were
-  scored in a different session, and this pair's own incumbent leg (113) sits 6
-  points above the 2026-08-13 control (107) on the *same build* — which is the
+  the *same* pin. ⚠️ **Neither number is in the digest** — the spike deliberately
+  skipped `append_eval.py`, whose `(date, profile_id)` section key carries no pin or
+  GGUF dimension, so incumbent and candidate (same family, same day) would have
+  overwritten each other. The durable record is the [#1415 spike
+  comment][spike-20260812]. ⚠️ **Not comparable to the 2026-08-13 entries above**
+  (121 / 107), scored in a different session: this pair's own incumbent leg (113)
+  sits 6 points above the 2026-08-13 control (107) on the *same build* — the
   cross-session judge drift both sessions took a control arm to defend against.
 - **Rationale**: the motivating upside is now measured and it is negative — **−10
   against the incumbent on the same pin**, while the file is **+7.8 % larger**
@@ -251,28 +247,22 @@ everything else here.
   **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
   b8694 loads only the incumbent — a bump is therefore sufficient *and* the
   wrapper release exists.
-- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support — as
-  understood here, "bumped past b8694". In the event the condition was met at
-  **b10327**, the only build measured to load a 541-tensor QAT file; nothing between
-  the two was ever tested, so do not read the original phrasing as a promise about
-  intermediate builds.
-- **Retry**: tracked as #1416, and it **ran** — recorded as the 2026-08-12 entry
-  above; the unblock condition was met inside the #1415 spike and the candidate
-  scored a clean NO-GO. (This pointer is spent: #1416 now serves as the QAT-Mobile
-  retry pointer instead, so follow the entry, not the issue, for *this* candidate's
-  outcome.)
-  This entry stays a `BLOCKED` record of 2026-08-08 rather than being relabelled: on
-  that date zero inferences ran, so a rejection cannot be dated to it.
+- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support. Met at
+  **b10327** — the only build measured to load a 541-tensor QAT file, so nothing is
+  known about the builds between it and b8694.
+- **Retry**: **ran** inside the #1415 spike — the 2026-08-12 entry above, a clean
+  NO-GO. Follow that entry, not #1416, which has since been repointed at the
+  QAT-Mobile retry. This entry stays a `BLOCKED` record of 2026-08-08 rather than
+  being relabelled: zero inferences ran that day, so a rejection cannot be dated
+  to it.
 - **Disposition**: **not rejected.**
   Pre-cleared for the retry, so it need not be re-derived: ADR-011 **P1**
   non-gated (HF `gated: false`; anonymous resolve 302 → CDN 200) and **P2**
   CONTROL flags (`<|turn>` id 105, `<turn|>` id 106, both `token_type=3`); EOG set
   `{1, 50, 106, 212}` is a **superset** of the incumbent's `{50, 106, 212}`, so
   `<turn|>` terminates generation on both builds and there is no runaway-generation
-  risk. The unsloth QAT re-export this entry flagged as worth evaluating alongside —
-  and the QAT-Mobile re-export that #1415's scope correction later added, which this
-  entry had **missed** — have since been measured; both carry their own 2026-08-13
-  entries above.
+  risk. Both unsloth re-exports — `UD-Q4_K_XL`, flagged here, and the QAT-Mobile one
+  this entry missed — have since been measured; see their 2026-08-13 entries above.
   **P3–P5 remain untouched** (Gate 2).
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-08 ·
   gemma-4-e2b-q4-k-m (gitignored, and replaced by key `(date, profile_id)` — which
