@@ -63,13 +63,36 @@ The two gates enforce that asymmetrically, and the asymmetry is deliberate:
 
 A candidate from a family not already in `ModelProfile.all` (today: `gemma` /
 `qwen`) needs a prior `tools/harness` PR — landed through `/orchestrate` — adding
-a `ModelProfile` static plus its pin test. The profile mirrors **7** load-bearing
+a `ModelProfile` static plus its pin test. The profile mirrors **8** load-bearing
 registry values under its own field names (`id`, `name`, `stopSequence`,
-`systemPromptSuffix`, `assistantPrefix`, `expectedFileName`, `expectedSHA256`;
-`name` / `expectedFileName` / `expectedSHA256` map to the registry's
-`displayName` / `fileName` / `sha256`); `ModelProfileTests`
+`turnMarkers`, `systemPromptSuffix`, `assistantPrefix`, `expectedFileName`,
+`expectedSHA256`; `name` / `expectedFileName` / `expectedSHA256` map to the
+registry's `displayName` / `fileName` / `sha256`); `ModelProfileTests`
 pins them against the future/planned `ModelRegistry` values so the harness and
 app never drift.
+
+**`turnMarkers` is collected, not copied.** Read the candidate's own turn-start /
+turn-end strings out of the GGUF header (they are tokenizer-specific and share no
+convention across families — Gemma 4's `<|turn>` / `<turn|>` vs ChatML's
+`<|im_start|>` / `<|im_end|>`), and record their `token_type` alongside. Then
+**re-run the marker sweep over the accumulated transcripts** rather than carrying
+forward the last recorded numbers:
+
+```sh
+for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' '<the candidate pair>'; do
+  printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l
+done
+```
+
+Append the result to [`eval-log.md`](eval-log.md) § "Spelled-out chat-template
+markers" with the date and scope. Two things make the re-run load-bearing rather
+than ceremonial: a spelled-out marker is a property of the **GGUF export** (a
+re-export can mis-flag a CONTROL marker as NORMAL, and then it decodes into
+text — unslothai/unsloth#5070), so a negative taken on one file says nothing
+about the next; and the sweep is only meaningful against transcripts that
+**exist**, so note which models the corpus actually covers before reading a zero
+as evidence. Both fields feed the same silent-failure mode: a wrong pair makes
+the truncation and leakage mechanisms inert with nothing to observe (#1422).
 
 Budget **one** investigation round per new family for prompt-template traps.
 llama.cpp's `llama_chat_apply_template` reads the GGUF-embedded chat template, so

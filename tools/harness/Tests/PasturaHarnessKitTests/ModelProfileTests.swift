@@ -1,3 +1,4 @@
+import PasturaCore
 import Testing
 
 @testable import PasturaHarnessKit
@@ -12,6 +13,11 @@ struct ModelProfileTests {
     let profile = ModelProfile.gemma4E2B
     #expect(profile.id == "gemma-4-e2b-q4-k-m")
     #expect(profile.stopSequence == "<|im_end|>")
+    #expect(profile.turnMarkers == ChatTurnMarkers(start: "<|turn>", end: "<turn|>"))
+    // Same deliberate divergence the app registry carries: the generation-side
+    // sentinel is a ChatML string absent from Gemma's vocabulary, so that path
+    // is inert; repointing it is deferred to #1451, not an oversight (#1422).
+    #expect(profile.stopSequence != profile.turnMarkers.end)
     #expect(profile.systemPromptSuffix == nil)
     // Gemma needs no assistant prefill — `<think>...` is Qwen-only.
     #expect(profile.assistantPrefix == nil)
@@ -31,6 +37,7 @@ struct ModelProfileTests {
     #expect(profile.id == "qwen-3-4b-q4-k-m")
     #expect(profile.name == "Qwen 3 4B (Q4_K_M)")
     #expect(profile.stopSequence == "<|im_end|>")
+    #expect(profile.turnMarkers == .chatML)
     #expect(profile.systemPromptSuffix == "/no_think")
     #expect(profile.assistantPrefix == "<think>\n\n</think>\n\n")
     #expect(profile.expectedFileName == "Qwen3-4B-Q4_K_M.gguf")
@@ -51,6 +58,7 @@ struct ModelProfileTests {
     #expect(profile.name == "Sarashina 2.2 3B (Q4_K_M)")
     // Plain eos stop; no thinking-mode workaround (contrast Qwen #366).
     #expect(profile.stopSequence == "</s>")
+    #expect(profile.turnMarkers == ChatTurnMarkers(start: "<|assistant|>", end: "</s>"))
     #expect(profile.systemPromptSuffix == nil)
     #expect(profile.assistantPrefix == nil)
     #expect(profile.expectedFileName == "sarashina2.2-3b-instruct-v0.1-Q4_K_M.gguf")

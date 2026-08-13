@@ -1,4 +1,5 @@
 import Foundation
+import PasturaCore
 
 /// Inference-parameter profile for a GGUF model the harness can drive.
 ///
@@ -18,6 +19,17 @@ package struct ModelProfile: Sendable, Equatable {
   /// (a hallucinated turn boundary); a *normal* turn ends on EOG instead. The
   /// canonical mechanism note is on `LlamaCppService.stopSequence` (#1417).
   package let stopSequence: String
+  /// This model's plaintext turn-boundary sentinels, mirroring
+  /// `ModelDescriptor.turnMarkers` (#1422).
+  ///
+  /// Distinct from ``stopSequence``, and for Gemma the two deliberately
+  /// **disagree** — see the app-side note; repointing the generation-side
+  /// sentinel is deferred to #1451.
+  ///
+  /// No default, mirroring the app descriptor: a wrong inherited pair fails
+  /// silently, so a new profile must state it. `docs/models/onboarding.md`
+  /// carries the collection step.
+  package let turnMarkers: ChatTurnMarkers
   /// Optional suffix appended to every system prompt.
   package let systemPromptSuffix: String?
   /// Optional assistant-turn prefill. Gemma needs none — the
@@ -34,12 +46,14 @@ package struct ModelProfile: Sendable, Equatable {
   package let expectedSHA256: String
 
   package init(
-    id: String, name: String, stopSequence: String, systemPromptSuffix: String?,
+    id: String, name: String, stopSequence: String, turnMarkers: ChatTurnMarkers,
+    systemPromptSuffix: String?,
     assistantPrefix: String?, expectedFileName: String, expectedSHA256: String
   ) {
     self.id = id
     self.name = name
     self.stopSequence = stopSequence
+    self.turnMarkers = turnMarkers
     self.systemPromptSuffix = systemPromptSuffix
     self.assistantPrefix = assistantPrefix
     self.expectedFileName = expectedFileName
@@ -55,6 +69,10 @@ package struct ModelProfile: Sendable, Equatable {
     // `ModelProfileTests` pins the literal, so it cannot be changed here alone
     // (#1417).
     stopSequence: "<|im_end|>",
+    // Measured from the GGUF header of the pinned file: `<|turn>` id 105 /
+    // `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`, vocab
+    // 262,144. Neither ChatML string occurs in that vocabulary at all.
+    turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
     systemPromptSuffix: nil,
     assistantPrefix: nil,
     expectedFileName: "gemma-4-E2B-it-Q4_K_M.gguf",
@@ -66,6 +84,9 @@ package struct ModelProfile: Sendable, Equatable {
     id: "qwen-3-4b-q4-k-m",
     name: "Qwen 3 4B (Q4_K_M)",
     stopSequence: "<|im_end|>",
+    // Qwen 3 genuinely is ChatML: `<|im_start|>` 151644 / `<|im_end|>` 151645,
+    // both CONTROL, `eos = 151645`.
+    turnMarkers: .chatML,
     systemPromptSuffix: "/no_think",
     // Prefill the assistant turn with the empty-thinking marker so Qwen 3
     // bypasses thinking mode entirely. Issue #366 — without this, Qwen
@@ -106,6 +127,17 @@ package struct ModelProfile: Sendable, Equatable {
     // `/no_think` suffix nor a `<think>` assistant prefill. The stop sequence
     // is the plain eos `</s>`; suffix and prefix are nil.
     stopSequence: "</s>",
+    // Derived from the turn format already recorded on `stopSequence` above,
+    // NOT from a fresh GGUF header read — this candidate is NO-GO and has no
+    // registry entry, so re-reading it was not worth a download. Re-verify at
+    // Gate-2 registration if it is ever revived (`docs/models/onboarding.md`
+    // § "Stage 0"). Sarashina wraps turns in `<|system|>` / `<|user|>` /
+    // `<|assistant|>` with `</s>` closing each; the start marker is per-role,
+    // so there is no single pair, and `<|assistant|>` is the one whose
+    // appearance mid-output means a fabricated next turn. Note this is also
+    // the one model empirically observed to spell ChatML markers out
+    // (`docs/models/eval-log.md`), which the ChatML baseline already covers.
+    turnMarkers: ChatTurnMarkers(start: "<|assistant|>", end: "</s>"),
     systemPromptSuffix: nil,
     assistantPrefix: nil,
     expectedFileName: "sarashina2.2-3b-instruct-v0.1-Q4_K_M.gguf",

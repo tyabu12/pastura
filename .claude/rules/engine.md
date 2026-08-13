@@ -566,6 +566,18 @@ unsloth exports are unaffected **by #5070** and the existing Gemma 4 E2B
 descriptor stays on unsloth. (PR #480, closed — Gemma 3 1B no-go;
 durable record in ADR-011.)
 
+**This mis-flagging is also the only route by which a turn marker reaches
+decoded text**, so it is what makes the per-model truncation in
+`JSONResponseParser+Truncate.swift` live rather than dead code (#1422). A
+genuine CONTROL marker decodes to `""` and an EOG one returns before its piece
+is appended, so a *correctly* exported model can only produce a marker as a
+plaintext hallucination — which no shipped model has been observed doing
+(`docs/models/eval-log.md` § "Spelled-out chat-template markers"). Read that
+negative as a statement about **the files measured**, not the models: a
+re-export flipping CONTROL → NORMAL makes the markers decode normally, and then
+`turnMarkers` is what keeps a fabricated turn out of the payload. Do not
+"simplify" the truncation away on the strength of a corpus zero.
+
 **Variant, not just publisher.** Gemma 4 **QAT** exports — Google's and
 unsloth's alike — ship a shared-KV tail layer the pinned llama.cpp cannot
 load (`missing tensor 'blk.15.attn_k.weight'`), so a `-qat-` repo is never
