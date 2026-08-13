@@ -21,7 +21,7 @@ Orchestrate the full development workflow: plan → issue → worktree → TDD i
 > **Read "up to date" narrowly.** Step U compares hashes first, so an unchanged template reports
 > "up to date" — that means *no template change since the reconcile*, **not** that this file matches
 > the template. It deliberately does not. Most divergences are additions, which an upgrade proposal
-> cannot silently undo; these three are the ones a plausible-sounding back-port **would** undo:
+> cannot silently undo; these are the ones a plausible-sounding back-port **would** undo:
 >
 > - **Step 1.3's "do not add a blanket 'when in doubt, go up a tier'" guardrail is not in the
 >   template's Step 1** — it is a *negative* instruction, so nothing around it looks wrong once it is
@@ -43,7 +43,7 @@ Orchestrate the full development workflow: plan → issue → worktree → TDD i
 ## Constants
 
 - `PLAN_MARKER`: `<!-- pastura-plan -->` — machine-readable marker embedded in Issue plan comments for detection during resumption.
-- `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls) — but **after** pre-flight check 1, which decides whether `gh` is usable at all. **Check 1 therefore runs first, ahead of the `#N` fetch and Resumption Detection**; the numbered pre-flight list below is written in execution order from check 2 onward, because those two sections read earlier in the file but depend on check 1's verdict. In degraded mode `OWNER_REPO` is unavailable and every `gh` step is skipped.
+- `OWNER_REPO`: derived at runtime via `gh repo view --json nameWithOwner -q '.nameWithOwner'`. Resolve early in Step 0 (before any `gh api` calls) — but **after** pre-flight check 1, which decides whether `gh` is usable at all. The numbered pre-flight list below runs in its written order; **check 1 additionally hoists above the two sections that read earlier than the list** — the `#N` fetch and Resumption Detection — because both depend on its verdict. In degraded mode `OWNER_REPO` is unavailable and every `gh` step is skipped.
 
 ## Step 0: Input Detection & Pre-flight
 
@@ -79,7 +79,7 @@ After fetching the issue, check for an existing plan comment:
 3. If no plan comment found: proceed normally (Step 1 creates the plan, Step 2 attaches it).
 
 **Pre-flight checks** (run in order):
-1. `gh auth status` — **run this first, before the `#N` fetch and Resumption Detection above**, since both issue `gh` calls that depend on its verdict. If unauthenticated, run in **degraded mode**: no issue, no checkpoint sync, no resumption — and say so explicitly to the user rather than silently skipping. Skip every `gh` step in this skill, including the two that read earlier than this line; the plan lives only in-session.
+1. `gh auth status` — **run this first, before the `#N` fetch and Resumption Detection above**, since both make `gh` calls that depend on its verdict. If unauthenticated, run in **degraded mode**: no issue, no checkpoint sync, no resumption — and say so explicitly to the user rather than silently skipping. Skip every `gh` step in this skill, including the ones that read earlier than this line — `OWNER_REPO`'s `gh repo view`, the `#N` fetch, and Resumption Detection's `gh api`; the plan lives only in-session.
 2. `git status` — warn if uncommitted changes exist.
 3. Verify on default branch (skip if `RESUMING=true`):
    - `DEFAULT_BRANCH=$(gh repo view --json defaultBranchRef -q '.defaultBranchRef.name')` — this value still feeds Step 4's `git fetch origin {DEFAULT_BRANCH}`, `git rev-list … origin/{DEFAULT_BRANCH}`, and check 4's `git pull`, so degraded mode needs a fallback yielding a **bare branch name**, not a ref: `DEFAULT_BRANCH=$(git symbolic-ref --short refs/remotes/origin/HEAD | sed 's|^origin/||')`. Plain `git symbolic-ref refs/remotes/origin/HEAD` returns `refs/remotes/origin/main` and `--short` alone returns `origin/main` — either shape breaks every consumer above except the two `diff {DEFAULT_BRANCH}...HEAD` uses, which accept a full ref by luck. If `origin/HEAD` is unset (common in a fresh clone), recover with `git remote set-head origin -a`.
