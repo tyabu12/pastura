@@ -96,12 +96,12 @@ review fixes move it, and a diverged assertion left silently in place is the one
 because the reader who finds it is the one relying on it.
 
 A detector a rule *ships* is the sharpest case, because it runs against the file that defines it.
-The memory-ref detector in § "Anti-pattern: memory refs in repo-tracked files" flags that section's
-own prose example of the banned form — the *form being defined*, not a reference. The three
+The memory-ref detector in § "Anti-pattern: memory refs in repo-tracked files" flagged that
+section's own prose example of the banned form — the *form being defined*, not a reference. The three
 dispositions are not equally cheap here: an inline carve-out adds a line to an **always-loaded**
 file *and* is itself a `file:line` assertion that re-breaks whenever the line moves, and narrowing
 the pattern to dodge one example is brittle by construction. Rewriting the example with a `<name>`
-placeholder takes the detector to zero without weakening it. If a later edit writes a concrete
+placeholder takes the detector back to its carve-out baseline without weakening it. If a later edit writes a concrete
 lowercase filename back in, the grep fires and the next editor picks a disposition again — the
 mechanism working, not a regression.
 
@@ -111,9 +111,9 @@ that one instance and leaves the class open: a recursive grep answers "which fil
 the rule asks "which are repo-tracked", and the two diverge both ways (a tracked file under an
 ignored directory is missed; never-committed scratch is falsely flagged). Enumerating with
 `git ls-files --cached --others --exclude-standard` is what actually matches the claim. Measured in
-this repo when the final form landed: the `rg` version returned 2 hits, the enumerating version 3 —
-the third being the prose example above. **When a detector's file set is not the claim's file set,
-no flag fixes it.**
+this repo before the placeholder rewrite: the `rg` version returned 2 hits, the enumerating version
+3 — the third being the rule's own prose example. **When a detector's file set is not the claim's
+file set, no flag fixes it.**
 
 Scope the negative control to the claim's *habitat*, not just its pattern: a control placed at the
 repo root sits inside the old detector's existing reach and reddens without testing the question.
