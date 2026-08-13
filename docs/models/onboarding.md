@@ -82,30 +82,28 @@ Run from **the primary checkout, not an `/orchestrate` worktree** —
 `data/models/eval-runs/` is gitignored, so it exists only where the harness ran,
 and the path below is relative to that checkout's root.
 
-**There are two ways to record a false zero here, and only one of them has a
-mechanical guard:**
+**A row of zeros here is only evidence if the sweep actually read transcripts.**
+Known ways to get a false zero — not a closed list, so treat the row as suspect
+until you have positively confirmed otherwise:
 
-- **A missing corpus** — *guarded.* `grep -r` over an absent directory writes to
-  stderr while the pipeline still prints `0` for every marker, indistinguishable
-  from a real negative. The `[ -d … ]` check below skips the loop instead.
+- **No transcripts to read** — *guarded.* An absent directory, or one holding no
+  `*.jsonl` (pruned to `.stderr.log`, or a differently-named export), makes
+  `grep -r` match nothing while the pipeline still prints `0` for every marker.
+  The precondition below requires at least one `*.jsonl` and skips the loop
+  otherwise, so this route emits no row at all.
 - **A placeholder left in** — *not guarded, your responsibility.* Replace the two
   `<candidate …>` operands with the candidate's actual marker strings first;
   left as-is the loop counts the literal text and reports `0`. Nothing detects
-  this, which makes it the likelier of the two.
-
-Both *would* produce the exact failure this paragraph exists to warn about;
-since the corpus check emits no row at all, only the placeholder route can still
-reach it. So treat a row of zeros as suspect until you have confirmed the
-placeholders were replaced.
+  this, which makes it the likeliest route.
 
 ```sh
-if [ -d data/models/eval-runs ]; then
+if [ -n "$(find data/models/eval-runs -name '*.jsonl' -print -quit 2>/dev/null)" ]; then
   for m in '<|im_end|>' '<|im_start|>' '<|turn>' '<turn|>' \
            '<candidate turn-start>' '<candidate turn-end>'; do
     printf '%s\t' "$m"; grep -rhoF "$m" --include='*.jsonl' data/models/eval-runs/ | wc -l
   done
 else
-  echo 'corpus absent — run from the primary checkout, not a worktree' >&2
+  echo 'no *.jsonl transcripts found — run from the primary checkout, not a worktree' >&2
 fi
 ```
 

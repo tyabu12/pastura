@@ -202,8 +202,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// explicit per-descriptor values (via `ModelDescriptor.stopSequence` /
   /// `.displayName` / `.systemPromptSuffix`). This avoids silently running Qwen
   /// with Gemma's defaults if a call-site forgets to thread the descriptor
-  /// through. `turnMarkers` is the exception and is defaulted — see its
-  /// parameter note.
+  /// through. `turnMarkers` is required for the same reason: it is the one place
+  /// the descriptor→runtime hand-off can actually be dropped, and
+  /// `ModelDescriptor.turnMarkers` / `ModelProfile.turnMarkers` are non-defaulted
+  /// precisely so a wrong pair cannot be inherited in silence. A default here
+  /// would break that chain at its weakest link with nothing to catch it — the
+  /// #1422 bug, one call site at a time.
   /// Test code can construct via a file-scope helper (see
   /// `LlamaCppServiceTests`) to centralize the test values. Not a pin of the
   /// shipped descriptor — the path and identifier are synthetic, while the
@@ -215,11 +219,11 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   ///   - stopSequence: Per-model plaintext stop sentinel, matched only against
   ///     text the model spelled out (e.g., `<|im_end|>` for ChatML models).
   ///   - turnMarkers: This model's own plaintext turn-boundary sentinels
-  ///     (`ModelDescriptor.turnMarkers`). Defaulted to ``ChatTurnMarkers/chatML``
-  ///     — unlike the parameters above — because it changes only *recognition*
-  ///     of a hallucinated boundary, never generation. A test fixture or
-  ///     harness run that omits it therefore behaves exactly as it did before
-  ///     #1422, whereas an omitted `stopSequence` would alter generation.
+  ///     (`ModelDescriptor.turnMarkers`). **Required**, no default: wrong
+  ///     *recognition* is exactly the #1422 bug, so "it only affects
+  ///     recognition" is a reason to enforce it rather than to relax it. Pass
+  ///     ``ChatTurnMarkers/chatML`` explicitly where that is genuinely the
+  ///     intent.
   ///   - modelIdentifier: Human-readable label for exports / replay metadata.
   ///   - systemPromptSuffix: Optional suffix appended to the system prompt
   ///     at `applyChatTemplate` (e.g., `/no_think` for Qwen 3).
@@ -229,7 +233,7 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   public init(
     modelPath: String,
     stopSequence: String,
-    turnMarkers: ChatTurnMarkers = .chatML,
+    turnMarkers: ChatTurnMarkers,
     modelIdentifier: String,
     systemPromptSuffix: String?,
     assistantPrefix: String? = nil

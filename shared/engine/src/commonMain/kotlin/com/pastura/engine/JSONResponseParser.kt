@@ -170,12 +170,13 @@ internal class JSONResponseParser {
      * Swift original's end arm (`JSONResponseParser+Truncate.swift`); keep the
      * two in step, since no gate compares them:
      *
-     * 1. The end arm is string-blind, so a marker spelled inside a JSON string
-     *    value cuts mid-string — and Swift's repair pipeline then closes the
-     *    quote and brace, persisting a silently-truncated value. (This port has
-     *    no repair pipeline yet — Stage-3 freight per the class doc — so here
-     *    the same cut merely fails the parse. The **gap** is shared; its
-     *    consequence is not, until that port lands.)
+     * 1. The end arm is string-blind **for ChatML's own end marker only**. Every
+     *    other end marker is string-aware, because a mid-value cut is the silent
+     *    kind: on Swift the repair pipeline closes the quote and brace and
+     *    persists a truncated value. (This port has no repair pipeline yet —
+     *    Stage-3 freight per the class doc — so the same cut merely fails the
+     *    parse here. The **predicate** is mirrored regardless, so the engines
+     *    stay comparable when that port lands.)
      * 2. A *leading* end marker cuts at index 0 and destroys the whole payload
      *    (#1452). Deliberately unchanged on both engines; the obvious
      *    `> firstBrace` gate is not strictly safer — read #1452 before adding
@@ -186,6 +187,19 @@ internal class JSONResponseParser {
     private fun truncateAtTurnMarkers(text: String, markers: List<ChatTurnMarkers>): String {
         if (markers.isEmpty() || text.isEmpty()) return text
         var cut = text.length
+
+        // Both arms may need string context — computed once, and only when
+        // something calls for it: any start marker present, or any *non-ChatML*
+        // end marker present (ChatML's own end stays string-blind, mirroring
+        // Swift).
+        val needsStringScan =
+            markers.any { it.start.isNotEmpty() && text.contains(it.start) } ||
+                markers.any {
+                    it.end.isNotEmpty() &&
+                        it.end != ChatTurnMarkers.chatML.end &&
+                        text.contains(it.end)
+                }
+        val insideString = if (needsStringScan) mapStringSpans(text) else null
 
         for (marker in markers) {
             // These `isEmpty()` guards carry more weight here than their Swift
@@ -200,33 +214,55 @@ internal class JSONResponseParser {
             // both non-empty and present in the text. Neither catches one empty
             // marker in a mixed set. The engines agree because these are here.
             if (marker.end.isEmpty()) continue
-            val index = text.indexOf(marker.end)
+            // String-aware for every end marker except ChatML's own, which stays
+            // blind so ChatML backends are byte-identical to pre-#1422. See the
+            // Swift original's end arm for why the exception is keyed on the
+            // literal value.
+            val index =
+                if (marker.end == ChatTurnMarkers.chatML.end || insideString == null) {
+                    text.indexOf(marker.end)
+                } else {
+                    indexOfOutsideStrings(text, marker.end, 0, insideString)
+                }
             if (index >= 0 && index < cut) cut = index
         }
 
-        if (markers.any { it.start.isNotEmpty() && text.contains(it.start) }) {
-            val insideString = mapStringSpans(text)
+        if (insideString != null && markers.any { it.start.isNotEmpty() && text.contains(it.start) }) {
             val firstBrace = text.indices.firstOrNull { text[it] == '{' && !insideString[it] }
             if (firstBrace != null) {
                 for (marker in markers) {
                     if (marker.start.isEmpty()) continue
-                    var searchFrom = firstBrace + 1
-                    while (true) {
-                        val index = text.indexOf(marker.start, startIndex = searchFrom)
-                        if (index < 0) break
-                        // A marker inside a string literal is payload content,
-                        // not a turn boundary — skip past it and keep looking.
-                        if (!insideString[index]) {
-                            if (index < cut) cut = index
-                            break
-                        }
-                        searchFrom = index + 1
-                    }
+                    val index =
+                        indexOfOutsideStrings(text, marker.start, firstBrace + 1, insideString)
+                    if (index >= 0 && index < cut) cut = index
                 }
             }
         }
 
         return if (cut == text.length) text else text.substring(0, cut)
+    }
+
+    /**
+     * First index at or after [from] where [needle] occurs **outside** a JSON
+     * string literal, or `-1`. An occurrence inside one is payload content, not
+     * a turn boundary, so it is skipped and the scan continues past it.
+     *
+     * Returns `-1` rather than `null` to match `String.indexOf`, which both call
+     * sites compare against with `>= 0`.
+     */
+    private fun indexOfOutsideStrings(
+        text: String,
+        needle: String,
+        from: Int,
+        insideString: BooleanArray,
+    ): Int {
+        var searchFrom = from
+        while (true) {
+            val index = text.indexOf(needle, startIndex = searchFrom)
+            if (index < 0) return -1
+            if (!insideString[index]) return index
+            searchFrom = index + 1
+        }
     }
 
     private fun extractFromCodeBlock(text: String): String {

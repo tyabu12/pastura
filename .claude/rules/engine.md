@@ -566,10 +566,12 @@ unsloth exports are unaffected **by #5070** and the existing Gemma 4 E2B
 descriptor stays on unsloth. (PR #480, closed — Gemma 3 1B no-go;
 durable record in ADR-011.)
 
-**This mis-flagging is also the only route by which a turn marker reaches
-decoded text**, so it is what makes the per-model truncation in
+**This mis-flagging is the route that makes a turn marker reach decoded text
+*systematically*** — the other is the model spelling the marker out as a
+plaintext hallucination, which is per-response rather than per-export. Either way
+it is what makes the per-model truncation in
 `JSONResponseParser+Truncate.swift` live rather than dead code (#1422). Why a
-correctly-exported model cannot produce one except as a plaintext hallucination
+correctly-exported model cannot produce one *except* by that hallucination
 is stated in full on `Pastura/Pastura/Models/ChatTurnMarkers.swift`
 § "Contract for consumers" (its Kotlin mirror carries the same section). No shipped
 model has been observed doing so — `docs/models/eval-log.md` § "Spelled-out

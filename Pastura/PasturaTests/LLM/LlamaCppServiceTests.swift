@@ -13,6 +13,9 @@ func makeTestService(modelPath: String = "/nonexistent.gguf") -> LlamaCppService
   LlamaCppService(
     modelPath: modelPath,
     stopSequence: "<|im_end|>",
+    // Stated because the init has no default (#1422). ChatML is the right value
+    // for a synthetic fixture — it is what a marker-agnostic test expects.
+    turnMarkers: .chatML,
     modelIdentifier: "test-model",
     systemPromptSuffix: nil
   )

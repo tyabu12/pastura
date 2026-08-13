@@ -19,9 +19,14 @@ nonisolated extension JSONResponseParser {
   /// both would be wrong in one direction or the other.
   ///
   /// - **End marker** — a turn boundary wherever it occurs: everything after it
-  ///   belongs to a turn that is not this one. Cut unguarded, from the first
-  ///   occurrence to end-of-string. This is the pre-#1422 behaviour, generalized
-  ///   from one hardcoded string to a set, so a ChatML backend is byte-identical.
+  ///   belongs to a turn that is not this one. Cut with no `firstBrace` gate,
+  ///   from the first occurrence to end-of-string. String-aware for every end
+  ///   marker **except ChatML's own**, which stays blind so a ChatML backend is
+  ///   byte-identical to pre-#1422 — the one exception the acceptance criterion
+  ///   requires, and the reason the check is keyed on `.chatML.end` by literal.
+  ///   Everything else is guarded, because a mid-value cut does not fail loudly:
+  ///   the repair pipeline closes the quote and brace and persists a truncated
+  ///   value.
   ///
   /// - **Start marker** — cut **only** at an occurrence after the first
   ///   structural `{`. A *leading* start marker is the model echoing its own
@@ -53,50 +58,90 @@ nonisolated extension JSONResponseParser {
     let chars = Array(text)
     var cut = chars.count
 
-    // End arm — unguarded and string-blind. Both properties are accepted
-    // gaps, kept because closing either would change behaviour for ChatML
-    // backends, which this change holds fixed. The two known gaps:
+    // Both arms may need string context. Pay for the scan only when something
+    // actually calls for it: any start marker present, or any *non-ChatML* end
+    // marker present (the ChatML end marker stays string-blind — see below).
+    let needsStringScan =
+      markers.contains(where: { !$0.start.isEmpty && text.contains($0.start) })
+      || markers.contains(where: {
+        !$0.end.isEmpty && $0.end != ChatTurnMarkers.chatML.end && text.contains($0.end)
+      })
+    let machine = needsStringScan ? StringStateMachine(text) : nil
+
+    // End arm — no `firstBrace` gate (accepted gap 2 below), and string-aware
+    // for every end marker EXCEPT ChatML's own.
     //
-    // 1. String-blind — a marker spelled inside a JSON string value cuts
-    //    mid-string. Not a clean parse failure: the cut leaves an unclosed
-    //    string, the repair pipeline closes the quote and the brace, and the
-    //    silently-truncated value parses and persists (#1422 PR body).
-    // 2. Leading end marker — one occurring before the first structural `{`
-    //    cuts at that index and destroys the entire payload, so a model that
-    //    opens by echoing its own turn-close sentinel loses the object it
-    //    then writes → parse_failed → retry. Deliberately unchanged; the
-    //    obvious `> firstBrace` guard is not strictly safer, because it makes
-    //    `<|im_end|>{"fake":1}` an accepted fabricated object where today it
-    //    fails and retries. Tracked in #1452.
+    // The asymmetry is not cosmetic. String-blindness corrupts silently: the cut
+    // lands mid-value, the repair pipeline closes the quote and the brace, and
+    // the truncated value parses and persists as the agent's answer. Measured on
+    // `{"note": "… <turn|> …"}` — accepted, repair `unclosed_string+unclosed_brace`.
+    // It is reachable for a *newly* added marker because `stopSequence` still
+    // strips only `<|im_end|>` (#1451), so `<turn|>` is the first end marker that
+    // survives generation. Guarding it is provably ChatML-neutral, which is the
+    // whole reason the exception is keyed on the literal rather than on "the
+    // first marker" or "the descriptor's own": ChatML backends must stay
+    // byte-identical, and `.chatML.end` is exactly the value that was already
+    // shipping blind.
+    //
+    // Two accepted gaps remain, both ChatML-only by construction now:
+    //
+    // 1. `<|im_end|>` inside a string value still cuts mid-value. Pre-existing
+    //    and left alone: closing it would move ChatML behaviour, which #1422
+    //    holds fixed. Worth closing on its own merits, separately.
+    // 2. A *leading* end marker (before the first structural `{`) cuts at that
+    //    index and destroys the entire payload → parse_failed → retry.
+    //    Deliberately unchanged: the obvious `> firstBrace` guard is not
+    //    strictly safer, because it makes `<|im_end|>{"fake":1}` an accepted
+    //    fabricated object where today it fails and retries. Tracked in #1452.
     for marker in markers where !marker.end.isEmpty {
-      if let index = Self.firstIndex(of: marker.end, in: chars, from: 0) {
+      let index: Int? =
+        if marker.end == ChatTurnMarkers.chatML.end || machine == nil {
+          Self.firstIndex(of: marker.end, in: chars, from: 0)
+        } else if let machine {
+          Self.firstIndex(of: marker.end, in: chars, from: 0, outsideStringsOf: machine)
+        } else {
+          nil
+        }
+      if let index {
         cut = min(cut, index)
       }
     }
 
-    // Start arm — needs string context, so pay for the scan only if some
-    // start marker actually occurs at all.
-    if markers.contains(where: { !$0.start.isEmpty && text.contains($0.start) }) {
-      let machine = StringStateMachine(text)
-      if let firstBrace = chars.indices.first(where: {
+    // Start arm — cuts only after the first structural `{`, and skips markers
+    // inside string literals.
+    if let machine,
+      markers.contains(where: { !$0.start.isEmpty && text.contains($0.start) }),
+      let firstBrace = chars.indices.first(where: {
         chars[$0] == "{" && !machine.isInsideString(at: $0)
       }) {
-        for marker in markers where !marker.start.isEmpty {
-          var searchFrom = firstBrace + 1
-          while let index = Self.firstIndex(of: marker.start, in: chars, from: searchFrom) {
-            // A marker inside a string literal is payload content, not a turn
-            // boundary — skip past it and keep looking.
-            if !machine.isInsideString(at: index) {
-              cut = min(cut, index)
-              break
-            }
-            searchFrom = index + 1
-          }
+      for marker in markers where !marker.start.isEmpty {
+        if let index = Self.firstIndex(
+          of: marker.start, in: chars, from: firstBrace + 1, outsideStringsOf: machine) {
+          cut = min(cut, index)
         }
       }
     }
 
     return cut == chars.count ? text : String(chars[..<cut])
+  }
+
+  /// First index at or after `from` where `needle` matches **outside** a JSON
+  /// string literal. An occurrence inside one is payload content, not a turn
+  /// boundary, so it is skipped and the scan continues past it.
+  ///
+  /// Deliberately a distinct name rather than a defaulted parameter on
+  /// ``firstIndex(of:in:from:)``: a default would make every existing 3-argument
+  /// call ambiguous.
+  private static func firstIndex(
+    of needle: String, in chars: [Character], from: Int,
+    outsideStringsOf machine: StringStateMachine
+  ) -> Int? {
+    var searchFrom = from
+    while let index = firstIndex(of: needle, in: chars, from: searchFrom) {
+      if !machine.isInsideString(at: index) { return index }
+      searchFrom = index + 1
+    }
+    return nil
   }
 
   /// First index in `chars` at or after `from` where `needle`'s characters

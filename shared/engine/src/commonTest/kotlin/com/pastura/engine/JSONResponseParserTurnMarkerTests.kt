@@ -94,6 +94,39 @@ class JSONResponseParserTurnMarkerTests {
         assertIs<SimulationError.JsonParseFailed>(fabricated.error)
     }
 
+    /**
+     * A non-ChatML end marker inside a JSON string value is payload content, not
+     * a turn boundary. Mirrors Swift's
+     * `endMarker_insideStringValue_isNotATurnBoundary`; on Swift the unguarded
+     * cut is silently *persisted* via the repair pipeline, which this port does
+     * not have yet — the predicate is mirrored so the engines stay comparable.
+     */
+    @Test
+    fun endMarkerInsideStringValueIsNotATurnBoundary() {
+        val input = """{"statement": "テンプレートは <turn|> で終わる", "action": "cooperate"}"""
+
+        val output = parser.parse(input, turnMarkers = gemma)
+        assertEquals("テンプレートは <turn|> で終わる", output.fields["statement"])
+        assertEquals("cooperate", output.fields["action"])
+    }
+
+    /**
+     * **Control — the byte-identical-for-ChatML criterion.** ChatML's *own* end
+     * marker still cuts string-blind, so the guard stays keyed on
+     * `ChatTurnMarkers.chatML.end` by literal rather than applying to every end
+     * marker. Swift's counterpart additionally pins the repair kind, which this
+     * port has no pipeline for; here the same cut fails the parse.
+     */
+    @Test
+    fun endMarkerChatMLInsideStringValueStillCutsBlind() {
+        val input = """{"note": "テンプレートは <|im_end|> で終わる"}"""
+
+        val error = assertFailsWith<SimulationException> {
+            parser.parse(input, turnMarkers = chatMLOnly)
+        }
+        assertIs<SimulationError.JsonParseFailed>(error.error)
+    }
+
     @Test
     fun startMarkerAfterFirstBraceTruncates() {
         val input = """

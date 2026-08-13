@@ -70,6 +70,41 @@ extension JSONResponseParserTests {
     }
   }
 
+  /// **Regression.** A non-ChatML end marker inside a JSON string value is
+  /// payload content, not a turn boundary. Without the guard the cut lands
+  /// mid-value, the repair pipeline closes the quote and brace, and a truncated
+  /// value is persisted as the agent's answer — measured before the fix as
+  /// `["statement": "テンプレートは"]` with `action` gone entirely.
+  ///
+  /// Reachable specifically because `stopSequence` still strips only
+  /// `<|im_end|>` (#1451), so `<turn|>` is the first end marker that survives
+  /// generation and arrives here un-stripped.
+  @Test func endMarker_insideStringValue_isNotATurnBoundary() throws {
+    let input = #"{"statement": "テンプレートは <turn|> で終わる", "action": "cooperate"}"#
+
+    let output = try parser.parse(input, turnMarkers: gemma)
+    #expect(output.fields["statement"] == "テンプレートは <turn|> で終わる")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  /// **Control — the byte-identical-for-ChatML criterion.** The same shape with
+  /// ChatML's *own* end marker still cuts string-blind, because guarding it
+  /// would move shipped ChatML behaviour and #1422 holds that fixed. So the
+  /// guard above is keyed on `.chatML.end` by literal, and this test is what
+  /// pins the exception rather than letting it drift into "all end markers".
+  ///
+  /// A failure here means someone widened the guard. That may well be the right
+  /// call on its own merits — but it is a separate decision from #1422, and it
+  /// changes Qwen.
+  @Test func endMarker_chatMLInsideStringValue_stillCutsBlind() throws {
+    let input = #"{"note": "テンプレートは <|im_end|> で終わる"}"#
+
+    let (output, repair) = try parser.parse(
+      input, expectedKeys: ["note"], turnMarkers: [.chatML])
+    #expect(output.fields["note"] == "テンプレートは")
+    #expect(repair == "unclosed_string+unclosed_brace")
+  }
+
   // MARK: - Start arm
 
   /// A start marker **after** the first structural `{` is a fabricated next
