@@ -47,14 +47,19 @@ internal object DivergenceLedger {
      * the source that documents it, so an entry cannot cite something that was
      * never written down.
      *
-     * **Two gaps this does not close, both for slice 1b.** Nothing requires a
-     * case to be *used*, so a case that outlives its entries becomes a
-     * pre-approved licence a later author can attach to with no enum diff at
-     * all — close it with a test asserting every case is cited once a real
-     * ledger exists. And an entry with a typo'd `fixture` is silently out of
-     * scope rather than unfired, so it vanishes with no signal when the
-     * divergence it covered also closes; assert every `fixture` against the
-     * known fixture names once they are enumerable.
+     * **Two gaps this file used to name are now closed** by
+     * `DivergenceLedgerTests` (#1458): a case that outlives its entries is a
+     * pre-approved licence, and an entry with a typo'd `fixture` is silently
+     * out of scope rather than unfired, so it vanishes with no signal when the
+     * divergence it covered also closes.
+     *
+     * The first gap's *prescribed remedy* — "a test asserting every case is
+     * cited" — turned out to be unsatisfiable, and the correction is worth
+     * keeping visible: four of the five cases below are documented divergences
+     * no fixture can structurally reach, so that assertion would have been red
+     * the day it landed. [unreachableClasses] carries the shape that works.
+     * The gap list inherited the blind spot of the list it was drawn from,
+     * which is a hazard of gap lists generally, not a one-off.
      *
      * **A third gap, found the hard way (#501).** Neither assertion above sees a
      * case and its entry being deleted **together** — which is what resolving a
@@ -138,6 +143,41 @@ internal object DivergenceLedger {
             expectedKotlin = "1.0",
             divergenceClass = DivergenceClass.NUMBER_LITERAL_FORMATTING,
         ),
+    )
+
+    /**
+     * Cases no fixture can currently drive, each with the reason.
+     *
+     * **Why this exists rather than a plain "every case is cited" test.** That
+     * is what this file's gap list prescribed, and it is unsatisfiable: four of
+     * the five cases are documented divergences the fixtures structurally
+     * cannot reach, so the assertion would have been red on the day it landed.
+     * The remedy inherited the blind spot of the list it came from.
+     *
+     * What survives of the original intent is the part that matters — a case
+     * with no entry must not sit there as a pre-approved licence. So every case
+     * is accounted for exactly once, either by a firing [entries] row or by a
+     * row here, and `everyDivergenceClassIsCitedOrDeclaredUnreachable` enforces
+     * the partition in both directions. Adding a case then forces a choice that
+     * shows up in review, which is the property the gap was about.
+     *
+     * A reason here is a claim about the *fixtures*, not about the divergence:
+     * when a fixture gains the ability to drive one of these, the row moves to
+     * [entries] rather than being edited.
+     */
+    internal val unreachableClasses: Map<DivergenceClass, String> = mapOf(
+        DivergenceClass.CANCELLATION_EVENT_TAIL to
+            "needs a mid-run cancellation `ParityFixtureEmitter` never performs (ADR-023 S4)",
+        DivergenceClass.DETECTOR_UNWIRED to
+            "the emitter deliberately injects no detector — a real one wraps " +
+            "NLLanguageRecognizer and would make the golden vary by host " +
+            "(`parityRunEmitsNoLanguageMismatch` guards the omission)",
+        DivergenceClass.VALIDATOR_UNPORTED to
+            "needs a scenario Swift rejects, which produces no transcript to compare",
+        DivergenceClass.SCOREBOARD_ORDERING to
+            "reaches the transcript through the summarize template, but needs agent names " +
+            "where Unicode-scalar and UTF-16 order disagree, or canonically-equivalent keys; " +
+            "every fixture name is plain BMP katakana, where the two orders coincide",
     )
 
     /** Which engine emits an event the other does not. */
