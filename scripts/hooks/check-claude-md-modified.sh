@@ -259,16 +259,21 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------
-# The total was 91,615 bytes when this was introduced (#1361, 2026-08-05). A
-# slim campaign (#1310 / #1315 style) that lands below the ceiling should
-# re-baseline this default in its own PR — otherwise the nudge decays into
-# permanent wallpaper that everyone scrolls past. The env var exists so the
-# test harness can force the firing branch.
-FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-96000}"
+# The total was 91,615 bytes when this was introduced (#1361, 2026-08-05); it
+# had drifted to 98,036 — above the then-96,000 ceiling — by 2026-08-13, when
+# #1442 evacuated the kit-mirror rules' depth to docs/agent-tooling/ and brought
+# it to 93,750. A slim campaign (#1310 / #1315 style) that lands below the
+# ceiling should re-baseline this default in its own PR — otherwise the nudge
+# decays into permanent wallpaper that everyone scrolls past. Ratchet it DOWN to
+# just above the new total so the campaign's gain is held; the headroom below is
+# ~1.3%, deliberately tighter than the 4.8% this started with, because the
+# observed drift rate makes a loose ceiling silent for months. The env var
+# exists so the test harness can force the firing branch.
+FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-95000}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.
 case "$FOOTPRINT_CEILING" in
-  ''|*[!0-9]*) FOOTPRINT_CEILING=96000 ;;
+  ''|*[!0-9]*) FOOTPRINT_CEILING=95000 ;;
 esac
 
 # echoes the total byte size of every tracked always-loaded instruction file,

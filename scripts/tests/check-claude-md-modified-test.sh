@@ -132,7 +132,7 @@ RC=0
 run_hook() {
   local out
   set +e
-  out="$( cd "$1" && PASTURA_FOOTPRINT_CEILING="${2:-96000}" bash "$HOOK" )"
+  out="$( cd "$1" && PASTURA_FOOTPRINT_CEILING="${2:-95000}" bash "$HOOK" )"
   RC=$?
   set -e
   printf '%s' "$out"
