@@ -82,6 +82,7 @@ Pastura/Pastura/LLM/GenerationResult.swift	REPLACED	LLMBackend.kt streaming desi
 Pastura/Pastura/LLM/GPUAcceleration.swift	STAY
 Pastura/Pastura/LLM/JSONResponseParser.swift	PORT
 Pastura/Pastura/LLM/JSONResponseParser+Normalize.swift	PORT
+Pastura/Pastura/LLM/JSONResponseParser+Truncate.swift	PORT
 Pastura/Pastura/LLM/LanguageDetector.swift	PORT
 Pastura/Pastura/LLM/LlamaCppService.swift	STAY
 Pastura/Pastura/LLM/LlamaCppService+ChatTemplate.swift	STAY
