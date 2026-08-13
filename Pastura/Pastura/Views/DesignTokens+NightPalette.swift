@@ -264,8 +264,10 @@ extension PasturaPalette {
   /// measurement rather than by taste: the self-wash **ceiling** — the alpha→0
   /// limit, i.e. `nightInkSecondary` bare on `nightBubble` — is 5.975, and
   /// `PhaseTypeLabel` documents its 15% fill as load-bearing. Retuning
-  /// `nightInkSecondary` itself was rejected on reach: 93 call sites across 43
-  /// files, of which four are self-washes.
+  /// `nightInkSecondary` itself was rejected on reach: **90 `Color.inkSecondary`
+  /// call sites across 43 files** (app source, excluding the `DesignTokens*`
+  /// declarations themselves — measure it that way or the number will not
+  /// reproduce), of which four are self-washes.
   ///
   /// Placed by the §2.2 proportional-L relation, **precedent rather than an
   /// independent control** (the same caveat `nightMossOnWash` carries): HSL L

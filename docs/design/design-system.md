@@ -64,6 +64,9 @@ Pastura は以下の原則に従います。この5つは画面を作る前に�
 | `--muted` | `#8A8A83` | メタ情報・脚注 |
 | `--rule` | `#E0DBCE` | 罫線 |
 | `--ink-on-accent` | `#FFFFFF` | アクセント塗り（`moss` / `moss-dark`）の上に載る文字・グリフ |
+| `--ink-on-wash` | `#5A5A55` | 半透明のインク系ウォッシュに乗る中立文字（バッジ・チップ・ステータスピル）。§2.3 の `--moss-on-wash` のインク側の対応物。ダーク対は §2.9 の `nightInkOnWash`（#1408 で追加。下の「slice 4」には**含まれない**） |
+
+**`--ink-on-wash` の light 値が `--ink-2` と同一なのは偶然ではなく設計。** 別名参照ではなく**値の複製**であり、複製こそが dark 側を独立に動かす条件になっている。壊れていたのは dark だけだったため（4 箇所で 4.413〜4.773:1、うち 2 つは 4.501:1 で「バーちょうど」）light は据え置き、dark だけ `nightInkSecondary` → `nightInkOnWash` に持ち上げた。**したがって light 端末ではこの変更は一切見えない。** 適用先は「同じトークンを文字と半透明ウォッシュの両方に塗っている」4 箇所（*self-wash*）に限る — `PhaseEditorSheet.fieldPill` の thought、`ScenarioBadgeStyle.secondary`、`PhaseTypeLabel` の非 LLM、`ResultsView` の paused ピル。不透明な中立塗りは別問題で、§2.6 の Soft+Ink 対が担当する（#1407 と同じ形）。計測は `DesignTokensTests+InkOnWash` が正本。#1408。
 
 **`--ink-2` のセクションラベル用途には既知の未適用がある。** 自前のセクションヘッダー `PasturaSection` はヘッダーを `--muted` で描いており、この表と一致しない。対象は設定 / 観察履歴 / さがす といったタブ配下に限らず、ScenarioDetail / GalleryScenarioDetail などの push 先も含む。掃引対象の正は**呼び出し形**の grep — `rg -l 'PasturaSection\(' Pastura/Pastura/Views/`（8画面 + 定義ファイル自身の `#Preview`）。型名だけの grep は `PasturaSectionStyle` の言及も拾って広く出るので使わないこと。#1298 では `ScenarioEditorView` の Personas / Phases ヘッダーだけを表どおり `--ink-2` に揃えた — 隣に `--muted` のカウントが並び、明度がほぼ同じで色相だけ違う組み合わせになっていたため。`PasturaSection` 側はパレット掃引の担当として残す。掃引時に「表に寄せる」か「表を `PasturaSection` に合わせる」かをまとめて決めること — アプリ内には現在この2種類に加えてシステム `secondaryLabel` のままのヘッダーも残っている。
 
@@ -217,11 +220,16 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（68 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 68 対が `Color.*` エイリアス経由で実 UI に
+**trait-based 配線済み（69 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の 69 対が `Color.*` エイリアス経由で実 UI に
 届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
 18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対
-+ slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`）。
++ slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`
++ gate 1 を閉じた**後**に増えた役割トークン 2 対 — `mossOnWash`（#1327）と
+`inkOnWash`（#1408））。**後半 2 対はどの slice にも属さない** — 「ダーク値を負っていた
+light トークン」ではなく「そもそも存在しなければならなかった新しい light トークン」で、
+§2.9 がパレットの既定になった後なので生まれつきペアだった。したがって上の列挙は
+内訳（partition）ではなく由来（provenance）の一覧。
 **ダーク対を持たないトークンは `headerMetaSubdued` 1 つだけで、しかも未決ではなく解決済み**
 — **両外観で固定**という記録によるもので、gate 1 は designed dark value と同格の充足条件
 としてこれを認めている。したがって **gate 1 に答えを負ったトークンは 0**。
@@ -262,7 +270,7 @@ Source: `§2.9 Dark Mode`。
 `HighlightShareCard`）。**注入を省くと書き出しは端末がダークでも light に倒れる** — #1337
 で計測。これが本当の失敗モードで、エイリアスを読むこと自体ではない。
 
-その上で **この 68 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
+その上で **この 69 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
 規約。理由は呼び出し側で選んだ外観が読んで分かること、および Apple 側の挙動に書き出しの
 正しさを預けないこと。エイリアスを読んでも*要求した*外観では出る（注入は `Canvas` の
 `GraphicsContext` にも届く — #1337）が、`light` と `dark` が同じ値に潰れて呼び出し側の
@@ -422,6 +430,7 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
 | `nightPromoBorder` | `#35392F` | `promoBorder`（倍率保持・**向き反転**。`rule`→`nightRule` と同じ） |
 | `nightInkOnAccent` | `#2C2F28` | `inkOnAccent`（白ではない。`nightBubble` と同値だがそれは AAA 配置の**結果**） |
+| `nightInkOnWash` | `#BAB7A9` | `inkOnWash`（アーム3。4 種の self-wash 上で 4.991〜5.397。`nightInkSecondary` では 4.413〜4.773 で、うち 2 つは 4.501 と「バーちょうど」だった）。**#1327 とは向きが逆** — 壊れていたのは dark。`nightInk` なら 7.955〜8.602 で通るので不可能性の証明は無く、退けた根拠は**役割**（§8） |
 | `nightMossDark` | `#B3C197` | `mossDark`（**`nightMoss` より明るい** — 強調段の向きが反転） |
 | `nightMossInk` | `#C6CBB1` | `mossInk`（アーム3、地に対し 10.19 保持） |
 | `nightMossSoft` | `#384029` | `mossSoft`（向き反転。色相は moss 族へ寄せた） |

@@ -35,6 +35,7 @@
   --muted: #8A8A83;
   --rule: #E0DBCE;
   --ink-on-accent: #FFFFFF;
+  --ink-on-wash: #5A5A55;
 
   /* §2.3 Moss Accent — Pastura's only brand color, 4 steps */
   --moss: #8A9A6C;
@@ -230,6 +231,7 @@
   --night-moss-ink: #C6CBB1;
   --night-moss-soft: #384029;
   --night-moss-on-wash: #BDC6A4;
+  --night-ink-on-wash: #BAB7A9;
   --night-link: #699054;
   --night-link-visited: #9B9075;
   --night-link-hover: #7FAA62;
