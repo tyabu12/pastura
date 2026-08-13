@@ -50,6 +50,21 @@ class ParityScenarioDecodeTests {
     private fun decode(source: String): Scenario =
         json.decodeFromString(Scenario.serializer(), source)
 
+    /**
+     * The roster is generated (`parity-emit --write`), so an empty one is a
+     * plausible failure rather than a theoretical one — and every loop in this
+     * file would then pass while measuring nothing. This file is the declared
+     * first gate for the slice, so it states the precondition rather than
+     * inheriting it.
+     */
+    @Test
+    fun theGoldenRosterIsNotEmpty() {
+        assertTrue(
+            ParityGolden.all.isNotEmpty(),
+            "the golden roster is empty — every fixture loop in this file would pass vacuously",
+        )
+    }
+
     @Test
     fun everyGoldenScenarioDecodesIntoTheKotlinModel() {
         for (fixture in ParityGolden.all) {
@@ -74,8 +89,8 @@ class ParityScenarioDecodeTests {
                 "${fixture.name}: decoded scenario has rounds=${scenario.rounds}",
             )
             assertEquals(
-                scenario.agentCount,
                 scenario.personas.size,
+                scenario.agentCount,
                 "${fixture.name}: agentCount disagrees with the decoded persona count",
             )
         }
@@ -126,12 +141,20 @@ class ParityScenarioDecodeTests {
      * Asserts [mutated] is rejected **because of the injected key**.
      *
      * The exception type alone does not state that: `SerializationException` is
-     * also what a malformed document raises, so a control whose injection
-     * happened to break the JSON would redden for the wrong reason and read as
-     * verified. Matching the key name in the message separates "the strict
-     * decoder rejected an unknown field" from "the string stopped being JSON",
-     * and the pre-check separates both from an injection that silently did
-     * nothing.
+     * also what a malformed document raises. So the message must both name the
+     * key and read as a strict-mode rejection, and the pre-check separates both
+     * from an injection that silently did nothing.
+     *
+     * **The phrase conjunct is defensive, not demonstrated.** kotlinx's message
+     * shape varies by error class, and some variants quote the offending input
+     * — which would carry the key and let a key-only check pass a *parse*
+     * failure. The one broken-document case probed here (a structural break
+     * placed before the key) does not: it raises `Unexpected JSON token at
+     * offset 1 … at path: $`, with no input dump, so the key conjunct alone
+     * would already have reddened it. Treat the phrase as making the guarantee
+     * explicit rather than as a check known to be load-bearing — and note that
+     * a break placed *after* the key is unreachable, because strict mode
+     * rejects the key before the parser gets there.
      */
     private fun assertRejectsInjectedKey(where: String, mutated: String, original: String) {
         assertTrue(
@@ -143,11 +166,12 @@ class ParityScenarioDecodeTests {
         ) {
             decode(mutated)
         }
+        val message = failure.message.orEmpty()
         assertTrue(
-            failure.message?.contains(INJECTED_KEY) == true,
-            "the $where control failed for the wrong reason — the message does not name " +
-                "$INJECTED_KEY, so this is a parse failure rather than strict-mode rejection: " +
-                "${failure.message}",
+            message.contains(INJECTED_KEY) && message.contains(UNKNOWN_KEY_PHRASE),
+            "the $where control failed for the wrong reason — the message must name " +
+                "$INJECTED_KEY AND read as a strict-mode rejection (\"$UNKNOWN_KEY_PHRASE\"); " +
+                "a broken document would satisfy the first alone: $message",
         )
     }
 
@@ -158,5 +182,13 @@ class ParityScenarioDecodeTests {
          * decoder as lenient when it is strict.
          */
         const val INJECTED_KEY = "__notAKnownKey__"
+
+        /**
+         * kotlinx's strict-mode wording. Matched alongside [INJECTED_KEY]
+         * because the key alone cannot separate a rejection from a parse
+         * failure — the exception message quotes the document, which contains
+         * the key either way.
+         */
+        const val UNKNOWN_KEY_PHRASE = "Encountered an unknown key"
     }
 }

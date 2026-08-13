@@ -128,9 +128,10 @@ struct ParityFixtureEmitterTests {
         fixture.transcript.contains { $0.contains("\"simulation_completed\"") }, "\(spec.name)")
       // Keyed on the spec's own scenario path rather than a hard-coded preset
       // id, which was only ever true of the two `target_score_race` fixtures.
-      let scenarioId =
-        spec.scenarioPath
-        .split(separator: "/").last?.replacingOccurrences(of: ".yaml", with: "") ?? ""
+      // `#require`, not `?? ""`: `String.contains("")` is `true`, so an empty
+      // fallback would pass vacuously — the shape this file elsewhere refuses.
+      let basename = try #require(spec.scenarioPath.split(separator: "/").last)
+      let scenarioId = basename.replacingOccurrences(of: ".yaml", with: "")
       #expect(fixture.scenarioJSON.contains(scenarioId), "\(spec.name): expected id \(scenarioId)")
     }
   }
@@ -223,7 +224,9 @@ struct ParityFixtureEmitterTests {
     // divergent one on the diagonal, because its retry window shifts the global
     // call stream by two.
     #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
+    var votingFixtures = 0
     var scoringFixtures = 0
+    var branchingFixtures = 0
     for spec in ParityFixtureEmitter.specs {
       let fixture = try await ParityFixtureEmitter.run(spec)
 
@@ -235,41 +238,61 @@ struct ParityFixtureEmitterTests {
       // **Derived from the run, never hand-listed by name.** A name-based skip
       // is the same shape as the `specs.first` scoping this test's own comment
       // records as how the second instance survived: it silently stops covering
-      // any fixture added later. The counter below then rejects the vacuous
-      // case, where a scenario change leaves nothing scoring at all and every
-      // iteration skips.
-      let runsAVotePhase = fixture.transcript.contains {
-        $0.contains("\"event\":\"phase_started\"") && $0.contains("\"phase_type\":\"vote\"")
-      }
-      guard runsAVotePhase else { continue }
-      scoringFixtures += 1
-
-      #expect(
+      // any fixture added later.
+      //
+      // **One predicate per assertion, not one for all three.** A single
+      // vote-keyed guard would skip a fixture running `score_calc` and
+      // `conditional` without a `vote` — a shape nothing forbids — while the
+      // counter stayed positive on the two `target_score_race` fixtures, so the
+      // loss would be silent. That is the same defect displaced from names onto
+      // one phase type rather than removed.
+      func runsPhase(_ type: String) -> Bool {
         fixture.transcript.contains {
-          $0.contains("\"vote_results\"") && !$0.contains("\"tallies\":{}")
-        },
-        "\(spec.name): every tally is empty — the votes are being dropped, probably as self-votes")
+          $0.contains("\"event\":\"phase_started\"") && $0.contains("\"phase_type\":\"\(type)\"")
+        }
+      }
+
+      if runsPhase("vote") {
+        votingFixtures += 1
+        #expect(
+          fixture.transcript.contains {
+            $0.contains("\"vote_results\"") && !$0.contains("\"tallies\":{}")
+          },
+          "\(spec.name): every tally is empty — the votes are dropped, probably as self-votes")
+      }
+
       // Scoped to the `scores` object, and rejecting an empty one. Searching the
       // whole line for `:0,` could never pass (every EventLine carries
       // `"attempt":0,`); and `!contains(":0")` alone passes vacuously on
       // `"scores":{}`, which is a shape this golden demonstrably produces.
-      #expect(
-        fixture.transcript.contains { line in
-          guard line.contains("\"score_update\""),
-            let scores = line.range(of: "\"scores\":{").map({ line[$0.upperBound...] }),
-            let end = scores.firstIndex(of: "}")
-          else { return false }
-          let payload = scores[..<end]
-          return !payload.isEmpty && !payload.contains(":0")
-        },
-        "\(spec.name): no score ever moved off zero")
-      #expect(
-        fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
-        "\(spec.name): the then-branch is never taken — the node runs but decides nothing")
+      if runsPhase("score_calc") {
+        scoringFixtures += 1
+        #expect(
+          fixture.transcript.contains { line in
+            guard line.contains("\"score_update\""),
+              let scores = line.range(of: "\"scores\":{").map({ line[$0.upperBound...] }),
+              let end = scores.firstIndex(of: "}")
+            else { return false }
+            let payload = scores[..<end]
+            return !payload.isEmpty && !payload.contains(":0")
+          },
+          "\(spec.name): no score ever moved off zero")
+      }
+
+      if runsPhase("conditional") {
+        branchingFixtures += 1
+        #expect(
+          fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
+          "\(spec.name): the then-branch is never taken — the node runs but decides nothing")
+      }
     }
+    // One counter per assertion: a shared one would let a surviving fixture mask
+    // the case where some other phase type stopped being exercised anywhere.
+    #expect(votingFixtures > 0, "no fixture ran a vote phase — that assertion passed vacuously")
     #expect(
-      scoringFixtures > 0,
-      "no fixture ran a vote phase — every assertion above was skipped and this passed vacuously")
+      scoringFixtures > 0, "no fixture ran a score_calc phase — that assertion passed vacuously")
+    #expect(
+      branchingFixtures > 0, "no fixture ran a conditional phase — that assertion passed vacuously")
   }
 
   // MARK: - Raw-string safety guard

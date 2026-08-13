@@ -3,7 +3,12 @@ import Foundation
 // Split from `ParityFixtureEmitter.swift`, which had reached SwiftLint's
 // `file_length` cap. The boundary is behavioural rather than arbitrary:
 // producing a `Fixture` (the specs, `run`, `normalize`, `encodeScenario`) stays
-// there; turning fixtures into generated Kotlin lives here. No `nonisolated`
+// there; turning fixtures into generated Kotlin lives here.
+//
+// The move is byte-faithful for `header`, `fixtureBlock`, `stringList`, `kdoc`
+// and `assertRawStringSafe` — `kotlinSource` was decomposed but emits the same
+// output. `allList(_:)` and the `all` roster it renders are NEW, not relocated;
+// read the generated diff with that in mind. No `nonisolated`
 // marker is needed on the extension — `PasturaHarnessKit` declares no
 // `.defaultIsolation(MainActor.self)` in `Package.swift`, unlike `PasturaCore`,
 // so `swift-isolation.md` Pattern 3 does not reach this target.

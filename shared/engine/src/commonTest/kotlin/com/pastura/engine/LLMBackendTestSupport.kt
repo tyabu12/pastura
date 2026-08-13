@@ -1,5 +1,8 @@
 package com.pastura.engine
 
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+
 /**
  * Test doubles for the ADR-023 §5.2 inference boundary.
  *
@@ -55,7 +58,19 @@ internal class ScriptedLLMBackend(
         }
     }
 
-    private var callIndex = 0
+    /**
+     * Atomic because it is written on the engine's worker context and read from
+     * the test thread.
+     *
+     * Not for mutual exclusion — the engine issues calls sequentially — but for
+     * **visibility**. `EngineParityTests` asserts [callCount] as its
+     * retry-budget detector, and a plain `var` would reach that assertion only
+     * through whatever happens-before edge the surrounding poll incidentally
+     * provides. A stale read there is the shape that presents as a K/N-only
+     * flake in the one assertion whose whole job is to be exact.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private val callIndex = AtomicInt(0)
 
     /** Every request received, in call order. */
     val requests: MutableList<GenerationRequest> = mutableListOf()
@@ -65,17 +80,20 @@ internal class ScriptedLLMBackend(
         private set
 
     /** How many calls have been issued — the retry-budget observable. */
-    val callCount: Int get() = callIndex
+    @OptIn(ExperimentalAtomicApi::class)
+    val callCount: Int get() = callIndex.load()
 
+    @OptIn(ExperimentalAtomicApi::class)
     override fun generateStream(request: GenerationRequest, callbacks: StreamCallbacks): StreamHandle {
         requests += request
-        val script = scripts.getOrNull(callIndex)
+        val index = callIndex.load()
+        val script = scripts.getOrNull(index)
             ?: throw IllegalStateException(
-                "ScriptedLLMBackend exhausted: call #${callIndex + 1} was issued but only " +
+                "ScriptedLLMBackend exhausted: call #${index + 1} was issued but only " +
                     "${scripts.size} script(s) were provided. An unexpected extra call usually " +
                     "means the retry budget was consumed by something the test did not intend.",
             )
-        callIndex++
+        callIndex.store(index + 1)
 
         // `isFinal` marks the last chunk of a COMPLETED stream only. A suspended or
         // failed stream has no final chunk — it is cut off — mirroring Swift, where

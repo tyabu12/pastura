@@ -144,10 +144,11 @@ internal object EventLineMapper {
                 "condition" to JsonPrimitive(event.condition),
                 "result" to JsonPrimitive(event.result),
             )
-            // Swift's payload is non-optional, Kotlin's is `String?`. A null
-            // omits the key, which is what Swift's `nil` omission would do —
-            // the shapes agree, but only because neither side can currently
-            // produce the other's case. Unexercised by both fixtures.
+            // Both payloads are optional (`case eventInjected(event: String?)`
+            // Swift-side), so a Kotlin null omits the key exactly as Swift's
+            // `nil` does. Unexercised by every fixture — no scenario here runs
+            // an `event_inject` phase — which is a coverage note, not a caveat
+            // about the shapes.
             is SimulationEvent.EventInjected -> fields(
                 "event" to JsonPrimitive("event_injected"),
                 "value" to event.event?.let { JsonPrimitive(it) },
@@ -160,17 +161,27 @@ internal object EventLineMapper {
                 "round" to JsonPrimitive(event.round),
                 "phase_path" to path(event.phasePath),
             )
-            // ⚠️ KNOWN TO DISAGREE, AND UNEXERCISED. Swift projects via
-            // `String(describing: error)`, whose output for a Swift enum case
-            // (`cancelled`) will not match a Kotlin sealed-class `toString()`
-            // (`Cancelled`). Neither parity fixture reaches an error path, so
-            // this is unresolved rather than resolved: whoever first drives one
-            // — S4's cancellation tail is the likely trigger — must either
-            // normalize both sides to the case name or carry a ledger entry.
-            // Recorded on #501's 2026-08-06 comment as slice-1b residue.
+            // ⚠️ KNOWN TO DISAGREE WITH SWIFT, AND UNEXERCISED — but DETERMINISTIC,
+            // which `toString()` was not.
+            //
+            // `SimulationError`'s singleton cases are plain `object`s, not `data
+            // object`s, so `toString()` falls through to `Any.toString()` and
+            // yields `com.pastura.models.SimulationError$Cancelled@7ceb3185` —
+            // measured, and the identity hash changes every run. No fixture
+            // reaches an error path today, so nothing was red; the first one
+            // that does would have made the golden drift against itself.
+            // `simpleName` is stable and is the "normalize to the case name"
+            // arm #501's 2026-08-06 comment names.
+            //
+            // It still will not match Swift, which projects via
+            // `String(describing: error)` and yields the lowercase enum case
+            // (`cancelled` vs `Cancelled`); and a payload-carrying case loses
+            // its payload here where Swift keeps it. Whoever first drives an
+            // error path — S4's cancellation tail is the likely trigger — must
+            // close that with a ledger entry or a shared spelling.
             is SimulationEvent.ErrorEvent -> fields(
                 "event" to JsonPrimitive("error"),
-                "error" to JsonPrimitive(event.error.toString()),
+                "error" to JsonPrimitive(event.error::class.simpleName ?: "unknown"),
             )
             is SimulationEvent.InferenceStarted -> fields(
                 "event" to JsonPrimitive("inference_started"),
@@ -225,10 +236,13 @@ internal object EventLineMapper {
      * and therefore the sort — survives into [JsonObject.toString].
      *
      * The two sides' collation can in principle disagree on non-ASCII keys
-     * (Kotlin compares UTF-16 code units), which is a cousin of the ledgered
-     * `SCOREBOARD_ORDERING` class. It does not affect the comparison, which is
-     * path-based, and it does not arise in the current fixtures — every agent
-     * name there is BMP, where the two orderings coincide.
+     * (Kotlin compares UTF-16 code units), a cousin of the ledgered
+     * `SCOREBOARD_ORDERING` class. It would not affect the *path-based* field
+     * comparison — but it would change a [DivergenceLedger.LedgerEntry.Structural]
+     * entry's pinned bytes, which is exactly why the class KDoc above says key
+     * order is fixed here for those entries. It does not arise in the current
+     * fixtures: every agent name is BMP (katakana or ASCII), where the two
+     * orderings coincide.
      */
     private fun sorted(map: Map<String, JsonElement>): JsonObject =
         JsonObject(map.entries.sortedBy { it.key }.associate { it.key to it.value })
@@ -249,6 +263,12 @@ internal object EventLineMapper {
      *
      * The `toLong` conversion is safe over this domain — `t` and
      * `durationSeconds` are second counts — and is not claimed beyond it.
+     *
+     * The fractional branch is **unreachable on the fixture path** and measured
+     * only at exactly-representable values (`1.5`, `2.25`): the emitter passes
+     * `t: 0, attempt: 0` and normalizes `durationSeconds` to `0`. A future
+     * non-zero `t` would expose Swift's `1e-05` against Kotlin's `1.0E-5`, so
+     * do not read the green suite as evidence that branch agrees.
      */
     private fun number(value: Double): JsonPrimitive =
         if (value.isFinite() && floor(value) == value) {

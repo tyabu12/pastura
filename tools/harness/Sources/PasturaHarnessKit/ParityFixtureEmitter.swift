@@ -267,8 +267,17 @@ package enum ParityFixtureEmitter {
   ///   fixture's own `responses` array already freezes verbatim. So the ledger
   ///   would carry two dozen entries and learn nothing: the comparison would
   ///   measure a model-port decision that is already documented, in place of
-  ///   engine behaviour. Nothing is lost by dropping it, precisely because
-  ///   `responses` is the authority on what the model said.
+  ///   engine behaviour.
+  ///
+  ///   What replaces it, rather than "nothing is lost": `responses` is the
+  ///   authority on what the model **offered**, in call order — not on which
+  ///   offer a given turn **accepted**, and `attempt` is pinned to 0 on every
+  ///   line, so `rawText` was the last per-event record of retry outcome. The
+  ///   two compensating controls are `callCount` (a whole-run aggregate, which
+  ///   two offsetting changes could in principle cancel) and the paired
+  ///   `JSONResponseParser` tests in both languages, which pin what each parser
+  ///   accepts from a given input. That is weaker than a per-event record, and
+  ///   is the price of comparing a field one side does not model.
   ///
   /// Deliberately an `if case` chain rather than an exhaustive `switch`: this
   /// is a narrow denylist, and a new case is normalization-free until someone

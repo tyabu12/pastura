@@ -44,6 +44,13 @@ import kotlinx.serialization.json.Json
  * normally. [assertRunCompleted] catches that ahead of the transcript
  * comparison, so an overrun reports as an overrun rather than as a wall of
  * diffs.
+ *
+ * One overrun shape reaches the transcript instead of that message: a sentinel
+ * parses fine, then fails the declared canonical-primary check, so the
+ * remaining padding burns into a `TurnSkipped`. If the diverging call is the
+ * run's last, the run *completes* and the overrun surfaces as extra
+ * `turn_skipped` / `inference_started` lines. Still red, still diagnosable —
+ * but the `assertRunCompleted` message is not the only signal to expect.
  */
 class EngineParityTests {
 
@@ -80,12 +87,31 @@ class EngineParityTests {
     private fun scenarioOf(fixture: ParityGolden.Fixture): Scenario =
         json.decodeFromString(Scenario.serializer(), fixture.scenarioJson)
 
-    /** Runs [fixture]'s answers through the Kotlin engine and returns what it saw. */
+    /**
+     * Runs [fixture]'s answers through the Kotlin engine and returns what it saw.
+     *
+     * The timeout is raised well above `awaitTerminal`'s 5 s default, which was
+     * calibrated for the 1–2 round toy runs in `SimulationEngineTests`. A parity
+     * fixture is a full run — 24 inferences for the nominal one — doing prompt
+     * building, streaming callbacks and JSON parsing while polled at `delay(1)`,
+     * and the `macosArm64` rung is the slower of the two. Under the old bound a
+     * loaded runner would fail as a timeout that reads like a hang rather than
+     * as the parity diff this suite is for.
+     *
+     * The handle is cancelled on the way out. Without it a run that timed out
+     * would keep executing on `Dispatchers.Default` after the test method
+     * returned, and with three fixtures in one suite an orphan can overlap the
+     * next case.
+     */
     private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
         val backend = ScriptedLLMBackend(scriptsFor(fixture))
         val collector = Collector()
-        SimulationEngine().run(scenarioOf(fixture), backend) { collector.record(it) }
-        awaitTerminal(collector)
+        val handle = SimulationEngine().run(scenarioOf(fixture), backend) { collector.record(it) }
+        try {
+            awaitTerminal(collector, timeoutMillis = 30_000)
+        } finally {
+            handle.cancel()
+        }
         return collector.snapshot() to backend.callCount
     }
 

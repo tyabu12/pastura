@@ -155,6 +155,13 @@ resolves it and passes — only `compileCommonMainKotlinMetadata` fails. **Run
 instances found so far carry their own why-comments at the call site (`RegexOption.DOT_MATCHES_ALL`,
 `String.codePointCount`, `Map.toSortedMap`); the rule here is the task, not the list.
 
+One instance bites **test authoring** specifically and carries a consequence the others do not:
+`KClass.sealedSubclasses` is JVM-only, and it is the natural way to prove a test roster covers a
+sealed hierarchy. Because ADR-023 Decision 5 requires the `macosArm64` rung, roster completeness
+in `commonTest` can only ever be a **pin** (an asserted count) plus the `else`-free `when` that
+breaks the build — never a proof. Say so where you write the pin, or the next reader takes it for
+one.
+
 **Divergences from the Swift original** (the first fails loudly at the port site; the second is the
 compile-clean one):
 
@@ -243,8 +250,9 @@ Worked example: `NarrateHandlerTests` (#1331).
 **Resolving a divergence silently disarms whatever parity fixture arm drove it.** Converging the
 engines retires the `DivergenceClass` an arm exercised, and the arm goes with it — with no
 assertion seeing the case and its entry deleted **together**. `someFixtureDrivesBothEntryKinds`
-now reddens on it (#1458); the two guards that do *not* are named in `DivergenceLedgerTests`, and
-both were confirmed green against a reproduction of the incident rather than by argument.
+now reddens on it (#1458); the two guards that do *not* live in `DivergenceLedgerTests`, and why
+neither can — plus the reproduction that confirmed both stay green through it — is in
+`DivergenceLedger.kt`'s `DivergenceClass` KDoc.
 **Apply**: before deleting a `DivergenceClass`, check whether its fixture arm was the only
 instance of that entry kind; if so, re-arm rather than recording a bare "not reachable", which is
 an enumeration over *existing* cases and cannot see an unledgered divergence. Motivating incident:

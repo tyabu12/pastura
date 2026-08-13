@@ -83,7 +83,9 @@ machine-checked — see the maintenance invariant above.
   in `kmp-build-test`) and nightly on Kotlin/Native (`:shared:engine:build` includes
   `macosArm64Test`); `parity-emit --check` in `harness-build` guards the generated golden from
   either drift direction. **The happy-path fixture agrees with nothing excused** — a full
-  four-round run, event for event and field for field.
+  four-round run, event for event and field for field, less the four fields the comparison
+  unit normalizes away (`t`, `attempt`, `duration_seconds`, `raw_text`; see
+  `ParityFixtureEmitter.normalize` for why each is excluded).
 
   Three fixtures, and the split is load-bearing: the nominal one carries the real-scenario
   parity claim, and the two controls exist so the ledger's own mechanisms are provably

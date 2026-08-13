@@ -55,7 +55,7 @@ internal object DivergenceLedger {
      *
      * The first gap's *prescribed remedy* — "a test asserting every case is
      * cited" — turned out to be unsatisfiable, and the correction is worth
-     * keeping visible: four of the five cases below are documented divergences
+     * keeping visible: four of the six cases below are documented divergences
      * no fixture can structurally reach, so that assertion would have been red
      * the day it landed. [unreachableClasses] carries the shape that works.
      * The gap list inherited the blind spot of the list it was drawn from,
@@ -71,9 +71,12 @@ internal object DivergenceLedger {
      *
      * That guard was verified by reproducing the incident rather than by
      * argument: converging the engines on the fixture's divergent turn, then
-     * deleting [DivergenceClass.MULTI_OBJECT_SALVAGE] together with its entries,
-     * leaves `EngineParityTests` fully green and both assertions above green —
-     * and reddens only the kind-coverage one.
+     * deleting [DivergenceClass.MULTI_OBJECT_SALVAGE] together with **both** the
+     * [entries] rows and the [callCountDivergences] row that cite it — leaving
+     * either behind fails to compile, and leaving the map row in place would
+     * redden the call-count assertion instead, falsifying the "only the
+     * kind-coverage one reddens" claim. Done that way, `EngineParityTests` goes
+     * fully green and both assertions above stay green.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
         /**
@@ -295,7 +298,7 @@ internal object DivergenceLedger {
      *
      * **Why this exists rather than a plain "every case is cited" test.** That
      * is what this file's gap list prescribed, and it is unsatisfiable: four of
-     * the five cases are documented divergences the fixtures structurally
+     * the six cases are documented divergences the fixtures structurally
      * cannot reach, so the assertion would have been red on the day it landed.
      * The remedy inherited the blind spot of the list it came from.
      *
@@ -322,7 +325,8 @@ internal object DivergenceLedger {
         DivergenceClass.SCOREBOARD_ORDERING to
             "reaches the transcript through the summarize template, but needs agent names " +
             "where Unicode-scalar and UTF-16 order disagree, or canonically-equivalent keys; " +
-            "every fixture name is plain BMP katakana, where the two orders coincide",
+            "every fixture's agent names are BMP (katakana or ASCII), where the two orders " +
+            "coincide",
     )
 
     /** Which engine emits an event the other does not. */

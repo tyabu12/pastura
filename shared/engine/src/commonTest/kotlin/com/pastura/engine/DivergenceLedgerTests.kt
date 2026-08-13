@@ -21,8 +21,25 @@ import kotlin.test.assertTrue
  */
 class DivergenceLedgerTests {
 
+    private val knownFixtures: Set<String>
+        get() = ParityGolden.all.map { it.name }.toSet()
+
+    /**
+     * Every citation of a [DivergenceClass], across **both** containers.
+     *
+     * `callCountDivergences` cites classes too, and reading only `entries` left
+     * a hole exactly where this file's guards are supposed to be tight: a class
+     * cited solely by a retry-budget row and also listed in
+     * `unreachableClasses` satisfied both halves of the partition — absent from
+     * `cited`, so nothing looked unaccounted; absent from the intersection, so
+     * nothing looked doubly-declared. A demonstrably reachable divergence would
+     * then sit on record as unreachable with no signal.
+     */
     private val citedClasses: Set<DivergenceClass>
-        get() = DivergenceLedger.entries.map { it.divergenceClass }.toSet()
+        get() = (
+            DivergenceLedger.entries.map { it.divergenceClass } +
+                DivergenceLedger.callCountDivergences.values.map { it.divergenceClass }
+            ).toSet()
 
     /**
      * Every case is accounted for exactly once — cited by an entry, or declared
@@ -82,7 +99,13 @@ class DivergenceLedgerTests {
      */
     @Test
     fun someFixtureDrivesBothEntryKinds() {
-        val byFixture = DivergenceLedger.entries.groupBy { it.fixture }
+        // Filtered to real fixtures first, so a Structural+Value pair sharing a
+        // typo'd name cannot satisfy this on a phantom fixture. That typo is
+        // caught independently by `everyEntryNamesAKnownFixture`; filtering here
+        // keeps this a standalone guard rather than one leaning on a sibling.
+        val byFixture = DivergenceLedger.entries
+            .filter { it.fixture in knownFixtures }
+            .groupBy { it.fixture }
         val bothKinds = byFixture.filterValues { entries ->
             entries.any { it is DivergenceLedger.LedgerEntry.Structural } &&
                 entries.any { it is DivergenceLedger.LedgerEntry.Value }
@@ -103,7 +126,7 @@ class DivergenceLedgerTests {
     /** A retry-budget pin naming no fixture is as silent as a mis-keyed entry. */
     @Test
     fun everyCallCountDivergenceNamesAKnownFixture() {
-        val known = ParityGolden.all.map { it.name }.toSet()
+        val known = knownFixtures
         val unknown = DivergenceLedger.callCountDivergences.keys - known
         assertEquals(
             emptySet(),
@@ -137,7 +160,7 @@ class DivergenceLedgerTests {
      */
     @Test
     fun everyEntryNamesAKnownFixture() {
-        val known = ParityGolden.all.map { it.name }.toSet()
+        val known = knownFixtures
         val unknown = DivergenceLedger.entries.map { it.fixture }.toSet() - known
         assertEquals(
             emptySet(),
