@@ -55,17 +55,16 @@ colour this repo does not own, which is exactly why the class edge is open.
 
 ## The GameHeader status pill from #1455 — the one where dark is the *weak* side
 
-The mirror image of the section below: #1455's defect was in **light**, and dark
+The mirror image of the section below: #1455's defect was in **light** and dark
 already passed, so the light pass is what proves the repair. Dark is on this list
 for a different reason — it is where the change is hardest to *see*, and so where
 a wrong call would hide.
 
 Run a simulation to completion on a **dark** device and watch the header pill
-change from `Simulating` to `Completed`.
-
-The falsifiable question is not "is it legible" — both arms clear the bar
-(5.783 / 6.047). It is **can you tell the two states apart without reading the
-word?** In light the two labels separate by 1.523; in dark `nightMossOnWash`
+change from `Simulating` to `Completed`. The falsifiable question is not "is it
+legible" — both arms clear the bar (5.783 / 6.047). It is **can you tell the two
+states apart without reading the word?** In light the two labels separate by
+1.523; in dark `nightMossOnWash`
 #BDC6A4 and `nightMossInk` #C6CBB1 are near-neighbours at 1.068, so dark leans on
 the wording almost entirely. If that reads as a broken distinction rather than a
 quiet one, the thing to revisit is ADR-028 § Amendment 2026-08-14's rejection of

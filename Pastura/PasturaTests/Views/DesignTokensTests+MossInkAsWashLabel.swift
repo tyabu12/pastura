@@ -7,10 +7,10 @@ import Testing
 // translucent moss-family wash** (#1455).
 //
 // **There is no `mossInkOnWash` token, and this file is not named for one.**
-// Its siblings `+MossOnWash` and `+InkOnWash` are named after tokens that
-// exist; this one is named after a *bug class* — the §2.3 Ink step painted over
-// a translucent wash of its own family — because that is the set a future site
-// joins. Naming it for a component would have made the sibling below
+// Its siblings `+MossOnWash` and `+InkOnWash` are named after tokens that exist;
+// this one is named after a *bug class* — the §2.3 Ink step painted over a
+// translucent wash of its own family — because that is the set a future site
+// joins, and a component name would have made the sibling rows below
 // unaddable.
 //
 // Only one member was ever failing: `GameHeader`'s status pill read `mossDark`
@@ -43,28 +43,24 @@ extension DesignTokensTests {
   /// rg 'Color\.moss(Dark)?\.opacity\(' Pastura/Pastura/ --type swift
   /// ```
   ///
-  /// That reaches `ResultsView.completed` and `HomePausedCard` directly but
+  /// It reaches `ResultsView.completed` and `HomePausedCard` directly but
   /// **not** `GameHeader.statusPill`, which composes its wash through
-  /// `GameHeaderStatus.washToken` — so the grep is a starting point, not the
-  /// guard.
+  /// `GameHeaderStatus.washToken` — a starting point, not the guard. And
+  /// **triaging its hits by the API that produced them is what misses a row**:
+  /// `HomePausedCard`'s two build a `LinearGradient` and a first pass dropped
+  /// them as "gradients" alongside the icon tiles and progress dots — but that
+  /// gradient is the card's surface, and text sits on it (the eyebrow, already
+  /// a `mossWashSites` row, and the progress label). Ask what the wash is
+  /// *under*, never which API drew it. Both text rows model the harder 0.16
+  /// stop rather than the 0.07 one.
   ///
-  /// **Triaging its remaining hits by the API that produced them is what misses
-  /// a row.** `HomePausedCard`'s two hits build a `LinearGradient`, and a first
-  /// pass here dropped them as "gradients" alongside the icon tiles and progress
-  /// dots — but that gradient is the card's surface, and text sits on it: the
-  /// eyebrow (already a `mossWashSites` row) and the progress label below. The
-  /// question is what the wash is *under*, never which API drew it. Both text
-  /// rows model the harder 0.16 stop rather than the 0.07 one.
+  /// The rest is decided by criteria rather than a list, because the list keeps
+  /// turning out incomplete — each time because a shape was excluded by how it
+  /// was drawn rather than by what it carries:
   ///
-  /// **Two criteria decide the rest, and they are stated instead of a list
-  /// because the list keeps turning out incomplete** — twice now, both times
-  /// because a shape was excluded by how it was drawn rather than by what it
-  /// carries:
-  ///
-  /// - **Large text is out.** ≥14pt bold / ≥18pt regular takes WCAG 1.4.11's
+  /// - **Large text is out** — ≥14pt bold / ≥18pt regular takes WCAG 1.4.11's
   ///   3:1, not this file's 4.5. `ModelPickerView`'s 26pt-bold `mossInk` title
-  ///   over the `moss@0.10` halo is the same shape as a row here and is excluded
-  ///   on exactly this ground.
+  ///   over the `moss@0.10` halo is otherwise the same shape as a row here.
   /// - **Cross-family is out** — it belongs to whichever fixture owns the label's
   ///   family, not this one. Seen so far: `ActiveModelChip` (`inkSecondary` on
   ///   `mossDark@0.10`, worst 4.843 dark), `ResultDetailView+ResumeBanner` and
@@ -74,13 +70,12 @@ extension DesignTokensTests {
   ///   `mossWashSites`' business. `ModelRow` supplies one of each — its selected
   ///   row above, and its `recommendedTag` here.
   ///
-  /// Membership here is a **contrast** class, not the set design-system §8's
-  /// exception admits by role — the two are not the same set and this file does
-  /// not certify the second. `HomePausedCard.progress` is the live divergence:
-  /// it is in this class, but "Round X / Y" is none of the roles §2.3 assigns
-  /// `--moss-ink`, so its routing is unjustified even though it clears the bar.
-  /// Tracked separately rather than repointed here, since that is a visual
-  /// change to another screen — #1459.
+  /// Membership is a **contrast** class, not the set design-system §8's
+  /// exception admits by role; this file does not certify the second.
+  /// `HomePausedCard.progress` is the live divergence — in this class, but
+  /// "Round X / Y" is none of the roles §2.3 assigns `--moss-ink`, so its
+  /// routing is unjustified even though it clears the bar. Tracked as #1459
+  /// rather than repointed here, being a visual change to another screen.
   static var mossInkWashSites: [MossWashSite] {
     [
       MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),
@@ -93,13 +88,11 @@ extension DesignTokensTests {
   /// text" threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type — the
   /// status pill is `Typography.pillStatus` at 9pt, the results pill is
   /// `.caption` + `.semibold` at 12pt, and `HomePausedCard`'s progress readout is
-  /// `HomeHeroLayout.progressFontSize`, also 12pt — so 3:1 never applies. That
-  /// is the fixture's admission criterion, not an incidental property: a
-  /// same-shaped site above the threshold is excluded, which is why
-  /// `ModelPickerView`'s title is not a row. At
-  /// accessibility sizes `.caption` scales past 14pt and the 3:1 bar *would*
-  /// apply, which only relaxes the requirement, so pinning 4.5 stays
-  /// conservative. Do not "correct" this in the other direction.
+  /// `HomeHeroLayout.progressFontSize`, also 12pt — so 3:1 never applies. That is
+  /// the fixture's admission criterion, not an incidental property: a same-shaped
+  /// site above the threshold is excluded (the large-text bullet above). Pinning
+  /// 4.5 stays conservative at accessibility sizes for the reason `+InkOnWash`'s
+  /// `inkTextBar` gives — do not "correct" it in the other direction.
   private static let mossInkTextBar = 4.5
 
   /// Grounds are the **worst case per appearance** — the convention
@@ -174,12 +167,9 @@ extension DesignTokensTests {
   ///
   /// It is the **exact complement** of the negative control above rather than a
   /// hand-listed pair, so the two arms cannot drift apart as the fixture grows.
-  /// What the pins below state is narrower than that: exactly one row is
-  /// excluded and the complement is non-empty, so it can neither silently become
-  /// the whole fixture nor — if the fixture were trimmed to the status pill
-  /// alone — collapse to a zero-iteration loop. A row *added* is caught by the
-  /// size pin in
-  /// ``mossInkClearsAAOnEveryMossWashItLabels``, not here; the two pins are
+  /// What the pins below state is narrower: exactly one row is excluded, and the
+  /// complement is non-empty. A row *added* is caught by the size pin in
+  /// ``mossInkClearsAAOnEveryMossWashItLabels``, not here — the two are
   /// complementary and neither subsumes the other.
   ///
   /// Both appearances are asserted — the light half duplicates that same arm,
@@ -224,11 +214,10 @@ extension DesignTokensTests {
   /// separates them, and this file uses `screenBackground` because that is the
   /// light worst case its fixture composites over.
   ///
-  /// Asserting only the `moss` half would leave a reader thinking the completed
-  /// arm could have been tuned; asserting only the `mossDark` half would suggest
-  /// wash-tuning was viable in general. Both have to be pinned for the
-  /// conclusion to survive. Do not "fix" a red here by flipping a comparison —
-  /// re-derive the decision (design-system §8, ADR-028) first.
+  /// Both halves are pinned because either alone misleads: the `moss` one
+  /// suggests the completed arm could have been tuned, the `mossDark` one that
+  /// wash-tuning was viable in general. Do not "fix" a red here by flipping a
+  /// comparison — re-derive the decision (design-system §8, ADR-028) first.
   @Test func washAlphaTuningCouldNotHaveRepairedThisPill() {
     let activeCeiling = contrastRatio(PasturaPalette.moss, PasturaPalette.screenBackground)
     #expect(
@@ -250,8 +239,8 @@ extension DesignTokensTests {
   /// supporting element must not become the loudest thing in its row. §8's
   /// exception for `GameHeaderStatus.completed` is only sound while that
   /// condition holds *here*: the header's own title out-contrasts the pill, so
-  /// the pill does not out-shout the row's primary. Today 13.147 vs 8.604 in
-  /// light and 10.769 vs 6.047 in dark.
+  /// the pill does not out-shout the row's primary. The arm computes both
+  /// appearances rather than mirroring the figures §8 and the ADR quote.
   ///
   /// A red here is a **decision point, not a repair instruction**: it means a
   /// retune inverted the relation the exception rests on, and §8 has to be

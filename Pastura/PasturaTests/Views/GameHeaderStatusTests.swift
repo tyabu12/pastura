@@ -84,25 +84,22 @@ struct GameHeaderStatusTests {
   /// drifted. Confirm the change was intended, then update the row.
   ///
   /// **This replaces four relative-grouping tests, two of which could never
-  /// fire.** The old `completedHasDistinctForegroundFromActiveAndTerminal`
-  /// and `activeAndTerminalForegroundsAreDistinct` asserted that two tokens
-  /// *differ*; per `.claude/rules/view-testing.md`, a `PasturaDynamicColor`-
-  /// backed alias compares by provider instance, so such an assertion passes
-  /// whatever the tokens are. Their doc comments also went on naming `moss` /
-  /// `mossDark` after #1455 moved the labels off them — the grouping tests
-  /// were structurally blind to *which* token each arm read, which is exactly
-  /// the gap #1455 was filed about.
-  ///
-  /// An earlier comment here deferred absolute token verification to
-  /// `GameHeaderContractTests`. That file asserts no tokens at all and never
-  /// did, so until now nothing pinned them anywhere.
+  /// fire** — they asserted that two tokens *differ*, and a
+  /// `PasturaDynamicColor`-backed alias compares by provider instance, so
+  /// that shape passes whatever the tokens are (`.claude/rules/view-testing.md`
+  /// § "Change-detector tripwire for code-review-gated tokens"). The other two
+  /// only pinned that arms
+  /// *share* a token, leaving the suite blind to **which** token each arm
+  /// read — the gap #1455 was filed about. An earlier comment here deferred
+  /// absolute token verification to `GameHeaderContractTests`, which asserts
+  /// no tokens at all and never did, so nothing pinned them anywhere.
   ///
   /// Token *values* stay `DesignTokensTests`' contract and the contrast
   /// claims are `DesignTokensTests+MossOnWash`'s / `+MossInkAsWashLabel`'s. This
-  /// suite guards only the routing. Note there is deliberately no "label
-  /// differs from wash" assertion — it would be one of the vacuous `!=`
-  /// shapes above; the muted arms legitimately route both to the same token,
-  /// and the table is what records which arms split.
+  /// suite guards only the routing. There is deliberately no "label differs
+  /// from wash" assertion — that is one of the vacuous `!=` shapes above, the
+  /// muted arms legitimately route both to the same token, and the table is
+  /// what records which arms split.
   @Test func everyCaseRoutesToItsDeclaredLabelAndWashTokens() {
     #expect(Self.routing.count == GameHeaderStatus.allCases.count)
     #expect(Set(Self.routing.map(\.status)) == Set(GameHeaderStatus.allCases))
@@ -121,18 +118,12 @@ struct GameHeaderStatusTests {
     //
     // This replaces `backgroundIsForegroundAt14PercentOpacity`, which pinned
     // `background == foreground.opacity(0.14)` so that "a future override
-    // cannot drift the background tone away from its foreground". That
-    // invariant was written before the `*-on-wash` role tokens existed, when
-    // label and wash genuinely were one token — and holding it is what made
-    // all four moss arms self-washes below AA in light. Every translucent-wash
-    // site that owes AA already separates the two (the `mossWashSites` /
-    // `inkWashSites` fixtures enumerate them), so the split is the established
-    // shape rather than a drift this test should catch. The carve-out is §8's
-    // quietude tier, where the two legitimately stay one token — this enum's
-    // own `muted` arms are in it, as is `ResultsView.pending`.
-    // What survives of the original intent is the pin below: the tone is
-    // still derived from one declared token at one declared alpha, not
-    // hand-set per case.
+    // cannot drift the background tone away from its foreground" — an
+    // invariant that predates the `*-on-wash` role tokens, and holding it is
+    // what made all four moss arms self-washes below AA in light (ADR-028
+    // § Amendment 2026-08-14). What survives of its intent is the pin below:
+    // the tone is still derived from one declared token at one declared
+    // alpha, not hand-set per case.
     for status in GameHeaderStatus.allCases {
       #expect(status.background == status.washToken.opacity(GameHeaderStatus.washAlpha))
     }

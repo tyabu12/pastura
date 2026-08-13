@@ -137,7 +137,7 @@ ZStack(alignment: .top) {
 - 左：6pt の菱形（`.rotationEffect(.degrees(45))`、色 `#8a9a6c`、opacity 0.7）
 - 左テキスト上段: `WORD WOLF` — サイズ 9.5pt / モノスペース / `letterSpacing 0.22em` / 色 `#6f7359` / weight: semibold / UPPERCASE
 - 左テキスト下段: フェーズ名（例「発言ラウンド 1」） — サイズ 13pt / 色 `#2d2e26` / weight: semibold
-- 右: `DEMO中` — サイズ 10pt / モノスペース / 色 `#7b7d68`（**このモック値は出荷実装と異なる**。実物は `GameHeaderStatus.demoing` のピルで、9pt mono・ラベルは `--moss-on-wash`・`--moss` 0.14 のウォッシュ上。正本は design-system §2.3／§8／§3 `pill/status`、#1455）
+- 右: `DEMO中` — サイズ 10pt / モノスペース / 色 `#7b7d68`（**モック値。出荷実装と異なる** — 実物は `GameHeaderStatus.demoing` のピルで 9pt mono、ラベルは `--moss-on-wash`、`--moss` 0.14 のウォッシュ上。正本は design-system §2.3／§8／§3 `pill/status`、#1455）
 - 背景: 画面背景を78%に薄めた色 + `.background(.ultraThinMaterial)` 近似（`saturate(1.05) blur(8px)`）
 - 下線: 1pt / `rgba(60,62,48,0.07)`
 

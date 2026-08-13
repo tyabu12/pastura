@@ -10,11 +10,11 @@ import Testing
 // reason is a *measurement*, so it is asserted here rather than written into a
 // doc comment and left to rot.
 //
-// The fixture grows as sites adopt the token: #1327 enumerated the original
-// set and #1455 added the `GameHeader` status pill on the same grounds. The
-// count pin inside ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` is the authority
-// on the current size — deliberately not restated as a number in prose here,
-// because a prose count is what goes stale.
+// The fixture grows as sites adopt the token (#1327 enumerated the original
+// set; #1455 added the `GameHeader` status pill on the same grounds). The count
+// pin inside ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` is the authority on its
+// size — not restated as a number in prose here, because a prose count goes
+// stale.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -47,13 +47,12 @@ extension DesignTokensTests {
   ///
   /// That row is also the first whose true ground is **not** an opaque surface:
   /// `GameHeader` composites `screenBackground.opacity(0.78)` over
-  /// `.ultraThinMaterial`, with the screen's scrolling content passing beneath
-  /// it. So for that row alone the ground pinned below is *nominal* rather than
-  /// a worst case — a dark enough passage of content under the bar puts the real
-  /// ratio under the figure this fixture asserts. The repoint is still a large
-  /// strict improvement there (#1455 measured the pathological bound at 3.690
-  /// after versus 1.604 before), and light-appearance device QA is what covers
-  /// the gap. Do not read this row as a bound the way the other rows are.
+  /// `.ultraThinMaterial`, with the screen's content scrolling beneath. So for
+  /// that row alone the ground pinned below is *nominal* rather than a worst
+  /// case — dark enough content under the bar puts the real ratio below what
+  /// this fixture asserts (#1455 measured the pathological bound at 3.690, still
+  /// a large strict improvement on 1.604 before). Light-appearance device QA is
+  /// what covers the gap; do not read this row as a bound the way the others are.
   static var mossWashSites: [MossWashSite] {
     [
       MossWashSite("GalleryCatalogRow.badgeView", wash: .moss, light: 0.20, dark: 0.20),
