@@ -196,6 +196,7 @@ Handle the critic's output:
   )")
   ```
   Extract `ISSUE_NUMBER` from the URL.
+  **Label fallback:** if `--label "$LABEL"` fails (the label doesn't exist in the repo), retry the command without `--label` (or offer to create the label first) — never block issue creation on a missing label.
 - Post the plan as the first comment (same format as the `#N` case above). **Capture `COMMENT_ID` from the response** (`--jq '.id'`) — it is required for checkpoint sync in Step 3.
 
 ### 2b: Worktree Setup
@@ -386,7 +387,7 @@ Config / docs / shell / test-only changes with no such surface do **not** need d
 
 Present the PR draft (title + body + label) for visibility — this is informational; the PR is created automatically, with no confirmation gate:
 - Title: Emoji prefix + Conventional format, under 70 chars (same emoji convention as CLAUDE.md commits)
-- Body: Summary bullets + test plan + a `## Device QA` section + `Closes #N` (always present — Issue is always created). The `## Device QA` section lists the concrete on-device steps a reviewer must run, or a single `実機QA不要` line with the one-line reason when none apply.
+- Body: Summary bullets + test plan + a `## Device QA` section + an issue reference. Use `Closes #N` only when this PR completes the issue; for a non-final PR of a multi-PR or umbrella issue, use `Part of #N` instead so merging it does not prematurely auto-close the issue (see CLAUDE.md § "Git Conventions" → "Closing issues in multi-PR splits"). The `## Device QA` section lists the concrete on-device steps a reviewer must run, or a single `実機QA不要` line with the one-line reason when none apply.
 - Label: from the table above
 
 Push the branch first as its **own** Bash tool call: `git push -u origin <branch>`. Then create the PR as a **separate** call — never combine the two with `&&`, or the `gh pr create --base`-gated PreToolUse (`check-claude-md`) and PostToolUse (`pr-created-reflection`) hooks won't fire (their prefix gate is anchored at position 0, so a leading `git push` breaks the match):
@@ -403,6 +404,8 @@ gh pr create --base "$BASE_BRANCH" --assignee "@me" --label "$LABEL" \
 IMPLEMENT_PR_BODY
 )"
 ```
+
+**Label fallback:** if `--label "$LABEL"` fails (the label doesn't exist in the repo), retry the command without `--label` (or offer to create the label first) — never block PR creation on a missing label.
 
 After creation:
 - Print the PR URL.
