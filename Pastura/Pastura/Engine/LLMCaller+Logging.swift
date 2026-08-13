@@ -65,27 +65,68 @@ nonisolated extension LLMCaller {
     )
   }
 
-  /// Detect chat template token leakage and hallucinated continuations.
-  /// `LlamaCppService`'s streaming path strips a spelled-out `<|im_end|>`
+  /// Parse `raw` with the backend's own turn markers, and emit the two
+  /// diagnostics that belong to a *successful* parse.
+  ///
+  /// Extracted from `call` so that body stays under the 50-line
+  /// `function_body_length` cap, and so the marker set is read once and used
+  /// by both consumers — the parser and the leakage diagnostic — with no way
+  /// for them to drift onto different sets.
+  ///
+  /// `knownTurnMarkers` is read from the live backend, so truncation keys on
+  /// the loaded model's own sentinels (#1422). The read goes through
+  /// `any LLMService`, which is exactly why that requirement is declared in
+  /// the protocol body rather than an extension — see its doc comment.
+  ///
+  /// - Returns: the parsed output, or `nil` when the parse failed (the caller
+  ///   owns the retry / `retriesExhausted` decision).
+  func parseAndLog(
+    raw: String, expectedKeys: Set<String>, llm: any LLMService, agent: String
+  ) -> TurnOutput? {
+    let markers = llm.knownTurnMarkers
+    guard
+      let result = try? parser.parse(
+        raw, expectedKeys: expectedKeys, turnMarkers: markers)
+    else { return nil }
+    logRepairIfNeeded(agent: agent, kind: result.repairKind)
+    logChatTemplateLeakage(in: raw, markers: markers)
+    return result.0
+  }
+
+  /// Detect chat template token leakage and hallucinated continuations,
+  /// against the loaded model's own markers rather than a ChatML literal
+  /// (#1422 — before that, this was silently blind for Gemma 4, the default
+  /// shipped model).
+  ///
+  /// `LlamaCppService`'s streaming path strips a spelled-out `stopSequence`
   /// before emission, so this primarily catches non-streaming backends (Mock
   /// wrap path, Ollama) where the raw string may still contain template
-  /// tokens.
+  /// tokens. A spelled-out **start** marker stays reachable even under
+  /// llama.cpp, whose streaming path strips `stopSequence` alone — that is
+  /// what the #65 TODO on `LlamaCppService.stopSequence` is about.
   ///
-  /// - Important: ChatML-only, so a non-ChatML model (Gemma 4) is not covered
-  ///   — #1422. A spelled-out `<|im_start|>` stays reachable even under
-  ///   llama.cpp, whose streaming path strips `stopSequence` (`<|im_end|>`)
-  ///   alone; that is what the #65 TODO on `LlamaCppService.stopSequence` is
-  ///   about.
-  func logChatTemplateLeakage(in raw: String) {
-    if raw.contains("<|im_start|>") {
+  /// Severity split is preserved from the pre-#1422 shape: a start marker is
+  /// a fabricated next turn (`.warning`), a lone end marker is the ordinary
+  /// trailing-sentinel case (`.debug`).
+  ///
+  /// - Parameters:
+  ///   - raw: The backend's raw text, before parsing.
+  ///   - markers: `LLMService.knownTurnMarkers` for the backend that produced
+  ///     `raw`.
+  func logChatTemplateLeakage(in raw: String, markers: [ChatTurnMarkers]) {
+    if let marker = markers.first(where: { !$0.start.isEmpty && raw.contains($0.start) }) {
+      // Deliberately does NOT claim the continuation was truncated: the
+      // parser's start arm cuts only after the first structural `{`, so a
+      // leading template-header echo is detected here and left in place
+      // (`JSONResponseParser.truncateAtTurnMarkers`).
       logger.log(
         .warning, category: Self.logCategory,
-        "Model hallucinated past its turn — continuation truncated at <|im_end|>",
+        "Turn-start marker \(marker.start) leaked into output — model wrote past its turn",
         privacy: .public)
-    } else if raw.contains("<|im_end|>") {
+    } else if let marker = markers.first(where: { !$0.end.isEmpty && raw.contains($0.end) }) {
       logger.log(
         .debug, category: Self.logCategory,
-        "Trailing <|im_end|> token stripped from output", privacy: .public)
+        "Trailing \(marker.end) token stripped from output", privacy: .public)
     }
   }
 

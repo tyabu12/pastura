@@ -14,7 +14,9 @@ nonisolated struct LLMCaller: Sendable {
 
   // `internal` so the sibling `LLMCaller+StreamFailure` extension can read it.
   static let maxRetries = 2
-  private let parser = JSONResponseParser()
+  /// `internal` (not `private`) so the sibling `LLMCaller+Logging` extension's
+  /// `parseAndLog` can reach it — same reason as `logger` below.
+  let parser = JSONResponseParser()
   private let extractor = PartialOutputExtractor()
 
   /// Injected logging seam. Replaces the former two `os.Logger` instances so
@@ -142,11 +144,10 @@ nonisolated struct LLMCaller: Sendable {
 
       let raw = streamResult.rawText
 
-      // Try to parse JSON, with optional A2 repair pipeline gated by the
-      // schema-aware guard (#194 PR#a Item 2). On successful repair, emit
-      // a `StreamingDiag` line so `scripts/analyze-streaming-diag.sh` can
-      // bucket repair effects against pre-PR baselines.
-      guard let parseResult = try? parser.parse(raw, expectedKeys: expectedKeys)
+      // Parse + its two success-path diagnostics — see `parseAndLog`.
+      guard
+        let output = parseAndLog(
+          raw: raw, expectedKeys: expectedKeys, llm: llm, agent: agentName)
       else {
         logParseFailure(agent: agentName, raw: raw, attempt: attempt)
         if attempt < Self.maxRetries {
@@ -155,9 +156,6 @@ nonisolated struct LLMCaller: Sendable {
         }
         throw SimulationError.retriesExhausted
       }
-      let output = parseResult.0
-      logRepairIfNeeded(agent: agentName, kind: parseResult.repairKind)
-      logChatTemplateLeakage(in: raw)
 
       // Empty-field retry, and the ADR-021 § Amendment 2026-08-06 skip when the
       // declared canonical primary is what came back missing. Throws there;
