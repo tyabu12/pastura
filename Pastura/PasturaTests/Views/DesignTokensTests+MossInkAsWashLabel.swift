@@ -15,9 +15,10 @@ import Testing
 //
 // Only one member was ever failing: `GameHeader`'s status pill read `mossDark`
 // as both its label and its own wash (3.832 in light, under the 4.5:1 bar) until
-// #1455 moved the label. The others already read `mossInk` and are here as
-// guards, not repairs — see ``theResultsPillIsEnumeratedNotRepaired``. The size
-// pin is the authority on how many; this comment deliberately states no count.
+// #1455 moved the label. The rest of the fixture already read `mossInk` and is
+// here as a guard, not a repair — see ``theResultsPillIsEnumeratedNotRepaired``.
+// The size pin is the authority on how many; this comment deliberately states no
+// count, and is worded to stay true at any size.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -49,10 +50,14 @@ extension DesignTokensTests {
   /// **triaging its hits by the API that produced them is what misses a row**:
   /// `HomePausedCard`'s two build a `LinearGradient` and a first pass dropped
   /// them as "gradients" alongside the icon tiles and progress dots — but that
-  /// gradient is the card's surface, and text sits on it (the eyebrow, already
-  /// a `mossWashSites` row, and the progress label). Ask what the wash is
-  /// *under*, never which API drew it. Both text rows model the harder 0.16
-  /// stop rather than the 0.07 one.
+  /// gradient is the card's surface, and text sits on it (the eyebrow and the
+  /// progress label). Ask what the wash is *under*, never which API drew it.
+  ///
+  /// The derivation stays here, with the bug class it was learned enumerating,
+  /// even though **neither** `HomePausedCard` row now lives in this file — both
+  /// are `mossWashSites` rows in `DesignTokensTests+MossOnWash.swift` (the
+  /// eyebrow since #1327, the progress label since #1459). Both model the harder
+  /// 0.16 stop rather than the 0.07 one.
   ///
   /// The rest is decided by criteria rather than a list, because the list keeps
   /// turning out incomplete — each time because a shape was excluded by how it
@@ -71,24 +76,27 @@ extension DesignTokensTests {
   ///   row above, and its `recommendedTag` here.
   ///
   /// Membership is a **contrast** class, not the set design-system §8's
-  /// exception admits by role; this file does not certify the second.
-  /// `HomePausedCard.progress` is the live divergence — in this class, but
-  /// "Round X / Y" is none of the roles §2.3 assigns `--moss-ink`, so its
-  /// routing is unjustified even though it clears the bar. Tracked as #1459
-  /// rather than repointed here, being a visual change to another screen.
+  /// exception admits by role; this file does not certify the second. No row
+  /// below is currently unjustified, but that is an outcome, not a property of
+  /// the fixture — **a row landing here does not thereby become justified, and
+  /// none of them is precedent for the next site.** §8's closing ⚠️ owns the
+  /// per-row reasons (they differ, and do not generalise); do not restate them
+  /// here, or the two copies drift.
+  ///
+  /// `HomePausedCard.progress` was the one divergence until #1459 repointed it
+  /// to `mossOnWash`: it cleared the bar, yet "Round X / Y" is none of the roles
+  /// §2.3 assigns `--moss-ink`. That is the shape a future row can take again.
   static var mossInkWashSites: [MossWashSite] {
     [
       MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),
-      MossWashSite("ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16),
-      MossWashSite("HomePausedCard.progress", wash: .moss, light: 0.16, dark: 0.16)
+      MossWashSite("ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16)
     ]
   }
 
   /// WCAG 1.4.3 normal-text bar. Every label in the fixture is under the "large
   /// text" threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type — the
-  /// status pill is `Typography.pillStatus` at 9pt, the results pill is
-  /// `.caption` + `.semibold` at 12pt, and `HomePausedCard`'s progress readout is
-  /// `HomeHeroLayout.progressFontSize`, also 12pt — so 3:1 never applies. That is
+  /// status pill is `Typography.pillStatus` at 9pt and the results pill is
+  /// `.caption` + `.semibold` at 12pt — so 3:1 never applies. That is
   /// the fixture's admission criterion, not an incidental property: a same-shaped
   /// site above the threshold is excluded (the large-text bullet above). Pinning
   /// 4.5 stays conservative at accessibility sizes for the reason `+InkOnWash`'s
@@ -110,7 +118,7 @@ extension DesignTokensTests {
     // Size pin, not decoration: the body below is a bare loop over a
     // hand-maintained fixture, so trimming or emptying `mossInkWashSites` would
     // make this arm pass **vacuously** and green would mean nothing.
-    #expect(Self.mossInkWashSites.count == 3)
+    #expect(Self.mossInkWashSites.count == 2)
 
     for site in Self.mossInkWashSites {
       let lightGround = composite(
@@ -157,13 +165,12 @@ extension DesignTokensTests {
   /// Executes the "guarded, not repaired" half, which the negative control above
   /// has to leave out.
   ///
-  /// `ResultsView.completed` and `HomePausedCard.progress` have read `mossInk`
-  /// on a moss wash since before #1455 and measure 8.807 light / 5.927 dark —
-  /// identical, because they share a wash token and an alpha. They are
-  /// enumerated because they are the same bug class — #1455 was filed precisely
-  /// because the sibling fixture had *not* enumerated one of its members — not
-  /// because anything is wrong with them. If a future reader concludes "every
-  /// site was failing", this arm corrects them.
+  /// `ResultsView.completed` has read `mossInk` on a moss wash since before
+  /// #1455 and measures 8.807 light / 5.927 dark. It is enumerated because it is
+  /// the same bug class — #1455 was filed precisely because the sibling fixture
+  /// had *not* enumerated one of its members — not because anything is wrong
+  /// with it. If a future reader concludes "every site was failing", this arm
+  /// corrects them.
   ///
   /// It is the **exact complement** of the negative control above rather than a
   /// hand-listed pair, so the two arms cannot drift apart as the fixture grows.

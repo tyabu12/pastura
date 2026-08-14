@@ -102,12 +102,16 @@ struct HomePausedCard: View {
         currentRound: summary.currentRound, totalRounds: summary.rounds) {
         Text(progress)
           .font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))
-          // `mossInk` on this card's own moss wash. The ratio clears AA
-          // (8.807 light / 5.927 dark, pinned by `mossInkWashSites`), but §2.3
-          // assigns this token no role covering a round readout — so the
-          // routing is unjustified rather than wrong. #1459, design-system §8's
-          // closing ⚠️. The eyebrow above already moved to `mossOnWash` (#1327).
-          .foregroundStyle(Color.mossInk)
+          // `mossOnWash` — §8's default for a label on a translucent wash of
+          // its own family, matching the eyebrow above (#1327). Was `mossInk`
+          // until #1459: a routing defect, not a contrast one (`mossInk`'s doc
+          // comment has the rule; ratios are pinned by `mossWashSites`).
+          //
+          // Both labels pin the gradient's 0.16 `.topLeading` end, but only the
+          // eyebrow sits there — this footer is nearer the 0.07 end, so 0.16 is
+          // a conservative bound rather than where it renders. Do not "correct"
+          // the fixture alpha to match the footer's position.
+          .foregroundStyle(Color.mossOnWash)
       }
       Spacer()
       // Use the design-system primary style (mossDark + inkOnAccent label,

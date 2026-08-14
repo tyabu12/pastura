@@ -52,9 +52,11 @@ extension DesignTokensTests {
   /// which only **relaxes** the requirement — so pinning 4.5 stays conservative.
   /// Do not "correct" this in the other direction.
   ///
-  /// Not the `~11pt` figure `DesignTokensTests+MossOnWash` states: its site set
-  /// does not include `ResultsView.paused`, so its largest is a different label.
-  /// Re-derived here rather than carried over.
+  /// **Re-derived here, never cited from a sibling wash fixture.** Each site
+  /// set is its own, so a superlative quoted across files is a mirror with
+  /// nothing keeping it true — this paragraph *was* one, citing `+MossOnWash`'s
+  /// `~11pt`, until #1459 falsified it there. State this fixture's own extreme
+  /// and stop.
   private static let inkTextBar = 4.5
 
   /// "Clears the bar" and "has margin above it" are different claims, and this
