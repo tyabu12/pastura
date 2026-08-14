@@ -33,6 +33,18 @@ internal object InferenceEstimator {
     /**
      * Total estimated LLM inferences for [scenario] across all rounds.
      *
+     * **Returns `Long`, not `Int`, and that is the faithful port** — Swift `Int`
+     * is 64-bit on every platform Pastura ships to, which is Kotlin `Long`
+     * (`CanonicalizerStage2Tests`' Int/Long contract records the same mapping).
+     * Kotlin `Int` is 32-bit, so it would diverge on overflow rather than merely
+     * look different: `ScenarioValidator` caps `agentCount` at 10 and `rounds` at
+     * 30 *before* calling this, but nothing caps a phase's `sub_rounds`. A
+     * `speak_each` with `sub_rounds: 300000000` overflows 32 bits, and the wrapped
+     * value is small or negative — so a ported validator would **accept** a
+     * scenario Swift rejects via `estimatedInferencesExceedsMaximum`. Latent while
+     * nothing consumes this, and live the moment the validator lands, which is
+     * this file's whole purpose.
+     *
      * Per-phase formula (per round):
      * - `speak_all` / `vote` / `reflect`: agent count
      * - `speak_each`: agent count × `sub_rounds`
@@ -44,7 +56,7 @@ internal object InferenceEstimator {
      * - `conditional`: `max(sum(then), sum(else))`
      * - every code phase: 0
      */
-    fun estimateInferenceCount(scenario: Scenario): Int {
+    fun estimateInferenceCount(scenario: Scenario): Long {
         val agents = scenario.agentCount
         val perRound = scenario.phases.sumOf { estimatePhase(it, agents) }
         return perRound * scenario.rounds
@@ -60,21 +72,21 @@ internal object InferenceEstimator {
      * `.claude/rules/engine.md` § "Adding a new `PhaseType`" lists as one of the
      * compiler-caught sites.
      */
-    private fun estimatePhase(phase: Phase, agents: Int): Int = when (phase.type) {
-        PhaseType.SPEAK_ALL -> agents
-        PhaseType.SPEAK_EACH -> agents * (phase.subRounds ?: 1)
-        PhaseType.VOTE, PhaseType.REFLECT -> agents
-        PhaseType.NARRATE -> 1
-        PhaseType.WHISPER -> (agents / 2) * (phase.subRounds ?: 1) * 2
+    private fun estimatePhase(phase: Phase, agents: Int): Long = when (phase.type) {
+        PhaseType.SPEAK_ALL -> agents.toLong()
+        PhaseType.SPEAK_EACH -> agents.toLong() * (phase.subRounds ?: 1)
+        PhaseType.VOTE, PhaseType.REFLECT -> agents.toLong()
+        PhaseType.NARRATE -> 1L
+        PhaseType.WHISPER -> (agents / 2).toLong() * (phase.subRounds ?: 1) * 2
         PhaseType.CHOOSE ->
-            if (phase.pairing == PairingStrategy.ROUND_ROBIN) agents * 2 else agents
+            if (phase.pairing == PairingStrategy.ROUND_ROBIN) agents.toLong() * 2 else agents.toLong()
         PhaseType.SCORE_CALC,
         PhaseType.ASSIGN,
         PhaseType.ELIMINATE,
         PhaseType.SUMMARIZE,
         PhaseType.EVENT_INJECT,
         PhaseType.RELATIONSHIP_UPDATE,
-        -> 0
+        -> 0L
         // `max`, not `sum`: exactly one branch runs per invocation, so `max`
         // matches execution semantics. `sum` would over-count by construction
         // and reject scenarios that deliberately gate an expensive branch behind

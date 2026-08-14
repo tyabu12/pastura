@@ -59,22 +59,31 @@ import kotlin.test.assertEquals
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|
  * | Branch reduction is `max` | the `else` argument gains the `then` sum, making `maxOf(then, then + else)` ≡ `sum` for non-negative costs | [conditionalTakesTheMaxOfSymmetricBranches] | none |
- * | …other polarity | `maxOf(…)` → `minOf(…)` | [conditionalAsymmetricBranchesTakeTheMax] | none |
- * | `sub_rounds` multiplier | `agents * (phase.subRounds ?: 1)` → `agents` | [speakEachMultipliesBySubRounds] | 1 — [conditionalAsymmetricBranchesTakeTheMax] gates a `sub_rounds` phase behind its `then` branch |
+ * | …other polarity | `maxOf(…)` → `minOf(…)` | [conditionalAsymmetricBranchesTakeTheMax] | 1 — [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch] |
+ * | `sub_rounds` multiplier | `agents.toLong() * (phase.subRounds ?: 1)` → `agents.toLong()` | [speakEachMultipliesBySubRounds] | 3 — [conditionalAsymmetricBranchesTakeTheMax], [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch], [aHugeSubRoundsCountDoesNotOverflowThirtyTwoBits] |
  * | The `?: 1` default itself | **both** `?: 1` sites → `?: 0` | [whisperPairsOffAndCountsBothSpeakers] | 1 — [speakEachMultipliesBySubRounds]; [speakAllAndVoteCostOneInferencePerAgent] stayed green, see note 1 |
- * | Round-robin doubling | `agents * 2` → `agents` | [chooseDoublesForRoundRobinOnly] | none |
+ * | Round-robin doubling | `agents.toLong() * 2` → `agents.toLong()` | [chooseDoublesForRoundRobinOnly] | none |
  * | …other polarity | the `if` condition negated (`==` → `!=`) | [chooseDoublesForRoundRobinOnly] | none |
  * | `whisper` floor division | `(agents / 2)` → `agents` | [whisperPairsOffAndCountsBothSpeakers] | none |
- * | `narrate` is agent-count-independent | `1` → `agents` | [narrateCostsOneInferenceRegardlessOfAgentCount] | none |
- * | Code phases cost 0 | the shared zero arm → `agents` | [codePhasesCostNothing] | none |
- * | Top-level phase list is **summed** | `scenario.phases.sumOf { … }` → `maxOfOrNull { … } ?: 0` | [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch] | none |
- * | …and not merely its first phase | same site → `firstOrNull()?.let { … } ?: 0` | same | none |
- * | Branch phase lists are **summed** | **both** branch `.sumOf { … }` sites → `maxOfOrNull { … } ?: 0` | same | none |
- * | Rounds multiplier | `perRound * scenario.rounds` → `perRound` | [speakAllAndVoteCostOneInferencePerAgent] | 7 — every other fixture whose per-round cost is non-zero; [codePhasesCostNothing] is exempt because its `perRound` is 0, so `perRound * rounds == perRound` there |
+ * | `narrate` is agent-count-independent | `1L` → `agents.toLong()` | [narrateCostsOneInferenceRegardlessOfAgentCount] | none |
+ * | Code phases cost 0 | the shared zero arm → `agents.toLong()` | [codePhasesCostNothing] | 1 — [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch] |
+ * | Top-level phase list is **summed** | `scenario.phases.sumOf { … }` → `maxOfOrNull { … } ?: 0L` | [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch] | none |
+ * | …and not merely its first phase | same site → `firstOrNull()?.let { … } ?: 0L` | same | none |
+ * | Branch phase lists are **summed** | **both** branch `.sumOf { … }` sites → `maxOfOrNull { … } ?: 0L` | same | none |
+ * | Arithmetic is 64-bit | the `speak_each` arm computed in `Int`, then widened | [aHugeSubRoundsCountDoesNotOverflowThirtyTwoBits] | none |
+ * | Rounds multiplier | `perRound * scenario.rounds` → `perRound` | [speakAllAndVoteCostOneInferencePerAgent] | 7 — see note 3 for which two fixtures stay green, and why |
  *
- * No test **outside** this class reddened for any of the thirteen mutations, which
+ * No test **outside** this class reddened for any of the fourteen mutations, which
  * is the expected shape rather than a gap: [InferenceEstimator] has no other
  * consumer in `shared/engine` yet.
+ *
+ * ⚠️ **Re-measure the whole table when you add a fixture, not the row you were
+ * thinking about.** A previous revision added
+ * [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch], re-measured only the
+ * rounds-multiplier row, and left three `Incidental` cells stale — the exact
+ * failure the "counts are measured, not derived" line above warns against,
+ * committed inside the evidence artifact itself. A new fixture can redden under
+ * *any* mutation, so the blast radius of adding one is the entire table.
  *
  * Three things this table encodes that are easy to misread:
  *
@@ -98,14 +107,17 @@ import kotlin.test.assertEquals
  *    *designed* to isolate the multiplier, so the arm is pinned by breadth rather
  *    than by one case. The exact invariance condition is per **case**, not per
  *    fixture: a case survives the mutation iff `perRound == 0 || rounds == 1`.
- *    That enumerates the right 7 today only because no fixture is made solely of
- *    invariant cases — [whisperPairsOffAndCountsBothSpeakers]' second case and
- *    [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch]' last two are each
- *    individually invariant (`rounds = 1`) while their enclosing tests still
- *    redden on another case. [codePhasesCostNothing] is the one fixture where
- *    *every* case is invariant, which is why it alone stays green at `rounds = 3`.
- *    Reasoning from the looser "every fixture with `rounds > 1`" would read that
- *    green as a regression.
+ *    **Both disjuncts have a fixture that is green for that reason alone**, which
+ *    is why the looser "every fixture with `rounds > 1`" reading is wrong twice
+ *    over: [codePhasesCostNothing] runs at `rounds = 3` and survives on
+ *    `perRound == 0`, and [aHugeSubRoundsCountDoesNotOverflowThirtyTwoBits]
+ *    survives on `rounds == 1` despite an enormous `perRound`. Fixtures whose
+ *    *individual* cases are invariant still redden through a sibling case —
+ *    [whisperPairsOffAndCountsBothSpeakers]' second and
+ *    [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch]' last two — so
+ *    "which fixtures went red" is not readable off the fixture list; it was
+ *    measured. Reasoning from the looser rule would read two greens as
+ *    regressions.
  */
 class InferenceEstimatorTests {
 
@@ -133,21 +145,21 @@ class InferenceEstimatorTests {
     fun speakAllAndVoteCostOneInferencePerAgent() {
         // 5 agents × 3 rounds = 15.
         assertEquals(
-            15,
+            15L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 5, rounds = 3, phases = listOf(Phase(type = PhaseType.SPEAK_ALL))),
             ),
         )
         // 5 agents × 2 rounds = 10.
         assertEquals(
-            10,
+            10L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 5, rounds = 2, phases = listOf(Phase(type = PhaseType.VOTE))),
             ),
         )
         // `reflect` shares the same arm — no Swift sibling, see the class KDoc.
         assertEquals(
-            10,
+            10L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 5, rounds = 2, phases = listOf(Phase(type = PhaseType.REFLECT))),
             ),
@@ -158,7 +170,7 @@ class InferenceEstimatorTests {
     fun speakEachMultipliesBySubRounds() {
         // 3 agents × 3 sub-rounds × 2 rounds = 18.
         assertEquals(
-            18,
+            18L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 3,
@@ -169,7 +181,7 @@ class InferenceEstimatorTests {
         )
         // Absent `sub_rounds` defaults to 1: 3 × 1 × 2 = 6.
         assertEquals(
-            6,
+            6L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 3,
@@ -184,7 +196,7 @@ class InferenceEstimatorTests {
     fun chooseDoublesForRoundRobinOnly() {
         // Round-robin: 5 agents × 2 (per pair) × 2 rounds = 20.
         assertEquals(
-            20,
+            20L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 5,
@@ -197,7 +209,7 @@ class InferenceEstimatorTests {
         )
         // Individual (no pairing): 5 agents × 2 rounds = 10.
         assertEquals(
-            10,
+            10L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 5, rounds = 2, phases = listOf(Phase(type = PhaseType.CHOOSE))),
             ),
@@ -207,7 +219,7 @@ class InferenceEstimatorTests {
     @Test
     fun codePhasesCostNothing() {
         assertEquals(
-            0,
+            0L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 5,
@@ -239,7 +251,7 @@ class InferenceEstimatorTests {
     fun whisperPairsOffAndCountsBothSpeakers() {
         // 4 agents → 2 pairs × 3 exchanges × 2 speakers = 12, × 2 rounds = 24.
         assertEquals(
-            24,
+            24L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 4,
@@ -251,7 +263,7 @@ class InferenceEstimatorTests {
         // 5 agents floor-divides to 2 pairs — the odd agent sits out — and the
         // absent `sub_rounds` defaults to 1: 2 × 1 × 2 = 4, × 1 round = 4.
         assertEquals(
-            4,
+            4L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 5,
@@ -268,13 +280,13 @@ class InferenceEstimatorTests {
         // is 1 per round at any agent count — asserted at two counts so an
         // `agents`-scaling regression cannot hide behind a coincidence.
         assertEquals(
-            3,
+            3L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 2, rounds = 3, phases = listOf(Phase(type = PhaseType.NARRATE))),
             ),
         )
         assertEquals(
-            3,
+            3L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 9, rounds = 3, phases = listOf(Phase(type = PhaseType.NARRATE))),
             ),
@@ -298,7 +310,7 @@ class InferenceEstimatorTests {
         )
         // 9 per round × 2 rounds = 18.
         assertEquals(
-            18,
+            18L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 3, rounds = 2, phases = mixed),
             ),
@@ -307,7 +319,7 @@ class InferenceEstimatorTests {
         // rather than present-and-zero: max(9, 0) × 1 round = 9. An `else`-less
         // conditional is a real YAML shape.
         assertEquals(
-            9,
+            9L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 3,
@@ -328,7 +340,7 @@ class InferenceEstimatorTests {
         // the `else` one would leave the sibling arm unexercised while looking
         // like the null path was handled. max(0, 9) × 1 = 9.
         assertEquals(
-            9,
+            9L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 3,
@@ -346,13 +358,34 @@ class InferenceEstimatorTests {
         )
     }
 
+    @Test
+    fun aHugeSubRoundsCountDoesNotOverflowThirtyTwoBits() {
+        // The reason [InferenceEstimator.estimateInferenceCount] returns `Long`.
+        // `ScenarioValidator` caps `agentCount` (10) and `rounds` (30) before
+        // calling it, but nothing caps a phase's `sub_rounds`. 10 × 300,000,000
+        // exceeds `Int.MAX_VALUE`, so an `Int` port wraps to a negative value —
+        // and a ported validator would then **accept** a scenario Swift rejects
+        // via `estimatedInferencesExceedsMaximum`, which is a divergence, not a
+        // formatting difference. Swift computes this in 64 bits; so does this.
+        assertEquals(
+            3_000_000_000L,
+            InferenceEstimator.estimateInferenceCount(
+                scenario(
+                    agents = 10,
+                    rounds = 1,
+                    phases = listOf(Phase(type = PhaseType.SPEAK_EACH, subRounds = 300_000_000)),
+                ),
+            ),
+        )
+    }
+
     // ── conditional (Swift: ConditionalScenarioIOTests.swift:269-333) ───────
 
     @Test
     fun conditionalTakesTheMaxOfSymmetricBranches() {
         // max(2, 2) × 3 rounds = 6 — NOT the 4 × 3 = 12 that `sum` would give.
         assertEquals(
-            6,
+            6L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 2,
@@ -387,7 +420,7 @@ class InferenceEstimatorTests {
         // A rarely-taken expensive `then` (2 agents × 3 sub-rounds = 6) against a
         // zero-cost `else`: max(6, 0) × 2 rounds = 12.
         assertEquals(
-            12,
+            12L,
             InferenceEstimator.estimateInferenceCount(
                 scenario(
                     agents = 2,
