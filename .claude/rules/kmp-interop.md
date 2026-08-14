@@ -124,6 +124,12 @@ Swift then calls the flat `SimulationEventFactory.shared.phaseStarted(phaseType:
 cast via the parent-typed value and check a discriminator field, or add a Swift-friendly `kind`
 enum getter on the parent.
 
+⚠️ **That pattern-matching sentence is contradicted under the engine umbrella** and is left
+uncorrected pending re-measurement: the nightly compiles `as? SimulationEvent.AgentOutput` and
+`is SimulationEvent.SimulationCompleted` (7 sites in `tools/kmp-gate-spike/Tests/`). Everything
+above it — the construction rows — was measured under the models umbrella and is *not*
+re-measured, so do not read this as clearing the whole pattern (#1472).
+
 Source: W3 spike, PR #478 (the planned third type `SimulationEvent.PhaseStarted` was pivoted to
 `TurnOutput` after all three call forms failed; header-only inspection misleadingly suggests the
 `swift_name` annotation works).
