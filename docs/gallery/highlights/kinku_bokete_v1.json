@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "kinku_bokete_v1",
+    "yaml_sha256": "6c880ebdad761f953251b4f2c623fa8139e3dd0b011825dff08378e2418215a7"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260814-095314-58a6",
+    "generated_at": "2026-08-14"
+  },
+  "excerpt": [
+    {
+      "agent": "理屈屋ロジ子",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "この状況における体温調節の最適化を図るには、着ぐるみ内部の熱伝導率を再計算すべきでしょう。"
+    },
+    {
+      "agent": "比喩王メタ夫",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "これはまるで、人類が最後の文明を築いた時の孤独な聖域だな。"
+    },
+    {
+      "agent": "当事者ヅラ子",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "この着ぐるみの中、実は一番のファンなんですわよ。汗だくになっても、その熱意は冷めませんわ。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 比喩王メタ夫\n    description: >\n      【立場】何でも壮大な比喩に変換する詩人気取り\n      【目的】しょうもない状況を神話や歴史級のスケールで例えて笑いを取る。\n      例:「これが現代のノアの方舟か」「人類が火を手にした日と同じ顔だ」\n  - name: 当事者ヅラ子\n    description: >\n      【立場】写真の中の人物に勝手になりきる一人称芸人\n      【目的】写っている本人の心の声として語ることで笑いを取る。\n      例:「私だってこうなる予定じゃなかった」「母さん、見てるか」",
+    "caption": "片方は写真の外まで話を広げ、片方は写真の中に入り込む。禁じられた一言を避ける道は、どちらへ逃げるかで変わる。"
+  },
+  "teaser": "誰もが真っ先に言いたくなる一言だけが、封じられている。残った回り道の選び方が、そのまま芸風になる。",
+  "window_override": false,
+  "content_filter_applied": true
+}

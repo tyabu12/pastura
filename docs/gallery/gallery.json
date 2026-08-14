@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-08T00:00:00Z",
+  "updated_at": "2026-08-14T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -134,6 +134,8 @@
       "language": "ja",
       "yaml_url": "kinku_bokete_v1.yaml",
       "yaml_sha256": "6c880ebdad761f953251b4f2c623fa8139e3dd0b011825dff08378e2418215a7",
+      "highlight_url": "highlights/kinku_bokete_v1.json",
+      "highlight_sha256": "a5d7f7c877465225c69da46e2bef9e597499bcb2ba839f89e103a07ffb176342",
       "added_at": "2026-06-13"
     },
     {
@@ -178,6 +180,8 @@
       "language": "ja",
       "yaml_url": "oogiri_knockout_v1.yaml",
       "yaml_sha256": "9675bfa9cda85c848cfed97dbdc568280ddeebc06c466f4cbd24cbb8393cd5b3",
+      "highlight_url": "highlights/oogiri_knockout_v1.json",
+      "highlight_sha256": "2321c040840a0796e769a07f506814c33dcaa2ebd99ff11b71dd1a44bfb459b7",
       "added_at": "2026-06-13"
     },
     {
