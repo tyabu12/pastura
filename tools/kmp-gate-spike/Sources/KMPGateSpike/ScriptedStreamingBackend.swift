@@ -124,6 +124,14 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
   private let script: Mutex<[ScriptedResponse]>
   private let counters = Counters()
 
+  /// The leaf's own pair — see the initializer parameter.
+  ///
+  /// Covered by the class's `@unchecked Sendable`, and the only stored member
+  /// here that needs the exemption: a K/N export carries no `Sendable`
+  /// conformance (`kmp-interop.md` Pattern 1), so this stays sound only while
+  /// `ChatTurnMarkers`' two fields remain `val` on the Kotlin side.
+  public let knownTurnMarkers: [ChatTurnMarkers]
+
   /// - Parameter responses: Consumed in order, one per `generateStream` call —
   ///   the `MockLLMService` convention (CLAUDE.md § Testing Strategy). A call
   ///   past the end of the script terminates as `.failed` with
@@ -131,8 +139,18 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
   ///   Kotlin's retry loop, which can legitimately issue more calls than a
   ///   test anticipated, and a trap there would read as a crash rather than as
   ///   the miscount it is.
-  public init(responses: [ScriptedResponse]) {
+  /// - Parameter knownTurnMarkers: Defaults to the Kotlin companion's ChatML
+  ///   pair — the value `LLMBackend`'s interface default would supply if it
+  ///   crossed K/N, which it does not (#1472). Injectable so a test can hand a
+  ///   decorator a non-ChatML pair to forward — why that is the only way to
+  ///   tell forwarding from hardcoding is on
+  ///   `BoundaryContractTests.decoratorForwardsKnownTurnMarkers`.
+  public init(
+    responses: [ScriptedResponse],
+    knownTurnMarkers: [ChatTurnMarkers] = [ChatTurnMarkers.companion.chatML]
+  ) {
     self.script = Mutex(responses)
+    self.knownTurnMarkers = knownTurnMarkers
   }
 
   /// Error code reported when the script runs out of responses.

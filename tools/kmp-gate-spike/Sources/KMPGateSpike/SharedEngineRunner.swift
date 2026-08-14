@@ -253,6 +253,17 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
     self.relayBox = relayBox
   }
 
+  /// Forwarded, not defaulted: a transparent decorator answering ChatML would
+  /// mask whatever pair the wrapped backend reports, which at Stage 5 is the
+  /// model's own. (Stated at all because Kotlin's interface default does not
+  /// cross K/N — #1472.)
+  ///
+  /// Asserted end to end by
+  /// `BoundaryContractTests.kotlinTruncatesOnForwardedTurnMarkers`: Kotlin
+  /// reads this property off *this* object on every inference, so a ChatML
+  /// hardcode here reaches #1422 truncation and reddens there.
+  var knownTurnMarkers: [ChatTurnMarkers] { wrapped.knownTurnMarkers }
+
   func generateStream(
     request: GenerationRequest,
     callbacks: any StreamCallbacks

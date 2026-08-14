@@ -10,8 +10,8 @@ Traps of the ADR-023 KMP Engine migration (`shared/models`, `shared/engine`) —
 Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three shapes:
 
 - **Compile-time interop traps (Patterns 1–2)** — surface at the *Swift consumption* site when
-  Swift code imports the generated `PasturaShared` XCFramework. On main that consumer is
-  `tools/kmp-gate-spike/**` (6 Swift files `import PasturaShared`), which builds **nightly /
+  Swift code imports the generated `PasturaSharedEngine` XCFramework. On main that consumer is
+  `tools/kmp-gate-spike/**` (6 Swift files `import PasturaSharedEngine`), which builds **nightly /
   `workflow_dispatch` only, not per-PR** (ADR-023 §6, decision B′); the iOS app (`Pastura/**`) does **not** consume the
   framework yet — that is Phase 3.0-gated. So these two are largely **forward-looking**: they were
   discovered in the W3 spike (PR #478) and bite again when Phase 3.0 K/N ↔ Swift integration
@@ -19,7 +19,8 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
   Kotlin-side in `commonMain`** (in scope) and the live gate-spike consumer (in scope) is where
   they compile-fail today.
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
-  in-scope for `shared/**` edits.
+  in-scope for `shared/**` edits. Its "Same class of trap" list also covers the interface-member
+  default a Kotlin-only edit trips — triage a red nightly there too.
 - **Port-time traps (Pattern 4)** — fire while writing the Kotlin port and its tests, with no Swift
   consumer involved; fully in-scope for `shared/**` edits.
 
@@ -37,6 +38,12 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
 > the mechanical gate is the only guarantee.
 
 ## Pattern 1 — K/N exports carry no Swift `Sendable` conformance
+
+> **Artifact note, Patterns 1–2.** The names below are from the models-only `PasturaShared`
+> umbrella the #478 spike consumed; the live consumer imports the separate `PasturaSharedEngine`
+> one (header `PasturaSharedEngine.h`), and ADR-023 §6 forbids linking both. The header settles
+> what was *emitted* (Pattern 1's question, and Pattern 3's interface-default one); for what Swift
+> then does with it, compile a consumer — Pattern 2 is where header-reading misled.
 
 K/N exports Kotlin classes through Obj-C interop. The generated
 `@interface PasturaSharedFoo : PasturaSharedBase` carries **no `Sendable` conformance** — invisible
@@ -115,6 +122,12 @@ Swift then calls the flat `SimulationEventFactory.shared.phaseStarted(phaseType:
 cast via the parent-typed value and check a discriminator field, or add a Swift-friendly `kind`
 enum getter on the parent.
 
+⚠️ **That pattern-matching sentence is contradicted under the engine umbrella** and is left
+uncorrected pending re-measurement: the nightly compiles `as? SimulationEvent.AgentOutput` and
+`is SimulationEvent.SimulationCompleted` (7 sites in `tools/kmp-gate-spike/Tests/`). Everything
+above it — the construction rows — was measured under the models umbrella and is *not*
+re-measured, so do not read this as clearing the whole pattern (#1472).
+
 Source: W3 spike, PR #478 (the planned third type `SimulationEvent.PhaseStarted` was pivoted to
 `TurnOutput` after all three call forms failed; header-only inspection misleadingly suggests the
 `swift_name` annotation works).
@@ -139,6 +152,14 @@ Same class of trap:
 
 - **Default args don't cross** — Swift exports carry no Kotlin default-arg values; pass `nil`
   explicitly.
+- **Interface member defaults don't cross either** — K/N emits no `@optional` section at all, so
+  every member of an exported `interface` lands under `@required` whether or not Kotlin defaulted
+  it (measured on a `val` and a `fun`; Kotlin 2.3.21 per `gradle/libs.versions.toml`, 2026-08-14).
+  Adding a defaulted member therefore stays source-compatible in Kotlin yet breaks every Swift
+  conformer — with no Swift author present, and decision B′ keeping the XCFramework out of per-PR
+  lanes, so the first signal is a red nightly (#1472). Fix the conformers in the same PR.
+  **Re-grep `@optional` in the regenerated `PasturaSharedEngine.h` after a Kotlin bump** — an
+  `@optional` section appearing flips this, and that edit loads no rule file.
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).

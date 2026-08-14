@@ -288,6 +288,9 @@ nonisolated final class ThreadObservingBackend: LLMBackend, @unchecked Sendable 
     self.observations = observations
   }
 
+  /// Forwarded for the same reason as `SuspensionRelayingBackend`'s — see there.
+  var knownTurnMarkers: [ChatTurnMarkers] { wrapped.knownTurnMarkers }
+
   func generateStream(
     request: GenerationRequest,
     callbacks: any StreamCallbacks

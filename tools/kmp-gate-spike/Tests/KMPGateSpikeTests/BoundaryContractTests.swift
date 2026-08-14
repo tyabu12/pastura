@@ -404,6 +404,81 @@ struct BoundaryContractTests {
       #expect(handle.log == ["resume", "cancel"])
     }
   }
+
+  /// The arm that crosses the boundary. Kotlin reads `knownTurnMarkers` off
+  /// the backend it was handed — `SuspensionRelayingBackend`, the permanent
+  /// §10 adapter — and keys #1422 truncation on it, so a decorator answering
+  /// ChatML instead lets the hallucinated continuation through. Nothing in
+  /// Swift observes that; only a run does.
+  ///
+  /// Both arms run here rather than borrowing the outcomes from
+  /// `JSONResponseParserTurnMarkerTests`' `fencedHallucination`, which this
+  /// fixture mirrors: that suite is another language and another CI lane, and
+  /// nothing gates the pair — were its fixture to stop discriminating, a
+  /// borrowed control would leave this test passing while asserting nothing.
+  @Test("Kotlin truncates on the markers the relaying decorator forwards")
+  func kotlinTruncatesOnForwardedTurnMarkers() async throws {
+    let fencedHallucination = """
+      {"statement": "本物", "action": "cooperate"}<turn|>
+      <|turn>user
+      もう一度
+      <turn|>
+      <|turn>model
+      ```json
+      {"statement": "偽物", "action": "betray"}
+      ```
+      """
+    func script() -> [ScriptedResponse] {
+      Array(
+        repeating: ScriptedResponse(
+          deltas: [fencedHallucination], ending: .completed(completionTokens: nil)),
+        count: 2)
+    }
+    func statements(from backend: ScriptedStreamingBackend) async -> [String] {
+      var collected: [String] = []
+      for await event in SharedEngineRunner().run(
+        scenario: .oneSpeakAllTurn, backend: backend) {
+        if let agentOutput = event as? SimulationEvent.AgentOutput {
+          collected.append(agentOutput.output.statement ?? "")
+        }
+      }
+      return collected
+    }
+
+    let withGemmaPair = ScriptedStreamingBackend(
+      responses: script(),
+      knownTurnMarkers: [
+        ChatTurnMarkers(start: "<|turn>", end: "<turn|>"), ChatTurnMarkers.companion.chatML
+      ])
+    // The control: same fixture, leaf left at the ChatML-only default.
+    let chatMLOnly = ScriptedStreamingBackend(responses: script())
+
+    #expect(await statements(from: withGemmaPair) == ["本物", "本物"])
+    #expect(await statements(from: chatMLOnly) == ["偽物", "偽物"])
+  }
+
+  /// A decorator must surface the wrapped backend's pair, not the ChatML value
+  /// Kotlin's interface default would have supplied (#1472).
+  ///
+  /// Without the injected pair this assertion could not exist: every conformer
+  /// in the package answers ChatML, so a decorator that hardcoded it would be
+  /// indistinguishable from one that forwards — and would go wrong only at
+  /// Stage 5, where the leaf becomes `LlamaCppService` and reports its model's
+  /// own pair.
+  @Test("a decorator forwards the wrapped backend's turn markers")
+  func decoratorForwardsKnownTurnMarkers() {
+    // The union form `LLMBackend.knownTurnMarkers` documents — a model's own
+    // pair *plus* ChatML — so the fixture is a value a real backend could
+    // report. Dropping ChatML would discriminate just as well but break the
+    // union it documents.
+    let pair = [
+      ChatTurnMarkers(start: "<|turn>", end: "<turn|>"), ChatTurnMarkers.companion.chatML
+    ]
+    let leaf = ScriptedStreamingBackend(responses: [], knownTurnMarkers: pair)
+    let decorated = ThreadObservingBackend(wrapping: leaf, recordingInto: ThreadObservations())
+
+    #expect(decorated.knownTurnMarkers == pair)
+  }
 }
 
 /// Records what the latch delivers, **in order** — counts alone cannot express
