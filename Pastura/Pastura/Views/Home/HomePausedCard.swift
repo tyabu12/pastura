@@ -102,23 +102,15 @@ struct HomePausedCard: View {
         currentRound: summary.currentRound, totalRounds: summary.rounds) {
         Text(progress)
           .font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))
-          // `mossOnWash` — design-system §8's default for a label on a
-          // translucent wash of its own family, and the same token the eyebrow
-          // above takes on this same gradient (#1327). The two do not sit at
-          // the same physical stop — the gradient runs 0.16 at `.topLeading`
-          // to 0.07 at `.bottomTrailing`, so this footer label sits on a
-          // *thinner* wash than the eyebrow and measures slightly better on
-          // device. Both are pinned at the harder 0.16 end, which is the
-          // conservative bound, not a description of where they render.
+          // `mossOnWash` — §8's default for a label on a translucent wash of
+          // its own family, matching the eyebrow above (#1327). Was `mossInk`
+          // until #1459: a routing defect, not a contrast one (`mossInk`'s doc
+          // comment has the rule; ratios are pinned by `mossWashSites`).
           //
-          // This read `mossInk` until #1459: that cleared AA comfortably, but §2.3
-          // assigns the Ink step no role covering a round readout, so the
-          // routing was unjustified rather than wrong.
-          //
-          // The move is a deliberate step *down* in emphasis, not a contrast
-          // repair — 8.807 → 5.782 light, 5.927 → 5.550 dark (the new pair is
-          // pinned by `mossWashSites`). It puts the round readout in the same
-          // supporting tier as the eyebrow, below the scenario title.
+          // Both labels pin the gradient's 0.16 `.topLeading` end, but only the
+          // eyebrow sits there — this footer is nearer the 0.07 end, so 0.16 is
+          // a conservative bound rather than where it renders. Do not "correct"
+          // the fixture alpha to match the footer's position.
           .foregroundStyle(Color.mossOnWash)
       }
       Spacer()

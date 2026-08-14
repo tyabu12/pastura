@@ -52,13 +52,11 @@ extension DesignTokensTests {
   /// which only **relaxes** the requirement — so pinning 4.5 stays conservative.
   /// Do not "correct" this in the other direction.
   ///
-  /// **Re-derived here, not carried over from a sibling wash fixture.** Each
-  /// fixture's site set is its own, so its largest label is its own question,
-  /// and a figure cited from `+MossOnWash` / `+MossInkAsWashLabel` would be a
-  /// cross-file mirror with nothing keeping it true. This paragraph used to be
-  /// exactly that — it cited a `~11pt` superlative from `+MossOnWash`, which
-  /// #1459 falsified by adding a 12pt row there. Do not reintroduce the
-  /// comparison; state this fixture's own extreme and stop.
+  /// **Re-derived here, never cited from a sibling wash fixture.** Each site
+  /// set is its own, so a superlative quoted across files is a mirror with
+  /// nothing keeping it true — this paragraph *was* one, citing `+MossOnWash`'s
+  /// `~11pt`, until #1459 falsified it there. State this fixture's own extreme
+  /// and stop.
   private static let inkTextBar = 4.5
 
   /// "Clears the bar" and "has margin above it" are different claims, and this

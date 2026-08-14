@@ -17,13 +17,13 @@ import Testing
 // stale.
 //
 // **That origin says why the token exists; it is not a property every row
-// shares.** #1459 added `HomePausedCard.progress` on **routing** grounds, not as
-// a repair: it read `mossInk` and cleared at 8.807 light, but design-system §2.3
-// assigns the Ink step no role covering a round readout, so §8's default for a
-// translucent same-family wash sent it here. It is the first member that was not
-// already failing, and nothing below can tell the two motives apart —
-// ``MossWashSite`` stores only the wash and its alphas, and every arm derives
-// from those. Do not read a row as evidence that its site was once sub-AA.
+// shares.** #1459 added `HomePausedCard.progress` on **routing** grounds — it
+// read `mossInk` and cleared at 8.807 light, but §2.3 gives the Ink step no
+// round-readout role — so it is the first member that was not already failing.
+// Nothing below can tell the two motives apart: ``MossWashSite`` stores only
+// the wash and its alphas, and every arm derives from those. So do not read a
+// row as evidence that its site was once sub-AA, and do not read the fixture as
+// observing anything else about a label either (see ``textBar`` on fonts).
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -94,23 +94,15 @@ extension DesignTokensTests {
   /// never applies to any of them — but a new row has to re-check the half its
   /// weight selects, not just compare point sizes.
   ///
-  /// **`.semibold` counts as the ≥18pt half here**, decided once so it is not
-  /// re-guessed per row: WCAG's "bold" is conventionally ≥700 and `.semibold`
-  /// is 600, so routing it to ≥14pt would pick the *more permissive* threshold
-  /// on a weight WCAG does not call bold. Three rows are `.semibold` today
-  /// (`HomePausedCard.eyebrow`, `GalleryCatalogRow.categoryChip`,
-  /// `PhaseEditorSheet.fieldPill`) and all are ≤11pt, so nothing turns on it
-  /// yet — the rule is written down now precisely because the case that would
-  /// turn on it (a 14–17pt `.semibold` row) is the one a reader would get wrong.
+  /// **`.semibold` takes the ≥18pt half**, decided here so it is not re-guessed
+  /// per row: WCAG's "bold" is conventionally ≥700 and `.semibold` is 600, so
+  /// the ≥14pt half would be the more permissive reading of a weight WCAG does
+  /// not call bold. Nothing turns on it while every `.semibold` row is ≤11pt;
+  /// it is written down for the case that would (a 14–17pt one).
   ///
-  /// **None of this is executed.** `MossWashSite` stores a wash token and two
-  /// alphas, never a font, so no arm can observe a size or weight and a row
-  /// added with a large-text label would be held to 4.5 regardless — the
-  /// conservative direction, but unenforced. Making it a mechanism means adding
-  /// `pointSize` + a weight half to the row type and asserting per row — not
-  /// done here, and deliberately said out loud: the previous superlative in
-  /// this doc survived until a new row falsified it and only a hand census
-  /// caught that, so treat the paragraph above as a convention, not a guard.
+  /// **Convention, not guard** — no arm can observe a font (see the header), so
+  /// a large-text row would be held to 4.5 regardless, which is the safe
+  /// direction but unenforced. Making it executable: #1468.
   private static let textBar = 4.5
 
   /// The grounds are deliberately the **worst case per appearance**, not the
@@ -164,12 +156,9 @@ extension DesignTokensTests {
   /// is simply too light, and invite exactly the wash-tuning attempt that cannot
   /// work. Both halves have to be pinned for the conclusion to survive.
   ///
-  /// **For `HomePausedCard.progress` the loop below is a counterfactual, not a
-  /// history**: that row never read `mossDark` — it came straight from
-  /// `mossInk` on routing grounds (#1459), and 3.922 is what `mossDark` *would*
-  /// have measured there. The arm is still the right guard; it just is not
-  /// evidence that this one site was ever failing. The file header has the
-  /// full account — you arrive here when the arm reddens, not there.
+  /// **For `HomePausedCard.progress` this loop is a counterfactual, not a
+  /// history** — that row never read `mossDark` (header has why). Still the
+  /// right guard; just not evidence that this site was ever failing.
   @Test func mossDarkCannotClearTheBarOnAnyOfThoseWashes() {
     for site in Self.mossWashSites {
       let ground = composite(
@@ -200,11 +189,7 @@ extension DesignTokensTests {
   /// survived every row added since — #1455's at 5.397, and #1459's at 5.180,
   /// which is **not** fresh evidence: that value was already in the set as
   /// `HomePausedCard.eyebrow`'s, the row it duplicates. So only the membership
-  /// moved. **State no count for the complement here** —
-  /// the size pin in ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` is the
-  /// authority, and the count that used to sit in the loop's comment below had
-  /// already gone stale by the time #1459 removed it. ADR-028
-  /// § "Count-mirror sweep" is the standing account of that failure mode.
+  /// moved.
   @Test func onlyTheCategoryChipWasFailingInDarkBeforeThisToken() {
     let chipGround = composite(
       PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.24)

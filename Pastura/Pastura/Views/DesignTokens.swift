@@ -154,10 +154,8 @@ enum PasturaPalette {
   /// exhaustive. Any other meaning on such a ground routes to ``mossOnWash``
   /// instead, and painting this step there is a routing defect even when the
   /// ratio clears AA: see §8's closing ⚠️. `HomePausedCard`'s progress readout
-  /// was exactly that and moved to ``mossOnWash`` in #1459.
-  ///
-  /// An **opaque** `mossSoft` ground is the other story — there this step is
-  /// the correct pairing (§2.6, 6.537).
+  /// was exactly that and moved to ``mossOnWash`` in #1459. (An *opaque*
+  /// `mossSoft` ground is a different rule — ``mossOnWash``'s doc has it.)
   static let mossInk = PasturaColorValue(hex: 0x3D4030)
   /// THINKING left-rule, gentle dividers.
   static let mossSoft = PasturaColorValue(hex: 0xD4CBA8)

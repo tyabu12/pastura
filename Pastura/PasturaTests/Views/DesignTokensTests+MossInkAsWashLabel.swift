@@ -77,28 +77,15 @@ extension DesignTokensTests {
   ///
   /// Membership is a **contrast** class, not the set design-system §8's
   /// exception admits by role; this file does not certify the second. No row
-  /// below is currently unjustified — each carries the *completed* role §8
-  /// admits — but that is an outcome, not a property of the fixture, and a row
-  /// landing here does not thereby become justified.
+  /// below is currently unjustified, but that is an outcome, not a property of
+  /// the fixture — **a row landing here does not thereby become justified, and
+  /// none of them is precedent for the next site.** §8's closing ⚠️ owns the
+  /// per-row reasons (they differ, and do not generalise); do not restate them
+  /// here, or the two copies drift.
   ///
-  /// **"The rows here satisfy §8's four conditions" is the wrong summary.**
-  /// Judge each row on its own; the reasons do not generalise, and no claim
-  /// here should be phrased over the set:
-  ///
-  /// - `ResultsView.completed` **is** condition (2)'s shipped precedent, so
-  ///   saying it meets (2) is circular.
-  /// - `GameHeader.statusPill` does satisfy all four — §8 enumerates them for
-  ///   it, (2) being met by that same `ResultsView` pill, which predates the
-  ///   exception — but §8's carve-out then bars *it* from serving as (2) for
-  ///   the next site.
-  ///
-  /// Reading any row here as precedent is the ratchet that carve-out exists to
-  /// stop. Keep this list per row rather than summarising it: a summary is a
-  /// count in words, and the size pin is the authority on how many.
   /// `HomePausedCard.progress` was the one divergence until #1459 repointed it
   /// to `mossOnWash`: it cleared the bar, yet "Round X / Y" is none of the roles
-  /// §2.3 assigns `--moss-ink`, so its routing was unjustified rather than
-  /// wrong. That is the shape a future row can take again.
+  /// §2.3 assigns `--moss-ink`. That is the shape a future row can take again.
   static var mossInkWashSites: [MossWashSite] {
     [
       MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),
