@@ -47,6 +47,13 @@ extension DesignTokensTests {
   /// existed (4.39 — asserted by
   /// ``onlyTheCategoryChipWasFailingInDarkBeforeThisToken``, not just stated).
   ///
+  /// `HomePausedCard`'s two rows are **identical under every arm** — same card,
+  /// same gradient, same 0.16 pin — so they recompute the same pairs twice and
+  /// discriminate nothing between them. That is the "one row per shipped
+  /// consumer" contract working as intended, not an accidental duplicate: two
+  /// labels ship on that ground and either could be retuned alone. A de-dup
+  /// pass would redden the size pin without explaining why, so do not take one.
+  ///
   /// `GameHeaderStatus.active` is **one row for three enum cases**: `.simulating`
   /// / `.demoing` / `.replaying` share a foreground and render through the one
   /// `GameHeader.statusPill`, so this is a single site, not three. The fourth
@@ -138,6 +145,13 @@ extension DesignTokensTests {
   /// Asserting only the sub-AA half would leave the reader thinking `mossDark`
   /// is simply too light, and invite exactly the wash-tuning attempt that cannot
   /// work. Both halves have to be pinned for the conclusion to survive.
+  ///
+  /// **For `HomePausedCard.progress` the loop below is a counterfactual, not a
+  /// history**: that row never read `mossDark` — it came straight from
+  /// `mossInk` on routing grounds (#1459), and 3.922 is what `mossDark` *would*
+  /// have measured there. The arm is still the right guard; it just is not
+  /// evidence that this one site was ever failing. The file header has the
+  /// full account — you arrive here when the arm reddens, not there.
   @Test func mossDarkCannotClearTheBarOnAnyOfThoseWashes() {
     for site in Self.mossWashSites {
       let ground = composite(
@@ -165,8 +179,10 @@ extension DesignTokensTests {
   /// row gives `nightMossDark` 4.77–5.62, i.e. they pass. Widening this loop
   /// would therefore not strengthen the guard, it would break it — which is the
   /// tell that the chip-scoping is the claim, not a shortcut. The range has
-  /// survived every row added since (#1455's at 5.397, #1459's at 5.180), so
-  /// only the membership moved. **State no count for the complement here** —
+  /// survived every row added since — #1455's at 5.397, and #1459's at 5.180,
+  /// which is **not** fresh evidence: that value was already in the set as
+  /// `HomePausedCard.eyebrow`'s, the row it duplicates. So only the membership
+  /// moved. **State no count for the complement here** —
   /// the size pin in ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` is the
   /// authority, and the count that used to sit in the loop's comment below had
   /// already gone stale by the time #1459 removed it. ADR-028

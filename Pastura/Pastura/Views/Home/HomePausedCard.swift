@@ -104,8 +104,14 @@ struct HomePausedCard: View {
           .font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))
           // `mossOnWash` — design-system §8's default for a label on a
           // translucent wash of its own family, and the same token the eyebrow
-          // above takes on this same gradient at this same stop (#1327). This
-          // read `mossInk` until #1459: that cleared AA comfortably, but §2.3
+          // above takes on this same gradient (#1327). The two do not sit at
+          // the same physical stop — the gradient runs 0.16 at `.topLeading`
+          // to 0.07 at `.bottomTrailing`, so this footer label sits on a
+          // *thinner* wash than the eyebrow and measures slightly better on
+          // device. Both are pinned at the harder 0.16 end, which is the
+          // conservative bound, not a description of where they render.
+          //
+          // This read `mossInk` until #1459: that cleared AA comfortably, but §2.3
           // assigns the Ink step no role covering a round readout, so the
           // routing was unjustified rather than wrong.
           //

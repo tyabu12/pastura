@@ -76,10 +76,18 @@ extension DesignTokensTests {
   ///   row above, and its `recommendedTag` here.
   ///
   /// Membership is a **contrast** class, not the set design-system §8's
-  /// exception admits by role; this file does not certify the second. The two
-  /// sets happen to coincide today — every row below is the completed-pill
-  /// route §8's four conditions admit — but that is an outcome, not a property
-  /// of the fixture, and a row landing here does not thereby become justified.
+  /// exception admits by role; this file does not certify the second. No row
+  /// below is currently unjustified — both carry the *completed* role §8
+  /// admits — but that is an outcome, not a property of the fixture, and a row landing
+  /// here does not thereby become justified.
+  ///
+  /// Note the two rows hold that role by different routes, which is why "both
+  /// satisfy the four conditions" would be the wrong summary: `ResultsView`'s
+  /// completed pill **is** condition (2)'s shipped precedent, so saying it
+  /// meets (2) is circular, and `GameHeader.statusPill` reached the role
+  /// *through* the exception — which §8's carve-out then bars from counting as
+  /// precedent for the next site. Reading a row here as precedent is the
+  /// ratchet that carve-out exists to stop.
   /// `HomePausedCard.progress` was the one divergence until #1459 repointed it
   /// to `mossOnWash`: it cleared the bar, yet "Round X / Y" is none of the roles
   /// §2.3 assigns `--moss-ink`, so its routing was unjustified rather than
