@@ -258,9 +258,10 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
   /// transparent decorator that answered with ChatML would mask whatever pair
   /// the wrapped backend reports, which at Stage 5 is the model's own.
   ///
-  /// Not directly asserted: this type is `private`, so no test constructs it.
-  /// The decorator-transparency arm runs against the sibling shape in
-  /// `BoundaryContractTests.decoratorForwardsKnownTurnMarkers`.
+  /// Asserted end to end by
+  /// `BoundaryContractTests.kotlinTruncatesOnForwardedTurnMarkers`: Kotlin
+  /// reads this property off *this* object on every inference, so a ChatML
+  /// hardcode here reaches #1422 truncation and reddens there.
   var knownTurnMarkers: [ChatTurnMarkers] { wrapped.knownTurnMarkers }
 
   func generateStream(

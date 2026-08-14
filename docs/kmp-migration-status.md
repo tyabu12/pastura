@@ -33,7 +33,7 @@ _Last updated: 2026-08-14._
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | 🔄 in progress | ↓ Stage 3 breakdown |
 | 4 | Cross-language parity harness | 🔄 in progress | slice 1a landed ([#1387](https://github.com/tyabu12/pastura/issues/1387), closed); 1b next · [#501](https://github.com/tyabu12/pastura/issues/501) |
-| 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · ⚠️ en-only `ScenarioValidationMessage.render()` blocks this — [#1464](https://github.com/tyabu12/pastura/issues/1464) |
+| 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · ⚠️ en-only `ScenarioValidationMessage.render()` blocks this — [#1464](https://github.com/tyabu12/pastura/issues/1464) |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 

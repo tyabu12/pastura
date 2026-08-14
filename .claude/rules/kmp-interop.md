@@ -43,8 +43,9 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
 > **Artifact note, Patterns 1–2.** The names below are from the models-only `PasturaShared`
 > umbrella the #478 spike consumed; the live consumer imports the separate `PasturaSharedEngine`
 > one (header `PasturaSharedEngine.h`), and ADR-023 §6 forbids linking both. Reading the header
-> *is* the right instrument for these two — a missing conformance is a fact about the emitted text
-> — unlike Pattern 3's "did the member cross at all?", which only compiling settles.
+> answers Pattern 1's question and Pattern 3's interface-default one — both are facts about the
+> emitted text. Pattern 2 is the shape where it misled, because there the question is what Swift
+> does with what was emitted; compile a consumer for that one.
 
 K/N exports Kotlin classes through Obj-C interop. The generated
 `@interface PasturaSharedFoo : PasturaSharedBase` carries **no `Sendable` conformance** — invisible
@@ -151,8 +152,10 @@ Same class of trap:
   `interface` is emitted as a *required* Obj-C member (both arms measured), so adding one stays
   source-compatible in Kotlin yet breaks every Swift conformer — with no Swift author present, and
   decision B′ keeping the XCFramework out of per-PR lanes, so the first signal is a red nightly
-  (#1472). Fix the conformers in the same PR, and settle whether a member crossed by **compiling**
-  the consumer, never by reading the generated header alone (cf. Pattern 2).
+  (#1472). Fix the conformers in the same PR. The header settles *this* question on its own: K/N
+  emits no `@optional` section at all, so every interface member lands under `@required` whether
+  or not Kotlin defaulted it — measured on a `val` and a `fun`. Pattern 2 is the shape where
+  header-reading misled; compile a consumer there.
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).

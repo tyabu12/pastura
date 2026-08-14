@@ -413,6 +413,47 @@ struct BoundaryContractTests {
   /// indistinguishable from one that forwards — and would go wrong only at
   /// Stage 5, where the leaf becomes `LlamaCppService` and reports its model's
   /// own pair.
+  /// The arm that crosses the boundary. Kotlin reads `knownTurnMarkers` off
+  /// the backend it was handed — `SuspensionRelayingBackend`, the permanent
+  /// §10 adapter — and keys #1422 truncation on it, so a decorator answering
+  /// ChatML instead lets the hallucinated continuation through. Nothing in
+  /// Swift observes that; only a run does.
+  ///
+  /// Fixture byte-identical to `JSONResponseParserTurnMarkerTests`'
+  /// `fencedHallucination`, whose own negative control fixes both outcomes:
+  /// the Gemma pair yields `本物`, ChatML-only yields `偽物`.
+  @Test("Kotlin truncates on the markers the relaying decorator forwards")
+  func kotlinTruncatesOnForwardedTurnMarkers() async throws {
+    let fencedHallucination = """
+      {"statement": "本物", "action": "cooperate"}<turn|>
+      <|turn>user
+      もう一度
+      <turn|>
+      <|turn>model
+      ```json
+      {"statement": "偽物", "action": "betray"}
+      ```
+      """
+    let runner = SharedEngineRunner()
+    let backend = ScriptedStreamingBackend(
+      responses: Array(
+        repeating: ScriptedResponse(
+          deltas: [fencedHallucination], ending: .completed(completionTokens: nil)),
+        count: 2),
+      knownTurnMarkers: [
+        ChatTurnMarkers(start: "<|turn>", end: "<turn|>"), ChatTurnMarkers.companion.chatML
+      ])
+
+    var statements: [String] = []
+    for await event in runner.run(scenario: .oneSpeakAllTurn, backend: backend) {
+      if let agentOutput = event as? SimulationEvent.AgentOutput {
+        statements.append(agentOutput.output.statement ?? "")
+      }
+    }
+
+    #expect(statements == ["本物", "本物"])
+  }
+
   @Test("a decorator forwards the wrapped backend's turn markers")
   func decoratorForwardsKnownTurnMarkers() {
     // The union form `LLMBackend.knownTurnMarkers` documents — a model's own
