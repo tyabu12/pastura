@@ -143,7 +143,9 @@ ones. A gate at any of those rates teaches its reader to ignore it, so claude-ki
 
 **A block count is only as good as its denominator, so lead with the measures that carry their own.**
 Over `1f8836ef..9a40565a`, comment share of added lines runs 43.0% → 55.0% and lines per block 4.31 →
-5.68 (+32%) — each a ratio by construction. The block *count* moves with whatever you divide it by:
+5.68 (+32%) — each a ratio by construction. That buys immunity to cohort *size* only, not to what
+each cohort was working on — the confound that refuted the C-class claim above, and one a pinned
+range does not touch. The block *count* moves with whatever you divide it by:
 +31% per 100 added code lines, +10% per Swift file touched, +63% per commit. The per-file figure
 above lands flat instead (2.98 vs 3.03), and the cause is *not* isolated: that pass counted `//` and
 `///` separately over 23 vs 145 commits on a sliding range, where kit's tool merges them over a
@@ -153,12 +155,18 @@ rather than ordering them.
 
 kit briefly read that +63% as "count, not length" before catching the same confound this section
 already names above: the verbose cohort's commits add 108 → 179 code lines, so a per-commit count
-banks commit size as a comment habit. Fable 5 is the check — most concise on every self-normalizing
-measure (32.1% share, 3.35 lines per block, 14.1 blocks per 100 lines) and *least* concise on both
-raw ones (24 per commit against 16, 3.57 per file against 3.08), because it writes 39.8 lines per
-file against 22.4. A metric that ranks the most concise model as the most verbose is measuring its
-denominator. Recency is the wrong axis too: it is per model, and re-measuring is the only way to
-know which one you are on.
+banks commit size as a comment habit. Fable 5 is the check — n=16, so read it as a direction rather
+than a magnitude, but most concise on every self-normalizing measure (32.1% share, 3.35 lines per
+block, 14.1 blocks per 100 lines) and *least* concise on both raw ones (24 per commit against 16,
+3.57 per file against 3.08), because it writes 39.8 lines per file against 22.4. A metric that ranks
+the most concise model as the most verbose is measuring its denominator. Recency is the wrong axis
+too: it is per model, and re-measuring is the only way to know which one you are on. A further 72
+eligible commits in that range carry no model trailer and sit in none of the cohorts.
+
+Three corrections have now landed on this one diagnosis — topic-skewed sample, blocks merged across
+diff hunks, commit size — and it is worth reading the shape wider than any of them: what recurs is a
+covariate that differs between the cohorts and went unchecked. A denominator is only the kind that
+is easy to name.
 
 Compression is still the safe remedy — it cannot delete a category of content the way moving a block
 can. What has no support is a per-commit threshold.
