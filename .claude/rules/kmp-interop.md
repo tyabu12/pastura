@@ -19,8 +19,9 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
   Kotlin-side in `commonMain`** (in scope) and the live gate-spike consumer (in scope) is where
   they compile-fail today.
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
-  in-scope for `shared/**` edits. One entry in its "Same class of trap" list is the exception —
-  interface-member defaults redden a build, so triage a red nightly there too.
+  in-scope for `shared/**` edits. Its "Same class of trap" list also holds the interface-member
+  default, which a Kotlin-only edit trips with no Swift author present — so triage a red nightly
+  there too.
 - **Port-time traps (Pattern 4)** — fire while writing the Kotlin port and its tests, with no Swift
   consumer involved; fully in-scope for `shared/**` edits.
 
@@ -38,6 +39,12 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
 > the mechanical gate is the only guarantee.
 
 ## Pattern 1 — K/N exports carry no Swift `Sendable` conformance
+
+> **Artifact note, Patterns 1–2.** The names below are from the models-only `PasturaShared`
+> umbrella the #478 spike consumed; the live consumer imports the separate `PasturaSharedEngine`
+> one (header `PasturaSharedEngine.h`), and ADR-023 §6 forbids linking both. Reading the header
+> *is* the right instrument for these two — a missing conformance is a fact about the emitted text
+> — unlike Pattern 3's "did the member cross at all?", which only compiling settles.
 
 K/N exports Kotlin classes through Obj-C interop. The generated
 `@interface PasturaSharedFoo : PasturaSharedBase` carries **no `Sendable` conformance** — invisible
@@ -141,11 +148,11 @@ Same class of trap:
 - **Default args don't cross** — Swift exports carry no Kotlin default-arg values; pass `nil`
   explicitly.
 - **Interface member defaults don't cross either** — a defaulted `val`/`fun` on an exported
-  `interface` is emitted as a *required* Obj-C member, so adding one stays source-compatible in
-  Kotlin yet breaks every Swift conformer. Unlike the rest of this list it reddens a build — but
-  only the nightly's, since decision B′ keeps the XCFramework out of per-PR lanes (#1472). Fix the
-  conformers in the same PR, and settle any such question by **compiling** the consumer, never by
-  reading the generated header (cf. Pattern 2).
+  `interface` is emitted as a *required* Obj-C member (both arms measured), so adding one stays
+  source-compatible in Kotlin yet breaks every Swift conformer — with no Swift author present, and
+  decision B′ keeping the XCFramework out of per-PR lanes, so the first signal is a red nightly
+  (#1472). Fix the conformers in the same PR, and settle whether a member crossed by **compiling**
+  the consumer, never by reading the generated header alone (cf. Pattern 2).
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).
