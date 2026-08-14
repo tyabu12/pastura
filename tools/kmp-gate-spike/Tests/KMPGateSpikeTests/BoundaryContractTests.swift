@@ -404,6 +404,23 @@ struct BoundaryContractTests {
       #expect(handle.log == ["resume", "cancel"])
     }
   }
+
+  /// A decorator must surface the wrapped backend's pair, not the ChatML value
+  /// Kotlin's interface default would have supplied (#1472).
+  ///
+  /// Without the injected pair this assertion could not exist: every conformer
+  /// in the package answers ChatML, so a decorator that hardcoded it would be
+  /// indistinguishable from one that forwards — and would go wrong only at
+  /// Stage 5, where the leaf becomes `LlamaCppService` and reports its model's
+  /// own pair.
+  @Test("a decorator forwards the wrapped backend's turn markers")
+  func decoratorForwardsKnownTurnMarkers() {
+    let gemmaShaped = ChatTurnMarkers(start: "<|turn>", end: "<turn|>")
+    let leaf = ScriptedStreamingBackend(responses: [], knownTurnMarkers: [gemmaShaped])
+    let decorated = ThreadObservingBackend(wrapping: leaf, recordingInto: ThreadObservations())
+
+    #expect(decorated.knownTurnMarkers == [gemmaShaped])
+  }
 }
 
 /// Records what the latch delivers, **in order** — counts alone cannot express

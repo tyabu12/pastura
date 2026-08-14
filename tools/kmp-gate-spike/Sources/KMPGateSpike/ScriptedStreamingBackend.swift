@@ -131,9 +131,22 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
   ///   Kotlin's retry loop, which can legitimately issue more calls than a
   ///   test anticipated, and a trap there would read as a crash rather than as
   ///   the miscount it is.
-  public init(responses: [ScriptedResponse]) {
+  /// - Parameter knownTurnMarkers: Defaults to the Kotlin companion's ChatML
+  ///   pair — the value `LLMBackend`'s interface default would supply if it
+  ///   crossed K/N, which it does not (#1472). Injectable so a test can give a
+  ///   decorator something other than ChatML to forward; without that, every
+  ///   conformer in the package returns the same value and forwarding is
+  ///   indistinguishable from hardcoding.
+  public init(
+    responses: [ScriptedResponse],
+    knownTurnMarkers: [ChatTurnMarkers] = [ChatTurnMarkers.companion.chatML]
+  ) {
     self.script = Mutex(responses)
+    self.knownTurnMarkers = knownTurnMarkers
   }
+
+  /// The leaf's own pair — see the initializer parameter.
+  public let knownTurnMarkers: [ChatTurnMarkers]
 
   /// Error code reported when the script runs out of responses.
   public static let scriptExhaustedErrorCode = "spike.script_exhausted"

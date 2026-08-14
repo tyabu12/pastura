@@ -253,6 +253,16 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
     self.relayBox = relayBox
   }
 
+  /// Forwarded, not defaulted. Kotlin's interface default for this member does
+  /// not cross K/N (#1472), so every Swift conformer must state it — and a
+  /// transparent decorator that answered with ChatML would mask whatever pair
+  /// the wrapped backend reports, which at Stage 5 is the model's own.
+  ///
+  /// Not directly asserted: this type is `private`, so no test constructs it.
+  /// The decorator-transparency arm runs against the sibling shape in
+  /// `BoundaryContractTests.decoratorForwardsKnownTurnMarkers`.
+  var knownTurnMarkers: [ChatTurnMarkers] { wrapped.knownTurnMarkers }
+
   func generateStream(
     request: GenerationRequest,
     callbacks: any StreamCallbacks
