@@ -11,7 +11,7 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
 
 - **Compile-time interop traps (Patterns 1–2)** — surface at the *Swift consumption* site when
   Swift code imports the generated `PasturaShared` XCFramework. On main that consumer is
-  `tools/kmp-gate-spike/**` (6 Swift files `import PasturaShared`), which builds **nightly /
+  `tools/kmp-gate-spike/**` (6 Swift files `import PasturaSharedEngine`), which builds **nightly /
   `workflow_dispatch` only, not per-PR** (ADR-023 §6, decision B′); the iOS app (`Pastura/**`) does **not** consume the
   framework yet — that is Phase 3.0-gated. So these two are largely **forward-looking**: they were
   discovered in the W3 spike (PR #478) and bite again when Phase 3.0 K/N ↔ Swift integration
@@ -139,6 +139,12 @@ Same class of trap:
 
 - **Default args don't cross** — Swift exports carry no Kotlin default-arg values; pass `nil`
   explicitly.
+- **Interface member defaults don't cross either** — a defaulted `val`/`fun` on an exported
+  `interface` is emitted as a *required* Obj-C member, so adding one stays source-compatible in
+  Kotlin yet breaks every Swift conformer. Unlike the rest of this list it reddens a build — but
+  only the nightly's, since decision B′ keeps the XCFramework out of per-PR lanes (#1472). Fix the
+  conformers in the same PR, and settle any such question by **compiling** the consumer, never by
+  reading the generated header (cf. Pattern 2).
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).

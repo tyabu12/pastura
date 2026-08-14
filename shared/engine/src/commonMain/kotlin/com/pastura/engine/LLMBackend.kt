@@ -83,13 +83,10 @@ public interface LLMBackend {
      * backend that cannot name its model keeps the pre-#1422 ChatML-only behaviour. Mirrors
      * Swift's `LLMService.knownTurnMarkers` name-for-name.
      *
-     * ⚠️ **Expected — not verified — that this default does not cross Kotlin/Native.** A Kotlin
-     * interface default implementation may not reach the generated Obj-C protocol as an optional
-     * requirement, which would oblige the Phase 3.0 Swift adapter over `LlamaCppService` to state
-     * this member explicitly rather than inherit ChatML-only. **Confirm by compiling that
-     * adapter, not by reading the generated `PasturaShared.h` alone** —
-     * `.claude/rules/kmp-interop.md` Pattern 2 is the precedent where the header itself misled.
-     * Distinct from Pattern 3's default-**argument** bullet, which settles nothing here.
+     * ⚠️ **This default does not cross Kotlin/Native** — measured, #1472. K/N emits the member as
+     * a required Obj-C property, so the Phase 3.0 Swift adapter over `LlamaCppService` must state
+     * it explicitly; it cannot inherit ChatML-only. Same for any future defaulted member here:
+     * `.claude/rules/kmp-interop.md` Pattern 3.
      */
     public val knownTurnMarkers: List<ChatTurnMarkers>
         get() = listOf(ChatTurnMarkers.chatML)
