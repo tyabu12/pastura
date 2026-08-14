@@ -89,6 +89,21 @@ See PR #420 for the motivating incident. Why the prose example above is
 written with a `<name>` placeholder rather than carved out, and why the file
 set matters more than the pattern: the doc's § "The rule-assertion case".
 
+## Anti-pattern: a comment written for the reviewer
+
+Same misfiling, one tier down. A comment is read by the **next editor**, so a
+block where *no* sentence states a durable claim — only provenance, the diff's
+own argument, a figure a canonical site already states — belongs in the PR body
+or an ADR. Move the whole block, never a clause: a backward-looking sentence is
+routinely what makes the forward rule intelligible. But **volume** is the
+commoner defect, tracks the model rather than recency, and is fixed by
+rewriting shorter, not deleting — and it is spread over how many blocks you
+write and how long each is, so watch both. Past
+~10 lines (the concise baseline's top tenth) rewrite once at half length and
+**the rewrite wins**, unless it dropped a forward-looking fact, which a `///`
+block of measured values usually would. Rates, three refuted gate designs, the
+duplicated-figure grep: the doc's § "A comment written for the reviewer".
+
 ## Verify before you lock it
 
 One discipline, three moments where a claim becomes load-bearing and nobody downstream will check it — the author is the only one positioned to run it.

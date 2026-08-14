@@ -87,6 +87,10 @@ Utilities/ -> depends on nothing
 
 ### Code Quality (Warning/Suggestion)
 - "Why" comments on non-obvious implementation choices
+- Comment blocks address the next editor. In a non-doc (`//`) block only — `///` is Hard Rule 3's —
+  flag when no sentence states a constraint, invariant or pointer outliving this change, and ask for
+  a forward-looking rewrite, not a cut: `lives in X, which owns the default this file used to apply`
+  keeps the pointer and drops the history; `keeps Qwen byte-identical to pre-#1422` already stays.
 - No duplicated code
 - Proper error handling with layer-specific error types
 - Test coverage for new public types/functions

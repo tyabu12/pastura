@@ -52,7 +52,8 @@ Authored at implementation *or review-fix* time, and executed by nobody. The rul
 one-line version of each; the elaborations are what get missed.
 
 - **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is
-  false, or the tests never covered it.
+  false, or the tests never covered it. Its *destination* is a separate question — see § "A comment
+  written for the reviewer" below.
 - **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A
   guard's success case proves nothing; only a negative control does. Scope it to the claim it
   defends: a check narrower than that claim (a files-only loop behind a files-and-directories
@@ -73,6 +74,108 @@ one-line version of each; the elaborations are what get missed.
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an
 acknowledged gap; a wrong cause they can only inherit.
+
+## A comment written for the reviewer
+
+Backs the rule's § "Anti-pattern: a comment written for the reviewer". A comment whose only content
+is what *this* change did addresses the reviewer, not the next editor.
+
+**The form that survived a negative control**: flag a block only when *every* sentence in it is a
+backward-looking report, or when it restates a figure with a canonical site elsewhere. Over 169
+comment blocks from two model generations of this repo's own history (#1479), that caught every true
+instance with no false positives. **`code-reviewer` ships the second arm narrower** — only when the
+comment *itself* names the owning site — for the split-review reason below, so the zero-false-
+positive figure covers the form measured here, not the predicate that gate applies.
+
+**Do not key it on wording instead.** Tense is the tempting discriminator — "must stay identical to
+X" constrains, "was left identical to X" reports — and on that corpus it had to decide 17 blocks and
+got 4 wrong. It reads the grammatical head, not the payload:
+
+- `GameHeader.swift`'s "…lives in `LeafIcon.swift`, which owns the 9pt default this file used to
+  apply" (stale move record) and `LLMCaller.swift`'s "…live in `LLMCaller+Logging.swift` to keep
+  this file under SwiftLint's `file_length` budget" (live breadcrumb) have identical grammar.
+- Duplication is invisible to it — a measured GGUF figure copy-pasted from `ModelRegistry.swift`
+  into the harness's `ModelProfile.swift` is the defect, and every word of it is a legitimate
+  present-tense fact.
+- It strips backward-looking clauses a forward rule depends on (`GalleryHighlight.swift`'s "any
+  required key added *after that* bumps the version").
+
+Those 4 outright wrong answers are the floor, not the cost: per-clause flagging *misfires* on ~7% of
+the corpus's load-bearing blocks — a wider set, since a block also breaks when a correct flag is
+acted on clause-wise — and worst on the longest. The four-site negative control shows why the block
+is the unit: three were unambiguous keeps, and the fourth (`PlaybackSpeed.swift:8-9`) is a keep
+whose cited sentence *alone* reads as a move record — it differs from a true instance by a following
+sentence turning the history into a live constraint, **a payload, not a tense**.
+
+**Word the trigger as an absence, and state precedence.** Running the drafted `code-reviewer` bullet
+over six real blocks caught two more defects, both invisible on re-reading. "Flag when *every*
+sentence merely reports" cannot be audited — an agent cannot point at what convinced it — whereas
+"flag when *no* sentence states a durable claim" makes the saving sentence citable, and a one-
+sentence block silently degenerates under the first form since clause and block coincide. And a rule
+carrying both a trigger and a "never cut a load-bearing clause" safeguard must say which wins, or a
+block that fires the trigger while holding a live pointer yields either a deleted pointer or an
+unactionable finding. Both trials — the four control sites and the six blocks, per site and per
+verdict — are the ledger comment on #1479.
+
+The duplicated-figure shape needs a **repo-side grep**, not a review agent. `code-reviewer` bails
+`SCOPE_TOO_LARGE` above ~800 lines or ~8 files, and every commit that motivated this rule exceeded
+the file bound — so the diff gets split and no shard sees all the sites. Frame it as *new code must
+not add hits*, existing count as an acknowledged baseline (the *reframe* disposition); #1477 is the
+open instance.
+
+**Length is the commoner defect — and the one number that survived scrutiny is a cohort median.**
+The first pass reported one generation writing ~45% more comment lines per block and ~47% more
+blocks per commit at an unchanged A/B/C/D distribution. Re-measured over 23 vs 145 commits instead
+of 4 vs 3, lines per block is **+21%**, and the blocks-per-commit gap **disappears** once normalized
+by Swift files touched (2.98 vs 3.03) — it was commit size. The ~45% reproduces only under a
+topic filter that removes 259 of 453 blocks from one arm and 0 of 2,114 from the other, because the
+excluded dark-mode commits have *short* blocks (4.19, 4.21) — the same asymmetry that refuted the
+C-class claim above, with the sign reversed. Unfiltered `///` blocks show no generation difference
+at all (5.65 vs 5.63); the effect lives in plain `//` comments.
+
+**So do not gate on it — three designs were built and refuted.** Calibrating each against the
+concise cohort killed it. Per-commit on either threshold, catching 80–96% of the verbose cohort also
+flagged 52–79% of the concise one; on both thresholds, false flags drop to 12–22% but detection
+collapses to 32–48%. Per *block* — the unit this rule's own trigger uses — the cohorts share a
+median of 3.0 lines, and a ≥12-line trigger fires on 7.8% of concise blocks against 11.4% of verbose
+ones. A gate at any of those rates teaches its reader to ignore it, so claude-kit's
+`comment-density.py` ships as cohort measurement only.
+
+**A block count is only as good as its denominator, so lead with the measures that carry their own.**
+Over `1f8836ef..9a40565a`, comment share of added lines runs 43.0% → 55.0% and lines per block 4.31 →
+5.68 (+32%) — each a ratio by construction. That buys immunity to cohort *size* only, not to what
+each cohort was working on — the confound that refuted the C-class claim above, and one a pinned
+range does not touch. The block *count* moves with whatever you divide it by:
++31% per 100 added code lines, +10% per Swift file touched, +63% per commit. The per-file figure
+above lands flat instead (2.98 vs 3.03), and the cause is *not* isolated: that pass counted `//` and
+`///` separately over 23 vs 145 commits on a sliding range, where kit's tool merges them over a
+pinned 26 vs 123 — counting rule and sample both differ. The same gap sits under lines per block,
++21% there against +32% here. Both dimensions rise and neither dominates, so the rule watches both
+rather than ordering them.
+
+kit briefly read that +63% as "count, not length" before catching the same confound this section
+already names above: the verbose cohort's commits add 108 → 179 code lines, so a per-commit count
+banks commit size as a comment habit. Fable 5 is the check — n=16, so read it as a direction rather
+than a magnitude, but most concise on every self-normalizing measure (32.1% share, 3.35 lines per
+block, 14.1 blocks per 100 lines) and *least* concise on both raw ones (24 per commit against 16,
+3.57 per file against 3.08), because it writes 39.8 lines per file against 22.4. A metric that ranks
+the most concise model as the most verbose is measuring its denominator. Recency is the wrong axis
+too: it is per model, and re-measuring is the only way to know which one you are on. A further 72
+eligible commits in that range carry no model trailer and sit in none of the cohorts.
+
+Three corrections have now landed on this one diagnosis — topic-skewed sample, blocks merged across
+diff hunks, commit size — and it is worth reading the shape wider than any of them: what recurs is a
+covariate that differs between the cohorts and went unchecked. A denominator is only the kind that
+is easy to name.
+
+Compression is still the safe remedy — it cannot delete a category of content the way moving a block
+can. What has no support is a per-commit threshold.
+
+**Whether an always-loaded line changes anything here is itself untested.** In the session that
+drafted this, a live instruction to restructure a draft shortened it (25%, against 14% for "compress
+this"), while the rule sat in the same context and three verbose drafts were written under it. So
+treat the always-loaded half as a hypothesis: re-measure the cohort, and if it does not move, the
+mechanism belongs at review or commit time and these lines should come back out.
 
 ## Reading a probe's outcome
 
