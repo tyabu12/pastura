@@ -59,10 +59,13 @@ import kotlin.test.assertEquals
  * | `whisper` floor division | `(agents / 2)` → `agents` | [whisperPairsOffAndCountsBothSpeakers] | none |
  * | `narrate` is agent-count-independent | `1` → `agents` | [narrateCostsOneInferenceRegardlessOfAgentCount] | none |
  * | Code phases cost 0 | the shared zero arm → `agents` | [codePhasesCostNothing] | none |
- * | Rounds multiplier | `perRound * scenario.rounds` → `perRound` | [speakAllAndVoteCostOneInferencePerAgent] | 6 — every other fixture uses `rounds > 1` |
+ * | Top-level phase list is **summed** | `scenario.phases.sumOf { … }` → `maxOfOrNull { … } ?: 0` | [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch] | none |
+ * | …and not merely its first phase | same site → `firstOrNull()?.let { … } ?: 0` | same | none |
+ * | Branch phase lists are **summed** | **both** branch `.sumOf { … }` sites → `maxOfOrNull { … } ?: 0` | same | none |
+ * | Rounds multiplier | `perRound * scenario.rounds` → `perRound` | [speakAllAndVoteCostOneInferencePerAgent] | 7 — every other fixture whose per-round cost is non-zero; [codePhasesCostNothing] is exempt because its `perRound` is 0, so `perRound * rounds == perRound` there |
  *
- * No test **outside** this class reddened for any of the ten mutations, which is
- * the expected shape rather than a gap: [InferenceEstimator] has no other
+ * No test **outside** this class reddened for any of the thirteen mutations, which
+ * is the expected shape rather than a gap: [InferenceEstimator] has no other
  * consumer in `shared/engine` yet.
  *
  * Three things this table encodes that are easy to misread:
@@ -82,10 +85,13 @@ import kotlin.test.assertEquals
  *    cannot see the `sum` mutation. Each row's claimant is therefore the fixture
  *    the *other* row cannot use. Deleting either leaves one polarity unmeasured
  *    while the suite stays green.
- * 3. **The rounds-multiplier row's 6 incidental reddenings are not redundancy.**
- *    They are why a single dedicated claimant suffices there: no fixture can
- *    distinguish per-round from total cost on its own, so the arm is pinned by
- *    every fixture using `rounds > 1` rather than by one designed case.
+ * 3. **The rounds-multiplier row's 7 incidental reddenings are not redundancy.**
+ *    They are why a single dedicated claimant suffices there: no fixture is
+ *    *designed* to isolate the multiplier, so the arm is pinned by breadth rather
+ *    than by one case. Read the row's exemption as stated, not as "every fixture
+ *    with `rounds > 1`" — [codePhasesCostNothing] uses `rounds = 3` and still
+ *    stays green, because a zero per-round cost is invariant under the mutation.
+ *    Reasoning from the looser rule would read that green as a regression.
  */
 class InferenceEstimatorTests {
 
@@ -257,6 +263,51 @@ class InferenceEstimatorTests {
             3,
             InferenceEstimator.estimateInferenceCount(
                 scenario(agents = 9, rounds = 3, phases = listOf(Phase(type = PhaseType.NARRATE))),
+            ),
+        )
+    }
+
+    @Test
+    fun phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch() {
+        // Every other fixture holds exactly one phase per level, so the three
+        // `sumOf` aggregations are only ever pinned at cardinality 1 — where
+        // `sum`, `max` and `first` all agree. These two cases are the only place
+        // they can disagree.
+        //
+        // 3 agents: speak_all = 3, speak_each × 2 sub-rounds = 6, score_calc = 0.
+        // Sum = 9, `max` = 6, `first` = 3 — three distinct values, so no
+        // aggregation regression can land on the right answer by coincidence.
+        val mixed = listOf(
+            Phase(type = PhaseType.SPEAK_ALL),
+            Phase(type = PhaseType.SPEAK_EACH, subRounds = 2),
+            Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.VOTE_TALLY),
+        )
+        // 9 per round × 2 rounds = 18.
+        assertEquals(
+            18,
+            InferenceEstimator.estimateInferenceCount(
+                scenario(agents = 3, rounds = 2, phases = mixed),
+            ),
+        )
+        // The same three phases as a conditional's `then`, with `else` **absent**
+        // rather than present-and-zero: max(9, 0) × 1 round = 9. This is also the
+        // only fixture where `elsePhases` is null, so it is what exercises the
+        // `orEmpty()` path — an `else`-less conditional is a real YAML shape.
+        assertEquals(
+            9,
+            InferenceEstimator.estimateInferenceCount(
+                scenario(
+                    agents = 3,
+                    rounds = 1,
+                    phases = listOf(
+                        Phase(
+                            type = PhaseType.CONDITIONAL,
+                            condition = "current_round == 1",
+                            thenPhases = mixed,
+                            elsePhases = null,
+                        ),
+                    ),
+                ),
             ),
         )
     }

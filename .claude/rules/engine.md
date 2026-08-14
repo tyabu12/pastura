@@ -135,7 +135,10 @@ and the build fails:
 
 - `Models/PhaseType.swift` — the case + `requiresLLM`.
 - `Models/ScenarioConventions.swift` — `primaryField` + `thoughtField`.
-- `Engine/ScenarioLoader.swift` — `estimatePhase` (inference count).
+- `Engine/ScenarioLoader.swift` — `estimatePhase` (inference count). Its Kotlin
+  twin `shared/engine/.../InferenceEstimator.kt` is `else`-free too, so it
+  compile-breaks as well — but only in the Kotlin lane, which a Swift-only local
+  run never reaches.
 - `Engine/ScenarioValidator.swift` — `validatePhases` arm (+ a
   `validateRelationshipUpdateShape`-style shape check if the phase needs one).
 - `Views/Components/PhaseGlyph.swift`, `PhaseDisplayName.swift`;

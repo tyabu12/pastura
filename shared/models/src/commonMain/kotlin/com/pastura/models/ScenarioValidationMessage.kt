@@ -323,13 +323,22 @@ public sealed class ScenarioValidationMessage {
      * the Kotlin engine (Stage 5) while this is still en-only, Japanese users get
      * English validation errors — a user-visible regression with **no compiler
      * and no test signal**, since the Kotlin side would be internally consistent
-     * and the pins below would stay green.
+     * and the pins below would stay green. A KDoc is only read by someone already
+     * in this file, which is the wrong audience for a debt that fires at Stage 5,
+     * so it is also recorded on the Stage-5 row of `docs/kmp-migration-status.md`.
      *
      * The Stage-5 fix is to make the rendering an `expect`/`actual` leaf. Member
      * naming here is chosen so that lands without moving callers: `render()`
      * keeps its name and signature, and only its body delegates to the platform
-     * leaf. Note the cost — `shared/models` has four targets (`jvm`, `iosArm64`,
-     * `iosSimulatorArm64`, `macosArm64`), so that is four `actual`s.
+     * leaf.
+     *
+     * When budgeting that, count **source sets, not targets**. `shared/models`
+     * declares five targets (`jvm`, `iosArm64`, `iosSimulatorArm64`, `iosX64`,
+     * `macosArm64`), but the four Apple ones share a parent source set under the
+     * default hierarchy template, so the `actual`s land in far fewer places than
+     * there are targets. Re-derive from `shared/models/build.gradle.kts` rather
+     * than from this sentence — an earlier revision asserted "four targets, so
+     * four `actual`s", which was wrong in both halves at once.
      */
     public fun render(): String = when (this) {
         is LanguageNotAccepted ->

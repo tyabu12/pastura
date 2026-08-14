@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
  *
  * (a) [caseSetMatchesSwiftEnumBidirectionally] — the 53 hand-transcribed Swift
  *     case names vs. the Kotlin subtype names, both directions.
- * (b) [rosterCoversExactlyFiftyThreeSubtypesWithNoDuplicatesOrOmissions] — a
+ * (b) [rosterAndSwiftTranscriptionAgreeOn53Cases] — a
  *     count pin plus an else-free `when` roster ([swiftCaseNameOf]).
  * (c) [rendersAllFiftyThreeCasesWithArgumentOrderIntact] — every one of the 53
  *     cases rendered and asserted by full-string equality, seeded from the 16
@@ -34,12 +34,15 @@ import kotlin.test.assertTrue
  *
  * ## En-only pin is Stage-5-scoped
  *
- * `shared/models` has four targets (`jvm`, `iosArm64`, `iosSimulatorArm64`,
- * `macosArm64`). [ScenarioValidationMessage.render] is a single common-code
- * function today, so pinning its English output here is sound. The day
- * `render()` becomes an `expect`/`actual` leaf (see its own KDoc's "Stage-5
- * debt" section), this file's single-locale full-string pins go stale for the
- * non-`jvm` targets and need a per-target parameterization.
+ * [ScenarioValidationMessage.render] is a single common-code function today, so
+ * pinning its English output here is sound. The day `render()` becomes an
+ * `expect`/`actual` leaf (see its own KDoc's "Stage-5 debt" section), these
+ * single-locale full-string pins go stale for every target whose `actual`
+ * localizes, and need a per-source-set parameterization. `shared/models`
+ * declares five targets (`jvm`, `iosArm64`, `iosSimulatorArm64`, `iosX64`,
+ * `macosArm64`) — but the count that matters is source sets, not targets, since
+ * the Apple ones share a parent. Re-derive it from `build.gradle.kts` at that
+ * point rather than from this sentence.
  *
  * ## Rejected alternative: a per-case `template` property
  *
@@ -59,9 +62,12 @@ import kotlin.test.assertTrue
  * text was confirmed to match **exactly once** in `ScenarioValidationMessage.kt`
  * before applying — a `replace` that silently no-ops leaves the original
  * behaviour and reads as verified. The unmutated baseline was reconfirmed green
- * both before the first mutation and after the last revert, so every red below
- * is signal. `ScenarioValidationMessage.kt` is byte-identical to how this PR
- * found it — `git diff --stat shared/models/src/commonMain/` shows no changes.
+ * both before the first mutation and after the last revert — that reconfirmation
+ * is the evidence the mutations were reverted, and it is the only evidence there
+ * is. (An earlier revision cited `git diff --stat shared/models/src/commonMain/`
+ * here. Don't restore it: this file is *added* by the PR, so that command returns
+ * empty whether the mutation was reverted, never applied, or committed — a green
+ * that cannot distinguish the states it was cited to distinguish.)
  * Counts are measured, not derived. Measured 2026-08-14, #1464.
  *
  * | Argument swapped | Mutation | Dedicated claimant | Incidental |
@@ -170,9 +176,18 @@ class ScenarioValidationMessageTests {
      * else-free `when` in [swiftCaseNameOf] (which fails to *compile* if a
      * subtype is added without a matching arm), is the strongest available
      * substitute for real reflective completeness.
+     *
+     * **The residual hole, stated so the name cannot be read as covering it.**
+     * `roster()` is derived from the hand-written [rosterWithExpectedRenderings],
+     * so nothing ties `53` to the number of sealed subtypes. Add a 54th subtype
+     * *and* its [swiftCaseNameOf] arm (which the compiler forces) but forget the
+     * roster entry and the [swiftCaseNames] entry, and every test in this file
+     * still passes. The compile-time `when` is the only real hierarchy guard;
+     * this test guards roster-vs-transcription agreement. The three `53`s are
+     * hand-maintained in lockstep — treat them as one edit.
      */
     @Test
-    fun rosterCoversExactlyFiftyThreeSubtypesWithNoDuplicatesOrOmissions() {
+    fun rosterAndSwiftTranscriptionAgreeOn53Cases() {
         val entries = roster()
         assertEquals(53, entries.size, "Roster size pin — see kmp-interop.md Pattern 4")
         val caseNames = entries.map(::swiftCaseNameOf)
@@ -188,7 +203,7 @@ class ScenarioValidationMessageTests {
      * Deliberately has **no `else` branch** — a Kotlin subtype added to
      * [ScenarioValidationMessage] without an arm here fails the build, which is
      * the compile-time half of the "pin, not proof" substitute described on
-     * [rosterCoversExactlyFiftyThreeSubtypesWithNoDuplicatesOrOmissions].
+     * [rosterAndSwiftTranscriptionAgreeOn53Cases].
      */
     private fun swiftCaseNameOf(msg: ScenarioValidationMessage): String = when (msg) {
         is ScenarioValidationMessage.LanguageNotAccepted -> "languageNotAccepted"
@@ -265,6 +280,26 @@ class ScenarioValidationMessageTests {
      * base literals with `%@` / `%lld` substituted positionally — never copied
      * from `ScenarioValidationMessage.kt`.
      *
+     * **Three entries are constructed positionally, not by name.** Named
+     * arguments make a case's *declared parameter order* untestable: swap two
+     * same-typed parameters in the `data class` header and every named-argument
+     * callsite still renders correctly, so the whole suite passes and none of the
+     * §12 mutations (all of which live in `render()` arms) reaches it. The three
+     * highest-risk cases pass positionally so their declaration order is pinned:
+     * [ScenarioValidationMessage.PersonaCountMismatch] and
+     * [ScenarioValidationMessage.AgentsPersonasCountMismatch], which carry the
+     * same `Int` pair in *opposite* orders, plus
+     * [ScenarioValidationMessage.LanguageNotAccepted] as the `String` analogue.
+     *
+     * **The residual is deliberate, and larger than those three.** Most of the 53
+     * take only `String`s, so a header swap on any of them compiles and renders
+     * correctly through named arguments — their declaration order stays unpinned
+     * here. That is proportionate rather than complete: nothing constructs these
+     * positionally today except this file, and K/N exports labelled initialisers,
+     * so a Swift consumer is named too. If a positional constructor ever appears
+     * — a `kmp-interop.md` Pattern 2 flattening factory is the likely shape — pin
+     * the rest then, and do not read this paragraph as saying the gap is closed.
+     *
      * 16 of these entries are ported directly from
      * `Pastura/PasturaTests/Models/ScenarioValidationMessageTests.swift`,
      * keeping its exact argument values and expected strings, including
@@ -273,7 +308,9 @@ class ScenarioValidationMessageTests {
      * in one literal).
      */
     private fun rosterWithExpectedRenderings(): List<Pair<ScenarioValidationMessage, String>> = listOf(
-        ScenarioValidationMessage.LanguageNotAccepted(allowed = "en, ja", got = "fr") to
+        // POSITIONAL on purpose — see the note on this function. Swift order is
+        // (allowed, got).
+        ScenarioValidationMessage.LanguageNotAccepted("en, ja", "fr") to
             "Scenario: field 'language' must be one of {en, ja}, got 'fr'",
         ScenarioValidationMessage.SimulationLanguageNotAccepted(allowed = "en", got = "ja") to
             "Scenario: field 'simulationLanguage' must be one of {en} or nil, got 'ja'",
@@ -283,8 +320,8 @@ class ScenarioValidationMessageTests {
             "Agent count (1) is below minimum of 2",
         ScenarioValidationMessage.AgentCountExceedsMaximum(count = 11) to
             "Agent count (11) exceeds maximum of 10",
-        // Two %lld — arg order is personaCount then agentCount.
-        ScenarioValidationMessage.PersonaCountMismatch(personaCount = 3, agentCount = 5) to
+        // Two %lld — arg order is personaCount then agentCount. POSITIONAL.
+        ScenarioValidationMessage.PersonaCountMismatch(3, 5) to
             "Persona count (3) does not match agent count (5)",
         ScenarioValidationMessage.RoundCountExceedsMaximum(rounds = 31) to
             "Round count (31) exceeds maximum of 30",
@@ -342,7 +379,9 @@ class ScenarioValidationMessageTests {
             "Scenario: field 'agents' must be Int, got String",
         ScenarioValidationMessage.FieldNotDoubleOrInt(label = "Phase X", key = "weight", got = "String") to
             "Phase X: field 'weight' must be Double or Int, got String",
-        ScenarioValidationMessage.AgentsPersonasCountMismatch(agentCount = 5, personaCount = 3) to
+        // POSITIONAL. Note this case's Swift order is (agentCount, personaCount) —
+        // the reverse of PersonaCountMismatch's, which is why both are positional.
+        ScenarioValidationMessage.AgentsPersonasCountMismatch(5, 3) to
             "agents (5) does not match personas count (3)",
         ScenarioValidationMessage.InvalidTarget(label = "Phase Y", value = "everyone") to
             "Phase Y has invalid target: 'everyone'. Use 'all' or 'random_one'.",
