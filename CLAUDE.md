@@ -97,8 +97,8 @@ Utilities/ → depends on nothing
   at all — are catalogued in the always-loaded `.claude/rules/swift-isolation.md`.
 - **"Why" comments:** Non-obvious choices must have a comment explaining **why**, not what — at the
   length the constraint needs, and addressed to the next editor. A block saying *only* what this
-  change did belongs in the PR body; judge the whole block, never a clause. Why no length threshold
-  exists: `.claude/rules/knowledge-layering.md` § "Anti-pattern: a comment written for the reviewer".
+  change did belongs in the PR body; judge the whole block, never a clause. Count before length, and
+  why: `.claude/rules/knowledge-layering.md` § "Anti-pattern: a comment written for the reviewer".
 - **Observable bridge for non-`@Observable` state:** When an `@Observable` class exposes
   a computed property that reads mutable state from a `nonisolated` class / actor,
   bridge observation manually — `access(keyPath: \.prop)` in the getter and

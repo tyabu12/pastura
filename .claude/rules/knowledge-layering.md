@@ -92,15 +92,16 @@ set matters more than the pattern: the doc's § "The rule-assertion case".
 ## Anti-pattern: a comment written for the reviewer
 
 Same misfiling, one tier down. A comment is read by the **next editor**, so a
-block saying *only* what this change did — provenance, the diff's own argument,
-a figure a canonical site already states — belongs in the PR body or an ADR.
-Move the whole block, never a clause: a backward-looking
-sentence is routinely what makes the forward rule intelligible. **Length** is
-the commoner defect, and its remedy is rewriting shorter rather than moving —
-but it separates only as a cohort median, not per commit and not per model, so
-no threshold belongs here and none is given. False-flag rates, the per-commit
-gate that was built and refuted, and the tool that measures a cohort: the doc's
-§ "A comment written for the reviewer".
+block where *no* sentence states a durable claim — only provenance, the diff's
+own argument, a figure a canonical site already states — belongs in the PR body
+or an ADR. Move the whole block, never a clause: a backward-looking sentence is
+routinely what makes the forward rule intelligible. But **volume** is the
+commoner defect, tracks the model rather than recency, and is fixed by
+rewriting shorter, not deleting — so watch the count before the length. Past
+~10 lines (the concise baseline's top tenth) rewrite once at half length and
+**the rewrite wins**, unless it dropped a forward-looking fact, which a `///`
+block of measured values usually would. Rates, three refuted gate designs, the
+duplicated-figure grep: the doc's § "A comment written for the reviewer".
 
 ## Verify before you lock it
 

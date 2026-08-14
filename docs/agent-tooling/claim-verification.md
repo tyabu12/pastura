@@ -133,16 +133,22 @@ excluded dark-mode commits have *short* blocks (4.19, 4.21) — the same asymmet
 C-class claim above, with the sign reversed. Unfiltered `///` blocks show no generation difference
 at all (5.65 vs 5.63); the effect lives in plain `//` comments.
 
-**So do not gate a commit on it.** A per-commit gate was built and calibrated against the concise
-cohort, and the calibration killed it: every ratio/block-length pair catching 80–96% of the verbose
-cohort also flagged 33–71% of the concise one, and a gate at that false-positive rate teaches its
-reader to ignore it. Per-commit variance swamps the medians. The same run put Fable 5 *below* both
-cohorts at 3.6 lines per block, so "current models are verbose" is the wrong unit — it is per model,
-and re-measuring is the only way to know which one you are on. `comment-density.py` in claude-kit
-reports cohort medians over a revision range, grouped by the `Co-Authored-By` trailer.
+**So do not gate on it — three designs were built and refuted.** Calibrating each against the
+concise cohort killed it. Per-commit on either threshold, catching 80–96% of the verbose cohort also
+flagged 52–79% of the concise one; on both thresholds, false flags drop to 12–22% but detection
+collapses to 32–48%. Per *block* — the unit this rule's own trigger uses — the cohorts share a
+median of 3.0 lines, and a ≥12-line trigger fires on 7.8% of concise blocks against 11.4% of verbose
+ones. A gate at any of those rates teaches its reader to ignore it, so claude-kit's
+`comment-density.py` ships as cohort measurement only.
+
+That calibration also moved the claim: what separates the cohorts is **count, not length** — 16 → 26
+blocks per commit (+63%) against 4.3 → 5.9 lines per block (+37%), over a shared median. A
+length-keyed mechanism aims at the smaller half of its own defect, which is why the rule leads with
+the count. And Fable 5 sits below both cohorts (3.4 lines per block), so recency is the wrong axis:
+it is per model, and re-measuring is the only way to know which one you are on.
 
 Compression is still the safe remedy — it cannot delete a category of content the way moving a block
-can. What has no support is a number.
+can. What has no support is a per-commit threshold.
 
 **Whether an always-loaded line changes anything here is itself untested.** In the session that
 drafted this, a live instruction to restructure a draft shortened it (25%, against 14% for "compress
