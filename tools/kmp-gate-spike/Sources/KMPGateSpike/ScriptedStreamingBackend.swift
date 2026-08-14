@@ -124,6 +124,14 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
   private let script: Mutex<[ScriptedResponse]>
   private let counters = Counters()
 
+  /// The leaf's own pair — see the initializer parameter.
+  ///
+  /// Covered by the class's `@unchecked Sendable`, and the only stored member
+  /// here that needs the exemption: a K/N export carries no `Sendable`
+  /// conformance (`kmp-interop.md` Pattern 1), so this stays sound only while
+  /// `ChatTurnMarkers`' two fields remain `val` on the Kotlin side.
+  public let knownTurnMarkers: [ChatTurnMarkers]
+
   /// - Parameter responses: Consumed in order, one per `generateStream` call —
   ///   the `MockLLMService` convention (CLAUDE.md § Testing Strategy). A call
   ///   past the end of the script terminates as `.failed` with
@@ -144,9 +152,6 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
     self.script = Mutex(responses)
     self.knownTurnMarkers = knownTurnMarkers
   }
-
-  /// The leaf's own pair — see the initializer parameter.
-  public let knownTurnMarkers: [ChatTurnMarkers]
 
   /// Error code reported when the script runs out of responses.
   public static let scriptExhaustedErrorCode = "spike.script_exhausted"

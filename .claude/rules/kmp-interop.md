@@ -10,7 +10,7 @@ Traps of the ADR-023 KMP Engine migration (`shared/models`, `shared/engine`) —
 Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three shapes:
 
 - **Compile-time interop traps (Patterns 1–2)** — surface at the *Swift consumption* site when
-  Swift code imports the generated `PasturaShared` XCFramework. On main that consumer is
+  Swift code imports the generated `PasturaSharedEngine` XCFramework. On main that consumer is
   `tools/kmp-gate-spike/**` (6 Swift files `import PasturaSharedEngine`), which builds **nightly /
   `workflow_dispatch` only, not per-PR** (ADR-023 §6, decision B′); the iOS app (`Pastura/**`) does **not** consume the
   framework yet — that is Phase 3.0-gated. So these two are largely **forward-looking**: they were
@@ -19,7 +19,8 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
   Kotlin-side in `commonMain`** (in scope) and the live gate-spike consumer (in scope) is where
   they compile-fail today.
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
-  in-scope for `shared/**` edits.
+  in-scope for `shared/**` edits. One entry in its "Same class of trap" list is the exception —
+  interface-member defaults redden a build, so triage a red nightly there too.
 - **Port-time traps (Pattern 4)** — fire while writing the Kotlin port and its tests, with no Swift
   consumer involved; fully in-scope for `shared/**` edits.
 

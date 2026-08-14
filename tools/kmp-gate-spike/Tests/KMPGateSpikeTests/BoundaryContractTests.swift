@@ -415,11 +415,17 @@ struct BoundaryContractTests {
   /// own pair.
   @Test("a decorator forwards the wrapped backend's turn markers")
   func decoratorForwardsKnownTurnMarkers() {
-    let gemmaShaped = ChatTurnMarkers(start: "<|turn>", end: "<turn|>")
-    let leaf = ScriptedStreamingBackend(responses: [], knownTurnMarkers: [gemmaShaped])
+    // The union form `LLMBackend.knownTurnMarkers` documents — a model's own
+    // pair *plus* ChatML — so the fixture is a value a real backend could
+    // report. Differing from ChatML is all the assertion needs; excluding it
+    // would have discriminated just as well while modelling an illegal one.
+    let pair = [
+      ChatTurnMarkers(start: "<|turn>", end: "<turn|>"), ChatTurnMarkers.companion.chatML
+    ]
+    let leaf = ScriptedStreamingBackend(responses: [], knownTurnMarkers: pair)
     let decorated = ThreadObservingBackend(wrapping: leaf, recordingInto: ThreadObservations())
 
-    #expect(decorated.knownTurnMarkers == [gemmaShaped])
+    #expect(decorated.knownTurnMarkers == pair)
   }
 }
 
