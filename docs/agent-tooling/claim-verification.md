@@ -123,9 +123,32 @@ the file bound — so the diff gets split and no shard sees all the sites. Frame
 not add hits*, existing count as an acknowledged baseline (the *reframe* disposition); #1477 is the
 open instance.
 
-**Length is the commoner defect.** In that corpus one generation wrote ~45% more comment lines per
-block and ~47% more blocks per commit at an unchanged A/B/C/D distribution — same content, longer.
-Compressing it loses nothing, and is safer than any rule that deletes a category of content.
+**Length is the commoner defect — and the one number that survived scrutiny is a cohort median.**
+The first pass reported one generation writing ~45% more comment lines per block and ~47% more
+blocks per commit at an unchanged A/B/C/D distribution. Re-measured over 23 vs 145 commits instead
+of 4 vs 3, lines per block is **+21%**, and the blocks-per-commit gap **disappears** once normalized
+by Swift files touched (2.98 vs 3.03) — it was commit size. The ~45% reproduces only under a
+topic filter that removes 259 of 453 blocks from one arm and 0 of 2,114 from the other, because the
+excluded dark-mode commits have *short* blocks (4.19, 4.21) — the same asymmetry that refuted the
+C-class claim above, with the sign reversed. Unfiltered `///` blocks show no generation difference
+at all (5.65 vs 5.63); the effect lives in plain `//` comments.
+
+**So do not gate a commit on it.** A per-commit gate was built and calibrated against the concise
+cohort, and the calibration killed it: every ratio/block-length pair catching 80–96% of the verbose
+cohort also flagged 33–71% of the concise one, and a gate at that false-positive rate teaches its
+reader to ignore it. Per-commit variance swamps the medians. The same run put Fable 5 *below* both
+cohorts at 3.6 lines per block, so "current models are verbose" is the wrong unit — it is per model,
+and re-measuring is the only way to know which one you are on. `comment-density.py` in claude-kit
+reports cohort medians over a revision range, grouped by the `Co-Authored-By` trailer.
+
+Compression is still the safe remedy — it cannot delete a category of content the way moving a block
+can. What has no support is a number.
+
+**Whether an always-loaded line changes anything here is itself untested.** In the session that
+drafted this, a live instruction to restructure a draft shortened it (25%, against 14% for "compress
+this"), while the rule sat in the same context and three verbose drafts were written under it. So
+treat the always-loaded half as a hypothesis: re-measure the cohort, and if it does not move, the
+mechanism belongs at review or commit time and these lines should come back out.
 
 ## Reading a probe's outcome
 
