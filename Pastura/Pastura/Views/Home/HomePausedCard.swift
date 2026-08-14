@@ -102,12 +102,18 @@ struct HomePausedCard: View {
         currentRound: summary.currentRound, totalRounds: summary.rounds) {
         Text(progress)
           .font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))
-          // `mossInk` on this card's own moss wash. The ratio clears AA
-          // (8.807 light / 5.927 dark, pinned by `mossInkWashSites`), but §2.3
-          // assigns this token no role covering a round readout — so the
-          // routing is unjustified rather than wrong. #1459, design-system §8's
-          // closing ⚠️. The eyebrow above already moved to `mossOnWash` (#1327).
-          .foregroundStyle(Color.mossInk)
+          // `mossOnWash` — design-system §8's default for a label on a
+          // translucent wash of its own family, and the same token the eyebrow
+          // above takes on this same gradient at this same stop (#1327). This
+          // read `mossInk` until #1459: that cleared AA comfortably, but §2.3
+          // assigns the Ink step no role covering a round readout, so the
+          // routing was unjustified rather than wrong.
+          //
+          // The move is a deliberate step *down* in emphasis, not a contrast
+          // repair — 8.807 → 5.782 light, 5.927 → 5.550 dark (the new pair is
+          // pinned by `mossWashSites`). It puts the round readout in the same
+          // supporting tier as the eyebrow, below the scenario title.
+          .foregroundStyle(Color.mossOnWash)
       }
       Spacer()
       // Use the design-system primary style (mossDark + inkOnAccent label,

@@ -16,6 +16,15 @@ import Testing
 // size — not restated as a number in prose here, because a prose count goes
 // stale.
 //
+// **That origin says why the token exists; it is not a property every row
+// shares.** #1459 added `HomePausedCard.progress` on **routing** grounds, not as
+// a repair: it read `mossInk` and cleared at 8.807 light, but design-system §2.3
+// assigns the Ink step no role covering a round readout, so §8's default for a
+// translucent same-family wash sent it here. It is the first member that was not
+// already failing, and nothing below can tell the two motives apart —
+// ``MossWashSite`` stores only the wash and its alphas, and every arm derives
+// from those. Do not read a row as evidence that its site was once sub-AA.
+//
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
 // with the parent and is explicitly forbidden. Inherits the parent's
@@ -60,6 +69,7 @@ extension DesignTokensTests {
       MossWashSite("PhaseTypeLabel", wash: .moss, light: 0.15, dark: 0.15),
       MossWashSite("ModelRow.recommendedTag", wash: .moss, light: 0.12, dark: 0.12),
       MossWashSite("HomePausedCard.eyebrow", wash: .moss, light: 0.16, dark: 0.16),
+      MossWashSite("HomePausedCard.progress", wash: .moss, light: 0.16, dark: 0.16),
       MossWashSite("PhaseEditorSheet.fieldPill", wash: .mossDark, light: 0.16, dark: 0.16),
       MossWashSite(
         "GalleryHighlightRunFigure.recordedPill", wash: .mossDark, light: 0.14, dark: 0.14),
@@ -67,9 +77,15 @@ extension DesignTokensTests {
     ]
   }
 
-  /// WCAG 1.4.3 normal-text bar. Every one of these labels is under the
-  /// "large text" threshold (≥14pt bold / ≥18pt regular) — the largest is
-  /// `caption2.bold` at ~11pt — so 3:1 never applies to any of them.
+  /// WCAG 1.4.3 normal-text bar. Every one of these labels is under the "large
+  /// text" threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type, and
+  /// the two halves bind different rows — which is why the extreme has to be
+  /// read per half, not per point size. The largest overall is
+  /// `HomePausedCard.progress` at `HomeHeroLayout.progressFontSize`, 12pt
+  /// **regular**, so it answers to ≥18pt; the emphasised rows top out at
+  /// `.caption2` 11pt bold against the lower ≥14pt half. Both clear, so 3:1
+  /// never applies to any of them — but a new row has to re-check the half its
+  /// weight selects, not just compare point sizes.
   private static let textBar = 4.5
 
   /// The grounds are deliberately the **worst case per appearance**, not the
@@ -89,7 +105,7 @@ extension DesignTokensTests {
     // make this arm pass **vacuously** and green would mean nothing. The
     // negative control has its two non-loop ceiling assertions as a floor;
     // this arm had none.
-    #expect(Self.mossWashSites.count == 8)
+    #expect(Self.mossWashSites.count == 9)
 
     for site in Self.mossWashSites {
       let lightGround = composite(
@@ -148,8 +164,13 @@ extension DesignTokensTests {
   /// A blanket dark control over the whole fixture would **fail**: every other
   /// row gives `nightMossDark` 4.77–5.62, i.e. they pass. Widening this loop
   /// would therefore not strengthen the guard, it would break it — which is the
-  /// tell that the chip-scoping is the claim, not a shortcut. The range still
-  /// holds with #1455's row in (5.397), so only the count moved.
+  /// tell that the chip-scoping is the claim, not a shortcut. The range has
+  /// survived every row added since (#1455's at 5.397, #1459's at 5.180), so
+  /// only the membership moved. **State no count for the complement here** —
+  /// the size pin in ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` is the
+  /// authority, and the count that used to sit in the loop's comment below had
+  /// already gone stale by the time #1459 removed it. ADR-028
+  /// § "Count-mirror sweep" is the standing account of that failure mode.
   @Test func onlyTheCategoryChipWasFailingInDarkBeforeThisToken() {
     let chipGround = composite(
       PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.24)
@@ -160,8 +181,10 @@ extension DesignTokensTests {
     let after = contrastRatio(PasturaPalette.nightMossOnWash, chipGround)
     #expect(after >= Self.textBar, "chip still under the bar in dark: \(after)")
 
-    // ...and the six others were NOT failing, so "dark was broken" would be the
-    // wrong story to tell about this change.
+    // ...and the rest of the fixture was NOT failing, so "dark was broken" would
+    // be the wrong story to tell about this change. Deliberately uncounted: the
+    // number that stood here went stale as rows were added, and the size pin is
+    // the authority on it.
     for site in Self.mossWashSites where site.name != "GalleryCatalogRow.categoryChip" {
       let ground = composite(
         site.darkToken, over: PasturaPalette.nightBubble, alpha: site.darkAlpha)
