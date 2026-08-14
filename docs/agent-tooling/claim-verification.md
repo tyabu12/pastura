@@ -124,7 +124,7 @@ not add hits*, existing count as an acknowledged baseline (the *reframe* disposi
 open instance.
 
 **Length is the commoner defect.** In that corpus one generation wrote ~45% more comment lines per
-block and ~50% more blocks per commit at an unchanged A/B/C/D distribution — same content, longer.
+block and ~47% more blocks per commit at an unchanged A/B/C/D distribution — same content, longer.
 Compressing it loses nothing, and is safer than any rule that deletes a category of content.
 
 ## Reading a probe's outcome
