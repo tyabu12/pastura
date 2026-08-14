@@ -83,26 +83,29 @@ is what *this* change did addresses the reviewer, not the next editor.
 **The form that survived a negative control**: flag a block only when *every* sentence in it is a
 backward-looking report, or when it restates a figure with a canonical site elsewhere. Over 169
 comment blocks from two model generations of this repo's own history (#1479), that caught every true
-instance with no false positives.
+instance with no false positives. **`code-reviewer` ships the second arm narrower** — only when the
+comment *itself* names the owning site — for the split-review reason below, so the zero-false-
+positive figure covers the form measured here, not the predicate that gate applies.
 
 **Do not key it on wording instead.** Tense is the tempting discriminator — "must stay identical to
 X" constrains, "was left identical to X" reports — and on that corpus it had to decide 17 blocks and
 got 4 wrong. It reads the grammatical head, not the payload:
 
-- `GameHeader.swift`'s "…lives in `LeafIcon.swift`, which owns the default this file used to apply"
-  (stale move record) and `LLMCaller.swift`'s "…live in `LLMCaller+Logging.swift` to keep this file
-  under SwiftLint's `file_length` budget" (live breadcrumb) have identical grammar.
+- `GameHeader.swift`'s "…lives in `LeafIcon.swift`, which owns the 9pt default this file used to
+  apply" (stale move record) and `LLMCaller.swift`'s "…live in `LLMCaller+Logging.swift` to keep
+  this file under SwiftLint's `file_length` budget" (live breadcrumb) have identical grammar.
 - Duplication is invisible to it — a measured GGUF figure copy-pasted from `ModelRegistry.swift`
   into the harness's `ModelProfile.swift` is the defect, and every word of it is a legitimate
   present-tense fact.
 - It strips backward-looking clauses a forward rule depends on (`GalleryHighlight.swift`'s "any
   required key added *after that* bumps the version").
 
-Per-clause flagging misfires on ~7% of load-bearing blocks, worst on the longest. The four-site
-negative control shows why the block is the unit: three were unambiguous keeps, and the fourth
-(`PlaybackSpeed.swift:9`) is a keep whose cited line *alone* reads as a move record — it differs
-from a true instance by a following sentence turning the history into a live constraint, **a
-payload, not a tense**.
+Those 4 outright wrong answers are the floor, not the cost: per-clause flagging *misfires* on ~7% of
+the corpus's load-bearing blocks — a wider set, since a block also breaks when a correct flag is
+acted on clause-wise — and worst on the longest. The four-site negative control shows why the block
+is the unit: three were unambiguous keeps, and the fourth (`PlaybackSpeed.swift:8-9`) is a keep
+whose cited sentence *alone* reads as a move record — it differs from a true instance by a following
+sentence turning the history into a live constraint, **a payload, not a tense**.
 
 **Word the trigger as an absence, and state precedence.** Running the drafted `code-reviewer` bullet
 over six real blocks caught two more defects, both invisible on re-reading. "Flag when *every*
@@ -111,7 +114,8 @@ sentence merely reports" cannot be audited — an agent cannot point at what con
 sentence block silently degenerates under the first form since clause and block coincide. And a rule
 carrying both a trigger and a "never cut a load-bearing clause" safeguard must say which wins, or a
 block that fires the trigger while holding a live pointer yields either a deleted pointer or an
-unactionable finding.
+unactionable finding. Both trials — the four control sites and the six blocks, per site and per
+verdict — are the ledger comment on #1479.
 
 The duplicated-figure shape needs a **repo-side grep**, not a review agent. `code-reviewer` bails
 `SCOPE_TOO_LARGE` above ~800 lines or ~8 files, and every commit that motivated this rule exceeded
