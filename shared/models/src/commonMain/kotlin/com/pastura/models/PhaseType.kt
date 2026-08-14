@@ -103,7 +103,8 @@ public enum class PhaseType {
      * conditional itself. The sub-phases' [requiresLLM] determines whether
      * the enclosing branch requires inference; consumers that need the
      * effective LLM cost of a conditional must walk `thenPhases` / `elsePhases`
-     * (see `ScenarioLoader.estimateInferenceCount`).
+     * (see `InferenceEstimator.estimateInferenceCount` in `shared/engine`, and
+     * its Swift dual-landing partner `ScenarioLoader.estimateInferenceCount`).
      *
      * [EVENT_INJECT] returns `false`: the handler picks a random string from
      * scenario `extraData` and writes it into `state.variables` — no LLM

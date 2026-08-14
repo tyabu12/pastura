@@ -106,6 +106,13 @@ nonisolated extension ScenarioValidationMessage {
   /// `String(localized:)` directly (never `String(format:)`, which would
   /// misread a stray `%` in a future literal). `%lld` args stay `Int` — passing
   /// `Int` to `%lld` on 64-bit iOS matches the pre-refactor `CVarArg` behavior.
+  ///
+  /// **These literals are dual-landed with `ScenarioValidationMessage.kt`'s
+  /// `render()`** (`shared/models`, ADR-023) — reword here and the Kotlin twin
+  /// plus its expected-string pins stay stale *and agree with each other*, so
+  /// nothing reddens. No gate covers it: `check-prompt-literal-parity.py` only
+  /// looks at `Engine/` + `LLM/` files containing `pickLanguage`, which never
+  /// reaches `Models/`.
   public var localized: String {
     switch self {
     case .languageNotAccepted(let allowed, let got):
