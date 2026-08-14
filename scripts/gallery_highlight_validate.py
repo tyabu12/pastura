@@ -463,13 +463,37 @@ def _check_yaml_hook_fragment(doc, where):
 
 
 def _check_position(doc, entry, where):
-    """Decision 3's two-part position rule, against the index entry."""
+    """Decision 3's two-part position rule, against the index entry.
+
+    Also the home of the `conditional`-scenario refusal: the rule is stated in
+    terms of `phase_index`, so the scenario class whose `phase_index` cannot be
+    derived is refused where that index is read, not at an unrelated callsite.
+    Being here means the extractor inherits it too — `check_content` dispatches
+    this function for both callers, so the two cannot disagree about which
+    highlights are publishable.
+    """
     failures = []
     phases = entry.get("phases")
     rounds = entry.get("rounds")
     if not isinstance(phases, list) or not phases:
         return [f"highlight: schema — {where} gallery.json entry has no `phases` list "
                 "to check the within-round bound against"]
+    # Refused as a class, not merely unsupported. `phases` is the FULLY-FLATTENED
+    # depth-first list (the `conditional`'s own entry, then its then-branch, then
+    # its else-branch), while a transcript's `phase_path` indexes the TOP-LEVEL
+    # list — so `phase_index` means different things on the two sides, and the
+    # prefix below spans branches that never ran together in one round. Both
+    # halves fail loudly today, but only because no shipped scenario continues
+    # past its conditional; one that did could match `phases[idx]` by coincidence
+    # and evaluate the spoiler prefix over the wrong range, silently. Returning
+    # early keeps that speculation out of the report: every later check here
+    # reads an index this entry cannot supply meaningfully.
+    if "conditional" in phases:
+        return [f"highlight: conditional scenario — {where} the entry's `phases` list "
+                "contains `conditional`, whose branch sub-phases are flattened into "
+                "it. `phase_index` is not branch-aware, so neither the index nor the "
+                "within-round bound can be derived correctly (#1473). Highlights are "
+                "refused for this scenario class until that lands."]
     if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
         return [f"highlight: schema — {where} gallery.json entry has no usable "
                 "`rounds` value to compute the round window"]
