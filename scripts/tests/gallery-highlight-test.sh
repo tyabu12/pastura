@@ -1049,9 +1049,7 @@ expect_out "Pass --model with the registry id" "E15 names the escape hatch"
 #
 # The refusal lives in `_check_position`, which `check_content` dispatches for
 # BOTH the gate and the extractor — so it is asserted on both, not on whichever
-# one happens to be convenient. C1/C2 are a matched pair: identical fixtures
-# apart from the `conditional` entry itself, so a pass in C2 is what shows C1
-# reddens on that token rather than on anything else the fixture carries.
+# one happens to be convenient.
 #
 # The fixture YAML writes `- type: conditional` with no `then:`/`else:` branch,
 # which a real scenario would never do. Deliberate: the check reads the entry's
@@ -1101,11 +1099,9 @@ expect_fail "C4 a phase_started without phase_path is refused"
 expect_out "no usable \`phase_path\`" "C4 names the missing field"
 
 # C5 — a `phases` list that DRIFTED from its YAML cannot disable the refusal.
-# gallery.json's `phases` is denormalized and nothing on a highlight PR's path
-# re-derives it: this gate never reads it against the YAML, and the iOS-side
-# `GallerySeedYAMLTests.galleryPhasesMatchYAML` is skipped for a `docs/`-only
-# changeset — the shape every highlight batch has. So the refusal reads the YAML
-# too, and this arm is what proves the YAML side is live rather than decorative.
+# Nothing on a highlight PR's path re-derives that denormalized field (why:
+# `scenario_declares_conditional`'s docstring), so the refusal reads the YAML
+# too — this arm is what proves that side live rather than decorative.
 R="$(new_repo)"; init_index "$R"
 mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
 # Drop `conditional` from the INDEX only; the YAML still declares it.

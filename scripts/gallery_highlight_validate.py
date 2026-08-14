@@ -478,32 +478,26 @@ def _check_position(doc, entry, where, yaml_has_conditional):
     if not isinstance(phases, list) or not phases:
         return [f"highlight: schema — {where} gallery.json entry has no `phases` list "
                 "to check the within-round bound against"]
-    # Refused as a class, and deliberately wider than the broken cases. `phases`
-    # is the FULLY-FLATTENED depth-first list (the `conditional`'s own entry,
-    # then its then-branch, then its else-branch), while a transcript's
-    # `phase_path` indexes the TOP-LEVEL list — so `phase_index` means different
-    # things on the two sides, and the prefix below spans branches that never ran
-    # together in one round.
+    # Refused as a class, deliberately wider than the broken cases — the failure
+    # message says so. `phases` is the FULLY-FLATTENED depth-first list (the
+    # `conditional`, then its then-branch, then its else-branch) while a
+    # transcript's `phase_path` indexes the TOP-LEVEL list, so the outcome-phase
+    # prefix `phases[:idx]` spans branches that never ran together in one round.
+    # Telling a sound pick from a skewed one needs the branch structure this
+    # function does not have, which is #1473's work.
     #
-    # A pick BEFORE the conditional in the top-level list is unaffected by the
-    # skew and validates correctly on pre-refusal code; every shipped conditional
-    # scenario has its conditional last, so that is the only shape a curator can
-    # hit here today. It is refused anyway: telling the two apart needs the
-    # branch structure this function does not have, which is #1473's work.
-    # Picks at or inside the conditional fail loudly today, but only because no
+    # Picks at or inside the conditional fail loudly today only because no
     # shipped scenario continues past its conditional; one that did could match
-    # `phases[idx]` by coincidence and evaluate the spoiler prefix over the wrong
-    # range, silently. Returning early keeps that speculation out of the report —
-    # the remaining phase-index checks read an index this entry cannot supply
-    # meaningfully. It also skips the round-window arms, which would have been
-    # derivable; they are worth nothing on a highlight that cannot ship.
+    # `phases[idx]` by coincidence and evaluate that prefix over the wrong range,
+    # silently. Returning early keeps such speculation out of the report, and
+    # drops the round-window arms too — derivable, but worth nothing on a
+    # highlight that cannot ship.
     #
-    # Both sources are consulted, and either one alone triggers the refusal. The
-    # index's `phases` is denormalized from the YAML and nothing on a highlight
-    # PR's path re-derives it (see `scenario_declares_conditional`), so keying on
-    # it alone leaves a drifted index able to disable the guard; keying on the
-    # YAML alone would miss an index that claims a conditional the YAML no longer
-    # has. Disagreement between them is itself a reason not to publish.
+    # Either source alone triggers the refusal: a drifted index could otherwise
+    # disable the guard (nothing on a highlight PR's path re-derives `phases` —
+    # see `scenario_declares_conditional`), while keying on the YAML alone would
+    # miss an index claiming a conditional the YAML no longer has. Disagreement
+    # between them is itself a reason not to publish.
     if "conditional" in phases or yaml_has_conditional:
         source = ("the entry's `phases` list" if "conditional" in phases
                   else "the sibling scenario YAML's `phases:`")
@@ -764,8 +758,10 @@ def _entry_index(gallery_json):
 def _read_scenario(yaml_path):
     """-> the parsed sibling scenario YAML, or None if it cannot be read.
 
-    Both `_read_persona_names` and the conditional refusal need the same file;
-    parsing it once here keeps them from disagreeing about what it says.
+    Separate from `_read_persona_names`, which parses the same file again: that
+    one returns names plus a *reason* string its failure text needs, while the
+    conditional refusal wants the document itself and has only a tri-state to
+    report through. Same catch set, so the two agree on what "unreadable" means.
     """
     if yaml is None:
         return None

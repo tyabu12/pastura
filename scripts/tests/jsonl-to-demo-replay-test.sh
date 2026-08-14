@@ -7,12 +7,10 @@
 # converter as a fixture path for the ADR-022 §D4 coverage gate and never
 # executes it. This file executes it.
 #
-# Today it covers one thing: `phase_index` is derived from the transcript's
-# `phase_started.phase_path[0]` and a missing `phase_path` is refused rather
-# than defaulted to 0 (#1474 — the same invention was removed from
-# gallery_highlight_extract.annotate, whose arm is C4 in
-# gallery-highlight-test.sh). A guard with no arm is silently unverified, and
-# this one is otherwise unreachable from any in-repo test.
+# Today it covers one thing: `phase_index` derivation and its refusals (#1474 —
+# the same invention was removed from gallery_highlight_extract.annotate, whose
+# arm is C4 in gallery-highlight-test.sh). A guard with no arm is silently
+# unverified, and this one is otherwise unreachable from any in-repo test.
 #
 # CI-wired via the `scripts/tests/*-test.sh` naming convention (the
 # `shell-tests` job, ubuntu / bash 5+). The converter imports PyYAML at module
@@ -97,8 +95,8 @@ else
       echo "FAIL: (b) refused, but not with the intended message: $out" >&2; fail=1 ;;
   esac
 fi
-# Spelled as an `if` rather than `[ … ] && { … }`: under `set -e` the latter's
-# status when the test is false is a subtlety this file should not lean on.
+# An `if`, not `[ … ] && { … }` — under `set -e` the latter's false-test status
+# is a subtlety this file should not lean on.
 if [ -e "$TMP/out2.yaml" ]; then
   echo "FAIL: (b) wrote an output despite refusing" >&2; fail=1
 fi

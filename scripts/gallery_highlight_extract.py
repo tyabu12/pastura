@@ -36,10 +36,9 @@ Usage:
 Hard-fails (each with a distinct, greppable message):
   - the scenario YAML declares the `secret:` mechanism (ADR-029 Decision 2 —
     the spoiler rules are unvalidated for it);
-  - the scenario uses a `conditional` phase — its branch sub-phases are
-    flattened into the entry's `phases` while `phase_path` is not, so
-    `phase_index` cannot be derived (#1473). Raised by the shared
-    `_check_position`, so the gate refuses the same class;
+  - the scenario uses a `conditional` phase, whose `phase_index` cannot be
+    derived (#1473) — raised by the shared `_check_position`, so the gate
+    refuses the same class;
   - a `phase_started` line carrying no usable `phase_path`;
   - a transcript phase name outside the `PhaseType` catalog (a new phase type
     landed; classify it in ADR-029 Decision 3 first);
@@ -109,11 +108,10 @@ def annotate(lines):
     `agent_output` lines carry no `round` (ADR-029 Decision 2's mechanical
     note) — it comes from the preceding `round_started`. `phase_index` comes
     from the enclosing `phase_started.phase_path[0]`, which indexes the
-    scenario's TOP-LEVEL phase list. That equals the index into the entry's
-    `phases` only while the scenario has no `conditional` — a branch's
-    sub-phases are flattened into `phases` but reached via a nested
-    `phase_path`. `_check_position` refuses that whole scenario class (#1473),
-    which is what keeps the first path element meaningful here.
+    scenario's TOP-LEVEL phase list — equal to the index into the entry's
+    `phases` only while the scenario has no `conditional`. What keeps the first
+    path element meaningful here is that `_check_position` refuses that whole
+    scenario class (#1473); its comment has the skew.
     """
     context, round_no, phase_idx = {}, None, None
     for lineno in sorted(lines):
@@ -126,10 +124,9 @@ def annotate(lines):
         elif event == "phase_started":
             path = obj.get("phase_path")
             # Refuse rather than default to 0. The harness always writes this
-            # field, so a missing one means the log is not what it claims; a
-            # fallback would assert "top-level phase 0" on the excerpt's behalf,
-            # and every downstream check would then read that invention as
-            # measured fact.
+            # field, so a missing one means the log is not what it claims — and
+            # a fallback would assert "top-level phase 0" on the excerpt's
+            # behalf, which every downstream check then reads as measured fact.
             if not isinstance(path, list) or not path:
                 die(f"line {lineno} — `phase_started` carries no usable "
                     "`phase_path`, so phase_index cannot be derived for any pick "
