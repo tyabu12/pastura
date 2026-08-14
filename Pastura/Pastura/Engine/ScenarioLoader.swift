@@ -83,7 +83,7 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   ///
   /// **Dual-landed with
   /// `shared/engine/src/commonMain/kotlin/com/pastura/engine/InferenceEstimator.kt`**
-  /// (full path so this survives a move as a greppable string) — change both
+  /// (spelled out so a move leaves a greppable string behind) — change both
   /// (ADR-023). Nothing enforces this: the port ledger's `PORT` disposition
   /// forbids a `kotlin_target`, and `.claude/rules/kmp-interop.md` is scoped to
   /// `shared/**`, so it never loads for an edit here.

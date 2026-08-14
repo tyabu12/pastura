@@ -27,6 +27,14 @@ import kotlin.test.assertEquals
  * wrong: it over-counts by construction and rejects scenarios that gate an
  * expensive branch behind a rare condition.
  *
+ * **Depth-2 (a `conditional` inside a branch) is deliberately not fixtured.** It
+ * is unreachable input: `ScenarioValidator` rejects it and
+ * `ConditionalHandler.subHandlers` registers no `conditional` sub-handler, so
+ * both the validation and dispatch layers refuse it. Note the contingency —
+ * [InferenceEstimator] itself imposes **no** depth limit, so the whole
+ * justification rests on that external depth-1 rule. If it is ever relaxed, this
+ * fixture set becomes insufficient and the recursion needs its own case.
+ *
  * Two arms have **no Swift sibling** and are added here because
  * [InferenceEstimator] implements them and nothing else would see a regression:
  * `reflect` (shares `vote`'s agent-count arm) and `whisper` / `narrate`, whose
@@ -88,10 +96,16 @@ import kotlin.test.assertEquals
  * 3. **The rounds-multiplier row's 7 incidental reddenings are not redundancy.**
  *    They are why a single dedicated claimant suffices there: no fixture is
  *    *designed* to isolate the multiplier, so the arm is pinned by breadth rather
- *    than by one case. Read the row's exemption as stated, not as "every fixture
- *    with `rounds > 1`" — [codePhasesCostNothing] uses `rounds = 3` and still
- *    stays green, because a zero per-round cost is invariant under the mutation.
- *    Reasoning from the looser rule would read that green as a regression.
+ *    than by one case. The exact invariance condition is per **case**, not per
+ *    fixture: a case survives the mutation iff `perRound == 0 || rounds == 1`.
+ *    That enumerates the right 7 today only because no fixture is made solely of
+ *    invariant cases — [whisperPairsOffAndCountsBothSpeakers]' second case and
+ *    [phaseCostsAreSummedNotReducedAtTopLevelAndInsideABranch]' last two are each
+ *    individually invariant (`rounds = 1`) while their enclosing tests still
+ *    redden on another case. [codePhasesCostNothing] is the one fixture where
+ *    *every* case is invariant, which is why it alone stays green at `rounds = 3`.
+ *    Reasoning from the looser "every fixture with `rounds > 1`" would read that
+ *    green as a regression.
  */
 class InferenceEstimatorTests {
 
@@ -290,9 +304,8 @@ class InferenceEstimatorTests {
             ),
         )
         // The same three phases as a conditional's `then`, with `else` **absent**
-        // rather than present-and-zero: max(9, 0) × 1 round = 9. This is also the
-        // only fixture where `elsePhases` is null, so it is what exercises the
-        // `orEmpty()` path — an `else`-less conditional is a real YAML shape.
+        // rather than present-and-zero: max(9, 0) × 1 round = 9. An `else`-less
+        // conditional is a real YAML shape.
         assertEquals(
             9,
             InferenceEstimator.estimateInferenceCount(
@@ -305,6 +318,27 @@ class InferenceEstimatorTests {
                             condition = "current_round == 1",
                             thenPhases = mixed,
                             elsePhases = null,
+                        ),
+                    ),
+                ),
+            ),
+        )
+        // Mirror image: `then` absent instead. `estimatePhase` has **two**
+        // `orEmpty()` sites and `thenPhases` is just as nullable, so covering only
+        // the `else` one would leave the sibling arm unexercised while looking
+        // like the null path was handled. max(0, 9) × 1 = 9.
+        assertEquals(
+            9,
+            InferenceEstimator.estimateInferenceCount(
+                scenario(
+                    agents = 3,
+                    rounds = 1,
+                    phases = listOf(
+                        Phase(
+                            type = PhaseType.CONDITIONAL,
+                            condition = "current_round == 1",
+                            thenPhases = null,
+                            elsePhases = mixed,
                         ),
                     ),
                 ),
