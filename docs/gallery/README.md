@@ -401,7 +401,7 @@ covers the workflow and the taste calls the gate cannot make.
 ### Curation norms
 
 The gate checks structure. Whether a highlight is worth publishing is a taste
-call, and these four are what the first two batches taught.
+call, and these are what the batches so far have taught.
 
 - **Scenario fitness varies, and it is the biggest factor.** Scenarios whose
   product *is* the utterance (comedy, improv, one-liners) excerpt well.
@@ -424,6 +424,26 @@ call, and these four are what the first two batches taught.
   (「この抜粋を生んだ4人のうち、特にクセの強い2人の設定。」),
   `asch_conformity_v1` only implies it
   (「サクラ4人の"後"に答えさせられるナオキの設定。」), and both are accepted.
+- **An `eliminate` scenario leaks its outcome through the excerpt's speaker
+  set.** Quoting N speakers in round *k* and N−1 of those same speakers in
+  round *k+1* identifies the eliminated speaker by omission. ADR-029's
+  position rule is keyed to phase visibility within a round, so it cannot see
+  this — it is purely a curation trap. More weakly, *any* round *k+1* quote
+  proves that speaker survived round *k*. `oogiri_knockout_v1`'s batch-2
+  excerpt is round 1 only, because its round-1 eliminee
+  (`理屈っぽい教授モドキ`) was precisely the speaker a two-round excerpt would
+  have dropped. The safe fallback is a single-round excerpt, which carries no
+  elimination-order information at all.
+- **Check a pick against the speaking persona's own `例:`.** A persona
+  description's `例:` lines are part of the prompt, so when one of them
+  happens to be an ideal answer to the topic, the model reproduces it
+  verbatim rather than inventing anything. `oogiri_knockout_v1`'s
+  `一言必殺のゼロ次` emitted its example line unchanged in two independent
+  draws, so it is in neither the excerpt nor the hook fragment. Publishing
+  such a line would show the flagship "real run" quoting its own prompt — and
+  the full YAML is one tap away in the app, so a reader can see it. This bites
+  hardest for a `yaml_hook` persona slice, since the excerpt and the `例:`
+  would then render on the same screen.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
