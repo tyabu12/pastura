@@ -360,13 +360,11 @@ class InferenceEstimatorTests {
 
     @Test
     fun aHugeSubRoundsCountDoesNotOverflowThirtyTwoBits() {
-        // The reason [InferenceEstimator.estimateInferenceCount] returns `Long`.
-        // `ScenarioValidator` caps `agentCount` (10) and `rounds` (30) before
-        // calling it, but nothing caps a phase's `sub_rounds`. 10 × 300,000,000
-        // exceeds `Int.MAX_VALUE`, so an `Int` port wraps to a negative value —
-        // and a ported validator would then **accept** a scenario Swift rejects
-        // via `estimatedInferencesExceedsMaximum`, which is a divergence, not a
-        // formatting difference. Swift computes this in 64 bits; so does this.
+        // The fixture behind the `Long` return type: 10 × 300,000,000 exceeds
+        // `Int.MAX_VALUE`, so an `Int` port wraps here. Why that is a divergence
+        // rather than a cosmetic difference — and why `sub_rounds` is the one
+        // uncapped input that can reach it — is on the KDoc of
+        // [InferenceEstimator.estimateInferenceCount].
         assertEquals(
             3_000_000_000L,
             InferenceEstimator.estimateInferenceCount(

@@ -36,13 +36,11 @@ import kotlin.test.assertTrue
  *
  * [ScenarioValidationMessage.render] is a single common-code function today, so
  * pinning its English output here is sound. The day `render()` becomes an
- * `expect`/`actual` leaf (see its own KDoc's "Stage-5 debt" section), these
- * single-locale full-string pins go stale for every target whose `actual`
- * localizes, and need a per-source-set parameterization. `shared/models`
- * declares five targets (`jvm`, `iosArm64`, `iosSimulatorArm64`, `iosX64`,
- * `macosArm64`) — but the count that matters is source sets, not targets, since
- * the Apple ones share a parent. Re-derive it from `build.gradle.kts` at that
- * point rather than from this sentence.
+ * `expect`/`actual` leaf, these single-locale full-string pins go stale for
+ * every target whose `actual` localizes, and need a per-source-set
+ * parameterization — see `render()`'s own KDoc, "The Stage-5 debt this
+ * creates", which also says how to count the source sets those `actual`s land
+ * in.
  *
  * ## Rejected alternative: a per-case `template` property
  *
@@ -350,7 +348,6 @@ class ScenarioValidationMessageTests {
             "Phase 9 is a narrate phase, which is not allowed inside a conditional.",
         ScenarioValidationMessage.RequiresOutputField(label = "Phase 1", type = "reflect", field = "note") to
             "Phase 1 (reflect) requires field 'note' in output.",
-        // Four %@ — arg order is label, type, canonical, key.
         ScenarioValidationMessage.SecondaryFieldMismatch(
             label = "Phase 2", type = "vote", canonical = "reason", key = "inner_thought",
         ) to

@@ -15,10 +15,9 @@ package com.pastura.models
  * with its own 21 messages (Ordering 8 / Config 7 / Conditions 3 /
  * Placeholders 3 — measured against
  * `Pastura/Pastura/Engine/ScenarioSemanticLinter+*.swift`), which are not here
- * and grow this type when `ScenarioSemanticLinter` is ported. Say so up front,
- * because `ScenarioValidationMessageTests` pins the case count at 53: without
- * this note, the linter slice reads that failing pin as a mystery regression
- * rather than as the pin doing its job.
+ * and grow this type when `ScenarioSemanticLinter` is ported — at which point
+ * `ScenarioValidationMessageTests`' count pin fails by design, not as a
+ * regression.
  *
  * ## Landed as infra
  *
