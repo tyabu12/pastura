@@ -97,7 +97,8 @@ own argument, a figure a canonical site already states — belongs in the PR bod
 or an ADR. Move the whole block, never a clause: a backward-looking sentence is
 routinely what makes the forward rule intelligible. But **volume** is the
 commoner defect, tracks the model rather than recency, and is fixed by
-rewriting shorter, not deleting — so watch the count before the length. Past
+rewriting shorter, not deleting — and it is spread over how many blocks you
+write and how long each is, so watch both. Past
 ~10 lines (the concise baseline's top tenth) rewrite once at half length and
 **the rewrite wins**, unless it dropped a forward-looking fact, which a `///`
 block of measured values usually would. Rates, three refuted gate designs, the

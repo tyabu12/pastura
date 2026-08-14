@@ -141,11 +141,22 @@ median of 3.0 lines, and a ≥12-line trigger fires on 7.8% of concise blocks ag
 ones. A gate at any of those rates teaches its reader to ignore it, so claude-kit's
 `comment-density.py` ships as cohort measurement only.
 
-That calibration also moved the claim: what separates the cohorts is **count, not length** — 16 → 26
-blocks per commit (+63%) against 4.3 → 5.9 lines per block (+37%), over a shared median. A
-length-keyed mechanism aims at the smaller half of its own defect, which is why the rule leads with
-the count. And Fable 5 sits below both cohorts (3.4 lines per block), so recency is the wrong axis:
-it is per model, and re-measuring is the only way to know which one you are on.
+**A block count is only as good as its denominator, so lead with the measures that carry their own.**
+Over `1f8836ef..9a40565a`, comment share of added lines runs 43.0% → 55.0% and lines per block 4.31 →
+5.68 (+32%) — each a ratio by construction. The block *count* moves with whatever you divide it by:
++31% per 100 added code lines, +10% per Swift file touched, +63% per commit. It moves with the
+counting rule too — the per-file figure above lands flat (2.98 vs 3.03) counting `//` and `///`
+separately, where kit's tool counts them together. Both dimensions rise and neither dominates, so
+the rule watches both rather than ordering them.
+
+kit briefly read that +63% as "count, not length" before catching the same confound this section
+already names above: the verbose cohort's commits add 108 → 179 code lines, so a per-commit count
+banks commit size as a comment habit. Fable 5 is the check — most concise on every self-normalizing
+measure (32.1% share, 3.35 lines per block, 14.1 blocks per 100 lines) and *least* concise on both
+raw ones (24 per commit against 16, 3.57 per file against 3.08), because it writes 39.8 lines per
+file against 22.4. A metric that ranks the most concise model as the most verbose is measuring its
+denominator. Recency is the wrong axis too: it is per model, and re-measuring is the only way to
+know which one you are on.
 
 Compression is still the safe remedy — it cannot delete a category of content the way moving a block
 can. What has no support is a per-commit threshold.
