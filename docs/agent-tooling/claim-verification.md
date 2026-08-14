@@ -104,6 +104,15 @@ negative control shows why the block is the unit: three were unambiguous keeps, 
 from a true instance by a following sentence turning the history into a live constraint, **a
 payload, not a tense**.
 
+**Word the trigger as an absence, and state precedence.** Running the drafted `code-reviewer` bullet
+over six real blocks caught two more defects, both invisible on re-reading. "Flag when *every*
+sentence merely reports" cannot be audited — an agent cannot point at what convinced it — whereas
+"flag when *no* sentence states a durable claim" makes the saving sentence citable, and a one-
+sentence block silently degenerates under the first form since clause and block coincide. And a rule
+carrying both a trigger and a "never cut a load-bearing clause" safeguard must say which wins, or a
+block that fires the trigger while holding a live pointer yields either a deleted pointer or an
+unactionable finding.
+
 The duplicated-figure shape needs a **repo-side grep**, not a review agent. `code-reviewer` bails
 `SCOPE_TOO_LARGE` above ~800 lines or ~8 files, and every commit that motivated this rule exceeded
 the file bound — so the diff gets split and no shard sees all the sites. Frame it as *new code must
