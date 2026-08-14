@@ -144,10 +144,12 @@ ones. A gate at any of those rates teaches its reader to ignore it, so claude-ki
 **A block count is only as good as its denominator, so lead with the measures that carry their own.**
 Over `1f8836ef..9a40565a`, comment share of added lines runs 43.0% → 55.0% and lines per block 4.31 →
 5.68 (+32%) — each a ratio by construction. The block *count* moves with whatever you divide it by:
-+31% per 100 added code lines, +10% per Swift file touched, +63% per commit. It moves with the
-counting rule too — the per-file figure above lands flat (2.98 vs 3.03) counting `//` and `///`
-separately, where kit's tool counts them together. Both dimensions rise and neither dominates, so
-the rule watches both rather than ordering them.
++31% per 100 added code lines, +10% per Swift file touched, +63% per commit. The per-file figure
+above lands flat instead (2.98 vs 3.03), and the cause is *not* isolated: that pass counted `//` and
+`///` separately over 23 vs 145 commits on a sliding range, where kit's tool merges them over a
+pinned 26 vs 123 — counting rule and sample both differ. The same gap sits under lines per block,
++21% there against +32% here. Both dimensions rise and neither dominates, so the rule watches both
+rather than ordering them.
 
 kit briefly read that +63% as "count, not length" before catching the same confound this section
 already names above: the verbose cohort's commits add 108 → 179 code lines, so a per-commit count
