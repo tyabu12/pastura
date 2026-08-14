@@ -1100,5 +1100,20 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo
 expect_fail "C4 a phase_started without phase_path is refused"
 expect_out "no usable \`phase_path\`" "C4 names the missing field"
 
+# C5 — a `phases` list that DRIFTED from its YAML cannot disable the refusal.
+# gallery.json's `phases` is denormalized and nothing on a highlight PR's path
+# re-derives it: this gate never reads it against the YAML, and the iOS-side
+# `GallerySeedYAMLTests.galleryPhasesMatchYAML` is skipped for a `docs/`-only
+# changeset — the shape every highlight batch has. So the refusal reads the YAML
+# too, and this arm is what proves the YAML side is live rather than decorative.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
+# Drop `conditional` from the INDEX only; the YAML still declares it.
+jq '.scenarios |= map(if .id == "cond_v1" then .phases = ["speak_each","summarize"] else . end)' \
+  "$R/docs/gallery/gallery.json" > "$R/t" && mv "$R/t" "$R/docs/gallery/gallery.json"
+mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C5 a drifted phases list cannot disable the refusal"
+expect_out "sibling scenario YAML" "C5 names the YAML as the source that caught it"
+
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1

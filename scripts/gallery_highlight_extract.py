@@ -390,7 +390,8 @@ def main():
     blocklist = ghv.load_blocklist(args.blocklist)
     failures = ghv.check_content(
         doc, entry, blocklist, f"[{args.id}]",
-        personas=(persona_names, None), allowed_model_ids=allowed_model_ids)
+        personas=(persona_names, None), allowed_model_ids=allowed_model_ids,
+        yaml_has_conditional=ghv.scenario_declares_conditional(scenario))
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

@@ -103,6 +103,31 @@ if [ -e "$TMP/out2.yaml" ]; then
   echo "FAIL: (b) wrote an output despite refusing" >&2; fail=1
 fi
 
+# (c) Negative — an event BEFORE the first `phase_started` is refused too. The
+# missing-`phase_path` guard (b) covers only one of the two ways the index can
+# be absent; the other was the `phase_idx = 0` initializer, which invented the
+# same index the guard exists to stop.
+cat > "$TMP/early.jsonl" <<'JSONL'
+{"type":"run_start","run_id":"r1","date":"2026-08-14T00:00:00Z","scenario_id":"fixture_v1","language":"ja","model":"Gemma 4 E2B (Q4_K_M)"}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":1}
+{"type":"event","t":0.2,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"ひとこと。"}}
+{"type":"run_end","run_id":"r1","status":"ok","attempts":1,"duration_sec":1.0}
+JSONL
+set +e
+out_c="$(python3 "$CONVERTER" "$TMP/early.jsonl" "$TMP/preset.yaml" "$TMP/out3.yaml" 2>&1)"
+rc_c=$?
+set -e
+if [ "$rc_c" -eq 0 ]; then
+  echo "FAIL: (c) an event before the first phase_started was accepted: $out_c" >&2; fail=1
+else
+  case "$out_c" in
+    *"precedes the first"*)
+      echo "ok   (c) an event before the first phase_started is refused by name" ;;
+    *)
+      echo "FAIL: (c) refused, but not with the intended message: $out_c" >&2; fail=1 ;;
+  esac
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "jsonl-to-demo-replay-test: all arms passed"
 else

@@ -23,9 +23,16 @@ Mapping:
   - `summary`       -> `summary`
   - `event_injected`-> `eventInjected`
   - `pairing_result`-> `pairingResult`
-`phase_index` is taken from the most recent `phase_started.phase_path[0]`
-(these scenarios have flat phase lists, so the first path element is the
-phase index the demo schema expects).
+`phase_index` is taken from the most recent `phase_started.phase_path[0]`,
+which indexes the scenario's TOP-LEVEL phase list. That is the index the demo
+schema expects **only while the preset's phase list is flat**: a `conditional`
+reaches its branch sub-phases through a nested `phase_path`, so their
+top-level index names the conditional rather than the phase that spoke.
+No preset under `Resources/DemoPresets/` uses one today, but four bundled
+presets do (`word_wolf{,_en}`, `target_score_race{,_en}`) — promoting one here
+needs the branch-aware derivation tracked in #1473, not just a re-capture.
+`BundledDemoReplaySource` catches the mismatch only when
+`phases[idx].type` happens not to match the emitted `phase_type`.
 
 Recapture workflow (full demo-set swap):
   1. Run each scenario N times through the harness:
@@ -177,7 +184,22 @@ def main():
     preset = yaml.safe_load(open(a.preset, encoding="utf-8"))
 
     turns, code = [], []
-    round_no, phase_idx, phase_type_cur = 0, 0, ""
+    # `phase_idx` starts None, not 0: an event reaching the emit sites below
+    # before the first `phase_started` has no index, and 0 would be the same
+    # invention the `phase_path` guard exists to stop — removed from one source
+    # only, it would survive here. (`round_no` is left at 0; this guard is about
+    # `phase_index`, and nothing here has measured what a round-0 turn does
+    # downstream.)
+    round_no, phase_idx, phase_type_cur = 0, None, ""
+
+    def emitted_phase_index():
+        """The current phase index, or refuse. Reads `phase_idx` live."""
+        if phase_idx is None:
+            raise SystemExit(
+                f"jsonl_to_demo_replay: an event in {a.run} precedes the first "
+                "`phase_started`, so phase_index cannot be derived.")
+        return phase_idx
+
     for l in lines:
         if l.get("type") != "event":
             continue
@@ -216,7 +238,7 @@ def main():
         elif e == "agent_output":
             turns.append({
                 "round": round_no,
-                "phase_index": phase_idx,
+                "phase_index": emitted_phase_index(),
                 "phase_type": l["phase_type"],
                 "agent": l["agent"],
                 "fields": ordered_fields(l["fields"]),
@@ -227,7 +249,7 @@ def main():
             value = l.get("value", "")
             code.append({
                 "round": round_no,
-                "phase_index": phase_idx,
+                "phase_index": emitted_phase_index(),
                 "phase_type": phase_type_cur,
                 "summary": value,
                 "payload": {"kind": "sharedAssignment", "value": value},
@@ -239,7 +261,7 @@ def main():
             agent, value = l.get("agent", ""), l.get("value", "")
             code.append({
                 "round": round_no,
-                "phase_index": phase_idx,
+                "phase_index": emitted_phase_index(),
                 "phase_type": phase_type_cur,
                 "summary": f"{agent} assigned: {value}",
                 "payload": {"kind": "assignment", "agent": agent, "value": value},
@@ -247,7 +269,7 @@ def main():
         elif e in CODE_KIND:
             code.append({
                 "round": round_no,
-                "phase_index": phase_idx,
+                "phase_index": emitted_phase_index(),
                 "phase_type": l.get("phase_type") or phase_type_cur,
                 "summary": code_summary(l),
                 "payload": code_payload(l),

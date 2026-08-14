@@ -462,7 +462,7 @@ def _check_yaml_hook_fragment(doc, where):
     return failures
 
 
-def _check_position(doc, entry, where):
+def _check_position(doc, entry, where, yaml_has_conditional):
     """Decision 3's two-part position rule, against the index entry.
 
     Also the home of the `conditional`-scenario refusal: the rule is stated in
@@ -497,13 +497,23 @@ def _check_position(doc, entry, where):
     # the remaining phase-index checks read an index this entry cannot supply
     # meaningfully. It also skips the round-window arms, which would have been
     # derivable; they are worth nothing on a highlight that cannot ship.
-    if "conditional" in phases:
-        return [f"highlight: conditional scenario — {where} the entry's `phases` list "
-                "contains `conditional`, whose branch sub-phases are flattened into "
-                "it. `phase_index` is not branch-aware, so neither the index nor the "
-                "within-round bound can be derived correctly (#1473). Highlights are "
-                "refused for this scenario class until that lands — including a pick "
-                "before the conditional, which is sound but not distinguishable here."]
+    #
+    # Both sources are consulted, and either one alone triggers the refusal. The
+    # index's `phases` is denormalized from the YAML and nothing on a highlight
+    # PR's path re-derives it (see `scenario_declares_conditional`), so keying on
+    # it alone leaves a drifted index able to disable the guard; keying on the
+    # YAML alone would miss an index that claims a conditional the YAML no longer
+    # has. Disagreement between them is itself a reason not to publish.
+    if "conditional" in phases or yaml_has_conditional:
+        source = ("the entry's `phases` list" if "conditional" in phases
+                  else "the sibling scenario YAML's `phases:`")
+        return [f"highlight: conditional scenario — {where} {source} contains "
+                "`conditional`, whose branch sub-phases are flattened into the "
+                "index's list. `phase_index` is not branch-aware, so neither the "
+                "index nor the within-round bound can be derived correctly (#1473). "
+                "Highlights are refused for this scenario class until that lands — "
+                "including a pick before the conditional, which is sound but not "
+                "distinguishable here."]
     if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
         return [f"highlight: schema — {where} gallery.json entry has no usable "
                 "`rounds` value to compute the round window"]
@@ -627,6 +637,33 @@ def scenario_persona_names(scenario):
     return names
 
 
+def scenario_declares_conditional(scenario):
+    """-> True / False from the scenario YAML's TOP-LEVEL `phases:`, or None.
+
+    Read from the YAML rather than from `gallery.json`'s denormalized `phases`
+    because nothing on a highlight PR's path re-derives that field: the gate
+    never reads it against the YAML, and its only cross-check
+    (`GallerySeedYAMLTests.galleryPhasesMatchYAML`) sits in the iOS suite, which
+    `precommit-gate-classify.sh` skips for a `docs/`-only changeset — the shape
+    every highlight batch has. A `phases` list that lost its `conditional`
+    would otherwise disable the refusal silently.
+
+    `None` means the list could not be read at all; the caller treats that as
+    "cannot verify" rather than "no conditional".
+    """
+    if not isinstance(scenario, dict):
+        return None
+    phases = scenario.get("phases")
+    if not isinstance(phases, list) or not phases:
+        return None
+    for phase in phases:
+        if not isinstance(phase, dict) or not isinstance(phase.get("type"), str):
+            return None
+        if phase["type"] == "conditional":
+            return True
+    return False
+
+
 def _check_persona_index(doc, personas, where):
     """Cross-reference `excerpt[].persona_index` against the sibling YAML.
 
@@ -681,7 +718,8 @@ def _check_persona_index(doc, personas, where):
     return failures
 
 
-def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
+def check_content(doc, entry, blocklist, where, personas, allowed_model_ids,
+                  yaml_has_conditional):
     """Every rule derivable from the highlight doc + its index entry.
 
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
@@ -698,9 +736,11 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
     once excluded a member the vagueness had covered. Widen, do not enumerate.
 
     `personas` is ``_read_persona_names``'s `(names, reason)` pair;
-    `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``. Both
-    are required rather than defaulted, so a caller cannot skip a check by
-    omission — the gate is the only place either failure would surface.
+    `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``;
+    `yaml_has_conditional` is ``scenario_declares_conditional``'s tri-state read
+    of the sibling YAML (`None` = unreadable). All three are required rather
+    than defaulted, so a caller cannot skip a check by omission — the gate is
+    the only place any of these failures would surface.
     """
     failures = _check_schema(doc, where)
     failures += _check_excerpt_shape(doc, where)
@@ -708,7 +748,7 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
     failures += _check_source_model(doc, allowed_model_ids, where)
     failures += _check_yaml_hook_secret(doc, where)
     failures += _check_yaml_hook_fragment(doc, where)
-    failures += _check_position(doc, entry, where)
+    failures += _check_position(doc, entry, where, yaml_has_conditional)
     failures += check_blocklist(doc, blocklist, where)
     return failures
 
@@ -719,6 +759,21 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids):
 def _entry_index(gallery_json):
     with open(gallery_json, encoding="utf-8") as f:
         return json.load(f).get("scenarios") or []
+
+
+def _read_scenario(yaml_path):
+    """-> the parsed sibling scenario YAML, or None if it cannot be read.
+
+    Both `_read_persona_names` and the conditional refusal need the same file;
+    parsing it once here keeps them from disagreeing about what it says.
+    """
+    if yaml is None:
+        return None
+    try:
+        with open(yaml_path, encoding="utf-8") as f:
+            return yaml.safe_load(f)
+    except (OSError, UnicodeDecodeError, yaml.YAMLError, RecursionError):
+        return None
 
 
 def _read_persona_names(yaml_path):
@@ -841,6 +896,10 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
 
         yaml_path = os.path.join(gallery_dir, os.path.basename(entry.get("yaml_url", "")))
         personas = (None, f"the sibling scenario YAML {yaml_path} is missing")
+        # Bound here, like `personas`, so the missing-YAML path below does not
+        # leave it unbound. `None` = cannot verify; that path already fails the
+        # highlight on the persona check, so it never ships unverified.
+        yaml_has_conditional = None
         if not os.path.isfile(yaml_path):
             failures.append(
                 f"highlight: yaml_sha256 mismatch — id={entry_id} sibling YAML "
@@ -855,10 +914,13 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
                     f"YAML bytes hash to {yaml_sha}. Regenerate or delete the highlight "
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
             personas = _read_persona_names(yaml_path)
+            yaml_has_conditional = scenario_declares_conditional(
+                _read_scenario(yaml_path))
 
         failures += check_content(
             doc, entry, blocklist, where,
-            personas=personas, allowed_model_ids=allowed_model_ids)
+            personas=personas, allowed_model_ids=allowed_model_ids,
+            yaml_has_conditional=yaml_has_conditional)
 
     for path in sorted(on_disk - referenced):
         rel = os.path.relpath(path, os.path.dirname(gallery_dir))
