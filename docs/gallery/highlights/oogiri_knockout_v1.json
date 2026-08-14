@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "oogiri_knockout_v1",
+    "yaml_sha256": "9675bfa9cda85c848cfed97dbdc568280ddeebc06c466f4cbd24cbb8393cd5b3"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260814-093449-bccc",
+    "generated_at": "2026-08-14"
+  },
+  "excerpt": [
+    {
+      "agent": "不謹慎すれすれ黒岩",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "夕飯出るなら押すしかなくない？"
+    },
+    {
+      "agent": "ほのぼの天然のなぎ",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "ボタン押す前に、夕飯のメニューを教えてください。"
+    },
+    {
+      "agent": "理屈っぽい教授モドキ",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "世界が終わる確率と夕飯の満足度、どちらがより非合理的な選択なのかというパラドックスだ。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: ほのぼの天然のなぎ\n    description: >\n      【立場】本気でズレた発言をする素の天然。\n      【目的】悪気なく的外れなことを言って和ませる。\n      例:「夕飯、私カレーがいいな。」\n  - name: 理屈っぽい教授モドキ\n    description: >\n      【立場】何でも小難しく分析したがる自称インテリ。\n      【目的】大げさな理屈で一言をこじらせる。\n      例:「これは選択の不可能性、いわば現代の実存的ジレンマだ。」",
+    "caption": "片方は何も考えずに即答し、片方は考えているうちに答えを見失う。毎ラウンド一人ずつ消える場では、この差がそのまま明暗になる。"
+  },
+  "teaser": "一言だけで戦って、面白くなかった者から消えていく。最後の一人になるまでの3ラウンドをアプリで。",
+  "window_override": false,
+  "content_filter_applied": true
+}

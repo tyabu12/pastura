@@ -1045,5 +1045,71 @@ expect_out "Pass --model with the registry id" "E15 names the escape hatch"
 # lost its `^\s*` anchor. This is the control for that anchoring — an unrelated
 # string would be rejected under either anchor, i.e. would measure nothing.
 
+# --- conditional-scenario refusal (#1473) ---------------------------------
+#
+# The refusal lives in `_check_position`, which `check_content` dispatches for
+# BOTH the gate and the extractor — so it is asserted on both, not on whichever
+# one happens to be convenient.
+#
+# The fixture YAML writes `- type: conditional` with no `then:`/`else:` branch,
+# which a real scenario would never do. Deliberate: the check reads the entry's
+# flattened `phases`, never the tree, and mk_scenario cannot nest. An arm that
+# needs the tree belongs with #1473's branch-aware work, not here.
+
+# C1 — a conditional-bearing scenario is refused at the gate.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
+mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C1 gate refuses a conditional-bearing scenario"
+expect_out "highlight: conditional scenario" "C1 names the refused class"
+expect_out "#1473" "C1 points at the follow-up that lifts it"
+
+# C2 — control: the same fixture without the `conditional` entry passes. Without
+# this, C1 would also pass if the refusal fired on every scenario.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" cond_v1 '["speak_each","summarize"]'
+mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
+gate "$R"; expect_ok 'C2 the same fixture minus the conditional entry still passes'
+
+# C3 — and the extractor refuses it too, from the shared dispatch rather than a
+# second copy of the predicate.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
+mk_run "$R" "$R/run.jsonl"; mk_selection "$R" "$R/sel.json"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3 extractor refuses a conditional-bearing scenario"
+expect_out "highlight: conditional scenario" "C3 names the same class as the gate"
+
+# C4 — a `phase_started` with no `phase_path` is refused rather than defaulted
+# to top-level index 0. The earlier `or [0]` fallback asserted a position the
+# transcript never stated, and every downstream check read it as measured.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_run "$R" "$R/run.jsonl"; mk_selection "$R" "$R/sel.json"
+python3 - "$R" <<'PY'
+import sys
+p = sys.argv[1] + "/run.jsonl"
+text = open(p, encoding="utf-8").read()
+old = '"phase_type":"speak_each","phase_path":[0]'
+assert text.count(old) == 2, f"anchor matched {text.count(old)} times — probe invalid"
+open(p, "w", encoding="utf-8").write(
+    text.replace(old, '"phase_type":"speak_each"'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --selection sel.json
+expect_fail "C4 a phase_started without phase_path is refused"
+expect_out "no usable \`phase_path\`" "C4 names the missing field"
+
+# C5 — a `phases` list that DRIFTED from its YAML cannot disable the refusal.
+# Nothing on a highlight PR's path re-derives that denormalized field (why:
+# `scenario_declares_conditional`'s docstring), so the refusal reads the YAML
+# too — this arm is what proves that side live rather than decorative.
+R="$(new_repo)"; init_index "$R"
+mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
+# Drop `conditional` from the INDEX only; the YAML still declares it.
+jq '.scenarios |= map(if .id == "cond_v1" then .phases = ["speak_each","summarize"] else . end)' \
+  "$R/docs/gallery/gallery.json" > "$R/t" && mv "$R/t" "$R/docs/gallery/gallery.json"
+mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C5 a drifted phases list cannot disable the refusal"
+expect_out "sibling scenario YAML" "C5 names the YAML as the source that caught it"
+
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
