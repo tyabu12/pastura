@@ -93,6 +93,24 @@ extension DesignTokensTests {
   /// `.caption2` 11pt bold against the lower ≥14pt half. Both clear, so 3:1
   /// never applies to any of them — but a new row has to re-check the half its
   /// weight selects, not just compare point sizes.
+  ///
+  /// **`.semibold` counts as the ≥18pt half here**, decided once so it is not
+  /// re-guessed per row: WCAG's "bold" is conventionally ≥700 and `.semibold`
+  /// is 600, so routing it to ≥14pt would pick the *more permissive* threshold
+  /// on a weight WCAG does not call bold. Three rows are `.semibold` today
+  /// (`HomePausedCard.eyebrow`, `GalleryCatalogRow.categoryChip`,
+  /// `PhaseEditorSheet.fieldPill`) and all are ≤11pt, so nothing turns on it
+  /// yet — the rule is written down now precisely because the case that would
+  /// turn on it (a 14–17pt `.semibold` row) is the one a reader would get wrong.
+  ///
+  /// **None of this is executed.** `MossWashSite` stores a wash token and two
+  /// alphas, never a font, so no arm can observe a size or weight and a row
+  /// added with a large-text label would be held to 4.5 regardless — the
+  /// conservative direction, but unenforced. Making it a mechanism means adding
+  /// `pointSize` + a weight half to the row type and asserting per row — not
+  /// done here, and deliberately said out loud: the previous superlative in
+  /// this doc survived until a new row falsified it and only a hand census
+  /// caught that, so treat the paragraph above as a convention, not a guard.
   private static let textBar = 4.5
 
   /// The grounds are deliberately the **worst case per appearance**, not the

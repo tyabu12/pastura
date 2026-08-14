@@ -146,11 +146,30 @@ enum PasturaPalette {
   static let moss = PasturaColorValue(hex: 0x8A9A6C)
   /// DL progress dot (lit), accent links.
   static let mossDark = PasturaColorValue(hex: 0x6B7852)
-  /// Dog outline, completion title.
+  /// Dog outline, completion title, completed status-pill label.
+  ///
+  /// **Those meanings are the whole licence, not examples.** On a *translucent*
+  /// moss-family wash this step may be used only for them — design-system §8's
+  /// single exception, whose condition (1) reads §2.3's role list as
+  /// exhaustive. Any other meaning on such a ground routes to ``mossOnWash``
+  /// instead, and painting this step there is a routing defect even when the
+  /// ratio clears AA: see §8's closing ⚠️. `HomePausedCard`'s progress readout
+  /// was exactly that and moved to ``mossOnWash`` in #1459.
+  ///
+  /// An **opaque** `mossSoft` ground is the other story — there this step is
+  /// the correct pairing (§2.6, 6.537).
   static let mossInk = PasturaColorValue(hex: 0x3D4030)
   /// THINKING left-rule, gentle dividers.
   static let mossSoft = PasturaColorValue(hex: 0xD4CBA8)
-  /// Accent text on a translucent moss wash — badges, chips, status pills.
+  /// Accent text on a translucent moss wash — badges, chips, status pills,
+  /// card-surface eyebrows, progress readouts.
+  ///
+  /// **That list is illustrative, unlike ``mossInk``'s.** §8 routes to this
+  /// token by the *ground's family*, not by the label's meaning, so a meaning
+  /// absent from the list still lands here. ``mossInk``'s list is the opposite:
+  /// §8's exception condition (1) reads it as exhaustive, so adding a role
+  /// there widens the exception. ADR-028 names this doc comment and
+  /// design-system §2.3 as the two homes of that asymmetry — keep them in step.
   ///
   /// **Not a fifth rung of the ladder above.** Its job is to *read against a
   /// ground*, not to be a step, so the value is solved from the 4.5:1 target on

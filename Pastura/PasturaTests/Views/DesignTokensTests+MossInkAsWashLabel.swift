@@ -81,14 +81,20 @@ extension DesignTokensTests {
   /// admits — but that is an outcome, not a property of the fixture, and a row
   /// landing here does not thereby become justified.
   ///
-  /// **"The rows here satisfy §8's four conditions" is the wrong summary**, and
-  /// it fails per row for opposite reasons. `ResultsView.completed` **is**
-  /// condition (2)'s shipped precedent, so saying it meets (2) is circular.
-  /// `GameHeader.statusPill` does satisfy all four — §8 enumerates them for it,
-  /// (2) being met by that same `ResultsView` pill, which predates the
-  /// exception — but §8's carve-out then bars *it* from serving as (2) for the
-  /// next site. Reading any row here as precedent is the ratchet that carve-out
-  /// exists to stop.
+  /// **"The rows here satisfy §8's four conditions" is the wrong summary.**
+  /// Judge each row on its own; the reasons do not generalise, and no claim
+  /// here should be phrased over the set:
+  ///
+  /// - `ResultsView.completed` **is** condition (2)'s shipped precedent, so
+  ///   saying it meets (2) is circular.
+  /// - `GameHeader.statusPill` does satisfy all four — §8 enumerates them for
+  ///   it, (2) being met by that same `ResultsView` pill, which predates the
+  ///   exception — but §8's carve-out then bars *it* from serving as (2) for
+  ///   the next site.
+  ///
+  /// Reading any row here as precedent is the ratchet that carve-out exists to
+  /// stop. Keep this list per row rather than summarising it: a summary is a
+  /// count in words, and the size pin is the authority on how many.
   /// `HomePausedCard.progress` was the one divergence until #1459 repointed it
   /// to `mossOnWash`: it cleared the bar, yet "Round X / Y" is none of the roles
   /// §2.3 assigns `--moss-ink`, so its routing was unjustified rather than
