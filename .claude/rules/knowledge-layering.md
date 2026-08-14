@@ -89,6 +89,17 @@ See PR #420 for the motivating incident. Why the prose example above is
 written with a `<name>` placeholder rather than carved out, and why the file
 set matters more than the pattern: the doc's § "The rule-assertion case".
 
+## Anti-pattern: a comment written for the reviewer
+
+Same misfiling, one tier down. A comment is read by the **next editor**, so a
+block saying *only* what this change did — provenance, the diff's own argument,
+a figure a canonical site already states — belongs in the PR body or an ADR.
+Act on the **whole block**, never a clause: a backward-looking sentence is
+routinely what makes the forward rule intelligible. And expect **length**, not
+misfiling, to be the defect you actually find — current models state the same
+content markedly longer. False-flag rates and the duplicated-figure grep: the
+doc's § "A comment written for the reviewer".
+
 ## Verify before you lock it
 
 One discipline, three moments where a claim becomes load-bearing and nobody downstream will check it — the author is the only one positioned to run it.

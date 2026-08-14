@@ -52,7 +52,8 @@ Authored at implementation *or review-fix* time, and executed by nobody. The rul
 one-line version of each; the elaborations are what get missed.
 
 - **Why-comment on a mechanism** → delete the mechanism and run the tests. Green means the claim is
-  false, or the tests never covered it.
+  false, or the tests never covered it. Its *destination* is a separate question — see § "A comment
+  written for the reviewer" below.
 - **A detector / guard / gate** → construct the thing it claims to catch and confirm it fires. A
   guard's success case proves nothing; only a negative control does. Scope it to the claim it
   defends: a check narrower than that claim (a files-only loop behind a files-and-directories
@@ -73,6 +74,45 @@ one-line version of each; the elaborations are what get missed.
 
 When a check is too expensive to run, say the cause was not isolated. A reader can act on an
 acknowledged gap; a wrong cause they can only inherit.
+
+## A comment written for the reviewer
+
+Backs the rule's § "Anti-pattern: a comment written for the reviewer". A comment whose only content
+is what *this* change did addresses the reviewer, not the next editor.
+
+**The form that survived a negative control**: flag a block only when *every* sentence in it is a
+backward-looking report, or when it restates a figure with a canonical site elsewhere. Over 169
+comment blocks from two model generations of this repo's own history (#1479), that caught every true
+instance with no false positives.
+
+**Do not key it on wording instead.** Tense is the tempting discriminator — "must stay identical to
+X" constrains, "was left identical to X" reports — and on that corpus it had to decide 17 blocks and
+got 4 wrong. It reads the grammatical head, not the payload:
+
+- `GameHeader.swift`'s "…lives in `LeafIcon.swift`, which owns the default this file used to apply"
+  (stale move record) and `LLMCaller.swift`'s "…live in `LLMCaller+Logging.swift` to keep this file
+  under SwiftLint's `file_length` budget" (live breadcrumb) have identical grammar.
+- Duplication is invisible to it — a measured GGUF figure copy-pasted from `ModelRegistry.swift`
+  into the harness's `ModelProfile.swift` is the defect, and every word of it is a legitimate
+  present-tense fact.
+- It strips backward-looking clauses a forward rule depends on (`GalleryHighlight.swift`'s "any
+  required key added *after that* bumps the version").
+
+Per-clause flagging misfires on ~7% of load-bearing blocks, worst on the longest. The four-site
+negative control shows why the block is the unit: three were unambiguous keeps, and the fourth
+(`PlaybackSpeed.swift:9`) is a keep whose cited line *alone* reads as a move record — it differs
+from a true instance by a following sentence turning the history into a live constraint, **a
+payload, not a tense**.
+
+The duplicated-figure shape needs a **repo-side grep**, not a review agent. `code-reviewer` bails
+`SCOPE_TOO_LARGE` above ~800 lines or ~8 files, and every commit that motivated this rule exceeded
+the file bound — so the diff gets split and no shard sees all the sites. Frame it as *new code must
+not add hits*, existing count as an acknowledged baseline (the *reframe* disposition); #1477 is the
+open instance.
+
+**Length is the commoner defect.** In that corpus one generation wrote ~45% more comment lines per
+block and ~50% more blocks per commit at an unchanged A/B/C/D distribution — same content, longer.
+Compressing it loses nothing, and is safer than any rule that deletes a category of content.
 
 ## Reading a probe's outcome
 
