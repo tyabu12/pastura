@@ -253,10 +253,10 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
     self.relayBox = relayBox
   }
 
-  /// Forwarded, not defaulted. Kotlin's interface default for this member does
-  /// not cross K/N (#1472), so every Swift conformer must state it — and a
-  /// transparent decorator that answered with ChatML would mask whatever pair
-  /// the wrapped backend reports, which at Stage 5 is the model's own.
+  /// Forwarded, not defaulted: a transparent decorator answering ChatML would
+  /// mask whatever pair the wrapped backend reports, which at Stage 5 is the
+  /// model's own. (Stated at all because Kotlin's interface default does not
+  /// cross K/N — #1472.)
   ///
   /// Asserted end to end by
   /// `BoundaryContractTests.kotlinTruncatesOnForwardedTurnMarkers`: Kotlin

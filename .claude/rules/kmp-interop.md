@@ -19,9 +19,8 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
   Kotlin-side in `commonMain`** (in scope) and the live gate-spike consumer (in scope) is where
   they compile-fail today.
 - **Plan-time shape trap (Pattern 3)** — fires whenever a plan exercises a K/N type shape; fully
-  in-scope for `shared/**` edits. Its "Same class of trap" list also holds the interface-member
-  default, which a Kotlin-only edit trips with no Swift author present — so triage a red nightly
-  there too.
+  in-scope for `shared/**` edits. Its "Same class of trap" list also covers the interface-member
+  default a Kotlin-only edit trips — triage a red nightly there too.
 - **Port-time traps (Pattern 4)** — fire while writing the Kotlin port and its tests, with no Swift
   consumer involved; fully in-scope for `shared/**` edits.
 
@@ -42,10 +41,9 @@ Kotlin/Native (K/N) ↔ Swift boundary, and inside the Kotlin port itself. Three
 
 > **Artifact note, Patterns 1–2.** The names below are from the models-only `PasturaShared`
 > umbrella the #478 spike consumed; the live consumer imports the separate `PasturaSharedEngine`
-> one (header `PasturaSharedEngine.h`), and ADR-023 §6 forbids linking both. Reading the header
-> answers Pattern 1's question and Pattern 3's interface-default one — both are facts about the
-> emitted text. Pattern 2 is the shape where it misled, because there the question is what Swift
-> does with what was emitted; compile a consumer for that one.
+> one (header `PasturaSharedEngine.h`), and ADR-023 §6 forbids linking both. The header settles
+> what was *emitted* (Pattern 1's question, and Pattern 3's interface-default one); for what Swift
+> then does with it, compile a consumer — Pattern 2 is where header-reading misled.
 
 K/N exports Kotlin classes through Obj-C interop. The generated
 `@interface PasturaSharedFoo : PasturaSharedBase` carries **no `Sendable` conformance** — invisible
@@ -154,17 +152,14 @@ Same class of trap:
 
 - **Default args don't cross** — Swift exports carry no Kotlin default-arg values; pass `nil`
   explicitly.
-- **Interface member defaults don't cross either** — a defaulted `val`/`fun` on an exported
-  `interface` is emitted as a *required* Obj-C member (both arms measured), so adding one stays
-  source-compatible in Kotlin yet breaks every Swift conformer — with no Swift author present, and
-  decision B′ keeping the XCFramework out of per-PR lanes, so the first signal is a red nightly
-  (#1472). Fix the conformers in the same PR. The header settles *this* question on its own: K/N
-  emits no `@optional` section at all, so every interface member lands under `@required` whether
-  or not Kotlin defaulted it — measured on a `val` and a `fun`, Kotlin 2.3.21
-  (`gradle/libs.versions.toml`), 2026-08-14. **Re-grep `@optional` in the regenerated
-  `PasturaSharedEngine.h` after a Kotlin bump** — an `@optional` section appearing flips this,
-  and that edit loads no rule file. Pattern 2 is the shape where header-reading misled; compile a
-  consumer there.
+- **Interface member defaults don't cross either** — K/N emits no `@optional` section at all, so
+  every member of an exported `interface` lands under `@required` whether or not Kotlin defaulted
+  it (measured on a `val` and a `fun`; Kotlin 2.3.21 per `gradle/libs.versions.toml`, 2026-08-14).
+  Adding a defaulted member therefore stays source-compatible in Kotlin yet breaks every Swift
+  conformer — with no Swift author present, and decision B′ keeping the XCFramework out of per-PR
+  lanes, so the first signal is a red nightly (#1472). Fix the conformers in the same PR.
+  **Re-grep `@optional` in the regenerated `PasturaSharedEngine.h` after a Kotlin bump** — an
+  `@optional` section appearing flips this, and that edit loads no rule file.
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).

@@ -85,8 +85,8 @@ public interface LLMBackend {
      *
      * ⚠️ **This default does not cross Kotlin/Native** — measured, #1472. K/N emits the member as
      * a required Obj-C property, so the Phase 3.0 Swift adapter over `LlamaCppService` must state
-     * it explicitly; it cannot inherit ChatML-only. Same for any future defaulted member here:
-     * `.claude/rules/kmp-interop.md` Pattern 3.
+     * it explicitly rather than inherit ChatML-only — as must any future defaulted member here
+     * (`.claude/rules/kmp-interop.md` Pattern 3).
      *
      * The compiler enforces that much. What it does not: this property is read from
      * `Dispatchers.Default`, and `LLMBackend` imports into Swift as an **unannotated** Obj-C

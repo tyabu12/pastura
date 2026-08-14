@@ -411,12 +411,11 @@ struct BoundaryContractTests {
   /// ChatML instead lets the hallucinated continuation through. Nothing in
   /// Swift observes that; only a run does.
   ///
-  /// Both arms are run here rather than borrowing the outcomes from
+  /// Both arms run here rather than borrowing the outcomes from
   /// `JSONResponseParserTurnMarkerTests`' `fencedHallucination`, which this
-  /// fixture mirrors. That suite is a different language *and* a different CI
-  /// lane, and nothing gates the pair: were its fixture to stop discriminating,
-  /// a borrowed control would leave this test passing while asserting nothing —
-  /// the same silent shape the property itself guards against.
+  /// fixture mirrors: that suite is another language and another CI lane, and
+  /// nothing gates the pair — were its fixture to stop discriminating, a
+  /// borrowed control would leave this test passing while asserting nothing.
   @Test("Kotlin truncates on the markers the relaying decorator forwards")
   func kotlinTruncatesOnForwardedTurnMarkers() async throws {
     let fencedHallucination = """
@@ -470,8 +469,8 @@ struct BoundaryContractTests {
   func decoratorForwardsKnownTurnMarkers() {
     // The union form `LLMBackend.knownTurnMarkers` documents — a model's own
     // pair *plus* ChatML — so the fixture is a value a real backend could
-    // report. Differing from ChatML is all the assertion needs; excluding it
-    // would have discriminated just as well while modelling an illegal one.
+    // report. Dropping ChatML would discriminate just as well but break the
+    // union it documents.
     let pair = [
       ChatTurnMarkers(start: "<|turn>", end: "<turn|>"), ChatTurnMarkers.companion.chatML
     ]

@@ -141,10 +141,10 @@ nonisolated public final class ScriptedStreamingBackend: LLMBackend, @unchecked 
   ///   the miscount it is.
   /// - Parameter knownTurnMarkers: Defaults to the Kotlin companion's ChatML
   ///   pair — the value `LLMBackend`'s interface default would supply if it
-  ///   crossed K/N, which it does not (#1472). Injectable so a test can give a
-  ///   decorator something other than ChatML to forward; without that, every
-  ///   conformer in the package returns the same value and forwarding is
-  ///   indistinguishable from hardcoding.
+  ///   crossed K/N, which it does not (#1472). Injectable so a test can hand a
+  ///   decorator a non-ChatML pair to forward — why that is the only way to
+  ///   tell forwarding from hardcoding is on
+  ///   `BoundaryContractTests.decoratorForwardsKnownTurnMarkers`.
   public init(
     responses: [ScriptedResponse],
     knownTurnMarkers: [ChatTurnMarkers] = [ChatTurnMarkers.companion.chatML]
