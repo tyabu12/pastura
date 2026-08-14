@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-08-13._
+_Last updated: 2026-08-14._
 
 ## Stages
 
@@ -33,7 +33,7 @@ _Last updated: 2026-08-13._
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | 🔄 in progress | ↓ Stage 3 breakdown |
 | 4 | Cross-language parity harness | 🔄 in progress | slice 1a landed ([#1387](https://github.com/tyabu12/pastura/issues/1387), closed); 1b next · [#501](https://github.com/tyabu12/pastura/issues/501) |
-| 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · when writing the Swift `LLMBackend` adapter, confirm whether `knownTurnMarkers`' Kotlin interface default crosses K/N — by compiling the adapter, since a `PasturaShared.h` read alone does not settle it (see that member's KDoc) |
+| 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · when writing the Swift `LLMBackend` adapter, confirm whether `knownTurnMarkers`' Kotlin interface default crosses K/N — by compiling the adapter, since a `PasturaShared.h` read alone does not settle it (see that member's KDoc) · ⚠️ en-only `ScenarioValidationMessage.render()` blocks this — [#1464](https://github.com/tyabu12/pastura/issues/1464) |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 
@@ -45,7 +45,7 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
 | Wave B — 14 phase handlers | ✅ 14/14 | checklist ↓ |
 | code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
-| Loader / validator port + `detector`·`logger` wiring | ⬜ not started | remaining Stage-3 units, not the full list · [ADR-023](decisions/ADR-023.md) §4 · #501 |
+| Loader / validator port + `detector`·`logger` wiring | 🟡 partial | validator prerequisites in ([#1464](https://github.com/tyabu12/pastura/issues/1464)); validator / loader / linter / wiring left · [ADR-023](decisions/ADR-023.md) §4 · #501 |
 
 ### Wave B handler checklist
 

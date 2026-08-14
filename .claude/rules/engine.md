@@ -135,7 +135,13 @@ and the build fails:
 
 - `Models/PhaseType.swift` — the case + `requiresLLM`.
 - `Models/ScenarioConventions.swift` — `primaryField` + `thoughtField`.
-- `Engine/ScenarioLoader.swift` — `estimatePhase` (inference count).
+- `Engine/ScenarioLoader.swift` — `estimatePhase` (inference count). Its Kotlin
+  twin `shared/engine/.../InferenceEstimator.kt` has an `else`-free `when` too —
+  but it breaks only once **`shared/models/.../PhaseType.kt` gains the same
+  case**, and nothing gates that mirror: the ADR-023 ledger scopes itself to
+  `Engine/**` + `LLM/**`, so `Models/PhaseType.swift` has no row, and
+  `check-kmp-status.py` checks handlers. Add the Swift case alone and the Kotlin
+  lane stays green while the two enums diverge.
 - `Engine/ScenarioValidator.swift` — `validatePhases` arm (+ a
   `validateRelationshipUpdateShape`-style shape check if the phase needs one).
 - `Views/Components/PhaseGlyph.swift`, `PhaseDisplayName.swift`;

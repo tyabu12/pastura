@@ -80,6 +80,13 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   ///   would artificially block scenarios designed with asymmetric branches
   ///   (e.g. an expensive reflect phase gated behind a rare condition).
   /// - Code phases: 0
+  ///
+  /// **Dual-landed with
+  /// `shared/engine/src/commonMain/kotlin/com/pastura/engine/InferenceEstimator.kt`**
+  /// (spelled out so a move leaves a greppable string behind) — change both
+  /// (ADR-023). Nothing enforces this: the port ledger's `PORT` disposition
+  /// forbids a `kotlin_target`, and `.claude/rules/kmp-interop.md` is scoped to
+  /// `shared/**`, so it never loads for an edit here.
   public static func estimateInferenceCount(_ scenario: Scenario) -> Int {
     let agents = scenario.agentCount
     let perRound = scenario.phases.reduce(0) { $0 + estimatePhase($1, agents: agents) }
