@@ -154,8 +154,11 @@ Same class of trap:
   decision B′ keeping the XCFramework out of per-PR lanes, so the first signal is a red nightly
   (#1472). Fix the conformers in the same PR. The header settles *this* question on its own: K/N
   emits no `@optional` section at all, so every interface member lands under `@required` whether
-  or not Kotlin defaulted it — measured on a `val` and a `fun`. Pattern 2 is the shape where
-  header-reading misled; compile a consumer there.
+  or not Kotlin defaulted it — measured on a `val` and a `fun`, Kotlin 2.3.21
+  (`gradle/libs.versions.toml`), 2026-08-14. **Re-grep `@optional` in the regenerated
+  `PasturaSharedEngine.h` after a Kotlin bump** — an `@optional` section appearing flips this,
+  and that edit loads no rule file. Pattern 2 is the shape where header-reading misled; compile a
+  consumer there.
 - **`val` is read-only in Swift** — a `data class val` property cannot be mutated in place; use
   `.copy(...)` or whole-instance reassignment.
 - **Sealed-class export shape varies** — class vs enum-like surface differs (see Pattern 2).
