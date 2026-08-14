@@ -478,22 +478,32 @@ def _check_position(doc, entry, where):
     if not isinstance(phases, list) or not phases:
         return [f"highlight: schema — {where} gallery.json entry has no `phases` list "
                 "to check the within-round bound against"]
-    # Refused as a class, not merely unsupported. `phases` is the FULLY-FLATTENED
-    # depth-first list (the `conditional`'s own entry, then its then-branch, then
-    # its else-branch), while a transcript's `phase_path` indexes the TOP-LEVEL
-    # list — so `phase_index` means different things on the two sides, and the
-    # prefix below spans branches that never ran together in one round. Both
-    # halves fail loudly today, but only because no shipped scenario continues
-    # past its conditional; one that did could match `phases[idx]` by coincidence
-    # and evaluate the spoiler prefix over the wrong range, silently. Returning
-    # early keeps that speculation out of the report: every later check here
-    # reads an index this entry cannot supply meaningfully.
+    # Refused as a class, and deliberately wider than the broken cases. `phases`
+    # is the FULLY-FLATTENED depth-first list (the `conditional`'s own entry,
+    # then its then-branch, then its else-branch), while a transcript's
+    # `phase_path` indexes the TOP-LEVEL list — so `phase_index` means different
+    # things on the two sides, and the prefix below spans branches that never ran
+    # together in one round.
+    #
+    # A pick BEFORE the conditional in the top-level list is unaffected by the
+    # skew and validates correctly on pre-refusal code; every shipped conditional
+    # scenario has its conditional last, so that is the only shape a curator can
+    # hit here today. It is refused anyway: telling the two apart needs the
+    # branch structure this function does not have, which is #1473's work.
+    # Picks at or inside the conditional fail loudly today, but only because no
+    # shipped scenario continues past its conditional; one that did could match
+    # `phases[idx]` by coincidence and evaluate the spoiler prefix over the wrong
+    # range, silently. Returning early keeps that speculation out of the report —
+    # the remaining phase-index checks read an index this entry cannot supply
+    # meaningfully. It also skips the round-window arms, which would have been
+    # derivable; they are worth nothing on a highlight that cannot ship.
     if "conditional" in phases:
         return [f"highlight: conditional scenario — {where} the entry's `phases` list "
                 "contains `conditional`, whose branch sub-phases are flattened into "
                 "it. `phase_index` is not branch-aware, so neither the index nor the "
                 "within-round bound can be derived correctly (#1473). Highlights are "
-                "refused for this scenario class until that lands."]
+                "refused for this scenario class until that lands — including a pick "
+                "before the conditional, which is sound but not distinguishable here."]
     if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
         return [f"highlight: schema — {where} gallery.json entry has no usable "
                 "`rounds` value to compute the round window"]

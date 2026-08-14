@@ -200,7 +200,18 @@ def main():
             # phase_type — which must equal scenario.phases[phase_index].type
             # (BundledDemoReplaySource rejects the demo otherwise) — has to
             # come from the enclosing phase_started, not the event name.
-            phase_idx = (l.get("phase_path") or [0])[0]
+            # Refuse rather than default to 0 — the same invention removed from
+            # `gallery_highlight_extract.annotate` (#1474). A fabricated index 0
+            # is usually caught downstream, since the emitted `phase_type` must
+            # equal `scenario.phases[phase_index].type` or BundledDemoReplaySource
+            # rejects the demo; it survives exactly when phases[0] happens to
+            # match, which is the case no reader would think to check.
+            path = l.get("phase_path")
+            if not isinstance(path, list) or not path:
+                raise SystemExit(
+                    f"jsonl_to_demo_replay: a `phase_started` in {a.run} carries "
+                    "no usable `phase_path`, so phase_index cannot be derived.")
+            phase_idx = path[0]
             phase_type_cur = l.get("phase_type", "")
         elif e == "agent_output":
             turns.append({
