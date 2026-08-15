@@ -251,25 +251,18 @@ all, so they render on the system sheet surface. Also outside the fixture.
 
 ## 4. Recorded refusal — retuning `muted` itself
 
-Raised and refused, with the arithmetic, so it is not re-derived.
-
-Clearing 4.5:1 on `screenBackground` requires relative luminance **L = 0.1736**.
-`muted` today is **L = 0.2522** and `inkSecondary` is **L = 0.1014**, so a
-retuned token would land *between* them and the three-tier `ink` / `ink-2` /
-`muted` hierarchy would survive — the change is arithmetically viable, and
-cheaper than the 27 repoints B2–B4 still owe (35 misapplications in §5's tally,
-less the 8 batch 1 applied).
-
-**Refused on the recorded decision, not on the arithmetic.** ADR-028 §
+Raised and **refused on the recorded decision, not on the arithmetic.** ADR-028 §
 Amendment 2026-08-13 (#1427) states the defect is «the application, not the
 token», and §8 makes the sub-AA value a deliberate expression of §1's
-「静謐・観察」. Retuning would retract that in passing, as a side effect of a
-sweep chartered to apply it. If the tier is ever to be retired, that is its own
-ADR — not this issue.
+「静謐・観察」. Retiring the tier is its own ADR, not a side effect of a sweep
+chartered to apply it — and it would not discharge the sweep either, since
+tinted grounds still need the family-pairing remedy (§8: «地を所有するファミリが
+供給する»).
 
-It would also not discharge the sweep: `mossSoft` needs L = 0.0934, *below*
-`inkSecondary`, so the family-pairing remedy (§8: «地を所有するファミリが供給する»)
-is still required on tinted grounds.
+The arithmetic behind both halves — that a retune is viable and lands between
+`muted` and `inkSecondary`, and that `mossSoft` would still require the remedy —
+is recorded at ADR-028 § "Retuning `muted` itself, refused", so it is not
+re-derived here.
 
 ## 5. The ledger
 
