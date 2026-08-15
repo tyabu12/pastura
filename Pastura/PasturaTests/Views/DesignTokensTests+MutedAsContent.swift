@@ -343,10 +343,10 @@ extension DesignTokensTests {
   /// **Shipped grounds only.** ``mutedRuleWashBrackets`` is excluded because
   /// one extreme per appearance (1.739 / 1.825) sits below the floor, which is
   /// enough to make this arm's minimum an unshipped ground. The brackets serve
-  /// the *universal* sub-AA claim, not anything the app renders — and note that
-  /// only two of the four sit below it; see their own doc. Note also that "lowest"
-  /// here means minimum ratio, while ``nightPageIsTheGroundNearestTheBar``'s
-  /// "nearest" means maximum — opposite ends, same file.
+  /// the *universal* sub-AA claim, not anything the app renders — see their own
+  /// doc. Note that "lowest" here means minimum ratio, while
+  /// ``nightPageIsTheGroundNearestTheBar``'s "nearest" means maximum —
+  /// opposite ends, same file.
   @Test func compositedGroundsStayAboveTheOpaqueWorstCase() {
     let opaqueLowest =
       (Self.mutedLightGrounds + Self.mutedDarkGrounds)

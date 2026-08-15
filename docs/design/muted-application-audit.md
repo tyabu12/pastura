@@ -201,13 +201,11 @@ the table:
   background (§3.3), so the single figure the old table gave was computed
   against a `screenBackground` it never names. The range above is instead
   `rule@0.45` over **every** opaque ground, worst at `mossSoft` 2.300 / 
-  `nightMossSoft` 2.520, plus pure white and pure black as **brackets**. The
-  twelve alone would not license "whatever the sheet resolves to" — the system
-  surface is not one of them — but a fixed-alpha composite is per-channel, so
-  every channel of the result lies between its value over black and over white;
-  relative luminance is monotone in each channel, and contrast against a fixed
-  foreground is maximal at an endpoint. Sub-AA at both extremes therefore holds
-  over every opaque ground, this one included.
+  `nightMossSoft` 2.520, plus pure white and pure black as **brackets**. Sub-AA
+  at both extremes holds over every opaque ground, this one included. The twelve
+  alone would not license "whatever the sheet resolves to" — the system surface
+  is not one of them — and why bracketing closes that is derived at
+  `mutedRuleWashGrounds`' doc comment, beside the two entries it justifies.
 
 **These are unmeasured, not a new worst case** — and that conclusion survived
 the re-measurement, which is the one thing here worth carrying forward. The new
