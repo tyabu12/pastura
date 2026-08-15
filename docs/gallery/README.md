@@ -36,7 +36,7 @@ app. Fields:
       "category": "social_psychology | game_theory | ethics | roleplay | creative | experimental",
       "description": "<1-2 sentences>",
       "author": "<github handle>",
-      "recommended_model": "<model id>",     // must match a `ModelRegistry.catalog` id, e.g. "gemma-4-e2b-q4-k-m"
+      "recommended_model": "<model id>",     // must match a `ModelRegistry.catalog` id — keep "gemma-4-e2b-q4-k-m", see below
       "estimated_inferences": <int>,         // rough total LLM calls to complete
       "agent_count": <int>,                  // optional; from YAML `agents:` — Browse row sheep cluster + footer
       "rounds": <int>,                       // optional; from YAML `rounds:` — Browse footer
@@ -140,6 +140,21 @@ silent rewrites. Users who installed an earlier version see the **Update**
 badge when a new hash for the same id is published; incompatible changes
 should get a new id so old installs are preserved.
 
+### Which model a new entry should recommend
+
+**Keep `gemma-4-e2b-q4-k-m`.** It names the build the QAT rebuild replaced, and
+that looks stale — it is not. `gallery.json` is fetched **live** from
+`raw.githubusercontent.com/.../main/` by every already-shipped app version, so an
+id a shipped build does not know degrades it to `RecommendedModelStatus.unknownModel`
+and an "Unknown model (…)" badge the moment the change merges, with no release
+involved. The app resolves the recommendation forward on its own side
+(`ModelRegistry.recommendationTarget(for:state:)`), so a current install is
+already steered to the right build without the feed naming it.
+
+Revisit only once the shipped versions that predate the QAT descriptor have aged
+out. Rationale and the full mechanism: ADR-002 § Amendment 2026-08-15 —
+ADD-and-keep.
+
 ### Content guidelines
 
 Gallery scenarios are public and curator-endorsed. Keep content:
@@ -188,7 +203,8 @@ curation meta-notes) is used verbatim and only a warning is printed (it
 becomes a hard error under `--non-interactive`). Preview the derived
 values first with `--dry-run`; `--help` lists every flag — notably
 `--category` (default `creative`), `--recommended-model` (default
-`gemma-4-e2b-q4-k-m`), `--id` (for a `_v2` re-promotion), and
+`gemma-4-e2b-q4-k-m` — deliberate, see § "Which model a new entry should
+recommend"), `--id` (for a `_v2` re-promotion), and
 `--scenario` / `--run-log` (to promote a
 non-factory source YAML, e.g. an improved variant). **Step 4 (curation)
 is still yours** — the script promotes the id you name and never picks

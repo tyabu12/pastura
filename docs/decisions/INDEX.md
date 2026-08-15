@@ -20,12 +20,16 @@ bar. No gate enforces any of it — the operator-side pairing is
 Standing invariant — § Amendment 2026-08-15 (ADD-and-keep): a **same-model**
 rebuild joins the catalog beside the build it replaces instead of superseding
 it, naming its predecessor via `ModelDescriptor.replacesModelID`; the replaced
-entry is hidden from the user-facing lists once it is off the device but is
-never removed, because four call sites still need its id to resolve. The
-supersede convention remains the default for a genuinely different model.
-Gallery recommendations naming a replaced build are resolved app-side, not by
-repointing the live feed. Derivation, and why the descriptor landed before its
-gate: that amendment.
+entry is hidden from the user-facing lists once it is neither on the device nor
+the active model, but is never removed — what consumers depend on is its
+**membership of `catalog`**, not `lookup(id:)`. The supersede convention remains
+the default for a genuinely different model. Gallery recommendations naming a
+replaced build are satisfied app-side rather than by repointing the live feed,
+via two separate questions — whether the active model is already acceptable
+(state-free, either id of the pair) and which build to act on otherwise
+(`recommendationTarget(for:state:)`, cheapest satisfying option). Derivation,
+the consumer list, and why the descriptor landed before its gate: that
+amendment.
 
 ## ADR-003 — Background execution
 

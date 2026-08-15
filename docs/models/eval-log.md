@@ -284,7 +284,7 @@ Reproduce: identical to the baseline's block above.
   separately in #1487, so `main` now carries this same pin.
 - **Model**: `unsloth/gemma-4-E2B-it-qat-GGUF` · `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`
   · Apache-2.0, non-gated · 2,620,370,976 B · sha256 `e5310072…6889` (both matching
-  the HF resolve `X-Linked-Size` / `X-Linked-ETag`) — **−15.7 %** against the shipped
+  the HF resolve `X-Linked-Size` / `X-Linked-ETag`) — **−15.7 %** against the incumbent
   Q4_K_M's 3,106,735,776 B. **Despite the name the quantisation is not K-quant**: the
   tensor spread is `Q4_0`×278 / `F32`×263 and `general.name` reads *"smart Q4_0,
   QAT-lossless"* — which is also why it has Metal kernels where the mobile sibling
@@ -313,7 +313,7 @@ Reproduce: identical to the baseline's block above.
   key — so **both** samples survive only in the issue comment.)
   ADR-011 **P1** (non-gated, Apache-2.0, anonymous resolve 302 → CDN 200) and **P2**
   (`<|turn>` id 105 / `<turn|>` id 106 both `token_type=3`) verified for this
-  re-export; **P3–P5 untouched**.
+  re-export; **P3–P5 untouched** *at the time of this run — see the 2026-08-15 update below, where they PASSED*.
 - **Rationale**: the Mac filter cannot accept, only reject — and there is nothing
   here to reject on. Mechanical floor clean, no measured quality regression, and the
   largest download saving of any QAT build that actually runs.

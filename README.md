@@ -80,14 +80,16 @@ to a fresh install, see the note under the table.
 |----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
 | [Gemma 4 E2B (QAT)](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) | Google | ~2.6 GB | Default. Quantization-aware-trained build of the same Gemma, in a smaller download. |
 | [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | Reasoning-leaning. Good for scenarios that need deduction.  |
-| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Existing installs only — replaced by the QAT build above, and hidden unless already downloaded. |
+| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Existing installs only — replaced by the QAT build above, and shown only if already downloaded (or currently active). |
 
 The last row is **kept, not retired**. It stays in `ModelRegistry.catalog` so
 that anyone who already downloaded it keeps their model, their row, and a way
 back; `ModelManager.visibleCatalog` hides it from the picker, Settings →
-Models and the home-screen model chip once it is absent from the device. See
-`ModelRegistry` § "ADD-and-keep" for when to choose that shape over removing
-the old entry outright.
+Models and the home-screen model chip once it is **both** absent from the device
+**and** not the active model. That second condition is deliberate — it keeps the
+row reachable if the file is ever found corrupt while in use, which the app
+reports as "not downloaded". See `ModelRegistry` § "ADD-and-keep" for when to
+choose that shape over removing the old entry outright.
 
 Add more by appending a `ModelDescriptor` to `ModelRegistry.catalog`.
 The descriptor pins download URL, file size, and SHA-256 at compile
