@@ -105,9 +105,11 @@ struct ModelSettingsRow: View {
 
   // MARK: - State label
 
-  // Every arm reads `inkSecondary`, not design-system §8's quietude tier: a
-  // state the user cannot act around has to be legible, and `.notDownloaded`
-  // already was — the two below were the odd ones out in this same switch.
+  // No arm reads design-system §8's quietude tier: a state the user cannot act
+  // around has to be legible. The three neutral states are `inkSecondary` —
+  // `.notDownloaded` already was, and the two below it were the odd ones out in
+  // this same switch. The moss and danger arms carry status colour on purpose
+  // and are not candidates for it.
   // Audit class A1: `docs/design/muted-application-audit.md`.
   @ViewBuilder
   private var stateLabel: some View {

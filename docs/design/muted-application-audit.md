@@ -19,12 +19,22 @@ Measured on `9a40565a` (pre-batch-1):
 grep -rn "Color\.muted" Pastura/Pastura --include="*.swift"
 ```
 
-98 lines · 3 doc-comment mentions · **95 code sites across 44 files**, all under
+98 lines · 3 doc-comment mentions · **95 code sites across 43 files**, all under
 `Views/`. 7 of the 95 are inside `#Preview` blocks and never ship, leaving **88
 shipped sites**.
 
-Enumerate rather than recurse — a bare `grep -rn` over `Pastura/` also returns
-`DerivedData` noise (`.claude/rules/knowledge-layering.md` § Detection). Watch the
+**Two denominators, and they differ by one.** 44 files carry the *spelling*;
+43 carry a *code site*, because `ActiveModelChipPresenter.swift`'s only
+occurrence is a doc comment. Every file figure in this document counts code-site
+files, so that the subtraction below works.
+
+The narrowed root above keeps `DerivedData` out, which is the failure a bare
+`grep -rn` over `Pastura/` hits. It does **not** achieve what
+`.claude/rules/knowledge-layering.md` § Detection is actually about — repo
+*trackedness* — so an untracked scratch `.swift` under `Views/` would enter the
+census and redden `MutedSweepLedgerTests`, which walks the filesystem rather
+than the index. Reach for `git ls-files -z | xargs -0 grep -nH` when that
+matters. Watch the
 sibling `+Feature.swift` split: cross-check against
 `find Pastura/Pastura/Views -name '*.swift'` (CLAUDE.md § Scope & Completeness
 Discipline).
@@ -173,7 +183,13 @@ the table:
   background (§3.3), so the single figure the old table gave was computed
   against a `screenBackground` it never names. The range above is instead
   `rule@0.45` over **every** opaque ground, worst at `mossSoft` 2.300 / 
-  `nightMossSoft` 2.520 — a claim that holds whatever the sheet resolves to.
+  `nightMossSoft` 2.520, plus pure white and pure black as **brackets**. The
+  twelve alone would not license "whatever the sheet resolves to" — the system
+  surface is not one of them — but a fixed-alpha composite is per-channel, so
+  every channel of the result lies between its value over black and over white;
+  relative luminance is monotone in each channel, and contrast against a fixed
+  foreground is maximal at an endpoint. Sub-AA at both extremes therefore holds
+  over every opaque ground, this one included.
 
 **These are unmeasured, not a new worst case** — and that conclusion survived
 the re-measurement, which is the one thing here worth carrying forward. The new
@@ -191,7 +207,21 @@ as the ground being covered.
 `.ultraThinMaterial` and `.regularMaterial` composite whatever is behind them at
 render time, so no static ratio exists. Four sites sit on one:
 `DLCompleteOverlay`, `SimulationView`'s loading scrim, and two
-`IdleFriendlyProgressView` call sites (both non-text).
+`IdleFriendlyProgressView` call sites (both non-text). `SimulationView`'s scrim
+subtitle is the one of those that is **text on `muted`**, and it is the reason
+`DesignTokensTests+MutedAsContent`'s wash arrays stop at three: a material has
+no ground to composite against, so the omission is a recorded exclusion rather
+than a gap. The fixture says so at the arrays.
+
+**A translucent ground over a translucent ground is a fourth kind**, and §3.2's
+three washes do not cover it. `GameHeaderStatus`'s `foreground` draws `muted`
+over a `muted@0.14` self-wash sitting on `screenBackground@0.78` — the header
+wash is itself alpha over whatever the scroll position puts behind it, so the
+base is as unknown as a material's. Recorded here rather than in §3.2, and owned
+by batch 4 with the other composited questions. It is listed in §5 with its
+ratio column reading *unmeasurable*, which is what pointed at the gap: §3.2
+enumerated the measurable washes and §3.3 the materials, and this site is
+neither.
 
 A repoint on such a ground cannot be pinned by a ratio and must be argued by
 **direction** instead: `inkSecondary` (#5A5A55) is darker than `muted` (#8A8A83)
@@ -211,7 +241,8 @@ Clearing 4.5:1 on `screenBackground` requires relative luminance **L = 0.1736**.
 `muted` today is **L = 0.2522** and `inkSecondary` is **L = 0.1014**, so a
 retuned token would land *between* them and the three-tier `ink` / `ink-2` /
 `muted` hierarchy would survive — the change is arithmetically viable, and
-cheaper than 27 repoints.
+cheaper than the 27 repoints B2–B4 still owe (35 misapplications in §5's tally,
+less the 8 batch 1 applied).
 
 **Refused on the recorded decision, not on the arithmetic.** ADR-028 §
 Amendment 2026-08-13 (#1427) states the defect is «the application, not the
@@ -390,8 +421,9 @@ two `×N` rows — rather than maintained by hand.
 
 `isClearAllBlocked ? Color.muted : Color.danger`. This is not a contrast defect —
 it is a **routing** one: the app has `disabledText` (#B5B0A2 / `nightDisabledText`
-#605F54) for exactly this, and design-system §2.7 / §8 record disabled controls as
-outside the contrast bar (WCAG 1.4.3's inactive-control exemption).
+#605F54) for exactly this. §2.7 carries the token; the exemption itself is
+recorded in **§2.9**'s `nightDisabledText` row (WCAG 1.4.3's inactive-control
+carve-out) — not in §2.7 or §8, neither of which mentions disabled controls.
 
 Correcting it therefore **lowers** the ratio, which §8 permits only when returning
 to the token the norm points at — the same licence #1459 used. It is kept out of
@@ -447,7 +479,7 @@ app-wide, and needs ADR-028 gate 4/5 QA of its own.
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape; B4 needs §8 to
 say what a composited ground routes to before any site moves; B5 is a visual
-change to nine screens.
+change to five screens — six with the hand-rolled headers — across nine files.
 
 ## 8. Regenerating this ledger
 

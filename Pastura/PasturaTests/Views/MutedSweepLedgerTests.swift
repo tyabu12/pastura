@@ -123,6 +123,12 @@ struct MutedSweepLedgerTests {
   /// comment filter that eats everything — produces an empty map and only
   /// fails by accident of the expectation being non-empty. These assert the
   /// instrument directly, in both directions.
+  ///
+  /// **The negative arm is the one carrying discriminating power.** The
+  /// positive arm cannot fail alone — `expectedMutedOccurrences` already pins
+  /// that file at 9, so an always-zero predicate reddens the census first. It
+  /// is kept because it fails *locally*, naming the predicate rather than
+  /// printing a forty-row diff; the census map is the real positive control.
   @Test func theProbeIsStillMeasuringSomething() throws {
     let swiftFiles = SourceTreeProbe.swiftFiles(under: SourceTreeProbe.appSourceRoot)
     #expect(!swiftFiles.isEmpty, "scanned no app sources — the source root did not resolve")
@@ -183,7 +189,13 @@ struct MutedSweepLedgerTests {
     of needles: [String], excludingDesignTokens: Bool
   ) -> [(path: String, line: String)] {
     SourceTreeProbe.matchingLines(of: needles, under: SourceTreeProbe.appSourceRoot)
-      .filter { !excludingDesignTokens || !$0.path.contains("/DesignTokens") }
+      .filter {
+        // Match the basename, not the path: `contains("/DesignTokens")` only
+        // works while every `DesignTokens*.swift` sits in a subdirectory, and
+        // one at the app source root would silently stop being excluded.
+        !excludingDesignTokens
+          || !($0.path as NSString).lastPathComponent.hasPrefix("DesignTokens")
+      }
   }
 
   private static func diff(

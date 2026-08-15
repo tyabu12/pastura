@@ -57,8 +57,12 @@ enum SourceTreeProbe {
   /// one of `needles` and is **not** a comment.
   ///
   /// A line counts as a comment when its first non-whitespace characters are
-  /// `//`, which covers `//` and `///` alike. Deliberately not a parser: a
-  /// trailing comment on a code line, or a `/* … */` block, still counts. Both
+  /// `//`, which covers `//` and `///` alike. Deliberately not a parser, and it
+  /// errs in both directions: a trailing comment on a code line, or a `/* … */`
+  /// block, still counts — and a line **inside a `"""` literal** that happens to
+  /// start with `//` is skipped, which is the direction that *hides* an
+  /// occurrence and so the one a census cares about. Neither occurs on today's
+  /// tree. Both
   /// callers want the same thing from it — a source-tree guard that fires on a
   /// *reference* must not fire on prose naming the thing it guards, which is
   /// what `Models/Scenario.swift` does for `LocaleResolver`.

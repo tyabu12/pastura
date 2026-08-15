@@ -31,16 +31,18 @@ struct StructuralBoundaryTests {
     }
 
     var hits: [String] = []
-    var scanned = 0
     for dirURL in restrictedDirs {
-      scanned += SourceTreeProbe.swiftFiles(under: dirURL).count
+      // Non-vacuity floor, asserted **per layer**. Absent it, an unresolvable
+      // repo root scans four directories that do not exist, finds nothing, and
+      // the guard reports a clean tree — which is exactly what it did until
+      // #1448 measured it. Summing across the four would close only that half:
+      // one layer renamed or moved still leaves the total positive while the
+      // guard silently stops covering it.
+      let layer = SourceTreeProbe.swiftFiles(under: dirURL)
+      #expect(!layer.isEmpty, "\(dirURL.lastPathComponent) resolved to no sources")
+
       hits += SourceTreeProbe.swiftFilesContaining("LocaleResolver", under: dirURL)
     }
-
-    // Non-vacuity floor. Absent it, an unresolvable repo root scans four
-    // directories that do not exist, finds nothing, and the guard reports a
-    // clean tree — which is exactly what it did until #1448 measured it.
-    #expect(scanned > 0, "scanned no sources — the four restricted layers did not resolve")
 
     #expect(
       hits.isEmpty,
