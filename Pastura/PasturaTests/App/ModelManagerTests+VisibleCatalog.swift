@@ -103,11 +103,29 @@ extension ModelManagerTests {
   /// must never hide the model a new install is steered toward. Both id
   /// constants are asserted independently — they alias today, and
   /// `ModelRegistryTests` deliberately refuses to pin them equal.
+  ///
+  /// The `replacement(for:) == nil` pair is the load-bearing half. The
+  /// `visibleCatalog` membership arms are an end-to-end echo of it, but they run
+  /// against the real model directory, so on a machine that happens to have the
+  /// replaced build on disk they would pass for the wrong reason; the
+  /// state-free pair holds regardless.
   @Test("the recommended and default-initial models survive the production filter")
   func productionRecommendedAndDefaultModelsAreVisible() {
     let sut = makeSUT(catalog: ModelRegistry.catalog)
-
     sut.checkModelStatus()
+    // Move the active model off both constants first. With empty defaults
+    // `resolveInitialActiveID` lands on `defaultInitialModelID`, and conjunct 3
+    // keeps the *active* entry visible unconditionally — so without this the
+    // `defaultInitialModelID` arm below could not fail for any in-catalog value,
+    // including one repointed at a replaced build. Measured: it passed that way.
+    sut.setActiveModel(ModelRegistry.qwen34B.id)
+
+    #expect(
+      ModelRegistry.replacement(
+        for: ModelRegistry.recommendedModelID, in: ModelRegistry.catalog) == nil)
+    #expect(
+      ModelRegistry.replacement(
+        for: ModelRegistry.defaultInitialModelID, in: ModelRegistry.catalog) == nil)
 
     let visible = Set(sut.visibleCatalog.map(\.id))
     #expect(visible.contains(ModelRegistry.recommendedModelID))

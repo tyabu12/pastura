@@ -80,7 +80,8 @@ extension GalleryScenarioDetailView {
 
   fileprivate var mismatchBanner: some View {
     let recommendedDisplay =
-      ModelRegistry.effectiveRecommendation(for: scenario.recommendedModel)?.displayName
+      ModelRegistry.recommendationTarget(
+        for: scenario.recommendedModel, state: modelManager.state)?.displayName
       ?? scenario.recommendedModel
     let activeDisplay =
       ModelRegistry.lookup(id: modelManager.activeModelID)?.displayName
@@ -107,10 +108,14 @@ extension GalleryScenarioDetailView {
       // (the prior code) updated the id but left the next run on the old
       // service — the #844 latent bug. `.switchAvailable` is only emitted for
       // a downloaded recommended model, so the lookup is a defensive no-op.
-      // MUST resolve through ADD-and-keep, not `lookup`: `recommendedModelStatus`
-      // classifies the *resolved* build, so a raw lookup here would act on a
-      // different model than the status the button was rendered from.
-      guard let descriptor = ModelRegistry.effectiveRecommendation(for: scenario.recommendedModel)
+      // MUST go through the same target helper as `recommendedModelStatus`, not
+      // a raw `lookup`: the status classifies the *target* build, so any other
+      // resolution here acts on a different model than the one the button was
+      // rendered from. `.switchAvailable` is only emitted for a downloaded
+      // target, which is exactly what the helper returns in that arm.
+      guard
+        let descriptor = ModelRegistry.recommendationTarget(
+          for: scenario.recommendedModel, state: modelManager.state)
       else { return }
       dependencies.switchActiveModel(to: descriptor, using: modelManager)
     } label: {
@@ -127,10 +132,12 @@ extension GalleryScenarioDetailView {
       // Guarded by `.downloadAvailable` status, which is only emitted
       // when `ModelRegistry.lookup` resolves — so the lookup here is a
       // defensive no-op on unreachable paths, not a user-visible branch.
-      // Resolved, for the same reason as `switchButton` above — a raw lookup
-      // would start a 3.11 GB download of the replaced build while the status
-      // that enabled this button was computed from its 2.62 GB successor.
-      guard let descriptor = ModelRegistry.effectiveRecommendation(for: scenario.recommendedModel)
+      // Same target helper as `switchButton` above — a raw lookup would start a
+      // 3.11 GB download of the replaced build while the status that enabled
+      // this button was computed from its 2.62 GB successor.
+      guard
+        let descriptor = ModelRegistry.recommendationTarget(
+          for: scenario.recommendedModel, state: modelManager.state)
       else {
         return
       }

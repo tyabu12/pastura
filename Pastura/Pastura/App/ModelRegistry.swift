@@ -65,16 +65,21 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 /// orphaned file. Use the supersede convention above for a genuinely different
 /// model, where keeping the old entry would just be catalog clutter.
 ///
-/// **The replaced entry is not removed, so nothing here retires.** Its `id`
-/// stays resolvable through ``lookup(id:)`` — which is load-bearing in four
-/// places, not merely tidy: `gallery.json`'s `recommended_model` is validated
-/// against this catalog (`GallerySeedYAMLTests.recommendedModelMatchesRegistry`);
-/// `ModelManager.activeDescriptor` returns `nil` for an id that is not here, so
-/// a user still running the old build would lose their active model;
-/// `orphanedModelFiles()` derives from `catalog.map(\.fileName)`, so dropping
-/// the entry would surface that user's **in-use** GGUF as a deletable "Unused
-/// model file"; and `RETIRED_MODEL_IDS` above applies only when an id actually
-/// *leaves*, which under this shape it does not.
+/// **The replaced entry is not removed, so nothing here retires.** What is
+/// load-bearing is its **membership of `catalog`** — not `lookup(id:)`
+/// specifically, none of the three consumers below calls it:
+///
+/// - `ModelManager.activeDescriptor` is `catalog.first(where:)`, so a user still
+///   running the old build would lose their active model.
+/// - `orphanedModelFiles()` derives from `catalog.map(\.fileName)`, so dropping
+///   the entry would surface that user's **in-use** GGUF as a deletable "Unused
+///   model file".
+/// - `GallerySeedYAMLTests.recommendedModelMatchesRegistry` validates every
+///   `gallery.json` `recommended_model` against `catalog.map(\.id)`, and the
+///   whole shipped feed still names the replaced build.
+///
+/// `RETIRED_MODEL_IDS` above is **not** a fourth dependency — it is the reason
+/// nothing has to retire, since it applies only when an id actually *leaves*.
 enum ModelRegistry {
   nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
     id: "gemma-4-e2b-q4-k-m",
@@ -273,21 +278,43 @@ enum ModelRegistry {
     catalog.first { $0.replacesModelID == id }
   }
 
-  /// The descriptor a *recommendation* naming `id` should resolve to — the entry
-  /// that replaces it under § "ADD-and-keep", or `id`'s own descriptor when
-  /// nothing does. `nil` only when `id` is in no catalog entry at all.
+  /// The descriptor that should **satisfy** a recommendation naming `id`, given
+  /// what is on this device: the declared build when the user already has it,
+  /// otherwise the entry that replaces it under § "ADD-and-keep". `nil` only
+  /// when `id` is in no catalog entry at all.
   ///
   /// Every `docs/gallery/gallery.json` entry recommends the Q4_K_M Gemma build,
   /// and that feed is fetched live by **already-shipped** app versions, so it
   /// cannot be repointed at an id those builds do not know
   /// (`URLSessionGalleryService.defaultIndexURL`). Resolving on the app side
   /// instead is what stops a fresh install being pushed toward a build hidden
-  /// from every list surface. It is `nil`-returning on an unknown id on purpose:
-  /// that keeps the forward-compat path for an *older* app reading a *newer*
-  /// feed — `RecommendedModelStatus.unknownModel` and the
-  /// "Unknown model (%@)" display fallback both key on it.
-  nonisolated static func effectiveRecommendation(for id: ModelID) -> ModelDescriptor? {
+  /// from every list surface.
+  ///
+  /// **Why `state` rather than a flat forward-resolve.** A user who already has
+  /// the replaced build on disk but is running some *third* model is satisfied
+  /// by a free switch; resolving unconditionally would offer them a multi-GB
+  /// download of a successor to a model they already own, on every gallery
+  /// screen. Preferring a `.ready` declared build is the cheapest satisfying
+  /// option, and a fresh install — where the declared build is
+  /// `.notDownloaded` — still lands on the replacement.
+  ///
+  /// This answers "which build do we act on", **not** "is the active model
+  /// already acceptable" — that one is state-free and stays in
+  /// `RecommendedModelStatus`'s Rule 4, which tests the active id against the
+  /// declared id and its replacement directly. Routing it through here instead
+  /// would offer a QAT-active user a *downgrade* switch to the replaced build
+  /// whenever they happen to still have it on disk.
+  ///
+  /// `nil`-returning on an unknown id is deliberate: it keeps the forward-compat
+  /// path for an *older* app reading a *newer* feed —
+  /// `RecommendedModelStatus.unknownModel` and the "Unknown model (%@)" display
+  /// fallback both key on it.
+  nonisolated static func recommendationTarget(
+    for id: ModelID,
+    state: [ModelID: ModelState]
+  ) -> ModelDescriptor? {
     guard let declared = lookup(id: id) else { return nil }
+    if case .ready = state[declared.id] { return declared }
     return replacement(for: id, in: catalog) ?? declared
   }
 

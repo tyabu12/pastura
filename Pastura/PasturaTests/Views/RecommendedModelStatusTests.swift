@@ -153,6 +153,15 @@ struct RecommendedModelStatusTests {
   // is off the device. These pin that a feed entry naming it is classified as
   // its successor, without nagging a user still running the old one.
 
+  /// Pins the `qat` literal above **and** the ADD-and-keep wiring it stands for.
+  /// Without this, a drifted literal makes `state[qat]` miss, `compute` falls
+  /// through to Rule 8, and both `.matched`-asserting arms below pass vacuously
+  /// — `.matched` being the classifier's fall-through verdict means an
+  /// input-shape mistake is indistinguishable from a correct result.
+  @Test func resolution_pinsTheReplacementWiring() {
+    #expect(ModelRegistry.replacement(for: gemma, in: ModelRegistry.catalog)?.id == qat)
+  }
+
   @Test func resolution_activeIsTheReplacement_matches() {
     // The fresh-install path: QAT active, every gallery entry recommending the
     // replaced build. Must NOT offer to download the hidden 3.11 GB build.
@@ -174,11 +183,23 @@ struct RecommendedModelStatusTests {
     #expect(status == .matched)
   }
 
-  @Test func resolution_classifiesTheReplacementNotTheReplacedBuild() {
-    // The discriminating case: the two builds are in *different* states, so the
-    // verdict names which one was classified. Resolved → QAT `.notDownloaded` →
-    // `.downloadAvailable`. Unresolved it would read `gemma` `.ready` and return
-    // `.switchAvailable`, i.e. offer to switch to the hidden build.
+  @Test func resolution_activeIsTheReplacementWithTheReplacedBuildAlsoOnDisk_matches() {
+    // Why Rule 4 asks `replacement(for:)` and not the *target*. Here the target
+    // is the replaced build (it is `.ready`), so a Rule 4 phrased against the
+    // target would miss and fall through to Rule 7 — offering a QAT user a
+    // *downgrade* switch to the build QAT replaced, on all 45 gallery screens.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: qat,
+      state: [gemma: .ready(modelPath: "/tmp/g"), qat: .ready(modelPath: "/tmp/qat")],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .matched)
+  }
+
+  @Test func resolution_prefersTheReplacedBuildWhenTheUserAlreadyHasIt() {
+    // An existing user with the replaced build on disk and a *third* model
+    // active is satisfied by a free switch. A flat forward-resolve would read
+    // QAT `.notDownloaded` and return `.downloadAvailable` — a 2.62 GB transfer
+    // to reach a model they already own a build of.
     let status = RecommendedModelStatus.compute(
       recommendedID: gemma, activeID: qwen,
       state: [
@@ -186,7 +207,23 @@ struct RecommendedModelStatusTests {
         qwen: .ready(modelPath: "/tmp/q")
       ],
       isSimulationActive: false, isSimulator: false)
-    #expect(status == .downloadAvailable(otherDownloadInFlight: false))
+    #expect(status == .switchAvailable(isLocked: false))
+  }
+
+  @Test func resolution_offersTheReplacementWhenTheReplacedBuildIsAbsent() {
+    // The other side of the target choice, and the discriminating shape for the
+    // resolution itself: the two builds are in *different* states, so the
+    // verdict names which one was classified. Target → QAT `.downloading` →
+    // `.downloading`. Unresolved it would read `gemma` `.notDownloaded` and
+    // return `.downloadAvailable`, i.e. offer the hidden build.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: qwen,
+      state: [
+        gemma: .notDownloaded, qat: .downloading(progress: 0.3),
+        qwen: .ready(modelPath: "/tmp/q")
+      ],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .downloading)
   }
 
   @Test func resolution_unsupportedDeviceOnTheReplacementStillWins() {
@@ -195,15 +232,15 @@ struct RecommendedModelStatusTests {
     // recommendation" and "the recommended build cannot run here" are both true
     // on a 6 GB device — if the equivalence ran first, `.unsupportedDevice`
     // would be unreachable for every gemma-recommended gallery entry.
-    // The replaced build is deliberately `.ready` rather than also
-    // `.unsupportedDevice`: with both unsupported the verdict is the same
-    // whether or not the recommendation resolved, so the arm would pin the
-    // ordering while saying nothing about *which* build Rule 3 read. Measured —
-    // this case passed against a build with resolution disabled until the states
-    // were split.
+    // The replaced build is `.notDownloaded` rather than also
+    // `.unsupportedDevice` so the target resolves forward to QAT: with both
+    // unsupported the verdict is the same whether or not it resolved, and the
+    // arm would pin the ordering while saying nothing about *which* build Rule 3
+    // read. Measured — it passed against a build with resolution disabled until
+    // the two states were split.
     let status = RecommendedModelStatus.compute(
       recommendedID: gemma, activeID: qat,
-      state: [qat: .unsupportedDevice, gemma: .ready(modelPath: "/tmp/g")],
+      state: [qat: .unsupportedDevice, gemma: .notDownloaded],
       isSimulationActive: false, isSimulator: false)
     #expect(status == .unsupportedDevice)
   }

@@ -8,11 +8,14 @@ import Foundation
 /// - `downloading` → banner only (informational; user can't intervene from gallery)
 /// - `switchAvailable`, `downloadAvailable` → banner + affordance button
 ///
-/// Every state below except `unknownModel` describes the **resolved**
-/// recommendation — a feed entry naming a replaced build classifies, and is
-/// acted on, as its successor (`ModelRegistry.effectiveRecommendation(for:)`).
-/// The consuming affordances resolve through the same helper, so the model a
-/// button switches to or downloads is the one this classified.
+/// Every state below except `matched` and `unknownModel` describes the
+/// **target** build — a feed entry naming a replaced build is acted on as
+/// whichever of the pair the user can most cheaply reach
+/// (`ModelRegistry.recommendationTarget(for:state:)`). The consuming affordances
+/// resolve through the same helper, so the model a button switches to or
+/// downloads is the one this classified. `matched` is the exception on purpose:
+/// it asks whether the *active* model is already in the replacement pair, which
+/// is a state-free question — see Rule 4.
 ///
 /// Pure-logic enum: lives in Views/ for proximity to the consuming view but
 /// `compute(...)` takes a value-typed snapshot so the test suite is fully
@@ -47,10 +50,11 @@ nonisolated enum RecommendedModelStatus: Equatable {
   /// fully unsupported; gallery suppresses both banner and affordance.
   case unsupportedDevice
 
-  /// `ModelRegistry.lookup(id: recommendedID)` returned nil — forward-compat
+  /// `ModelRegistry.recommendationTarget(for:state:)` returned nil — forward-compat
   /// case for an older app reading a newer `gallery.json` whose model id
-  /// is unknown to this build. Suppress UI; PR1's "Unknown model (id)"
-  /// display fallback handles the read-only surface.
+  /// is unknown to this build. That helper is also where the "`nil` only for an
+  /// id in no catalog entry" contract is written. Suppress UI; PR1's
+  /// "Unknown model (id)" display fallback handles the read-only surface.
   case unknownModel
 
   /// Pure classifier. Rule order is the contract — tests pin one rule per case.
@@ -71,11 +75,13 @@ nonisolated enum RecommendedModelStatus: Equatable {
     // every rule below reasons about the build the app would actually offer:
     // the whole gallery feed recommends the Q4_K_M Gemma, and that build is
     // hidden from the list surfaces once it is not on the device.
-    guard let effective = ModelRegistry.effectiveRecommendation(for: recommendedID) else {
+    guard
+      let target = ModelRegistry.recommendationTarget(for: recommendedID, state: state)
+    else {
       return .unknownModel
     }
 
-    let recommendedState = state[effective.id] ?? .checking
+    let recommendedState = state[target.id] ?? .checking
 
     // Rule 3: device-class mismatch — Phase 2 leaves 6 GB devices unsupported.
     // Stays ahead of Rule 4: `resolveInitialActiveID` picks the default without
@@ -87,12 +93,16 @@ nonisolated enum RecommendedModelStatus: Equatable {
     // Rule 4: short-circuit before .downloading so an active-model
     // re-download (rare but reachable) doesn't fire a noise banner.
     //
-    // Two-sided since #1487: the active model satisfies the recommendation when
-    // it is the id the feed names **or** the id that replaces it. Matching only
-    // the resolved id would nag a user still running the replaced build to
-    // download its successor on every scenario; matching only the declared id
-    // would leave a fresh install with a download prompt for the hidden build.
-    if activeID == recommendedID || activeID == effective.id { return .matched }
+    // Two-sided since #1487, and deliberately **not** asked of `target`: the
+    // active model satisfies the recommendation when it is the id the feed
+    // names (which un-nags a user still on the replaced build) or the id that
+    // replaces it (which keeps a fresh install matched). Asking `target`
+    // instead would offer a user who runs the replacement, but still has the
+    // replaced build on disk, a *downgrade* switch to it — `target` answers
+    // "which build do we act on", a different question.
+    let replacementID = ModelRegistry.replacement(
+      for: recommendedID, in: ModelRegistry.catalog)?.id
+    if activeID == recommendedID || activeID == replacementID { return .matched }
 
     // Rule 5: in-flight download — banner only.
     if case .downloading = recommendedState { return .downloading }
