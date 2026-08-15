@@ -29,6 +29,31 @@ sibling `+Feature.swift` split: cross-check against
 `find Pastura/Pastura/Views -name '*.swift'` (CLAUDE.md § Scope & Completeness
 Discipline).
 
+Batch 1 removed eight occurrences and emptied three files, so the population as
+it ships today is **90 lines · 3 doc-comment mentions · 87 code sites across 40
+files**. `MutedSweepLedgerTests` pins the per-file breakdown — §8.
+
+### 1.1 One rendering site outside the `Color.muted` spelling
+
+The population above is defined by a *spelling*, and one site reaches the same
+token without it: `HighlightShareCard`'s header draws `model.modelName` with
+`palette.muted`, a `HighlightCardPalette` slot built from `PasturaPalette.muted`
+/ `PasturaPalette.nightMuted`. The raw read is required rather than a lapse —
+the card is a fixed-appearance `ImageRenderer` export, where a trait-resolving
+alias would collapse its `light` and `dark` families into one
+(`.claude/rules/swiftui-traps.md` § "`ImageRenderer` does not inherit the
+ambient environment").
+
+Its grounds are `screenBackground` / `nightBackground`, §8's own calibration
+points, so **3.329 / 3.779**; the label is attribution meta beneath the agent
+name, the caption shape §8 names. **Verdict: S.** It is deliberately left out of
+the counts above and out of §5, both of which remain the `Color.muted` census —
+folding it in would restate every figure to record one sanctioned site.
+
+`MutedSweepLedgerTests.rawPaletteReadsStayWithinTheRecordedSet` pins the
+out-of-spelling set instead, so a *new* consumer of this shape cannot enter by
+the route §1's grep is blind to.
+
 **Line numbers in §5 are advisory, valid at `9a40565a`.** Rows are anchored by
 file + symbol because inserting a why-comment shifts every later line in the same
 file — including rows this sweep has not touched. Re-anchor by symbol, not by
