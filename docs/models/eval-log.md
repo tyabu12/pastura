@@ -112,6 +112,111 @@ negative today does not generalize to tomorrow's GGUF.
 Re-run this at each onboarding rather than copying the numbers forward — the step
 lives in [`onboarding.md`](onboarding.md) § "Stage 0".
 
+### DRY sampler construction — 2026-08-15 (b8694 baseline)
+
+**Scope**: two `word_wolf.yaml` (ja) harness runs on the incumbent
+`gemma-4-E2B-it-Q4_K_M.gguf`, at the **pinned `llama.swift` 2.8694.0
+(llama.cpp b8694)**, differing only in `PASTURA_DRY_MULTIPLIER`. Recorded here
+because this is the reading a future pin bump is diffed against, and the run
+logs themselves are gitignored. Instrument: the #1483 `samplerDry*` markers.
+
+| arm | `samplerDrySeeded` | `reason=no-seeds` | `reason=disabled` | total | `attempts` |
+|---|---|---|---|---|---|
+| default (`mult=0.8`) | **10** | 16 | 0 | 26 | 1 |
+| `PASTURA_DRY_MULTIPLIER=0` | 0 | 0 | **26** | 26 | 1 |
+
+Seeded turns carried **16–31 tokens** each (`seeds=1` throughout — `speak_each`
+seeds one prior statement) and `nCtxTrain=131072`.
+
+**The counts are structural, so they are the comparable part.** `word_wolf` is
+5 agents × 1 round: `speak_each`(rounds 2) 10 + `reflect` 5 + `speak_each`
+(rounds 1) 5 + `narrate` 1 + `vote` 5 = 26 generations. Seeded = 10 because an
+agent is seeded once it has a non-empty prior `lastOutputs` entry — round 2 of
+the first `speak_each`, then **both** rounds of the second, since `lastOutputs`
+persists across phases. (`event_inject probability: 0.5` gates only a template
+`summarize`, so it does not move the generation count.)
+
+**What is stable across runs, and what is not** — the comparison a post-bump run
+should make:
+
+- **Stable**: the three counts, the arm flip to 100 % `disabled`, `nCtxTrain`
+  (per model), and zero `null-init` / `no-model`. A shift here is a real signal.
+- **Not stable**: `seededTokens`. It is the tokenized length of the agent's own
+  previous statement, so 16–31 is generation-length variance over 10 samples in
+  one run — do **not** read a shifted range as a regression.
+- `attempts` must be 1. A harness rerun doubles every count and the markers
+  carry no attempt discriminator.
+
+**26 markers against 25 `inference_completed`** in the same run, in both arms.
+The markers are right and the JSONL undercounts: `NarrateHandler` hands
+`LLMCaller` a no-op emitter, so the narrate turn's inference emits no events.
+One marker per **non-throwing** generation holds — the JSONL is the wrong
+denominator to check it with, by exactly the narrate-phase count. Retries do
+not enter it (they increment both sides).
+
+**Why the pair, not just the first arm.** A marker that appears is not evidence
+the instrument discriminates; the disabled arm flipping all 26 lines is. It also
+settles a second thing #1415 left unverified — that the `PASTURA_DRY_MULTIPLIER`
+A/B lever reaches the sampler at all.
+
+**What this instrument can and cannot settle.** It shows DRY still *constructs
+and seeds* after the bump — the thing #1415 could not observe at all. It does
+**not** show it was constructed with the right *parameters*: the line echoes the
+Swift-side `DryConfig`, never the values llama.cpp received, so transposing the
+adjacent `multiplier`/`base` floats or `allowedLength`/`penaltyLastN` int32s
+compiles, returns non-NULL, seeds the same token count, and emits a
+byte-identical line while DRY is inert. Argument order stays code-review-gated,
+like the guard→reason mapping. `nCtxTrain` is on the line because it is the
+argument b10327 removes, but its disappearance is produced by the bumper's own
+edit — treat it as a checklist item, not as evidence.
+
+**Coupled edits when the bump lands**, none of which any gate enforces: drop
+`nCtxTrain` from `LlamaCppService.drySeededLine` **and** from
+`drySeededLineCarriesEveryField`; if the now-unused `model` precondition goes
+too (#1415), remove `.noModel` from `DryUnavailableReason`, from the pinned set
+in `dryUnavailableReasonsArePinnedAndDistinct`, and from the reading table in
+`.claude/skills/model-eval/SKILL.md`. Note also that `PASTURA_DRY_LAST_N=-1`
+flips meaning at b10327 (whole training context → disabled) and the marker
+records only the resolved `lastN`, so an override arm looks unchanged.
+
+**Reproduce** (from the repo root; the sidecar lands at `${OUT%.jsonl}.stderr.log`):
+
+```bash
+.claude/skills/scenario-factory/scripts/run_scenario.sh \
+  Pastura/Pastura/Resources/Presets/word_wolf.yaml \
+  ~/Models/gemma-4-E2B-it-Q4_K_M.gguf /tmp/dry-pos.jsonl 600 gemma-4-e2b-q4-k-m
+PASTURA_DRY_MULTIPLIER=0 .claude/skills/scenario-factory/scripts/run_scenario.sh \
+  Pastura/Pastura/Resources/Presets/word_wolf.yaml \
+  ~/Models/gemma-4-E2B-it-Q4_K_M.gguf /tmp/dry-neg.jsonl 600 gemma-4-e2b-q4-k-m
+grep -HoE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+' /tmp/dry-*.stderr.log \
+  | sort | uniq -c   # -H, or the two arms merge into one unattributed count
+```
+
+**Three marker paths stayed unexercised**: `no-model`, `null-init` and
+`no-grammar` are zero in both arms (every `word_wolf` LLM phase carries an
+output schema, and nothing failed). Their line *format* is unit-tested; their
+*emission* is not, so read a future zero on them as "still unexercised", not as
+a measured negative.
+
+**And `createSampler`'s three throwing exits carry no marker at all**
+(enumerated on `DryUnavailableReason`). So the partition is 6 marker paths — the
+five `reason=` values plus `samplerDrySeeded` — plus 3 silent ones, and the
+count above measures *generations that reached sampler construction*.
+
+Three different signals rule them out, and the run status is only one of them.
+The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`, which
+`streamFailureError` returns typed and run-fatal, so `status: ok` excludes them.
+`chain_init` NULL throws `.generationFailed`, which is turn-degradable and can
+leave the run finishing `ok` (and `run_end.attempts` is the harness's own
+run-level retry count, not `LLMCaller`'s per-turn one) — but for a **gated**
+phase the skip emits `.turnSkipped`, which reaches the JSONL as a `turn_skipped`
+line naming the cause, so that is the direct signal. What the **26 = 25 + 1
+reconciliation** uniquely covers is the ungated `narrate` turn: the same no-op
+emitter that produces the offset above also swallows a *failure* there — no
+`.narration`, no `.turnSkipped` — so a sampler throw is invisible to both the
+run status and the event stream. A post-bump short count with no `turn_skipped`
+line is that case.
+
 ---
 
 ## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **PASS (Mac filter only — advances to the ADR-011 real-device PoC, never an adoption)**

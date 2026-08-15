@@ -80,7 +80,100 @@ nonisolated struct DryConfig {
   }
 }
 
+/// Why a generation ran without a DRY sampler (#1483).
+///
+/// One case per exit path; with `samplerDrySeeded` they cover every
+/// **non-throwing** exit of `createSampler`. So a run emitting **no**
+/// `samplerDry*` line means the sampler path was never reached — a different
+/// fact from "DRY was off".
+///
+/// **The three throwing exits carry no marker** (`chain_init` NULL, grammar
+/// without vocab, `init_grammar` NULL — #194); `prepareGeneration` can throw
+/// upstream too. A marker counts generations that *reached sampler
+/// construction*, never *attempted*, so read `run_end.status` alongside the
+/// sweep before calling a short count a broken instrument.
+///
+/// Raw values join to the `.stderr.log` sweep in `/model-eval` § Step 2;
+/// `DrySamplerConfigTests` pins the set.
+nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
+  /// `DryConfig.resolve()` returned nil — the harness A/B base arm
+  /// (`PASTURA_DRY_MULTIPLIER=0`). Never reached in TestFlight / Release.
+  case disabled
+  /// The caller passed no prior text. Structural, not a fault: `speak_each` is
+  /// the only seeding phase in Engine, and it seeds an agent once that agent
+  /// has a non-empty prior `lastOutputs` entry — **not** "round 2 onward",
+  /// since `lastOutputs` persists across phases, so a *second* `speak_each`
+  /// seeds from its first round. Per-scenario counts:
+  /// `docs/models/eval-log.md` § "DRY sampler construction".
+  case noSeeds = "no-seeds"
+  /// No model pointer, so `n_ctx_train` is unreadable.
+  case noModel = "no-model"
+  /// `llama_sampler_init_dry` returned NULL.
+  case nullInit = "null-init"
+  /// `createSampler` returned before reaching the builder at all — no
+  /// grammar (`schema == nil`), so DRY is gated off upstream.
+  case noGrammar = "no-grammar"
+}
+
 nonisolated extension LlamaCppService {
+  /// The line emitted once per generation that installs a DRY sampler.
+  ///
+  /// `nCtxTrain` is on the line deliberately: llama.cpp b10327 **drops** that
+  /// argument from `llama_sampler_init_dry`, so recording what the pinned
+  /// b8694 build passes is what makes a harness run a baseline the bump can
+  /// be diffed against, rather than a mere liveness check (#1415).
+  ///
+  /// Pure and `static` so the format is unit-testable without inference — the
+  /// seeding path itself needs a real model (PR #463).
+  static func drySeededLine(
+    seededTokenCount: Int, seedCount: Int, nCtxTrain: Int32,
+    config: DryConfig, model: String
+  ) -> String {
+    "samplerDrySeeded seededTokens=\(seededTokenCount) seeds=\(seedCount) "
+      + "nCtxTrain=\(nCtxTrain) mult=\(config.multiplier) base=\(config.base) "
+      + "allowed=\(config.allowedLength) lastN=\(config.penaltyLastN) model=\(model)"
+  }
+
+  /// The line emitted once per generation that runs without a DRY sampler.
+  static func dryUnavailableLine(reason: DryUnavailableReason, model: String) -> String {
+    "samplerDryUnavailable reason=\(reason.rawValue) model=\(model)"
+  }
+
+  /// Emit one diagnostic line to OSLog **and** to stderr.
+  ///
+  /// The stderr mirror is the only channel the ADR-013 harness can read: it
+  /// captures stderr to a `.stderr.log` sidecar and retains no `.debug` OSLog
+  /// records at all (measured in #1415; nothing in this repo reads OSLog, so it
+  /// is not re-derivable here). `LLM/` cannot use the harness's `EngineLogger`
+  /// seam instead — that protocol lives in `Engine/`, and the dependency rule
+  /// forbids the import.
+  ///
+  /// `anomalous` keeps the pre-#1483 OSLog severity on the two paths that had
+  /// it (NULL init, zero tokens seeded) without splitting the stderr channel.
+  /// Interpolated `.public` because the line carries only model metadata and
+  /// numbers — never seeds, which are agent output (CLAUDE.md Logger privacy).
+  func emitDryDiagnostic(_ line: String, anomalous: Bool = false) {
+    if anomalous {
+      logger.warning("\(line, privacy: .public)")
+    } else {
+      logger.debug("\(line, privacy: .public)")
+    }
+    // Same rationale as `emitGrammarResampleDiagnostic`'s mirror: CLI os.Logger
+    // output is not reliably queryable via `log show`. Invisible on iOS.
+    // Volume profile differs from that sibling, though — do not carry its
+    // "rare path" framing across: this fires once per generation, not once per
+    // event. ~120 B against seconds of inference, so still negligible.
+    fputs(line + "\n", stderr)
+  }
+
+  /// Emit the unavailable marker for `reason`. `.nullInit` is the only one that
+  /// raises OSLog severity — the rest are expected states, not faults.
+  func emitDryUnavailable(_ reason: DryUnavailableReason) {
+    emitDryDiagnostic(
+      Self.dryUnavailableLine(reason: reason, model: modelIdentifier),
+      anomalous: reason == .nullInit)
+  }
+
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
   /// enhancement, so any missing precondition (the explicit base arm
@@ -105,23 +198,56 @@ nonisolated extension LlamaCppService {
   func buildAndSeedDrySampler(
     vocab: OpaquePointer, model: OpaquePointer?, seeds: [String]
   ) -> UnsafeMutablePointer<llama_sampler>? {
-    guard let config = DryConfig.resolve(), !seeds.isEmpty, let model
-    else { return nil }
+    // One guard per precondition, and do not re-merge them: each exit needs its
+    // own marker, or three distinguishable states collapse into "no DRY". The
+    // readings are on `DryUnavailableReason`'s cases.
+    guard let config = DryConfig.resolve() else {
+      emitDryUnavailable(.disabled)
+      return nil
+    }
+    guard !seeds.isEmpty else {
+      emitDryUnavailable(.noSeeds)
+      return nil
+    }
+    guard let model else {
+      emitDryUnavailable(.noModel)
+      return nil
+    }
 
+    let nCtxTrain = llama_model_n_ctx_train(model)
     let dry = withArrayOfCStrings(config.seqBreakers) { breakerPtrs in
       llama_sampler_init_dry(
-        vocab, llama_model_n_ctx_train(model), config.multiplier, config.base,
+        vocab, nCtxTrain, config.multiplier, config.base,
         config.allowedLength, config.penaltyLastN,
         breakerPtrs.baseAddress, breakerPtrs.count)
     }
     guard let dry else {
-      logger.warning("DRY sampler init returned NULL — proceeding without it (#1105)")
+      emitDryUnavailable(.nullInit)
       return nil
     }
 
-    // Seed content-only. `llama_sampler_accept` on a DRY sampler is a
-    // ring-buffer push (no grammar member → no #253 crash risk); safe for
-    // any token, so no EOG/catch handling is needed here.
+    let seededTokenCount = seedTokens(into: dry, vocab: vocab, seeds: seeds)
+    // `seededTokenCount == 0` is reached with a non-empty `seeds` (guarded
+    // above) yet nothing seeded — every seed failed to tokenize. The handle
+    // stays valid but degrades to a within-generation-only penalty, silently
+    // defeating the cross-turn purpose of #1105, so raise the OSLog severity.
+    emitDryDiagnostic(
+      Self.drySeededLine(
+        seededTokenCount: seededTokenCount, seedCount: seeds.count,
+        nCtxTrain: nCtxTrain, config: config, model: modelIdentifier),
+      anomalous: seededTokenCount == 0)
+    return dry
+  }
+
+  /// Feed `seeds` to `dry` content-only and return the token count actually
+  /// accepted.
+  ///
+  /// `llama_sampler_accept` on a DRY sampler is a ring-buffer push (no grammar
+  /// member → no #253 crash risk); safe for any token, so no EOG/catch
+  /// handling is needed here.
+  private func seedTokens(
+    into dry: UnsafeMutablePointer<llama_sampler>, vocab: OpaquePointer, seeds: [String]
+  ) -> Int {
     var seededTokenCount = 0
     for seed in seeds {
       guard let tokens = try? tokenize(vocab: vocab, text: seed, addSpecial: false) else {
@@ -132,25 +258,7 @@ nonisolated extension LlamaCppService {
         seededTokenCount += 1
       }
     }
-    if seededTokenCount == 0 {
-      // Reached with a non-empty `seeds` (guarded above) yet nothing seeded —
-      // every seed failed to tokenize. The handle stays valid but degrades to
-      // a within-generation-only penalty, silently defeating the cross-turn
-      // purpose of #1105, so surface it above `.debug`.
-      logger.warning(
-        """
-        DRY seeded 0 tokens from \(seeds.count, privacy: .public) non-empty \
-        seed(s) (#1105) — all tokenized empty; cross-turn penalty inert this turn
-        """)
-    }
-    logger.debug(
-      """
-      DRY seeded (#1105): \(seededTokenCount, privacy: .public) tokens from \
-      \(seeds.count, privacy: .public) seed(s) — mult=\(config.multiplier, privacy: .public) \
-      base=\(config.base, privacy: .public) allowed=\(config.allowedLength, privacy: .public) \
-      lastN=\(config.penaltyLastN, privacy: .public)
-      """)
-    return dry
+    return seededTokenCount
   }
 
   /// Call `body` with a C `const char **` view of `strings`, valid only for

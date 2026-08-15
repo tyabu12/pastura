@@ -120,6 +120,17 @@ extension LlamaCppService {
       // `llama_sampler_sample`, which builds `cur_p` internally with no seam
       // to apply a separate DRY handle — and no seeded caller reaches it
       // (seeds flow only from schema-bearing LLM phases). See #1105.
+      //
+      // This return is upstream of `buildAndSeedDrySampler`, so without a
+      // marker here a whole run could emit zero `samplerDry*` lines for a
+      // healthy reason — indistinguishable from an instrument that never
+      // fired (#1483).
+      //
+      // Keep the emit ABOVE `initGrammarCapturingStderr` below: that helper
+      // dup2s fd 2 for the width of one C call, so a marker moved under it
+      // would be swallowed into the grammar-parse capture instead of the
+      // harness sidecar. Nothing tests this ordering.
+      emitDryUnavailable(.noGrammar)
       return SamplerHandles(chain: chain, grammar: nil, dry: nil)
     }
     guard let vocab else {
