@@ -12,8 +12,10 @@ llama.cpp interim LLM backend decision.
 
 Standing invariant — § "Pin Strategy": pin a specific release tag, and on a bump
 pin the **measured** tag rather than the latest one. Drift alone is not a reason
-to bump; a bump needs a named blocked capability and must clear that section's
-verification bar. No gate enforces any of it.
+to bump; a bump needs one of three named triggers (blocked capability, CVE,
+llama.swift build break) and must clear that section's six-item verification
+bar. No gate enforces any of it — the operator-side pairing is
+`docs/security/release-checklist.md` §3.1.
 
 ## ADR-003 — Background execution
 

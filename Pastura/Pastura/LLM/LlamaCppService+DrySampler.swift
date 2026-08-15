@@ -125,8 +125,9 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
   /// the only seeding phase in Engine, and it seeds an agent once that agent
   /// has a non-empty prior `lastOutputs` entry — **not** "round 2 onward",
   /// since `lastOutputs` persists across phases, so a *second* `speak_each`
-  /// seeds from its first round. Per-scenario counts:
-  /// `docs/models/eval-log.md` § "DRY sampler construction".
+  /// seeds from its first round. Per-scenario counts: `docs/models/eval-log.md`
+  /// § "DRY sampler construction — 2026-08-15 (b8694 baseline)" — several
+  /// sections share that prefix, so cite it through the pin qualifier.
   case noSeeds = "no-seeds"
   /// `llama_sampler_init_dry` returned NULL.
   case nullInit = "null-init"

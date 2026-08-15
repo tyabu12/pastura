@@ -259,9 +259,10 @@ extension LlamaCppService {
   /// **Why dup2 is needed.** llama.cpp's grammar parser writes detailed
   /// errors via `fprintf(stderr, "error parsing grammar: %s\n\n%s\n", ...)`
   /// at `llama-grammar.cpp:715` (b10327), then `parser.parse` returns false.
-  /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` — same file,
-  /// line 1223 at that pin — reaches our `llama_log_set` callback
-  /// (`LlamaCppService.swift`).
+  /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` at
+  /// `llama-grammar.cpp:1223` reaches our `llama_log_set` callback
+  /// (`LlamaCppService.swift`). Both numbers are b10327's; keep each on one
+  /// line beside its filename — the next bump finds them by grep or not at all.
   /// iOS doesn't pipe process stderr to os_log, so without this `dup2`
   /// redirect the actionable detail (`expecting ']' at`,
   /// `Undefined rule identifier 'X'`, etc.) is permanently lost.

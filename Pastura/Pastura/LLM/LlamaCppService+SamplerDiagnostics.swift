@@ -23,8 +23,9 @@ extension LlamaCppService {
   /// grammar-masked (-inf) token. Two observed sub-modes, both
   /// deterministic (RNG-independent — retries of the same prompt
   /// mis-select identically), both from llama.cpp's dist sampler
-  /// (`src/llama-sampler.cpp:1042-1103` at b10327) whose `assert(found)` is compiled
-  /// out of the release xcframework:
+  /// (`src/llama-sampler.cpp:1042-1112` at b10327) whose `assert(found)` —
+  /// `src/llama-sampler.cpp:1100` — is compiled out of the release
+  /// xcframework:
   ///
   /// - (a) grammar rejected EVERY truncated candidate → all-NaN softmax →
   ///   the `sum_run >= sum_tgt` scan never fires → falls through to the
