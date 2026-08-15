@@ -153,6 +153,32 @@ none) — battery completeness comes from the 6 wrapper status lines, not from
 `runs_total == 6`. Read this object; it feeds the scorecard's per-cell metrics
 and the verdict.
 
+Then sweep the **stderr sidecars** for the sampler markers. The analyzer reads
+the JSONL only, and none of these reach it:
+
+```bash
+grep -oE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+|samplerGrammarResample|samplerMaskedSelection|samplerCrashCaught' \
+  data/models/eval-runs/<DATE>/*.stderr.log | sort | uniq -c
+```
+
+Read the DRY markers (#1483) **against the cell's phase shape**, never as a
+bare count — `speak_each` is the only phase in Engine that seeds DRY, and only
+from its second round on:
+
+| observation | reading |
+|---|---|
+| `samplerDrySeeded` in `word_wolf` ja/en | expected — the only battery cells with a `speak_each` phase |
+| `samplerDrySeeded` **zero** in `prisoners_dilemma` / `bokete` | **correct, not a defect.** Neither preset has a `speak_each` phase, so 4 of the 6 cells emit only `reason=no-seeds` |
+| `reason=disabled` in a plain battery | DRY is off — `PASTURA_DRY_MULTIPLIER` leaked into the environment; the arm is invalid, re-run |
+| `reason=null-init` or `reason=no-model` | never expected; either is a defect worth an issue |
+| **no `samplerDry*` line at all** | the one unambiguous instrument failure — every `createSampler` exit emits exactly one |
+
+**Do not reconcile the `samplerDry*` total against `inference_completed`** — it
+is legitimately higher. `narrate` hands `LLMCaller` a no-op emitter, so its
+inference emits no events at all. Measured on `word_wolf` ja at the b8694 pin:
+26 markers vs 25 `inference_completed`, the difference being that one narrate
+turn (`docs/models/eval-log.md` § "DRY sampler construction").
+
 ## Step 3 — Judge each `ok` cell in-session
 
 For each cell with `status == ok`:
