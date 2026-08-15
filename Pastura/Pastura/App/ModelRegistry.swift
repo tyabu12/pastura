@@ -111,8 +111,55 @@ enum ModelRegistry {
     tagline: String(localized: "Compact and nimble. A small download you can try freely.")
   )
 
-  /// Full production catalog, ordered by display preference (Gemma first, Qwen second).
-  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B]
+  nonisolated static let gemma4E2BQAT: ModelDescriptor = ModelDescriptor(
+    id: "gemma-4-e2b-qat-q4-k-xl",
+    displayName: "Gemma 4 E2B (QAT)",
+    // Not named after the upstream `UD-Q4_K_XL` filename on purpose: the file is
+    // not a K-quant. Its tensor spread is `Q4_0`×278 / `F32`×263 and
+    // `general.name` reads "smart Q4_0, QAT-lossless", so a `Q4_K_XL` label in
+    // the picker would state a quantisation format the file does not use.
+    shortDisplayName: "Gemma 4 E2B QAT",
+    vendor: "Google",
+    vendorURL: unsafeURL("https://deepmind.google"),
+    downloadURL: unsafeURL(
+      "https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF/resolve/66a399f68ddd113b06dff02fca9523e55465d11d/gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf"
+    ),
+    fileName: "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf",
+    fileSize: 2_620_370_976,
+    sha256: "e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889",
+    // Same deliberate divergence as `gemma4E2B`, inert for the same reason — but
+    // that reason is a property of the *export*, not of the model, so it was
+    // re-measured against this file rather than carried across (a wrong pair
+    // fails silently, `docs/models/onboarding.md` § "Stage 0 — Harness profile"):
+    // `<|im_end|>` is absent from this vocabulary too. Deferred to #1451, which
+    // must change every site (`grep -rn '#1451'`).
+    stopSequence: "<|im_end|>",
+    // Measured from the GGUF header of the exact file pinned above: `<|turn>`
+    // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), vocab 262,144,
+    // 541 tensors. `<turn|>` is `eot_token_id` here, and `eos_token_id` is 1
+    // (`<eos>`) — where `gemma4E2B` carries `<turn|>` as its `eos`. Termination
+    // is unaffected because `llama_vocab_is_eog` covers both fields, but do not
+    // copy either descriptor's eos/eot claim onto the other.
+    turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
+    minRAM: 6_500_000_000,
+    modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF"),
+    // No assistant prefill. `.claude/rules/engine.md` § "Grammar sampler does
+    // not mask special tokens" makes this a per-model check, and this export's
+    // chat template differs textually from `gemma4E2B`'s — so the shared base
+    // model does not settle it. Gate 1 running crash-free on this file does.
+    systemPromptSuffix: nil,
+    tagline: String(localized: "The same conversational Gemma, in a smaller download.")
+  )
+
+  /// Full production catalog, ordered by display preference.
+  ///
+  /// `gemma4E2BQAT` is **added alongside** `gemma4E2B` rather than superseding it,
+  /// a deliberate departure from § "Model-update (supersede) convention" above:
+  /// superseding would force every existing user to re-download 2.62 GB, with no
+  /// way back if the QAT build misbehaves on their device. Because the incumbent
+  /// stays in the catalog, no id leaves it and `RETIRED_MODEL_IDS` is untouched.
+  /// See #1487.
+  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B, gemma4E2BQAT]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).
   ///

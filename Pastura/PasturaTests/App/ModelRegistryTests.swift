@@ -8,7 +8,7 @@ struct ModelRegistryTests {
   // Production catalog integrity
   @Test func catalog_hasExpectedModels() {
     let ids = ModelRegistry.catalog.map(\.id)
-    #expect(ids == ["gemma-4-e2b-q4-k-m", "qwen-3-4b-q4-k-m"])
+    #expect(ids == ["gemma-4-e2b-q4-k-m", "qwen-3-4b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
   }
 
   @Test func catalog_passesValidateNoCollisions() {
@@ -79,6 +79,30 @@ struct ModelRegistryTests {
   /// surface.
   @Test func gemma_hasNoAssistantPrefix() {
     #expect(ModelRegistry.gemma4E2B.assistantPrefix == nil)
+  }
+
+  @Test func gemmaQAT_taglineAndShortDisplayName_areSet() {
+    #expect(!ModelRegistry.gemma4E2BQAT.tagline.isEmpty)
+    #expect(ModelRegistry.gemma4E2BQAT.shortDisplayName != nil)
+    // Distinct from the incumbent's short name, which is the whole point: both
+    // are "Gemma 4 E2B", and the picker / Settings / `ActiveModelChip` render
+    // `shortDisplayName ?? displayName`, so an equal pair is two identical rows.
+    #expect(ModelRegistry.gemma4E2BQAT.shortDisplayName != ModelRegistry.gemma4E2B.shortDisplayName)
+  }
+
+  /// Integrity metadata read from the HuggingFace resolve URL's
+  /// `X-Linked-Size` / `X-Linked-Etag` headers at the pinned commit. A silent
+  /// edit here fails every user's download at the SHA-256 check rather than
+  /// degrading, so it is pinned rather than code-review-gated.
+  @Test func gemmaQAT_integrityMetadataMatchesFetchedValues() {
+    #expect(ModelRegistry.gemma4E2BQAT.fileSize == 2_620_370_976)
+    #expect(
+      ModelRegistry.gemma4E2BQAT.sha256
+        == "e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889")
+    // Same base model as `gemma4E2B`, so the same prompt-format contract — see
+    // `gemma_hasNoAssistantPrefix` for why a non-nil prefix is a silent hazard.
+    #expect(ModelRegistry.gemma4E2BQAT.assistantPrefix == nil)
+    #expect(ModelRegistry.gemma4E2BQAT.systemPromptSuffix == nil)
   }
 
   // findCollisions testability — covers the uniqueness check without

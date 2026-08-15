@@ -7163,6 +7163,16 @@
         }
       }
     },
+    "The same conversational Gemma, in a smaller download." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "会話型 Gemma はそのままに、より小さな容量で。"
+          }
+        }
+      }
+    },
     "The shared topic assigned to everyone" : {
       "localizations" : {
         "ja" : {

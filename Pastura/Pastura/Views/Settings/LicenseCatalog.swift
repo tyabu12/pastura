@@ -230,6 +230,32 @@ enum LicenseCatalog {
           label: "Apache License 2.0",
           url: URL(string: "https://www.apache.org/licenses/LICENSE-2.0"))
       ],
-      modelID: ModelRegistry.qwen34B.id)
+      modelID: ModelRegistry.qwen34B.id),
+    LicenseEntry(
+      id: "model-gemma-4-e2b-qat",
+      name: "Gemma 4 E2B (QAT)",
+      licenseName: "Apache License 2.0",
+      url: ModelRegistry.gemma4E2BQAT.modelInfoURL,
+      text: """
+        Gemma 4 is released by Google under the Apache License 2.0. \
+        Additional Google policies apply to use of the model, including \
+        the Gemma Prohibited Use Policy and the Intended Use Statement.
+
+        This quantization-aware-trained build is downloaded from Hugging \
+        Face (unsloth/gemma-4-E2B-it-qat-GGUF) at your request; Pastura \
+        does not redistribute it.
+        """,
+      links: [
+        LicenseLink(
+          label: "Apache License 2.0",
+          url: URL(string: "https://www.apache.org/licenses/LICENSE-2.0")),
+        LicenseLink(
+          label: "Gemma 4 license",
+          url: URL(string: "https://ai.google.dev/gemma/docs/gemma_4_license")),
+        LicenseLink(
+          label: "Gemma Prohibited Use Policy",
+          url: URL(string: "https://ai.google.dev/gemma/prohibited_use_policy"))
+      ],
+      modelID: ModelRegistry.gemma4E2BQAT.id)
   ]
 }
