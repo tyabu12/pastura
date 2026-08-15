@@ -105,17 +105,21 @@ struct ModelSettingsRow: View {
 
   // MARK: - State label
 
+  // Every arm reads `inkSecondary`, not design-system §8's quietude tier: a
+  // state the user cannot act around has to be legible, and `.notDownloaded`
+  // already was — the two below were the odd ones out in this same switch.
+  // Audit class A1: `docs/design/muted-application-audit.md`.
   @ViewBuilder
   private var stateLabel: some View {
     switch state {
     case .checking:
       Text(String(localized: "Loading…"))
         .font(.footnote)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
     case .unsupportedDevice:
       Text(String(localized: "Not supported on this device"))
         .font(.footnote)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
     case .notDownloaded:
       Text(String(localized: "Not downloaded"))
         .font(.footnote)

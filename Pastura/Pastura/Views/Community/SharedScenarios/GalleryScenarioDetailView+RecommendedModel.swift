@@ -29,11 +29,14 @@ extension GalleryScenarioDetailView {
             // The Settings version's second sentence ("Downloads and deletes
             // of other models remain available.") is contextual to the
             // Settings → Models section UX and dangles in gallery context.
+            // `inkSecondary`, not §8's quietude tier — the reason the Switch
+            // button is disabled is the only way to learn why it does nothing.
+            // Audit class A1: `docs/design/muted-application-audit.md`.
             Text(
               String(localized: "Finish the current simulation before switching models.")
             )
             .font(.footnote)
-            .foregroundStyle(Color.muted)
+            .foregroundStyle(Color.inkSecondary)
           }
         }
         .padding(17)
