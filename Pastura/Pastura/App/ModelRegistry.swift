@@ -111,6 +111,18 @@ enum ModelRegistry {
     tagline: String(localized: "Compact and nimble. A small download you can try freely.")
   )
 
+  /// Gemma 4 E2B, quantization-aware-trained rebuild.
+  ///
+  /// **Needs the llama.swift `2.10327.0` / llama.cpp b10327 pin or newer.** The
+  /// Gemma 4 QAT exports ship a shared-KV tail layer that earlier builds refuse
+  /// with `missing tensor 'blk.15.attn_k.weight'` (`.claude/rules/engine.md`
+  /// § "GGUF source *and variant* matter"). Nothing couples the two in code and
+  /// the failure lands *after* a 2.62 GB download rather than at build time — so
+  /// a pin downgrade has to drop this entry with it.
+  ///
+  /// `minRAM` is inherited from `gemma4E2B`, not measured. The file is 0.49 GB
+  /// smaller but the floor gates *runtime* footprint, which ADR-011 P3 settles on
+  /// a real device; inheriting is the conservative side of that unknown.
   nonisolated static let gemma4E2BQAT: ModelDescriptor = ModelDescriptor(
     id: "gemma-4-e2b-qat-q4-k-xl",
     displayName: "Gemma 4 E2B (QAT)",
@@ -130,9 +142,11 @@ enum ModelRegistry {
     // Same deliberate divergence as `gemma4E2B`, inert for the same reason — but
     // that reason is a property of the *export*, not of the model, so it was
     // re-measured against this file rather than carried across (a wrong pair
-    // fails silently, `docs/models/onboarding.md` § "Stage 0 — Harness profile"):
-    // `<|im_end|>` is absent from this vocabulary too. Deferred to #1451, which
-    // must change every site (`grep -rn '#1451'`).
+    // fails silently, `docs/models/onboarding.md` § "Stage 0 — Harness profile
+    // (new model family only)" — optional here, run anyway): `<|im_end|>` is
+    // absent from this vocabulary too. Deferred to #1451, which must change
+    // every site (`grep -rn '#1451'`). Canonical note:
+    // `LlamaCppService.stopSequence`.
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the exact file pinned above: `<|turn>`
     // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), vocab 262,144,
@@ -151,13 +165,25 @@ enum ModelRegistry {
     tagline: String(localized: "The same conversational Gemma, in a smaller download.")
   )
 
-  /// Full production catalog, ordered by display preference.
+  /// Full production catalog, ordered by display preference — Gemma, Qwen, then
+  /// the QAT Gemma. That last position is provisional: QAT-first lands with the
+  /// `recommendedModelID` repoint, after the gate below.
   ///
-  /// `gemma4E2BQAT` is **added alongside** `gemma4E2B` rather than superseding it,
-  /// a deliberate departure from § "Model-update (supersede) convention" above:
-  /// superseding would force every existing user to re-download 2.62 GB, with no
-  /// way back if the QAT build misbehaves on their device. Because the incumbent
-  /// stays in the catalog, no id leaves it and `RETIRED_MODEL_IDS` is untouched.
+  /// `gemma4E2BQAT` departs from two documented norms, both deliberately:
+  ///
+  /// - **Added alongside `gemma4E2B`, not superseding it** (§ "Model-update
+  ///   (supersede) convention" above): superseding forces every existing user to
+  ///   re-download 2.62 GB with no way back if the QAT build misbehaves on their
+  ///   device. No id leaves the catalog, so `RETIRED_MODEL_IDS` stays untouched.
+  ///   The slot is earned on download cost, not on the distinct character
+  ///   `docs/models/onboarding.md` § "Curation policy" asks for — `eval-log.md`
+  ///   calls this candidate "REPLACE-the-build, not earn-a-new-slot".
+  /// - **Landed before ADR-011 Gate 2**, which `onboarding.md`'s registration
+  ///   checklist and `eval-log.md`'s Disposition both place after P3–P5. Those
+  ///   cannot run otherwise: there is no sideload path, so this entry is how the
+  ///   model reaches a device at all. **If P3–P5 fail, revert this entry rather
+  ///   than amending it.**
+  ///
   /// See #1487.
   nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B, gemma4E2BQAT]
 

@@ -47,19 +47,32 @@ struct ModelRegistryTurnMarkerDivergenceTests {
   /// false positive there truncates a real payload — worse than today's no-op.
   ///
   /// Asserted over the whole catalog rather than on `gemma4E2B` alone. The
-  /// inertness is a property of each **export's** vocabulary, so every
-  /// divergent descriptor owes its own header measurement — and
-  /// `ModelRegistry.swift:62` promises `grep -rn '#1451'` enumerates every
-  /// site, which a per-descriptor test cannot keep true. The id list is what
-  /// makes a newly-divergent entry redden here instead of landing unmarked.
+  /// inertness is a property of each **export's** vocabulary, so every divergent
+  /// descriptor owes its own header measurement — and `ModelRegistry`'s
+  /// `stopSequence` comment promises "#1451, which must change every site
+  /// (`grep -rn '#1451'`)", which a per-descriptor test cannot keep true. The id
+  /// set is what makes a newly-divergent entry redden instead of landing
+  /// unmarked; it is order-independent, since order is not the invariant.
   ///
   /// A failure here is **not** automatically a bug: read #1451 first. Adding a
-  /// Gemma-family descriptor legitimately extends the list; anything else
+  /// Gemma-family descriptor legitimately extends the set; anything else
   /// diverging means the pair drifted by accident.
   @Test func everyDivergentDescriptorIsTheDeliberateChatMLCase() {
     let divergent = ModelRegistry.catalog.filter { $0.stopSequence != $0.turnMarkers.end }
-    #expect(divergent.map(\.id) == ["gemma-4-e2b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
+    #expect(Set(divergent.map(\.id)) == ["gemma-4-e2b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
     for descriptor in divergent {
+      #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end, "\(descriptor.id)")
+    }
+  }
+
+  /// Static-referenced companion to the catalog sweep above, which only reaches
+  /// descriptors still **in** `catalog`. The planned follow-up hides a legacy
+  /// entry and may drop `gemma4E2B` from it while the static stays live for users
+  /// who already downloaded that build — at which point the sweep would assert
+  /// nothing about it, silently. Keep both arms.
+  @Test func bothGemmaStaticsCarryTheDivergence() {
+    for descriptor in [ModelRegistry.gemma4E2B, ModelRegistry.gemma4E2BQAT] {
+      #expect(descriptor.stopSequence != descriptor.turnMarkers.end, "\(descriptor.id)")
       #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end, "\(descriptor.id)")
     }
   }

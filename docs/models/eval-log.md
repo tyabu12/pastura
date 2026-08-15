@@ -328,6 +328,15 @@ Reproduce: identical to the baseline's block above.
   3.11 GB file orphans until deleted by hand (ADR-015 / #548) — the saving accrues to
   *new* installs, and the retired id must move into `RETIRED_MODEL_IDS` in
   `scripts/gallery_highlight_validate.py` in the same PR (ADR-029).
+- **Superseded by #1487 on both counts, recorded here because this bullet is what a
+  reader lands on.** Cost (2) was **not** paid: the adopted shape is ADD-and-keep —
+  the descriptor joins `catalog` while the incumbent stays, so no existing user
+  re-downloads, nothing orphans, and no id retires (`RETIRED_MODEL_IDS` untouched).
+  And the entry **landed before P3–P5**, inverting this bullet's own ordering: the
+  gate has no other way to run, since the app has no sideload path and the catalog
+  is the only route onto a device. That inversion is paid for by a pre-commitment —
+  **if P3–P5 do not PASS, the descriptor commits are reverted before #1489 leaves
+  Draft**, and this entry's verdict stays "advances, not adopted".
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-13 ·
   `gemma-4-e2b-qat-q4-k-xl`, with the control arm under `gemma-4-e2b-q4-k-m` of the
   same date (gitignored, per-machine — the **durable** backing is the issue comment

@@ -108,9 +108,12 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // token-ID because what it must catch is text, which has no single token id.
   //
   // Shipped values: Qwen 3's `<|im_end|>` is 151645 (CONTROL, and its EOG).
-  // Gemma 4's descriptor holds that same ChatML string, absent from its 262k
-  // vocabulary — its own markers are `<|turn>` (105, CONTROL, NOT EOG) and
-  // `<turn|>` (106, EOG). Left as-is rather than replaced by a guess at what a
+  // Both Gemma 4 descriptors hold that same ChatML string, absent from their
+  // 262k vocabularies — their own markers are `<|turn>` (105, CONTROL, NOT EOG)
+  // and `<turn|>` (106, EOG). `<turn|>` reaches EOG by a different field in each
+  // (`eos_token_id` on the Q4_K_M build, `eot_token_id` on the QAT one);
+  // `llama_vocab_is_eog` covers both, but a claim copied between them would not.
+  // Left as-is rather than replaced by a guess at what a
   // Gemma hallucination would spell (#1417; behaviour half #1422). Read from
   // the descriptor at construction time; future models may differ.
   // TODO: A generation-side stop on the turn-START marker would end a hallucinated next
