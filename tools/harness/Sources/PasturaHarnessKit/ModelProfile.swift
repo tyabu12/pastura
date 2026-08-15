@@ -131,9 +131,24 @@ package struct ModelProfile: Sendable, Equatable {
     expectedSHA256: "d96f4d98eb528df26e8bc09ab81a1d165be4fce67616739e65980bed9038f0f2"
   )
 
+  /// Gemma 4 E2B QAT UD-Q4_K_XL. Mirrors `App/ModelRegistry.gemma4E2BQAT`,
+  /// which is added **alongside** `gemma4E2B` rather than superseding it — so
+  /// both Gemma profiles stay live here too. Verdict and header measurements:
+  /// `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
+  package static let gemma4E2BQAT = ModelProfile(
+    id: "gemma-4-e2b-qat-q4-k-xl",
+    name: "Gemma 4 E2B (QAT)",
+    stopSequence: "<|im_end|>",
+    turnMarkers: ChatTurnMarkers(start: "<|turn>", end: "<turn|>"),
+    systemPromptSuffix: nil,
+    assistantPrefix: nil,
+    expectedFileName: "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf",
+    expectedSHA256: "e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889"
+  )
+
   /// Known profiles the harness `--profile` flag can select, gemma first
   /// as the default.
-  package static let all: [ModelProfile] = [gemma4E2B, qwen34B, sarashina223B]
+  package static let all: [ModelProfile] = [gemma4E2B, qwen34B, sarashina223B, gemma4E2BQAT]
 
   /// Looks up a known profile by its registry `id`, or `nil` if unknown.
   package static func named(_ id: String) -> ModelProfile? {
