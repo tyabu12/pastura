@@ -232,6 +232,47 @@ emitter that produces the offset above also swallows a *failure* there — no
 run status and the event stream. A post-bump short count with no `turn_skipped`
 line is that case.
 
+### DRY sampler construction — 2026-08-15 (b10327, post-bump) — **no regression**
+
+Same two arms, same scenario, same `gemma-4-E2B-it-Q4_K_M.gguf`, on the bumped
+`llama.swift` 2.10327.0 (llama.cpp b10327). Only the pin differs from the
+baseline above, so the baseline is a same-model control rather than a remembered
+figure.
+
+| arm | `samplerDrySeeded` | `reason=no-seeds` | `reason=disabled` | total | `attempts` | vs. b8694 |
+|---|---|---|---|---|---|---|
+| default (`mult=0.8`) | **10** | 16 | 0 | 26 | 1 | identical |
+| `PASTURA_DRY_MULTIPLIER=0` | 0 | 0 | **26** | 26 | 1 | identical |
+
+Every comparand the baseline marked **stable** is unchanged: the three counts,
+the arm flip to 100 % `disabled`, zero `null-init`, and `attempts == 1` in both
+arms. `no-grammar` also stayed zero. The **26 = 25 + 1** reconciliation holds —
+both arms carry 25 `inference_completed` plus the one `narration` whose no-op
+emitter emits none — and `turn_skipped` is zero in both, so no throwing exit is
+hiding behind the count.
+
+Not comparands, recorded so a reader does not mistake either for drift:
+
+- `seededTokens` **15–38** (baseline 16–31, `seeds=1` throughout). Generation-
+  length variance over 10 samples, explicitly not a regression signal.
+- `phase_completed` 13 in the default arm vs 12 in the base arm. That is
+  `event_inject probability: 0.5` firing in one run and not the other; it gates
+  a template `summarize`, so the generation count is 25 in **both** — which is
+  the point the baseline makes about it, now observed directly.
+
+Two things this run settles that the unit tests structurally cannot, since only
+*line format* is testable off-device: the marker **still emits** at the new pin
+(the thing #1415 could not observe), and `nCtxTrain` is absent from all 26 lines
+in both arms — the field's removal confirmed at emission, not just in
+`drySeededLineCarriesEveryField`.
+
+What it does **not** settle is unchanged from the baseline: the line echoes the
+Swift-side `DryConfig`, never the values llama.cpp received, so argument order
+stays code-review-gated. And `no-grammar` / `null-init` remain unexercised —
+read their zeros as "still unexercised", not as a measured negative.
+
+Reproduce: identical to the baseline's block above.
+
 ---
 
 ## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **PASS (Mac filter only — advances to the ADR-011 real-device PoC, never an adoption)**
