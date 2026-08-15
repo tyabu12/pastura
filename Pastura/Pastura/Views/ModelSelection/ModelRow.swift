@@ -9,9 +9,9 @@ import SwiftUI
 ///
 /// ```
 ///  ┌───────────────────────────────────────────────────┐
-///  │ ┃ [sheep]  Gemma 4 E2B  [推奨]                  ◉ │
-///  │ ┃          Google · 3.1 GB                        │
-///  │ ┃          Balanced choice. Rich, considered…    │
+///  │ ┃ [sheep]  Gemma 4 E2B QAT  [推奨]              ◉ │
+///  │ ┃          Google · 2.6 GB                        │
+///  │ ┃          Expressive and steady, in Japanese…   │
 ///  └───────────────────────────────────────────────────┘
 /// ```
 ///

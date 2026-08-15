@@ -122,7 +122,9 @@ enum ModelRegistry {
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
     systemPromptSuffix: nil,
-    tagline: String(localized: "Balanced choice. Rich, considered responses.")
+    // Carries the "same Gemma, older and larger" disambiguation: `visibleCatalog`
+    // shows this row only to a user holding both, the only reader who needs it.
+    tagline: String(localized: "The older, larger build of the same Gemma.")
   )
 
   nonisolated static let qwen34B: ModelDescriptor = ModelDescriptor(
@@ -156,8 +158,9 @@ enum ModelRegistry {
     // Tagline avoids any "reasoning"/"thinking" framing on purpose: this model
     // runs with `/no_think` + the empty-thinking prefill above, so thinking
     // mode is OFF. Copy that implied a reasoning mode would contradict the
-    // runtime config — it leans on size/footprint instead.
-    tagline: String(localized: "Compact and nimble. A small download you can try freely.")
+    // runtime config. It states no character claim and no vendor/size either —
+    // the ledger holds no Qwen entry, and `ModelRow` already shows both as meta.
+    tagline: String(localized: "A different model family from Gemma. Try it for a different feel.")
   )
 
   /// Gemma 4 E2B, quantization-aware-trained rebuild.
@@ -214,7 +217,10 @@ enum ModelRegistry {
     // chat template differs textually from `gemma4E2B`'s — so the shared base
     // model does not settle it. Gate 1 running crash-free on this file does.
     systemPromptSuffix: nil,
-    tagline: String(localized: "The same conversational Gemma, in a smaller download."),
+    // No size comparison: `visibleCatalog` hides the build this one is smaller
+    // than, so that line lives on `gemma4E2B`. Its character claims are n=1 —
+    // `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
+    tagline: String(localized: "Expressive and steady, in Japanese too. Pick this one if unsure."),
     // ADD-and-keep (§ above): this build takes over from the Q4_K_M one without
     // retiring it. Written as `gemma4E2B.id` rather than the literal so the two
     // cannot drift; `gemma4E2B` is declared first, so there is no forward

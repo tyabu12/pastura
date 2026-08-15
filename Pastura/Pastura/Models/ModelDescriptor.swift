@@ -103,8 +103,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   public let assistantPrefix: String?
 
   /// User-facing tagline shown in the model picker — a single short sentence
-  /// describing the model's character ("Balanced choice. Rich, considered
-  /// responses."). Empty string when the descriptor was
+  /// describing the model's character ("Expressive and steady, in Japanese
+  /// too. Pick this one if unsure."). Empty string when the descriptor was
   /// constructed without picker UI in mind (test fixtures, future
   /// descriptors not yet surfaced in the picker). UI sites must hide the
   /// row when empty rather than render a blank line.

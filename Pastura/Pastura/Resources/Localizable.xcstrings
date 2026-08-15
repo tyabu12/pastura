@@ -1715,6 +1715,16 @@
         }
       }
     },
+    "A different model family from Gemma. Try it for a different feel." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Gemma とは別系統のモデル。違う手触りを試したいときに。"
+          }
+        }
+      }
+    },
     "A glimpse of a real run" : {
       "localizations" : {
         "en" : {
@@ -2078,16 +2088,6 @@
         }
       }
     },
-    "Balanced choice. Rich, considered responses." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "バランス型。表現が豊かで、落ち着いた応答。"
-          }
-        }
-      }
-    },
     "Basic Info" : {
       "localizations" : {
         "ja" : {
@@ -2363,16 +2363,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "シェアされたシナリオを開くには、このシートを閉じてください"
-          }
-        }
-      }
-    },
-    "Compact and nimble. A small download you can try freely." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "コンパクトで軽快。容量が小さく、気軽に試せる。"
           }
         }
       }
@@ -3302,6 +3292,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "デモ再生用にエクスポート"
+          }
+        }
+      }
+    },
+    "Expressive and steady, in Japanese too. Pick this one if unsure." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表現が豊かで、日本語も安定。迷ったらこちら。"
           }
         }
       }
@@ -7123,6 +7123,16 @@
         }
       }
     },
+    "The older, larger build of the same Gemma." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同じ Gemma の旧ビルド。容量が大きい。"
+          }
+        }
+      }
+    },
     "The paired opponent's name (round-robin choose)" : {
       "localizations" : {
         "ja" : {
@@ -7159,16 +7169,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "投票の裏にある理由（心の声）"
-          }
-        }
-      }
-    },
-    "The same conversational Gemma, in a smaller download." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "会話型 Gemma はそのままに、より小さな容量で。"
           }
         }
       }
