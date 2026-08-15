@@ -183,8 +183,8 @@ it sits outside `engine.md`'s path scope and nothing will prompt you.
 | `samplerDrySeeded` in `word_wolf` ja/en | expected — the only battery cells with a `speak_each` phase |
 | `samplerDrySeeded` **zero** in `prisoners_dilemma` / `bokete` | **correct, not a defect.** Neither preset has a `speak_each` phase, so 4 of the 6 cells emit only `reason=no-seeds` |
 | `reason=disabled` in a plain battery | DRY is off — `PASTURA_DRY_MULTIPLIER` leaked into the environment; the arm is invalid, re-run |
-| `reason=null-init` or `reason=no-model` | never expected; either is a defect worth an issue |
-| fewer markers than the cell's generations | a **throwing** exit, which emits no marker. The two grammar ones (parse failure #194, grammar-without-vocab) are run-fatal → `run_end.status`; a NULL `chain_init` only degrades the turn → a `turn_skipped` JSONL line names the cause. A short count with **neither** points at the ungated `narrate` turn, whose failure `NarrateHandler` swallows silently |
+| `reason=null-init` | never expected; a defect worth an issue |
+| fewer markers than the cell's generations | a **throwing** exit, which emits no marker. The grammar one (parse failure #194) is run-fatal → `run_end.status`; a NULL `chain_init` only degrades the turn → a `turn_skipped` JSONL line names the cause. A short count with **neither** points at the ungated `narrate` turn, whose failure `NarrateHandler` swallows silently |
 | roughly **twice** the expected total | the cell reran. `HarnessRunner` retries in-process while the sidecar is truncated once per wrapper call, and unlike `StderrEngineLogger`'s `DiagLine.attempt` these markers carry no attempt field — so the two passes cannot be split. Check the analyzer's `attempts`; read DRY counts only from an `attempts == 1` cell |
 | **no `samplerDry*` line at all** | the one unambiguous instrument failure — every non-throwing `createSampler` exit emits exactly one. Note this renders as an **absent row**, not a zero, which is what the sidecar count above is for |
 

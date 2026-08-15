@@ -67,8 +67,6 @@ extension LlamaCppService {
   ///     grammar and no-grammar paths — so vocab is no longer needed only by
   ///     the grammar parser. Non-optional rather than guarded, because
   ///     `llama_vocab_n_tokens(nil)` dereferences NULL rather than throwing.
-  ///   - model: The model pointer, used only to read `n_ctx_train` when
-  ///     building the DRY sampler (#1105). Optional; DRY is skipped when nil.
   ///   - antiRepetitionSeeds: Prior text spans to seed the DRY sampler with
   ///     (content-only — the value text, never JSON scaffold). Empty leaves DRY
   ///     off, so the sampler is byte-for-byte the pre-#1105 configuration.
@@ -95,7 +93,6 @@ extension LlamaCppService {
   func createSampler(
     grammarString: String? = nil,
     vocab: OpaquePointer,
-    model: OpaquePointer? = nil,
     antiRepetitionSeeds: [String] = []
   ) throws -> SamplerHandles {
     let sparams = llama_sampler_chain_default_params()
@@ -184,7 +181,7 @@ extension LlamaCppService {
     // otherwise is `DryConfig`'s call — do not restate it here. When `dry` is
     // nil the sampler is the pre-#1105 configuration.
     let drySampler = buildAndSeedDrySampler(
-      vocab: vocab, model: model, seeds: antiRepetitionSeeds)
+      vocab: vocab, seeds: antiRepetitionSeeds)
     return SamplerHandles(chain: chain, grammar: grammarSampler, dry: drySampler)
   }
 

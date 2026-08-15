@@ -101,7 +101,7 @@ extension LlamaCppService {
     // are freed by the caller's `defer`s; any step added after this and
     // before the return would leak the chain / grammar / dry if it throws.
     let handles = try createSampler(
-      grammarString: grammarString, vocab: vocab, model: model,
+      grammarString: grammarString, vocab: vocab,
       antiRepetitionSeeds: antiRepetitionSeeds)
 
     return PreparedGeneration(vocab: vocab, handles: handles)

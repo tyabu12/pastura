@@ -139,8 +139,10 @@ persists across phases. (`event_inject probability: 0.5` gates only a template
 **What is stable across runs, and what is not** — the comparison a post-bump run
 should make:
 
-- **Stable**: the three counts, the arm flip to 100 % `disabled`, `nCtxTrain`
-  (per model), and zero `null-init` / `no-model`. A shift here is a real signal.
+- **Stable**: the three counts, the arm flip to 100 % `disabled`, and zero
+  `null-init`. A shift here is a real signal. `nCtxTrain` and `no-model` stood
+  on this row until the b10327 bump retired both (#1487) — a post-bump run
+  cannot compare them, and their absence is the bump, not a regression.
 - **Not stable**: `seededTokens`. It is the tokenized length of the agent's own
   previous statement, so 16–31 is generation-length variance over 10 samples in
   one run — do **not** read a shifted range as a regression.
@@ -166,18 +168,26 @@ Swift-side `DryConfig`, never the values llama.cpp received, so transposing the
 adjacent `multiplier`/`base` floats or `allowedLength`/`penaltyLastN` int32s
 compiles, returns non-NULL, seeds the same token count, and emits a
 byte-identical line while DRY is inert. Argument order stays code-review-gated,
-like the guard→reason mapping. `nCtxTrain` is on the line because it is the
-argument b10327 removes, but its disappearance is produced by the bumper's own
-edit — treat it as a checklist item, not as evidence.
+like the guard→reason mapping. `nCtxTrain` was on the line at this baseline
+only as a bump checklist item, never as evidence — b10327 removed the argument
+and the field went with it (#1487).
 
-**Coupled edits when the bump lands**, none of which any gate enforces: drop
-`nCtxTrain` from `LlamaCppService.drySeededLine` **and** from
-`drySeededLineCarriesEveryField`; if the now-unused `model` precondition goes
-too (#1415), remove `.noModel` from `DryUnavailableReason`, from the pinned set
-in `dryUnavailableReasonsArePinnedAndDistinct`, and from the reading table in
-`.claude/skills/model-eval/SKILL.md`. Note also that `PASTURA_DRY_LAST_N=-1`
-flips meaning at b10327 (whole training context → disabled) and the marker
-records only the resolved `lastN`, so an override arm looks unchanged.
+**Coupled edits — discharged by the b10327 bump (#1487)**, none of which any
+gate enforced: `nCtxTrain` is gone from `LlamaCppService.drySeededLine` and
+from `drySeededLineCarriesEveryField`; the `model` precondition went with it,
+so `.noModel` is gone from `DryUnavailableReason`, from the pinned set in
+`dryUnavailableReasonsArePinnedAndDistinct`, and from the reading table in
+`.claude/skills/model-eval/SKILL.md`.
+
+**`PASTURA_DRY_LAST_N=-1` flips meaning at b10327, silently.** At b8694 `-1`
+meant `n_ctx_train` (whole training context); b10327 clamps it with
+`std::max(dry_penalty_last_n, 0)`, and `dry_enabled` then fails its
+`dry_penalty_last_n != 0` conjunct — so the override **disables DRY**. It does
+not surface as `null-init`: the disabled path returns
+`llama_sampler_init_empty("?dry")`, a non-NULL handle that seeds and emits a
+normal `samplerDrySeeded` line. The marker records only the resolved `lastN`,
+so such an override arm is indistinguishable from a working one. (Read against
+the b8694 and b10327 sources at the bump, not inferred from the header.)
 
 **Reproduce** (from the repo root; the sidecar lands at `${OUT%.jsonl}.stderr.log`):
 
@@ -192,20 +202,25 @@ grep -HoE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+' /tmp/dry-*.std
   | sort | uniq -c   # -H, or the two arms merge into one unattributed count
 ```
 
-**Three marker paths stayed unexercised**: `no-model`, `null-init` and
-`no-grammar` are zero in both arms (every `word_wolf` LLM phase carries an
-output schema, and nothing failed). Their line *format* is unit-tested; their
-*emission* is not, so read a future zero on them as "still unexercised", not as
-a measured negative.
+**Two marker paths stayed unexercised**: `null-init` and `no-grammar` are zero
+in both arms (every `word_wolf` LLM phase carries an output schema, and nothing
+failed). Their line *format* is unit-tested; their *emission* is not, so read a
+future zero on them as "still unexercised", not as a measured negative. A third,
+`no-model`, was unexercised here and no longer exists — the b10327 bump retired
+it (#1487).
 
-**And `createSampler`'s three throwing exits carry no marker at all**
-(enumerated on `DryUnavailableReason`). So the partition is 6 marker paths — the
-five `reason=` values plus `samplerDrySeeded` — plus 3 silent ones, and the
-count above measures *generations that reached sampler construction*.
+**And `createSampler`'s throwing exits carry no marker at all.** Post-bump the
+partition is **5 marker paths** — the four `reason=` values on
+`DryUnavailableReason` plus `samplerDrySeeded` — plus **2 silent** throwing
+exits, and the count above measures *generations that reached sampler
+construction*. (At this b8694 baseline it was 6 and 3: `no-model` was the fifth
+reason, and `grammar-supplied-without-vocab` the third throw.) Re-derive both
+numbers from `DryUnavailableReason.allCases` and the `throw` sites rather than
+decrementing — they move together.
 
 Three different signals rule them out, and the run status is only one of them.
-The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`, which
-`streamFailureError` returns typed and run-fatal, so `status: ok` excludes them.
+The `init_grammar` exit throws `LLMError.invalidGrammar`, which
+`streamFailureError` returns typed and run-fatal, so `status: ok` excludes it.
 `chain_init` NULL throws `.generationFailed`, which is turn-degradable and can
 leave the run finishing `ok` (and `run_end.attempts` is the harness's own
 run-level retry count, not `LLMCaller`'s per-turn one) — but for a **gated**

@@ -14,7 +14,7 @@ import Testing
 /// Only the *line format* is testable; the emission still needs a harness run.
 ///
 /// Specifically **not** pinned here: which `guard` emits which reason. Swapping
-/// `.noSeeds` and `.noModel` between two guards would pass everything below and
+/// `.disabled` and `.noSeeds` between two guards would pass everything below and
 /// silently mislabel every harness sweep. Closing that needs an injectable emit
 /// sink; until then the guard→reason mapping is code-review-gated.
 @Suite(.timeLimit(.minutes(1)))
@@ -95,29 +95,34 @@ struct DrySamplerConfigTests {
 
   // MARK: - Harness-observable diagnostic lines (#1483)
 
-  /// Pinning the exact set means a rename — or a sixth exit path — fails here
+  /// Pinning the exact set means a rename — or a fifth exit path — fails here
   /// instead of silently emitting a marker the `/model-eval` sweep has no
   /// expectation for. Why the vocabulary is load-bearing: `DryUnavailableReason`.
+  ///
+  /// `no-model` was retired at the b10327 pin: `llama_sampler_init_dry` no
+  /// longer takes `n_ctx_train`, so the builder stopped needing a model
+  /// pointer and the guard that emitted it no longer exists (#1487).
   @Test func dryUnavailableReasonsArePinnedAndDistinct() {
     let raws = DryUnavailableReason.allCases.map(\.rawValue)
     // A copy-pasted raw value would make two exit paths indistinguishable in
     // the sweep — the exact confusion the per-path markers exist to prevent.
     #expect(Set(raws).count == raws.count)
-    #expect(Set(raws) == ["disabled", "no-seeds", "no-model", "null-init", "no-grammar"])
+    #expect(Set(raws) == ["disabled", "no-seeds", "null-init", "no-grammar"])
   }
 
-  /// `nCtxTrain` is the load-bearing field — dropping it from the line must
-  /// fail a test. Why it is load-bearing: `drySeededLine`'s doc comment.
+  /// Every field the `/model-eval` sweep reads must be on the line — dropping
+  /// one must fail here. Why each is load-bearing: `drySeededLine`'s doc
+  /// comment. `nCtxTrain` was pinned here until the b10327 pin retired it.
   @Test func drySeededLineCarriesEveryField() throws {
     let config = try #require(DryConfig.resolve(environment: [:]))
     let line = LlamaCppService.drySeededLine(
-      seededTokenCount: 42, seedCount: 3, nCtxTrain: 8192,
+      seededTokenCount: 42, seedCount: 3,
       config: config, model: "test-model")
 
     #expect(line.hasPrefix("samplerDrySeeded "))
     #expect(line.contains("seededTokens=42"))
     #expect(line.contains("seeds=3"))
-    #expect(line.contains("nCtxTrain=8192"))
+    #expect(!line.contains("nCtxTrain"))
     #expect(line.contains("mult=0.8"))
     #expect(line.contains("base=1.75"))
     #expect(line.contains("allowed=3"))

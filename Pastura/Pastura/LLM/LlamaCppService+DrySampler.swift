@@ -108,8 +108,6 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
   /// seeds from its first round. Per-scenario counts:
   /// `docs/models/eval-log.md` § "DRY sampler construction".
   case noSeeds = "no-seeds"
-  /// No model pointer, so `n_ctx_train` is unreadable.
-  case noModel = "no-model"
   /// `llama_sampler_init_dry` returned NULL.
   case nullInit = "null-init"
   /// `createSampler` returned before reaching the builder at all — no
@@ -120,19 +118,20 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
 nonisolated extension LlamaCppService {
   /// The line emitted once per generation that installs a DRY sampler.
   ///
-  /// `nCtxTrain` is **retiring**: the pin is now b10327, which dropped that
-  /// argument from `llama_sampler_init_dry`, so the field no longer records
-  /// anything the sampler consumes. It survives this commit only so the
-  /// b8694 baseline stays line-comparable while the pin bump is verified.
+  /// Every field is a `DryConfig` value the sampler was built from, plus the
+  /// seeding outcome. `nCtxTrain` was here until the b10327 pin, which dropped
+  /// `n_ctx_train` from `llama_sampler_init_dry` — a field naming an argument
+  /// the sampler no longer takes reads as a live parameter and is worse than
+  /// no field at all.
   ///
   /// Pure and `static` so the format is unit-testable without inference — the
   /// seeding path itself needs a real model (PR #463).
   static func drySeededLine(
-    seededTokenCount: Int, seedCount: Int, nCtxTrain: Int32,
+    seededTokenCount: Int, seedCount: Int,
     config: DryConfig, model: String
   ) -> String {
     "samplerDrySeeded seededTokens=\(seededTokenCount) seeds=\(seedCount) "
-      + "nCtxTrain=\(nCtxTrain) mult=\(config.multiplier) base=\(config.base) "
+      + "mult=\(config.multiplier) base=\(config.base) "
       + "allowed=\(config.allowedLength) lastN=\(config.penaltyLastN) model=\(model)"
   }
 
@@ -179,8 +178,8 @@ nonisolated extension LlamaCppService {
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
   /// enhancement, so any missing precondition (the explicit base arm
-  /// `PASTURA_DRY_MULTIPLIER=0`, no seeds, no
-  /// model, NULL sampler) degrades to `nil` rather than failing the whole
+  /// `PASTURA_DRY_MULTIPLIER=0`, no seeds, NULL sampler) degrades to `nil`
+  /// rather than failing the whole
   /// generation. Ownership: the returned handle is caller-owned (freed in the
   /// run-loop `defer`s alongside `grammar`).
   ///
@@ -198,10 +197,10 @@ nonisolated extension LlamaCppService {
   /// and does not explain the weaker en effect (see `DryConfig`) — an
   /// exact-token seed would recover a token or three, not a mechanism.
   func buildAndSeedDrySampler(
-    vocab: OpaquePointer, model: OpaquePointer?, seeds: [String]
+    vocab: OpaquePointer, seeds: [String]
   ) -> UnsafeMutablePointer<llama_sampler>? {
     // One guard per precondition, and do not re-merge them: each exit needs its
-    // own marker, or three distinguishable states collapse into "no DRY". The
+    // own marker, or two distinguishable states collapse into "no DRY". The
     // readings are on `DryUnavailableReason`'s cases.
     guard let config = DryConfig.resolve() else {
       emitDryUnavailable(.disabled)
@@ -211,12 +210,7 @@ nonisolated extension LlamaCppService {
       emitDryUnavailable(.noSeeds)
       return nil
     }
-    guard let model else {
-      emitDryUnavailable(.noModel)
-      return nil
-    }
 
-    let nCtxTrain = llama_model_n_ctx_train(model)
     let dry = withArrayOfCStrings(config.seqBreakers) { breakerPtrs in
       llama_sampler_init_dry(
         vocab, config.multiplier, config.base,
@@ -236,7 +230,7 @@ nonisolated extension LlamaCppService {
     emitDryDiagnostic(
       Self.drySeededLine(
         seededTokenCount: seededTokenCount, seedCount: seeds.count,
-        nCtxTrain: nCtxTrain, config: config, model: modelIdentifier),
+        config: config, model: modelIdentifier),
       anomalous: seededTokenCount == 0)
     return dry
   }
