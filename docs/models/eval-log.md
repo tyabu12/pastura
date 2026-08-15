@@ -153,10 +153,18 @@ a measured negative.
 
 **And three exits carry no marker at all** — `createSampler`'s throwing paths
 (`chain_init` NULL, grammar without vocab, `init_grammar` NULL). So the
-partition is 5 marker paths + 3 silent ones, and the count above measures
-*generations that reached sampler construction*. Both runs ended `status: ok`
-with `attempts: 1`, so none of the three fired here; a post-bump run showing a
-short count should be read as a throw, not as DRY going missing.
+partition is 6 marker paths (the five `reason=` values plus `samplerDrySeeded`)
++ 3 silent ones, and the count above measures *generations that reached sampler
+construction*.
+
+What rules those three out here is the **26 = 25 + 1 reconciliation**, not the
+run status. The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`,
+which `streamFailureError` returns typed and run-fatal, so `status: ok` does
+exclude them — but `chain_init` NULL throws `.generationFailed`, which is wrapped
+as turn-degradable and would leave the run finishing `ok`, and `run_end.attempts`
+counts the harness's own run-level retries, not `LLMCaller`'s per-turn ones. Only
+the marker total matching every generation excludes that third path. A post-bump
+run showing a short count should be read as a throw, not as DRY going missing.
 
 ---
 

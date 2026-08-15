@@ -145,12 +145,11 @@ nonisolated extension LlamaCppService {
   /// The stderr mirror is the only channel the ADR-013 harness can read: it
   /// captures stderr to a `.stderr.log` sidecar, and does not retain `.debug`
   /// OSLog records at all — which is why the pre-#1483 `.debug` success line
-  /// was invisible to it, and why #1415's spike had to record this call path
-  /// as behaviourally unverified. (That spike is also where the window was
-  /// measured; nothing in this repo reads OSLog, so it is not re-derivable
-  /// here.) The LLM layer cannot use the harness's `EngineLogger` seam
-  /// instead: that protocol lives in `Engine/`, and `LLM/` must not depend
-  /// on it.
+  /// was invisible to it, and why #1415's spike — which is also where the
+  /// retained-record window was measured, nothing in this repo reading OSLog —
+  /// had to record this call path as behaviourally unverified. The LLM layer
+  /// cannot use the harness's `EngineLogger` seam instead: that protocol lives
+  /// in `Engine/`, and `LLM/` must not depend on it.
   ///
   /// `anomalous` keeps the pre-#1483 OSLog severity on the two paths that had
   /// it (NULL init, zero tokens seeded) without splitting the stderr channel.
