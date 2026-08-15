@@ -251,9 +251,9 @@ all, so they render on the system sheet surface. Also outside the fixture.
 ## 4. Recorded refusal — retuning `muted` itself
 
 Raised and refused. **The refusal is on the recorded decision, not on the
-arithmetic**: ADR-028 §
-Amendment 2026-08-13 (#1427) states the defect is «the application, not the
-token», and §8 makes the sub-AA value a deliberate expression of §1's
+arithmetic**: ADR-028 § Amendment 2026-08-13 (#1427) states the defect is «the
+application, not the token», and §8 makes the sub-AA value a deliberate
+expression of §1's
 「静謐・観察」. Retiring the tier is its own ADR, not a side effect of a sweep
 chartered to apply it — and it would not discharge the sweep either, since
 tinted grounds still need the family-pairing remedy (§8: «地を所有するファミリが
