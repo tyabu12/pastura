@@ -271,6 +271,24 @@ enum ModelRegistry {
     catalog.first { $0.replacesModelID == id }
   }
 
+  /// The descriptor a *recommendation* naming `id` should resolve to — the entry
+  /// that replaces it under § "ADD-and-keep", or `id`'s own descriptor when
+  /// nothing does. `nil` only when `id` is in no catalog entry at all.
+  ///
+  /// Every `docs/gallery/gallery.json` entry recommends the Q4_K_M Gemma build,
+  /// and that feed is fetched live by **already-shipped** app versions, so it
+  /// cannot be repointed at an id those builds do not know
+  /// (`URLSessionGalleryService.defaultIndexURL`). Resolving on the app side
+  /// instead is what stops a fresh install being pushed toward a build hidden
+  /// from every list surface. It is `nil`-returning on an unknown id on purpose:
+  /// that keeps the forward-compat path for an *older* app reading a *newer*
+  /// feed — `RecommendedModelStatus.unknownModel` and the
+  /// "Unknown model (%@)" display fallback both key on it.
+  nonisolated static func effectiveRecommendation(for id: ModelID) -> ModelDescriptor? {
+    guard let declared = lookup(id: id) else { return nil }
+    return replacement(for: id, in: catalog) ?? declared
+  }
+
   /// Returns diagnostic reasons if `catalog` contains duplicate `id` or `fileName` values.
   /// Empty result means the catalog is valid. Exposed for testability; `validateNoCollisions`
   /// wraps this in a precondition.

@@ -167,7 +167,12 @@ struct GalleryScenarioDetailView: View {
     rows.append(
       (
         String(localized: "Recommended model"),
-        ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
+        // Resolved through ADD-and-keep, like the affordances below it: naming
+        // the raw feed value would print a build hidden from the picker,
+        // Settings → Models and `ActiveModelChip`, which a fresh install has no
+        // route to obtain. Still `nil` for an id in no catalog entry, so the
+        // older-app-newer-feed fallback below is unchanged.
+        ModelRegistry.effectiveRecommendation(for: scenario.recommendedModel)?.displayName
           ?? String(format: String(localized: "Unknown model (%@)"), scenario.recommendedModel)
       ))
     rows.append((String(localized: "Est. inferences"), "\(scenario.estimatedInferences)"))

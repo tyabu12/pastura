@@ -5,7 +5,14 @@ import Testing
 @Suite(.timeLimit(.minutes(1)))
 struct RecommendedModelStatusTests {
   // Real registry ids — must match ModelRegistry catalog entries.
+  //
+  // `gemma` is **replaced** by `qat` (`ModelRegistry` § "ADD-and-keep"), so a
+  // recommendation naming it resolves forward before any rule below Rule 2 sees
+  // it. Rule-order tests therefore use `qwen`, which replaces nothing and is
+  // replaced by nothing — otherwise they would be pinning the resolution rather
+  // than the ordering they are named for.
   let gemma = "gemma-4-e2b-q4-k-m"
+  let qat = "gemma-4-e2b-qat-q4-k-xl"
   let qwen = "qwen-3-4b-q4-k-m"
   let unknown = "future-model-v9-q4-k-m"
 
@@ -47,8 +54,8 @@ struct RecommendedModelStatusTests {
     // ("This device cannot run the recommended model") would silently revert
     // to `.matched` if the rule order ever flipped. This test guards that.
     let status = RecommendedModelStatus.compute(
-      recommendedID: gemma, activeID: gemma,
-      state: [gemma: .unsupportedDevice],
+      recommendedID: qwen, activeID: qwen,
+      state: [qwen: .unsupportedDevice],
       isSimulationActive: false, isSimulator: false)
     #expect(status == .unsupportedDevice)
   }
@@ -59,16 +66,16 @@ struct RecommendedModelStatusTests {
     // recommendedID == activeID, but the state entry says .downloading —
     // Rule 4 fires before Rule 5, so we get .matched not .downloading.
     let status = RecommendedModelStatus.compute(
-      recommendedID: gemma, activeID: gemma,
-      state: [gemma: .downloading(progress: 0.5)],
+      recommendedID: qwen, activeID: qwen,
+      state: [qwen: .downloading(progress: 0.5)],
       isSimulationActive: false, isSimulator: false)
     #expect(status == .matched)
   }
 
   @Test func rule4_activeMatchesRecommendedReturnsMatched_whenReady() {
     let status = RecommendedModelStatus.compute(
-      recommendedID: gemma, activeID: gemma,
-      state: [gemma: .ready(modelPath: "/tmp/g")],
+      recommendedID: qwen, activeID: qwen,
+      state: [qwen: .ready(modelPath: "/tmp/q")],
       isSimulationActive: false, isSimulator: false)
     #expect(status == .matched)
   }
@@ -137,6 +144,68 @@ struct RecommendedModelStatusTests {
       state: [qwen: .checking, gemma: .ready(modelPath: "/tmp/g")],
       isSimulationActive: false, isSimulator: false)
     #expect(status == .matched)
+  }
+
+  // MARK: - Recommendation resolution (ADD-and-keep, #1487)
+  //
+  // Every `docs/gallery/gallery.json` entry recommends `gemma`, which is now a
+  // replaced build hidden from the picker / Settings / `ActiveModelChip` once it
+  // is off the device. These pin that a feed entry naming it is classified as
+  // its successor, without nagging a user still running the old one.
+
+  @Test func resolution_activeIsTheReplacement_matches() {
+    // The fresh-install path: QAT active, every gallery entry recommending the
+    // replaced build. Must NOT offer to download the hidden 3.11 GB build.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: qat,
+      state: [qat: .ready(modelPath: "/tmp/qat"), gemma: .notDownloaded],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .matched)
+  }
+
+  @Test func resolution_activeIsStillTheReplacedBuild_matches() {
+    // The other side of Rule 4. Resolving alone would compare QAT against an
+    // active `gemma` and offer a 2.62 GB download on all 45 gallery screens; the
+    // declared-id arm is what keeps an existing user un-nagged.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: gemma,
+      state: [gemma: .ready(modelPath: "/tmp/g"), qat: .notDownloaded],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .matched)
+  }
+
+  @Test func resolution_classifiesTheReplacementNotTheReplacedBuild() {
+    // The discriminating case: the two builds are in *different* states, so the
+    // verdict names which one was classified. Resolved → QAT `.notDownloaded` →
+    // `.downloadAvailable`. Unresolved it would read `gemma` `.ready` and return
+    // `.switchAvailable`, i.e. offer to switch to the hidden build.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: qwen,
+      state: [
+        gemma: .ready(modelPath: "/tmp/g"), qat: .notDownloaded,
+        qwen: .ready(modelPath: "/tmp/q")
+      ],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .downloadAvailable(otherDownloadInFlight: false))
+  }
+
+  @Test func resolution_unsupportedDeviceOnTheReplacementStillWins() {
+    // Rule 3 stays ahead of the two-sided Rule 4. `resolveInitialActiveID` picks
+    // the default without consulting `state`, so "active satisfies the
+    // recommendation" and "the recommended build cannot run here" are both true
+    // on a 6 GB device — if the equivalence ran first, `.unsupportedDevice`
+    // would be unreachable for every gemma-recommended gallery entry.
+    // The replaced build is deliberately `.ready` rather than also
+    // `.unsupportedDevice`: with both unsupported the verdict is the same
+    // whether or not the recommendation resolved, so the arm would pin the
+    // ordering while saying nothing about *which* build Rule 3 read. Measured —
+    // this case passed against a build with resolution disabled until the states
+    // were split.
+    let status = RecommendedModelStatus.compute(
+      recommendedID: gemma, activeID: qat,
+      state: [qat: .unsupportedDevice, gemma: .ready(modelPath: "/tmp/g")],
+      isSimulationActive: false, isSimulator: false)
+    #expect(status == .unsupportedDevice)
   }
 
   // MARK: - Equatable payload axes
