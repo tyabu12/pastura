@@ -494,6 +494,7 @@ app-wide, and needs ADR-028 gate 4/5 QA of its own.
 | **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open — **ADR-028 gate 4/5 device QA required** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
+| **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumer files (5 screens) + 2 hand-rolled headers + the `secondaryLabel` variant | — | open — #1485 |
 
 B2 is the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast
@@ -503,7 +504,6 @@ cannot see the risk: `SimulationView+LogEntries` and
 (the DL-time demo mirrors the live log deliberately), so applying one and not
 the other diverges the two visually while every count in `MutedSweepLedgerTests`
 still reconciles.
-| **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumer files (5 screens) + 2 hand-rolled headers + the `secondaryLabel` variant | — | open — #1485 |
 
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape; B4 needs §8 to
