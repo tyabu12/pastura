@@ -110,6 +110,25 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// row when empty rather than render a blank line.
   public let tagline: String
 
+  /// The id of an older catalog entry this descriptor takes over from, under
+  /// the ADD-and-keep shape (`ModelRegistry` § "ADD-and-keep"). `nil` — the
+  /// default — for a descriptor that replaces nothing.
+  ///
+  /// This is a **catalog-topology** field, not a runtime one: nothing in the
+  /// LLM layer reads it, and it is deliberately absent from the harness
+  /// `ModelProfile` mirror, which carries prompt-format and integrity fields.
+  /// Two app-layer mechanisms consume it, and they fail *identically and
+  /// silently* if it names an id that is not in the catalog — the replaced
+  /// entry simply never hides, and its recommendation never resolves forward,
+  /// which looks exactly like the feature not having been written.
+  /// `ModelRegistryTests.everyReplacesModelIDResolves` is the guard.
+  ///
+  /// The replaced entry stays in the catalog. Read
+  /// `ModelRegistry` § "ADD-and-keep" before repurposing this field as a
+  /// removal marker — four separate call sites depend on the old id still
+  /// resolving through `ModelRegistry.lookup(id:)`.
+  public let replacesModelID: ModelID?
+
   /// Returns `true` iff `name` matches `^[A-Za-z0-9._-]+\.gguf$`.
   ///
   /// Use this to validate a candidate filename before constructing a `ModelDescriptor`.
@@ -141,7 +160,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     modelInfoURL: URL,
     systemPromptSuffix: String?,
     assistantPrefix: String? = nil,
-    tagline: String = ""
+    tagline: String = "",
+    replacesModelID: ModelID? = nil
   ) {
     precondition(
       Self.isValidFileName(fileName),
@@ -163,6 +183,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     self.systemPromptSuffix = systemPromptSuffix
     self.assistantPrefix = assistantPrefix
     self.tagline = tagline
+    self.replacesModelID = replacesModelID
   }
 }
 

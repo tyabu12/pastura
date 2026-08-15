@@ -17,7 +17,10 @@ import SwiftUI
     @ViewBuilder
     var modelsSection: some View {
       VStack(alignment: .leading, spacing: 7) {
-        let catalog = modelManager.catalog
+        // Rows come from `visibleCatalog`; `downloadedTotalText` below stays on
+        // the full catalog, and agrees by construction — a hidden entry is
+        // `.notDownloaded`, so it contributes nothing to the total either way.
+        let catalog = modelManager.visibleCatalog
         modelsHeader
         PasturaSection(style: .grouped) {
           VStack(spacing: 0) {

@@ -13,6 +13,38 @@ struct ModelRegistryTests {
     #expect(ids == ["gemma-4-e2b-qat-q4-k-xl", "qwen-3-4b-q4-k-m", "gemma-4-e2b-q4-k-m"])
   }
 
+  /// Every `replacesModelID` names a real catalog entry.
+  ///
+  /// `validateNoCollisions` covers duplicate `id` / `fileName` only, so a typo
+  /// here is caught by nothing at runtime — and it fails *silently and
+  /// identically* in both consumers: `ModelManager.visibleCatalog` never hides
+  /// the replaced entry, and `RecommendedModelStatus` never resolves the
+  /// recommendation forward. The app then looks exactly as it would if the
+  /// ADD-and-keep work had never been written.
+  ///
+  /// The non-empty assertion is the non-vacuity control: the sweep below is
+  /// trivially true on an all-`nil` catalog, so without it this test would keep
+  /// passing if the field were dropped from every descriptor.
+  @Test func everyReplacesModelIDResolves() {
+    let replaced = ModelRegistry.catalog.compactMap(\.replacesModelID)
+    #expect(!replaced.isEmpty, "no descriptor declares replacesModelID — sweep would be vacuous")
+    for id in replaced {
+      #expect(
+        ModelRegistry.lookup(id: id) != nil, "replacesModelID \"\(id)\" is not in the catalog")
+    }
+  }
+
+  /// The replacement relation is resolvable in the forward direction too, from
+  /// the id being replaced back to the entry taking over. Pins the QAT pairing
+  /// specifically, since both consumers read it through this helper.
+  @Test func replacement_resolvesTheQATPairing() {
+    let replacement = ModelRegistry.replacement(
+      for: ModelRegistry.gemma4E2B.id, in: ModelRegistry.catalog)
+    #expect(replacement?.id == ModelRegistry.gemma4E2BQAT.id)
+    #expect(
+      ModelRegistry.replacement(for: ModelRegistry.qwen34B.id, in: ModelRegistry.catalog) == nil)
+  }
+
   @Test func catalog_passesValidateNoCollisions() {
     // If this triggers the precondition, the test process crashes —
     // which is the correct signal. A successful run proves the catalog is valid.

@@ -49,7 +49,11 @@ struct ModelPickerView: View {
       initialValue: ModelSelectionState(
         selected: recommended,
         recommendedID: recommended,
-        availableModels: modelManager.catalog
+        // `visibleCatalog`: on a first launch nothing is downloaded, so a
+        // replaced build is hidden here unconditionally — a new install is never
+        // offered the older, larger download of a model it can get as the
+        // current build.
+        availableModels: modelManager.visibleCatalog
       )
     )
   }

@@ -196,7 +196,12 @@ enum ModelRegistry {
     // chat template differs textually from `gemma4E2B`'s — so the shared base
     // model does not settle it. Gate 1 running crash-free on this file does.
     systemPromptSuffix: nil,
-    tagline: String(localized: "The same conversational Gemma, in a smaller download.")
+    tagline: String(localized: "The same conversational Gemma, in a smaller download."),
+    // ADD-and-keep (§ above): this build takes over from the Q4_K_M one without
+    // retiring it. Written as `gemma4E2B.id` rather than the literal so the two
+    // cannot drift; `gemma4E2B` is declared first, so there is no forward
+    // reference between the lazily-initialised statics.
+    replacesModelID: gemma4E2B.id
   )
 
   /// Full production catalog, ordered by display preference — the QAT Gemma,
@@ -246,6 +251,24 @@ enum ModelRegistry {
   /// explicitly rather than baking that policy into this helper.
   nonisolated static func lookup(id: ModelID) -> ModelDescriptor? {
     catalog.first { $0.id == id }
+  }
+
+  /// The catalog member that takes over from `id` under § "ADD-and-keep", or
+  /// `nil` when nothing replaces it.
+  ///
+  /// `catalog` is an explicit parameter rather than defaulting to ``catalog``:
+  /// `ModelManager` filters *its own* catalog, which tests and previews
+  /// substitute, and a helper that silently consulted the production array
+  /// would answer about a different set than the caller is filtering. This is
+  /// the single implementation of the replacement relation — both consumers
+  /// (`ModelManager.visibleCatalog` and `RecommendedModelStatus.compute`) go
+  /// through it. Do not add a second predicate deriving it another way; two
+  /// that can disagree is worse than one that can be wrong.
+  nonisolated static func replacement(
+    for id: ModelID,
+    in catalog: [ModelDescriptor]
+  ) -> ModelDescriptor? {
+    catalog.first { $0.replacesModelID == id }
   }
 
   /// Returns diagnostic reasons if `catalog` contains duplicate `id` or `fileName` values.

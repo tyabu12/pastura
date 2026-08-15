@@ -18,7 +18,9 @@ struct ActiveModelChip: View {
     ActiveModelChipPresenter(
       activeDescriptor: modelManager.activeDescriptor,
       activeState: modelManager.activeState,
-      catalog: modelManager.catalog,
+      // `visibleCatalog`, so a replaced build the user never downloaded does not
+      // sit in the switch menu as a permanently-disabled row.
+      catalog: modelManager.visibleCatalog,
       state: modelManager.state,
       activeModelID: modelManager.activeModelID,
       // Mirrors ModelSettingsRow.isSwitchLocked — switching is disabled while
@@ -135,6 +137,9 @@ struct ActiveModelChip: View {
   // MARK: - Actions
 
   private func select(_ row: ActiveModelChipPresenter.MenuRow) {
+    // Resolves against the FULL catalog on purpose — a superset of the rows, so
+    // it cannot fail, and narrowing it to `visibleCatalog` for symmetry would
+    // couple selection to a display filter for no benefit.
     guard row.isSelectable,
       let descriptor = modelManager.catalog.first(where: { $0.id == row.id })
     else { return }
