@@ -799,7 +799,7 @@ raw `.borderedProminent`（iOS 26 Liquid Glass capsule に opt-in する）は�
 
 Sim 画面に限った2つの例外的コンポーネント。Source: `SimulationPlayButtonMetrics` / `SimulationLeaveSheet`（+`SimulationLeaveSheetTokens`）。両方の load-bearing token は `SimulationControlsTokenTests` で pin。
 
-**再生/停止ボタン（円形主操作）**: フロストのコントロールバー（§4.3）上の主操作。`mossDark` 塗り 34pt 円＋白グリフ（14pt）。素のグリフ（ink）だとバー上で唯一の塗り要素が「黒い塊」として浮いて読めたため、明示的な主操作コントロールにした。**円自身に影は付けない** — バーが既に単一の浮遊要素（§1「観察＝持ち上げない」/ §4.3「Sim で単一要素のみ」）なので二重持ち上げを避ける。disabled は `disabledText` 塗り（disabled は §8 コントラスト対象外）。
+**再生/停止ボタン（円形主操作）**: フロストのコントロールバー（§4.3）上の主操作。`mossDark` 塗り 34pt 円＋白グリフ（14pt）。素のグリフ（ink）だとバー上で唯一の塗り要素が「黒い塊」として浮いて読めたため、明示的な主操作コントロールにした。**円自身に影は付けない** — バーが既に単一の浮遊要素（§1「観察＝持ち上げない」/ §4.3「Sim で単一要素のみ」）なので二重持ち上げを避ける。disabled は `disabledText` 塗り（コントラスト対象外の根拠は §2.9 の `nightDisabledText` 行が記録する WCAG 1.4.3 非活性除外。§8 は disabled に言及していない）。
 
 **離脱確認シート（`SimulationLeaveSheet`）**: 実行中に戻る際の確認（keep-running 設定 OFF 時）。Pastura で唯一の独自確認ダイアログ — システム `.alert` の「全ボタン緑＝抑揚なし」を、`.sheet` で意味的な3段配色にする。主操作「一時停止して戻る」＝`PasturaPrimaryButtonStyle`（moss）、警戒「実行したまま戻る」＝§2.6 `warning`（琥珀、`warningSoft` 塗り＋`warningInk` 文字）、cancel「とどまる」＝中立（`inkSecondary`＋`rule`）。**警戒に `danger`（赤）を使わない** — 実行は継続・復帰可能で何も破壊しないため。赤は VoiceOver でも破壊操作として読み上げられ誤解を生む。`.confirmationDialog` は iOS 26 でポップオーバー誤アンカー（swiftui-traps）のため `.sheet`。ボタンは `lineLimit(nil)` で大きい Dynamic Type でも折り返す。
 
