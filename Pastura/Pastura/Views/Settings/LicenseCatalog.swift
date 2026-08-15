@@ -65,7 +65,7 @@ enum LicenseCatalog {
   // MARK: - Libraries
 
   static let libraries: [LicenseEntry] = [
-    // mattt/llama.swift @ c22686c (2.8694.0) — LICENSE.md
+    // mattt/llama.swift @ 92256a0 (2.10327.0) — LICENSE.md
     LicenseEntry(
       id: "llama-swift",
       name: "llama.swift",

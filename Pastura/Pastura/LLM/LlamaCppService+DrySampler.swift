@@ -87,9 +87,11 @@ nonisolated struct DryConfig {
 /// `samplerDry*` line means the sampler path was never reached — a different
 /// fact from "DRY was off".
 ///
-/// **The three throwing exits carry no marker** (`chain_init` NULL, grammar
-/// without vocab, `init_grammar` NULL — #194); `prepareGeneration` can throw
-/// upstream too. A marker counts generations that *reached sampler
+/// **The two throwing exits carry no marker** (`chain_init` NULL,
+/// `init_grammar` NULL — #194); `prepareGeneration` can throw upstream too.
+/// The former third exit — grammar supplied without vocab — became
+/// unrepresentable when the b10327 pin made `createSampler`'s `vocab`
+/// non-optional. A marker counts generations that *reached sampler
 /// construction*, never *attempted*, so read `run_end.status` alongside the
 /// sweep before calling a short count a broken instrument.
 ///
@@ -118,10 +120,10 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
 nonisolated extension LlamaCppService {
   /// The line emitted once per generation that installs a DRY sampler.
   ///
-  /// `nCtxTrain` is on the line deliberately: llama.cpp b10327 **drops** that
-  /// argument from `llama_sampler_init_dry`, so recording what the pinned
-  /// b8694 build passes is what makes a harness run a baseline the bump can
-  /// be diffed against, rather than a mere liveness check (#1415).
+  /// `nCtxTrain` is **retiring**: the pin is now b10327, which dropped that
+  /// argument from `llama_sampler_init_dry`, so the field no longer records
+  /// anything the sampler consumes. It survives this commit only so the
+  /// b8694 baseline stays line-comparable while the pin bump is verified.
   ///
   /// Pure and `static` so the format is unit-testable without inference — the
   /// seeding path itself needs a real model (PR #463).
@@ -217,7 +219,7 @@ nonisolated extension LlamaCppService {
     let nCtxTrain = llama_model_n_ctx_train(model)
     let dry = withArrayOfCStrings(config.seqBreakers) { breakerPtrs in
       llama_sampler_init_dry(
-        vocab, nCtxTrain, config.multiplier, config.base,
+        vocab, config.multiplier, config.base,
         config.allowedLength, config.penaltyLastN,
         breakerPtrs.baseAddress, breakerPtrs.count)
     }

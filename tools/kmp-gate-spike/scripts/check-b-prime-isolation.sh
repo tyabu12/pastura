@@ -37,7 +37,7 @@
 #                 `Package.resolved` — so no grep here can see it.
 #
 # That last one is not hypothetical: `llama.swift` is a live instance. Its
-# manifest declares `.binaryTarget(url: ".../llama-b8694-xcframework.zip")`, so
+# manifest declares `.binaryTarget(url: ".../llama-b10327-xcframework.zip")`, so
 # the iOS lane already resolves a prebuilt XCFramework — and
 # `grep -c xcframework project.pbxproj` is still 0.
 #

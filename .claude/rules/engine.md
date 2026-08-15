@@ -411,7 +411,7 @@ Max 2 retries. Retry on:
 - Empty fields ("..." or empty string)
 
 **Empty-output → grammar-first resample (#751 sub-class 2, FIXED).**
-Completely-empty model output was NOT a retry-budget problem: b8694's
+Completely-empty model output was NOT a retry-budget problem:
 `llama_sampler_dist_apply` silently selected a grammar-masked (`-inf`)
 token when the grammar (as a chain member, applied after top_k) masked the
 sorted top candidate — the pick is RNG-independent, so all retries
@@ -420,7 +420,9 @@ splitting the grammar out of the sampler chain and resampling grammar-first
 on a miss (`LlamaCppService.grammarConstrainedSample`, mirroring llama.cpp's
 `common_sampler_sample`) — see ADR-002 § "Grammar-all-rejected dist
 fallthrough". The retry budget itself is unchanged; the failure is gone at
-the sampler. Diagnostic `samplerGrammarResample` (position-0) measures the
+the sampler. **Not a b8694 workaround**: the upstream function is
+byte-identical at the current b10327 pin, so a bump never retires the split
+(measured, #1487). Diagnostic `samplerGrammarResample` (position-0) measures the
 residual rescue rate as a model-onboarding fragility signal.
 
 **Grammar-accept crash after object completion → graceful stop (#907).** For
@@ -583,15 +585,16 @@ is about **the files measured**, not the models. **Do not "simplify" the
 truncation away on the strength of a corpus zero.**
 
 **Variant, not just publisher.** Gemma 4 **QAT** exports — Google's and
-unsloth's alike — ship a shared-KV tail layer the pinned llama.cpp cannot
-load (`missing tensor 'blk.15.attn_k.weight'`), so a `-qat-` repo is never
-a drop-in swap for its non-QAT sibling. Descriptor-side procedure:
+unsloth's alike — ship a shared-KV tail layer that llama.cpp could not load
+before b10327 (`missing tensor 'blk.15.attn_k.weight'`), so a `-qat-` repo is
+never a drop-in swap for its non-QAT sibling on a pre-b10327 build.
+Descriptor-side procedure:
 `docs/models/onboarding.md`; measurements: the QAT-family entries in
 `docs/models/eval-log.md`.
 
 **Two failure modes, and only one is the pin's.** That shared-KV gap is a
-**loader** gap and pin-relative — a bump to **b10327** (the only build
-measured to load one) clears it. **Quant kernel coverage is not
+**loader** gap and pin-relative — the **b10327** pin (the only build measured
+to load one) clears it. **Quant kernel coverage is not
 pin-relative**: a build whose tensors use a type the Metal backend has no
 kernel for **loads cleanly and then SIGSEGVs on the first inference**,
 because the pipeline lookup returns NULL and

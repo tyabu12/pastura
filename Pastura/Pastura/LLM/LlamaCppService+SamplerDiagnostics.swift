@@ -22,8 +22,8 @@ extension LlamaCppService {
   /// #751 sub-class 2 diagnostic: fires when the sampler chain selected a
   /// grammar-masked (-inf) token. Two observed sub-modes, both
   /// deterministic (RNG-independent — retries of the same prompt
-  /// mis-select identically), both from b8694's dist sampler
-  /// (`src/llama-sampler.cpp:1036-1097`) whose `assert(found)` is compiled
+  /// mis-select identically), both from llama.cpp's dist sampler
+  /// (`src/llama-sampler.cpp:1042-1103` at b10327) whose `assert(found)` is compiled
   /// out of the release xcframework:
   ///
   /// - (a) grammar rejected EVERY truncated candidate → all-NaN softmax →

@@ -10,10 +10,14 @@ import LlamaSwift
 /// separately from it (see ``SamplerHandles``). The caller owns both
 /// handles' lifetimes — see the precondition note on the helper itself.
 nonisolated struct PreparedGeneration {
-  /// Optional to match the upstream `llama_model_get_vocab` return type
-  /// and the existing `tokenize` / `decodePiece` / `decodePieceRaw`
-  /// signatures, which all accept `OpaquePointer?` directly without a
-  /// nil check at the use site.
+  /// Optional only to match the existing `tokenize` / `decodePiece` /
+  /// `decodePieceRaw` signatures, which accept `OpaquePointer?` directly
+  /// without a nil check at the use site. It is **never nil in practice** —
+  /// since the b10327 pin `prepareGeneration` unwraps
+  /// `llama_model_get_vocab` up front (the sampler chain now requires
+  /// `n_vocab`), so the upstream-return-type half of the old rationale is
+  /// gone. Narrowing this to non-optional is a mechanical follow-up gated
+  /// on those three signatures, not on this type.
   let vocab: OpaquePointer?
   let handles: SamplerHandles
 }
@@ -65,7 +69,13 @@ extension LlamaCppService {
     schema: OutputSchema?,
     antiRepetitionSeeds: [String]
   ) throws -> PreparedGeneration {
-    let vocab = llama_model_get_vocab(model)
+    // Unwrapped here rather than at the `createSampler` call: since the
+    // b10327 pin, `vocab` is a hard requirement of the sampler chain itself
+    // (`llama_sampler_init_penalties` takes `n_vocab`), and
+    // `llama_vocab_n_tokens(nil)` dereferences NULL rather than returning 0.
+    // `.notLoaded` rather than a new key: a loaded model always has a vocab,
+    // so NULL here means the model is not actually usable.
+    guard let vocab = llama_model_get_vocab(model) else { throw LLMError.notLoaded }
 
     let formattedPrompt = try applyChatTemplate(system: system, user: user)
     let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
