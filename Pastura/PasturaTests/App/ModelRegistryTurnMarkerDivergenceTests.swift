@@ -59,27 +59,20 @@ struct ModelRegistryTurnMarkerDivergenceTests {
   /// A failure here is **not** automatically a bug: read #1451 first. Adding a
   /// Gemma-family descriptor legitimately extends the set; anything else
   /// diverging means the pair drifted by accident.
+  ///
+  /// This sweep reaches only descriptors still **in** `catalog`, and a
+  /// static-referenced companion arm used to guard the case where #1487's
+  /// follow-up dropped `gemma4E2B` from `catalog` while keeping the static alive.
+  /// That follow-up landed taking the other branch — the entry stays in `catalog`
+  /// and `ModelManager.visibleCatalog` hides it at the UI layer instead
+  /// (`ModelRegistry` § "ADD-and-keep") — so the arm became one that could never
+  /// fail, and its own doc comment said to delete rather than keep it as
+  /// decoration. Dropping the entry now reddens `catalog_hasExpectedModels`,
+  /// which pins all three ids, before this blind spot could open.
   @Test func everyDivergentDescriptorIsTheDeliberateChatMLCase() {
     let divergent = ModelRegistry.catalog.filter { $0.stopSequence != $0.turnMarkers.end }
     #expect(Set(divergent.map(\.id)) == ["gemma-4-e2b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
     for descriptor in divergent {
-      #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end, "\(descriptor.id)")
-    }
-  }
-
-  /// Static-referenced companion to the catalog sweep above, which only reaches
-  /// descriptors still **in** `catalog`. #1487's deferred follow-up hides a
-  /// not-yet-downloaded legacy entry and may drop `gemma4E2B` from `catalog`
-  /// while the static stays live for users who already have that build — at which
-  /// point the sweep would assert nothing about it, silently.
-  ///
-  /// Until that lands this arm **cannot** fail independently: both statics are in
-  /// `catalog`, so the sweep reddens first. It is a guard for a future state, not
-  /// a second opinion on the current one — if #1487 drops that follow-up, delete
-  /// this rather than leaving it as decoration.
-  @Test func bothGemmaStaticsCarryTheDivergence() {
-    for descriptor in [ModelRegistry.gemma4E2B, ModelRegistry.gemma4E2BQAT] {
-      #expect(descriptor.stopSequence != descriptor.turnMarkers.end, "\(descriptor.id)")
       #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end, "\(descriptor.id)")
     }
   }

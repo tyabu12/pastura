@@ -5,10 +5,12 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 struct ModelRegistryTests {
-  // Production catalog integrity
+  // Production catalog integrity. Order is asserted, not just membership: it is
+  // display order for the picker / Settings / `ActiveModelChip`, and the legacy
+  // Gemma build's trailing position is part of the ADD-and-keep shape (#1487).
   @Test func catalog_hasExpectedModels() {
     let ids = ModelRegistry.catalog.map(\.id)
-    #expect(ids == ["gemma-4-e2b-q4-k-m", "qwen-3-4b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
+    #expect(ids == ["gemma-4-e2b-qat-q4-k-xl", "qwen-3-4b-q4-k-m", "gemma-4-e2b-q4-k-m"])
   }
 
   @Test func catalog_passesValidateNoCollisions() {
@@ -17,8 +19,8 @@ struct ModelRegistryTests {
     ModelRegistry.validateNoCollisions()
   }
 
-  @Test func defaultInitialModelID_isGemma() {
-    #expect(ModelRegistry.defaultInitialModelID == "gemma-4-e2b-q4-k-m")
+  @Test func defaultInitialModelID_isQATGemma() {
+    #expect(ModelRegistry.defaultInitialModelID == "gemma-4-e2b-qat-q4-k-xl")
   }
 
   /// `recommendedModelID` is the picker-UI "推奨" badge source. Semantically

@@ -23,6 +23,10 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 ///
 /// ### Model-update (supersede) convention
 ///
+/// One of **two** shapes for replacing a build; § "ADD-and-keep" below is the
+/// other, and the boundary between them is stated there. This one is the
+/// default — reach for ADD-and-keep only when the criteria there are met.
+///
 /// A `ModelDescriptor` is immutable and there is no `version` field, so
 /// *updating* a model means shipping a new entry here with a new `id` AND a
 /// new `fileName`, and removing the old entry. (In-place updates without an
@@ -42,6 +46,33 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 /// → Models surfaces it as an "Unused model file" row for manual deletion —
 /// it is never silent-auto-deleted (consistent with ADR-015's
 /// no-silent-auto-delete posture). See #548.
+///
+/// ### ADD-and-keep
+///
+/// The shape adopted for `gemma4E2BQAT` (#1487, ADR-002 § Amendment 2026-08-15).
+/// The new entry joins `catalog` and the old one **stays**, carrying
+/// ``ModelDescriptor/replacesModelID`` to name what it takes over from.
+/// `ModelManager.visibleCatalog` then hides the replaced entry from the
+/// user-facing lists once it is absent from disk, so a new install never sees
+/// it while an existing user keeps their downloaded build, their row, and a way
+/// back if the newer one misbehaves on their device.
+///
+/// **Use it when the replacement is the same model** — a requantisation, a
+/// re-export, a QAT rebuild — where the supersede convention's forced
+/// re-download buys the user nothing but a second multi-GB transfer and an
+/// orphaned file. Use the supersede convention above for a genuinely different
+/// model, where keeping the old entry would just be catalog clutter.
+///
+/// **The replaced entry is not removed, so nothing here retires.** Its `id`
+/// stays resolvable through ``lookup(id:)`` — which is load-bearing in four
+/// places, not merely tidy: `gallery.json`'s `recommended_model` is validated
+/// against this catalog (`GallerySeedYAMLTests.recommendedModelMatchesRegistry`);
+/// `ModelManager.activeDescriptor` returns `nil` for an id that is not here, so
+/// a user still running the old build would lose their active model;
+/// `orphanedModelFiles()` derives from `catalog.map(\.fileName)`, so dropping
+/// the entry would surface that user's **in-use** GGUF as a deletable "Unused
+/// model file"; and `RETIRED_MODEL_IDS` above applies only when an id actually
+/// *leaves*, which under this shape it does not.
 enum ModelRegistry {
   nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
     id: "gemma-4-e2b-q4-k-m",
@@ -120,9 +151,12 @@ enum ModelRegistry {
   /// the failure lands *after* a 2.62 GB download rather than at build time — so
   /// a pin downgrade has to drop this entry with it.
   ///
-  /// `minRAM` is inherited from `gemma4E2B`, not measured. The file is 0.49 GB
-  /// smaller but the floor gates *runtime* footprint, which ADR-011 P3 settles on
-  /// a real device; inheriting is the conservative side of that unknown.
+  /// `minRAM` is inherited from `gemma4E2B` and **stays** unmeasured. The file is
+  /// 0.49 GB smaller, but the floor gates *runtime* footprint, and none of
+  /// ADR-011 P3–P5 measures that — P3 is a crash-free GBNF PoC, P4 a same-session
+  /// no-regression run against the incumbents, P5 a static sampler-API check. So
+  /// their PASS does not license lowering it; inheriting stays the conservative
+  /// side of an unknown that only a 6 GB-tier measurement can settle.
   nonisolated static let gemma4E2BQAT: ModelDescriptor = ModelDescriptor(
     id: "gemma-4-e2b-qat-q4-k-xl",
     displayName: "Gemma 4 E2B (QAT)",
@@ -165,32 +199,35 @@ enum ModelRegistry {
     tagline: String(localized: "The same conversational Gemma, in a smaller download.")
   )
 
-  /// Full production catalog, ordered by display preference — Gemma, Qwen, then
-  /// the QAT Gemma. That last position is provisional: QAT-first lands with the
-  /// `recommendedModelID` repoint, after the gate below.
+  /// Full production catalog, ordered by display preference — the QAT Gemma,
+  /// Qwen, then the legacy Gemma build it replaces.
   ///
-  /// Two instructions bind a future editor of `gemma4E2BQAT`. **Do not "fix" it
-  /// into a supersede** of `gemma4E2B` (§ "Model-update (supersede) convention"
-  /// above): that forces every existing user to re-download 2.62 GB with no way
-  /// back if the QAT build misbehaves on their device. And **if ADR-011 P3–P5
-  /// fail, revert this entry rather than amending it** — it landed *before* the
-  /// gate that `docs/models/onboarding.md` § "Registration checklist (after
-  /// Gate 2 — via `/orchestrate`)" requires to come first, and that inversion is
-  /// what the revert pays for. (The gate has no other route: the app has no
-  /// sideload path, so this entry is how the model reaches a device at all.)
+  /// **The trailing position is not decoration.** `gemma4E2B` is kept in the
+  /// catalog under § "ADD-and-keep" above and is filtered out of the user-facing
+  /// lists by `ModelManager.visibleCatalog` once it is absent from disk, so for a
+  /// new install this array renders two rows. Removing it here instead would take
+  /// `lookup` down with it — see that section for the four things that breaks.
+  ///
+  /// One instruction still binds a future editor of `gemma4E2BQAT`: **do not
+  /// "fix" it into a removal-supersede** of `gemma4E2B`. That forces every
+  /// existing user to re-download 2.62 GB with no way back if the QAT build
+  /// misbehaves on their device. The revert instruction that used to sit here is
+  /// discharged — the entry landed *before* ADR-011 P3–P5 could run, because the
+  /// app has no sideload path and the catalog is the only route onto a device,
+  /// and those prerequisites have since PASSED (`docs/models/eval-log.md`
+  /// § "Gemma 4 E2B QAT `UD-Q4_K_XL`").
   ///
   /// It departs from the curation policy's distinct-character bar and from
   /// `ModelDescriptor.shortDisplayName`'s no-build-variant principle as well —
-  /// both, with the cost analysis, in `docs/models/eval-log.md` § "Gemma 4 E2B
-  /// QAT `UD-Q4_K_XL`" and #1487.
-  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B, gemma4E2BQAT]
+  /// both, with the cost analysis, in that same eval-log entry and #1487.
+  nonisolated static let catalog: [ModelDescriptor] = [gemma4E2BQAT, qwen34B, gemma4E2B]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).
   ///
   /// Distinct from `recommendedModelID`: this drives `ModelManager.resolveInitialActiveID`
   /// as the resolve-order fallback when no persisted active id exists. It is NOT the
   /// picker UI's "推奨" badge source — picker consults `recommendedModelID` instead.
-  nonisolated static let defaultInitialModelID: ModelID = gemma4E2B.id
+  nonisolated static let defaultInitialModelID: ModelID = gemma4E2BQAT.id
 
   /// ID surfaced in the first-launch model picker as the "推奨" badge.
   ///
@@ -200,7 +237,7 @@ enum ModelRegistry {
   /// Currently aliases to the same value as `defaultInitialModelID`, but the two
   /// must not be tested for equality; tests should assert each independently
   /// against the registered catalog.
-  nonisolated static let recommendedModelID: ModelID = gemma4E2B.id
+  nonisolated static let recommendedModelID: ModelID = gemma4E2BQAT.id
 
   /// Returns the catalog descriptor matching `id`, or `nil` if no descriptor exists.
   ///
