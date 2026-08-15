@@ -9,7 +9,9 @@ import os
 /// environment is now an optional **A/B override lever**: it is unreachable in
 /// TestFlight/Release (env vars aren't set there), so it never affects
 /// production, but it lets the ADR-013 harness sweep alternative constants or
-/// run the base arm — `PASTURA_DRY_MULTIPLIER=0` disables DRY. This keeps the
+/// run the base arm — `PASTURA_DRY_MULTIPLIER=0` is the canonical way to
+/// disable DRY, and two further levers reach the same arm (see
+/// ``DryConfig/resolve(environment:)``). This keeps the
 /// config in the LLM layer where it belongs (a llama.cpp sampler knob, not a
 /// backend-agnostic domain model — Models/ would be the wrong home; the LLM
 /// layer also can't import `App/FeatureFlags` per the dependency rule).
@@ -62,21 +64,30 @@ nonisolated struct DryConfig {
   /// arm; otherwise DRY is enabled. `allowedLength` is 3 because ja names /
   /// topic words tokenize to 2–3 tokens.
   ///
-  /// **The three guards below mirror upstream's own `dry_enabled` predicate**
-  /// (`dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`,
-  /// `llama_sampler_init_dry`). Upstream does not fail on a value it rejects —
-  /// it returns a non-NULL `llama_sampler_init_empty("?dry")`, which seeds and
-  /// emits an ordinary `samplerDrySeeded` line. Without these guards an A/B arm
-  /// set through *any* of the three levers runs inert while every marker reads
-  /// healthy; with them it degrades to `nil` and the harness sees the
-  /// documented `reason=disabled`. Mirror any future change to that predicate
-  /// here — a lever guarded on one side only is the failure this exists for.
+  /// **The three guards below track upstream's own `dry_enabled` predicate**
+  /// — `dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`, at
+  /// `src/llama-sampler.cpp:3406` (b10327), inside `llama_sampler_init_dry` at
+  /// `src/llama-sampler.cpp:3400`. Upstream does not fail on a value it
+  /// rejects — it returns a non-NULL `llama_sampler_init_empty("?dry")`, which
+  /// seeds and emits an ordinary `samplerDrySeeded` line. Without these guards
+  /// an A/B arm set through *any* of the three levers runs inert while every
+  /// marker reads healthy; with them it degrades to `nil` and the harness sees
+  /// the documented `reason=disabled`. Re-read that predicate on each pin bump
+  /// and track it here — a lever guarded on one side only is the failure this
+  /// exists for.
+  ///
+  /// **One arm is deliberately stricter, not a byte-mirror**: `multiplier > 0`
+  /// where upstream accepts `!= 0`. A negative multiplier inverts the penalty —
+  /// upstream would enable DRY and *reward* repetition — which is never a
+  /// meaningful A/B arm here, so it stays rejected as `reason=disabled`. Do not
+  /// "reconcile" it to `!= 0`; the other two arms are the ones to keep in sync.
   ///
   /// `PASTURA_DRY_LAST_N=-1` needs the guard most, because it changed meaning
   /// rather than staying invalid: at b8694 it was a documented sentinel for
   /// "penalise over `n_ctx_train`", i.e. DRY on across the full context. The
   /// b10327 pin dropped `n_ctx_train` from `llama_sampler_init_dry` and clamps
-  /// the argument *before* testing it, so the same value now means off (#1487).
+  /// the argument at `src/llama-sampler.cpp:3401`, *before* the predicate tests
+  /// it, so the same value now means off (#1487).
   static func resolve(environment env: [String: String]) -> DryConfig? {
     func float(_ key: String, _ fallback: Float) -> Float {
       env[key].flatMap(Float.init) ?? fallback
@@ -126,8 +137,8 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
   /// has a non-empty prior `lastOutputs` entry — **not** "round 2 onward",
   /// since `lastOutputs` persists across phases, so a *second* `speak_each`
   /// seeds from its first round. Per-scenario counts: `docs/models/eval-log.md`
-  /// § "DRY sampler construction — 2026-08-15 (b8694 baseline)" — several
-  /// sections share that prefix, so cite it through the pin qualifier.
+  /// § "DRY sampler construction — 2026-08-15 (b8694 baseline)" — more than one
+  /// section shares that prefix, so cite it through the pin qualifier.
   case noSeeds = "no-seeds"
   /// `llama_sampler_init_dry` returned NULL.
   case nullInit = "null-init"
@@ -200,9 +211,10 @@ nonisolated extension LlamaCppService {
 
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
-  /// enhancement, so any missing precondition (the explicit base arm
-  /// `PASTURA_DRY_MULTIPLIER=0`, no seeds, NULL sampler) degrades to `nil`
-  /// rather than failing the whole
+  /// enhancement, so any missing precondition — the explicit base arm (reached
+  /// by any of the three levers in ``DryConfig/resolve(environment:)``,
+  /// canonically `PASTURA_DRY_MULTIPLIER=0`), no seeds, or a NULL sampler —
+  /// degrades to `nil` rather than failing the whole
   /// generation. Ownership: the returned handle is caller-owned (freed in the
   /// run-loop `defer`s alongside `grammar`).
   ///

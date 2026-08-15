@@ -78,12 +78,10 @@ struct DrySamplerConfigTests {
   // dropped — a success-path assertion could not tell.
 
   @Test func resolveDisablesOnNonPositivePenaltyLastN() {
-    // `0` reaches upstream's `dry_penalty_last_n != 0` arm directly.
+    // `0` reaches upstream's `dry_penalty_last_n != 0` arm directly. `-1` is
+    // the case that changed meaning at the pin bump rather than staying
+    // invalid — why it is no longer a sentinel: `DryConfig.resolve(environment:)`.
     #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "0"]) == nil)
-    // `-1` was a *documented sentinel* at b8694 meaning "use `n_ctx_train`",
-    // i.e. DRY ON over the full context. b10327 dropped `n_ctx_train` from
-    // `llama_sampler_init_dry` and clamps the argument before testing it, so
-    // the same value now means OFF. Anything negative lands there too.
     #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "-1"]) == nil)
     #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "-512"]) == nil)
   }
