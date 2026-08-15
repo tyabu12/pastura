@@ -71,13 +71,23 @@ dependency direction is preparation for a future SPM module split.
 
 Bundled in
 [`Pastura/Pastura/App/ModelRegistry.swift`](Pastura/Pastura/App/ModelRegistry.swift).
-All are GGUF quants, downloaded on first launch.
+All are GGUF quants. One is downloaded at first launch from the in-app
+picker; the rest on demand from Settings → Models. Listed in catalog order,
+which is the order both of those surfaces show — but not every row is offered
+to a fresh install, see the note under the table.
 
 | Model                                                                | Vendor  | Size    | Notes                                                       |
 |----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
-| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Default. Conversational, plays well with most scenarios.    |
+| [Gemma 4 E2B (QAT)](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) | Google | ~2.6 GB | Default. Quantization-aware-trained build of the same Gemma, in a smaller download. |
 | [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | Reasoning-leaning. Good for scenarios that need deduction.  |
-| [Gemma 4 E2B (QAT)](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) | Google | ~2.6 GB | Quantization-aware-trained build of the same Gemma, in a smaller download. |
+| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Existing installs only — replaced by the QAT build above, and hidden unless already downloaded. |
+
+The last row is **kept, not retired**. It stays in `ModelRegistry.catalog` so
+that anyone who already downloaded it keeps their model, their row, and a way
+back; `ModelManager.visibleCatalog` hides it from the picker, Settings →
+Models and the home-screen model chip once it is absent from the device. See
+`ModelRegistry` § "ADD-and-keep" for when to choose that shape over removing
+the old entry outright.
 
 Add more by appending a `ModelDescriptor` to `ModelRegistry.catalog`.
 The descriptor pins download URL, file size, and SHA-256 at compile
