@@ -71,12 +71,13 @@ dependency direction is preparation for a future SPM module split.
 
 Bundled in
 [`Pastura/Pastura/App/ModelRegistry.swift`](Pastura/Pastura/App/ModelRegistry.swift).
-Both are GGUF Q4_K_M quants, downloaded on first launch.
+All are GGUF quants, downloaded on first launch.
 
 | Model                                                                | Vendor  | Size    | Notes                                                       |
 |----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
 | [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Default. Conversational, plays well with most scenarios.    |
 | [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | Reasoning-leaning. Good for scenarios that need deduction.  |
+| [Gemma 4 E2B (QAT)](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) | Google | ~2.6 GB | Quantization-aware-trained build of the same Gemma, in a smaller download. |
 
 Add more by appending a `ModelDescriptor` to `ModelRegistry.catalog`.
 The descriptor pins download URL, file size, and SHA-256 at compile
