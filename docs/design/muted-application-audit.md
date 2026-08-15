@@ -203,7 +203,8 @@ table:
   at both extremes holds over every opaque ground, this one included. The twelve
   alone would not license "whatever the sheet resolves to" — the system surface
   is not one of them — and why bracketing closes that is derived at
-  `mutedRuleWashGrounds`' doc comment, beside the two entries it justifies.
+  `mutedRuleWashGrounds`' doc comment, beside the four `mutedRuleWashBrackets`
+  entries it licenses.
 
 **These are unmeasured, not a new worst case** — and that conclusion survived
 the re-measurement, which is the one thing here worth carrying forward. The new
@@ -249,7 +250,8 @@ all, so they render on the system sheet surface. Also outside the fixture.
 
 ## 4. Recorded refusal — retuning `muted` itself
 
-Raised and **refused on the recorded decision, not on the arithmetic.** ADR-028 §
+Raised and refused. **The refusal is on the recorded decision, not on the
+arithmetic**: ADR-028 §
 Amendment 2026-08-13 (#1427) states the defect is «the application, not the
 token», and §8 makes the sub-AA value a deliberate expression of §1's
 「静謐・観察」. Retiring the tier is its own ADR, not a side effect of a sweep

@@ -253,7 +253,7 @@ extension DesignTokensTests {
   /// **The twelve Pastura grounds alone would not license "whatever the sheet
   /// resolves to"** — the system surface is not among them, so an arm over just
   /// those measures twelve grounds the site never sits on and never the one it
-  /// does. The last two entries close that: compositing at a fixed alpha is
+  /// does. ``mutedRuleWashBrackets`` closes that: compositing at a fixed alpha is
   /// per-channel, so every channel of the result lies between its value over
   /// **black** and over **white**, relative luminance is monotone in each
   /// channel, and contrast against a fixed foreground is maximal at an endpoint
