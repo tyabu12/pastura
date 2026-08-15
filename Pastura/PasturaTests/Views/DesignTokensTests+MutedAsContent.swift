@@ -265,9 +265,11 @@ extension DesignTokensTests {
   /// The bracket itself — pure white and pure black are **luminance extremes,
   /// not shipped grounds**, which is why they live in their own array. They
   /// belong to the sub-AA claim and must stay out of
-  /// ``compositedGroundsStayAboveTheOpaqueWorstCase``: a ratio at an extreme
-  /// falls *below* the 2.136 opaque floor by construction (1.739 / 1.825), and
-  /// folding them in would make that arm assert something false about the app.
+  /// ``compositedGroundsStayAboveTheOpaqueWorstCase``. **One extreme per
+  /// appearance** lands below the 2.136 opaque floor — 1.739 light-over-black
+  /// and 1.825 dark-over-white, against 3.018 and 3.919 at the other ends — and
+  /// one is enough to make that arm assert something false about the app. Not
+  /// "an extreme is always below the floor": two of the four are above it.
   private static let mutedRuleWashBrackets: [(name: String, ratio: Double)] = [
     (
       "light rule@0.45 over pure white",

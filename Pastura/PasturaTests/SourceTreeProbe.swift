@@ -61,8 +61,15 @@ enum SourceTreeProbe {
   /// errs in both directions: a trailing comment on a code line, or a `/* … */`
   /// block, still counts — and a line **inside a `"""` literal** that happens to
   /// start with `//` is skipped, which is the direction that *hides* an
-  /// occurrence and so the one a census cares about. Neither occurs on today's
-  /// tree. Both
+  /// occurrence and so the one a census cares about. Both were enumerated and
+  /// returned nothing when this was written (#1448) — re-run rather than
+  /// inherit the claim:
+  ///
+  ///     grep -rn "Color\.muted" Pastura/Pastura --include="*.swift" \
+  ///       | grep -E '[^ ].*//.*Color\.muted' | grep -vE ':[0-9]+: *//'
+  ///
+  /// for the trailing-comment direction, and a scan for a `//`-leading line
+  /// between an odd pair of `"""` delimiters for the hiding one. Both
   /// callers want the same thing from it — a source-tree guard that fires on a
   /// *reference* must not fire on prose naming the thing it guards, which is
   /// what `Models/Scenario.swift` does for `LocaleResolver`.

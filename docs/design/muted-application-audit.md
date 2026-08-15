@@ -421,9 +421,11 @@ two `×N` rows — rather than maintained by hand.
 
 `isClearAllBlocked ? Color.muted : Color.danger`. This is not a contrast defect —
 it is a **routing** one: the app has `disabledText` (#B5B0A2 / `nightDisabledText`
-#605F54) for exactly this. §2.7 carries the token; the exemption itself is
-recorded in **§2.9**'s `nightDisabledText` row (WCAG 1.4.3's inactive-control
-carve-out) — not in §2.7 or §8, neither of which mentions disabled controls.
+#605F54) for exactly this. §2.7 carries the two disabled *tokens* and nothing
+about the bar; the exemption itself is recorded in **§2.9**'s `nightDisabledText`
+row (WCAG 1.4.3's inactive-control carve-out). §8 does not mention disabled
+controls at all — checked by reading its bullets, 2026-08-15 — so cite §2.9 for
+the licence and §2.7 only for the token.
 
 Correcting it therefore **lowers** the ratio, which §8 permits only when returning
 to the token the norm points at — the same licence #1459 used. It is kept out of
