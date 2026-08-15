@@ -5,7 +5,7 @@ import os
 // MARK: - Sampler
 
 /// Chain + optional grammar handles produced by
-/// ``LlamaCppService/createSampler(grammarString:vocab:)``.
+/// ``LlamaCppService/createSampler(grammarString:vocab:antiRepetitionSeeds:)``.
 ///
 /// The grammar is held **separately** from the chain (rather than as a
 /// chain member) so ``LlamaCppService/safeSample(handles:context:vocab:candidates:diag:)``
@@ -202,7 +202,7 @@ extension LlamaCppService {
   ///   `defer`). Returning it (rather than taking a closure) keeps the
   ///   `defer` adjacent to the token loop it guards.
   func makeCandidateBuffer(
-    schema: OutputSchema?, vocab: OpaquePointer?
+    schema: OutputSchema?, vocab: OpaquePointer
   ) -> UnsafeMutableBufferPointer<llama_token_data>? {
     guard schema != nil else { return nil }
     return .allocate(capacity: Int(llama_vocab_n_tokens(vocab)))
@@ -259,8 +259,9 @@ extension LlamaCppService {
   /// **Why dup2 is needed.** llama.cpp's grammar parser writes detailed
   /// errors via `fprintf(stderr, "error parsing grammar: %s\n\n%s\n", ...)`
   /// at `llama-grammar.cpp:715` (b10327), then `parser.parse` returns false.
-  /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` at line
-  /// 1209 reaches our `llama_log_set` callback (`LlamaCppService.swift`).
+  /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` — same file,
+  /// line 1223 at that pin — reaches our `llama_log_set` callback
+  /// (`LlamaCppService.swift`).
   /// iOS doesn't pipe process stderr to os_log, so without this `dup2`
   /// redirect the actionable detail (`expecting ']' at`,
   /// `Undefined rule identifier 'X'`, etc.) is permanently lost.

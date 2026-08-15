@@ -12,10 +12,8 @@ llama.cpp interim LLM backend decision.
 
 Standing invariant — § "Pin Strategy": pin a specific release tag, and on a bump
 pin the **measured** tag rather than the latest one. Drift alone is not a reason
-to bump; a bump needs a named blocked capability, and must clear the
-verification bar there (full-declaration symbol diff with a positive control,
-re-read of any upstream function a why-comment reasons about, both build lanes,
-the DRY marker A/B, ADR-013's platform re-check). No gate enforces any of it.
+to bump; a bump needs a named blocked capability and must clear that section's
+verification bar. No gate enforces any of it.
 
 ## ADR-003 — Background execution
 

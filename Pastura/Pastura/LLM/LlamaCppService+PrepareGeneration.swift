@@ -10,15 +10,15 @@ import LlamaSwift
 /// separately from it (see ``SamplerHandles``). The caller owns both
 /// handles' lifetimes — see the precondition note on the helper itself.
 nonisolated struct PreparedGeneration {
-  /// Optional only to match the existing `tokenize` / `decodePiece` /
-  /// `decodePieceRaw` signatures, which accept `OpaquePointer?` directly
-  /// without a nil check at the use site. It is **never nil in practice** —
-  /// since the b10327 pin `prepareGeneration` unwraps
-  /// `llama_model_get_vocab` up front (the sampler chain now requires
-  /// `n_vocab`), so the upstream-return-type half of the old rationale is
-  /// gone. Narrowing this to non-optional is a mechanical follow-up gated
-  /// on those three signatures, not on this type.
-  let vocab: OpaquePointer?
+  /// Non-optional since the b10327 pin: `prepareGeneration` unwraps
+  /// `llama_model_get_vocab` up front, because the sampler chain now needs
+  /// `n_vocab` and `llama_vocab_n_tokens(nil)` dereferences NULL rather than
+  /// returning 0. Keeping it optional would leave that invariant asserted only
+  /// in prose while `makeCandidateBuffer` passed the optional straight into
+  /// the same C call. The `tokenize` / `decodePiece` / `decodePieceRaw`
+  /// signatures still take `OpaquePointer?` and need no change — Swift
+  /// promotes `T` to `T?` at the call site.
+  let vocab: OpaquePointer
   let handles: SamplerHandles
 }
 
@@ -42,9 +42,13 @@ extension LlamaCppService {
   ///
   /// **Sampler ownership** — the returned `handles` are owned by the
   /// caller. Pair every successful return with
-  /// `defer { llama_sampler_free(prepared.handles.chain) }` AND
+  /// `defer { llama_sampler_free(prepared.handles.chain) }`,
   /// `defer { prepared.handles.grammar.map { llama_sampler_free($0) } }`
-  /// in the caller's scope. The helper does NOT install its own defer
+  /// AND `defer { prepared.handles.dry.map { llama_sampler_free($0) } }`
+  /// in the caller's scope — all three, as both existing callers do. The
+  /// `dry` handle (#1105) is as separate an allocation as `grammar`; a caller
+  /// following an earlier two-defer version of this list leaks it.
+  /// The helper does NOT install its own defer
   /// because Swift's `defer` only fires at the helper's scope exit, which
   /// would free the handles before the caller's inference loop runs.
   /// The split-out grammar is a separate allocation — freeing the chain

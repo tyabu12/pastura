@@ -211,8 +211,11 @@ It scales with rounds — a 3-round scenario with one `narrate` offsets by 3, no
 1. `LLMCaller` retries shift both sides together, so they cancel here (
 `emitInferenceCompleted` sits inside the `for attempt` loop on the success and
 failure paths alike); a *harness* rerun does not — see the doubling row above.
-A worked `word_wolf` ja reconciliation at the b8694 pin is in
-`docs/models/eval-log.md` § "DRY sampler construction".
+A worked `word_wolf` ja reconciliation is in `docs/models/eval-log.md`
+§ "DRY sampler construction — 2026-08-15 (b8694 baseline)"; the same two arms
+re-run on the current pin are in § "DRY sampler construction — 2026-08-15
+(b10327, post-bump)". Cite the full headings — the shared prefix alone is
+ambiguous between them.
 
 ## Step 3 — Judge each `ok` cell in-session
 

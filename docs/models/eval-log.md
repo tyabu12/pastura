@@ -279,8 +279,9 @@ Reproduce: identical to the baseline's block above.
 
 - **Gate**: 1 (Mac filter, `/model-eval`) — 6/6 cells `ok`, `attempts_mean` 1.00,
   `language_mismatch_total` 0, no crash. Run on a **bumped pin** (`llama.swift`
-  2.10327.0 / llama.cpp b10327) in a throwaway worktree; `main` stays at 2.8694.0
-  and no pin change came out of this eval.
+  2.10327.0 / llama.cpp b10327) in a throwaway worktree; `main` was still at
+  2.8694.0 at the time and no pin change came out of this eval. The bump landed
+  separately in #1487, so `main` now carries this same pin.
 - **Model**: `unsloth/gemma-4-E2B-it-qat-GGUF` · `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`
   · Apache-2.0, non-gated · 2,620,370,976 B · sha256 `e5310072…6889` (both matching
   the HF resolve `X-Linked-Size` / `X-Linked-ETag`) — **−15.7 %** against the shipped
@@ -442,8 +443,8 @@ Reproduce: identical to the baseline's block above.
   541 tensors, omitting `attn_k` / `attn_v` / `attn_k_norm` for layers 15–34 (60
   tensors) — where the shipped non-QAT Q4_K_M materialises all 601. Zero tensors
   exist in the QAT file that are absent from the incumbent, so it is a structural
-  difference, not corruption. The pinned llama.cpp b8694 (`mattt/llama.swift`
-  `exact: "2.8694.0"`) has no shared-KV tail-layer loader. **Not vendor-specific**:
+  difference, not corruption. The then-pinned llama.cpp b8694 (`mattt/llama.swift`
+  `exact: "2.8694.0"`) had no shared-KV tail-layer loader. **Not vendor-specific**:
   unsloth's own QAT re-export (`unsloth/gemma-4-E2B-it-qat-GGUF` →
   `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`, 2,620,370,976 B, sha256 `e5310072…6889`)
   carries the same 541-tensor layout (identical tensor-name set, different
@@ -453,9 +454,11 @@ Reproduce: identical to the baseline's block above.
   **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
   b8694 loads only the incumbent — a bump is therefore sufficient *and* the
   wrapper release exists.
-- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support. Met at
-  **b10327** — the only build measured to load a 541-tensor QAT file, so nothing is
-  known about the builds between it and b8694.
+- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support.
+  **MET — no longer a blocker.** Satisfied at **b10327**, which `main` now pins
+  (#1487); it is the only build measured to load a 541-tensor QAT file, so
+  nothing is known about the builds between it and b8694. What remains before
+  adoption is ADR-011 P3–P5 real-device QA, not the pin.
 - **Retry**: **ran** inside the #1415 spike — the 2026-08-12 entry above, a clean
   NO-GO. Follow that entry, not #1416, which has since been repointed at the
   QAT-Mobile retry. This entry stays a `BLOCKED` record of 2026-08-08 rather than
