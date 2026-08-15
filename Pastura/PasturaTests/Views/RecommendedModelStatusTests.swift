@@ -150,8 +150,9 @@ struct RecommendedModelStatusTests {
   //
   // Every `docs/gallery/gallery.json` entry recommends `gemma`, which is now a
   // replaced build hidden from the picker / Settings / `ActiveModelChip` once it
-  // is off the device. These pin that a feed entry naming it is classified as
-  // its successor, without nagging a user still running the old one.
+  // is neither on the device nor the active model. These pin that a feed entry
+  // naming it is classified as its successor, without nagging a user still
+  // running the old one.
 
   /// Pins the `qat` literal above **and** the ADD-and-keep wiring it stands for.
   /// Without this, a drifted literal makes `state[qat]` miss, `compute` falls

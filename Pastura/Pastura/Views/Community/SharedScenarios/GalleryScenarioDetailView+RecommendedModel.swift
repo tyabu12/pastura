@@ -16,7 +16,7 @@ extension GalleryScenarioDetailView {
     // the buttons. Since #1487 the helper reads `state`, so a button closure
     // re-invoking it at *tap* time could act on a different descriptor than the
     // status the button was rendered from — narrow, but the comments below
-    // assert the two agree.
+    // assert that the status and the descriptor acted on are the same one.
     let target = ModelRegistry.recommendationTarget(
       for: scenario.recommendedModel, state: modelManager.state)
     switch status {

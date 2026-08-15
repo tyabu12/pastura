@@ -81,10 +81,13 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 ///   `gallery.json` `recommended_model` against `catalog.map(\.id)`, and the
 ///   whole shipped feed still names the replaced build.
 ///
-/// Display-name resolution is a fourth, milder one: `lookup(id:)` and
-/// ``shortDisplayName(forIdentifier:)`` both fall back to the **raw id string**,
-/// so dropping the entry would show `gemma-4-e2b-q4-k-m` where "Gemma 4 E2B"
-/// belongs — to exactly the user this shape exists to protect.
+/// Display-name resolution is a fourth, milder one, and it degrades two
+/// different ways. The ``lookup(id:)`` callsites fall back to the **raw id**, so
+/// the gallery would print `gemma-4-e2b-q4-k-m` where "Gemma 4 E2B" belongs.
+/// ``shortDisplayName(forIdentifier:)`` matches on `displayName` rather than
+/// `id`, so it never reaches the raw id — it falls through to the persisted
+/// long label, and the past-results share card silently loses its short name.
+/// Both land on exactly the user this shape exists to protect.
 ///
 /// `RETIRED_MODEL_IDS` above is **not** a dependency at all — it is the reason
 /// nothing has to retire, since it applies only when an id actually *leaves*.
@@ -286,10 +289,10 @@ enum ModelRegistry {
     catalog.first { $0.replacesModelID == id }
   }
 
-  /// The descriptor that should **satisfy** a recommendation naming `id`, given
-  /// what is on this device: the declared build when the user already has it,
-  /// otherwise the entry that replaces it under § "ADD-and-keep". `nil` only
-  /// when `id` is in no catalog entry at all.
+  /// The cheapest build that **satisfies** a recommendation naming `id`, given
+  /// what is on this device: its replacement (§ "ADD-and-keep") when that is
+  /// already on disk, else the declared build when *that* is, else the
+  /// replacement. `nil` only when `id` is in no catalog entry at all.
   ///
   /// Every `docs/gallery/gallery.json` entry recommends the Q4_K_M Gemma build,
   /// and that feed is fetched live by **already-shipped** app versions, so it

@@ -72,6 +72,15 @@ struct ModelRegistryTests {
     // introduce a second `nil` path.
     #expect(ModelRegistry.recommendationTarget(for: "future-model-v9", state: bothReady) == nil)
     #expect(ModelRegistry.recommendationTarget(for: gemma, state: [:])?.id == qat)
+
+    // An id nothing replaces takes the `successor ?? declared` tail — the one
+    // production path through this helper the arms above never reach. Pins that
+    // the successor-first check cannot swallow a replacement-less id.
+    let qwen = ModelRegistry.qwen34B.id
+    #expect(ModelRegistry.recommendationTarget(for: qwen, state: [:])?.id == qwen)
+    #expect(
+      ModelRegistry.recommendationTarget(
+        for: qwen, state: [qwen: .ready(modelPath: "/tmp/q")])?.id == qwen)
   }
 
   @Test func catalog_passesValidateNoCollisions() {

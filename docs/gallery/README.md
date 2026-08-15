@@ -155,8 +155,9 @@ without the feed naming it.
 
 Revisit once the app versions predating the QAT descriptor are no longer worth
 supporting. That descriptor first ships in the release **after** this lands
-(`MARKETING_VERSION` is 1.1 at time of writing, so 1.2); the decidable test is
-App Store Connect's per-version adoption breakdown, not a judgement call.
+(`MARKETING_VERSION` is 1.1 at time of writing, so 1.2). App Store Connect's
+per-version adoption breakdown is the instrument; where to set the bar is still
+a call someone has to make.
 Rationale and the full mechanism: ADR-002 § Amendment 2026-08-15 — ADD-and-keep.
 
 ### Content guidelines
