@@ -214,8 +214,8 @@ failure paths alike); a *harness* rerun does not — see the doubling row above.
 A worked `word_wolf` ja reconciliation is in `docs/models/eval-log.md`
 § "DRY sampler construction — 2026-08-15 (b8694 baseline)"; the same two arms
 re-run on the current pin are in § "DRY sampler construction — 2026-08-15
-(b10327, post-bump)". Cite the full headings — the shared prefix alone is
-ambiguous between them.
+(b10327, post-bump) — **no regression**". Cite each heading through its pin
+qualifier — the shared prefix alone is ambiguous between them.
 
 ## Step 3 — Judge each `ok` cell in-session
 

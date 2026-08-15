@@ -455,10 +455,12 @@ Reproduce: identical to the baseline's block above.
   b8694 loads only the incumbent — a bump is therefore sufficient *and* the
   wrapper release exists.
 - **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support.
-  **MET — no longer a blocker.** Satisfied at **b10327**, which `main` now pins
-  (#1487); it is the only build measured to load a 541-tensor QAT file, so
-  nothing is known about the builds between it and b8694. What remains before
-  adoption is ADR-011 P3–P5 real-device QA, not the pin.
+  **MET as a loader class at b10327**, which `main` now pins (#1487) — the only
+  build measured to load a 541-tensor QAT file, so nothing is known about the
+  builds between it and b8694. This does **not** revive *this* candidate: per
+  L38's convention the row names the condition allowing a **retry**, that retry
+  already ran (§2026-08-12), and it was a clean NO-GO. The live QAT candidate is
+  `UD-Q4_K_XL` (§2026-08-13), still gated on ADR-011 P3–P5 device QA.
 - **Retry**: **ran** inside the #1415 spike — the 2026-08-12 entry above, a clean
   NO-GO. Follow that entry, not #1416, which has since been repointed at the
   QAT-Mobile retry. This entry stays a `BLOCKED` record of 2026-08-08 rather than

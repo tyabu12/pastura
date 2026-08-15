@@ -15,8 +15,8 @@ nonisolated struct PreparedGeneration {
   /// `n_vocab` and `llama_vocab_n_tokens(nil)` dereferences NULL rather than
   /// returning 0. Keeping it optional would leave that invariant asserted only
   /// in prose while `makeCandidateBuffer` passed the optional straight into
-  /// the same C call. The `tokenize` / `decodePiece` / `decodePieceRaw`
-  /// signatures still take `OpaquePointer?` and need no change — Swift
+  /// the same C call. The several helpers that still take `OpaquePointer?`
+  /// (`tokenize`, `decodePiece`, `safeSample`, …) need no change — Swift
   /// promotes `T` to `T?` at the call site.
   let vocab: OpaquePointer
   let handles: SamplerHandles
