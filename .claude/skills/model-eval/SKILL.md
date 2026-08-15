@@ -171,13 +171,19 @@ from its second round on:
 | `samplerDrySeeded` **zero** in `prisoners_dilemma` / `bokete` | **correct, not a defect.** Neither preset has a `speak_each` phase, so 4 of the 6 cells emit only `reason=no-seeds` |
 | `reason=disabled` in a plain battery | DRY is off — `PASTURA_DRY_MULTIPLIER` leaked into the environment; the arm is invalid, re-run |
 | `reason=null-init` or `reason=no-model` | never expected; either is a defect worth an issue |
-| **no `samplerDry*` line at all** | the one unambiguous instrument failure — every `createSampler` exit emits exactly one |
+| fewer markers than the cell's generations | a **throwing** exit — grammar parse failure (#194) or grammar-without-vocab — which emits no marker and whose own error goes to OSLog only, so the sidecar shows neither. Check `run_end.status` / `attempts`, not the sweep alone |
+| **no `samplerDry*` line at all** | the one unambiguous instrument failure — every non-throwing `createSampler` exit emits exactly one |
 
-**Do not reconcile the `samplerDry*` total against `inference_completed`** — it
-is legitimately higher. `narrate` hands `LLMCaller` a no-op emitter, so its
-inference emits no events at all. Measured on `word_wolf` ja at the b8694 pin:
-26 markers vs 25 `inference_completed`, the difference being that one narrate
-turn (`docs/models/eval-log.md` § "DRY sampler construction").
+**Do not reconcile the `samplerDry*` total against `inference_completed`** —
+the two count different things and drift in *both* directions. `narrate` hands
+`LLMCaller` a no-op emitter, so its inference emits no events and pushes markers
+**up**; a generation that throws at or before sampler construction pushes them
+**down**. Retries do not enter: `emitInferenceCompleted` sits inside
+`LLMCaller`'s `for attempt` loop on both the success and failure paths, so an
+extra attempt increments both sides. Measured on `word_wolf` ja at the b8694
+pin, in both A/B arms: 26 markers vs 25 `inference_completed`, the difference
+being that one narrate turn (`docs/models/eval-log.md` § "DRY sampler
+construction").
 
 ## Step 3 — Judge each `ok` cell in-session
 

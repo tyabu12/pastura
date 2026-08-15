@@ -13,6 +13,11 @@ import Testing
 /// are validated on device / via the pastura-harness A/B (#1105), not here.
 /// What #1483 made testable is only the *line format* those paths emit: the
 /// emission itself still needs a harness run to observe.
+///
+/// Specifically **not** pinned here: which `guard` emits which reason. Swapping
+/// `.noSeeds` and `.noModel` between two guards would pass everything below and
+/// silently mislabel every harness sweep. Closing that needs an injectable emit
+/// sink; until then the guard→reason mapping is code-review-gated.
 @Suite(.timeLimit(.minutes(1)))
 struct DrySamplerConfigTests {
 

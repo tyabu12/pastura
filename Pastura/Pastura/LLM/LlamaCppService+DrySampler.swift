@@ -83,15 +83,23 @@ nonisolated struct DryConfig {
 /// Why a generation ran without a DRY sampler (#1483).
 ///
 /// Each case maps to exactly one exit path, and together with
-/// `samplerDrySeeded` they cover every way `createSampler` can finish — so a
-/// harness run that emits **no** `samplerDry*` line at all means the sampler
-/// path was never reached, which is a different fact from "DRY was off". A
-/// single "DRY unavailable" marker could not make that distinction.
+/// `samplerDrySeeded` they cover every **non-throwing** way `createSampler`
+/// can finish — so a harness run that emits **no** `samplerDry*` line at all
+/// means the sampler path was never reached, which is a different fact from
+/// "DRY was off". A single "DRY unavailable" marker could not make that
+/// distinction.
+///
+/// **Not covered: the three throwing exits** (`chain_init` NULL, grammar
+/// without vocab, `init_grammar` NULL — the #194 path). Those leave no marker,
+/// so a marker counts *generations that reached sampler construction*, never
+/// *generations attempted*. `prepareGeneration` can also throw upstream of
+/// `createSampler`. A short count is therefore a real signal, not necessarily
+/// a broken instrument — read `run_end.status` alongside the sweep.
 ///
 /// The raw values are the join key for the `.stderr.log` sweep in
 /// `.claude/skills/model-eval/SKILL.md` § Step 2, whose expectations are
 /// written per reason; `DrySamplerConfigTests` pins the set so a rename or a
-/// sixth path cannot land without updating both.
+/// sixth non-throwing path cannot land without updating both.
 nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
   /// `DryConfig.resolve()` returned nil — the harness A/B base arm
   /// (`PASTURA_DRY_MULTIPLIER=0`). Never reached in TestFlight / Release.
@@ -135,12 +143,14 @@ nonisolated extension LlamaCppService {
   /// Emit one diagnostic line to OSLog **and** to stderr.
   ///
   /// The stderr mirror is the only channel the ADR-013 harness can read: it
-  /// captures stderr to a `.stderr.log` sidecar, while the OSLog window holds
-  /// 250 `info` + 5 `error` records and no `debug` records at all — which is
-  /// why the pre-#1483 `.debug` success line was invisible to it, and why
-  /// #1415's spike had to record this call path as behaviourally unverified.
-  /// The LLM layer cannot use the harness's `EngineLogger` seam instead:
-  /// that protocol lives in `Engine/`, and `LLM/` must not depend on it.
+  /// captures stderr to a `.stderr.log` sidecar, and does not retain `.debug`
+  /// OSLog records at all — which is why the pre-#1483 `.debug` success line
+  /// was invisible to it, and why #1415's spike had to record this call path
+  /// as behaviourally unverified. (That spike is also where the window was
+  /// measured; nothing in this repo reads OSLog, so it is not re-derivable
+  /// here.) The LLM layer cannot use the harness's `EngineLogger` seam
+  /// instead: that protocol lives in `Engine/`, and `LLM/` must not depend
+  /// on it.
   ///
   /// `anomalous` keeps the pre-#1483 OSLog severity on the two paths that had
   /// it (NULL init, zero tokens seeded) without splitting the stderr channel.
@@ -154,13 +164,15 @@ nonisolated extension LlamaCppService {
     }
     // Same rationale as `emitGrammarResampleDiagnostic`'s mirror: CLI os.Logger
     // output is not reliably queryable via `log show`. Invisible on iOS.
+    // Volume profile differs from that sibling, though — do not carry its
+    // "rare path" framing across: this fires once per generation, not once per
+    // event. ~120 B against seconds of inference, so still negligible.
     fputs(line + "\n", stderr)
   }
 
   /// Emit the unavailable marker for `reason`. Wrapped so each `guard` in
-  /// ``buildAndSeedDrySampler(vocab:model:seeds:)`` stays one statement — the
-  /// body sits close enough to SwiftLint's 50-line `function_body_length` that
-  /// inlining the two-line emit at every exit would trip `--strict`.
+  /// ``buildAndSeedDrySampler(vocab:model:seeds:)`` stays one statement rather
+  /// than a two-line emit repeated at every exit.
   func emitDryUnavailable(_ reason: DryUnavailableReason) {
     emitDryDiagnostic(
       Self.dryUnavailableLine(reason: reason, model: modelIdentifier),
@@ -235,7 +247,7 @@ nonisolated extension LlamaCppService {
 
   /// Feed `seeds` to `dry` content-only and return the token count actually
   /// accepted. Extracted from ``buildAndSeedDrySampler(vocab:model:seeds:)``
-  /// to keep that body inside SwiftLint's `function_body_length`.
+  /// so that function reads as its guard ladder plus one seeding call.
   ///
   /// `llama_sampler_accept` on a DRY sampler is a ring-buffer push (no grammar
   /// member → no #253 crash risk); safe for any token, so no EOG/catch

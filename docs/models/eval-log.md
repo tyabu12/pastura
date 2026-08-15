@@ -131,8 +131,9 @@ seeds one prior statement) and `nCtxTrain=131072`.
 **26 markers against 25 `inference_completed`** in the same run, in both arms.
 The markers are right and the JSONL undercounts: `NarrateHandler` hands
 `LLMCaller` a no-op emitter, so the narrate turn's inference emits no events.
-So one marker per LLM generation holds — but the JSONL is the wrong denominator
-to check it with, by exactly the narrate-phase count.
+One marker per **non-throwing** generation holds — the JSONL is the wrong
+denominator to check it with, by exactly the narrate-phase count. Retries do
+not enter it (they increment both sides).
 
 **Why the pair, not just the first arm.** A marker that appears is not evidence
 the instrument discriminates; the disabled arm flipping all 26 lines is. It also
@@ -144,11 +145,18 @@ from `llama_sampler_init_dry`, so a post-bump run showing the field gone — wit
 `seededTokens` unchanged — is what distinguishes "the signature migration was
 correct" from "DRY silently stopped constructing".
 
-**Three exit paths stayed unexercised**: `no-model`, `null-init` and
+**Three marker paths stayed unexercised**: `no-model`, `null-init` and
 `no-grammar` are zero in both arms (every `word_wolf` LLM phase carries an
 output schema, and nothing failed). Their line *format* is unit-tested; their
 *emission* is not, so read a future zero on them as "still unexercised", not as
 a measured negative.
+
+**And three exits carry no marker at all** — `createSampler`'s throwing paths
+(`chain_init` NULL, grammar without vocab, `init_grammar` NULL). So the
+partition is 5 marker paths + 3 silent ones, and the count above measures
+*generations that reached sampler construction*. Both runs ended `status: ok`
+with `attempts: 1`, so none of the three fired here; a post-bump run showing a
+short count should be read as a throw, not as DRY going missing.
 
 ---
 
