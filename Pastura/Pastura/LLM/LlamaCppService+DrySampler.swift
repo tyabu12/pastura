@@ -58,10 +58,25 @@ nonisolated struct DryConfig {
   }
 
   /// Pure resolution over an injected environment dict, applying any harness
-  /// A/B overrides on top of the shipped constants. Returns `nil` only for the
-  /// explicit base arm (`PASTURA_DRY_MULTIPLIER=0`, or any non-positive
-  /// override); otherwise DRY is enabled. `allowedLength` is 3 because ja names
-  /// / topic words tokenize to 2–3 tokens.
+  /// A/B overrides on top of the shipped constants. Returns `nil` for the base
+  /// arm; otherwise DRY is enabled. `allowedLength` is 3 because ja names /
+  /// topic words tokenize to 2–3 tokens.
+  ///
+  /// **The three guards below mirror upstream's own `dry_enabled` predicate**
+  /// (`dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`,
+  /// `llama_sampler_init_dry`). Upstream does not fail on a value it rejects —
+  /// it returns a non-NULL `llama_sampler_init_empty("?dry")`, which seeds and
+  /// emits an ordinary `samplerDrySeeded` line. Without these guards an A/B arm
+  /// set through *any* of the three levers runs inert while every marker reads
+  /// healthy; with them it degrades to `nil` and the harness sees the
+  /// documented `reason=disabled`. Mirror any future change to that predicate
+  /// here — a lever guarded on one side only is the failure this exists for.
+  ///
+  /// `PASTURA_DRY_LAST_N=-1` needs the guard most, because it changed meaning
+  /// rather than staying invalid: at b8694 it was a documented sentinel for
+  /// "penalise over `n_ctx_train`", i.e. DRY on across the full context. The
+  /// b10327 pin dropped `n_ctx_train` from `llama_sampler_init_dry` and clamps
+  /// the argument *before* testing it, so the same value now means off (#1487).
   static func resolve(environment env: [String: String]) -> DryConfig? {
     func float(_ key: String, _ fallback: Float) -> Float {
       env[key].flatMap(Float.init) ?? fallback
@@ -70,12 +85,14 @@ nonisolated struct DryConfig {
       env[key].flatMap(Int32.init) ?? fallback
     }
     let multiplier = float("PASTURA_DRY_MULTIPLIER", defaultMultiplier)
-    guard multiplier > 0 else { return nil }
+    let base = float("PASTURA_DRY_BASE", 1.75)
+    let penaltyLastN = int32("PASTURA_DRY_LAST_N", 512)
+    guard multiplier > 0, base >= 1.0, penaltyLastN > 0 else { return nil }
     return DryConfig(
       multiplier: multiplier,
-      base: float("PASTURA_DRY_BASE", 1.75),
+      base: base,
       allowedLength: int32("PASTURA_DRY_ALLOWED_LENGTH", 3),
-      penaltyLastN: int32("PASTURA_DRY_LAST_N", 512),
+      penaltyLastN: penaltyLastN,
       seqBreakers: ["\n"])
   }
 }
@@ -98,8 +115,11 @@ nonisolated struct DryConfig {
 /// Raw values join to the `.stderr.log` sweep in `/model-eval` § Step 2;
 /// `DrySamplerConfigTests` pins the set.
 nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
-  /// `DryConfig.resolve()` returned nil — the harness A/B base arm
-  /// (`PASTURA_DRY_MULTIPLIER=0`). Never reached in TestFlight / Release.
+  /// `DryConfig.resolve()` returned nil — the harness A/B base arm, reached
+  /// through any of its three levers (`PASTURA_DRY_MULTIPLIER=0`,
+  /// `PASTURA_DRY_BASE` under 1.0, `PASTURA_DRY_LAST_N` non-positive; see
+  /// `DryConfig.resolve(environment:)` for why all three are guarded).
+  /// Never reached in TestFlight / Release.
   case disabled
   /// The caller passed no prior text. Structural, not a fault: `speak_each` is
   /// the only seeding phase in Engine, and it seeds an agent once that agent

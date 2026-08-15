@@ -66,6 +66,42 @@ struct DrySamplerConfigTests {
     #expect(config?.multiplier == 0.8)
   }
 
+  // MARK: - The other two arms of upstream's `dry_enabled` predicate (#1487)
+
+  // These pin the *firing* path of the guards added at the b10327 pin, not
+  // their success path: upstream disables DRY when ANY of `dry_multiplier != 0`
+  // / `dry_base >= 1.0` / `dry_penalty_last_n != 0` fails, and does so by
+  // returning a non-NULL `llama_sampler_init_empty("?dry")`. That handle seeds
+  // and emits an ordinary `samplerDrySeeded` line, so without a Swift-side
+  // guard an A/B arm set through either of these two levers runs inert while
+  // every marker reads healthy. Each `#expect(… == nil)` fails if its guard is
+  // dropped — a success-path assertion could not tell.
+
+  @Test func resolveDisablesOnNonPositivePenaltyLastN() {
+    // `0` reaches upstream's `dry_penalty_last_n != 0` arm directly.
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "0"]) == nil)
+    // `-1` was a *documented sentinel* at b8694 meaning "use `n_ctx_train`",
+    // i.e. DRY ON over the full context. b10327 dropped `n_ctx_train` from
+    // `llama_sampler_init_dry` and clamps the argument before testing it, so
+    // the same value now means OFF. Anything negative lands there too.
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "-1"]) == nil)
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "-512"]) == nil)
+  }
+
+  @Test func resolveDisablesOnSubUnityBase() {
+    // Upstream requires `dry_base >= 1.0`; a base below it yields the same
+    // silent `?dry` no-op as the two cases above.
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_BASE": "0.5"]) == nil)
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_BASE": "0"]) == nil)
+  }
+
+  @Test func resolveKeepsBoundaryValuesThatUpstreamAccepts() {
+    // The negative control for the two guards above: the exact boundary values
+    // upstream still enables on must survive, or the guards are over-broad.
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_LAST_N": "1"])?.penaltyLastN == 1)
+    #expect(DryConfig.resolve(environment: ["PASTURA_DRY_BASE": "1.0"])?.base == 1.0)
+  }
+
   // MARK: - withArrayOfCStrings pointer lifetime
 
   // The recursive nested-`withCString` builder must keep every C-string pointer
