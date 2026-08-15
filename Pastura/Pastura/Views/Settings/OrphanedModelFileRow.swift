@@ -21,9 +21,13 @@ struct OrphanedModelFileRow: View {
           .foregroundStyle(Color.ink)
         // Non-localized on purpose: an on-disk filename is a data value,
         // not UI copy (data passthrough — exempt from the i18n audit).
+        //
+        // `inkSecondary` rather than §8's quietude tier: this name is what
+        // identifies *which* file the delete removes, so it has to be legible.
+        // Audit class A3: `docs/design/muted-application-audit.md`.
         Text(file.fileName)
           .font(.system(size: 12, design: .monospaced))
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
           .lineLimit(1)
           .truncationMode(.middle)
         Text(ModelSettingsRow.formattedFileSize(file.sizeBytes))

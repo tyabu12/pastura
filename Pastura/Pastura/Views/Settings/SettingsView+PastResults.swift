@@ -56,8 +56,11 @@ extension SettingsView {
             format: String(localized: "Storage used: %@"),
             Self.formattedDatabaseSize(bytes))
         )
+        // `inkSecondary`, not §8's quietude tier: this is the figure the user
+        // decides "clear all results" from, so it has to be legible. Audit
+        // class A3: `docs/design/muted-application-audit.md`.
         .font(.caption)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
         .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
         .accessibilityIdentifier("settings.storageUsageCaption")
       }
@@ -77,9 +80,14 @@ extension SettingsView {
         .accessibilityIdentifier("settings.storageAdvisoryWarning")
       }
       if isClearAllBlocked {
+        // Same call as the model-switch reason in `SettingsView+Models`: the
+        // blocked button above keeps its disabled treatment (§2.7's tokens,
+        // §2.9's WCAG 1.4.3 carve-out — not §8's), but the text *explaining*
+        // the block is not itself a disabled control and has to be legible.
+        // Audit class A1: `docs/design/muted-application-audit.md`.
         Text(String(localized: "Finish the current simulation before clearing results."))
           .font(.caption)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
           .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
       }
     }

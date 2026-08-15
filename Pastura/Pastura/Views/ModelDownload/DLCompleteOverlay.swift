@@ -47,9 +47,17 @@ struct DLCompleteOverlay: View {
         Text(String(localized: "Setup complete"))
           .textStyle(Typography.statusComplete)
           .foregroundStyle(Color.mossInk)
+        // The tap this line names is how the overlay is dismissed, so it is an
+        // instruction the flow does not advance without — off §8's quietude
+        // tier. Audit class A2: `docs/design/muted-application-audit.md`.
+        //
+        // **Argued by direction, not measured**: `.ultraThinMaterial` above
+        // composites at render time, so no static ratio exists here and no
+        // fixture can pin it. The direction argument is at ledger §3.3; the
+        // verdict is ADR-028 gate 4 device QA.
         Text(String(localized: "Tap anywhere to begin"))
           .textStyle(Typography.statusHint)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
       }
     }
     .opacity(hasAppeared || reduceMotion ? 1 : 0)

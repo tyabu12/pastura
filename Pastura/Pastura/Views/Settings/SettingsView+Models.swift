@@ -88,6 +88,12 @@ import SwiftUI
         }
         // Only while a simulation is running: explains why the active-model
         // switch is disabled (downloads / deletes stay available).
+        //
+        // `inkSecondary`, not §8's quietude tier — a blocked control's reason
+        // is the only way to learn why the control does nothing. The WCAG
+        // 1.4.3 inactive-control carve-out is §2.9's, not §8's, and covers the
+        // disabled control itself, not text sitting beside it. Audit class A1:
+        // `docs/design/muted-application-audit.md`.
         if dependencies.simulationActivityRegistry.isActive {
           Text(
             String(
@@ -96,7 +102,7 @@ import SwiftUI
             )
           )
           .font(.caption)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
         }
       }
       .padding(.leading, PasturaCardMetrics.horizontalMargin)
