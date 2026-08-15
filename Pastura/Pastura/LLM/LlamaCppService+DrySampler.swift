@@ -10,8 +10,8 @@ import os
 /// TestFlight/Release (env vars aren't set there), so it never affects
 /// production, but it lets the ADR-013 harness sweep alternative constants or
 /// run the base arm — `PASTURA_DRY_MULTIPLIER=0` is the canonical way to
-/// disable DRY, and two further levers reach the same arm (see
-/// ``DryConfig/resolve(environment:)``). This keeps the
+/// disable DRY, and two further levers reach the same arm (all three are
+/// named on ``DryUnavailableReason/disabled``). This keeps the
 /// config in the LLM layer where it belongs (a llama.cpp sampler knob, not a
 /// backend-agnostic domain model — Models/ would be the wrong home; the LLM
 /// layer also can't import `App/FeatureFlags` per the dependency rule).
@@ -76,11 +76,17 @@ nonisolated struct DryConfig {
   /// and track it here — a lever guarded on one side only is the failure this
   /// exists for.
   ///
-  /// **One arm is deliberately stricter, not a byte-mirror**: `multiplier > 0`
-  /// where upstream accepts `!= 0`. A negative multiplier inverts the penalty —
-  /// upstream would enable DRY and *reward* repetition — which is never a
-  /// meaningful A/B arm here, so it stays rejected as `reason=disabled`. Do not
-  /// "reconcile" it to `!= 0`; the other two arms are the ones to keep in sync.
+  /// **Only `base >= 1.0` is a byte-mirror of the quoted predicate.** The other
+  /// two read stricter and neither is reconcilable to `!= 0`:
+  ///
+  /// - `multiplier > 0` is a deliberate policy choice. A negative multiplier
+  ///   inverts the penalty — upstream enables DRY and *rewards* repetition —
+  ///   which is never a meaningful A/B arm here, so it stays `reason=disabled`.
+  /// - `penaltyLastN > 0` is not stricter in effect: upstream clamps the
+  ///   argument to `max(…, 0)` *before* the predicate reads it, so post-clamp
+  ///   `!= 0` and `> 0` accept exactly the same inputs. Loosening this one to
+  ///   `!= 0` would re-admit the `-1` case below, which is the whole reason
+  ///   this guard exists.
   ///
   /// `PASTURA_DRY_LAST_N=-1` needs the guard most, because it changed meaning
   /// rather than staying invalid: at b8694 it was a documented sentinel for
@@ -212,10 +218,10 @@ nonisolated extension LlamaCppService {
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
   /// enhancement, so any missing precondition — the explicit base arm (reached
-  /// by any of the three levers in ``DryConfig/resolve(environment:)``,
+  /// by any of the three levers named on ``DryUnavailableReason/disabled``,
   /// canonically `PASTURA_DRY_MULTIPLIER=0`), no seeds, or a NULL sampler —
-  /// degrades to `nil` rather than failing the whole
-  /// generation. Ownership: the returned handle is caller-owned (freed in the
+  /// degrades to `nil` rather than failing the whole generation.
+  /// Ownership: the returned handle is caller-owned (freed in the
   /// run-loop `defer`s alongside `grammar`).
   ///
   /// **Content-only seeding**: `seeds` are the prior statement's *value* text,
