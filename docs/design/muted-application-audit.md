@@ -171,11 +171,9 @@ the same WCAG formula the fixture uses.
 Now **measured by the fixture itself** — `DesignTokensTests+MutedAsContent`'s
 three wash arrays compute every figure below at test time, so the table is a
 transcript rather than a second source. An earlier revision of this section was
-neither: it composited through a script that **quantized** each channel back to
-0–255, which `swiftui-traps.md` § "Adding a `Color` design token" names as the
-way a doc comment ends up disagreeing with the test asserting the same value.
-It shifted every row by 0.003–0.015, and it labelled two rows with a ground it
-had not used.
+neither, and was wrong three ways; the record is at ADR-028 § Amendment
+2026-08-15. **Compose ratios with the fixture's own `composite` /
+`contrastRatio`**, per `swiftui-traps.md` § "Adding a `Color` design token".
 
 | Site | Wash over ground | light | dark |
 |---|---|---|---|
@@ -185,8 +183,8 @@ had not used.
 | `ReportSheet` meta chip | `rule@0.45` over an unknown ground — see below | 2.300–3.018 | 2.520–3.503 |
 | `HighlightShareCard` model name | `moss@0.14` / `nightMoss@0.10` light leak over the card background — bound at maximum leak | 2.932 | 3.140 |
 
-Two corrections beyond the arithmetic, both from reading the sites rather than
-the table:
+Corrections beyond the arithmetic, all from reading the sites rather than the
+table:
 
 - **`ActiveModelChip` is not on the card ground.** It is a `HomeView`
   `ToolbarItem` under `.toolbarBackground(.hidden,)`, so it reads against
