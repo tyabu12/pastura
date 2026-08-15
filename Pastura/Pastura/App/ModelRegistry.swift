@@ -122,8 +122,8 @@ enum ModelRegistry {
     minRAM: 6_500_000_000,
     modelInfoURL: unsafeURL("https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF"),
     systemPromptSuffix: nil,
-    // Carries the "same Gemma, older and larger" disambiguation: `visibleCatalog`
-    // shows this row only to a user holding both, the only reader who needs it.
+    // Carries the "same Gemma, older and larger" disambiguation, because this is the row
+    // that can appear beside its replacement (`visibleCatalog`) — the reader who needs it.
     tagline: String(localized: "The older, larger build of the same Gemma.")
   )
 
@@ -158,8 +158,8 @@ enum ModelRegistry {
     // Tagline avoids any "reasoning"/"thinking" framing on purpose: this model
     // runs with `/no_think` + the empty-thinking prefill above, so thinking
     // mode is OFF. Copy that implied a reasoning mode would contradict the
-    // runtime config. It states no character claim and no vendor/size either —
-    // the ledger holds no Qwen entry, and `ModelRow` already shows both as meta.
+    // runtime config. It states no character claim and no vendor/size either — the ledger has no
+    // Qwen *candidate* entry (only a one-sentence aside inside another's, n=1), and `ModelRow` shows both as meta.
     tagline: String(localized: "A different model family from Gemma. Try it for a different feel.")
   )
 
@@ -217,9 +217,9 @@ enum ModelRegistry {
     // chat template differs textually from `gemma4E2B`'s — so the shared base
     // model does not settle it. Gate 1 running crash-free on this file does.
     systemPromptSuffix: nil,
-    // No size comparison: `visibleCatalog` hides the build this one is smaller
-    // than, so that line lives on `gemma4E2B`. Its character claims are n=1 —
-    // `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
+    // No size comparison: `visibleCatalog` normally filters the build this one is smaller than
+    // out of a new install, leaving no referent, so that line lives on `gemma4E2B`. Character
+    // claims are n=1: `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
     tagline: String(localized: "Expressive and steady, in Japanese too. Pick this one if unsure."),
     // ADD-and-keep (§ above): this build takes over from the Q4_K_M one without
     // retiring it. Written as `gemma4E2B.id` rather than the literal so the two

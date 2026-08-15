@@ -79,7 +79,7 @@ to a fresh install, see the note under the table.
 | Model                                                                | Vendor  | Size    | Notes                                                       |
 |----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
 | [Gemma 4 E2B (QAT)](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) | Google | ~2.6 GB | Default. Quantization-aware-trained build of the same Gemma, in a smaller download. |
-| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | A different model family from Gemma — a second character to compare against. Runs with thinking mode off (`/no_think`), so no reasoning-mode framing applies. |
+| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | A different model family from Gemma — a second character to compare against. Runs with thinking mode off (`/no_think`). |
 | [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Existing installs only — replaced by the QAT build above, and shown only if already downloaded (or currently active). |
 
 The last row is **kept, not retired**. It stays in `ModelRegistry.catalog` so
