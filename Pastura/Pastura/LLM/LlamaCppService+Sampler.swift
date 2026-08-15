@@ -120,6 +120,12 @@ extension LlamaCppService {
       // `llama_sampler_sample`, which builds `cur_p` internally with no seam
       // to apply a separate DRY handle — and no seeded caller reaches it
       // (seeds flow only from schema-bearing LLM phases). See #1105.
+      //
+      // This return is upstream of `buildAndSeedDrySampler`, so without a
+      // marker here a whole run could emit zero `samplerDry*` lines for a
+      // healthy reason — indistinguishable from an instrument that never
+      // fired (#1483).
+      emitDryUnavailable(.noGrammar)
       return SamplerHandles(chain: chain, grammar: nil, dry: nil)
     }
     guard let vocab else {

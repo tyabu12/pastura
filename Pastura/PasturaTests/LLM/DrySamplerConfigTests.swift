@@ -4,12 +4,15 @@ import Testing
 
 /// Unit tests for the simulator-runnable, inference-free parts of the #1105
 /// DRY anti-repetition sampler: `DryConfig.resolve(environment:)` (the shipped
-/// default + harness A/B override logic) and `withArrayOfCStrings` (the
-/// C-string pointer-lifetime helper that feeds `llama_sampler_init_dry`).
+/// default + harness A/B override logic), `withArrayOfCStrings` (the
+/// C-string pointer-lifetime helper that feeds `llama_sampler_init_dry`), and
+/// the #1483 diagnostic line shapes.
 ///
 /// The seeding + apply paths (`buildAndSeedDrySampler`, `fillApplyAndSelect`)
 /// require real inference and are unrunnable on the simulator (PR #463) — they
 /// are validated on device / via the pastura-harness A/B (#1105), not here.
+/// What #1483 made testable is only the *line format* those paths emit: the
+/// emission itself still needs a harness run to observe.
 @Suite(.timeLimit(.minutes(1)))
 struct DrySamplerConfigTests {
 
@@ -84,5 +87,55 @@ struct DrySamplerConfigTests {
     let service = makeTestService()
     let count = service.withArrayOfCStrings([]) { $0.count }
     #expect(count == 0)
+  }
+
+  // MARK: - Harness-observable diagnostic lines (#1483)
+
+  /// The `reason=` vocabulary is the join key for the `.stderr.log` sweep in
+  /// `/model-eval` Step 2, whose expectations are written per reason. Pinning
+  /// the exact set means a rename — or a sixth exit path — fails here instead
+  /// of silently emitting a marker the sweep has no expectation for.
+  @Test func dryUnavailableReasonsArePinnedAndDistinct() {
+    let raws = DryUnavailableReason.allCases.map(\.rawValue)
+    // A copy-pasted raw value would make two exit paths indistinguishable in
+    // the sweep — the exact confusion the per-path markers exist to prevent.
+    #expect(Set(raws).count == raws.count)
+    #expect(Set(raws) == ["disabled", "no-seeds", "no-model", "null-init", "no-grammar"])
+  }
+
+  /// `nCtxTrain` is the load-bearing field: llama.cpp b10327 **drops** that
+  /// argument from `llama_sampler_init_dry`, so recording the value the pinned
+  /// b8694 build passes is what makes this a baseline rather than a liveness
+  /// check (#1415). Dropping it from the line must fail a test.
+  @Test func drySeededLineCarriesEveryField() throws {
+    let config = try #require(DryConfig.resolve(environment: [:]))
+    let line = LlamaCppService.drySeededLine(
+      seededTokenCount: 42, seedCount: 3, nCtxTrain: 8192,
+      config: config, model: "test-model")
+
+    #expect(line.hasPrefix("samplerDrySeeded "))
+    #expect(line.contains("seededTokens=42"))
+    #expect(line.contains("seeds=3"))
+    #expect(line.contains("nCtxTrain=8192"))
+    #expect(line.contains("mult=0.8"))
+    #expect(line.contains("base=1.75"))
+    #expect(line.contains("allowed=3"))
+    #expect(line.contains("lastN=512"))
+    #expect(line.contains("model=test-model"))
+    // The sweep is line-oriented; an embedded newline would let one event
+    // inflate a `grep -c` into two.
+    #expect(!line.contains("\n"))
+  }
+
+  @Test func dryUnavailableLineCarriesReasonAndModel() {
+    for reason in DryUnavailableReason.allCases {
+      let line = LlamaCppService.dryUnavailableLine(reason: reason, model: "test-model")
+      #expect(line.hasPrefix("samplerDryUnavailable reason=\(reason.rawValue)"))
+      #expect(line.contains("model=test-model"))
+      #expect(!line.contains("\n"))
+      // Neither marker may contain the other, or a per-marker `grep -c`
+      // silently counts both and the two exit classes stop being separable.
+      #expect(!line.contains("samplerDrySeeded"))
+    }
   }
 }
