@@ -422,6 +422,7 @@ Measured blast radius, larger than the three drawing sites suggest:
 rg -l 'PasturaSection\(' Pastura/Pastura/Views/   # 9 consumers + the definition's own #Preview
 ```
 
+Nine consumer files across five screens:
 `GalleryScenarioDetailView`, `GalleryScenarioDetailView+Highlight`,
 `SharedScenariosListView`, `ResultsView`, `ScenarioDetailView+Sections`,
 `SettingsView`, `SettingsView+Feedback`, `SettingsView+Models`,
@@ -430,7 +431,7 @@ rg -l 'PasturaSection\(' Pastura/Pastura/Views/   # 9 consumers + the definition
 third variant §2.2 names as still on the system `secondaryLabel`. Use the
 **call-shape** grep above; a type-name grep also matches `PasturaSectionStyle`.
 
-Decided here, applied in batch 5 under its own issue — the change is visual,
+Decided here, applied in batch 5 under #1485 — the change is visual,
 app-wide, and needs ADR-028 gate 4/5 QA of its own.
 
 ## 7. Batches
@@ -441,7 +442,7 @@ app-wide, and needs ADR-028 gate 4/5 QA of its own.
 | **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
-| **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumers + 2 hand-rolled headers + the `secondaryLabel` variant | — | open, own issue |
+| **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumer files (5 screens) + 2 hand-rolled headers + the `secondaryLabel` variant | — | open — #1485 |
 
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape; B4 needs §8 to

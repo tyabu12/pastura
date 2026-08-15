@@ -165,7 +165,12 @@ dark-side gap is **closed** by a paired role token (§ Amendment 2026-08-13
 on** — design-system §8 exempts `muted` from the 4.5:1 bar on the strength of one
 ground, so a label ambient there can be far below the bar on a tinted fill; the
 family that owns the ground supplies the replacement, never a §2.4 preset rung
-(§ Amendment 2026-08-13 (#1427), whose app-wide sweep is #1448)
+(§ Amendment 2026-08-13 (#1427), whose app-wide sweep is #1448). That scoping
+extends to **composited** grounds — a translucent wash is a ground §8 never
+measured either, and the sweep's own ledger got its wash table wrong by
+quantizing the composite, so measure with the fixture's helpers
+(§ Amendment 2026-08-15 (#1448), which also retires "unique on this screen" as
+the must-read test and adds the per-file census that fires on additions)
 (Status: Accepted; #1274)
 
 ## ADR-029 — Shared-scenario highlights (static curated excerpts)
