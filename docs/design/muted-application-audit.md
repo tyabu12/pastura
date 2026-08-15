@@ -136,24 +136,55 @@ runs **2.136–4.152** across them, against §8's single stated calibration of
 | `whisperBubble` | 2.953 | `nightWhisperBubble` | 2.783 |
 | `mossSoft` | **2.136** ← worst | `nightMossSoft` | 2.413 |
 
-### 3.2 Composited grounds — the population the fixture cannot enumerate
+### 3.2 Composited grounds — measured, and separately from the twelve
 
 Translucent washes the app paints under `muted` text. sRGB alpha-composite, then
 the same WCAG formula the fixture uses.
 
+Now **measured by the fixture itself** — `DesignTokensTests+MutedAsContent`'s
+three wash arrays compute every figure below at test time, so the table is a
+transcript rather than a second source. An earlier revision of this section was
+neither: it composited through a script that **quantized** each channel back to
+0–255, which `swiftui-traps.md` § "Adding a `Color` design token" names as the
+way a doc comment ends up disagreeing with the test asserting the same value.
+It shifted every row by 0.003–0.015, and it labelled two rows with a ground it
+had not used.
+
 | Site | Wash over ground | light | dark |
 |---|---|---|---|
-| `ResultsView.pillBackground(.pending)` | `muted@0.14` — a **self-wash** | 2.888 | 3.230 |
-| `ActiveModelChip` capsule | `mossDark@0.10` over `bubbleBackground` | 3.084 | **2.434** |
-| `ModelRow` selected | `moss@0.06` over `bubbleBackground` | 3.149 | 3.412 |
-| `ModelPickerView` / `ModelRow` accents | `moss@0.08`–`moss@0.12` | 3.092–2.976 | 3.285–2.998 |
-| `ReportSheet` meta chip | `rule@0.45` over the sheet ground | 2.941 | 3.271 |
+| `ResultsView.pillBackground(.pending)` | `muted@0.14` — a **self-wash** — over `screenBackground` / `nightBackground` | 2.895 | 3.239 |
+| `ActiveModelChip` capsule | `mossDark@0.10` over `screenBackground` / `nightBackground` | 2.953 | 3.098 |
+| `ModelRow` selected | `moss@0.06` over `bubbleBackground` / `nightBubble` | 3.287 | **2.693** |
+| `ReportSheet` meta chip | `rule@0.45` over an unknown ground — see below | 2.300–3.018 | 2.520–3.503 |
 
-**These are unmeasured, not a new worst case.** Every one lands below §8's 3.329
-calibration point yet above the 2.136 `mossSoft` floor, so the twelve-ground
-span still bounds the token. What they establish is narrower and is exactly
-#1448's part (b): **§8's exemption was never measured here, so it cannot be cited
-here** — the ratio being "in range" is not the same as the ground being covered.
+Two corrections beyond the arithmetic, both from reading the sites rather than
+the table:
+
+- **`ActiveModelChip` is not on the card ground.** It is a `HomeView`
+  `ToolbarItem` under `.toolbarBackground(.hidden,)`, so it reads against
+  Home's `screenBackground`. Its dark figure moves 2.434 → 3.098, which retires
+  it as this section's notable low.
+- **`ModelPickerView` / `ModelRow`'s `moss@0.08`–`moss@0.12` accents are not
+  `muted` grounds at all** and are dropped. The `moss@0.08` disc is the
+  decorative avatar backing and the `moss@0.12` chip draws `mossOnWash`;
+  neither carries `muted` text. Only the row's own `moss@0.06` selection
+  background does.
+- **`ReportSheet`'s ground is not a Pastura token.** The sheet sets no
+  background (§3.3), so the single figure the old table gave was computed
+  against a `screenBackground` it never names. The range above is instead
+  `rule@0.45` over **every** opaque ground, worst at `mossSoft` 2.300 / 
+  `nightMossSoft` 2.520 — a claim that holds whatever the sheet resolves to.
+
+**These are unmeasured, not a new worst case** — and that conclusion survived
+the re-measurement, which is the one thing here worth carrying forward. The new
+low among the site-grounded rows is `ModelRow` dark at 2.693, and the widest
+`rule` bound reaches 2.300; both still sit above the 2.136 `mossSoft` floor, so
+the twelve-ground span continues to bound the token.
+`compositedGroundsStayAboveTheOpaqueWorstCase` pins exactly that ordering, so
+it fails rather than quietly becoming false. What the section establishes is
+narrower and is exactly #1448's part (b): **§8's exemption was never measured
+here, so it cannot be cited here** — the ratio being "in range" is not the same
+as the ground being covered.
 
 ### 3.3 Grounds that are not computable at all
 
@@ -205,8 +236,8 @@ out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 
 | Site (file · symbol) | Ground | light/dark | Verdict | B |
 |---|---|---|---|---|
-| `ActiveModelChip` · chevron glyph | `mossDark@0.10` | 3.084 / 2.434 | N + U | B4 |
-| `ActiveModelChip` · `dotColor(.inactive)` | `mossDark@0.10` | 3.084 / 2.434 | N + U | B4 |
+| `ActiveModelChip` · chevron glyph | `mossDark@0.10` | 2.953 / 3.098 | N + U | B4 |
+| `ActiveModelChip` · `dotColor(.inactive)` | `mossDark@0.10` | 2.953 / 3.098 | N + U | B4 |
 | `ActiveModelChipPresenter` · doc comment | — | — | C | — |
 | `AgentOutputRow` · share glyph | `screenBackground` | 3.329 / 3.779 | N | — |
 | `AgentOutputRow` · `INNER VOICE` tag | `screenBackground` | 3.329 / 3.779 | S — discloser label, not the disclosed | — |
@@ -256,7 +287,7 @@ what the reader came to compare.
 | `SimulationView+LogEntries` · `scoresSummary` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
 | `ViewerPredictionSheet` · eyebrow | `page` | 3.030 / 4.152 | S — category label | — |
 | `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A2)** — the sheet auto-skips at zero | B3 |
-| `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.941 / 3.271 | S + U — the ID is embedded in the report URL anyway | B4 |
+| `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.300–3.018 / 2.520–3.503 | S + U — the ID is embedded in the report URL anyway | B4 |
 
 ### Results · Home · ScenarioDetail
 
@@ -273,7 +304,7 @@ what the reader came to compare.
 | `ResultsView` · `categoryCaption` | `screenBackground` or `bubbleBackground` | 3.329 / 3.021 worst | S — list caption, §8's named shape | — |
 | `ResultsView` · timestamp | same | same | S — list caption | — |
 | `ResultsView` · `degradedRunCaption` | same | same | **M (A4)** | B2 |
-| `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | 2.888 / 3.230 | S on role + **U** — see §6.2 | B4 |
+| `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | 2.895 / 3.239 | S on role + **U** — see §6.2 | B4 |
 | `ResultsView` · `pillBackground(.pending)` | row ground | — | N | — |
 | `ResultsView+Timeline` · `N records` | `screenBackground` | 3.329 / 3.779 | S — count of the list below it | — |
 | `HomeView` · `Scenarios` header | `screenBackground` | 3.329 / 3.779 | S on contrast — §2.2 routing, see §6 | B5 |
@@ -299,7 +330,7 @@ what the reader came to compare.
 | `OrphanedModelFileRow` · on-disk filename | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — identifies what a delete removes | **B1** |
 | `ModelPickerView` · `PASTURA · SETUP` | `screenBackground` | 3.329 / 3.779 | S — branding eyebrow | — |
 | `ModelPickerView` · add-later reassurance | `screenBackground` | 3.329 / 3.779 | S — footnote | — |
-| `ModelRow` · vendor · size meta | `moss@0.06` when selected, else `bubbleBackground` | 3.149 / 3.412 | **M (A3)** + U — bundles the file size | B4 |
+| `ModelRow` · vendor · size meta | `moss@0.06` when selected, else `bubbleBackground` | 3.287 / 2.693 | **M (A3)** + U — bundles the file size | B4 |
 | `ModelDownloadHostView+CodePhaseRows` · assignment | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
 | `ModelDownloadHostView+CodePhaseRows` · vote results | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
 | `ModelDownloadHostView+CodePhaseRows` · score chips | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
@@ -373,7 +404,7 @@ Left on `muted`, and this is now a recorded verdict rather than a deferral.
 `ResultsPillTokenTests.pendingStaysOnTheQuietudeTier` pins it precisely so this
 sweep could not take it silently; the sweep looked and chose not to. The pill's
 *role* is ambient (a run that has not started yet), so §8's tier is right — but
-its ground is a `muted`-on-`muted` **self-wash** at 2.888 / 3.230, which §8's
+its ground is a `muted`-on-`muted` **self-wash** at 2.895 / 3.239, which §8's
 exemption never measured. Recorded as **U** and revisited in batch 4 with the
 other composited grounds, as one question rather than five.
 
