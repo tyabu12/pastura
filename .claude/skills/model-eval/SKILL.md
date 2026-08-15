@@ -172,12 +172,11 @@ candidate model.
 Read the DRY markers (#1483) **against the cell's phase shape**, never as a
 bare count. `speak_each` is the only phase in Engine that seeds DRY (canonical:
 `.claude/rules/engine.md` § "The chain's `penalties` cannot reach across a
-`generate()`"; predicate: `Engine/Phases/SpeakEachHandler.swift`) — and it seeds
-an agent once that agent has a non-empty prior `lastOutputs` entry, **not** "from
-round 2 on". `lastOutputs` survives across phases, so a second `speak_each` seeds
-from its first round: `word_wolf` yields 10 seeded of 26, not 5. If a second
-seeding phase is ever added, this table goes stale — it sits outside
-`engine.md`'s path scope and nothing will prompt you.
+`generate()`"; predicate: `Engine/Phases/SpeakEachHandler.swift`). The seeding
+rule and its round-index trap are on `DryUnavailableReason.noSeeds`; measured
+per-scenario counts are in `docs/models/eval-log.md` § "DRY sampler
+construction". If a second seeding phase is ever added, this table goes stale —
+it sits outside `engine.md`'s path scope and nothing will prompt you.
 
 | observation | reading |
 |---|---|
@@ -191,9 +190,8 @@ seeding phase is ever added, this table goes stale — it sits outside
 
 **`samplerDry*` totals do not equal `inference_completed`** — but the offset is
 computable, and it is the *only* detector for a sampler throw in a `narrate`
-turn (`NarrateHandler` swallows that failure with no `.narration`, no
-`.turnSkipped` and a no-op emitter, so neither `run_end.status` nor the event
-stream shows it). Expected total, from the JSONL the cell already produced:
+turn (the row above; derivation in `docs/models/eval-log.md` § "DRY sampler
+construction"). Expected total, from the JSONL the cell already produced:
 
 ```bash
 python3 - "$JSONL" <<'PY'
@@ -213,9 +211,8 @@ It scales with rounds — a 3-round scenario with one `narrate` offsets by 3, no
 1. `LLMCaller` retries shift both sides together, so they cancel here (
 `emitInferenceCompleted` sits inside the `for attempt` loop on the success and
 failure paths alike); a *harness* rerun does not — see the doubling row above.
-Measured on `word_wolf` ja at the b8694 pin, both A/B arms, `attempts: 1`: 26
-markers vs 25 `inference_completed` + 1 narrate phase
-(`docs/models/eval-log.md` § "DRY sampler construction").
+A worked `word_wolf` ja reconciliation at the b8694 pin is in
+`docs/models/eval-log.md` § "DRY sampler construction".
 
 ## Step 3 — Judge each `ok` cell in-session
 

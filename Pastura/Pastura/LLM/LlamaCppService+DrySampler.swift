@@ -82,34 +82,29 @@ nonisolated struct DryConfig {
 
 /// Why a generation ran without a DRY sampler (#1483).
 ///
-/// Each case maps to exactly one exit path, and together with
-/// `samplerDrySeeded` they cover every **non-throwing** way `createSampler`
-/// can finish — so a harness run that emits **no** `samplerDry*` line at all
-/// means the sampler path was never reached, which is a different fact from
-/// "DRY was off". A single "DRY unavailable" marker could not make that
-/// distinction.
+/// One case per exit path; with `samplerDrySeeded` they cover every
+/// **non-throwing** exit of `createSampler`. So a run emitting **no**
+/// `samplerDry*` line means the sampler path was never reached — a different
+/// fact from "DRY was off".
 ///
-/// **Not covered: the three throwing exits** (`chain_init` NULL, grammar
-/// without vocab, `init_grammar` NULL — the #194 path). Those leave no marker,
-/// so a marker counts *generations that reached sampler construction*, never
-/// *generations attempted*. `prepareGeneration` can also throw upstream of
-/// `createSampler`. A short count is therefore a real signal, not necessarily
-/// a broken instrument — read `run_end.status` alongside the sweep.
+/// **The three throwing exits carry no marker** (`chain_init` NULL, grammar
+/// without vocab, `init_grammar` NULL — #194); `prepareGeneration` can throw
+/// upstream too. A marker counts generations that *reached sampler
+/// construction*, never *attempted*, so read `run_end.status` alongside the
+/// sweep before calling a short count a broken instrument.
 ///
-/// The raw values are the join key for the `.stderr.log` sweep in
-/// `.claude/skills/model-eval/SKILL.md` § Step 2, whose expectations are
-/// written per reason; `DrySamplerConfigTests` pins the set so a rename or a
-/// sixth non-throwing path cannot land without updating both.
+/// Raw values join to the `.stderr.log` sweep in `/model-eval` § Step 2;
+/// `DrySamplerConfigTests` pins the set.
 nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
   /// `DryConfig.resolve()` returned nil — the harness A/B base arm
   /// (`PASTURA_DRY_MULTIPLIER=0`). Never reached in TestFlight / Release.
   case disabled
   /// The caller passed no prior text. Structural, not a fault: `speak_each` is
-  /// the only seeding phase in Engine, and it seeds an agent only once that
-  /// agent has a non-empty prior `lastOutputs` entry. **That is not the same as
-  /// "round 2 onward"** — `lastOutputs` persists across phases, so a *second*
-  /// `speak_each` in the same scenario seeds from its first round. Measured:
-  /// `word_wolf` emits 10 seeded, not 5 (`docs/models/eval-log.md`).
+  /// the only seeding phase in Engine, and it seeds an agent once that agent
+  /// has a non-empty prior `lastOutputs` entry — **not** "round 2 onward",
+  /// since `lastOutputs` persists across phases, so a *second* `speak_each`
+  /// seeds from its first round. Per-scenario counts:
+  /// `docs/models/eval-log.md` § "DRY sampler construction".
   case noSeeds = "no-seeds"
   /// No model pointer, so `n_ctx_train` is unreadable.
   case noModel = "no-model"
@@ -147,13 +142,11 @@ nonisolated extension LlamaCppService {
   /// Emit one diagnostic line to OSLog **and** to stderr.
   ///
   /// The stderr mirror is the only channel the ADR-013 harness can read: it
-  /// captures stderr to a `.stderr.log` sidecar, and does not retain `.debug`
-  /// OSLog records at all — which is why the pre-#1483 `.debug` success line
-  /// was invisible to it, and why #1415's spike had to record this call path as
-  /// behaviourally unverified. That spike measured the OSLog retention window;
-  /// nothing in this repo reads OSLog, so it is not re-derivable here. The LLM
-  /// layer cannot use the harness's `EngineLogger` seam instead: that protocol
-  /// lives in `Engine/`, and `LLM/` must not depend on it.
+  /// captures stderr to a `.stderr.log` sidecar and retains no `.debug` OSLog
+  /// records at all (measured in #1415; nothing in this repo reads OSLog, so it
+  /// is not re-derivable here). `LLM/` cannot use the harness's `EngineLogger`
+  /// seam instead — that protocol lives in `Engine/`, and the dependency rule
+  /// forbids the import.
   ///
   /// `anomalous` keeps the pre-#1483 OSLog severity on the two paths that had
   /// it (NULL init, zero tokens seeded) without splitting the stderr channel.
@@ -173,9 +166,8 @@ nonisolated extension LlamaCppService {
     fputs(line + "\n", stderr)
   }
 
-  /// Emit the unavailable marker for `reason`. Wrapped so each `guard` in
-  /// ``buildAndSeedDrySampler(vocab:model:seeds:)`` stays one statement rather
-  /// than a two-line emit repeated at every exit.
+  /// Emit the unavailable marker for `reason`. `.nullInit` is the only one that
+  /// raises OSLog severity — the rest are expected states, not faults.
   func emitDryUnavailable(_ reason: DryUnavailableReason) {
     emitDryDiagnostic(
       Self.dryUnavailableLine(reason: reason, model: modelIdentifier),
@@ -206,10 +198,9 @@ nonisolated extension LlamaCppService {
   func buildAndSeedDrySampler(
     vocab: OpaquePointer, model: OpaquePointer?, seeds: [String]
   ) -> UnsafeMutablePointer<llama_sampler>? {
-    // Split into one guard per precondition (#1483): the merged form could
-    // only report "no DRY", and the three causes want different readings —
-    // `disabled` is the harness base arm, `no-seeds` is structural for every
-    // phase but `speak_each`, `no-model` would be a wiring bug.
+    // One guard per precondition, and do not re-merge them: each exit needs its
+    // own marker, or three distinguishable states collapse into "no DRY". The
+    // readings are on `DryUnavailableReason`'s cases.
     guard let config = DryConfig.resolve() else {
       emitDryUnavailable(.disabled)
       return nil
@@ -249,8 +240,7 @@ nonisolated extension LlamaCppService {
   }
 
   /// Feed `seeds` to `dry` content-only and return the token count actually
-  /// accepted. Extracted from ``buildAndSeedDrySampler(vocab:model:seeds:)``
-  /// so that function reads as its guard ladder plus one seeding call.
+  /// accepted.
   ///
   /// `llama_sampler_accept` on a DRY sampler is a ring-buffer push (no grammar
   /// member → no #253 crash risk); safe for any token, so no EOG/catch

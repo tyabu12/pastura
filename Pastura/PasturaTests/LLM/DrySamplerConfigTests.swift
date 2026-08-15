@@ -11,8 +11,7 @@ import Testing
 /// The seeding + apply paths (`buildAndSeedDrySampler`, `fillApplyAndSelect`)
 /// require real inference and are unrunnable on the simulator (PR #463) — they
 /// are validated on device / via the pastura-harness A/B (#1105), not here.
-/// What #1483 made testable is only the *line format* those paths emit: the
-/// emission itself still needs a harness run to observe.
+/// Only the *line format* is testable; the emission still needs a harness run.
 ///
 /// Specifically **not** pinned here: which `guard` emits which reason. Swapping
 /// `.noSeeds` and `.noModel` between two guards would pass everything below and
@@ -96,10 +95,9 @@ struct DrySamplerConfigTests {
 
   // MARK: - Harness-observable diagnostic lines (#1483)
 
-  /// The `reason=` vocabulary is the join key for the `.stderr.log` sweep in
-  /// `/model-eval` Step 2, whose expectations are written per reason. Pinning
-  /// the exact set means a rename — or a sixth exit path — fails here instead
-  /// of silently emitting a marker the sweep has no expectation for.
+  /// Pinning the exact set means a rename — or a sixth exit path — fails here
+  /// instead of silently emitting a marker the `/model-eval` sweep has no
+  /// expectation for. Why the vocabulary is load-bearing: `DryUnavailableReason`.
   @Test func dryUnavailableReasonsArePinnedAndDistinct() {
     let raws = DryUnavailableReason.allCases.map(\.rawValue)
     // A copy-pasted raw value would make two exit paths indistinguishable in
@@ -108,10 +106,8 @@ struct DrySamplerConfigTests {
     #expect(Set(raws) == ["disabled", "no-seeds", "no-model", "null-init", "no-grammar"])
   }
 
-  /// `nCtxTrain` is the load-bearing field: llama.cpp b10327 **drops** that
-  /// argument from `llama_sampler_init_dry`, so recording the value the pinned
-  /// b8694 build passes is what makes this a baseline rather than a liveness
-  /// check (#1415). Dropping it from the line must fail a test.
+  /// `nCtxTrain` is the load-bearing field — dropping it from the line must
+  /// fail a test. Why it is load-bearing: `drySeededLine`'s doc comment.
   @Test func drySeededLineCarriesEveryField() throws {
     let config = try #require(DryConfig.resolve(environment: [:]))
     let line = LlamaCppService.drySeededLine(

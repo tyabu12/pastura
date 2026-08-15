@@ -198,11 +198,10 @@ output schema, and nothing failed). Their line *format* is unit-tested; their
 *emission* is not, so read a future zero on them as "still unexercised", not as
 a measured negative.
 
-**And three exits carry no marker at all** — `createSampler`'s throwing paths
-(`chain_init` NULL, grammar without vocab, `init_grammar` NULL). So the
-partition is 6 marker paths (the five `reason=` values plus `samplerDrySeeded`)
-+ 3 silent ones, and the count above measures *generations that reached sampler
-construction*.
+**And `createSampler`'s three throwing exits carry no marker at all**
+(enumerated on `DryUnavailableReason`). So the partition is 6 marker paths — the
+five `reason=` values plus `samplerDrySeeded` — plus 3 silent ones, and the
+count above measures *generations that reached sampler construction*.
 
 Three different signals rule them out, and the run status is only one of them.
 The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`, which
@@ -212,10 +211,11 @@ leave the run finishing `ok` (and `run_end.attempts` is the harness's own
 run-level retry count, not `LLMCaller`'s per-turn one) — but for a **gated**
 phase the skip emits `.turnSkipped`, which reaches the JSONL as a `turn_skipped`
 line naming the cause, so that is the direct signal. What the **26 = 25 + 1
-reconciliation** uniquely covers is the ungated `narrate` turn: `NarrateHandler`
-swallows its own failure with no `.narration`, no `.turnSkipped` and a no-op
-emitter, so a sampler throw there is invisible to both the run status and the
-event stream. A post-bump short count with no `turn_skipped` line is that case.
+reconciliation** uniquely covers is the ungated `narrate` turn: the same no-op
+emitter that produces the offset above also swallows a *failure* there — no
+`.narration`, no `.turnSkipped` — so a sampler throw is invisible to both the
+run status and the event stream. A post-bump short count with no `turn_skipped`
+line is that case.
 
 ---
 
