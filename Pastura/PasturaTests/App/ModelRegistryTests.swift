@@ -45,6 +45,35 @@ struct ModelRegistryTests {
       ModelRegistry.replacement(for: ModelRegistry.qwen34B.id, in: ModelRegistry.catalog) == nil)
   }
 
+  /// `recommendationTarget` picks the cheapest satisfying build, and on a tie
+  /// the newer one. The both-`.ready` arm is the tie-break, and it is asserted
+  /// here rather than through `RecommendedModelStatus.compute`: that classifier
+  /// returns `.switchAvailable` either way, so its verdict cannot name which
+  /// build was chosen — only the descriptor can.
+  @Test func recommendationTarget_prefersTheReplacementOnATie() {
+    let gemma = ModelRegistry.gemma4E2B.id
+    let qat = ModelRegistry.gemma4E2BQAT.id
+
+    let bothReady: [ModelID: ModelState] = [
+      gemma: .ready(modelPath: "/tmp/g"), qat: .ready(modelPath: "/tmp/qat")
+    ]
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: bothReady)?.id == qat)
+
+    let onlyDeclaredReady: [ModelID: ModelState] = [
+      gemma: .ready(modelPath: "/tmp/g"), qat: .notDownloaded
+    ]
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: onlyDeclaredReady)?.id == gemma)
+
+    let neitherReady: [ModelID: ModelState] = [gemma: .notDownloaded, qat: .notDownloaded]
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: neitherReady)?.id == qat)
+
+    // Forward-compat contract: `nil` only for an id in no catalog entry, which
+    // is what `RecommendedModelStatus.unknownModel` keys on. `state` must not
+    // introduce a second `nil` path.
+    #expect(ModelRegistry.recommendationTarget(for: "future-model-v9", state: bothReady) == nil)
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: [:])?.id == qat)
+  }
+
   @Test func catalog_passesValidateNoCollisions() {
     // If this triggers the precondition, the test process crashes —
     // which is the correct signal. A successful run proves the catalog is valid.

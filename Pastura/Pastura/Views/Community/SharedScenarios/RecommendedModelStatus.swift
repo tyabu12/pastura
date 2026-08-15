@@ -74,7 +74,8 @@ nonisolated enum RecommendedModelStatus: Equatable {
     // recommendation forward through ADD-and-keep happens in the same step, so
     // every rule below reasons about the build the app would actually offer:
     // the whole gallery feed recommends the Q4_K_M Gemma, and that build is
-    // hidden from the list surfaces once it is not on the device.
+    // hidden from the list surfaces once it is neither on the device nor the
+    // active model.
     guard
       let target = ModelRegistry.recommendationTarget(for: recommendedID, state: state)
     else {
@@ -100,6 +101,10 @@ nonisolated enum RecommendedModelStatus: Equatable {
     // instead would offer a user who runs the replacement, but still has the
     // replaced build on disk, a *downgrade* switch to it — `target` answers
     // "which build do we act on", a different question.
+    // Production-pinned on purpose, matching `recommendationTarget`'s own
+    // internal read: the two must answer about the same array, and this
+    // classifier is only ever driven by the production registry. A future
+    // preview/test catalog injection has to thread both, not one.
     let replacementID = ModelRegistry.replacement(
       for: recommendedID, in: ModelRegistry.catalog)?.id
     if activeID == recommendedID || activeID == replacementID { return .matched }

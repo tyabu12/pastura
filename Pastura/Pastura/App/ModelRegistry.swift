@@ -55,9 +55,11 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 /// The new entry joins `catalog` and the old one **stays**, carrying
 /// ``ModelDescriptor/replacesModelID`` to name what it takes over from.
 /// `ModelManager.visibleCatalog` then hides the replaced entry from the
-/// user-facing lists once it is absent from disk, so a new install never sees
-/// it while an existing user keeps their downloaded build, their row, and a way
-/// back if the newer one misbehaves on their device.
+/// user-facing lists once it is **both** absent from disk **and** not the active
+/// model, so a new install never sees it while an existing user keeps their
+/// downloaded build, their row, and a way back if the newer one misbehaves on
+/// their device. That second conjunct is load-bearing rather than defensive —
+/// see `visibleCatalog`'s own doc for the active-but-corrupted case it covers.
 ///
 /// **Use it when the replacement is the same model** — a requantisation, a
 /// re-export, a QAT rebuild — where the supersede convention's forced
@@ -66,8 +68,9 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 /// model, where keeping the old entry would just be catalog clutter.
 ///
 /// **The replaced entry is not removed, so nothing here retires.** What is
-/// load-bearing is its **membership of `catalog`** — not `lookup(id:)`
-/// specifically, none of the three consumers below calls it:
+/// load-bearing is its **membership of `catalog`**. The three sharpest
+/// consumers — not an exhaustive list — reach it by membership rather than
+/// through `lookup(id:)`, so grepping that name will not find them:
 ///
 /// - `ModelManager.activeDescriptor` is `catalog.first(where:)`, so a user still
 ///   running the old build would lose their active model.
@@ -78,7 +81,12 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 ///   `gallery.json` `recommended_model` against `catalog.map(\.id)`, and the
 ///   whole shipped feed still names the replaced build.
 ///
-/// `RETIRED_MODEL_IDS` above is **not** a fourth dependency — it is the reason
+/// Display-name resolution is a fourth, milder one: `lookup(id:)` and
+/// ``shortDisplayName(forIdentifier:)`` both fall back to the **raw id string**,
+/// so dropping the entry would show `gemma-4-e2b-q4-k-m` where "Gemma 4 E2B"
+/// belongs — to exactly the user this shape exists to protect.
+///
+/// `RETIRED_MODEL_IDS` above is **not** a dependency at all — it is the reason
 /// nothing has to retire, since it applies only when an id actually *leaves*.
 enum ModelRegistry {
   nonisolated static let gemma4E2B: ModelDescriptor = ModelDescriptor(
@@ -294,9 +302,15 @@ enum ModelRegistry {
   /// the replaced build on disk but is running some *third* model is satisfied
   /// by a free switch; resolving unconditionally would offer them a multi-GB
   /// download of a successor to a model they already own, on every gallery
-  /// screen. Preferring a `.ready` declared build is the cheapest satisfying
-  /// option, and a fresh install — where the declared build is
-  /// `.notDownloaded` — still lands on the replacement.
+  /// screen. So the rule is the cheapest satisfying option — and where two
+  /// options cost the same, the newer one. A fresh install, where neither is on
+  /// disk, still lands on the replacement.
+  ///
+  /// **The order of the two `.ready` checks is the tie-break, not a detail.**
+  /// Asking the declared build first hands a both-builds-on-disk user the
+  /// *superseded* one for free: the switch affordance would point backwards, and
+  /// the gallery's "Recommended model" row would name the replaced build to
+  /// someone already running its successor.
   ///
   /// This answers "which build do we act on", **not** "is the active model
   /// already acceptable" — that one is state-free and stays in
@@ -314,8 +328,10 @@ enum ModelRegistry {
     state: [ModelID: ModelState]
   ) -> ModelDescriptor? {
     guard let declared = lookup(id: id) else { return nil }
+    let successor = replacement(for: id, in: catalog)
+    if let successor, case .ready = state[successor.id] { return successor }
     if case .ready = state[declared.id] { return declared }
-    return replacement(for: id, in: catalog) ?? declared
+    return successor ?? declared
   }
 
   /// Returns diagnostic reasons if `catalog` contains duplicate `id` or `fileName` values.

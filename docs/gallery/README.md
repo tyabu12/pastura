@@ -147,13 +147,17 @@ that looks stale — it is not. `gallery.json` is fetched **live** from
 `raw.githubusercontent.com/.../main/` by every already-shipped app version, so an
 id a shipped build does not know degrades it to `RecommendedModelStatus.unknownModel`
 and an "Unknown model (…)" badge the moment the change merges, with no release
-involved. The app resolves the recommendation forward on its own side
-(`ModelRegistry.recommendationTarget(for:state:)`), so a current install is
-already steered to the right build without the feed naming it.
+involved. The app resolves it on its own side instead
+(`ModelRegistry.recommendationTarget(for:state:)`) — forward to the QAT build
+for anyone who does not already have the replaced one, and to whichever build
+they can reach for free if they do — so a current install is steered correctly
+without the feed naming it.
 
-Revisit only once the shipped versions that predate the QAT descriptor have aged
-out. Rationale and the full mechanism: ADR-002 § Amendment 2026-08-15 —
-ADD-and-keep.
+Revisit once the app versions predating the QAT descriptor are no longer worth
+supporting. That descriptor first ships in the release **after** this lands
+(`MARKETING_VERSION` is 1.1 at time of writing, so 1.2); the decidable test is
+App Store Connect's per-version adoption breakdown, not a judgement call.
+Rationale and the full mechanism: ADR-002 § Amendment 2026-08-15 — ADD-and-keep.
 
 ### Content guidelines
 

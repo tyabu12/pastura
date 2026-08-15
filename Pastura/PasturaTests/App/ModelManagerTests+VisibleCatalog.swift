@@ -99,6 +99,27 @@ extension ModelManagerTests {
     #expect(sut.visibleCatalog.map(\.id) == ["newer-model", "legacy-model"])
   }
 
+  /// `shouldShowInitialModelPicker`'s "is there a choice" conjunct has to count
+  /// what the picker *draws*, which is `visibleCatalog`. A two-entry
+  /// ADD-and-keep catalog is the shape that separates the two arrays: it passes
+  /// `catalog.count > 1` while rendering a single row — the dead-weight picker
+  /// the guard exists to prevent.
+  ///
+  /// Every other gate test builds catalogs with no `replacesModelID`, where the
+  /// two arrays are identical, so reverting that conjunct kept them all green.
+  /// This is the arm that fails.
+  @Test("shouldShowInitialModelPicker counts visible rows, not catalog entries")
+  func shouldShowInitialModelPickerCountsVisibleRows() {
+    let (legacy, newer) = makeReplacementPair()
+    let sut = makeSUT(catalog: [newer, legacy])
+
+    sut.checkModelStatus()
+
+    #expect(sut.visibleCatalog.count == 1)
+    #expect(sut.catalog.count == 2, "the shapes must differ, or this arm proves nothing")
+    #expect(sut.shouldShowInitialModelPicker == false)
+  }
+
   /// The production catalog's own invariant: whatever `visibleCatalog` hides, it
   /// must never hide the model a new install is steered toward. Both id
   /// constants are asserted independently — they alias today, and

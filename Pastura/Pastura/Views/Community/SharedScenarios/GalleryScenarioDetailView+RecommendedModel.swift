@@ -12,6 +12,13 @@ extension GalleryScenarioDetailView {
   @ViewBuilder
   var recommendedModelSection: some View {
     let status = recommendedModelStatus
+    // Resolve the target **once**, at render time, and hand it to the banner and
+    // the buttons. Since #1487 the helper reads `state`, so a button closure
+    // re-invoking it at *tap* time could act on a different descriptor than the
+    // status the button was rendered from — narrow, but the comments below
+    // assert the two agree.
+    let target = ModelRegistry.recommendationTarget(
+      for: scenario.recommendedModel, state: modelManager.state)
     switch status {
     case .matched, .unknownModel, .unsupportedDevice:
       // `EmptyView()` collapses to nothing in the enclosing VStack — no
@@ -22,8 +29,8 @@ extension GalleryScenarioDetailView {
     case .switchAvailable(let isLocked):
       PasturaSection {
         VStack(alignment: .leading, spacing: 12) {
-          mismatchBanner
-          switchButton(isLocked: isLocked)
+          mismatchBanner(target: target)
+          switchButton(target: target, isLocked: isLocked)
           if isLocked {
             // Gallery-specific single-sentence variant of the Settings copy.
             // The Settings version's second sentence ("Downloads and deletes
@@ -44,14 +51,14 @@ extension GalleryScenarioDetailView {
     case .downloadAvailable(let otherDownloadInFlight):
       PasturaSection {
         VStack(alignment: .leading, spacing: 12) {
-          mismatchBanner
-          downloadButton(disabled: otherDownloadInFlight)
+          mismatchBanner(target: target)
+          downloadButton(target: target, disabled: otherDownloadInFlight)
         }
         .padding(17)
       }
     case .downloading:
       PasturaSection {
-        mismatchBanner
+        mismatchBanner(target: target)
           .padding(17)
       }
     }
@@ -78,11 +85,8 @@ extension GalleryScenarioDetailView {
       isSimulator: isSimulator)
   }
 
-  fileprivate var mismatchBanner: some View {
-    let recommendedDisplay =
-      ModelRegistry.recommendationTarget(
-        for: scenario.recommendedModel, state: modelManager.state)?.displayName
-      ?? scenario.recommendedModel
+  fileprivate func mismatchBanner(target: ModelDescriptor?) -> some View {
+    let recommendedDisplay = target?.displayName ?? scenario.recommendedModel
     let activeDisplay =
       ModelRegistry.lookup(id: modelManager.activeModelID)?.displayName
       ?? modelManager.activeModelID
@@ -101,22 +105,18 @@ extension GalleryScenarioDetailView {
     }
   }
 
-  fileprivate func switchButton(isLocked: Bool) -> some View {
+  fileprivate func switchButton(target: ModelDescriptor?, isLocked: Bool) -> some View {
     Button {
       // Route through the shared switch entry point so the active-model id
       // and the LLM service stay in lockstep. Calling `setActiveModel` alone
       // (the prior code) updated the id but left the next run on the old
-      // service — the #844 latent bug. `.switchAvailable` is only emitted for
-      // a downloaded recommended model, so the lookup is a defensive no-op.
-      // MUST go through the same target helper as `recommendedModelStatus`, not
-      // a raw `lookup`: the status classifies the *target* build, so any other
-      // resolution here acts on a different model than the one the button was
-      // rendered from. `.switchAvailable` is only emitted for a downloaded
-      // target, which is exactly what the helper returns in that arm.
-      guard
-        let descriptor = ModelRegistry.recommendationTarget(
-          for: scenario.recommendedModel, state: modelManager.state)
-      else { return }
+      // service — the #844 latent bug.
+      //
+      // The render-time target, captured — not a fresh resolution. The status
+      // that enabled this button classified exactly this descriptor, and
+      // `.switchAvailable` is only emitted for a downloaded one, so the unwrap
+      // is a defensive no-op.
+      guard let descriptor = target else { return }
       dependencies.switchActiveModel(to: descriptor, using: modelManager)
     } label: {
       Text(String(localized: "Switch to recommended model"))
@@ -127,20 +127,14 @@ extension GalleryScenarioDetailView {
     .accessibilityIdentifier("galleryDetail.switchModelButton")
   }
 
-  fileprivate func downloadButton(disabled: Bool) -> some View {
+  fileprivate func downloadButton(target: ModelDescriptor?, disabled: Bool) -> some View {
     Button {
-      // Guarded by `.downloadAvailable` status, which is only emitted
-      // when `ModelRegistry.lookup` resolves — so the lookup here is a
-      // defensive no-op on unreachable paths, not a user-visible branch.
-      // Same target helper as `switchButton` above — a raw lookup would start a
-      // 3.11 GB download of the replaced build while the status that enabled
-      // this button was computed from its 2.62 GB successor.
-      guard
-        let descriptor = ModelRegistry.recommendationTarget(
-          for: scenario.recommendedModel, state: modelManager.state)
-      else {
-        return
-      }
+      // Same captured target as `switchButton` above — resolving afresh here
+      // could start a download of a different build than the status that
+      // enabled this button was computed from. `.downloadAvailable` is only
+      // emitted when the target resolved, so the unwrap is a defensive no-op on
+      // unreachable paths, not a user-visible branch.
+      guard let descriptor = target else { return }
       // `startDownload` enforces cellular consent + sequential-DL
       // policy + per-state gating internally via `evaluateStartGates`;
       // do NOT duplicate those checks here.

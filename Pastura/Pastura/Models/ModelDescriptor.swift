@@ -125,9 +125,10 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   ///
   /// The replaced entry stays in the catalog. Read
   /// `ModelRegistry` § "ADD-and-keep" before repurposing this field as a
-  /// removal marker — three consumers depend on the old id keeping its
-  /// **membership of `ModelRegistry.catalog`** (none of them goes through
-  /// `lookup(id:)`, so grepping that name will not find them).
+  /// removal marker — several consumers depend on the old id keeping its
+  /// **membership of `ModelRegistry.catalog`**, and the sharpest of them reach
+  /// it by membership rather than through `lookup(id:)`, so grepping that name
+  /// will not find them.
   public let replacesModelID: ModelID?
 
   /// Returns `true` iff `name` matches `^[A-Za-z0-9._-]+\.gguf$`.

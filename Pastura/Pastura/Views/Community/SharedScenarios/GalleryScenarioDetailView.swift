@@ -167,11 +167,12 @@ struct GalleryScenarioDetailView: View {
     rows.append(
       (
         String(localized: "Recommended model"),
-        // Resolved through ADD-and-keep, like the affordances below it: naming
-        // the raw feed value would print a build hidden from the picker,
-        // Settings → Models and `ActiveModelChip`, which a fresh install has no
-        // route to obtain. Still `nil` for an id in no catalog entry, so the
-        // older-app-newer-feed fallback below is unchanged.
+        // Resolved to whichever of the pair the user can reach, like the
+        // affordances below it: naming the raw feed value would print a build
+        // hidden from the picker, Settings → Models and `ActiveModelChip`, which
+        // a fresh install has no route to obtain. Still `nil` for an id in no
+        // catalog entry, so the older-app-newer-feed fallback below is
+        // unchanged.
         ModelRegistry.recommendationTarget(
           for: scenario.recommendedModel, state: modelManager.state)?.displayName
           ?? String(format: String(localized: "Unknown model (%@)"), scenario.recommendedModel)
