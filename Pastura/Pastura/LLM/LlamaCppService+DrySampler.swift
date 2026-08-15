@@ -82,11 +82,13 @@ nonisolated struct DryConfig {
   /// - `multiplier > 0` is a deliberate policy choice. A negative multiplier
   ///   inverts the penalty — upstream enables DRY and *rewards* repetition —
   ///   which is never a meaningful A/B arm here, so it stays `reason=disabled`.
+  ///   `> 0` also rejects a `NaN` override, which upstream's `!= 0.0f` accepts.
   /// - `penaltyLastN > 0` is not stricter in effect: upstream clamps the
-  ///   argument to `max(…, 0)` *before* the predicate reads it, so post-clamp
-  ///   `!= 0` and `> 0` accept exactly the same inputs. Loosening this one to
-  ///   `!= 0` would re-admit the `-1` case below, which is the whole reason
-  ///   this guard exists.
+  ///   argument to `max(…, 0)` *before* the predicate reads it, so on the
+  ///   clamped value `!= 0` and `> 0` accept exactly the same inputs — over the
+  ///   whole `Int32` domain, `Int32.min` included. Loosening the **Swift-side**
+  ///   guard to `!= 0` would nonetheless re-admit the `-1` case below, which is
+  ///   the whole reason this guard exists: the Swift guard sees the raw value.
   ///
   /// `PASTURA_DRY_LAST_N=-1` needs the guard most, because it changed meaning
   /// rather than staying invalid: at b8694 it was a documented sentinel for
