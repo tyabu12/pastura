@@ -225,6 +225,23 @@ extension DesignTokensTests {
       contrastRatio(
         PasturaPalette.nightMuted,
         composite(PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.06))
+    ),
+    // `HighlightShareCard`'s model name, bounded at maximum leak. The card is a
+    // fixed-appearance export, so both rows render regardless of the device
+    // appearance — and its ground is `background` under a moss radial whose
+    // alpha varies across the glyph run, so the bound is what can be asserted.
+    // Ledger § 1.1. Reads the raw palette for the same reason the card does.
+    (
+      "light HighlightShareCard moss@0.14 over screenBackground",
+      contrastRatio(
+        PasturaPalette.muted,
+        composite(PasturaPalette.moss, over: PasturaPalette.screenBackground, alpha: 0.14))
+    ),
+    (
+      "dark HighlightShareCard nightMoss@0.10 over nightBackground",
+      contrastRatio(
+        PasturaPalette.nightMuted,
+        composite(PasturaPalette.nightMoss, over: PasturaPalette.nightBackground, alpha: 0.10))
     )
   ]
 
@@ -304,7 +321,7 @@ extension DesignTokensTests {
   /// sentence in the ledger.
   @Test func mutedIsSubAAOnEveryCompositedGroundToo() {
     #expect(Self.mutedSelfWashGrounds.count == 2)
-    #expect(Self.mutedMossWashGrounds.count == 4)
+    #expect(Self.mutedMossWashGrounds.count == 6)
     #expect(Self.mutedRuleWashGrounds.count == 12)
     #expect(Self.mutedRuleWashBrackets.count == 4)
 

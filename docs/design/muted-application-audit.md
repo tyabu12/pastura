@@ -54,11 +54,28 @@ alias would collapse its `light` and `dark` families into one
 (`.claude/rules/swiftui-traps.md` § "`ImageRenderer` does not inherit the
 ambient environment").
 
-Its grounds are `screenBackground` / `nightBackground`, §8's own calibration
-points, so **3.329 / 3.779**; the label is attribution meta beneath the agent
-name, the caption shape §8 names. **Verdict: S.** It is deliberately left out of
-the counts above and out of §5, both of which remain the `Color.muted` census —
-folding it in would restate every figure to record one sanctioned site.
+**Its ground is composited, and a first pass here got that wrong** by reading it
+off the palette slot instead of the view — the same mistake §3.2 records for
+`ActiveModelChip`. The card is a `ZStack` of `palette.background` under a moss
+radial "light leak" (`moss@0.14` light / `nightMoss@0.10` dark, 240×240 offset
+into the top-right), and the model-name line runs far enough right to enter it.
+The leak's alpha varies across the glyph run, so the honest figure is the bound
+at maximum leak: **2.932 / 3.140**, against 3.329 / 3.779 on the bare
+background. This is a fourth composited ground; it is listed in §3.2.
+
+**Domain first: §2's five classes were written for in-app screens, and an
+exported image is not one.** Its viewer has none of the app's context, cannot
+tap through to anything, and cannot obtain the information elsewhere — so §2's
+sanctioned shapes, which are all justified by in-app recoverability, do not
+transfer by form alone. Judged against what an export can be held to instead —
+is this a thing the recipient must read to understand the artifact? — the model
+name is provenance *about* the quote rather than part of it, and the card's own
+primary content (`utterance`, `thought`) is at `ink` / `inkSecondary`.
+**Verdict: S**, on that reasoning rather than on the caption analogy.
+
+It is deliberately left out of the counts above and out of §5, both of which
+remain the `Color.muted` census — folding it in would restate every figure to
+record one sanctioned site.
 
 `MutedSweepLedgerTests.rawPaletteReadsStayWithinTheRecordedSet` pins the
 out-of-spelling set instead, so a *new* consumer of this shape cannot enter by
@@ -91,7 +108,7 @@ of these five:
 | **A2** | An instruction required to proceed | The flow does not advance without it |
 | **A3** | A number or identifier the user acts on | Storage size, file size, device support, the filename a delete removes, a standing the user is reading the screen to compare |
 | **A4** | A degraded or failed outcome | ADR-021 D5 requires the transcript to stay self-explanatory *at the gap*; a gap narrated illegibly is not narrated |
-| **A5** | The primary output the screen exists to show | §2.2 assigns `muted` to «メタ情報・脚注». A vote tally is not metadata *about* the simulation — it is the simulation |
+| **A5** | The primary output the screen exists to show | §2.2 assigns `muted` to «メタ情報・脚注». A vote tally is not metadata *about* the simulation — it is the simulation. **Read "screen" as the transcript component, not its host**: a component carrying primary output keeps it wherever it is mounted, so the DL-time demo rows qualify even though that screen exists to download a model |
 
 **Sanctioned even when unique on screen**: list captions, timestamps, counts of a
 list's own contents, section headers, separators (`vs`, `·`), rank ordinals in an
@@ -166,6 +183,7 @@ had not used.
 | `ActiveModelChip` capsule | `mossDark@0.10` over `screenBackground` / `nightBackground` | 2.953 | 3.098 |
 | `ModelRow` selected | `moss@0.06` over `bubbleBackground` / `nightBubble` | 3.287 | **2.693** |
 | `ReportSheet` meta chip | `rule@0.45` over an unknown ground — see below | 2.300–3.018 | 2.520–3.503 |
+| `HighlightShareCard` model name | `moss@0.14` / `nightMoss@0.10` light leak over the card background — bound at maximum leak | 2.932 | 3.140 |
 
 Two corrections beyond the arithmetic, both from reading the sites rather than
 the table:
@@ -317,7 +335,7 @@ what the reader came to compare.
 | `SimulationView+LogEntries` · `actionRejectedEntry` text | `screenBackground` | 3.329 / 3.779 | **M (A4)** — ADR-021 D5 | B2 |
 | `SimulationView+LogEntries` · `scoresSummary` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
 | `ViewerPredictionSheet` · eyebrow | `page` | 3.030 / 4.152 | S — category label | — |
-| `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A2)** — the sheet auto-skips at zero | B3 |
+| `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A3)** — a deadline the user acts against; the sheet auto-skips at zero | B3 |
 | `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.300–3.018 / 2.520–3.503 | S + U — the ID is embedded in the report URL anyway | B4 |
 
 ### Results · Home · ScenarioDetail
@@ -325,11 +343,11 @@ what the reader came to compare.
 | Site (file · symbol) | Ground | light/dark | Verdict | B |
 |---|---|---|---|---|
 | `ResultDetailView` · turns-skipped banner | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
-| `ResultDetailView+CodePhaseRows` · score-update line | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ResultDetailView+CodePhaseRows` · vote tallies | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ResultDetailView+CodePhaseRows` · `scoreUpdateRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ResultDetailView+CodePhaseRows` · `voteResultsRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
 | `ResultDetailView+CodePhaseRows` · `vs` | `screenBackground` | 3.329 / 3.779 | S — separator | — |
-| `ResultDetailView+CodePhaseRows` · assignment line | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ResultDetailView+CodePhaseRows` · no-event marker | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
+| `ResultDetailView+CodePhaseRows` · `assignmentRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ResultDetailView+CodePhaseRows` · `eventInjectedRow` | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
 | `ResultDetailView+RowLayout` · `↳ sub-phase` | `screenBackground` | 3.329 / 3.779 | S — nesting marker | — |
 | `ResultsView` · row chevron | `screenBackground` | 3.329 / 3.779 | N | — |
 | `ResultsView` · `categoryCaption` | `screenBackground` or `bubbleBackground` | 3.329 / 3.021 worst | S — list caption, §8's named shape | — |
@@ -362,11 +380,11 @@ what the reader came to compare.
 | `ModelPickerView` · `PASTURA · SETUP` | `screenBackground` | 3.329 / 3.779 | S — branding eyebrow | — |
 | `ModelPickerView` · add-later reassurance | `screenBackground` | 3.329 / 3.779 | S — footnote | — |
 | `ModelRow` · vendor · size meta | `moss@0.06` when selected, else `bubbleBackground` | 3.287 / 2.693 | **M (A3)** + U — bundles the file size | B4 |
-| `ModelDownloadHostView+CodePhaseRows` · assignment | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ModelDownloadHostView+CodePhaseRows` · vote results | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ModelDownloadHostView+CodePhaseRows` · score chips | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ModelDownloadHostView+CodePhaseRows` · `codePhaseContent` `.assignment` arm | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ModelDownloadHostView+CodePhaseRows` · `voteResultsContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ModelDownloadHostView+CodePhaseRows` · `scoresContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
 | `ModelDownloadHostView+CodePhaseRows` · `vs` | `screenBackground` | 3.329 / 3.779 | S — separator | — |
-| `ModelDownloadHostView+CodePhaseRows` · no-event | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
+| `ModelDownloadHostView+CodePhaseRows` · `eventInjectedContent` | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
 | `DLCompleteOverlay` · `Tap anywhere to begin` | `.ultraThinMaterial` | unmeasurable | **M (A2)** — the overlay is tap-gated | **B1** |
 
 ### Community · Editor
@@ -377,7 +395,7 @@ what the reader came to compare.
 | `GalleryScenarioDetailView` · external-link glyph | `screenBackground` | 3.329 / 3.779 | N | — |
 | `GalleryScenarioDetailView` · step numeral | `bubbleBackground` | 3.475 / 3.021 | S — derivable from order | — |
 | `GalleryScenarioDetailView` · read-only disclaimer | `screenBackground` | 3.329 / 3.779 | S — footnote | — |
-| `GalleryScenarioDetailView` · detail-row values | `bubbleBackground` | 3.475 / 3.021 | **M (A5)** — Author / Added / Est. inferences appear nowhere else | B2 |
+| `GalleryScenarioDetailView` · detail-row values | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — `Est. inferences` is what a user checks a device against before running | B2 |
 | `GalleryScenarioDetailView+Highlight` · `hook.caption` | `bubbleBackground` | 3.475 / 3.021 | S — footnote on the excerpt | — |
 | `GalleryScenarioDetailView+Highlight` · edit invitation | `bubbleBackground` | 3.475 / 3.021 | S — the CTA is the button | — |
 | `GalleryScenarioDetailView+RecommendedModel` · switch-blocked reason | `bubbleBackground` | 3.475 / 3.021 | **M (A1)** | **B1** |
@@ -473,14 +491,26 @@ app-wide, and needs ADR-028 gate 4/5 QA of its own.
 | | Scope | Sites | State |
 |---|---|---|---|
 | **B1** | Blocked-state reasons, the tap-to-proceed instruction, and act-on numbers, in Settings / model management / gallery | 8 | **applied (#1448)** |
-| **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open |
+| **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open — **ADR-028 gate 4/5 device QA required** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
+
+B2 is the larger visual change of the two batches carrying a QA note — nineteen
+sites across the transcript and past-run detail, moving in the raise-contrast
+direction on the app's core reading surfaces. It is also the batch where a test
+cannot see the risk: `SimulationView+LogEntries` and
+`ModelDownloadHostView+CodePhaseRows` are a **byte-for-byte duplicated pair**
+(the DL-time demo mirrors the live log deliberately), so applying one and not
+the other diverges the two visually while every count in `MutedSweepLedgerTests`
+still reconciles.
 | **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumer files (5 screens) + 2 hand-rolled headers + the `secondaryLabel` variant | — | open — #1485 |
 
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape; B4 needs §8 to
-say what a composited ground routes to before any site moves; B5 is a visual
+say what a *material or otherwise unmeasurable* ground routes to before any
+site moves — the routing for a merely-composited one is already in §8's
+`*-on-wash` bullet, so stating the gate that way would leave it already
+satisfied; B5 is a visual
 change to five screens — six with the hand-rolled headers — across nine files.
 
 ## 8. Regenerating this ledger

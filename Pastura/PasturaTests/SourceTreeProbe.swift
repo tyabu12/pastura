@@ -18,6 +18,11 @@ import Foundation
 /// path and is what the rest of the suite already uses (`AppStoreLinksTests`,
 /// `RecordsCountPluralTests`, `SimulationViewModalInventoryTests`).
 ///
+/// **This was the only bundle-walk root resolver in the repo** — every other
+/// source-reading suite already starts from `#filePath`, and each fails loudly
+/// when its target is missing (a throwing `String(contentsOf:)`, or a count
+/// floor). Recorded so the next reader does not repeat the sweep to find out.
+///
 /// That failure mode is why every caller must **assert it scanned something**.
 /// A source-tree guard that finds no files reports success, so a broken root or
 /// a renamed directory reads exactly like a clean tree.
