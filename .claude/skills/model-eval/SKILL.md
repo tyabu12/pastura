@@ -171,7 +171,7 @@ from its second round on:
 | `samplerDrySeeded` **zero** in `prisoners_dilemma` / `bokete` | **correct, not a defect.** Neither preset has a `speak_each` phase, so 4 of the 6 cells emit only `reason=no-seeds` |
 | `reason=disabled` in a plain battery | DRY is off — `PASTURA_DRY_MULTIPLIER` leaked into the environment; the arm is invalid, re-run |
 | `reason=null-init` or `reason=no-model` | never expected; either is a defect worth an issue |
-| fewer markers than the cell's generations | a **throwing** exit, which emits no marker and whose own error goes to OSLog only, so the sidecar shows neither. The two grammar ones (parse failure #194, grammar-without-vocab) are run-fatal, so `run_end.status` catches them; a NULL `chain_init` only degrades the turn, and the short count is the sole signal |
+| fewer markers than the cell's generations | a **throwing** exit, which emits no marker. The two grammar ones (parse failure #194, grammar-without-vocab) are run-fatal → `run_end.status`; a NULL `chain_init` only degrades the turn → a `turn_skipped` JSONL line names the cause. A short count with **neither** points at the ungated `narrate` turn, whose failure `NarrateHandler` swallows silently |
 | **no `samplerDry*` line at all** | the one unambiguous instrument failure — every non-throwing `createSampler` exit emits exactly one |
 
 **Do not reconcile the `samplerDry*` total against `inference_completed`** —

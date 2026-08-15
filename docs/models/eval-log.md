@@ -157,14 +157,18 @@ partition is 6 marker paths (the five `reason=` values plus `samplerDrySeeded`)
 + 3 silent ones, and the count above measures *generations that reached sampler
 construction*.
 
-What rules those three out here is the **26 = 25 + 1 reconciliation**, not the
-run status. The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`,
-which `streamFailureError` returns typed and run-fatal, so `status: ok` does
-exclude them — but `chain_init` NULL throws `.generationFailed`, which is wrapped
-as turn-degradable and would leave the run finishing `ok`, and `run_end.attempts`
-counts the harness's own run-level retries, not `LLMCaller`'s per-turn ones. Only
-the marker total matching every generation excludes that third path. A post-bump
-run showing a short count should be read as a throw, not as DRY going missing.
+Three different signals rule them out, and the run status is only one of them.
+The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`, which
+`streamFailureError` returns typed and run-fatal, so `status: ok` excludes them.
+`chain_init` NULL throws `.generationFailed`, which is turn-degradable and can
+leave the run finishing `ok` (and `run_end.attempts` is the harness's own
+run-level retry count, not `LLMCaller`'s per-turn one) — but for a **gated**
+phase the skip emits `.turnSkipped`, which reaches the JSONL as a `turn_skipped`
+line naming the cause, so that is the direct signal. What the **26 = 25 + 1
+reconciliation** uniquely covers is the ungated `narrate` turn: `NarrateHandler`
+swallows its own failure with no `.narration`, no `.turnSkipped` and a no-op
+emitter, so a sampler throw there is invisible to both the run status and the
+event stream. A post-bump short count with no `turn_skipped` line is that case.
 
 ---
 
