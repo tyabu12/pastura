@@ -169,22 +169,20 @@ enum ModelRegistry {
   /// the QAT Gemma. That last position is provisional: QAT-first lands with the
   /// `recommendedModelID` repoint, after the gate below.
   ///
-  /// `gemma4E2BQAT` departs from two documented norms, both deliberately:
+  /// Two instructions bind a future editor of `gemma4E2BQAT`. **Do not "fix" it
+  /// into a supersede** of `gemma4E2B` (§ "Model-update (supersede) convention"
+  /// above): that forces every existing user to re-download 2.62 GB with no way
+  /// back if the QAT build misbehaves on their device. And **if ADR-011 P3–P5
+  /// fail, revert this entry rather than amending it** — it landed *before* the
+  /// gate that `docs/models/onboarding.md` § "Registration checklist (after
+  /// Gate 2 — via `/orchestrate`)" requires to come first, and that inversion is
+  /// what the revert pays for. (The gate has no other route: the app has no
+  /// sideload path, so this entry is how the model reaches a device at all.)
   ///
-  /// - **Added alongside `gemma4E2B`, not superseding it** (§ "Model-update
-  ///   (supersede) convention" above): superseding forces every existing user to
-  ///   re-download 2.62 GB with no way back if the QAT build misbehaves on their
-  ///   device. No id leaves the catalog, so `RETIRED_MODEL_IDS` stays untouched.
-  ///   The slot is earned on download cost, not on the distinct character
-  ///   `docs/models/onboarding.md` § "Curation policy" asks for — `eval-log.md`
-  ///   calls this candidate "REPLACE-the-build, not earn-a-new-slot".
-  /// - **Landed before ADR-011 Gate 2**, which `onboarding.md`'s registration
-  ///   checklist and `eval-log.md`'s Disposition both place after P3–P5. Those
-  ///   cannot run otherwise: there is no sideload path, so this entry is how the
-  ///   model reaches a device at all. **If P3–P5 fail, revert this entry rather
-  ///   than amending it.**
-  ///
-  /// See #1487.
+  /// It departs from the curation policy's distinct-character bar and from
+  /// `ModelDescriptor.shortDisplayName`'s no-build-variant principle as well —
+  /// both, with the cost analysis, in `docs/models/eval-log.md` § "Gemma 4 E2B
+  /// QAT `UD-Q4_K_XL`" and #1487.
   nonisolated static let catalog: [ModelDescriptor] = [gemma4E2B, qwen34B, gemma4E2BQAT]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).

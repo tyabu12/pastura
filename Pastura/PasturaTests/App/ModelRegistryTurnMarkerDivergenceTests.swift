@@ -48,10 +48,12 @@ struct ModelRegistryTurnMarkerDivergenceTests {
   ///
   /// Asserted over the whole catalog rather than on `gemma4E2B` alone. The
   /// inertness is a property of each **export's** vocabulary, so every divergent
-  /// descriptor owes its own header measurement — and `ModelRegistry`'s
-  /// `stopSequence` comment promises "#1451, which must change every site
-  /// (`grep -rn '#1451'`)", which a per-descriptor test cannot keep true. The id
-  /// set is what makes a newly-divergent entry redden instead of landing
+  /// descriptor owes its own header measurement — and both `stopSequence`
+  /// comments in `ModelRegistry` promise that `grep -rn '#1451'` enumerates
+  /// every site, which a per-descriptor test cannot keep true. (Run that
+  /// command rather than trusting a quoted phrase here: the promise is
+  /// hard-wrapped across comment lines, so it does not grep as one string.)
+  /// The id set is what makes a newly-divergent entry redden instead of landing
   /// unmarked; it is order-independent, since order is not the invariant.
   ///
   /// A failure here is **not** automatically a bug: read #1451 first. Adding a
@@ -66,10 +68,15 @@ struct ModelRegistryTurnMarkerDivergenceTests {
   }
 
   /// Static-referenced companion to the catalog sweep above, which only reaches
-  /// descriptors still **in** `catalog`. The planned follow-up hides a legacy
-  /// entry and may drop `gemma4E2B` from it while the static stays live for users
-  /// who already downloaded that build — at which point the sweep would assert
-  /// nothing about it, silently. Keep both arms.
+  /// descriptors still **in** `catalog`. #1487's deferred follow-up hides a
+  /// not-yet-downloaded legacy entry and may drop `gemma4E2B` from `catalog`
+  /// while the static stays live for users who already have that build — at which
+  /// point the sweep would assert nothing about it, silently.
+  ///
+  /// Until that lands this arm **cannot** fail independently: both statics are in
+  /// `catalog`, so the sweep reddens first. It is a guard for a future state, not
+  /// a second opinion on the current one — if #1487 drops that follow-up, delete
+  /// this rather than leaving it as decoration.
   @Test func bothGemmaStaticsCarryTheDivergence() {
     for descriptor in [ModelRegistry.gemma4E2B, ModelRegistry.gemma4E2BQAT] {
       #expect(descriptor.stopSequence != descriptor.turnMarkers.end, "\(descriptor.id)")
