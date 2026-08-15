@@ -125,6 +125,11 @@ extension LlamaCppService {
       // marker here a whole run could emit zero `samplerDry*` lines for a
       // healthy reason — indistinguishable from an instrument that never
       // fired (#1483).
+      //
+      // Keep the emit ABOVE `initGrammarCapturingStderr` below: that helper
+      // dup2s fd 2 for the width of one C call, so a marker moved under it
+      // would be swallowed into the grammar-parse capture instead of the
+      // harness sidecar. Nothing tests this ordering.
       emitDryUnavailable(.noGrammar)
       return SamplerHandles(chain: chain, grammar: nil, dry: nil)
     }

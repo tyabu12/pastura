@@ -157,13 +157,27 @@ Then sweep the **stderr sidecars** for the sampler markers. The analyzer reads
 the JSONL only, and none of these reach it:
 
 ```bash
-grep -oE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+|samplerGrammarResample|samplerMaskedSelection|samplerCrashCaught' \
+ls data/models/eval-runs/<DATE>/*.stderr.log | wc -l   # expect 6; a missing sidecar reads as an absent row below
+grep -hoE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+|samplerGrammarResample|samplerMaskedSelection|samplerCrashCaught' \
   data/models/eval-runs/<DATE>/*.stderr.log | sort | uniq -c
+grep -HoE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+' \
+  data/models/eval-runs/<DATE>/*.stderr.log | sort | uniq -c   # per-cell; -H survives a single-file glob
 ```
 
+**Diagnostic only** — nothing here feeds Step 4's verdict or Step 5's schema.
+Run it anyway: a DRY handle that silently stopped constructing shows up in the
+rubric as a repetition/`breakdown_free` loss and would be misattributed to the
+candidate model.
+
 Read the DRY markers (#1483) **against the cell's phase shape**, never as a
-bare count — `speak_each` is the only phase in Engine that seeds DRY, and only
-from its second round on:
+bare count. `speak_each` is the only phase in Engine that seeds DRY (canonical:
+`.claude/rules/engine.md` § "The chain's `penalties` cannot reach across a
+`generate()`"; predicate: `Engine/Phases/SpeakEachHandler.swift`) — and it seeds
+an agent once that agent has a non-empty prior `lastOutputs` entry, **not** "from
+round 2 on". `lastOutputs` survives across phases, so a second `speak_each` seeds
+from its first round: `word_wolf` yields 10 seeded of 26, not 5. If a second
+seeding phase is ever added, this table goes stale — it sits outside
+`engine.md`'s path scope and nothing will prompt you.
 
 | observation | reading |
 |---|---|
@@ -172,18 +186,36 @@ from its second round on:
 | `reason=disabled` in a plain battery | DRY is off — `PASTURA_DRY_MULTIPLIER` leaked into the environment; the arm is invalid, re-run |
 | `reason=null-init` or `reason=no-model` | never expected; either is a defect worth an issue |
 | fewer markers than the cell's generations | a **throwing** exit, which emits no marker. The two grammar ones (parse failure #194, grammar-without-vocab) are run-fatal → `run_end.status`; a NULL `chain_init` only degrades the turn → a `turn_skipped` JSONL line names the cause. A short count with **neither** points at the ungated `narrate` turn, whose failure `NarrateHandler` swallows silently |
-| **no `samplerDry*` line at all** | the one unambiguous instrument failure — every non-throwing `createSampler` exit emits exactly one |
+| roughly **twice** the expected total | the cell reran. `HarnessRunner` retries in-process while the sidecar is truncated once per wrapper call, and unlike `StderrEngineLogger`'s `DiagLine.attempt` these markers carry no attempt field — so the two passes cannot be split. Check the analyzer's `attempts`; read DRY counts only from an `attempts == 1` cell |
+| **no `samplerDry*` line at all** | the one unambiguous instrument failure — every non-throwing `createSampler` exit emits exactly one. Note this renders as an **absent row**, not a zero, which is what the sidecar count above is for |
 
-**Do not reconcile the `samplerDry*` total against `inference_completed`** —
-the two count different things and drift in *both* directions. `narrate` hands
-`LLMCaller` a no-op emitter, so its inference emits no events and pushes markers
-**up**; a generation that throws at or before sampler construction pushes them
-**down**. Retries do not enter: `emitInferenceCompleted` sits inside
-`LLMCaller`'s `for attempt` loop on both the success and failure paths, so an
-extra attempt increments both sides. Measured on `word_wolf` ja at the b8694
-pin, in both A/B arms: 26 markers vs 25 `inference_completed`, the difference
-being that one narrate turn (`docs/models/eval-log.md` § "DRY sampler
-construction").
+**`samplerDry*` totals do not equal `inference_completed`** — but the offset is
+computable, and it is the *only* detector for a sampler throw in a `narrate`
+turn (`NarrateHandler` swallows that failure with no `.narration`, no
+`.turnSkipped` and a no-op emitter, so neither `run_end.status` nor the event
+stream shows it). Expected total, from the JSONL the cell already produced:
+
+```bash
+python3 - "$JSONL" <<'PY'
+import json, sys
+inf = nar = 0
+for line in open(sys.argv[1]):
+    try: d = json.loads(line)
+    except ValueError: continue
+    if d.get("type") != "event": continue
+    if d.get("event") == "inference_completed": inf += 1
+    elif d.get("event") == "phase_started" and d.get("phase_type") == "narrate": nar += 1
+print("expected samplerDry* markers:", inf + nar)
+PY
+```
+
+It scales with rounds — a 3-round scenario with one `narrate` offsets by 3, not
+1. `LLMCaller` retries shift both sides together, so they cancel here (
+`emitInferenceCompleted` sits inside the `for attempt` loop on the success and
+failure paths alike); a *harness* rerun does not — see the doubling row above.
+Measured on `word_wolf` ja at the b8694 pin, both A/B arms, `attempts: 1`: 26
+markers vs 25 `inference_completed` + 1 narrate phase
+(`docs/models/eval-log.md` § "DRY sampler construction").
 
 ## Step 3 — Judge each `ok` cell in-session
 

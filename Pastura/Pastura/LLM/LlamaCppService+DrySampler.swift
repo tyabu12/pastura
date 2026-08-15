@@ -104,8 +104,12 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
   /// `DryConfig.resolve()` returned nil — the harness A/B base arm
   /// (`PASTURA_DRY_MULTIPLIER=0`). Never reached in TestFlight / Release.
   case disabled
-  /// The caller passed no prior text. Structural, not a fault: `speak_each`
-  /// is the only seeding phase in Engine, and it seeds nothing in round 1.
+  /// The caller passed no prior text. Structural, not a fault: `speak_each` is
+  /// the only seeding phase in Engine, and it seeds an agent only once that
+  /// agent has a non-empty prior `lastOutputs` entry. **That is not the same as
+  /// "round 2 onward"** — `lastOutputs` persists across phases, so a *second*
+  /// `speak_each` in the same scenario seeds from its first round. Measured:
+  /// `word_wolf` emits 10 seeded, not 5 (`docs/models/eval-log.md`).
   case noSeeds = "no-seeds"
   /// No model pointer, so `n_ctx_train` is unreadable.
   case noModel = "no-model"
