@@ -49,7 +49,9 @@ nonisolated private func unsafeURL(_ string: String) -> URL {
 ///
 /// ### ADD-and-keep
 ///
-/// The shape adopted for `gemma4E2BQAT` (#1487, ADR-002 § Amendment 2026-08-15).
+/// The shape adopted for `gemma4E2BQAT` (#1487, ADR-002 § Amendment 2026-08-15
+/// — ADD-and-keep; that ADR carries a second amendment of the same date, for
+/// the pin bump).
 /// The new entry joins `catalog` and the old one **stays**, carrying
 /// ``ModelDescriptor/replacesModelID`` to name what it takes over from.
 /// `ModelManager.visibleCatalog` then hides the replaced entry from the

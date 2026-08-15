@@ -275,7 +275,7 @@ Reproduce: identical to the baseline's block above.
 
 ---
 
-## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **PASS (Mac filter only — advances to the ADR-011 real-device PoC, never an adoption)**
+## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **ADOPTED (Gate 1 PASS 2026-08-13; ADR-011 P3–P5 PASSED on device 2026-08-15)**
 
 - **Gate**: 1 (Mac filter, `/model-eval`) — 6/6 cells `ok`, `attempts_mean` 1.00,
   `language_mismatch_total` 0, no crash. Run on a **bumped pin** (`llama.swift`
@@ -317,8 +317,10 @@ Reproduce: identical to the baseline's block above.
 - **Rationale**: the Mac filter cannot accept, only reject — and there is nothing
   here to reject on. Mechanical floor clean, no measured quality regression, and the
   largest download saving of any QAT build that actually runs.
-- **Disposition**: **advances to the ADR-011 real-device PoC (P3–P5) — not an
-  adoption**, and two costs sit outside the −0.49 GB headline. (1) It cannot run at
+- **Disposition** (as of the Gate 1 run; **both bullets below supersede it** —
+  the gate has since run and this is an adoption): **advances to the ADR-011
+  real-device PoC (P3–P5) — not an adoption**, and two costs sit outside the
+  −0.49 GB headline. (1) It cannot run at
   all on `main`'s pin, so adoption is gated on the #1415 bump landing first — whose
   device-only risk (Metal behaviour, the 8 GB minimum-RAM sizing in ADR-002
   § "Supported Devices", binary size) is entirely unmeasured, as is the DRY sampler
@@ -337,8 +339,22 @@ Reproduce: identical to the baseline's block above.
   the ordering above: the gate has no other way to run, since the app has no
   sideload path and the catalog is the only route onto a device. That inversion is
   paid for by a pre-commitment — **if P3–P5 do not PASS, the descriptor commits are
-  reverted before #1489 leaves Draft** — and this entry's verdict stays "advances,
-  not adopted" until they do.
+  reverted before #1489 leaves Draft** — which the next bullet discharges.
+- **Update (2026-08-15) — ADR-011 P3–P5 PASSED on device; this is now an
+  adoption.** P3: GBNF PoC clean on Prisoner's Dilemma and Bokete through the vote
+  phase — no `Unexpected empty grammar stack` / `GGML_ASSERT` on the first
+  generated token, JSON parsed for whole runs. P4: both incumbents re-run
+  *alongside* the candidate, same device and session, without quitting the app —
+  no regression. (The earlier pre-candidate incumbent run stays what it was, an
+  isolation of pin-risk from candidate-risk, not a substitute for this.) P5:
+  satisfied statically, no device step. So the revert pre-commitment above is
+  **discharged, not waived**, and the catalog now leads with this build:
+  `recommendedModelID` and `defaultInitialModelID` both point at it, and the
+  Q4_K_M entry is kept-but-hidden under ADD-and-keep (ADR-002 § Amendment
+  2026-08-15 — ADD-and-keep; that ADR has a second same-dated amendment for the
+  pin bump). **Not licensed by this PASS**: lowering `minRAM`. None of P3–P5
+  measures runtime footprint, so the 6.5 GB floor stays inherited and unmeasured
+  despite the 0.49 GB smaller file.
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-13 ·
   `gemma-4-e2b-qat-q4-k-xl`, with the control arm under `gemma-4-e2b-q4-k-m` of the
   same date (gitignored, per-machine — the **durable** backing is the issue comment
