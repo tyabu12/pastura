@@ -112,6 +112,44 @@ negative today does not generalize to tomorrow's GGUF.
 Re-run this at each onboarding rather than copying the numbers forward — the step
 lives in [`onboarding.md`](onboarding.md) § "Stage 0".
 
+### DRY sampler construction — 2026-08-15 (b8694 baseline)
+
+**Scope**: two `word_wolf.yaml` (ja) harness runs on the incumbent
+`gemma-4-E2B-it-Q4_K_M.gguf`, at the **pinned `llama.swift` 2.8694.0
+(llama.cpp b8694)**, differing only in `PASTURA_DRY_MULTIPLIER`. Recorded here
+because this is the reading a future pin bump is diffed against, and the run
+logs themselves are gitignored. Instrument: the #1483 `samplerDry*` markers.
+
+| arm | `samplerDrySeeded` | `reason=no-seeds` | `reason=disabled` | total |
+|---|---|---|---|---|
+| default (`mult=0.8`) | **10** | 16 | 0 | 26 |
+| `PASTURA_DRY_MULTIPLIER=0` | 0 | 0 | **26** | 26 |
+
+Seeded turns carried **16–31 tokens** each (`seeds=1` throughout — `speak_each`
+seeds one prior statement) and `nCtxTrain=131072`.
+
+**26 markers against 25 `inference_completed`** in the same run, in both arms.
+The markers are right and the JSONL undercounts: `NarrateHandler` hands
+`LLMCaller` a no-op emitter, so the narrate turn's inference emits no events.
+So one marker per LLM generation holds — but the JSONL is the wrong denominator
+to check it with, by exactly the narrate-phase count.
+
+**Why the pair, not just the first arm.** A marker that appears is not evidence
+the instrument discriminates; the disabled arm flipping all 26 lines is. It also
+settles a second thing #1415 left unverified — that the `PASTURA_DRY_MULTIPLIER`
+A/B lever reaches the sampler at all.
+
+**`nCtxTrain=131072` is the load-bearing figure.** b10327 removes that argument
+from `llama_sampler_init_dry`, so a post-bump run showing the field gone — with
+`seededTokens` unchanged — is what distinguishes "the signature migration was
+correct" from "DRY silently stopped constructing".
+
+**Three exit paths stayed unexercised**: `no-model`, `null-init` and
+`no-grammar` are zero in both arms (every `word_wolf` LLM phase carries an
+output schema, and nothing failed). Their line *format* is unit-tested; their
+*emission* is not, so read a future zero on them as "still unexercised", not as
+a measured negative.
+
 ---
 
 ## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **PASS (Mac filter only — advances to the ADR-011 real-device PoC, never an adoption)**
