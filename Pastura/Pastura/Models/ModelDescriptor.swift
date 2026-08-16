@@ -103,9 +103,14 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   public let assistantPrefix: String?
 
   /// User-facing tagline shown in the model picker — a single short sentence
-  /// describing the model's character, never its download size — the picker
-  /// row already renders that as meta, and the build a size claim would
-  /// compare against may not be on screen. Empty string when the descriptor was
+  /// describing the model's character. Never an **absolute** size; the picker
+  /// row already renders that as meta. A **relative** one ("older and larger")
+  /// only where the comparand is on screen beside it, which means **on a
+  /// replaced descriptor, never on its replacement**: `ModelManager`'s
+  /// `visibleCatalog` hides a replaced entry once it is not the active model
+  /// and its state is exactly `.notDownloaded`, so a fresh install sees the
+  /// replacement alone and a size claim there has nothing to compare against.
+  /// Empty string when the descriptor was
   /// constructed without picker UI in mind (test fixtures, future
   /// descriptors not yet surfaced in the picker). UI sites must hide the
   /// row when empty rather than render a blank line.

@@ -217,9 +217,9 @@ enum ModelRegistry {
     // chat template differs textually from `gemma4E2B`'s — so the shared base
     // model does not settle it. Gate 1 running crash-free on this file does.
     systemPromptSuffix: nil,
-    // No size comparison: `visibleCatalog` normally filters the build this one is smaller than
-    // out of a new install, leaving no referent, so that line lives on `gemma4E2B`. Character
-    // claims are n=1: `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
+    // No size comparison — this is the replacement, so a fresh install has no referent on
+    // screen; that line lives on `gemma4E2B` (`ModelDescriptor.tagline`). Character claims
+    // are n=1: `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
     tagline: String(localized: "Expressive and steady, in Japanese too. Pick this one if unsure."),
     // Written as `gemma4E2B.id` rather than the literal so the two cannot
     // drift; `gemma4E2B` is declared first, so there is no forward reference

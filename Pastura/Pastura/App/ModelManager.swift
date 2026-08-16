@@ -346,13 +346,12 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   /// § "ADD-and-keep") and is not on this device. **The user-facing model lists
   /// read this; everything else reads `catalog`.**
   ///
-  /// Exactly three surfaces filter: the first-run picker, Settings → Models, and
-  /// `ActiveModelChip`'s switch menu. `lookup`, `checkModelStatus`,
-  /// `resolveInitialActiveID`, `deleteModel`, `orphanedModelFiles()` and the
-  /// Settings storage total all stay on the full `catalog` — several of them
-  /// would misbehave outright on the filtered one, most sharply
-  /// `orphanedModelFiles()`, which would start offering a *hidden but present*
-  /// GGUF for deletion as an "unused" file.
+  /// The surfaces that filter are `grep visibleCatalog`. What must **not** —
+  /// `lookup`, `checkModelStatus`, `resolveInitialActiveID`, `deleteModel`,
+  /// `orphanedModelFiles()`, the Settings storage total — is not greppable and
+  /// so is listed here: all stay on the full `catalog`, and
+  /// `orphanedModelFiles()` would misbehave outright on the filtered one,
+  /// offering a *hidden but present* GGUF for deletion as an "unused" file.
   ///
   /// Three conjuncts, all load-bearing:
   ///
