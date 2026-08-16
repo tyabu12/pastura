@@ -23,23 +23,54 @@ struct ModelRegistryTurnMarkerDivergenceTests {
     #expect(markers != .chatML)
   }
 
+  /// The QAT re-export carries the same pair, but read from **its own** GGUF
+  /// header rather than copied across (`docs/models/onboarding.md`
+  /// § "Stage 0 — Harness profile": a marker is a property of the export). The
+  /// two agreeing is the measurement's result, not its premise — the same read
+  /// found `eos_token_id` differing between the files.
+  @Test func gemmaQAT_carriesTheSameMeasuredMarkers() {
+    let markers = ModelRegistry.gemma4E2BQAT.turnMarkers
+    #expect(markers.start == "<|turn>")
+    #expect(markers.end == "<turn|>")
+    #expect(markers != .chatML)
+  }
+
   /// **Control.** Qwen 3 genuinely is ChatML — the "Qwen unchanged" half of
   /// #1422's acceptance criteria at the descriptor level.
   @Test func qwen_isChatML() {
     #expect(ModelRegistry.qwen34B.turnMarkers == .chatML)
   }
 
-  /// **Deliberate divergence, deferred to #1451.** For Gemma, `stopSequence`
-  /// is a ChatML string absent from the vocabulary, so it's inert; repointing
-  /// it would activate a behaviour on an assumption, and a false positive
-  /// there truncates a real payload — worse than today's no-op.
+  /// **Deliberate divergence, deferred to #1451.** For a Gemma descriptor,
+  /// `stopSequence` is a ChatML string absent from the vocabulary, so it's
+  /// inert; repointing it would activate a behaviour on an assumption, and a
+  /// false positive there truncates a real payload — worse than today's no-op.
   ///
-  /// A failure here is **not** automatically a bug: read #1451 before
-  /// updating this expectation.
-  @Test func gemma_stopSequenceDeliberatelyDisagreesWithTurnMarkers() {
-    let descriptor = ModelRegistry.gemma4E2B
-    #expect(descriptor.stopSequence != descriptor.turnMarkers.end)
-    #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end)
+  /// Asserted over the whole catalog rather than on `gemma4E2B` alone. The
+  /// inertness is a property of each **export's** vocabulary, so every divergent
+  /// descriptor owes its own header measurement — and both `stopSequence`
+  /// comments in `ModelRegistry` promise that `grep -rn '#1451'` enumerates
+  /// every site, which a per-descriptor test cannot keep true. (Run that
+  /// command rather than trusting a quoted phrase here: the promise is
+  /// hard-wrapped across comment lines, so it does not grep as one string.)
+  /// The id set is what makes a newly-divergent entry redden instead of landing
+  /// unmarked; it is order-independent, since order is not the invariant.
+  ///
+  /// A failure here is **not** automatically a bug: read #1451 first. Adding a
+  /// Gemma-family descriptor legitimately extends the set; anything else
+  /// diverging means the pair drifted by accident.
+  ///
+  /// This sweep reaches only descriptors still **in** `catalog`. If a divergent
+  /// entry is later dropped from `catalog` entirely (rather than hidden via
+  /// `ModelManager.visibleCatalog`, `ModelRegistry` § "ADD-and-keep"), that
+  /// reddens `catalog_hasExpectedModels` — which pins all three ids — before
+  /// this sweep's coverage silently narrows.
+  @Test func everyDivergentDescriptorIsTheDeliberateChatMLCase() {
+    let divergent = ModelRegistry.catalog.filter { $0.stopSequence != $0.turnMarkers.end }
+    #expect(Set(divergent.map(\.id)) == ["gemma-4-e2b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
+    for descriptor in divergent {
+      #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end, "\(descriptor.id)")
+    }
   }
 
   /// A descriptor could pass empty strings even though `turnMarkers` has no

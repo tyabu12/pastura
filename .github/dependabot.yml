@@ -34,10 +34,18 @@ updates:
     ignore:
       # mattt/llama.swift tags are date-encoded (e.g. 2.8694.0) rather
       # than semver. Dependabot's semver comparator cannot reliably
-      # classify a tag bump as patch / minor / major. Suppress the noisy
-      # minor/patch buckets so only apparent-major bumps surface as PRs;
-      # upstream llama.cpp CVE response is tracked by watching the fork
-      # for new tags and reviewing manually.
+      # classify a tag bump as patch / minor / major.
+      #
+      # In practice this suppresses *every* version PR for this dependency,
+      # not just the noisy ones: the leading component is frozen at 2, so a
+      # real bump always classifies as minor. That is intended — the pin is
+      # governed by ADR-002 § "Pin Strategy", which requires a named trigger
+      # plus a verification bar, so a drift-driven PR would be closed
+      # unmerged anyway. Do not read the absence of PRs here as the absence of
+      # advisories; upstream llama.cpp CVE response is tracked by watching
+      # the fork for new tags and reviewing manually. Security updates are a
+      # separate category this entry's `version-update:*` types do not
+      # filter. Operator triage: docs/security/release-checklist.md §3.1.
       #
       # Name format: github.com/<owner>/<repo>. This is the canonical
       # form Dependabot uses for swift-ecosystem deps in PR titles,

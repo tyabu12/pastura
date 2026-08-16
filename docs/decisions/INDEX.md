@@ -8,7 +8,26 @@ Phase 1 architecture decisions (12 ADRs)
 
 ## ADR-002 — llama.cpp interim LLM backend
 
-llama.cpp interim LLM backend decision
+llama.cpp interim LLM backend decision.
+
+Standing invariant — § "Pin Strategy": pin a specific release tag, and on a bump
+pin the **measured** tag rather than the latest one. Drift alone is not a reason
+to bump; a bump needs a named trigger (a blocked capability, a CVE, a
+llama.swift build break) and must clear that section's verification bar in full.
+No gate enforces any of it — the operator-side pairing is
+`docs/security/release-checklist.md` §3.1.
+
+Standing invariant — § "Amendment 2026-08-15 — ADD-and-keep for the QAT
+rebuild": a **same-model** rebuild joins the catalog beside the build it
+replaces instead of superseding it, naming its predecessor via
+`ModelDescriptor.replacesModelID`; the replaced entry is hidden from the
+user-facing lists once it is neither on the device nor the active model, but is
+never removed — what consumers depend on is its **membership of `catalog`**.
+The supersede convention stays the default for a genuinely different model.
+Gallery recommendations naming a replaced build are satisfied app-side rather
+than by repointing the live feed. Derivation, the consumer list, the
+recommendation resolver, and why the descriptor landed before its gate: that
+amendment.
 
 ## ADR-003 — Background execution
 

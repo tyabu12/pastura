@@ -71,12 +71,20 @@ dependency direction is preparation for a future SPM module split.
 
 Bundled in
 [`Pastura/Pastura/App/ModelRegistry.swift`](Pastura/Pastura/App/ModelRegistry.swift).
-Both are GGUF Q4_K_M quants, downloaded on first launch.
+All are GGUF quants. One is downloaded at first launch from the in-app
+picker; the rest on demand from Settings → Models. Listed in catalog order,
+which is the order both of those surfaces show — but not every row is offered
+to a fresh install, see the note under the table.
 
 | Model                                                                | Vendor  | Size    | Notes                                                       |
 |----------------------------------------------------------------------|---------|---------|-------------------------------------------------------------|
-| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Default. Conversational, plays well with most scenarios.    |
-| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | Reasoning-leaning. Good for scenarios that need deduction.  |
+| [Gemma 4 E2B (QAT)](https://huggingface.co/unsloth/gemma-4-E2B-it-qat-GGUF) | Google | ~2.6 GB | Default. Quantization-aware-trained build of the same Gemma, in a smaller download. |
+| [Qwen 3 4B](https://huggingface.co/Qwen/Qwen3-4B-GGUF)               | Alibaba | ~2.5 GB | A different model family from Gemma — a second character to compare against. Runs with thinking mode off (`/no_think`). |
+| [Gemma 4 E2B](https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF)    | Google  | ~3.1 GB | Existing installs only — replaced by the QAT build above, and shown only if already downloaded (or currently active). |
+
+The last row is **kept, not retired**, so existing installs keep their
+downloaded model and a way back if the new build misbehaves. Mechanism and
+when to choose this shape over retiring an entry: `ModelRegistry` § "ADD-and-keep".
 
 Add more by appending a `ModelDescriptor` to `ModelRegistry.catalog`.
 The descriptor pins download URL, file size, and SHA-256 at compile

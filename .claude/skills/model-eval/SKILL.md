@@ -182,9 +182,11 @@ it sits outside `engine.md`'s path scope and nothing will prompt you.
 |---|---|
 | `samplerDrySeeded` in `word_wolf` ja/en | expected — the only battery cells with a `speak_each` phase |
 | `samplerDrySeeded` **zero** in `prisoners_dilemma` / `bokete` | **correct, not a defect.** Neither preset has a `speak_each` phase, so 4 of the 6 cells emit only `reason=no-seeds` |
-| `reason=disabled` in a plain battery | DRY is off — `PASTURA_DRY_MULTIPLIER` leaked into the environment; the arm is invalid, re-run |
-| `reason=null-init` or `reason=no-model` | never expected; either is a defect worth an issue |
-| fewer markers than the cell's generations | a **throwing** exit, which emits no marker. The two grammar ones (parse failure #194, grammar-without-vocab) are run-fatal → `run_end.status`; a NULL `chain_init` only degrades the turn → a `turn_skipped` JSONL line names the cause. A short count with **neither** points at the ungated `narrate` turn, whose failure `NarrateHandler` swallows silently |
+| `reason=disabled` in a plain battery | DRY is off — one of **three** levers leaked into the environment (`PASTURA_DRY_MULTIPLIER` non-positive, `PASTURA_DRY_BASE` under 1.0, or `PASTURA_DRY_LAST_N` non-positive). The arm is invalid, re-run. Guarded Swift-side since the b10327 pin (#1487) precisely so this reads as `disabled` rather than as a healthy `samplerDrySeeded` line — before that guard, upstream answered a rejected value with a non-NULL no-op sampler that seeds and reports normally |
+| `reason=no-seeds` | the caller passed no prior text — structural, not a fault. The seeding rule and its round-index trap are on `DryUnavailableReason.noSeeds`; see also the two `samplerDrySeeded` rows above for the per-scenario expectation |
+| `reason=no-grammar` | the turn had no `output:` schema, so `createSampler` returned before the DRY builder. **Zero in every battery cell today — an empirical fact about the bundled presets, not a structural guarantee.** The reachable set is exactly `speak_all` / `speak_each` / `vote` / `choose`: they take `OutputSchema.from(phase:)`, which returns `nil` on an absent or empty `output:`, and `validatePhases` gives them no shape check at the run gate — their canonical field is enforced only by `validateCanonicalFields`, reached from `validateForCommit`. `narrate` cannot produce it (Engine-fixed `{ commentary }`), and neither can `reflect` / `whisper`: `validateReflectShape` / `validateWhisperShape` run from `validate` itself and throw before the run starts. So read a non-zero count as **a candidate scenario whose `speak_*` / `vote` / `choose` phase omits `output:`** — exactly what this skill feeds the battery, and reachable when the scenario never passed the commit gate — before suspecting a new phase or handler |
+| `reason=null-init` | never expected; a defect worth an issue |
+| fewer markers than the cell's generations | a **throwing** exit, which emits no marker. The grammar one (parse failure #194) is run-fatal → `run_end.status`; a NULL `chain_init` only degrades the turn → a `turn_skipped` JSONL line names the cause. A short count with **neither** points at the ungated `narrate` turn, whose failure `NarrateHandler` swallows silently |
 | roughly **twice** the expected total | the cell reran. `HarnessRunner` retries in-process while the sidecar is truncated once per wrapper call, and unlike `StderrEngineLogger`'s `DiagLine.attempt` these markers carry no attempt field — so the two passes cannot be split. Check the analyzer's `attempts`; read DRY counts only from an `attempts == 1` cell |
 | **no `samplerDry*` line at all** | the one unambiguous instrument failure — every non-throwing `createSampler` exit emits exactly one. Note this renders as an **absent row**, not a zero, which is what the sidecar count above is for |
 
@@ -211,8 +213,11 @@ It scales with rounds — a 3-round scenario with one `narrate` offsets by 3, no
 1. `LLMCaller` retries shift both sides together, so they cancel here (
 `emitInferenceCompleted` sits inside the `for attempt` loop on the success and
 failure paths alike); a *harness* rerun does not — see the doubling row above.
-A worked `word_wolf` ja reconciliation at the b8694 pin is in
-`docs/models/eval-log.md` § "DRY sampler construction".
+A worked `word_wolf` ja reconciliation is in `docs/models/eval-log.md`
+§ "DRY sampler construction — 2026-08-15 (b8694 baseline)"; the same two arms
+re-run on the current pin are in § "DRY sampler construction — 2026-08-15
+(b10327, post-bump) — **no regression**". Cite each heading through its pin
+qualifier — the shared prefix alone is ambiguous between them.
 
 ## Step 3 — Judge each `ok` cell in-session
 

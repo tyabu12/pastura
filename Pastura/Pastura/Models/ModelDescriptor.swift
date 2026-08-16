@@ -103,12 +103,37 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   public let assistantPrefix: String?
 
   /// User-facing tagline shown in the model picker — a single short sentence
-  /// describing the model's character ("Balanced choice. Rich, considered
-  /// responses."). Empty string when the descriptor was
+  /// describing the model's character. Never an **absolute** size; the picker
+  /// row already renders that as meta. A **relative** one ("older and larger")
+  /// only where the comparand is on screen beside it, which means **on a
+  /// replaced descriptor, never on its replacement**: `ModelManager`'s
+  /// `visibleCatalog` hides a replaced entry once it is not the active model
+  /// and its state is exactly `.notDownloaded`, so a fresh install sees the
+  /// replacement without the build it replaces, and a size claim on the
+  /// replacement would have nothing to compare against.
+  /// Empty string when the descriptor was
   /// constructed without picker UI in mind (test fixtures, future
   /// descriptors not yet surfaced in the picker). UI sites must hide the
   /// row when empty rather than render a blank line.
   public let tagline: String
+
+  /// The id of an older catalog entry this descriptor takes over from, under
+  /// the ADD-and-keep shape (`ModelRegistry` § "ADD-and-keep"). `nil` — the
+  /// default — for a descriptor that replaces nothing.
+  ///
+  /// This is a **catalog-topology** field, not a runtime one: nothing in the
+  /// LLM layer reads it, and it is deliberately absent from the harness
+  /// `ModelProfile` mirror, which carries prompt-format and integrity fields.
+  /// Two app-layer mechanisms consume it, and they fail *identically and
+  /// silently* if it names an id that is not in the catalog — the replaced
+  /// entry simply never hides, and its recommendation never resolves forward,
+  /// which looks exactly like the feature not having been written.
+  /// `ModelRegistryTests.everyReplacesModelIDResolves` is the guard.
+  ///
+  /// The replaced entry stays in the catalog. Read `ModelRegistry`
+  /// § "ADD-and-keep" before repurposing this field as a removal marker — it
+  /// carries the consumers that depend on the old id's catalog membership.
+  public let replacesModelID: ModelID?
 
   /// Returns `true` iff `name` matches `^[A-Za-z0-9._-]+\.gguf$`.
   ///
@@ -141,7 +166,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     modelInfoURL: URL,
     systemPromptSuffix: String?,
     assistantPrefix: String? = nil,
-    tagline: String = ""
+    tagline: String = "",
+    replacesModelID: ModelID? = nil
   ) {
     precondition(
       Self.isValidFileName(fileName),
@@ -163,6 +189,7 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
     self.systemPromptSuffix = systemPromptSuffix
     self.assistantPrefix = assistantPrefix
     self.tagline = tagline
+    self.replacesModelID = replacesModelID
   }
 }
 

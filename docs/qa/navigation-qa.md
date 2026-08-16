@@ -270,10 +270,15 @@ surface changes in areas the automated tests do not exercise.
 11. **Multi-model picker — fresh install on supported device** —
     Install Pastura on a supported device (≥ 8 GB RAM) with no prior
     install and no seeded UserDefaults. Expected: after the splash,
-    `ModelPickerView` shows instead of `ModelDownloadView`. Two rows
-    appear (Gemma 4 E2B and Qwen 3 4B), each surfacing vendor +
-    decimal GB size, with a moss-accented "Start with this model"
-    button. Tap Qwen's button; app transitions to
+    `ModelPickerView` shows instead of `ModelDownloadView`. Exactly two
+    rows appear, in this order: **Gemma 4 E2B QAT** (推奨 badge, ~2.6 GB)
+    then **Qwen 3 4B** (~2.5 GB), each surfacing vendor + decimal GB
+    size, with a moss-accented "Start with this model" button.
+    **A plain `Gemma 4 E2B` row must NOT appear** — it is the replaced
+    build, filtered out by `ModelManager.visibleCatalog` on a device that
+    does not have it. Read the row label carefully: mistaking the QAT row
+    for it is exactly how a `visibleCatalog` regression would pass this
+    step. Tap Qwen's button; app transitions to
     `ModelDownloadView` and starts downloading Qwen, not Gemma.
     Legacy Gemma TestFlight users (existing Gemma file on disk) must
     **not** see the picker on upgrade — they route through

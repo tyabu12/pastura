@@ -139,8 +139,10 @@ persists across phases. (`event_inject probability: 0.5` gates only a template
 **What is stable across runs, and what is not** — the comparison a post-bump run
 should make:
 
-- **Stable**: the three counts, the arm flip to 100 % `disabled`, `nCtxTrain`
-  (per model), and zero `null-init` / `no-model`. A shift here is a real signal.
+- **Stable**: the three counts, the arm flip to 100 % `disabled`, and zero
+  `null-init`. A shift here is a real signal. `nCtxTrain` and `no-model` stood
+  on this row until the b10327 bump retired both (#1487) — a post-bump run
+  cannot compare them, and their absence is the bump, not a regression.
 - **Not stable**: `seededTokens`. It is the tokenized length of the agent's own
   previous statement, so 16–31 is generation-length variance over 10 samples in
   one run — do **not** read a shifted range as a regression.
@@ -166,18 +168,26 @@ Swift-side `DryConfig`, never the values llama.cpp received, so transposing the
 adjacent `multiplier`/`base` floats or `allowedLength`/`penaltyLastN` int32s
 compiles, returns non-NULL, seeds the same token count, and emits a
 byte-identical line while DRY is inert. Argument order stays code-review-gated,
-like the guard→reason mapping. `nCtxTrain` is on the line because it is the
-argument b10327 removes, but its disappearance is produced by the bumper's own
-edit — treat it as a checklist item, not as evidence.
+like the guard→reason mapping. `nCtxTrain` was on the line at this baseline
+only as a bump checklist item, never as evidence — b10327 removed the argument
+and the field went with it (#1487).
 
-**Coupled edits when the bump lands**, none of which any gate enforces: drop
-`nCtxTrain` from `LlamaCppService.drySeededLine` **and** from
-`drySeededLineCarriesEveryField`; if the now-unused `model` precondition goes
-too (#1415), remove `.noModel` from `DryUnavailableReason`, from the pinned set
-in `dryUnavailableReasonsArePinnedAndDistinct`, and from the reading table in
-`.claude/skills/model-eval/SKILL.md`. Note also that `PASTURA_DRY_LAST_N=-1`
-flips meaning at b10327 (whole training context → disabled) and the marker
-records only the resolved `lastN`, so an override arm looks unchanged.
+**Coupled edits — discharged by the b10327 bump (#1487)**, none of which any
+gate enforced: `nCtxTrain` is gone from `LlamaCppService.drySeededLine` and
+from `drySeededLineCarriesEveryField`; the `model` precondition went with it,
+so `.noModel` is gone from `DryUnavailableReason`, from the pinned set in
+`dryUnavailableReasonsArePinnedAndDistinct`, and from the reading table in
+`.claude/skills/model-eval/SKILL.md`.
+
+**`PASTURA_DRY_LAST_N=-1` flips meaning at b10327, silently.** At b8694 `-1`
+meant `n_ctx_train` (whole training context); b10327 clamps it with
+`std::max(dry_penalty_last_n, 0)`, and `dry_enabled` then fails its
+`dry_penalty_last_n != 0` conjunct — so the override **disables DRY**. It does
+not surface as `null-init`: the disabled path returns
+`llama_sampler_init_empty("?dry")`, a non-NULL handle that seeds and emits a
+normal `samplerDrySeeded` line. The marker records only the resolved `lastN`,
+so such an override arm is indistinguishable from a working one. (Read against
+the b8694 and b10327 sources at the bump, not inferred from the header.)
 
 **Reproduce** (from the repo root; the sidecar lands at `${OUT%.jsonl}.stderr.log`):
 
@@ -192,20 +202,25 @@ grep -HoE 'samplerDrySeeded|samplerDryUnavailable reason=[a-z-]+' /tmp/dry-*.std
   | sort | uniq -c   # -H, or the two arms merge into one unattributed count
 ```
 
-**Three marker paths stayed unexercised**: `no-model`, `null-init` and
-`no-grammar` are zero in both arms (every `word_wolf` LLM phase carries an
-output schema, and nothing failed). Their line *format* is unit-tested; their
-*emission* is not, so read a future zero on them as "still unexercised", not as
-a measured negative.
+**Two marker paths stayed unexercised**: `null-init` and `no-grammar` are zero
+in both arms (every `word_wolf` LLM phase carries an output schema, and nothing
+failed). Their line *format* is unit-tested; their *emission* is not, so read a
+future zero on them as "still unexercised", not as a measured negative. A third,
+`no-model`, was unexercised here and no longer exists — the b10327 bump retired
+it (#1487).
 
-**And `createSampler`'s three throwing exits carry no marker at all**
-(enumerated on `DryUnavailableReason`). So the partition is 6 marker paths — the
-five `reason=` values plus `samplerDrySeeded` — plus 3 silent ones, and the
-count above measures *generations that reached sampler construction*.
+**And `createSampler`'s throwing exits carry no marker at all.** Post-bump the
+partition is **5 marker paths** — the four `reason=` values on
+`DryUnavailableReason` plus `samplerDrySeeded` — plus **2 silent** throwing
+exits, and the count above measures *generations that reached sampler
+construction*. (At this b8694 baseline it was 6 and 3: `no-model` was the fifth
+reason, and `grammar-supplied-without-vocab` the third throw.) Re-derive both
+numbers from `DryUnavailableReason.allCases` and the `throw` sites rather than
+decrementing — they move together.
 
 Three different signals rule them out, and the run status is only one of them.
-The two `init_grammar` / vocab exits throw `LLMError.invalidGrammar`, which
-`streamFailureError` returns typed and run-fatal, so `status: ok` excludes them.
+The `init_grammar` exit throws `LLMError.invalidGrammar`, which
+`streamFailureError` returns typed and run-fatal, so `status: ok` excludes it.
 `chain_init` NULL throws `.generationFailed`, which is turn-degradable and can
 leave the run finishing `ok` (and `run_end.attempts` is the harness's own
 run-level retry count, not `LLMCaller`'s per-turn one) — but for a **gated**
@@ -217,17 +232,59 @@ emitter that produces the offset above also swallows a *failure* there — no
 run status and the event stream. A post-bump short count with no `turn_skipped`
 line is that case.
 
+### DRY sampler construction — 2026-08-15 (b10327, post-bump) — **no regression**
+
+Same two arms, same scenario, same `gemma-4-E2B-it-Q4_K_M.gguf`, on the bumped
+`llama.swift` 2.10327.0 (llama.cpp b10327). Only the pin differs from the
+baseline above, so the baseline is a same-model control rather than a remembered
+figure.
+
+| arm | `samplerDrySeeded` | `reason=no-seeds` | `reason=disabled` | total | `attempts` | vs. b8694 |
+|---|---|---|---|---|---|---|
+| default (`mult=0.8`) | **10** | 16 | 0 | 26 | 1 | identical |
+| `PASTURA_DRY_MULTIPLIER=0` | 0 | 0 | **26** | 26 | 1 | identical |
+
+Every comparand the baseline marked **stable** is unchanged: the three counts,
+the arm flip to 100 % `disabled`, zero `null-init`, and `attempts == 1` in both
+arms. `no-grammar` also stayed zero. The **26 = 25 + 1** reconciliation holds —
+both arms carry 25 `inference_completed` plus the one `narration` whose no-op
+emitter emits none — and `turn_skipped` is zero in both, so no throwing exit is
+hiding behind the count.
+
+Not comparands, recorded so a reader does not mistake either for drift:
+
+- `seededTokens` **15–38** (baseline 16–31, `seeds=1` throughout). Generation-
+  length variance over 10 samples, explicitly not a regression signal.
+- `phase_completed` 13 in the default arm vs 12 in the base arm. That is
+  `event_inject probability: 0.5` firing in one run and not the other; it gates
+  a template `summarize`, so the generation count is 25 in **both** — which is
+  the point the baseline makes about it, now observed directly.
+
+Two things this run settles that the unit tests structurally cannot, since only
+*line format* is testable off-device: the marker **still emits** at the new pin
+(the thing #1415 could not observe), and `nCtxTrain` is absent from all 26 lines
+in both arms — the field's removal confirmed at emission, not just in
+`drySeededLineCarriesEveryField`.
+
+What it does **not** settle is unchanged from the baseline: the line echoes the
+Swift-side `DryConfig`, never the values llama.cpp received, so argument order
+stays code-review-gated. And `no-grammar` / `null-init` remain unexercised —
+read their zeros as "still unexercised", not as a measured negative.
+
+Reproduce: identical to the baseline's block above.
+
 ---
 
-## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **PASS (Mac filter only — advances to the ADR-011 real-device PoC, never an adoption)**
+## Gemma 4 E2B QAT `UD-Q4_K_XL` (`unsloth/gemma-4-E2B-it-qat-GGUF`) — 2026-08-13 — **ADOPTED (Gate 1 PASS 2026-08-13; ADR-011 P3–P5 PASSED on device 2026-08-15)**
 
 - **Gate**: 1 (Mac filter, `/model-eval`) — 6/6 cells `ok`, `attempts_mean` 1.00,
   `language_mismatch_total` 0, no crash. Run on a **bumped pin** (`llama.swift`
-  2.10327.0 / llama.cpp b10327) in a throwaway worktree; `main` stays at 2.8694.0
-  and no pin change came out of this eval.
+  2.10327.0 / llama.cpp b10327) in a throwaway worktree; `main` was still at
+  2.8694.0 at the time and no pin change came out of this eval. The bump landed
+  separately in #1487, so `main` now carries this same pin.
 - **Model**: `unsloth/gemma-4-E2B-it-qat-GGUF` · `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`
   · Apache-2.0, non-gated · 2,620,370,976 B · sha256 `e5310072…6889` (both matching
-  the HF resolve `X-Linked-Size` / `X-Linked-ETag`) — **−15.7 %** against the shipped
+  the HF resolve `X-Linked-Size` / `X-Linked-ETag`) — **−15.7 %** against the incumbent
   Q4_K_M's 3,106,735,776 B. **Despite the name the quantisation is not K-quant**: the
   tensor spread is `Q4_0`×278 / `F32`×263 and `general.name` reads *"smart Q4_0,
   QAT-lossless"* — which is also why it has Metal kernels where the mobile sibling
@@ -256,12 +313,14 @@ line is that case.
   key — so **both** samples survive only in the issue comment.)
   ADR-011 **P1** (non-gated, Apache-2.0, anonymous resolve 302 → CDN 200) and **P2**
   (`<|turn>` id 105 / `<turn|>` id 106 both `token_type=3`) verified for this
-  re-export; **P3–P5 untouched**.
+  re-export; **P3–P5 untouched** *at the time of this run — see the 2026-08-15 update below, where they PASSED*.
 - **Rationale**: the Mac filter cannot accept, only reject — and there is nothing
   here to reject on. Mechanical floor clean, no measured quality regression, and the
   largest download saving of any QAT build that actually runs.
-- **Disposition**: **advances to the ADR-011 real-device PoC (P3–P5) — not an
-  adoption**, and two costs sit outside the −0.49 GB headline. (1) It cannot run at
+- **Disposition** (as of the Gate 1 run; **both bullets below supersede it** —
+  the gate has since run and this is an adoption): **advances to the ADR-011
+  real-device PoC (P3–P5) — not an adoption**, and two costs sit outside the
+  −0.49 GB headline. (1) It cannot run at
   all on `main`'s pin, so adoption is gated on the #1415 bump landing first — whose
   device-only risk (Metal behaviour, the 8 GB minimum-RAM sizing in ADR-002
   § "Supported Devices", binary size) is entirely unmeasured, as is the DRY sampler
@@ -271,6 +330,31 @@ line is that case.
   3.11 GB file orphans until deleted by hand (ADR-015 / #548) — the saving accrues to
   *new* installs, and the retired id must move into `RETIRED_MODEL_IDS` in
   `scripts/gallery_highlight_validate.py` in the same PR (ADR-029).
+- **Update (#1487)** — supersedes **cost (2) above, and this bullet's P3–P5
+  ordering**. (Cost (1), the pin gate, was cleared by the same PR's bump — see the
+  **Gate** bullet at the top of this entry.) Cost (2) is **not** paid: the adopted
+  shape is ADD-and-keep — the descriptor joins `catalog` while the incumbent stays,
+  so no existing user re-downloads, nothing orphans, and no id retires
+  (`RETIRED_MODEL_IDS` untouched). And the entry **landed before P3–P5**, inverting
+  the ordering above: the gate has no other way to run, since the app has no
+  sideload path and the catalog is the only route onto a device. That inversion is
+  paid for by a pre-commitment — **if P3–P5 do not PASS, the descriptor commits are
+  reverted before #1489 leaves Draft** — which the next bullet discharges.
+- **Update (2026-08-15) — ADR-011 P3–P5 PASSED on device; this is now an
+  adoption.** P3: GBNF PoC clean on Prisoner's Dilemma and Bokete through the vote
+  phase — no `Unexpected empty grammar stack` / `GGML_ASSERT` on the first
+  generated token, JSON parsed for whole runs. P4: both incumbents re-run
+  *alongside* the candidate, same device and session, without quitting the app —
+  no regression. (The earlier pre-candidate incumbent run stays what it was, an
+  isolation of pin-risk from candidate-risk, not a substitute for this.) P5:
+  satisfied statically, no device step. So the revert pre-commitment above is
+  **discharged, not waived**, and the catalog now leads with this build:
+  `recommendedModelID` and `defaultInitialModelID` both point at it, and the
+  Q4_K_M entry is kept-but-hidden under ADD-and-keep (ADR-002 § Amendment
+  2026-08-15 — ADD-and-keep; that ADR has a second same-dated amendment for the
+  pin bump). **Not licensed by this PASS**: lowering `minRAM`. None of P3–P5
+  measures runtime footprint, so the 6.5 GB floor stays inherited and unmeasured
+  despite the 0.49 GB smaller file.
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-13 ·
   `gemma-4-e2b-qat-q4-k-xl`, with the control arm under `gemma-4-e2b-q4-k-m` of the
   same date (gitignored, per-machine — the **durable** backing is the issue comment
@@ -386,8 +470,8 @@ line is that case.
   541 tensors, omitting `attn_k` / `attn_v` / `attn_k_norm` for layers 15–34 (60
   tensors) — where the shipped non-QAT Q4_K_M materialises all 601. Zero tensors
   exist in the QAT file that are absent from the incumbent, so it is a structural
-  difference, not corruption. The pinned llama.cpp b8694 (`mattt/llama.swift`
-  `exact: "2.8694.0"`) has no shared-KV tail-layer loader. **Not vendor-specific**:
+  difference, not corruption. The then-pinned llama.cpp b8694 (`mattt/llama.swift`
+  `exact: "2.8694.0"`) had no shared-KV tail-layer loader. **Not vendor-specific**:
   unsloth's own QAT re-export (`unsloth/gemma-4-E2B-it-qat-GGUF` →
   `gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf`, 2,620,370,976 B, sha256 `e5310072…6889`)
   carries the same 541-tensor layout (identical tensor-name set, different
@@ -397,9 +481,15 @@ line is that case.
   **2.10327.0** (llama.cpp b10327) loads the QAT file *and* the incumbent, while
   b8694 loads only the incumbent — a bump is therefore sufficient *and* the
   wrapper release exists.
-- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support. Met at
-  **b10327** — the only build measured to load a 541-tensor QAT file, so nothing is
-  known about the builds between it and b8694.
+- **Unblocked by**: the pinned llama.cpp gains shared-KV tail-layer support.
+  **MET as a loader class at b10327**, which `main` now pins (#1487) — the only
+  build measured to load a 541-tensor QAT file, so nothing is known about the
+  builds between it and b8694. This does **not** revive *this* candidate: per
+  § "`BLOCKED` entries" the row names the condition allowing a **retry**, that
+  retry already ran (§2026-08-12), and it was a clean NO-GO. The live
+  *adoption* candidate is `UD-Q4_K_XL` (§2026-08-13), still gated on ADR-011
+  P3–P5 device QA; QAT-Mobile `UD-Q2_K_XL` (§2026-08-13) stays BLOCKED on its
+  own, pin-independent blocker.
 - **Retry**: **ran** inside the #1415 spike — the 2026-08-12 entry above, a clean
   NO-GO. Follow that entry, not #1416, which has since been repointed at the
   QAT-Mobile retry. This entry stays a `BLOCKED` record of 2026-08-08 rather than

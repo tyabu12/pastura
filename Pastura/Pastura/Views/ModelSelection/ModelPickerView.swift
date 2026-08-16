@@ -49,7 +49,14 @@ struct ModelPickerView: View {
       initialValue: ModelSelectionState(
         selected: recommended,
         recommendedID: recommended,
-        availableModels: modelManager.catalog
+        // `visibleCatalog`, so a new install is never offered the older, larger
+        // download of a model it can get as the current build. Snapshotting the
+        // filtered array into `@State` is safe only because of a guarantee
+        // outside this file: `visibleCatalog`'s conjunct 2 hides on exactly
+        // `.notDownloaded`, and `shouldShowInitialModelPicker` gates the picker
+        // on *every* entry being `.notDownloaded` — so the filter cannot change
+        // under the snapshot. Relax that gate and this has to become a live read.
+        availableModels: modelManager.visibleCatalog
       )
     )
   }

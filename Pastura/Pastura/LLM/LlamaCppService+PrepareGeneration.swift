@@ -10,11 +10,11 @@ import LlamaSwift
 /// separately from it (see ``SamplerHandles``). The caller owns both
 /// handles' lifetimes — see the precondition note on the helper itself.
 nonisolated struct PreparedGeneration {
-  /// Optional to match the upstream `llama_model_get_vocab` return type
-  /// and the existing `tokenize` / `decodePiece` / `decodePieceRaw`
-  /// signatures, which all accept `OpaquePointer?` directly without a
-  /// nil check at the use site.
-  let vocab: OpaquePointer?
+  /// Non-optional — see the `vocab:` parameter doc on ``createSampler``. The
+  /// several helpers that still take `OpaquePointer?` (`tokenize`,
+  /// `decodePiece`, `safeSample`, …) need no change: Swift promotes `T` to
+  /// `T?` at the call site.
+  let vocab: OpaquePointer
   let handles: SamplerHandles
 }
 
@@ -38,9 +38,12 @@ extension LlamaCppService {
   ///
   /// **Sampler ownership** — the returned `handles` are owned by the
   /// caller. Pair every successful return with
-  /// `defer { llama_sampler_free(prepared.handles.chain) }` AND
+  /// `defer { llama_sampler_free(prepared.handles.chain) }`,
   /// `defer { prepared.handles.grammar.map { llama_sampler_free($0) } }`
-  /// in the caller's scope. The helper does NOT install its own defer
+  /// AND `defer { prepared.handles.dry.map { llama_sampler_free($0) } }`
+  /// in the caller's scope — all three. The `dry` handle (#1105) is as
+  /// separate an allocation as `grammar` (see ``SamplerHandles``).
+  /// The helper does NOT install its own defer
   /// because Swift's `defer` only fires at the helper's scope exit, which
   /// would free the handles before the caller's inference loop runs.
   /// The split-out grammar is a separate allocation — freeing the chain
@@ -65,7 +68,11 @@ extension LlamaCppService {
     schema: OutputSchema?,
     antiRepetitionSeeds: [String]
   ) throws -> PreparedGeneration {
-    let vocab = llama_model_get_vocab(model)
+    // `.notLoaded` rather than a new error key: a loaded model always has a
+    // vocab, so NULL here means the model is not actually usable. Why the
+    // unwrap is up-front rather than at the `createSampler` call: the `vocab`
+    // parameter doc on `createSampler`.
+    guard let vocab = llama_model_get_vocab(model) else { throw LLMError.notLoaded }
 
     let formattedPrompt = try applyChatTemplate(system: system, user: user)
     let tokens = try tokenize(vocab: vocab, text: formattedPrompt, addSpecial: true)
@@ -91,7 +98,7 @@ extension LlamaCppService {
     // are freed by the caller's `defer`s; any step added after this and
     // before the return would leak the chain / grammar / dry if it throws.
     let handles = try createSampler(
-      grammarString: grammarString, vocab: vocab, model: model,
+      grammarString: grammarString, vocab: vocab,
       antiRepetitionSeeds: antiRepetitionSeeds)
 
     return PreparedGeneration(vocab: vocab, handles: handles)

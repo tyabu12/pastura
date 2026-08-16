@@ -63,7 +63,8 @@ struct ModelManagerTests {
     fileName: String = testGemmaFileName,
     fileSize: Int64 = 0,
     sha256: String = "",
-    systemPromptSuffix: String? = nil
+    systemPromptSuffix: String? = nil,
+    replacesModelID: ModelID? = nil
   ) -> ModelDescriptor {
     ModelDescriptor(
       id: id,
@@ -78,7 +79,8 @@ struct ModelManagerTests {
       turnMarkers: .chatML,
       minRAM: 6_500_000_000,
       modelInfoURL: URL(string: "https://example.com")!,
-      systemPromptSuffix: systemPromptSuffix
+      systemPromptSuffix: systemPromptSuffix,
+      replacesModelID: replacesModelID
     )
   }
 

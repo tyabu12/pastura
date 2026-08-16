@@ -331,8 +331,55 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   /// descriptor is still `.checking` and this would spuriously return false.
   var shouldShowInitialModelPicker: Bool {
     guard !hadPersistedActiveIDAtInit else { return false }
-    guard catalog.count > 1 else { return false }
+    // The two conjuncts below read **different arrays**, deliberately.
+    // "Is there a choice to make" has to measure what the picker draws, and
+    // `ModelPickerView` draws `visibleCatalog` — an ADD-and-keep catalog of two
+    // entries passes `catalog.count > 1` while rendering a single row, i.e. the
+    // dead-weight picker this guard exists to prevent. "Has the user downloaded
+    // anything yet" is equivalent on either array (a hidden entry is
+    // `.notDownloaded` by construction), so it stays on the full catalog.
+    guard visibleCatalog.count > 1 else { return false }
     return catalog.allSatisfy { state[$0.id] == .notDownloaded }
+  }
+
+  /// `catalog` minus any entry that has been replaced (`ModelRegistry`
+  /// § "ADD-and-keep") and is not on this device. **The user-facing model lists
+  /// read this; everything else reads `catalog`.**
+  ///
+  /// The surfaces that filter are `grep visibleCatalog`. What must **not** —
+  /// `lookup`, `checkModelStatus`, `resolveInitialActiveID`, `deleteModel`,
+  /// `orphanedModelFiles()`, the Settings storage total — is not greppable and
+  /// so is listed here: all stay on the full `catalog`, and
+  /// `orphanedModelFiles()` would misbehave outright on the filtered one,
+  /// offering a *hidden but present* GGUF for deletion as an "unused" file.
+  ///
+  /// Three conjuncts, all load-bearing:
+  ///
+  /// 1. **Something in this catalog replaces it.** Derived from the manager's own
+  ///    `catalog`, not `ModelRegistry.catalog`, so a substituted test/preview
+  ///    catalog filters consistently with what it renders.
+  /// 2. **Its state is exactly `.notDownloaded`.** `.checking` deliberately does
+  ///    not hide — Settings renders live, so hiding on the transient state would
+  ///    flicker rows out for a frame on every appearance. The picker's failure
+  ///    mode under the same conjunct is worse and quieter: it snapshots this
+  ///    array once into `@State`, so a row hidden while `.checking` would stay
+  ///    hidden for the whole picker session. What rules that out today is
+  ///    `shouldShowInitialModelPicker` requiring *every* entry `.notDownloaded`
+  ///    before the picker is reachable at all — relax that gate and this
+  ///    snapshot needs re-examining.
+  /// 3. **It is not the active model.** `computeState` deletes a size-mismatched
+  ///    file and returns `.notDownloaded`, so an active-but-corrupted legacy
+  ///    build would otherwise vanish from every surface at once — no row to
+  ///    re-download it from, and no menu entry to switch away to something else.
+  var visibleCatalog: [ModelDescriptor] {
+    catalog.filter { descriptor in
+      // Via the shared `ModelRegistry.replacement(for:in:)` — see its doc for
+      // why there must not be a second derivation of this relation.
+      guard ModelRegistry.replacement(for: descriptor.id, in: catalog) != nil else { return true }
+      guard descriptor.id != activeModelID else { return true }
+      if case .notDownloaded = state[descriptor.id] { return false }
+      return true
+    }
   }
 
   /// The `ModelDescriptor` matching `activeModelID`, or `nil` if the catalog is empty.

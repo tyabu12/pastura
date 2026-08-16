@@ -21,7 +21,7 @@ let package = Package(
     // Same packages, same pins as the app project
     // (Pastura/Pastura.xcodeproj — see Package.resolved there).
     .package(url: "https://github.com/jpsim/Yams.git", exact: "6.2.2"),
-    .package(url: "https://github.com/mattt/llama.swift.git", exact: "2.8694.0")
+    .package(url: "https://github.com/mattt/llama.swift.git", exact: "2.10327.0")
   ],
   targets: [
     // Obj-C++ exception-catching bridge for llama_sampler_sample.

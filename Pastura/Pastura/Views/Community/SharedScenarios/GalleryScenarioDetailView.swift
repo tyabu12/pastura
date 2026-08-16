@@ -167,7 +167,11 @@ struct GalleryScenarioDetailView: View {
     rows.append(
       (
         String(localized: "Recommended model"),
-        ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
+        // Resolved like the affordances below it, so the row never names a
+        // build the picker hides and a fresh install cannot obtain. Still `nil`
+        // for an id in no catalog entry — see `recommendationTarget`.
+        ModelRegistry.recommendationTarget(
+          for: scenario.recommendedModel, state: modelManager.state)?.displayName
           ?? String(format: String(localized: "Unknown model (%@)"), scenario.recommendedModel)
       ))
     rows.append((String(localized: "Est. inferences"), "\(scenario.estimatedInferences)"))

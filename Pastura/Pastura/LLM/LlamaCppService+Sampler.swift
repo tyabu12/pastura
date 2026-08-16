@@ -5,17 +5,23 @@ import os
 // MARK: - Sampler
 
 /// Chain + optional grammar handles produced by
-/// ``LlamaCppService/createSampler(grammarString:vocab:)``.
+/// ``LlamaCppService/createSampler(grammarString:vocab:antiRepetitionSeeds:)``.
 ///
 /// The grammar is held **separately** from the chain (rather than as a
 /// chain member) so ``LlamaCppService/safeSample(handles:context:vocab:candidates:diag:)``
 /// can run the upstream `common_sampler_sample` two-pass strategy: sample
 /// from the grammar-free chain, and only when the pick violates the
 /// grammar, resample with the grammar applied FIRST. That split is what
-/// avoids the b8694 dist-sampler degeneracy (#751 sub-class 2) — a grammar
+/// avoids the dist-sampler degeneracy (#751 sub-class 2) — a grammar
 /// mask applied after top_k's truncation can leave the sorted top
 /// candidate at `-inf`, poisoning the softmax so the sampler picks a masked
 /// token (empty output at position 0).
+///
+/// **Not a b8694 artifact — do not retire this split on the pin bump.**
+/// `llama_sampler_dist_apply`, and its `if (!cur_p->sorted)` guard that is the
+/// whole mechanism, is byte-identical at b8694 and b10327 — measured on the
+/// upstream sources, ADR-002 § "Amendment 2026-08-15 — llama.swift pin bumped
+/// to 2.10327.0 (b10327)", bar item 2.
 ///
 /// **Ownership**: all three handles are caller-owned. Free `chain` **always**,
 /// and `grammar` / `dry` when non-nil. Freeing the chain does NOT free the
@@ -54,11 +60,15 @@ extension LlamaCppService {
   ///   - grammarString: Pre-built GBNF from ``GBNFGrammarBuilder``. When
   ///     non-nil, a `llama_sampler_init_grammar` handle is built and
   ///     returned alongside the chain (NOT inserted into it).
-  ///   - vocab: The model's vocabulary pointer. Required iff
-  ///     `grammarString` is non-nil — the grammar parser needs it to
-  ///     resolve token IDs.
-  ///   - model: The model pointer, used only to read `n_ctx_train` when
-  ///     building the DRY sampler (#1105). Optional; DRY is skipped when nil.
+  ///   - vocab: The model's vocabulary pointer. **Unconditionally required**:
+  ///     `penalties` is a chain member on *both* the grammar and no-grammar
+  ///     paths and takes `n_vocab`, so vocab is not a grammar-only need.
+  ///     Non-optional rather than guarded, because `llama_vocab_n_tokens(nil)`
+  ///     dereferences NULL rather than throwing. That is why this parameter is
+  ///     non-optional, and `makeCandidateBuffer`'s too — there is no optional
+  ///     left to guard by the time either is called, so `prepareGeneration`
+  ///     unwraps `llama_model_get_vocab` at the entry point and throws
+  ///     `.notLoaded` for both.
   ///   - antiRepetitionSeeds: Prior text spans to seed the DRY sampler with
   ///     (content-only — the value text, never JSON scaffold). Empty leaves DRY
   ///     off, so the sampler is byte-for-byte the pre-#1105 configuration.
@@ -68,23 +78,21 @@ extension LlamaCppService {
   /// The grammar and DRY are applied outside the chain by `safeSample`
   /// (grammar-first only on a resample; DRY every pass), matching llama.cpp's
   /// `common_sampler_sample`. DRY is a SOFT penalty (never `-inf`), so
-  /// applying it before top_k cannot manufacture the b8694 all-masked
+  /// applying it before top_k cannot manufacture the all-masked
   /// degeneracy that motivated splitting the grammar out (#751).
   ///
   /// **Call sites**: both `runGeneration` (non-streaming) and
   /// `runStreamGeneration` (streaming) call this via `prepareGeneration`.
-  /// If you add a third caller, wire the `grammarString` / `vocab` pair or
-  /// explicitly pass `nil` for both — missing one side silently bypasses
-  /// grammar on the path the new caller exercises, the exact regression
-  /// this plan's Critic Axis 3 flagged.
+  /// A third caller must always supply `vocab`, and pass `grammarString`
+  /// whenever its path has a schema — omitting it silently bypasses grammar
+  /// on that path.
   ///
   /// - Throws: ``LLMError/invalidGrammar(description:)`` if
   ///   `llama_sampler_init_grammar` returns NULL (unparseable GBNF —
   ///   a caller-side / builder bug; see ``LLMError/invalidGrammar``).
   func createSampler(
     grammarString: String? = nil,
-    vocab: OpaquePointer? = nil,
-    model: OpaquePointer? = nil,
+    vocab: OpaquePointer,
     antiRepetitionSeeds: [String] = []
   ) throws -> SamplerHandles {
     let sparams = llama_sampler_chain_default_params()
@@ -98,11 +106,12 @@ extension LlamaCppService {
     // `common_sampler_sample` two-pass strategy (sample from the chain,
     // grammar-check the pick, resample grammar-first only on a miss). A
     // grammar stage inside the chain would run AFTER top_k's truncation,
-    // reintroducing the b8694 dist-degeneracy that masks the sorted top
+    // reintroducing the dist-degeneracy that masks the sorted top
     // candidate and poisons the softmax (#751 sub-class 2).
     llama_sampler_chain_add(
       chain,
       llama_sampler_init_penalties(
+        llama_vocab_n_tokens(vocab),  // n_vocab
         64,  // penalty_last_n: look back 64 tokens
         Self.repeatPenalty,  // repeat_penalty: 1.1
         0.0,  // freq_penalty: disabled
@@ -133,14 +142,6 @@ extension LlamaCppService {
       emitDryUnavailable(.noGrammar)
       return SamplerHandles(chain: chain, grammar: nil, dry: nil)
     }
-    guard let vocab else {
-      // Defensive: if the caller supplies grammar but forgets vocab, we
-      // can't wire the grammar sampler. This is a programming bug,
-      // surface it loudly via the same fail-fast path as a NULL return.
-      llama_sampler_free(chain)
-      throw LLMError.invalidGrammar(
-        description: "createSampler: grammar supplied without vocab")
-    }
     // `llama_sampler_init_grammar` returns NULL when the grammar
     // string itself fails to parse. GBNFGrammarBuilder golden tests
     // should prevent this reaching production, but if it does we
@@ -155,7 +156,7 @@ extension LlamaCppService {
       // verbatim — the `invalidGrammar` error's description field is
       // rendered in iOS alerts where backslashes / quotes are mangled.
       // Append captured stderr (the parser-internal detail from
-      // llama-grammar.cpp:713) wrapped in sentinel markers so unrelated
+      // llama-grammar.cpp:715) wrapped in sentinel markers so unrelated
       // process-level stderr writes during the capture window are
       // visually attributable rather than mistaken for grammar errors.
       // Filter:  subsystem:app.pastura.Pastura category:LlamaCppService
@@ -180,7 +181,7 @@ extension LlamaCppService {
     // otherwise is `DryConfig`'s call — do not restate it here. When `dry` is
     // nil the sampler is the pre-#1105 configuration.
     let drySampler = buildAndSeedDrySampler(
-      vocab: vocab, model: model, seeds: antiRepetitionSeeds)
+      vocab: vocab, seeds: antiRepetitionSeeds)
     return SamplerHandles(chain: chain, grammar: grammarSampler, dry: drySampler)
   }
 
@@ -201,7 +202,7 @@ extension LlamaCppService {
   ///   `defer`). Returning it (rather than taking a closure) keeps the
   ///   `defer` adjacent to the token loop it guards.
   func makeCandidateBuffer(
-    schema: OutputSchema?, vocab: OpaquePointer?
+    schema: OutputSchema?, vocab: OpaquePointer
   ) -> UnsafeMutableBufferPointer<llama_token_data>? {
     guard schema != nil else { return nil }
     return .allocate(capacity: Int(llama_vocab_n_tokens(vocab)))
@@ -257,9 +258,10 @@ extension LlamaCppService {
   ///
   /// **Why dup2 is needed.** llama.cpp's grammar parser writes detailed
   /// errors via `fprintf(stderr, "error parsing grammar: %s\n\n%s\n", ...)`
-  /// at `llama-grammar.cpp:713` (b8694), then `parser.parse` returns false.
-  /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` at line
-  /// 1209 reaches our `llama_log_set` callback (`LlamaCppService.swift`).
+  /// at `llama-grammar.cpp:715` (b10327), then `parser.parse` returns false.
+  /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` at
+  /// `llama-grammar.cpp:1223` (b10327) reaches our `llama_log_set` callback
+  /// (`LlamaCppService.swift`).
   /// iOS doesn't pipe process stderr to os_log, so without this `dup2`
   /// redirect the actionable detail (`expecting ']' at`,
   /// `Undefined rule identifier 'X'`, etc.) is permanently lost.

@@ -11,14 +11,14 @@
 //
 //  Scope (covered):
 //    * `std::runtime_error: Unexpected empty grammar stack after accepting
-//      piece: …` (non-EOG path at `llama-grammar.cpp:~1507` of b8694).
+//      piece: …` (non-EOG path at `llama-grammar.cpp:~1521` of b10327).
 //    * Any other `std::exception` raised from the sample / chain-accept
 //      stack — including future llama.cpp bumps that introduce new throws.
 //
 //  Scope (NOT covered):
 //    * `GGML_ABORT` (SIGABRT) cannot be caught here — POSIX signals do not
 //      propagate through `try/catch`. The #253 EOG-path abort at
-//      `llama-grammar.cpp:1435` is instead AVOIDED upstream of this bridge:
+//      `llama-grammar.cpp:1449` is instead AVOIDED upstream of this bridge:
 //      `LlamaCppService` splits sampling into apply + accept and skips
 //      `llama_sampler_accept` for EOG tokens (which would advance the
 //      grammar into the never-used post-EOG state that triggers the abort).
@@ -78,7 +78,7 @@ pastura_sample_result_t pastura_llama_sampler_sample_safe(
 /// what `llama_sampler_sample` does internally) so it can SKIP this accept
 /// for EOG tokens — accepting EOG advances the grammar into the never-used
 /// post-EOG state that fires the #253 `GGML_ABORT` at
-/// `llama-grammar.cpp:1435`. For every non-EOG token the accept runs exactly
+/// `llama-grammar.cpp:1449`. For every non-EOG token the accept runs exactly
 /// as the bundled `llama_sampler_sample` would, so the sampling distribution
 /// is unchanged.
 ///

@@ -9,7 +9,9 @@ import os
 /// environment is now an optional **A/B override lever**: it is unreachable in
 /// TestFlight/Release (env vars aren't set there), so it never affects
 /// production, but it lets the ADR-013 harness sweep alternative constants or
-/// run the base arm — `PASTURA_DRY_MULTIPLIER=0` disables DRY. This keeps the
+/// run the base arm — `PASTURA_DRY_MULTIPLIER=0` is the canonical way to
+/// disable DRY, and two further levers reach the same arm (all three are
+/// named on ``DryUnavailableReason/disabled``). This keeps the
 /// config in the LLM layer where it belongs (a llama.cpp sampler knob, not a
 /// backend-agnostic domain model — Models/ would be the wrong home; the LLM
 /// layer also can't import `App/FeatureFlags` per the dependency rule).
@@ -58,10 +60,34 @@ nonisolated struct DryConfig {
   }
 
   /// Pure resolution over an injected environment dict, applying any harness
-  /// A/B overrides on top of the shipped constants. Returns `nil` only for the
-  /// explicit base arm (`PASTURA_DRY_MULTIPLIER=0`, or any non-positive
-  /// override); otherwise DRY is enabled. `allowedLength` is 3 because ja names
-  /// / topic words tokenize to 2–3 tokens.
+  /// A/B overrides on top of the shipped constants. Returns `nil` for the base
+  /// arm; otherwise DRY is enabled. `allowedLength` is 3 because ja names /
+  /// topic words tokenize to 2–3 tokens.
+  ///
+  /// **The three guards below mirror upstream's `dry_enabled` predicate** —
+  /// `dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`, at
+  /// `src/llama-sampler.cpp:3406` (b10327). It sits inside
+  /// `llama_sampler_init_dry` (`src/llama-sampler.cpp:3400`), which clamps
+  /// `penalty_last_n` to `max(…, 0)` (`src/llama-sampler.cpp:3401`) *before*
+  /// the predicate reads it. Re-read all three lines on each pin bump: a value
+  /// upstream rejects is not an error there — it returns a non-NULL
+  /// `llama_sampler_init_empty("?dry")` that seeds and emits an ordinary
+  /// `samplerDrySeeded` line, so a lever guarded on one side only runs the A/B
+  /// arm inert while every marker reads healthy (`docs/models/eval-log.md`,
+  /// "`PASTURA_DRY_LAST_N=-1` flips meaning at b10327, silently"). With the
+  /// guards it degrades to `nil` and the harness sees `reason=disabled`.
+  ///
+  /// `base >= 1.0` is the byte-mirror; the other two read stricter, on purpose:
+  ///
+  /// - `multiplier > 0` — a negative multiplier makes upstream *reward*
+  ///   repetition, never a meaningful arm here; `> 0` also rejects a `NaN`
+  ///   override, which upstream's `!= 0.0f` accepts.
+  /// - `penaltyLastN > 0` — post-clamp the two accept identical inputs over the
+  ///   whole `Int32` domain, but the Swift guard sees the **raw** value, so
+  ///   loosening it to `!= 0` re-admits `PASTURA_DRY_LAST_N=-1`. That value
+  ///   changed meaning rather than staying invalid: at b8694 it was a documented
+  ///   sentinel for "penalise over `n_ctx_train`", and b10327 dropped
+  ///   `n_ctx_train` from the initializer, so it now means off (#1487).
   static func resolve(environment env: [String: String]) -> DryConfig? {
     func float(_ key: String, _ fallback: Float) -> Float {
       env[key].flatMap(Float.init) ?? fallback
@@ -70,12 +96,14 @@ nonisolated struct DryConfig {
       env[key].flatMap(Int32.init) ?? fallback
     }
     let multiplier = float("PASTURA_DRY_MULTIPLIER", defaultMultiplier)
-    guard multiplier > 0 else { return nil }
+    let base = float("PASTURA_DRY_BASE", 1.75)
+    let penaltyLastN = int32("PASTURA_DRY_LAST_N", 512)
+    guard multiplier > 0, base >= 1.0, penaltyLastN > 0 else { return nil }
     return DryConfig(
       multiplier: multiplier,
-      base: float("PASTURA_DRY_BASE", 1.75),
+      base: base,
       allowedLength: int32("PASTURA_DRY_ALLOWED_LENGTH", 3),
-      penaltyLastN: int32("PASTURA_DRY_LAST_N", 512),
+      penaltyLastN: penaltyLastN,
       seqBreakers: ["\n"])
   }
 }
@@ -87,27 +115,29 @@ nonisolated struct DryConfig {
 /// `samplerDry*` line means the sampler path was never reached — a different
 /// fact from "DRY was off".
 ///
-/// **The three throwing exits carry no marker** (`chain_init` NULL, grammar
-/// without vocab, `init_grammar` NULL — #194); `prepareGeneration` can throw
-/// upstream too. A marker counts generations that *reached sampler
-/// construction*, never *attempted*, so read `run_end.status` alongside the
-/// sweep before calling a short count a broken instrument.
+/// **The two throwing exits carry no marker** (`chain_init` NULL,
+/// `init_grammar` NULL — #194); `prepareGeneration` can throw upstream too.
+/// A marker counts generations that *reached sampler construction*, never
+/// *attempted*, so read `run_end.status` alongside the sweep before calling
+/// a short count a broken instrument.
 ///
 /// Raw values join to the `.stderr.log` sweep in `/model-eval` § Step 2;
 /// `DrySamplerConfigTests` pins the set.
 nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
-  /// `DryConfig.resolve()` returned nil — the harness A/B base arm
-  /// (`PASTURA_DRY_MULTIPLIER=0`). Never reached in TestFlight / Release.
+  /// `DryConfig.resolve()` returned nil — the harness A/B base arm, reached
+  /// through any of its three levers (`PASTURA_DRY_MULTIPLIER=0`,
+  /// `PASTURA_DRY_BASE` under 1.0, `PASTURA_DRY_LAST_N` non-positive; see
+  /// `DryConfig.resolve(environment:)` for why all three are guarded).
+  /// Never reached in TestFlight / Release.
   case disabled
   /// The caller passed no prior text. Structural, not a fault: `speak_each` is
   /// the only seeding phase in Engine, and it seeds an agent once that agent
   /// has a non-empty prior `lastOutputs` entry — **not** "round 2 onward",
   /// since `lastOutputs` persists across phases, so a *second* `speak_each`
-  /// seeds from its first round. Per-scenario counts:
-  /// `docs/models/eval-log.md` § "DRY sampler construction".
+  /// seeds from its first round. Per-scenario counts: `docs/models/eval-log.md`
+  /// § "DRY sampler construction — 2026-08-15 (b8694 baseline)" — more than one
+  /// section shares that prefix, so cite it through the pin qualifier.
   case noSeeds = "no-seeds"
-  /// No model pointer, so `n_ctx_train` is unreadable.
-  case noModel = "no-model"
   /// `llama_sampler_init_dry` returned NULL.
   case nullInit = "null-init"
   /// `createSampler` returned before reaching the builder at all — no
@@ -118,19 +148,21 @@ nonisolated enum DryUnavailableReason: String, CaseIterable, Sendable {
 nonisolated extension LlamaCppService {
   /// The line emitted once per generation that installs a DRY sampler.
   ///
-  /// `nCtxTrain` is on the line deliberately: llama.cpp b10327 **drops** that
-  /// argument from `llama_sampler_init_dry`, so recording what the pinned
-  /// b8694 build passes is what makes a harness run a baseline the bump can
-  /// be diffed against, rather than a mere liveness check (#1415).
+  /// Every field is a `DryConfig` value the sampler was built from, plus the
+  /// seeding outcome and the model identifier the `/model-eval` sweep joins
+  /// on — that trio is the rule for whether a future field belongs here, and
+  /// for retiring one: a field naming an argument the sampler no longer takes
+  /// (as `nCtxTrain` did before the b10327 pin) reads as a live parameter and
+  /// is worse than no field at all.
   ///
   /// Pure and `static` so the format is unit-testable without inference — the
   /// seeding path itself needs a real model (PR #463).
   static func drySeededLine(
-    seededTokenCount: Int, seedCount: Int, nCtxTrain: Int32,
+    seededTokenCount: Int, seedCount: Int,
     config: DryConfig, model: String
   ) -> String {
     "samplerDrySeeded seededTokens=\(seededTokenCount) seeds=\(seedCount) "
-      + "nCtxTrain=\(nCtxTrain) mult=\(config.multiplier) base=\(config.base) "
+      + "mult=\(config.multiplier) base=\(config.base) "
       + "allowed=\(config.allowedLength) lastN=\(config.penaltyLastN) model=\(model)"
   }
 
@@ -176,10 +208,10 @@ nonisolated extension LlamaCppService {
 
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
-  /// enhancement, so any missing precondition (the explicit base arm
-  /// `PASTURA_DRY_MULTIPLIER=0`, no seeds, no
-  /// model, NULL sampler) degrades to `nil` rather than failing the whole
-  /// generation. Ownership: the returned handle is caller-owned (freed in the
+  /// enhancement, so any missing precondition — the base arm (see
+  /// ``DryUnavailableReason/disabled``), no seeds, or a NULL sampler —
+  /// degrades to `nil` rather than failing the whole generation.
+  /// Ownership: the returned handle is caller-owned (freed in the
   /// run-loop `defer`s alongside `grammar`).
   ///
   /// **Content-only seeding**: `seeds` are the prior statement's *value* text,
@@ -196,10 +228,10 @@ nonisolated extension LlamaCppService {
   /// and does not explain the weaker en effect (see `DryConfig`) — an
   /// exact-token seed would recover a token or three, not a mechanism.
   func buildAndSeedDrySampler(
-    vocab: OpaquePointer, model: OpaquePointer?, seeds: [String]
+    vocab: OpaquePointer, seeds: [String]
   ) -> UnsafeMutablePointer<llama_sampler>? {
     // One guard per precondition, and do not re-merge them: each exit needs its
-    // own marker, or three distinguishable states collapse into "no DRY". The
+    // own marker, or two distinguishable states collapse into "no DRY". The
     // readings are on `DryUnavailableReason`'s cases.
     guard let config = DryConfig.resolve() else {
       emitDryUnavailable(.disabled)
@@ -209,15 +241,10 @@ nonisolated extension LlamaCppService {
       emitDryUnavailable(.noSeeds)
       return nil
     }
-    guard let model else {
-      emitDryUnavailable(.noModel)
-      return nil
-    }
 
-    let nCtxTrain = llama_model_n_ctx_train(model)
     let dry = withArrayOfCStrings(config.seqBreakers) { breakerPtrs in
       llama_sampler_init_dry(
-        vocab, nCtxTrain, config.multiplier, config.base,
+        vocab, config.multiplier, config.base,
         config.allowedLength, config.penaltyLastN,
         breakerPtrs.baseAddress, breakerPtrs.count)
     }
@@ -234,7 +261,7 @@ nonisolated extension LlamaCppService {
     emitDryDiagnostic(
       Self.drySeededLine(
         seededTokenCount: seededTokenCount, seedCount: seeds.count,
-        nCtxTrain: nCtxTrain, config: config, model: modelIdentifier),
+        config: config, model: modelIdentifier),
       anomalous: seededTokenCount == 0)
     return dry
   }

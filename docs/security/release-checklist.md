@@ -170,10 +170,19 @@ land. Three buckets:
 
 * **Yams, GRDB**: read upstream changelog, run the full test suite
   through `scripts/xcodebuild.sh test`, merge.
-* **llama.swift**: read upstream `mattt/llama.swift` and the matching
-  `ggerganov/llama.cpp` release notes. Run an end-to-end inference
-  smoke test before merging. Date-encoded tags mean even apparent-patch
-  bumps can include large upstream movement.
+* **llama.swift**: **do not merge on drift.** This pin is governed by
+  [ADR-002 § "Pin Strategy"](../decisions/ADR-002.md#pin-strategy) — a bump
+  needs a named trigger (a blocked capability, a published CVE against the
+  pinned llama.cpp build, or a llama.swift-side build break) and must clear
+  that section's verification bar, which no CI gate enforces. A *version*
+  PR should not appear here at all: `.github/dependabot.yml` suppresses
+  `semver-minor` / `semver-patch` for this dependency and the date-encoded
+  `2.<llama.cpp-build>.0` tags never move the major component. So if one
+  does arrive, treat it as a **security** update — read the advisory and the
+  `ggml-org/llama.cpp` release notes, then take it through ADR-002's bar
+  (which includes the end-to-end inference check) rather than merging it as
+  routine. Date-encoded tags mean even an apparent-patch bump can carry
+  large upstream movement.
 * **GitHub Actions bumps**: verify the bumped action is still SHA-pinned
   by Dependabot's PR (Dependabot preserves the comment-style version
   marker); skim release notes for breaking changes. `codeql-action`

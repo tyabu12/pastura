@@ -67,10 +67,29 @@ struct ModelProfileTests {
         == "d96f4d98eb528df26e8bc09ab81a1d165be4fce67616739e65980bed9038f0f2")
   }
 
+  /// Drift guard against `App/ModelRegistry.gemma4E2BQAT` (the registry is
+  /// App-layer, outside this package — a cross-reference comment alone is
+  /// not drift-proof). If this fails, the app registry changed: update
+  /// `ModelProfile.gemma4E2BQAT` to match, deliberately.
+  @Test func gemmaQATProfilePinsMatchAppRegistry() {
+    let profile = ModelProfile.gemma4E2BQAT
+    #expect(profile.id == "gemma-4-e2b-qat-q4-k-xl")
+    #expect(profile.name == "Gemma 4 E2B (QAT)")
+    #expect(profile.stopSequence == "<|im_end|>")
+    #expect(profile.turnMarkers == ChatTurnMarkers(start: "<|turn>", end: "<turn|>"))
+    #expect(profile.systemPromptSuffix == nil)
+    #expect(profile.assistantPrefix == nil)
+    #expect(profile.expectedFileName == "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf")
+    #expect(
+      profile.expectedSHA256
+        == "e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889")
+  }
+
   @Test func namedLooksUpKnownProfilesByID() {
     #expect(ModelProfile.named("gemma-4-e2b-q4-k-m") == .gemma4E2B)
     #expect(ModelProfile.named("qwen-3-4b-q4-k-m") == .qwen34B)
     #expect(ModelProfile.named("sarashina-2-2-3b-q4-k-m") == .sarashina223B)
+    #expect(ModelProfile.named("gemma-4-e2b-qat-q4-k-xl") == .gemma4E2BQAT)
     #expect(ModelProfile.named("bogus") == nil)
   }
 

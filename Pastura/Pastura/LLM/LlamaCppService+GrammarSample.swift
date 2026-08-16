@@ -11,7 +11,7 @@ extension LlamaCppService {
   ///
   /// **Why two passes.** The grammar is held OUTSIDE the sampler chain (see
   /// ``SamplerHandles``). A single-pass "grammar inside the chain" runs the
-  /// grammar mask AFTER top_k's truncation; b8694's `llama_sampler_dist_apply`
+  /// grammar mask AFTER top_k's truncation; `llama_sampler_dist_apply`
   /// then degenerates when the sorted top candidate is masked (`max_l =
   /// data[0].logit = -inf` → NaN/`exp(+inf)` softmax) or when every truncated
   /// candidate is masked (all-NaN scan, `assert(found)` compiled out of the
@@ -150,7 +150,7 @@ extension LlamaCppService {
     // Order: grammar (hard `-inf` mask) → DRY (soft repetition penalty) →
     // chain (penalties → top_k → … → dist). DRY runs before top_k like the
     // chain's own `penalties` member; because it is a SOFT penalty it never
-    // produces `-inf`, so it cannot manufacture the b8694 all-masked
+    // produces `-inf`, so it cannot manufacture the all-masked
     // degeneracy — that hazard is grammar-only (#751 / #1105).
     var curP = llama_token_data_array(data: base, size: count, selected: -1, sorted: false)
     if let grammarFirst {

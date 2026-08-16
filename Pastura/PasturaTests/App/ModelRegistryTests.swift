@@ -5,10 +5,78 @@ import Testing
 
 @Suite(.timeLimit(.minutes(1)))
 struct ModelRegistryTests {
-  // Production catalog integrity
+  // Production catalog integrity. Order is asserted, not just membership: it is
+  // display order for the picker / Settings / `ActiveModelChip`, and the legacy
+  // Gemma build's trailing position is part of the ADD-and-keep shape (#1487).
   @Test func catalog_hasExpectedModels() {
     let ids = ModelRegistry.catalog.map(\.id)
-    #expect(ids == ["gemma-4-e2b-q4-k-m", "qwen-3-4b-q4-k-m"])
+    #expect(ids == ["gemma-4-e2b-qat-q4-k-xl", "qwen-3-4b-q4-k-m", "gemma-4-e2b-q4-k-m"])
+  }
+
+  /// Every `replacesModelID` names a real catalog entry. `validateNoCollisions`
+  /// only covers duplicate `id`/`fileName`, so a typo here fails silently in
+  /// both consumers (`visibleCatalog` never hides the replaced entry;
+  /// `RecommendedModelStatus` never resolves forward) — the app looks exactly
+  /// as if ADD-and-keep had never shipped.
+  ///
+  /// Non-empty assertion guards against vacuity: without it, this sweep would
+  /// still pass if the field were dropped from every descriptor.
+  @Test func everyReplacesModelIDResolves() {
+    let replaced = ModelRegistry.catalog.compactMap(\.replacesModelID)
+    #expect(!replaced.isEmpty, "no descriptor declares replacesModelID — sweep would be vacuous")
+    for id in replaced {
+      #expect(
+        ModelRegistry.lookup(id: id) != nil, "replacesModelID \"\(id)\" is not in the catalog")
+    }
+  }
+
+  /// The replacement relation is resolvable in the forward direction too, from
+  /// the id being replaced back to the entry taking over. Pins the QAT pairing
+  /// specifically, since both consumers read it through this helper.
+  @Test func replacement_resolvesTheQATPairing() {
+    let replacement = ModelRegistry.replacement(
+      for: ModelRegistry.gemma4E2B.id, in: ModelRegistry.catalog)
+    #expect(replacement?.id == ModelRegistry.gemma4E2BQAT.id)
+    #expect(
+      ModelRegistry.replacement(for: ModelRegistry.qwen34B.id, in: ModelRegistry.catalog) == nil)
+  }
+
+  /// `recommendationTarget` picks the cheapest satisfying build, and on a tie
+  /// the newer one. The both-`.ready` arm is the tie-break, and it is asserted
+  /// here rather than through `RecommendedModelStatus.compute`: that classifier
+  /// returns `.switchAvailable` either way, so its verdict cannot name which
+  /// build was chosen — only the descriptor can.
+  @Test func recommendationTarget_prefersTheReplacementOnATie() {
+    let gemma = ModelRegistry.gemma4E2B.id
+    let qat = ModelRegistry.gemma4E2BQAT.id
+
+    let bothReady: [ModelID: ModelState] = [
+      gemma: .ready(modelPath: "/tmp/g"), qat: .ready(modelPath: "/tmp/qat")
+    ]
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: bothReady)?.id == qat)
+
+    let onlyDeclaredReady: [ModelID: ModelState] = [
+      gemma: .ready(modelPath: "/tmp/g"), qat: .notDownloaded
+    ]
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: onlyDeclaredReady)?.id == gemma)
+
+    let neitherReady: [ModelID: ModelState] = [gemma: .notDownloaded, qat: .notDownloaded]
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: neitherReady)?.id == qat)
+
+    // Forward-compat contract: `nil` only for an id in no catalog entry, which
+    // is what `RecommendedModelStatus.unknownModel` keys on. `state` must not
+    // introduce a second `nil` path.
+    #expect(ModelRegistry.recommendationTarget(for: "future-model-v9", state: bothReady) == nil)
+    #expect(ModelRegistry.recommendationTarget(for: gemma, state: [:])?.id == qat)
+
+    // An id nothing replaces takes the `successor ?? declared` tail — the one
+    // production path through this helper the arms above never reach. Pins that
+    // the successor-first check cannot swallow a replacement-less id.
+    let qwen = ModelRegistry.qwen34B.id
+    #expect(ModelRegistry.recommendationTarget(for: qwen, state: [:])?.id == qwen)
+    #expect(
+      ModelRegistry.recommendationTarget(
+        for: qwen, state: [qwen: .ready(modelPath: "/tmp/q")])?.id == qwen)
   }
 
   @Test func catalog_passesValidateNoCollisions() {
@@ -17,8 +85,8 @@ struct ModelRegistryTests {
     ModelRegistry.validateNoCollisions()
   }
 
-  @Test func defaultInitialModelID_isGemma() {
-    #expect(ModelRegistry.defaultInitialModelID == "gemma-4-e2b-q4-k-m")
+  @Test func defaultInitialModelID_isQATGemma() {
+    #expect(ModelRegistry.defaultInitialModelID == "gemma-4-e2b-qat-q4-k-xl")
   }
 
   /// `recommendedModelID` is the picker-UI "推奨" badge source. Semantically
@@ -79,6 +147,30 @@ struct ModelRegistryTests {
   /// surface.
   @Test func gemma_hasNoAssistantPrefix() {
     #expect(ModelRegistry.gemma4E2B.assistantPrefix == nil)
+  }
+
+  @Test func gemmaQAT_taglineAndShortDisplayName_areSet() {
+    #expect(!ModelRegistry.gemma4E2BQAT.tagline.isEmpty)
+    #expect(ModelRegistry.gemma4E2BQAT.shortDisplayName != nil)
+    // Distinct from the incumbent's short name, which is the whole point: both
+    // are "Gemma 4 E2B", and the picker / Settings / `ActiveModelChip` render
+    // `shortDisplayName ?? displayName`, so an equal pair is two identical rows.
+    #expect(ModelRegistry.gemma4E2BQAT.shortDisplayName != ModelRegistry.gemma4E2B.shortDisplayName)
+  }
+
+  /// Integrity metadata read from the HuggingFace resolve URL's
+  /// `X-Linked-Size` / `X-Linked-Etag` headers at the pinned commit. A silent
+  /// edit here fails every user's download at the SHA-256 check rather than
+  /// degrading, so it is pinned rather than code-review-gated.
+  @Test func gemmaQAT_integrityMetadataMatchesFetchedValues() {
+    #expect(ModelRegistry.gemma4E2BQAT.fileSize == 2_620_370_976)
+    #expect(
+      ModelRegistry.gemma4E2BQAT.sha256
+        == "e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889")
+    // Same base model as `gemma4E2B`, so the same prompt-format contract — see
+    // `gemma_hasNoAssistantPrefix` for why a non-nil prefix is a silent hazard.
+    #expect(ModelRegistry.gemma4E2BQAT.assistantPrefix == nil)
+    #expect(ModelRegistry.gemma4E2BQAT.systemPromptSuffix == nil)
   }
 
   // findCollisions testability — covers the uniqueness check without

@@ -12,6 +12,12 @@ extension GalleryScenarioDetailView {
   @ViewBuilder
   var recommendedModelSection: some View {
     let status = recommendedModelStatus
+    // Resolve once, at render time, and hand the same descriptor to the banner
+    // and the buttons: the helper reads `state`, so a closure re-resolving at
+    // tap time could act on a different build than the status it was rendered
+    // from.
+    let target = ModelRegistry.recommendationTarget(
+      for: scenario.recommendedModel, state: modelManager.state)
     switch status {
     case .matched, .unknownModel, .unsupportedDevice:
       // `EmptyView()` collapses to nothing in the enclosing VStack — no
@@ -22,8 +28,8 @@ extension GalleryScenarioDetailView {
     case .switchAvailable(let isLocked):
       PasturaSection {
         VStack(alignment: .leading, spacing: 12) {
-          mismatchBanner
-          switchButton(isLocked: isLocked)
+          mismatchBanner(target: target)
+          switchButton(target: target, isLocked: isLocked)
           if isLocked {
             // Gallery-specific single-sentence variant of the Settings copy.
             // The Settings version's second sentence ("Downloads and deletes
@@ -44,14 +50,14 @@ extension GalleryScenarioDetailView {
     case .downloadAvailable(let otherDownloadInFlight):
       PasturaSection {
         VStack(alignment: .leading, spacing: 12) {
-          mismatchBanner
-          downloadButton(disabled: otherDownloadInFlight)
+          mismatchBanner(target: target)
+          downloadButton(target: target, disabled: otherDownloadInFlight)
         }
         .padding(17)
       }
     case .downloading:
       PasturaSection {
-        mismatchBanner
+        mismatchBanner(target: target)
           .padding(17)
       }
     }
@@ -78,10 +84,8 @@ extension GalleryScenarioDetailView {
       isSimulator: isSimulator)
   }
 
-  fileprivate var mismatchBanner: some View {
-    let recommendedDisplay =
-      ModelRegistry.lookup(id: scenario.recommendedModel)?.displayName
-      ?? scenario.recommendedModel
+  fileprivate func mismatchBanner(target: ModelDescriptor?) -> some View {
+    let recommendedDisplay = target?.displayName ?? scenario.recommendedModel
     let activeDisplay =
       ModelRegistry.lookup(id: modelManager.activeModelID)?.displayName
       ?? modelManager.activeModelID
@@ -100,14 +104,18 @@ extension GalleryScenarioDetailView {
     }
   }
 
-  fileprivate func switchButton(isLocked: Bool) -> some View {
+  fileprivate func switchButton(target: ModelDescriptor?, isLocked: Bool) -> some View {
     Button {
       // Route through the shared switch entry point so the active-model id
       // and the LLM service stay in lockstep. Calling `setActiveModel` alone
       // (the prior code) updated the id but left the next run on the old
-      // service — the #844 latent bug. `.switchAvailable` is only emitted for
-      // a downloaded recommended model, so the lookup is a defensive no-op.
-      guard let descriptor = ModelRegistry.lookup(id: scenario.recommendedModel) else { return }
+      // service — the #844 latent bug.
+      //
+      // `target` is the render-time resolution. `.switchAvailable` is only
+      // emitted past `RecommendedModelStatus.compute`'s own `guard let target`,
+      // which resolved from the same inputs in this render pass, so the unwrap
+      // is a defensive no-op.
+      guard let descriptor = target else { return }
       dependencies.switchActiveModel(to: descriptor, using: modelManager)
     } label: {
       Text(String(localized: "Switch to recommended model"))
@@ -118,14 +126,12 @@ extension GalleryScenarioDetailView {
     .accessibilityIdentifier("galleryDetail.switchModelButton")
   }
 
-  fileprivate func downloadButton(disabled: Bool) -> some View {
+  fileprivate func downloadButton(target: ModelDescriptor?, disabled: Bool) -> some View {
     Button {
-      // Guarded by `.downloadAvailable` status, which is only emitted
-      // when `ModelRegistry.lookup` resolves — so the lookup here is a
-      // defensive no-op on unreachable paths, not a user-visible branch.
-      guard let descriptor = ModelRegistry.lookup(id: scenario.recommendedModel) else {
-        return
-      }
+      // Same render-time `target`. `.downloadAvailable` is only emitted when it
+      // resolved, so the unwrap is a defensive no-op on unreachable paths, not
+      // a user-visible branch.
+      guard let descriptor = target else { return }
       // `startDownload` enforces cellular consent + sequential-DL
       // policy + per-state gating internally via `evaluateStartGates`;
       // do NOT duplicate those checks here.
