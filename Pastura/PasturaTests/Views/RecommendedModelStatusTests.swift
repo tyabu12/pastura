@@ -188,7 +188,7 @@ struct RecommendedModelStatusTests {
     // Why Rule 4 asks `replacement(for:)` and not the *target*. Here the target
     // is the replaced build (it is `.ready`), so a Rule 4 phrased against the
     // target would miss and fall through to Rule 7 — offering a QAT user a
-    // *downgrade* switch to the build QAT replaced, on all 45 gallery screens.
+    // *downgrade* switch to the build QAT replaced.
     let status = RecommendedModelStatus.compute(
       recommendedID: gemma, activeID: qat,
       state: [gemma: .ready(modelPath: "/tmp/g"), qat: .ready(modelPath: "/tmp/qat")],

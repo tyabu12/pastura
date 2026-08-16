@@ -146,7 +146,7 @@ struct DrySamplerConfigTests {
 
   /// Every field the `/model-eval` sweep reads must be on the line — dropping
   /// one must fail here. Why each is load-bearing: `drySeededLine`'s doc
-  /// comment. `nCtxTrain` was pinned here until the b10327 pin retired it.
+  /// comment.
   @Test func drySeededLineCarriesEveryField() throws {
     let config = try #require(DryConfig.resolve(environment: [:]))
     let line = LlamaCppService.drySeededLine(

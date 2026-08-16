@@ -60,15 +60,11 @@ struct ModelRegistryTurnMarkerDivergenceTests {
   /// Gemma-family descriptor legitimately extends the set; anything else
   /// diverging means the pair drifted by accident.
   ///
-  /// This sweep reaches only descriptors still **in** `catalog`, and a
-  /// static-referenced companion arm used to guard the case where #1487's
-  /// follow-up dropped `gemma4E2B` from `catalog` while keeping the static alive.
-  /// That follow-up landed taking the other branch — the entry stays in `catalog`
-  /// and `ModelManager.visibleCatalog` hides it at the UI layer instead
-  /// (`ModelRegistry` § "ADD-and-keep") — so the arm became one that could never
-  /// fail, and its own doc comment said to delete rather than keep it as
-  /// decoration. Dropping the entry now reddens `catalog_hasExpectedModels`,
-  /// which pins all three ids, before this blind spot could open.
+  /// This sweep reaches only descriptors still **in** `catalog`. If a divergent
+  /// entry is later dropped from `catalog` entirely (rather than hidden via
+  /// `ModelManager.visibleCatalog`, `ModelRegistry` § "ADD-and-keep"), that
+  /// reddens `catalog_hasExpectedModels` — which pins all three ids — before
+  /// this sweep's coverage silently narrows.
   @Test func everyDivergentDescriptorIsTheDeliberateChatMLCase() {
     let divergent = ModelRegistry.catalog.filter { $0.stopSequence != $0.turnMarkers.end }
     #expect(Set(divergent.map(\.id)) == ["gemma-4-e2b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])

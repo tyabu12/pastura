@@ -13,18 +13,14 @@ struct ModelRegistryTests {
     #expect(ids == ["gemma-4-e2b-qat-q4-k-xl", "qwen-3-4b-q4-k-m", "gemma-4-e2b-q4-k-m"])
   }
 
-  /// Every `replacesModelID` names a real catalog entry.
+  /// Every `replacesModelID` names a real catalog entry. `validateNoCollisions`
+  /// only covers duplicate `id`/`fileName`, so a typo here fails silently in
+  /// both consumers (`visibleCatalog` never hides the replaced entry;
+  /// `RecommendedModelStatus` never resolves forward) — the app looks exactly
+  /// as if ADD-and-keep had never shipped.
   ///
-  /// `validateNoCollisions` covers duplicate `id` / `fileName` only, so a typo
-  /// here is caught by nothing at runtime — and it fails *silently and
-  /// identically* in both consumers: `ModelManager.visibleCatalog` never hides
-  /// the replaced entry, and `RecommendedModelStatus` never resolves the
-  /// recommendation forward. The app then looks exactly as it would if the
-  /// ADD-and-keep work had never been written.
-  ///
-  /// The non-empty assertion is the non-vacuity control: the sweep below is
-  /// trivially true on an all-`nil` catalog, so without it this test would keep
-  /// passing if the field were dropped from every descriptor.
+  /// Non-empty assertion guards against vacuity: without it, this sweep would
+  /// still pass if the field were dropped from every descriptor.
   @Test func everyReplacesModelIDResolves() {
     let replaced = ModelRegistry.catalog.compactMap(\.replacesModelID)
     #expect(!replaced.isEmpty, "no descriptor declares replacesModelID — sweep would be vacuous")
