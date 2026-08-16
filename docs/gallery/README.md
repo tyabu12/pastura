@@ -143,12 +143,14 @@ should get a new id so old installs are preserved.
 ### Which model a new entry should recommend
 
 **Keep `gemma-4-e2b-q4-k-m`** — do not repoint existing gallery entries to the
-QAT id. `gallery.json` is fetched live by already-shipped app versions; the app
-resolves the actual recommendation on its own side
-(`ModelRegistry.recommendationTarget(for:state:)`). Revisit once app versions
-predating the QAT descriptor (shipped 1.2+) are no longer worth supporting —
-App Store Connect's per-version adoption breakdown is the instrument.
-Mechanism: ADR-002 § Amendment 2026-08-15 — ADD-and-keep.
+QAT id. `gallery.json` is fetched live by already-shipped app versions, so an id
+they do not know shows an "Unknown model (…)" badge the moment the change
+merges, with no release involved; the app resolves the actual recommendation on
+its own side instead (`ModelRegistry.recommendationTarget(for:state:)`). Revisit
+once app versions predating the QAT descriptor are no longer worth supporting —
+it first ships in the release after this lands (`MARKETING_VERSION` is 1.1 at
+time of writing, so 1.2), and App Store Connect's per-version adoption breakdown
+is the instrument. Mechanism: ADR-002 § Amendment 2026-08-15 — ADD-and-keep.
 
 ### Content guidelines
 

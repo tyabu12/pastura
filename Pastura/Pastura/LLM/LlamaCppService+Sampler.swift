@@ -64,10 +64,11 @@ extension LlamaCppService {
   ///     `penalties` is a chain member on *both* the grammar and no-grammar
   ///     paths and takes `n_vocab`, so vocab is not a grammar-only need.
   ///     Non-optional rather than guarded, because `llama_vocab_n_tokens(nil)`
-  ///     dereferences NULL rather than throwing — which is also why callers
-  ///     resolve it at their own entry point: by the time a chain is being
-  ///     built there is no error path left to take, so `prepareGeneration`
-  ///     unwraps it up front and throws `.notLoaded`.
+  ///     dereferences NULL rather than throwing. That is why this parameter is
+  ///     non-optional, and `makeCandidateBuffer`'s too — there is no optional
+  ///     left to guard by the time either is called, so `prepareGeneration`
+  ///     unwraps `llama_model_get_vocab` at the entry point and throws
+  ///     `.notLoaded` for both.
   ///   - antiRepetitionSeeds: Prior text spans to seed the DRY sampler with
   ///     (content-only — the value text, never JSON scaffold). Empty leaves DRY
   ///     off, so the sampler is byte-for-byte the pre-#1105 configuration.

@@ -243,7 +243,8 @@ enum ModelRegistry {
   ///
   /// It departs from the curation policy's distinct-character bar and from
   /// `ModelDescriptor.shortDisplayName`'s no-build-variant principle as well —
-  /// both, with the cost analysis, in that same eval-log entry and #1487.
+  /// both, with the cost analysis, in `docs/models/eval-log.md`
+  /// § "Gemma 4 E2B QAT `UD-Q4_K_XL`" and #1487.
   nonisolated static let catalog: [ModelDescriptor] = [gemma4E2BQAT, qwen34B, gemma4E2B]
 
   /// ID of the model selected by default for new users (first-run onboarding fallback).

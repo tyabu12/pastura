@@ -109,7 +109,8 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// replaced descriptor, never on its replacement**: `ModelManager`'s
   /// `visibleCatalog` hides a replaced entry once it is not the active model
   /// and its state is exactly `.notDownloaded`, so a fresh install sees the
-  /// replacement alone and a size claim there has nothing to compare against.
+  /// replacement without the build it replaces, and a size claim on the
+  /// replacement would have nothing to compare against.
   /// Empty string when the descriptor was
   /// constructed without picker UI in mind (test fixtures, future
   /// descriptors not yet surfaced in the picker). UI sites must hide the

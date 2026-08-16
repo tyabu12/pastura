@@ -66,8 +66,9 @@ nonisolated struct DryConfig {
   ///
   /// **The three guards below mirror upstream's `dry_enabled` predicate** —
   /// `dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`, at
-  /// `src/llama-sampler.cpp:3406` (b10327), inside `llama_sampler_init_dry` at
-  /// `:3400`, which clamps `penalty_last_n` to `max(…, 0)` at `:3401` *before*
+  /// `src/llama-sampler.cpp:3406` (b10327). It sits inside
+  /// `llama_sampler_init_dry` (`src/llama-sampler.cpp:3400`), which clamps
+  /// `penalty_last_n` to `max(…, 0)` (`src/llama-sampler.cpp:3401`) *before*
   /// the predicate reads it. Re-read all three lines on each pin bump: a value
   /// upstream rejects is not an error there — it returns a non-NULL
   /// `llama_sampler_init_empty("?dry")` that seeds and emits an ordinary
@@ -76,7 +77,7 @@ nonisolated struct DryConfig {
   /// "`PASTURA_DRY_LAST_N=-1` flips meaning at b10327, silently"). With the
   /// guards it degrades to `nil` and the harness sees `reason=disabled`.
   ///
-  /// Two guards read stricter than that mirror, deliberately:
+  /// `base >= 1.0` is the byte-mirror; the other two read stricter, on purpose:
   ///
   /// - `multiplier > 0` — a negative multiplier makes upstream *reward*
   ///   repetition, never a meaningful arm here; `> 0` also rejects a `NaN`
