@@ -112,8 +112,9 @@ extension GalleryScenarioDetailView {
       // service — the #844 latent bug.
       //
       // `target` is the render-time resolution. `.switchAvailable` is only
-      // emitted past the same `guard let target`, so the unwrap is a defensive
-      // no-op.
+      // emitted past `RecommendedModelStatus.compute`'s own `guard let target`,
+      // which resolved from the same inputs in this render pass, so the unwrap
+      // is a defensive no-op.
       guard let descriptor = target else { return }
       dependencies.switchActiveModel(to: descriptor, using: modelManager)
     } label: {
