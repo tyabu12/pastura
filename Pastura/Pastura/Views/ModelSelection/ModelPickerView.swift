@@ -50,14 +50,10 @@ struct ModelPickerView: View {
         selected: recommended,
         recommendedID: recommended,
         // `visibleCatalog`, so a new install is never offered the older, larger
-        // download of a model it can get as the current build.
-        //
-        // Snapshotting a filtered array into `@State` is safe here because of a
-        // guarantee outside this file, not because of anything visible in it:
-        // `shouldShowInitialModelPicker` requires *every* descriptor to be
-        // `.notDownloaded`, so no entry is still `.checking` at init and the
-        // filter cannot change under the snapshot for the picker's lifetime.
-        // If that gate is ever relaxed, this has to become a live read.
+        // download of a model it can get as the current build. Snapshotting the
+        // filtered array into `@State` is safe only because of a guarantee
+        // outside this file — `visibleCatalog`'s conjunct 2. Relax that gate and
+        // this has to become a live read.
         availableModels: modelManager.visibleCatalog
       )
     )

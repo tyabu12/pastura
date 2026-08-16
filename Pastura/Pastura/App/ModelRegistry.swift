@@ -221,10 +221,9 @@ enum ModelRegistry {
     // out of a new install, leaving no referent, so that line lives on `gemma4E2B`. Character
     // claims are n=1: `docs/models/eval-log.md` § "Gemma 4 E2B QAT `UD-Q4_K_XL`".
     tagline: String(localized: "Expressive and steady, in Japanese too. Pick this one if unsure."),
-    // ADD-and-keep (§ above): this build takes over from the Q4_K_M one without
-    // retiring it. Written as `gemma4E2B.id` rather than the literal so the two
-    // cannot drift; `gemma4E2B` is declared first, so there is no forward
-    // reference between the lazily-initialised statics.
+    // Written as `gemma4E2B.id` rather than the literal so the two cannot
+    // drift; `gemma4E2B` is declared first, so there is no forward reference
+    // between the lazily-initialised statics.
     replacesModelID: gemma4E2B.id
   )
 
@@ -240,11 +239,7 @@ enum ModelRegistry {
   /// One instruction still binds a future editor of `gemma4E2BQAT`: **do not
   /// "fix" it into a removal-supersede** of `gemma4E2B`. That forces every
   /// existing user to re-download 2.62 GB with no way back if the QAT build
-  /// misbehaves on their device. The revert instruction that used to sit here is
-  /// discharged — the entry landed *before* ADR-011 P3–P5 could run, because the
-  /// app has no sideload path and the catalog is the only route onto a device,
-  /// and those prerequisites have since PASSED (`docs/models/eval-log.md`
-  /// § "Gemma 4 E2B QAT `UD-Q4_K_XL`").
+  /// misbehaves on their device.
   ///
   /// It departs from the curation policy's distinct-character bar and from
   /// `ModelDescriptor.shortDisplayName`'s no-build-variant principle as well —

@@ -124,12 +124,9 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// which looks exactly like the feature not having been written.
   /// `ModelRegistryTests.everyReplacesModelIDResolves` is the guard.
   ///
-  /// The replaced entry stays in the catalog. Read
-  /// `ModelRegistry` § "ADD-and-keep" before repurposing this field as a
-  /// removal marker — several consumers depend on the old id keeping its
-  /// **membership of `ModelRegistry.catalog`**, and the sharpest of them reach
-  /// it by membership rather than through `lookup(id:)`, so grepping that name
-  /// will not find them.
+  /// The replaced entry stays in the catalog. Read `ModelRegistry`
+  /// § "ADD-and-keep" before repurposing this field as a removal marker — it
+  /// carries the consumers that depend on the old id's catalog membership.
   public let replacesModelID: ModelID?
 
   /// Returns `true` iff `name` matches `^[A-Za-z0-9._-]+\.gguf$`.

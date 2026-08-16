@@ -12,11 +12,10 @@ extension GalleryScenarioDetailView {
   @ViewBuilder
   var recommendedModelSection: some View {
     let status = recommendedModelStatus
-    // Resolve the target **once**, at render time, and hand it to the banner and
-    // the buttons. Since #1487 the helper reads `state`, so a button closure
-    // re-invoking it at *tap* time could act on a different descriptor than the
-    // status the button was rendered from — narrow, but the comments below
-    // assert that the status and the descriptor acted on are the same one.
+    // Resolve once, at render time, and hand the same descriptor to the banner
+    // and the buttons: the helper reads `state`, so a closure re-resolving at
+    // tap time could act on a different build than the status it was rendered
+    // from.
     let target = ModelRegistry.recommendationTarget(
       for: scenario.recommendedModel, state: modelManager.state)
     switch status {
@@ -112,10 +111,8 @@ extension GalleryScenarioDetailView {
       // (the prior code) updated the id but left the next run on the old
       // service — the #844 latent bug.
       //
-      // The render-time target, captured — not a fresh resolution. The status
-      // that enabled this button classified exactly this descriptor, and
-      // `.switchAvailable` is only emitted for a downloaded one, so the unwrap
-      // is a defensive no-op.
+      // `target` is the render-time resolution; `.switchAvailable` is only
+      // emitted for a downloaded build, so the unwrap is a defensive no-op.
       guard let descriptor = target else { return }
       dependencies.switchActiveModel(to: descriptor, using: modelManager)
     } label: {
@@ -129,11 +126,9 @@ extension GalleryScenarioDetailView {
 
   fileprivate func downloadButton(target: ModelDescriptor?, disabled: Bool) -> some View {
     Button {
-      // Same captured target as `switchButton` above — resolving afresh here
-      // could start a download of a different build than the status that
-      // enabled this button was computed from. `.downloadAvailable` is only
-      // emitted when the target resolved, so the unwrap is a defensive no-op on
-      // unreachable paths, not a user-visible branch.
+      // Same render-time `target`. `.downloadAvailable` is only emitted when it
+      // resolved, so the unwrap is a defensive no-op on unreachable paths, not
+      // a user-visible branch.
       guard let descriptor = target else { return }
       // `startDownload` enforces cellular consent + sequential-DL
       // policy + per-state gating internally via `evaluateStartGates`;

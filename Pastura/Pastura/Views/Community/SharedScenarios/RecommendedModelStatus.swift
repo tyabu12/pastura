@@ -9,13 +9,10 @@ import Foundation
 /// - `switchAvailable`, `downloadAvailable` → banner + affordance button
 ///
 /// Every state below except `matched` and `unknownModel` describes the
-/// **target** build — a feed entry naming a replaced build is acted on as
-/// whichever of the pair the user can most cheaply reach
-/// (`ModelRegistry.recommendationTarget(for:state:)`). The consuming affordances
-/// resolve through the same helper, so the model a button switches to or
-/// downloads is the one this classified. `matched` is the exception on purpose:
-/// it asks whether the *active* model is already in the replacement pair, which
-/// is a state-free question — see Rule 4.
+/// **target** build — `ModelRegistry.recommendationTarget(for:state:)`, which
+/// the consuming affordances resolve through as well, so the build a button
+/// acts on is the one this classified. `matched` is the exception on purpose;
+/// see Rule 4.
 ///
 /// Pure-logic enum: lives in Views/ for proximity to the consuming view but
 /// `compute(...)` takes a value-typed snapshot so the test suite is fully

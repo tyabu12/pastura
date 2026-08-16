@@ -374,10 +374,8 @@ final class ModelManager {  // swiftlint:disable:this type_body_length
   ///    re-download it from, and no menu entry to switch away to something else.
   var visibleCatalog: [ModelDescriptor] {
     catalog.filter { descriptor in
-      // Through `ModelRegistry.replacement(for:in:)` rather than a local
-      // `Set(catalog.compactMap(\.replacesModelID))`: that set would be a second
-      // derivation of the same relation, and two predicates that can disagree is
-      // the failure this helper exists to prevent. The catalog is 3 entries.
+      // Via the shared `ModelRegistry.replacement(for:in:)` — see its doc for
+      // why there must not be a second derivation of this relation.
       guard ModelRegistry.replacement(for: descriptor.id, in: catalog) != nil else { return true }
       guard descriptor.id != activeModelID else { return true }
       if case .notDownloaded = state[descriptor.id] { return false }
