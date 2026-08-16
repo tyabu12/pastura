@@ -12,25 +12,21 @@ llama.cpp interim LLM backend decision.
 
 Standing invariant — § "Pin Strategy": pin a specific release tag, and on a bump
 pin the **measured** tag rather than the latest one. Drift alone is not a reason
-to bump; a bump needs one of three named triggers (blocked capability, CVE,
-llama.swift build break) and must clear that section's six-item verification
-bar. No gate enforces any of it — the operator-side pairing is
+to bump; a bump needs a named trigger (a blocked capability, a CVE, a
+llama.swift build break) and must clear that section's verification bar in full.
+No gate enforces any of it — the operator-side pairing is
 `docs/security/release-checklist.md` §3.1.
 
-Standing invariant — § Amendment 2026-08-15 (ADD-and-keep): a **same-model**
-rebuild joins the catalog beside the build it replaces instead of superseding
-it, naming its predecessor via `ModelDescriptor.replacesModelID`; the replaced
-entry is hidden from the user-facing lists once it is neither on the device nor
-the active model, but is never removed — what consumers depend on is its
-**membership of `catalog`**, which the sharpest of them reach without going
-through `lookup(id:)`. The supersede convention remains
-the default for a genuinely different model. Gallery recommendations naming a
-replaced build are satisfied app-side rather than by repointing the live feed,
-via two separate questions — whether the active model is already acceptable
-(state-free, either id of the pair) and which build to act on otherwise
-(`recommendationTarget(for:state:)`, cheapest satisfying option, newer build on
-a tie). Derivation,
-the consumer list, and why the descriptor landed before its gate: that
+Standing invariant — § "Amendment 2026-08-15 — ADD-and-keep for the QAT
+rebuild": a **same-model** rebuild joins the catalog beside the build it
+replaces instead of superseding it, naming its predecessor via
+`ModelDescriptor.replacesModelID`; the replaced entry is hidden from the
+user-facing lists once it is neither on the device nor the active model, but is
+never removed — what consumers depend on is its **membership of `catalog`**.
+The supersede convention stays the default for a genuinely different model.
+Gallery recommendations naming a replaced build are satisfied app-side rather
+than by repointing the live feed. Derivation, the consumer list, the
+recommendation resolver, and why the descriptor landed before its gate: that
 amendment.
 
 ## ADR-003 — Background execution
