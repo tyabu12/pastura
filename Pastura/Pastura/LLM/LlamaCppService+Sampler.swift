@@ -84,8 +84,6 @@ extension LlamaCppService {
   /// A third caller must always supply `vocab`, and pass `grammarString`
   /// whenever its path has a schema — omitting it silently bypasses grammar
   /// on that path, the exact regression this plan's Critic Axis 3 flagged.
-  /// The old "pass `nil` for both" escape is gone: `vocab` no longer tracks
-  /// `grammarString`'s presence.
   ///
   /// - Throws: ``LLMError/invalidGrammar(description:)`` if
   ///   `llama_sampler_init_grammar` returns NULL (unparseable GBNF —
@@ -111,7 +109,7 @@ extension LlamaCppService {
     llama_sampler_chain_add(
       chain,
       llama_sampler_init_penalties(
-        llama_vocab_n_tokens(vocab),  // n_vocab: added by b10327 (see `vocab` param)
+        llama_vocab_n_tokens(vocab),  // n_vocab
         64,  // penalty_last_n: look back 64 tokens
         Self.repeatPenalty,  // repeat_penalty: 1.1
         0.0,  // freq_penalty: disabled
@@ -260,9 +258,8 @@ extension LlamaCppService {
   /// errors via `fprintf(stderr, "error parsing grammar: %s\n\n%s\n", ...)`
   /// at `llama-grammar.cpp:715` (b10327), then `parser.parse` returns false.
   /// Only the outer `LLAMA_LOG_ERROR("failed to parse grammar")` at
-  /// `llama-grammar.cpp:1223` reaches our `llama_log_set` callback
-  /// (`LlamaCppService.swift`). Both numbers are b10327's; keep each on one
-  /// line beside its filename — the next bump finds them by grep or not at all.
+  /// `llama-grammar.cpp:1223` (b10327) reaches our `llama_log_set` callback
+  /// (`LlamaCppService.swift`).
   /// iOS doesn't pipe process stderr to os_log, so without this `dup2`
   /// redirect the actionable detail (`expecting ']' at`,
   /// `Undefined rule identifier 'X'`, etc.) is permanently lost.

@@ -10,14 +10,10 @@ import LlamaSwift
 /// separately from it (see ``SamplerHandles``). The caller owns both
 /// handles' lifetimes — see the precondition note on the helper itself.
 nonisolated struct PreparedGeneration {
-  /// Non-optional since the b10327 pin: `prepareGeneration` unwraps
-  /// `llama_model_get_vocab` up front, because the sampler chain now needs
-  /// `n_vocab` and `llama_vocab_n_tokens(nil)` dereferences NULL rather than
-  /// returning 0. Keeping it optional would leave that invariant asserted only
-  /// in prose while `makeCandidateBuffer` passed the optional straight into
-  /// the same C call. The several helpers that still take `OpaquePointer?`
-  /// (`tokenize`, `decodePiece`, `safeSample`, …) need no change — Swift
-  /// promotes `T` to `T?` at the call site.
+  /// Non-optional — see the `vocab:` parameter doc on ``createSampler``. The
+  /// several helpers that still take `OpaquePointer?` (`tokenize`,
+  /// `decodePiece`, `safeSample`, …) need no change: Swift promotes `T` to
+  /// `T?` at the call site.
   let vocab: OpaquePointer
   let handles: SamplerHandles
 }
@@ -45,9 +41,8 @@ extension LlamaCppService {
   /// `defer { llama_sampler_free(prepared.handles.chain) }`,
   /// `defer { prepared.handles.grammar.map { llama_sampler_free($0) } }`
   /// AND `defer { prepared.handles.dry.map { llama_sampler_free($0) } }`
-  /// in the caller's scope — all three, as both existing callers do. The
-  /// `dry` handle (#1105) is as separate an allocation as `grammar`; a caller
-  /// following an earlier two-defer version of this list leaks it.
+  /// in the caller's scope — all three. The `dry` handle (#1105) is as
+  /// separate an allocation as `grammar` (see ``SamplerHandles``).
   /// The helper does NOT install its own defer
   /// because Swift's `defer` only fires at the helper's scope exit, which
   /// would free the handles before the caller's inference loop runs.

@@ -125,11 +125,9 @@ nonisolated struct DryConfig {
 ///
 /// **The two throwing exits carry no marker** (`chain_init` NULL,
 /// `init_grammar` NULL — #194); `prepareGeneration` can throw upstream too.
-/// The former third exit — grammar supplied without vocab — became
-/// unrepresentable when the b10327 pin made `createSampler`'s `vocab`
-/// non-optional. A marker counts generations that *reached sampler
-/// construction*, never *attempted*, so read `run_end.status` alongside the
-/// sweep before calling a short count a broken instrument.
+/// A marker counts generations that *reached sampler construction*, never
+/// *attempted*, so read `run_end.status` alongside the sweep before calling
+/// a short count a broken instrument.
 ///
 /// Raw values join to the `.stderr.log` sweep in `/model-eval` § Step 2;
 /// `DrySamplerConfigTests` pins the set.
@@ -160,11 +158,10 @@ nonisolated extension LlamaCppService {
   ///
   /// Every field is a `DryConfig` value the sampler was built from, plus the
   /// seeding outcome and the model identifier the `/model-eval` sweep joins
-  /// on — that trio is the rule for whether a future field belongs here.
-  /// `nCtxTrain` was here until the b10327 pin, which dropped
-  /// `n_ctx_train` from `llama_sampler_init_dry` — a field naming an argument
-  /// the sampler no longer takes reads as a live parameter and is worse than
-  /// no field at all.
+  /// on — that trio is the rule for whether a future field belongs here, and
+  /// for retiring one: a field naming an argument the sampler no longer takes
+  /// (as `nCtxTrain` did before the b10327 pin) reads as a live parameter and
+  /// is worse than no field at all.
   ///
   /// Pure and `static` so the format is unit-testable without inference — the
   /// seeding path itself needs a real model (PR #463).
