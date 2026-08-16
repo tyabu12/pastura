@@ -421,7 +421,7 @@ on a miss (`LlamaCppService.grammarConstrainedSample`, mirroring llama.cpp's
 `common_sampler_sample`) — see ADR-002 § "Grammar-all-rejected dist
 fallthrough". The retry budget itself is unchanged; the failure is gone at
 the sampler. **Not a b8694 workaround**: the upstream function is unchanged at
-the current b10327 pin (measured, #1487), so pin age alone is never a reason to
+the current b10327 pin (measured), so pin age alone is never a reason to
 retire the split — re-read the function at each bump, per ADR-002
 § "Pin Strategy" verification item 2. Diagnostic `samplerGrammarResample` (position-0) measures the
 residual rescue rate as a model-onboarding fragility signal.
