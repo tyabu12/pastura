@@ -64,38 +64,29 @@ nonisolated struct DryConfig {
   /// arm; otherwise DRY is enabled. `allowedLength` is 3 because ja names /
   /// topic words tokenize to 2–3 tokens.
   ///
-  /// **The three guards below track upstream's own `dry_enabled` predicate**
-  /// — `dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`, at
+  /// **The three guards below mirror upstream's `dry_enabled` predicate** —
+  /// `dry_multiplier != 0 && dry_base >= 1.0 && dry_penalty_last_n != 0`, at
   /// `src/llama-sampler.cpp:3406` (b10327), inside `llama_sampler_init_dry` at
-  /// `src/llama-sampler.cpp:3400`. Upstream does not fail on a value it
-  /// rejects — it returns a non-NULL `llama_sampler_init_empty("?dry")`, which
-  /// seeds and emits an ordinary `samplerDrySeeded` line. Without these guards
-  /// an A/B arm set through *any* of the three levers runs inert while every
-  /// marker reads healthy; with them it degrades to `nil` and the harness sees
-  /// the documented `reason=disabled`. Re-read that predicate on each pin bump
-  /// and track it here — a lever guarded on one side only is the failure this
-  /// exists for.
+  /// `:3400`, which clamps `penalty_last_n` to `max(…, 0)` at `:3401` *before*
+  /// the predicate reads it. Re-read all three lines on each pin bump: a value
+  /// upstream rejects is not an error there — it returns a non-NULL
+  /// `llama_sampler_init_empty("?dry")` that seeds and emits an ordinary
+  /// `samplerDrySeeded` line, so a lever guarded on one side only runs the A/B
+  /// arm inert while every marker reads healthy (`docs/models/eval-log.md`,
+  /// "`PASTURA_DRY_LAST_N=-1` flips meaning at b10327, silently"). With the
+  /// guards it degrades to `nil` and the harness sees `reason=disabled`.
   ///
-  /// **Only `base >= 1.0` is a byte-mirror of the quoted predicate.** The other
-  /// two read stricter and neither is reconcilable to `!= 0`:
+  /// Two guards read stricter than that mirror, deliberately:
   ///
-  /// - `multiplier > 0` is a deliberate policy choice. A negative multiplier
-  ///   inverts the penalty — upstream enables DRY and *rewards* repetition —
-  ///   which is never a meaningful A/B arm here, so it stays `reason=disabled`.
-  ///   `> 0` also rejects a `NaN` override, which upstream's `!= 0.0f` accepts.
-  /// - `penaltyLastN > 0` is not stricter in effect: upstream clamps the
-  ///   argument to `max(…, 0)` *before* the predicate reads it, so on the
-  ///   clamped value `!= 0` and `> 0` accept exactly the same inputs — over the
-  ///   whole `Int32` domain, `Int32.min` included. Loosening the **Swift-side**
-  ///   guard to `!= 0` would nonetheless re-admit the `-1` case below, which is
-  ///   the whole reason this guard exists: the Swift guard sees the raw value.
-  ///
-  /// `PASTURA_DRY_LAST_N=-1` needs the guard most, because it changed meaning
-  /// rather than staying invalid: at b8694 it was a documented sentinel for
-  /// "penalise over `n_ctx_train`", i.e. DRY on across the full context. The
-  /// b10327 pin dropped `n_ctx_train` from `llama_sampler_init_dry` and clamps
-  /// the argument at `src/llama-sampler.cpp:3401`, *before* the predicate tests
-  /// it, so the same value now means off (#1487).
+  /// - `multiplier > 0` — a negative multiplier makes upstream *reward*
+  ///   repetition, never a meaningful arm here; `> 0` also rejects a `NaN`
+  ///   override, which upstream's `!= 0.0f` accepts.
+  /// - `penaltyLastN > 0` — post-clamp the two accept identical inputs over the
+  ///   whole `Int32` domain, but the Swift guard sees the **raw** value, so
+  ///   loosening it to `!= 0` re-admits `PASTURA_DRY_LAST_N=-1`. That value
+  ///   changed meaning rather than staying invalid: at b8694 it was a documented
+  ///   sentinel for "penalise over `n_ctx_train`", and b10327 dropped
+  ///   `n_ctx_train` from the initializer, so it now means off (#1487).
   static func resolve(environment env: [String: String]) -> DryConfig? {
     func float(_ key: String, _ fallback: Float) -> Float {
       env[key].flatMap(Float.init) ?? fallback
@@ -216,9 +207,8 @@ nonisolated extension LlamaCppService {
 
   /// Build a DRY sampler (`llama_sampler_init_dry`) seeded content-only with
   /// `seeds`, or `nil` when disabled. Non-throwing: DRY is an optional quality
-  /// enhancement, so any missing precondition — the explicit base arm (reached
-  /// by any of the three levers named on ``DryUnavailableReason/disabled``,
-  /// canonically `PASTURA_DRY_MULTIPLIER=0`), no seeds, or a NULL sampler —
+  /// enhancement, so any missing precondition — the base arm (see
+  /// ``DryUnavailableReason/disabled``), no seeds, or a NULL sampler —
   /// degrades to `nil` rather than failing the whole generation.
   /// Ownership: the returned handle is caller-owned (freed in the
   /// run-loop `defer`s alongside `grammar`).

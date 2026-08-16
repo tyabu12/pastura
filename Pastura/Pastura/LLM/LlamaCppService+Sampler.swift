@@ -18,11 +18,10 @@ import os
 /// token (empty output at position 0).
 ///
 /// **Not a b8694 artifact — do not retire this split on the pin bump.**
-/// `llama_sampler_dist_apply` is byte-identical between b8694 and the
-/// current b10327 pin (measured on the upstream sources, #1487), including
-/// the `if (!cur_p->sorted)` guard that is the whole mechanism: with
-/// `sorted == true` the softmax takes `max_l` from `data[0]` alone, so a
-/// masked top candidate makes every probability `NaN`.
+/// `llama_sampler_dist_apply`, and its `if (!cur_p->sorted)` guard that is the
+/// whole mechanism, is byte-identical at b8694 and b10327 — measured on the
+/// upstream sources, ADR-002 § "Amendment 2026-08-15 — llama.swift pin bumped
+/// to 2.10327.0 (b10327)", bar item 2.
 ///
 /// **Ownership**: all three handles are caller-owned. Free `chain` **always**,
 /// and `grammar` / `dry` when non-nil. Freeing the chain does NOT free the
@@ -61,12 +60,14 @@ extension LlamaCppService {
   ///   - grammarString: Pre-built GBNF from ``GBNFGrammarBuilder``. When
   ///     non-nil, a `llama_sampler_init_grammar` handle is built and
   ///     returned alongside the chain (NOT inserted into it).
-  ///   - vocab: The model's vocabulary pointer. **Unconditionally required**
-  ///     since the b10327 pin: `llama_sampler_init_penalties` gained an
-  ///     `n_vocab` argument, and `penalties` is a chain member on *both* the
-  ///     grammar and no-grammar paths — so vocab is no longer needed only by
-  ///     the grammar parser. Non-optional rather than guarded, because
-  ///     `llama_vocab_n_tokens(nil)` dereferences NULL rather than throwing.
+  ///   - vocab: The model's vocabulary pointer. **Unconditionally required**:
+  ///     `penalties` is a chain member on *both* the grammar and no-grammar
+  ///     paths and takes `n_vocab`, so vocab is not a grammar-only need.
+  ///     Non-optional rather than guarded, because `llama_vocab_n_tokens(nil)`
+  ///     dereferences NULL rather than throwing — which is also why callers
+  ///     resolve it at their own entry point: by the time a chain is being
+  ///     built there is no error path left to take, so `prepareGeneration`
+  ///     unwraps it up front and throws `.notLoaded`.
   ///   - antiRepetitionSeeds: Prior text spans to seed the DRY sampler with
   ///     (content-only — the value text, never JSON scaffold). Empty leaves DRY
   ///     off, so the sampler is byte-for-byte the pre-#1105 configuration.
@@ -83,7 +84,7 @@ extension LlamaCppService {
   /// `runStreamGeneration` (streaming) call this via `prepareGeneration`.
   /// A third caller must always supply `vocab`, and pass `grammarString`
   /// whenever its path has a schema — omitting it silently bypasses grammar
-  /// on that path, the exact regression this plan's Critic Axis 3 flagged.
+  /// on that path.
   ///
   /// - Throws: ``LLMError/invalidGrammar(description:)`` if
   ///   `llama_sampler_init_grammar` returns NULL (unparseable GBNF —

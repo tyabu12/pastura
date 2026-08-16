@@ -68,12 +68,10 @@ extension LlamaCppService {
     schema: OutputSchema?,
     antiRepetitionSeeds: [String]
   ) throws -> PreparedGeneration {
-    // Unwrapped here rather than at the `createSampler` call: since the
-    // b10327 pin, `vocab` is a hard requirement of the sampler chain itself
-    // (`llama_sampler_init_penalties` takes `n_vocab`), and
-    // `llama_vocab_n_tokens(nil)` dereferences NULL rather than returning 0.
-    // `.notLoaded` rather than a new key: a loaded model always has a vocab,
-    // so NULL here means the model is not actually usable.
+    // `.notLoaded` rather than a new error key: a loaded model always has a
+    // vocab, so NULL here means the model is not actually usable. Why the
+    // unwrap is up-front rather than at the `createSampler` call: the `vocab`
+    // parameter doc on `createSampler`.
     guard let vocab = llama_model_get_vocab(model) else { throw LLMError.notLoaded }
 
     let formattedPrompt = try applyChatTemplate(system: system, user: user)
