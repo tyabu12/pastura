@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Guard: design-system §8's closing sub-bullet and the `mossInkWashSites`
+r"""Guard: design-system §8's closing sub-bullet and the `mossInkWashSites`
 fixture name the **same set** of rows.
 
 §8's closing sub-bullet quotes the fixture's row names and adjudicates each
@@ -37,9 +37,31 @@ above the closing one also names it, and that bullet discusses
 future edit writing that name in the quoted row form would inject a phantom
 member and red this gate over a bullet whose job is not to mirror the fixture.
 
-The doc must spell a row as `"Row.name"` **in backticks** — that is the form the
-bullet already uses, and the only form read here. A name written without it goes
-missing from the doc set and the gate fails; the message below says so.
+The doc must spell a row as `"Row.name"` — **backticks, quotes, and an
+identifier-shaped token inside**, the form the bullet already uses and the only
+one read here. That is also the **escape hatch**: to write *about* a row the
+fixture no longer carries, mention it in any other form and it stays invisible
+to the gate. The `only_doc` message says so, because "you typo'd" is the wrong
+advice in that case.
+
+`mossWashSites` ships a dotless row (`PhaseTypeLabel`), so the shape admits one;
+requiring a dot would make the next such row silently invisible.
+
+Anchored sub-bullets are joined with their markdown continuation lines before
+matching, so a hard-wrapped bullet keeps its names — same treatment, and same
+reason, as the fixture block below.
+
+**This is the only set-shaped mirror as of #1467, and that is a measurement, not
+a property.** Do not re-assert it from this paragraph — re-run the enumeration,
+which is name-shaped where ADR-028's is count-shaped:
+
+```sh
+git grep -nE '"(GameHeader\.statusPill|ResultsView\.completed)"|mossInkWashSites'
+```
+
+Every other hit today is a single-name cross-reference or a pointer to the
+fixture, not a copy of the set. The self-test fixtures below use synthetic names
+so they do not pollute that sweep.
 
 Fixture-side scope. The `static var mossInkWashSites` declaration only — its
 line through the first following line whose stripped content is `}` at the same
@@ -53,8 +75,9 @@ the fixture lacks") and send the author to edit the wrong file — the wrapped-r
 self-test arm is what bars that.
 
 Every anchor is asserted rather than allowed to degrade: a missing §8, a missing
-sub-bullet anchor, a missing declaration, or an empty extracted set each raises
-instead of collapsing into an empty-vs-empty "equal" pass.
+sub-bullet anchor, a missing declaration, an empty extracted set, or an
+**unreadable input file** each raises instead of collapsing into an
+empty-vs-empty "equal" pass or a bare traceback.
 
 Trigger paths live in `scripts/mossink-wash-membership-precommit-gate.sh`, which
 is what self-gates on them — one copy, so the two cannot drift.
@@ -71,6 +94,9 @@ import re
 import sys
 from pathlib import Path
 
+# Repo-relative for display; `_read` resolves against the repo root so a run
+# from a subdirectory reads the right files instead of raising.
+REPO_ROOT = Path(__file__).resolve().parent.parent
 DOC_PATH = Path("docs/design/design-system.md")
 FIXTURE_PATH = Path(
     "Pastura/PasturaTests/Views/DesignTokensTests+MossInkAsWashLabel.swift"
@@ -80,10 +106,18 @@ SECTION_HEADING = re.compile(r"^## 8\.")
 NEXT_SECTION = re.compile(r"^## ")
 # Indented list item — the closing sub-bullet. A top-level `- ` is NOT an anchor.
 SUB_BULLET = re.compile(r"^[ \t]+- ")
+# Any list item, at any indent: terminates a bullet's continuation lines.
+LIST_ITEM = re.compile(r"^[ \t]*([-*+]|[0-9]+\.)[ \t]")
 DOC_ANCHOR = "DesignTokensTests+MossInkAsWashLabel"
-# Backtick + ASCII double quote on both sides. `GameHeaderStatus.completed` in
-# bare backticks must not match, nor `role="status" aria-live="polite"`.
-QUOTED_ROW = re.compile(r"`\"([^\"`]+)\"`")
+# Backtick + ASCII double quote on both sides, wrapping an **identifier-shaped**
+# token. Three things must not match, and each has a live self-test control:
+# `GameHeaderStatus.completed` in bare backticks (no quotes), a bare
+# "BareQuoted.token" (no backticks), and `"Round X / Y"` — a quoted UI string in
+# §8's prose, which the surrounding bullets do discuss. Without the shape
+# constraint that last one becomes a phantom member and reds the gate over prose
+# that is correct. The constraint admits a dotless name: `mossWashSites` ships
+# `PhaseTypeLabel`, so requiring a dot would make the next such row invisible.
+QUOTED_ROW = re.compile(r"`\"([A-Za-z_][A-Za-z0-9_.]*)\"`")
 
 FIXTURE_DECL = "static var mossInkWashSites"
 FIXTURE_ROW = re.compile(r"MossWashSite\(\s*\"([^\"]+)\"")
@@ -91,6 +125,49 @@ FIXTURE_ROW = re.compile(r"MossWashSite\(\s*\"([^\"]+)\"")
 
 class AnchorError(Exception):
     """An extraction anchor stopped matching — the gate cannot judge."""
+
+
+def _read(path: Path) -> str:
+    """Read a tracked input, or raise `AnchorError` naming both edit sites.
+
+    A **file** going missing is an anchor loss like any other, and the loudest
+    way it happens is a rename: the gate script's `TRIGGER` regex then no longer
+    matches the new path either, so the local gate silently skips and CI is the
+    first thing to notice. Letting `FileNotFoundError` escape would surface that
+    as a bare traceback — and would falsify this module's own claim that every
+    anchor raises rather than degrading.
+    """
+    try:
+        return (REPO_ROOT / path).read_text(encoding="utf-8")
+    except OSError as exc:
+        raise AnchorError(
+            f"{path}: cannot read it ({exc.strerror}). If it was renamed, update "
+            "BOTH this checker's path constant AND the TRIGGER regex in "
+            "scripts/mossink-wash-membership-precommit-gate.sh — otherwise the "
+            "local gate stops matching the new path and skips silently."
+        ) from exc
+
+
+def _logical_line(lines: list[str], index: int, end: int) -> str:
+    """The list item at `index` joined with its markdown continuation lines.
+
+    Mirrors `fixture_row_names`' joined-block treatment, for the same reason and
+    against the same hazard: a hard-wrapped sub-bullet read line by line drops
+    every row name on a continuation line, and the gate then fails with the
+    *inverted* diagnosis ("§8 names a row the fixture lacks" → author edits the
+    wrong file). §8's bullets are unwrapped today and nothing in the repo forbids
+    wrapping one, so this is a tripwire on the next editor, not a fit to the
+    current text. Lazy continuation (an unindented wrapped line) is accepted too
+    — markdown allows it, and rejecting it would drop names for a reason the
+    author cannot see.
+    """
+    parts = [lines[index]]
+    for j in range(index + 1, end):
+        nxt = lines[j]
+        if not nxt.strip() or LIST_ITEM.match(nxt) or nxt.startswith("#"):
+            break
+        parts.append(nxt.strip())
+    return " ".join(parts)
 
 
 def doc_row_names(text: str) -> set[str]:
@@ -113,9 +190,9 @@ def doc_row_names(text: str) -> set[str]:
             break
 
     anchors = [
-        line
-        for line in lines[start:end]
-        if SUB_BULLET.match(line) and DOC_ANCHOR in line
+        _logical_line(lines, i, end)
+        for i in range(start, end)
+        if SUB_BULLET.match(lines[i]) and DOC_ANCHOR in lines[i]
     ]
     if not anchors:
         raise AnchorError(
@@ -130,7 +207,8 @@ def doc_row_names(text: str) -> set[str]:
     if not names:
         raise AnchorError(
             f"{DOC_PATH}: the §8 sub-bullet names no row in the required "
-            '`"Row.name"` form (backticks around the quoted string).'
+            '`"Row.name"` form (backticks around the quoted string, and an '
+            "identifier-shaped token inside it)."
         )
     return names
 
@@ -197,9 +275,13 @@ def _report(only_fixture: set[str], only_doc: set[str]) -> None:
             print(f"    {name}", file=sys.stderr)
     if only_doc:
         print(
-            f"  Named in §8 but NOT in {FIXTURE_PATH} — drop the name from the "
-            'sub-bullet, or check it is spelled `"Row.name"` in backticks '
-            "(the only form read):",
+            f"  Named in §8 but NOT in {FIXTURE_PATH} — the fixture is the "
+            "authority, so drop the name from the sub-bullet rather than adding "
+            "the row. To write ABOUT a row the fixture no longer carries "
+            "(`HomePausedCard.progress` is the precedent), mention it in any "
+            'form other than `"Row.name"` in backticks — that is the only form '
+            "read here, so anything else is deliberately invisible to this "
+            "gate:",
             file=sys.stderr,
         )
         for name in sorted(only_doc):
@@ -208,8 +290,8 @@ def _report(only_fixture: set[str], only_doc: set[str]) -> None:
 
 def check() -> int:
     try:
-        doc = doc_row_names(DOC_PATH.read_text(encoding="utf-8"))
-        fixture = fixture_row_names(FIXTURE_PATH.read_text(encoding="utf-8"))
+        doc = doc_row_names(_read(DOC_PATH))
+        fixture = fixture_row_names(_read(FIXTURE_PATH))
     except AnchorError as exc:
         print(f"mossink-wash-membership gate: {exc}", file=sys.stderr)
         print(
@@ -253,11 +335,14 @@ TOP_LEVEL_MENTION = (
 )
 ARIA_DECOY = '- Progress uses `role="status" aria-live="polite"`\n'
 
+# Synthetic row names, never the two real ones: these fixtures are self-
+# consistent, so real names here would only add decoy hits to a future
+# name-shaped sweep of the kind § "Doc-side anchor" invites.
 TWO_ROWS = (
-    '      MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),\n'
-    '      MossWashSite("ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16)\n'
+    '      MossWashSite("FirstView.pill", wash: .mossDark, light: 0.14, dark: 0.14),\n'
+    '      MossWashSite("SecondView.done", wash: .moss, light: 0.16, dark: 0.16)\n'
 )
-BASELINE = {"GameHeader.statusPill", "ResultsView.completed"}
+BASELINE = {"FirstView.pill", "SecondView.done"}
 
 
 def _sub_bullet(names_md: str) -> str:
@@ -290,7 +375,7 @@ def _fixture(rows: str, tail: str = "") -> str:
         "  }\n"
         "\n"
         "  @Test func onlyTheStatusPillWasFailingBeforeThisChange() {\n"
-        '    let failing = Self.mossInkWashSites.filter { $0.name == "GameHeader.statusPill" }\n'
+        '    let failing = Self.mossInkWashSites.filter { $0.name == "FirstView.pill" }\n'
         + tail
         + "    #expect(failing.count == 1)\n"
         "  }\n"
@@ -326,19 +411,37 @@ def self_test() -> int:
 
     # --- extraction ---------------------------------------------------------
 
-    # A bare-backtick identifier is not a row name. `Phantom.row` is the control:
-    # if the doc regex ever stopped requiring the surrounding quotes, it appears.
+    # Three live controls, all inside the sub-bullet where `QUOTED_ROW` can
+    # reach them — one per conjunct of the row-name form. Drop the quote
+    # requirement and `Phantom.row` appears; drop the backtick requirement and
+    # `BareQuoted.token` does; drop the identifier shape and `Round X / Y` does.
     expect_set(
-        "doc: only backtick-plus-quote names are rows",
+        "doc: a row name is backticks + quotes + an identifier-shaped token",
         doc_row_names(
             _doc(
                 TOP_LEVEL_MENTION
                 + _sub_bullet(
-                    'Read `"GameHeader.statusPill"` (= `GameHeaderStatus.completed`) '
-                    'and `"ResultsView.completed"` row by row; `Phantom.row` is an '
-                    'identifier, not a row, and a bare "quoted phrase" is not one '
-                    "either"
+                    'Read `"FirstView.pill"` (= `SecondStatus.done`) and '
+                    '`"SecondView.done"` row by row; `Phantom.row` is an identifier, '
+                    'not a row, a bare "BareQuoted.token" is not one either, and the '
+                    '`"Round X / Y"` label this bullet discusses is prose'
                 )
+                + ARIA_DECOY
+            )
+        ),
+        BASELINE,
+    )
+
+    # Hard-wrapped sub-bullet: the doc side joins continuation lines for the same
+    # reason the fixture side joins its block. Read per line, `SecondView.done`
+    # vanishes and the gate fails with the INVERTED diagnosis.
+    expect_set(
+        "doc: a hard-wrapped sub-bullet keeps the names on its continuation lines",
+        doc_row_names(
+            _doc(
+                TOP_LEVEL_MENTION
+                + _sub_bullet('Read `"FirstView.pill"` row by row,')
+                + '    and `"SecondView.done"` likewise\n'
                 + ARIA_DECOY
             )
         ),
@@ -385,9 +488,9 @@ def self_test() -> int:
         + ",\n"
         + '      MossWashSite("NewSite.pill", wash: .moss, light: 0.12, dark: 0.12)\n'
     )
-    both_named = _sub_bullet('`"GameHeader.statusPill"` and `"ResultsView.completed"`')
+    both_named = _sub_bullet('`"FirstView.pill"` and `"SecondView.done"`')
     three_named = _sub_bullet(
-        '`"GameHeader.statusPill"`, `"ResultsView.completed"` and `"NewSite.pill"`'
+        '`"FirstView.pill"`, `"SecondView.done"` and `"NewSite.pill"`'
     )
 
     comparisons = [
@@ -446,7 +549,7 @@ def self_test() -> int:
             doc_row_names,
             _doc(
                 TOP_LEVEL_MENTION
-                + _sub_bullet("the rows are ResultsView.completed and the pill")
+                + _sub_bullet("the rows are SecondView.done and the pill")
                 + ARIA_DECOY
             ),
         ),
@@ -468,7 +571,19 @@ def self_test() -> int:
             continue
         fail(name, f"expected AnchorError, got {sorted(got)}")
 
-    total = extraction_arms + len(comparisons) + len(anchor_cases)
+    # A renamed or deleted input is an anchor loss too, and the one the docstring
+    # would otherwise only promise: without `_read` it escapes as a bare
+    # `FileNotFoundError`, which is not what the caller catches.
+    try:
+        _read(Path("docs/design/no-such-file-for-the-self-test.md"))
+    except AnchorError:
+        pass
+    except OSError as exc:  # pragma: no cover — the defect this arm bars
+        fail("read: a missing input escapes as OSError", repr(exc))
+    else:
+        fail("read: a missing input", "expected AnchorError, got a successful read")
+
+    total = extraction_arms + len(comparisons) + len(anchor_cases) + 1
     if failures:
         return 1
     print(f"mossink-wash-membership self-test: {total}/{total} passed")
