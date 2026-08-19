@@ -297,12 +297,15 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
   # deferred reflection-hook-backstop decision (#1361).
   #
   # APPEND ONLY. The opening sentence's `+N always-loaded / +N path-scoped`
-  # phrasing is asserted verbatim by both tier-classification positive controls
-  # (`scripts/tests/check-claude-md-modified-test.sh` cases (l) and (q) —
-  # measured by perturbing it, which reddens exactly those two). Reword it and
-  # the honest-looking fix is to loosen those assertions, retiring the only
-  # tests that prove a file was classified into the right tier.
-  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale'). /simplify-doc runs that pass: it is scoped to the lines this branch added, verifies each deletion against the back-reference, duplicate-claim and mirror checks, and emits the 'Context-economy:' line for you."
+  # phrasing is asserted verbatim by all three tier-classification controls in
+  # `scripts/tests/check-claude-md-modified-test.sh`: (l) and (q) on the
+  # always-loaded half, (m) on the path-scoped half. Perturbing the
+  # always-loaded half reddens (l) and (q) only — so a perturbation test proves
+  # less than the enumeration does; read both halves. Reword either and the
+  # honest-looking fix is to loosen those assertions, retiring the only tests
+  # that prove a file was classified into the right tier.
+  # The `/simplify-doc` tail is asserted by case (s).
+  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale'). /simplify-doc runs that pass over the lines this branch added and emits the line for you — run it before review rather than after this PR opens."
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------

@@ -1,7 +1,7 @@
 ---
 name: simplify-doc
-description: Prune this branch's own added prose — compress or delete self-evident, redundant, or duplicated comments and documentation, with the back-reference, duplicate-claim, and mirror checks that make a deletion safe. Use when the user asks to simplify or compress docs or comments, trim a .claude/rules addition, run a Context-economy pass, or 冗長なコメント / ドキュメントを削る.
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
+description: Prune this branch's own added prose — compress or delete self-evident, redundant, or duplicated comments and documentation, with the back-reference, duplicate-claim, and mirror checks that make a deletion safe. Use when the user asks to simplify or compress docs or comments, trim what a branch added to .claude/rules, run a Context-economy pass, or 冗長なコメント / ドキュメントを削る.
+allowed-tools: Read, Write, Edit, Bash, Agent
 argument-hint: "[base-ref | dry-run]"
 ---
 
@@ -31,7 +31,7 @@ turn. It is not a compression target for its own campaigns.
   They compose; neither substitutes.
 - **Not a review gate.** `/code-review` and the `code-reviewer` subagent judge a
   diff against conventions. This judges whether prose earns its place.
-- **Not a zero-base sweep.** See Step 1.
+- **Not a zero-base sweep.** See Step 0.5 and Step 1.
 - **Not an unattended generator**, so `.claude/rules/automation-output-contract.md`
   does not bind: a human invokes this, watches it, and reviews the commit. It
   queues no artifact into anyone's review backlog.
@@ -40,8 +40,10 @@ turn. It is not a compression target for its own campaigns.
 
 On a feature branch, normally just before `/orchestrate` Step 4 so the reviewer
 sees the pruned diff. CLAUDE.md § "Implementation Entry Point" carves this skill
-out of the `/orchestrate`-only rule; Step 0's guards are what earn that carve-out,
-so do not weaken them.
+out of the `/orchestrate`-only rule on structural grounds — it edits prose, runs
+no build, touches none of the shared artifacts worktree isolation exists for,
+creates no branch and pushes nothing. Step 0's guards are the additional layer,
+and the carve-out names them, so do not weaken them.
 
 ## Step 0 — Preflight (refuse, don't degrade)
 
@@ -51,10 +53,18 @@ so do not weaken them.
 2. **Working tree clean.** `git status --porcelain` must be empty. Uncommitted
    changes may belong to a concurrent session in another worktree; a prune that
    commits them attributes another session's work to this one. Abort and report
-   what is dirty rather than stashing it.
-3. **Resolve the base**: `BASE=$(git merge-base origin/main HEAD)` (or the
-   `base-ref` argument). `git fetch origin main` first if the branch is old.
+   what is dirty rather than stashing it. This is a point measurement — Step 6
+   re-checks before staging.
+3. **Resolve the base**: `BASE=$(git merge-base origin/main HEAD)`, after
+   `git fetch origin main`. Any argument that is not the literal `dry-run` is a
+   base-ref: validate it with `git rev-parse --verify "$ARG^{commit}"` and abort
+   on failure, so a typo fails here rather than as a raw git error in Step 1.
 4. If the argument is `dry-run`, stop after Step 2 and report the table.
+5. **If the request reads as zero-base** — "make `.claude/rules` carry only what
+   it needs", or it names files this branch never touched — say so *before*
+   starting, and offer the choice: diff-scoped now, diff-scoped plus a named
+   follow-up campaign, or stop. Silently narrowing the ask is the failure mode
+   here; the maintainer's habitual phrasing for this task often reads zero-base.
 
 ## Step 1 — Enumerate the population, then scope
 
@@ -70,6 +80,15 @@ Everything with a non-zero added count is a candidate; nothing else is in scope.
 is obviously worse than what you are pruning — that is a separate, deliberate
 campaign, and mixing the two makes the diff unreviewable.
 
+Two boundaries the diff alone will not settle:
+
+- A `+`/`-` pair with **identical** content is a reflow — not new prose, leave
+  it. A pair whose content **changed** is a rewrite, and its substance predates
+  this branch: out of scope unless the branch authored the claim it now makes.
+- A **whole new file** gets a file-level verdict first — does this belong in
+  this tier at all (`knowledge-layering.md` § "Where knowledge belongs")? Check A
+  is vacuous for one: nothing can cite what did not exist.
+
 Split the candidates into three classes and enumerate each:
 
 ```bash
@@ -84,16 +103,18 @@ git diff -U0 "$BASE"...HEAD -- '*.swift' '*.kt' '*.sh' '*.py' \
 git diff --numstat "$BASE"...HEAD -- docs README.md CONTRIBUTING.md
 ```
 
-A comment that a reformat merely **reflowed** appears as a `+`/`-` pair with the
-same content. It is not new prose; leave it alone.
+`.claude/skills/**` is in the first list so a prune can see it, but it is
+budgeted per *invocation*, not per turn — apply the classifier there at a looser
+bar than to a genuinely always-loaded file.
 
 ## Step 2 — Classify each candidate block
 
 `.claude/rules/context-budget.md` (Keep / Drop / relocate) and
 `.claude/rules/knowledge-layering.md` (§ "Anti-pattern: a comment written for the
-reviewer", § "Where knowledge belongs") own the criteria. **Both are
-always-loaded, so they are already in your context** — apply them, do not re-read
-or restate them here. Three points they make that this pass most often needs:
+reviewer", § "Where knowledge belongs") own the criteria, and both are
+always-loaded — they are already in your context, so read them there rather than
+re-deriving them. Singled out below are the three they carry that this pass needs
+most often, because they are the ones a prune gets wrong:
 
 - **Volume is the commoner defect, and it is spread across how many blocks you
   write as well as how long each is.** Count before length.
@@ -115,26 +136,32 @@ trustworthy after its control has reddened.
 
 ### A. Back-references — grep a token that cannot be line-wrapped
 
-Before deleting anything **named** — a section heading, a file path, an
-identifier, a table row shape, a marker string — find who cites it. Grep a
-**space-free token**: a bare filename, an identifier, an ADR number, or a single
-rare word. Never a quoted phrase or a full heading.
+Before deleting **or renaming** anything named — a section heading, a file path,
+an identifier, a table row shape, a marker string — find who cites it. A rename
+is a deletion plus an addition, so run this check on the **old** name; a retitled
+heading breaks every back-reference while never looking like a deletion.
 
-This is not a style preference. Measured in this repo: `git grep 'Verify before
-you lock it' -- '*.md'` finds three files and **misses the real citation** in
-`docs/agent-tooling/claim-verification.md`, because the phrase is hard-wrapped
-across two lines. Normalizing whitespace does not fix it either — the
-continuation line starts with a `> ` blockquote marker, so a `tr '\n' ' '` pass
-still misses it. A space-free token cannot be split across a line break, so the
-whole failure mode disappears: `git grep -lw lock` finds every citing file.
-Accept the noise. A superset you triage by hand beats a false green on a
-deletion.
+Grep a **space-free token**: a bare filename, an identifier, an ADR number, or a
+single rare word. Never a quoted phrase or a full heading. Measured in this repo:
+`git grep -l 'Verify before you lock it' -- '*.md'` does **not** list
+`docs/agent-tooling/claim-verification.md`, which cites that section — the phrase
+is hard-wrapped there. Normalizing whitespace (`tr '\n' ' '`) recovers that one
+but not a wrap whose continuation line carries a `> ` blockquote marker, as
+`knowledge-layering.md:6-7` does. A space-free token needs neither pass:
+`git grep -lw lock` lists every citing file.
 
-**Run a positive control before trusting any zero result.** Use the same command
-shape against a string you know is cited. If the control does not produce hits,
-your command is broken and the zero means nothing —
-`.claude/rules/ci-workflows.md` § "`grep` is line-bound" records the same class
-of failure from the other direction.
+**Pick the rarest space-free token, not the first, and enumerate the result.**
+Noise is the cost of the technique: `-lw lock` returns tens of files for a
+heading with two real citers, and for one whose distinctive words are all common
+(`reviewer`) it is worse. **If the result set is too large to enumerate, that IS
+the verdict: Keep**, or narrow with a second token. Never delete against a
+superset you did not read. Same shape as check B — unproven ⇒ Keep.
+
+**Run a positive control before trusting any zero result, and put the control in
+the target's habitat**: a string cited from the same file class, in the wrapped
+form you are worried about. A control that merely matches the pattern proves your
+command has no typo and nothing else. `.claude/rules/ci-workflows.md` § "`grep`
+is line-bound" records the same class of failure from the other direction.
 
 ### B. "This is a duplicate" is a claim, not an observation
 
@@ -154,9 +181,10 @@ this claim is usually false.** Unproven ⇒ Keep.
 
   Reconciliation is one-way kit → Pastura, so compressing the shared core here
   makes the next reconcile read relocated text as deletions. CONTRIBUTING.md
-  already states the norm: "Fix those upstream in claude-kit, never in the
-  mirror." Lines *this branch* added to such a file are in scope only if the
-  branch is not itself a reconcile — check its commits before assuming.
+  § "The claude-kit plugin" already states the norm: fix those upstream in
+  `claude-kit`, never in the mirror. Lines *this branch* added to such a file are
+  in scope only if the commit that added them is not itself a reconcile; resolve
+  that per commit, not per branch.
 - **Rule ↔ paired doc.** `subagent-usage.md` ↔
   `docs/agent-tooling/subagent-output-cap.md`, `knowledge-layering.md` ↔
   `docs/agent-tooling/claim-verification.md`. Each pair says to reconcile the
@@ -170,7 +198,28 @@ this claim is usually false.** Unproven ⇒ Keep.
 If a file you compressed quotes its own size, line count, or a count of
 something this pass changed, **re-measure on the final commit**
 (`.claude/rules/knowledge-layering.md` § "Verify before you lock it"). The figure
-you measured mid-pass is stale by construction.
+you measured mid-pass is stale by construction — and a sentence that documents a
+grep can itself satisfy that grep, so pin such a count with a self-excluding
+pathspec or omit the number entirely.
+
+### E. Some prose is parsed
+
+Treat these as code, not prose. Each fails **open**, so breaking one costs no
+error — only silence:
+
+- **`CLAUDE.md`'s ADR roster** must stay one line alone in its paragraph, and the
+  ADR-006 reservation row needs all three conjuncts of its table row. Both are
+  read by `.claude/skills/consistency-audit/scripts/audit_docs.py`; a reflowed
+  roster makes it skip per-ADR drift detection entirely.
+- **A `.claude/rules/*.md` `paths:` block.** Compressing it changes what the rule
+  fires on, *and* re-tiers the file in the trim nudge and footprint sum — both
+  decide always-loaded vs path-scoped purely on whether the frontmatter carries a
+  `^paths:` line. A rules file whose frontmatter is touched also needs re-probing
+  (`knowledge-layering.md` § "A rules file created mid-session never injects in
+  that session").
+
+`/consistency-audit` catches roster damage only after the fact — it is a
+generator, not a gate.
 
 ## Step 4 — Apply
 
@@ -194,9 +243,10 @@ you measured mid-pass is stale by construction.
 
 Round 1: `code-reviewer` on the branch diff.
 
-**If the pass touched `CLAUDE.md`, `.claude/rules/**`, `.claude/agents/**`, or
-`.claude/skills/**`, `code-reviewer` alone is not enough.** A conventions gate
-has no higher convention to judge against when the artifact under review *is* the
+**If the pass touched `CLAUDE.md`, `.claude/rules/**`, `.claude/agents/**`,
+`.claude/skills/**`, or any file whose comments guard a test assertion or a gate
+(`scripts/**`), `code-reviewer` alone is not enough.** A conventions gate has no
+higher convention to judge against when the artifact under review *is* the
 conventions — a structural blind spot, not a quality one. Add
 `/claude-kit:risk-review` (preferred; confirm the namespaced name resolves), or
 fall back to `claude-kit:critic` — which CLAUDE.md § "Agent Tooling Dependency"
@@ -210,6 +260,8 @@ already declares as a hard dependency — with these axes stated explicitly:
 4. Is a mirrored pair now inconsistent?
 5. Did the pass delete backward-looking prose that was making a forward rule
    intelligible?
+6. Did a deletion remove the only warning protecting a fragile coupling? Check A
+   protects what is *cited*; a comment nobody cites is invisible to it.
 
 **Round 2 runs as a fresh subagent whose prompt carries only the diff and the
 file paths — never round 1's output.** A second round that can see the first
@@ -220,14 +272,19 @@ opening a third.
 
 ## Step 6 — Commit and report
 
-Commit with `📝 docs:` (or `♻️ refactor:` when the pass restructures rather than
-removes), staging explicit paths only.
+Immediately before staging, re-run `git status --porcelain` and confirm every
+dirty path is one this pass edited — Step 0's check was a point measurement and a
+concurrent session can dirty the tree mid-run. Then read `git diff --cached` and
+confirm the staged content is what the Step 2 table approved. Commit with
+`📝 docs:` (or `♻️ refactor:` when the pass restructures rather than removes),
+staging explicit paths only.
 
 Report:
 
 - **The arithmetic**: enumerated / kept / compressed / dropped / relocated. An
   uncounted drop is indistinguishable from a candidate never examined.
-- **What was not examined** — every file class skipped and why.
+- **What was not examined** — every file class skipped, and anything the request
+  asked for that Step 0.5 put out of scope.
 - **A ready-to-paste `Context-economy:` line** for the PR body, in the form the
   `gh pr create` nudge asks for:
   `Context-economy: kept N paragraphs, compressed/dropped M — <one-line rationale>`.
