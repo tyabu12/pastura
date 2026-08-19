@@ -1,6 +1,6 @@
 ---
 name: simplify-doc
-description: Prune this branch's own added prose — compress or delete self-evident, redundant, or duplicated comments and documentation, gated by the five checks that make a deletion safe (back-references, duplicate claims, mirrors, self-quoted numbers, machine-parsed prose). Use when the user asks to simplify or compress docs or comments, trim what a branch added to .claude/rules, run a Context-economy pass, or 冗長なコメント / ドキュメントを削る.
+description: Prune the prose this branch added — compress or delete self-evident, redundant, or duplicated comments and documentation, behind verification gates that stop a deletion from breaking something load-bearing. Use when asked to simplify or compress docs or comments, trim what a branch added to .claude/rules, run a Context-economy pass, or 冗長なコメント / ドキュメントを削る.
 allowed-tools: Read, Write, Edit, Bash, Agent
 argument-hint: "[base-ref | dry-run]"
 ---
@@ -10,19 +10,22 @@ argument-hint: "[base-ref | dry-run]"
 One prune pass over **what this branch added**: enumerate → classify → verify →
 apply → review → report.
 
-It exists because the generation-side lever does not work. Comment and prose
-volume "tracks the model rather than recency"
-(`.claude/rules/knowledge-layering.md` § "Anti-pattern: a comment written for the
-reviewer"), so thickening the always-loaded rules that ask for restraint has no
-durable effect. The working design is the opposite: let generation be verbose,
-and make pruning an explicit pass with its own verification. What this skill adds
-over an ad-hoc "delete the redundant bits" prompt is **Step 3** — the checks that
-stop a prune from silently breaking something load-bearing.
+It exists because the generation-side lever does not work: prose volume "tracks
+the model rather than recency" (`.claude/rules/knowledge-layering.md`
+§ "Anti-pattern: a comment written for the reviewer"), so thickening the
+always-loaded rules that ask for restraint has no durable effect. Let generation
+be verbose and make pruning an explicit pass instead. What this adds over an
+ad-hoc "delete the redundant bits" prompt is **Step 3** — the checks that stop a
+prune from silently breaking something load-bearing.
 
-Skill files are not always-loaded (`.claude/skills/**` is outside both the
-footprint sum and the trim-nudge pathspec in
-`scripts/hooks/check-claude-md-modified.sh`), so this file costs nothing per
-turn. It is not a compression target for its own campaigns.
+This file's **body** is not always-loaded — `.claude/skills/**` is in neither the
+trim-nudge nor the footprint pathspec of
+`scripts/hooks/check-claude-md-modified.sh` — so it costs nothing per turn and is
+not a compression target for its own campaigns. The frontmatter `description:` is
+the exception, in both directions: it sits in every session's skill listing so it
+*is* paid per turn, and it is the routing surface, where a dropped trigger word
+silently stops the skill being selected and raises no error. Compress it only
+against that trade.
 
 ## What this is not
 
@@ -40,11 +43,9 @@ turn. It is not a compression target for its own campaigns.
 
 On a feature branch, normally just before `/orchestrate` Step 4 so the reviewer
 sees the pruned diff. CLAUDE.md § "Implementation Entry Point" carves this skill
-out of the `/orchestrate`-only rule on structural grounds — it edits prose, runs
-no build, touches none of the shared artifacts worktree isolation exists for,
-creates no branch and pushes nothing. The three revocable guards the carve-out
-names — Step 0's two refusals, and Step 4's explicit-path staging — are the rest
-of the grant, so do not weaken them.
+out of the `/orchestrate`-only rule and states the grounds. The three revocable
+guards the carve-out names — Step 0's two refusals, and Step 4's explicit-path
+staging — are the rest of the grant, so do not weaken them.
 
 ## Step 0 — Preflight (refuse, don't degrade)
 
@@ -115,16 +116,11 @@ bar than to a genuinely always-loaded file.
 `.claude/rules/knowledge-layering.md` (§ "Anti-pattern: a comment written for the
 reviewer", § "Where knowledge belongs") own the criteria, and both are
 always-loaded — they are already in your context, so read them there rather than
-re-deriving them. Singled out below are the three they carry that this pass needs
-most often, because they are the ones a prune gets wrong:
-
-- **Volume is the commoner defect, and it is spread across how many blocks you
-  write as well as how long each is.** Count before length.
-- Past ~10 lines, rewrite once at half length; **the rewrite wins** unless it
-  dropped a forward-looking fact.
-- A block where *no* sentence states a durable claim — only provenance, the
-  diff's own argument, or a figure a canonical site already states — belongs in
-  the PR body, not the file.
+re-deriving them. Weight three of theirs highest, because they are the ones a
+prune gets wrong: count-before-length, the half-length rewrite past ~10 lines,
+and the "no durable claim" test. Read those three at the source, not off this
+sentence — each carries an exception that licenses a **Keep**, and an abbreviated
+restatement here drops exactly those.
 
 Produce a table before touching anything: file, block anchor, verdict
 (Keep / Compress / Drop / Relocate), and one line of why. Present it. On
@@ -132,8 +128,9 @@ Produce a table before touching anything: file, block anchor, verdict
 
 ## Step 3 — Verify before deleting
 
-The checks below are the reason this skill exists. Each one has cost a real
-incident; none is optional, and a zero result from any of them is only
+The checks below are the reason this skill exists — back-references, duplicate
+claims, mirrors, self-quoted numbers, machine-parsed prose. Each one has cost a
+real incident; none is optional, and a zero result from any of them is only
 trustworthy after its control has reddened.
 
 ### A. Back-references — grep a token that cannot be line-wrapped
