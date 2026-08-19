@@ -45,7 +45,12 @@ cd "$ROOT"
 # that directory is intentionally flat, this one is not.
 TRIGGER='(^Pastura/Pastura/(Views|App)/.*\.swift$)|(^Pastura/PasturaUITests/ScreenshotTourTests\.swift$)|(^scripts/generate-navigation-map\.py$)|(^docs/design/navigation-map\.md$)'
 
-if ! git diff --cached --name-only | grep -qE "$TRIGGER"; then
+# Capture, don't `| grep -q`: under `pipefail` an early match makes the
+# still-writing `git` SIGPIPE and the gate skips despite matching (#1498).
+# `|| [ $? -eq 1 ]` keeps exit 1 as "no match" and lets exit >=2 fail loudly.
+STAGED="$(git diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
+if [ -z "$MATCHED" ]; then
   exit 0
 fi
 
