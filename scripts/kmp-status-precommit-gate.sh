@@ -33,8 +33,10 @@ cd "$ROOT"
 TRIGGER='(^docs/kmp-migration-status\.md$)|(^shared/adr-023-port-ledger\.tsv$)|(^shared/engine/src/commonMain/kotlin/com/pastura/engine/Phases/.*\.kt$)|(^scripts/check-kmp-status\.py$)'
 
 # Capture, don't `| grep -q`: under `pipefail` an early match makes the
-# still-writing `git` SIGPIPE and the gate skips despite matching (#1498).
-# `|| [ $? -eq 1 ]` keeps exit 1 as "no match" and lets exit >=2 fail loudly.
+# still-writing producer SIGPIPE and the gate skips despite matching (#1498).
+# Dropping `-q` is what fixes it, NOT the `STAGED=` capture — re-adding `-q`
+# below reinstates the defect on `printf` instead of on `git`. Rationale and
+# the `|| [ $? -eq 1 ]` contract: `.claude/rules/ci-workflows.md` § "Rule 3".
 STAGED="$(git diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
 if [ -z "$MATCHED" ]; then

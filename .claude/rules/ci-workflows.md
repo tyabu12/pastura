@@ -68,7 +68,12 @@ $ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  #
 ### Rule 3 — `producer | grep -q` under `pipefail` reports a MATCH as a failure
 
 Sibling of Rule 2, opposite composition: there pipefail was missing, here it is
-present. `grep -q` exits at its **first** match; the producer, still writing,
+present. Filed under this section for that pairing, but note the population is
+inverted too — the live sites are the repo's own `scripts/**` gates under the
+**local pre-commit hook**, and the GHA half is the explicitly-latent case at the
+end of this rule.
+
+`grep -q` exits at its **first** match; the producer, still writing,
 takes SIGPIPE and returns 141; `pipefail` promotes that to the pipeline's
 status. So `if ! producer | grep -q PAT` skips **because** the pattern matched.
 

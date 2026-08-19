@@ -33,10 +33,12 @@
 # control that lives elsewhere stops discriminating on the day the lender
 # changes, without reddening anything here (#1481).
 #
-# Arm A8 pins that the capture shape ABORTS on grep exit >=2 (broken regex,
-# read error) instead of falling through with an empty match. Without it a
-# future edit that breaks a TRIGGER pattern re-opens the identical fail-open
-# through a different door. It is also the bash-5 canary: the fix shape was
+# Arm A8 pins that the capture SHAPE aborts on grep exit >=2 (broken regex,
+# read error) instead of falling through with an empty match — it runs a
+# heredoc copy, so it fixes the semantics of the idiom and is NOT a guard over
+# the tree: a site relaxed back to `|| true` would still pass it. See A12's
+# header for why that shape cannot be pattern-guarded. It is also the bash-5
+# canary, which is A8's load-bearing job here: the fix shape was
 # measured on bash 3.2 (what the macOS pre-commit hook runs); this arm is what
 # reddens if bash 5 on the ubuntu CI runner treats the construct differently.
 #
@@ -266,24 +268,37 @@ else
 fi
 
 # --- A12: no `| grep -q` left in the production scripts --------------------
-# Scope is the executable production surface — `scripts/*.sh` and
-# `scripts/hooks/*.sh`, tracked files only. Deliberately NOT a pathspec over
-# everything, because the precondition is "does a `pipefail` reach this site",
-# not "where does the file live". Three areas were checked and are out of
-# scope for that reason, not by omission:
+# Scope is the executable production surface — `scripts/*.sh`,
+# `scripts/hooks/*.sh` and `tools/*/scripts/*.sh`, tracked files only.
+# Deliberately NOT a pathspec over everything, because the precondition is
+# "does a `pipefail` reach this site", not "where does the file live". Three
+# areas were checked and are out of scope for that reason, not by omission:
 #   - scripts/tests/**        this file's own A4 / A11 negative controls are
 #                             literal old-shape copies and MUST stay; the other
 #                             harnesses feed short strings
-#   - .claude/skills/**       the two run_tests.sh harnesses use `set -eu` with
-#                             no pipefail; release/SKILL.md's documented
-#                             snippet reads a 3 KB Swift file in a shell that
-#                             has pipefail off
+#   - .claude/skills/**       the run_tests.sh harnesses that carry the shape
+#                             all use `set -eu` with no pipefail;
+#                             release/SKILL.md's documented snippet reads a
+#                             3 KB Swift file in a shell that has pipefail off
 #   - .github/workflows/**    a bare `run:` is `bash -e {0}`, no pipefail
 #                             (ci-workflows.md Rule 2). Latent, not live: a
 #                             later `shell: bash` on one of those steps arms
 #                             all four. Noted in the rule rather than guarded,
 #                             because guarding it here would need this file to
 #                             parse YAML step options to stay honest.
+#
+# Two regression shapes this arm does NOT catch, stated so the coverage is not
+# read as wider than it is:
+#   - `|| [ $? -eq 1 ]` relaxed back to `|| true` at a fixed site. That loses
+#     the exit->=2 discrimination without reintroducing the SIGPIPE fail-open,
+#     and it cannot be pattern-guarded here: 15 legitimate `grep … || true`
+#     uses already exist across the enumerated scripts, so the pattern would be
+#     noise. A8 pins the shape's semantics; it is not a guard over the tree.
+#   - a pipeline wrapped across lines (`producer |` at EOL, `grep -q …` on the
+#     next). `scan` is line-bound, the same blind spot ci-workflows.md §
+#     "`grep` is line-bound" documents for this repo's other call-shape guards.
+#     Zero such sites today. A trailing comment on a code line goes the other
+#     way and false-positives, which is loud rather than silent.
 #
 # Comment lines are stripped before matching. That is load-bearing and it is
 # also the guard's own weak point: every site fixed for #1498 carries a comment
@@ -354,11 +369,16 @@ fi
 # `:(glob)` is required, not decoration: a plain `scripts/*.sh` pathspec uses
 # git's wildmatch, where `*` crosses `/`, so it silently pulls in
 # scripts/tests/*.sh — including THIS file and its two deliberate old-shape
-# controls. Measured: 55 files without the magic, 34 with it.
+# controls. Measured: 55 files without the magic, 34 with it (scripts/ only).
+#
+# `tools/*/scripts/*.sh` is in scope for the same reason scripts/ is, not as an
+# afterthought: all four kmp-gate-spike scripts run `set -euo pipefail` and two
+# of them are CI gates. Zero hits there today.
 git -C "$ROOT" ls-files -- ':(glob)scripts/*.sh' ':(glob)scripts/hooks/*.sh' \
+                           ':(glob)tools/*/scripts/*.sh' \
   > "$TMP/prod-scripts.txt"
 n_files="$(wc -l < "$TMP/prod-scripts.txt" | tr -d ' ')"
-if [ "$n_files" -lt 25 ]; then
+if [ "$n_files" -lt 30 ]; then
   bad "A12 only $n_files production scripts enumerated — the ls-files pathspec stopped" \
       "matching, so a clean scan would prove nothing"
 else
@@ -374,7 +394,7 @@ while IFS= read -r f; do
 done < "$TMP/prod-scripts.txt"
 
 if [ -z "$residual" ]; then
-  ok "A12 no \`| grep -q\` remains in scripts/*.sh or scripts/hooks/*.sh"
+  ok "A12 no \`| grep -q\` remains in scripts/*.sh, scripts/hooks/*.sh or tools/*/scripts/*.sh"
 else
   bad "A12 \`| grep -q\` under pipefail still present — each of these skips silently when" \
       "its producer outruns the pipe buffer (#1498):"

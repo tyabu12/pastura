@@ -81,6 +81,15 @@
 # to "no section", every other external command is guarded with
 # `2>/dev/null` / `|| true`, and the script ends on an unconditional `exit 0`.
 #
+# ONE deliberate exception since #1498: `changed_matches()` lets grep's exit >=2
+# (a broken pattern, not a no-match) reach `set -e` and abort. It is the only
+# path here that can exit non-zero. The trade is deliberate — the alternative,
+# `|| true`, maps a broken pattern onto "nothing matched", and section 1 then
+# emits "no agent-instruction file changed" and suppresses every later nudge,
+# which is the failure this hook exists to prevent. Reachability is near-nil:
+# both callers pass compile-time-literal patterns, and the `-Fx` caller cannot
+# produce a pattern error at all.
+#
 # Reads no stdin. Reference: PR #406/#407; .claude/rules/ in #1026;
 # trim + footprint sections in #1361.
 
@@ -341,11 +350,16 @@ always_loaded_bytes() {
     [ -n "$f" ] || continue
     case "$f" in
       .claude/rules/*)
-        # Capture rather than `| grep -q`, matching the rest of this file. Here
-        # the producer is bounded (`head -n 14` of a markdown frontmatter never
-        # fills a pipe buffer) so this one was not reachable, but leaving the
-        # shape behind would mean the #1498 residual guard needs an allow-list
-        # entry — and an allow-list is the thing that rots.
+        # Capture rather than `| grep -q`, as elsewhere in this file — but
+        # WITHOUT the `|| [ $? -eq 1 ]` group the other sites carry, because
+        # there is nothing for it to do here: this function runs under an
+        # explicit `set +e`, so grep's exit >=2 cannot abort anything, and it
+        # falls through to `fm=""` => the file counts as always-loaded, the
+        # conservative tier. The producer is bounded too (`head -n 14` of a
+        # markdown frontmatter never fills a pipe buffer), so this site was
+        # never reachable; it is swept only so the #1498 residual guard can
+        # assert a clean zero instead of carrying an allow-list entry — and an
+        # allow-list is the thing that rots.
         local fm
         fm=$(head -n 14 "$f" 2>/dev/null | grep '^paths:')
         [ -z "$fm" ] || continue
