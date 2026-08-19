@@ -225,6 +225,46 @@ else
       "this also means bash 5 does not abort the assignment the way bash 3.2 does."
 fi
 
+# --- A11: the three-stage symbol-guard shape (scripts/release.sh) ----------
+# release.sh's ADR-005 §8.5 guard is `nm -a "$BIN" | xcrun swift-demangle |
+# grep -i ollama`. It cannot be driven end-to-end here (it needs a signed
+# archive), so the *shape* is pinned instead, on a fixture that models what
+# makes the real one dangerous: an `nm` dump far larger than any pipe buffer
+# with the leaked symbol near the front. Two stages upstream, not one — with
+# `-q` the SIGPIPE can land on either, and only the last stage's status is the
+# one `pipefail` would otherwise hide behind.
+#
+# The old-shape half is the negative control, same role as A4: it must MISS,
+# or the fixture is not modelling the hazard and the new-shape half proves
+# nothing. That the real guard was passing on symbol *ordering* rather than on
+# the check is exactly this pair of results.
+awk 'BEGIN {
+  print "0000000100000000 T _$s7Pastura13OllamaServiceCN"
+  for (i = 0; i < 40000; i++) printf "00000001000%05d T _symbol_filler_%d\n", i, i
+}' > "$TMP/nm-dump.txt"
+
+cat > "$TMP/symbol-guard.sh" <<'SYMBOL_GUARD'
+set -euo pipefail
+if [ "$2" = "old" ]; then
+  if cat "$1" | cat | grep -iq ollama; then echo CAUGHT; else echo MISSED; fi
+else
+  LEAKED="$(cat "$1" | cat | { grep -i ollama || [ $? -eq 1 ]; })"
+  if [ -n "$LEAKED" ]; then echo CAUGHT; else echo MISSED; fi
+fi
+SYMBOL_GUARD
+
+old_v="$(bash "$TMP/symbol-guard.sh" "$TMP/nm-dump.txt" old)"
+new_v="$(bash "$TMP/symbol-guard.sh" "$TMP/nm-dump.txt" new)"
+if [ "$old_v" = "MISSED" ] && [ "$new_v" = "CAUGHT" ]; then
+  ok "A11 symbol-guard shape: old MISSED / new CAUGHT on a $(wc -c < "$TMP/nm-dump.txt" | tr -d ' ')-byte dump"
+elif [ "$old_v" = "CAUGHT" ]; then
+  bad "A11 the old shape caught the leak — the fixture no longer models the hazard," \
+      "so the new-shape half is vacuous. Fix the fixture, not this arm."
+else
+  bad "A11 capture shape MISSED an ollama symbol in a large nm dump — scripts/release.sh" \
+      "would ship a leaking archive (ADR-005 §8.5)"
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "staged-trigger-pipefail-test: FAILED" >&2
   exit 1

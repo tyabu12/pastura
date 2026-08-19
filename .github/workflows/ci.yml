@@ -581,7 +581,14 @@ jobs:
           # Demangle before grep: failure output stays human-readable and the
           # check catches future helpers like OllamaClient / ollamaBridge that
           # a narrower match would miss. Matches ADR-005 §8.5.
-          MATCHES=$(nm -a "$BIN" | xcrun swift-demangle | grep -i ollama || true)
+          #
+          # `|| [ $? -eq 1 ]` rather than `|| true`, kept identical to the
+          # signed-archive copy in scripts/release.sh: exit 1 is grep's real
+          # "no match", but exit >=2 means the pattern broke, and `|| true`
+          # would print "OK: zero ollama symbols" for a check that never ran.
+          # The capture (no `-q`) is already correct here and must stay — see
+          # .claude/rules/ci-workflows.md § "A `grep -q` under `pipefail`".
+          MATCHES=$(nm -a "$BIN" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })
           if [ -n "$MATCHES" ]; then
             echo "::error::ollama symbols leaked into Release binary (ADR-005 §8)"
             echo "$MATCHES"

@@ -233,7 +233,24 @@ APP_BIN=""
 while IFS= read -r -d '' f; do APP_BIN="$f"; done \
   < <(find "$ARCHIVE/Products/Applications" -type f -path "*/$APP_NAME.app/$APP_NAME" -print0)
 [ -n "$APP_BIN" ] || die "archived app binary not found under $ARCHIVE"
-if nm -a "$APP_BIN" | xcrun swift-demangle | grep -iq ollama; then
+# Capture the matches; never `| grep -iq`. `grep -q` exits at its first hit,
+# the still-writing upstream takes SIGPIPE and returns 141, and `pipefail` (set
+# at the top of this script) promotes that to the pipeline's status — so this
+# guard passed exactly when it should have fired. `nm -a` on the app binary is
+# megabytes, far past any pipe buffer, and the leak this guard exists to catch
+# is a symbol *in* that stream: measured on a 1.5 MB fixture, an `ollama`
+# symbol early in the dump slipped through while the same symbol late in the
+# dump was caught. The guard was working on symbol ordering, not on the check
+# (#1498). The CI sibling at .github/workflows/ci.yml (§ "Verify ADR-005 §8 —
+# OllamaService excluded") already had the capture shape; this is the copy that
+# runs against the *signed archive*, which is what actually ships.
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
+# >=2 means the pattern broke, and `|| true` would report a broken pattern as
+# a clean binary. Under `set -e` the assignment aborts the release instead.
+LEAKED="$(nm -a "$APP_BIN" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })"
+if [ -n "$LEAKED" ]; then
+  printf '%s\n' "$LEAKED" >&2
   die "Ollama symbols leaked into the Release archive (ADR-005 §8.5)."
 fi
 log "  ✓ zero Ollama symbols"
