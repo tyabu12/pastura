@@ -20,10 +20,12 @@ import Testing
 // shares.** #1459 added `HomePausedCard.progress` on **routing** grounds — it
 // read `mossInk` and cleared at 8.807 light, but §2.3 gives the Ink step no
 // round-readout role — so it is the first member that was not already failing.
-// Nothing below can tell the two motives apart: ``MossWashSite`` stores only
-// the wash and its alphas, and every arm derives from those. So do not read a
-// row as evidence that its site was once sub-AA, and do not read the fixture as
-// observing anything else about a label either (see ``textBar`` on fonts).
+// Nothing below can tell the two motives apart: ``MossWashSite`` records the
+// wash, its alphas and the label's type size, and none of those is why a row
+// joined. So do not read a row as evidence that its site was once sub-AA. The
+// type size is the one property of a label the fixture does observe (#1468),
+// and it observes it as an **admission criterion** — the reason `textBar` is
+// 4.5 — not as a motive.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -71,38 +73,66 @@ extension DesignTokensTests {
   /// what covers the gap; do not read this row as a bound the way the others are.
   static var mossWashSites: [MossWashSite] {
     [
-      MossWashSite("GalleryCatalogRow.badgeView", wash: .moss, light: 0.20, dark: 0.20),
-      MossWashSite("GalleryCatalogRow.categoryChip", wash: .moss, light: 0.18, dark: 0.24),
-      MossWashSite("PhaseTypeLabel", wash: .moss, light: 0.15, dark: 0.15),
-      MossWashSite("ModelRow.recommendedTag", wash: .moss, light: 0.12, dark: 0.12),
-      MossWashSite("HomePausedCard.eyebrow", wash: .moss, light: 0.16, dark: 0.16),
-      MossWashSite("HomePausedCard.progress", wash: .moss, light: 0.16, dark: 0.16),
-      MossWashSite("PhaseEditorSheet.fieldPill", wash: .mossDark, light: 0.16, dark: 0.16),
+      // `.caption2.bold()`
       MossWashSite(
-        "GalleryHighlightRunFigure.recordedPill", wash: .mossDark, light: 0.14, dark: 0.14),
-      MossWashSite("GameHeaderStatus.active", wash: .moss, light: 0.14, dark: 0.14)
+        "GalleryCatalogRow.badgeView", wash: .moss, light: 0.20, dark: 0.20,
+        pointSize: WashLabelSemanticSize.caption2, weight: .bold),
+      // `.caption2.weight(.semibold)`
+      MossWashSite(
+        "GalleryCatalogRow.categoryChip", wash: .moss, light: 0.18, dark: 0.24,
+        pointSize: WashLabelSemanticSize.caption2, weight: .semibold),
+      // `.textStyle(Typography.tagPhase)`
+      MossWashSite(
+        "PhaseTypeLabel", wash: .moss, light: 0.15, dark: 0.15,
+        pointSize: Double(Typography.tagPhase.size), weight: .semibold),
+      // The one row whose view **inlines** its size rather than reading a token
+      // — `.font(.system(size: 9.5, weight: .semibold, design: .monospaced))`.
+      // `recommendedTagInlinesTheSizeItsDocClaimsToReuse` executes the "reuses
+      // tagPhase" claim that view's own doc comment makes.
+      MossWashSite(
+        "ModelRow.recommendedTag", wash: .moss, light: 0.12, dark: 0.12,
+        pointSize: 9.5, weight: .semibold),
+      // `.font(.system(size: HomeHeroLayout.eyebrowFontSize, weight: .semibold, …))`
+      MossWashSite(
+        "HomePausedCard.eyebrow", wash: .moss, light: 0.16, dark: 0.16,
+        pointSize: Double(HomeHeroLayout.eyebrowFontSize), weight: .semibold),
+      // `.font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))`
+      // — no `weight:`, so regular. The largest row in the fixture, and the one
+      // whose 12pt falsified `textBar`'s old superlative (#1466).
+      MossWashSite(
+        "HomePausedCard.progress", wash: .moss, light: 0.16, dark: 0.16,
+        pointSize: Double(HomeHeroLayout.progressFontSize), weight: .regular),
+      // `.caption2.weight(.semibold)` — one helper serves this and the ink
+      // fixture's row of the same name, so the two genuinely share a font.
+      MossWashSite(
+        "PhaseEditorSheet.fieldPill", wash: .mossDark, light: 0.16, dark: 0.16,
+        pointSize: WashLabelSemanticSize.caption2, weight: .semibold),
+      // `.textStyle(Typography.pillStatus)`
+      MossWashSite(
+        "GalleryHighlightRunFigure.recordedPill", wash: .mossDark, light: 0.14, dark: 0.14,
+        pointSize: Double(Typography.pillStatus.size), weight: .semibold),
+      // `.textStyle(Typography.pillStatus)`, via `GameHeader.statusPill`
+      MossWashSite(
+        "GameHeaderStatus.active", wash: .moss, light: 0.14, dark: 0.14,
+        pointSize: Double(Typography.pillStatus.size), weight: .semibold)
     ]
   }
 
-  /// WCAG 1.4.3 normal-text bar. Every one of these labels is under the "large
-  /// text" threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type, and
-  /// the two halves bind different rows — which is why the extreme has to be
-  /// read per half, not per point size. The largest overall is
-  /// `HomePausedCard.progress` at `HomeHeroLayout.progressFontSize`, 12pt
-  /// **regular**, so it answers to ≥18pt; the emphasised rows top out at
-  /// `.caption2` 11pt bold against the lower ≥14pt half. Both clear, so 3:1
-  /// never applies to any of them — but a new row has to re-check the half its
-  /// weight selects, not just compare point sizes.
+  /// WCAG 1.4.3 normal-text bar, and it is the right bar only because every
+  /// label in the fixture is under the "large text" threshold at the default
+  /// content size.
   ///
-  /// **`.semibold` takes the ≥18pt half**, decided here so it is not re-guessed
-  /// per row: WCAG's "bold" is conventionally ≥700 and `.semibold` is 600, so
-  /// the ≥14pt half would be the more permissive reading of a weight WCAG does
-  /// not call bold. Nothing turns on it while every `.semibold` row is ≤11pt;
-  /// it is written down for the case that would (a 14–17pt one).
+  /// That is now a **guard rather than a convention** (#1468): each row carries
+  /// its point size and weight, and
+  /// ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` rejects a row that is large
+  /// text before it applies this bar to it. ``WashLabelWeight`` owns the
+  /// threshold and the `.semibold` half; a large-text row is *excluded*, not
+  /// relaxed to 3:1, because no site in this family is meant to be one.
   ///
-  /// **Convention, not guard** — no arm can observe a font (see the header), so
-  /// a large-text row would be held to 4.5 regardless, which is the safe
-  /// direction but unenforced. Making it executable: #1468.
+  /// **No superlative is restated here.** The rows are the authority on which
+  /// is largest, and a prose extreme is precisely the mirror that went stale in
+  /// #1466 — it survived until a 12pt row falsified it, and a second claim
+  /// citing it from `+InkOnWash.swift` died at the same moment.
   private static let textBar = 4.5
 
   /// The grounds are deliberately the **worst case per appearance**, not the
@@ -125,6 +155,15 @@ extension DesignTokensTests {
     #expect(Self.mossWashSites.count == 9)
 
     for site in Self.mossWashSites {
+      // The admission criterion, applied before the bar it licenses: `textBar`
+      // is 4.5 rather than 3.0 only because this label is WCAG normal text. A
+      // large-text row would answer to 3:1, and until #1468 nothing observed
+      // the difference — the row type stored no font.
+      #expect(
+        site.isNormalText,
+        "\(site.name) is large text (\(site.pointSize)pt \(site.weight)) and does not belong in a normal-text fixture"
+      )
+
       let lightGround = composite(
         site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)
       let light = contrastRatio(PasturaPalette.mossOnWash, lightGround)
@@ -135,6 +174,22 @@ extension DesignTokensTests {
       let dark = contrastRatio(PasturaPalette.nightMossOnWash, darkGround)
       #expect(dark >= Self.textBar, "dark \(site.name): \(dark)")
     }
+  }
+
+  /// `ModelRow.recommendedTag` is the only row whose point size is a literal:
+  /// its view inlines `.system(size: 9.5, …)` instead of reading a token, so the
+  /// fixture has nothing to reference live. What it *does* have is that view's
+  /// own doc comment, which claims the tag "reuses the existing `tagPhase`
+  /// typography token" — a claim two files now depend on and neither executes.
+  ///
+  /// This is the executable form of that claim. A red here means the token and
+  /// the inlined literal have diverged: fix the **view** (or its doc comment)
+  /// first and the row second — updating the literal alone would preserve the
+  /// fixture's arithmetic while leaving the view's doc lying.
+  @Test func recommendedTagInlinesTheSizeItsDocClaimsToReuse() {
+    let tag = Self.mossWashSites.first { $0.name == "ModelRow.recommendedTag" }
+    #expect(tag?.pointSize == Double(Typography.tagPhase.size))
+    #expect(tag?.weight == .semibold)
   }
 
   /// The negative control, and the whole reason the token exists.
@@ -231,13 +286,13 @@ extension DesignTokensTests {
 
 // MARK: - Helpers
 
-/// One shipped consumer of the moss wash: which token fills its capsule, and at
-/// what alpha in each appearance.
+/// One shipped consumer of the moss wash: which token fills its capsule, at
+/// what alpha in each appearance, and the type size of the label on it.
 ///
 /// A struct rather than a tuple because swiftlint's `large_tuple` caps tuples at
-/// two members and this row needs four — the fifth field (the dark token) is
-/// derived from `wash` rather than stored, since the light and dark halves of a
-/// wash are always a registered §2.9 pair.
+/// two members and this row needs six — the dark token stays **derived** from
+/// `wash` rather than stored, since the light and dark halves of a wash are
+/// always a registered §2.9 pair.
 ///
 /// File scope per `.claude/rules/testing.md` § "Splitting a Suite Across Files":
 /// helpers in a sibling file live outside the suite struct.
@@ -257,12 +312,48 @@ struct MossWashSite {
   let lightAlpha: Double
   let darkAlpha: Double
 
-  init(_ name: String, wash: Wash, light: Double, dark: Double) {
+  /// The label's point size at the default `.large` content size.
+  ///
+  /// **Two regimes share this field.** A row whose view reads a `Typography.*`
+  /// token references that token's `size` live, and those are fixed-size by
+  /// design (``PasturaTextStyle/font``) — the value is the size at every content
+  /// size. A row on a semantic SwiftUI font (`.caption` / `.caption2`) names a
+  /// ``WashLabelSemanticSize`` constant instead, and that one is the size *at
+  /// the default*: it scales, and at accessibility sizes such a label crosses
+  /// into large text, which only **relaxes** the bar the fixture applies. So
+  /// this field decides admission at the default and nothing else.
+  ///
+  /// **Hand-recorded against the view, and a wrong transcription is caught by
+  /// nothing.** Live references and
+  /// ``DesignTokensTests/semanticLabelSizesMatchUIKitAtTheDefaultContentSize``
+  /// remove the guesswork from every figure that has a source, but which figure
+  /// a row *takes* is still a reader's judgement — same standing as the grounds
+  /// the arms below pin. A reviewer has to open the view when a row is added.
+  let pointSize: Double
+
+  /// Which WCAG large-text half the label's weight selects — see
+  /// ``WashLabelWeight`` for the `.semibold` decision.
+  let weight: WashLabelWeight
+
+  init(
+    _ name: String, wash: Wash, light: Double, dark: Double, pointSize: Double,
+    weight: WashLabelWeight
+  ) {
     self.name = name
     self.wash = wash
     self.lightAlpha = light
     self.darkAlpha = dark
+    self.pointSize = pointSize
+    self.weight = weight
   }
+
+  /// Whether this row's label is still WCAG **normal** text, i.e. whether the
+  /// 4.5:1 bar the fixtures pin is the bar it actually answers to.
+  ///
+  /// Both parameters are required at construction, so a row cannot join a
+  /// fixture without declaring a font — which is the half of #1466's failure
+  /// this closes.
+  var isNormalText: Bool { weight.admitsAsNormalText(pointSize: pointSize) }
 
   /// `@MainActor` for the reason in `.claude/rules/swift-isolation.md` Pattern 5
   /// § "Cross-module corollary": the `let`-read exemption for a global-actor

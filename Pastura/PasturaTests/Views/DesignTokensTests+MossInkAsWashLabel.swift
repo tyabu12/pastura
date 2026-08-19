@@ -88,19 +88,30 @@ extension DesignTokensTests {
   /// §2.3 assigns `--moss-ink`. That is the shape a future row can take again.
   static var mossInkWashSites: [MossWashSite] {
     [
-      MossWashSite("GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14),
-      MossWashSite("ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16)
+      // `.textStyle(Typography.pillStatus)`
+      MossWashSite(
+        "GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14,
+        pointSize: Double(Typography.pillStatus.size), weight: .semibold),
+      // `.font(.caption)` + `.fontWeight(.semibold)` — one `resultPill` helper
+      // renders both this and `+InkOnWash`'s `ResultsView.paused`, so the two
+      // genuinely share a font.
+      MossWashSite(
+        "ResultsView.completed", wash: .moss, light: 0.16, dark: 0.16,
+        pointSize: WashLabelSemanticSize.caption, weight: .semibold)
     ]
   }
 
   /// WCAG 1.4.3 normal-text bar. Every label in the fixture is under the "large
-  /// text" threshold (≥14pt bold / ≥18pt regular) at default Dynamic Type — the
-  /// status pill is `Typography.pillStatus` at 9pt and the results pill is
-  /// `.caption` + `.semibold` at 12pt — so 3:1 never applies. That is
-  /// the fixture's admission criterion, not an incidental property: a same-shaped
-  /// site above the threshold is excluded (the large-text bullet above). Pinning
-  /// 4.5 stays conservative at accessibility sizes for the reason `+InkOnWash`'s
-  /// `inkTextBar` gives — do not "correct" it in the other direction.
+  /// text" threshold at the default content size, which is the fixture's
+  /// **admission criterion** rather than an incidental property: a same-shaped
+  /// site above the threshold is excluded (the large-text bullet above).
+  ///
+  /// Executed since #1468 — the rows carry their type size and
+  /// ``mossInkClearsAAOnEveryMossWashItLabels`` rejects a large-text row before
+  /// applying this bar to it, so the per-row sizes are not restated here.
+  /// Pinning 4.5 stays conservative at accessibility sizes for the reason
+  /// `+InkOnWash`'s `inkTextBar` gives — do not "correct" it in the other
+  /// direction.
   private static let mossInkTextBar = 4.5
 
   /// Grounds are the **worst case per appearance** — the convention
@@ -121,6 +132,15 @@ extension DesignTokensTests {
     #expect(Self.mossInkWashSites.count == 2)
 
     for site in Self.mossInkWashSites {
+      // The admission criterion the bar below depends on — see
+      // `mossInkTextBar`. `MossWashSite`'s negative control lives in
+      // `DesignTokensTests+WashLabelTypeSize.swift`; this fixture shares the
+      // row type, so it shares that control.
+      #expect(
+        site.isNormalText,
+        "\(site.name) is large text (\(site.pointSize)pt \(site.weight)) and does not belong in a normal-text fixture"
+      )
+
       let lightGround = composite(
         site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)
       let light = contrastRatio(PasturaPalette.mossInk, lightGround)
