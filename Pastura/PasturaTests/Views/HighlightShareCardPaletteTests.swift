@@ -7,7 +7,7 @@ import Testing
 /// values (ADR-028).
 ///
 /// Why this suite exists: `HighlightShareCard` is the only sanctioned
-/// fixed-appearance consumer in the app, and 69 `Color.*` aliases are now
+/// fixed-appearance consumer in the app, and the §2.9 `Color.*` aliases are now
 /// trait-resolving. If one creeps back into this palette, both families collapse
 /// to whatever the render environment resolved — and nothing else would notice,
 /// because `ImageRenderer` output is asserted nowhere and ADR-009 rules out
