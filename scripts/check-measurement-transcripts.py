@@ -269,8 +269,14 @@ def canonical(value: str) -> str:
     return f"{float(value):.3f}"
 
 
-def section(text: str, start: re.Pattern[str], nxt: re.Pattern[str], where: str) -> list[str]:
-    """The lines of one anchored section, or `AnchorError`."""
+def _section_lines(
+    text: str, start: re.Pattern[str], nxt: re.Pattern[str], where: str
+) -> range:
+    """One anchored section's 0-based line range, or `AnchorError`.
+
+    Split out of `section` so `--residue` can subtract by line number rather
+    than by content; both callers share the scan and the diagnostic.
+    """
     lines = text.splitlines()
     begin = None
     for i, line in enumerate(lines):
@@ -284,7 +290,13 @@ def section(text: str, start: re.Pattern[str], nxt: re.Pattern[str], where: str)
         if nxt.match(lines[i]):
             end = i
             break
-    return lines[begin:end]
+    return range(begin, end)
+
+
+def section(text: str, start: re.Pattern[str], nxt: re.Pattern[str], where: str) -> list[str]:
+    """The lines of one anchored section, or `AnchorError`."""
+    span = _section_lines(text, start, nxt, where)
+    return text.splitlines()[span.start : span.stop]
 
 
 def logical_blocks(lines: list[str]) -> list[str]:
@@ -312,6 +324,39 @@ def logical_blocks(lines: list[str]) -> list[str]:
         if LIST_ITEM.match(line):
             flush()
         current.append(stripped)
+    flush()
+    return blocks
+
+
+def logical_blocks_with_offsets(lines: list[str]) -> list[tuple[str, list[int]]]:
+    """``logical_blocks``, each block paired with the 0-based lines it spans.
+
+    Kept next to `logical_blocks` and deliberately mirroring it: `--residue` has
+    to subtract exactly what the gate reads, and reading the gate as "the line
+    naming the fixture" instead of "the block naming the fixture" is precisely
+    the section-vs-block confusion the report exists to end — one wrap and the
+    line carrying the figure is reported as unguarded while the gate compares it.
+    ``residueSubtractsAWrappedBlockWhole`` in the self-test is the arm.
+    """
+    blocks: list[tuple[str, list[int]]] = []
+    current: list[str] = []
+    offsets: list[int] = []
+
+    def flush() -> None:
+        if current:
+            blocks.append((" ".join(current), list(offsets)))
+            current.clear()
+            offsets.clear()
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("|"):
+            flush()
+            continue
+        if LIST_ITEM.match(line):
+            flush()
+        current.append(stripped)
+        offsets.append(i)
     flush()
     return blocks
 
@@ -738,19 +783,20 @@ def collect(
 # --- the residue report (#1496) ---------------------------------------------
 #
 # `--residue` enumerates the figures this gate does NOT reach. It exists because
-# the enumeration was carried as prose four times and was wrong every time —
-# once by subtracting whole sections instead of blocks, once because a file
-# split changed what "the fixture" denotes, once because `git grep` does not see
-# an untracked new file, and once because "both English doc faces" silently drops
-# the Japanese one. A claim that needs re-deriving belongs in code.
+# the enumeration was carried as prose four times and was wrong every time, for
+# a different reason each time: subtracting whole sections instead of blocks; a
+# file split changing what "the fixture" denotes; `git grep` not seeing an
+# untracked new file; and "both English doc faces" silently dropping the
+# Japanese one. A claim that needs re-deriving belongs in code.
 #
 # Report-only: it never fails, is not wired into the gate, and is the one thing
 # here that shells out to git.
 
-# Extensions that can carry a figure as prose or code. `.svg`/`.json` are out on
-# purpose and the count of skipped files is printed, so the exclusion is visible
-# rather than assumed: path coordinates in the App Store badge SVGs coincide with
-# pinned values and are not copies of anything.
+# An ALLOWLIST, not a carve-out: every other suffix — and every extensionless
+# tracked file — is skipped. The distinct skipped suffixes are printed for that
+# reason, so a new `.astro` or `.css` copy cannot become invisible behind a bare
+# count. Measured when this landed: of everything excluded, only the App Store
+# badge SVGs carry a pooled value, as path coordinates rather than as a copy.
 RESIDUE_SUFFIXES = frozenset(
     {".md", ".swift", ".py", ".sh", ".yml", ".yaml", ".html", ".kt", ".txt"}
 )
@@ -763,8 +809,7 @@ def residue_rows(
 
     A non-comment line in a `.swift` file is an **executed assertion**: it
     reddens when the pins move, so it is a guard rather than a copy that can
-    rot. Counting those as residue is the fourth way this enumeration went
-    wrong, so they are separated rather than dropped.
+    rot, so it is separated rather than counted or dropped.
     """
     prose: list[tuple[str, int, list[str]]] = []
     executed: list[tuple[str, int, list[str]]] = []
@@ -780,20 +825,57 @@ def residue_rows(
     return prose, executed
 
 
-def _section_lines(text: str, start: re.Pattern[str], nxt: re.Pattern[str]) -> range:
-    lines = text.splitlines()
-    begin = next((i for i, line in enumerate(lines) if start.match(line)), None)
-    if begin is None:
-        raise AnchorError(f"residue: {start.pattern} no longer matches any heading.")
-    end = len(lines)
-    for i in range(begin + 1, len(lines)):
-        if nxt.match(lines[i]):
-            end = i
-            break
-    return range(begin, end)
-
-
 def residue() -> int:
+    try:
+        return _residue()
+    except AnchorError as exc:
+        print(f"measurement-transcript residue: {exc}", file=sys.stderr)
+        print(
+            "The report cannot judge with a broken anchor. Fix it (or this mode) — "
+            "the gate itself is unaffected; run --check for its verdict.",
+            file=sys.stderr,
+        )
+        return 1
+
+
+def gate_read_index(
+    faces: list[tuple[str, str, re.Pattern[str], re.Pattern[str]]],
+    fixture_path: str,
+    fixture: str,
+) -> set[tuple[str, int]]:
+    """`(path, 1-based line)` for everything the gate actually compares.
+
+    Factored out of `_residue` so the **wiring** is armed and not merely the
+    helper it calls: removing the whole-block subtraction below changes the real
+    report by five lines while leaving a `logical_blocks_with_offsets` unit arm
+    green — measured, which is why this function exists rather than the loop
+    living inline.
+    """
+    index: set[tuple[str, int]] = set()
+    for path, text, start, nxt in faces:
+        lines = text.splitlines()
+        span = _section_lines(text, start, nxt, path)
+        for i in span:
+            if lines[i].strip().startswith("|"):
+                index.add((path, i + 1))
+        # The fixture-naming block, WHOLE — `span_in` reads the joined block, so
+        # subtracting only the line carrying the name leaves the line carrying
+        # the figure looking unguarded whenever the sentence is hard-wrapped.
+        for block, offsets in logical_blocks_with_offsets(lines[span.start : span.stop]):
+            if FIXTURE_NAME in block:
+                for offset in offsets:
+                    index.add((path, span.start + offset + 1))
+    # Line-granular for the fixture: nothing in the pin arrays is wrapped today.
+    # If swift-format ever wraps a `WashRowPin(` literal, its continuation lines
+    # fall out of the index and surface under "executed assertions" — mislabelled
+    # but harmless, and not a deliberate omission.
+    for i, line in enumerate(fixture.splitlines(), start=1):
+        if SWIFT_RATIO_PIN.search(line) or "WashRowPin(site:" in line:
+            index.add((fixture_path, i))
+    return index
+
+
+def _residue() -> int:
     fixture = _read(FIXTURE_PATH)
     pool = set(fixture_ratio_pins(fixture).values())
     for light, dark in fixture_wash_pins(fixture).values():
@@ -801,53 +883,68 @@ def residue() -> int:
     brackets = _decl_block(fixture, BRACKET_DECL, str(FIXTURE_PATH))
     pool |= {canonical(m.group(2)) for m in SWIFT_RATIO_PIN.finditer(brackets)}
 
-    # What the gate reads, at BLOCK granularity: table rows, and the one block
-    # per span section that names the fixture. Section granularity is what made
-    # the first enumeration wrong.
-    read_index: set[tuple[str, int]] = set()
     ledger, adr, design_system = _read(LEDGER_PATH), _read(ADR_PATH), _read(DESIGN_SYSTEM_PATH)
-    for path, text, start, nxt in (
-        (LEDGER_PATH, ledger, LEDGER_31, NEXT_SUBSECTION),
-        (LEDGER_PATH, ledger, LEDGER_32, NEXT_SUBSECTION),
-        (LEDGER_PATH, ledger, LEDGER_5, NEXT_SECTION),
-        (ADR_PATH, adr, ADR_WASHES, NEXT_SECTION),
-        (ADR_PATH, adr, ADR_SPAN, NEXT_SECTION),
-        (DESIGN_SYSTEM_PATH, design_system, DESIGN_SYSTEM_8, NEXT_SECTION),
-    ):
-        lines = text.splitlines()
-        for i in _section_lines(text, start, nxt):
-            if lines[i].strip().startswith("|") or FIXTURE_NAME in lines[i]:
-                read_index.add((str(path), i + 1))
-    for i, line in enumerate(fixture.splitlines(), start=1):
-        if SWIFT_RATIO_PIN.search(line) or "WashRowPin(site:" in line:
-            read_index.add((str(FIXTURE_PATH), i))
+    read_index = gate_read_index(
+        [
+            (str(LEDGER_PATH), ledger, LEDGER_31, NEXT_SUBSECTION),
+            (str(LEDGER_PATH), ledger, LEDGER_32, NEXT_SUBSECTION),
+            (str(LEDGER_PATH), ledger, LEDGER_5, NEXT_SECTION),
+            (str(ADR_PATH), adr, ADR_WASHES, NEXT_SECTION),
+            (str(ADR_PATH), adr, ADR_SPAN, NEXT_SECTION),
+            (str(DESIGN_SYSTEM_PATH), design_system, DESIGN_SYSTEM_8, NEXT_SECTION),
+        ],
+        str(FIXTURE_PATH),
+        fixture,
+    )
 
-    listed = subprocess.run(
-        ["git", "-C", str(REPO_ROOT), "ls-files", "-z"],
-        capture_output=True, check=True,
-    ).stdout.decode("utf-8").split("\0")
-    files, skipped = [], 0
+    try:
+        listed = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "ls-files", "-z"],
+            capture_output=True, check=True,
+        ).stdout.decode("utf-8").split("\0")
+    except FileNotFoundError as exc:
+        raise AnchorError("residue: `git` is not on PATH — this mode enumerates tracked files.") from exc
+    except subprocess.CalledProcessError as exc:
+        raise AnchorError(
+            "residue: `git ls-files` failed — not a repository, or the index is unreadable. "
+            f"git said: {exc.stderr.decode('utf-8', 'replace').strip()}"
+        ) from exc
+    files: list[tuple[str, str]] = []
+    skipped: dict[str, int] = {}
     for name in listed:
         if not name:
             continue
+        suffix = Path(name).suffix or "(no suffix)"
         if Path(name).suffix not in RESIDUE_SUFFIXES:
-            skipped += 1
+            skipped[suffix] = skipped.get(suffix, 0) + 1
             continue
         try:
             files.append((name, (REPO_ROOT / name).read_text(encoding="utf-8")))
         except (OSError, UnicodeDecodeError):
-            skipped += 1
+            skipped[suffix] = skipped.get(suffix, 0) + 1
 
     prose, executed = residue_rows(pool, read_index, files)
     by_file: dict[str, list[tuple[int, list[str]]]] = {}
     for path, line, values in prose:
         by_file.setdefault(path, []).append((line, values))
 
+    total_skipped = sum(skipped.values())
     print(
-        f"measurement-transcript residue: {len(pool)} pinned values | "
+        f"measurement-transcript residue: {len(pool)} distinct pinned values | "
         f"{len(prose)} prose lines across {len(by_file)} files | "
         f"{len(executed)} executed assertion lines | "
-        f"{len(files)} tracked files scanned, {skipped} skipped by suffix"
+        f"{len(files)} tracked files scanned, {total_skipped} skipped"
+    )
+    # The matching contract, stated because the report's whole value is being
+    # authoritative: an EXACT literal match against the pinned three-decimal
+    # form. A figure restated at a shorter precision (a two-decimal spelling of a
+    # pinned value) is not seen — measured when this landed, 133 lines are of
+    # that shape and nearly all are SwiftUI spacing constants, not copies. No
+    # example is spelled out here: this module must stay free of pinned literals,
+    # which its own report would otherwise list.
+    print(
+        "  matched: exact literal, three decimals. Skipped suffixes: "
+        + ", ".join(f"{suffix}×{n}" for suffix, n in sorted(skipped.items()))
     )
     for path in sorted(by_file, key=lambda p: (-len(by_file[p]), p)):
         rows = sorted(by_file[path])
@@ -1678,10 +1775,62 @@ def self_test() -> int:
             [("Some/Fixture.swift", 1, ["9.111"])],
         ),
     )
+    # Arm 2 is not a weaker restatement of arm 1: subtracting by
+    # `line.startswith("|")` instead of by the read index leaves arm 1 green and
+    # only this one red (constructed and confirmed). It is what pins the
+    # subtraction to the index rather than to a line's shape.
     expect(
         "residue: without the read-index entry the table row is residue too",
         lambda: len(residue_rows({"9.111", "9.777"}, set(), residue_files)[0]),
         3,
+    )
+    # The offsets a wrapped block spans — the whole block, not just the line
+    # carrying the fixture name. Reading it line-wise reported the line carrying
+    # the FIGURE as unguarded while the gate was comparing it, which is the
+    # section-vs-block confusion one level down.
+    wrapped = [
+        "Pinned by `Some+Fixture`; §8 carries",
+        "the same span. It runs 9.111–9.777 across them.",
+        "",
+        "An unrelated paragraph naming nothing.",
+    ]
+    expect(
+        "residue: a hard-wrapped block is subtracted whole, figure line included",
+        lambda: [
+            offsets for block, offsets in logical_blocks_with_offsets(wrapped)
+            if "Some+Fixture" in block
+        ],
+        [[0, 1]],
+    )
+    # The WIRING, not just the helper: a synthetic §3.1 whose span sentence wraps
+    # across two lines must have BOTH subtracted. Removing the whole-block loop
+    # in `gate_read_index` leaves the two arms above green and only this one red
+    # (constructed and confirmed) — the report shifts by five lines on the real
+    # tree, which no unit arm on `logical_blocks_with_offsets` would notice.
+    wrapped_face = (
+        "### 3.1 The twelve opaque grounds\n\n"
+        f"Pinned by `{FIXTURE_NAME}`; §8 carries\n"
+        "the same span. `muted` runs **9.111–9.777** across them.\n\n"
+        "| Light ground | ratio | Dark ground | ratio |\n"
+        "|---|---|---|---|\n"
+        "| `alphaGround` | 9.111 | `betaGround` | 9.777 |\n\n"
+        "#### A later note\n\nprose\n"
+    )
+    expect(
+        "residue: the read index subtracts a wrapped span block whole",
+        lambda: sorted(
+            line
+            for path, line in gate_read_index(
+                [("face.md", wrapped_face, LEDGER_31, NEXT_SUBSECTION)], "fix.swift", ""
+            )
+            if path == "face.md"
+        ),
+        [3, 4, 6, 7, 8],
+    )
+    expect(
+        "residue: block offsets stay aligned with `logical_blocks`",
+        lambda: [block for block, _ in logical_blocks_with_offsets(wrapped)],
+        logical_blocks(wrapped),
     )
 
     # --- Trigger coverage (#1488) ---------------------------------------
@@ -1743,7 +1892,7 @@ def main() -> int:
     args = parser.parse_args()
     if args.self_test:
         rc = self_test()
-        if rc or not args.check:
+        if rc or not (args.check or args.residue):
             return rc
     if args.check:
         rc = check()
