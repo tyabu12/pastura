@@ -36,27 +36,50 @@ extension DesignTokensTests {
   /// three; nothing mechanical will find a fifth.
   static var inkWashSites: [InkWashSite] {
     [
-      InkWashSite("PhaseEditorSheet.fieldPill", alpha: 0.16),
-      InkWashSite("ScenarioBadgeStyle.secondary", alpha: 0.15),
-      InkWashSite("PhaseTypeLabel", alpha: 0.15),
-      InkWashSite("ResultsView.paused", alpha: 0.12)
+      // `.caption2.weight(.semibold)` — one `fieldPill` helper serves this and
+      // `+MossOnWash`'s row of the same name, so the two share a font.
+      InkWashSite(
+        "PhaseEditorSheet.fieldPill", alpha: 0.16,
+        pointSize: WashLabelSemanticSize.caption2, weight: .semibold),
+      // `.caption2.bold()`, via `GalleryCatalogRow.badgeView` — the app's only
+      // `ScenarioBadge` renderer since #1296, which is what gives this row a
+      // single well-defined font.
+      InkWashSite(
+        "ScenarioBadgeStyle.secondary", alpha: 0.15,
+        pointSize: WashLabelSemanticSize.caption2, weight: .bold),
+      // `.textStyle(Typography.tagPhase)`
+      InkWashSite(
+        "PhaseTypeLabel", alpha: 0.15,
+        pointSize: Double(Typography.tagPhase.size), weight: .semibold),
+      // `.font(.caption)` + `.fontWeight(.semibold)` — one `resultPill` helper
+      // renders this and `+MossInkAsWashLabel`'s `ResultsView.completed`.
+      InkWashSite(
+        "ResultsView.paused", alpha: 0.12,
+        pointSize: WashLabelSemanticSize.caption, weight: .semibold)
     ]
   }
 
-  /// WCAG 1.4.3 normal-text bar. Every one of these labels is under the "large
-  /// text" threshold (≥14pt bold / ≥18pt regular) — the largest is
-  /// `ResultsView`'s pill at `.caption` + `.semibold`, i.e. **12pt**, and the
-  /// smallest is `PhaseTypeLabel` at `Typography.tagPhase`'s 9.5pt — so 3:1
-  /// never applies to any of them at default Dynamic Type. At accessibility
-  /// sizes `.caption` scales past 14pt and the large-text 3:1 bar *would* apply,
-  /// which only **relaxes** the requirement — so pinning 4.5 stays conservative.
-  /// Do not "correct" this in the other direction.
+  /// WCAG 1.4.3 normal-text bar, and it is the right bar only because every
+  /// label in the fixture is under the "large text" threshold at the default
+  /// content size.
   ///
-  /// **Re-derived here, never cited from a sibling wash fixture.** Each site
-  /// set is its own, so a superlative quoted across files is a mirror with
-  /// nothing keeping it true — this paragraph *was* one, citing `+MossOnWash`'s
-  /// `~11pt`, until #1459 falsified it there. State this fixture's own extreme
-  /// and stop.
+  /// Executed since #1468 — the rows carry their type size and
+  /// ``inkOnWashClearsAAOnEverySelfWashItIsUsedOn`` rejects a large-text row
+  /// before applying this bar to it; ``WashLabelWeight`` owns the threshold and
+  /// the `.semibold` half.
+  ///
+  /// Pinning 4.5 stays conservative at accessibility sizes: the semantic-font
+  /// rows scale past their weight's threshold there and the 3:1 large-text bar
+  /// *would* apply, which only **relaxes** the requirement. Do not "correct"
+  /// this in the other direction — and note the threshold to compare against is
+  /// the row's own, not a flat 14: every semantic-font row here is `.semibold`
+  /// or `.bold`, which take different halves.
+  ///
+  /// **No superlative is restated, here or anywhere.** The old advice was
+  /// "re-derive this fixture's own extreme, never cite a sibling's" — this
+  /// paragraph *was* a citation of `+MossOnWash`'s `~11pt` until #1459
+  /// falsified it there. Recording the size per row retires the advice along
+  /// with the hazard: there is no longer an extreme to quote or to keep true.
   private static let inkTextBar = 4.5
 
   /// "Clears the bar" and "has margin above it" are different claims, and this
@@ -105,6 +128,13 @@ extension DesignTokensTests {
     #expect(Self.inkWashSites.count == 4)
 
     for site in Self.inkWashSites {
+      // The admission criterion the bar below depends on — see `inkTextBar`.
+      // Prose until #1468, over a row type that stored no font.
+      #expect(
+        site.isNormalText,
+        "\(site.name) is large text (\(site.pointSize)pt \(site.weight)) and does not belong in a normal-text fixture"
+      )
+
       let lightGround = composite(
         PasturaPalette.inkSecondary, over: PasturaPalette.screenBackground, alpha: site.alpha)
       let light = contrastRatio(PasturaPalette.inkOnWash, lightGround)
@@ -257,12 +287,13 @@ extension DesignTokensTests {
 // MARK: - Helpers
 
 /// One shipped self-wash consumer: a site painting `inkSecondary` as both its
-/// label and its capsule fill, and the alpha it fills at.
+/// label and its capsule fill, the alpha it fills at, and the type size of the
+/// label on it.
 ///
-/// A struct rather than a tuple for consistency with ``MossWashSite``, whose
-/// four members exceed swiftlint's `large_tuple` cap. This one carries only two
-/// — every row fills with the same token, and none of them re-base the alpha per
-/// appearance — so the wash token is not stored.
+/// A struct rather than a tuple because swiftlint's `large_tuple` caps tuples
+/// at two members. It carries four rather than ``MossWashSite``'s six: every row
+/// fills with the same token and none re-bases the alpha per appearance, so
+/// neither the wash nor a second alpha is stored.
 ///
 /// File scope per `.claude/rules/testing.md` § "Splitting a Suite Across Files":
 /// helpers in a sibling file live outside the suite struct.
@@ -270,8 +301,26 @@ struct InkWashSite {
   let name: String
   let alpha: Double
 
-  init(_ name: String, alpha: Double) {
+  /// The label's point size at the default `.large` content size. Both regimes
+  /// this field spans, and why a wrong transcription is caught by nothing:
+  /// ``MossWashSite/pointSize``, which states them once for both row types.
+  let pointSize: Double
+
+  /// Which WCAG large-text half the label's weight selects — see
+  /// ``WashLabelWeight`` for the `.semibold` decision.
+  let weight: WashLabelWeight
+
+  init(_ name: String, alpha: Double, pointSize: Double, weight: WashLabelWeight) {
     self.name = name
     self.alpha = alpha
+    self.pointSize = pointSize
+    self.weight = weight
   }
+
+  /// Whether this row's label is still WCAG **normal** text, i.e. whether the
+  /// 4.5:1 bar the fixture pins is the bar it actually answers to.
+  ///
+  /// Both parameters are required at construction, so a row cannot join without
+  /// declaring a font.
+  var isNormalText: Bool { weight.admitsAsNormalText(pointSize: pointSize) }
 }

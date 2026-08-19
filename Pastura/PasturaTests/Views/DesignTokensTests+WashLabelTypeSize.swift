@@ -88,6 +88,26 @@ extension DesignTokensTests {
         "\(probe.pointSize)pt \(probe.weight): expected isNormalText == \(probe.isNormalText)")
     }
   }
+
+  /// The negative control for ``InkWashSite/isNormalText``, and deliberately a
+  /// second one rather than a reuse of the moss control above.
+  ///
+  /// The two row types forward the same two fields to the same
+  /// ``WashLabelWeight`` method, so a shared control would look sufficient —
+  /// but what each type can get wrong is its own wiring, and a control run
+  /// through a sibling that happens to be correct passes without observing this
+  /// one at all.
+  @Test func inkWashSiteRejectsLargeTextLabels() {
+    #expect(Self.washLabelBoundaryCases.count == 7)
+
+    for probe in Self.washLabelBoundaryCases {
+      let row = InkWashSite(
+        "probe", alpha: 0.15, pointSize: probe.pointSize, weight: probe.weight)
+      #expect(
+        row.isNormalText == probe.isNormalText,
+        "\(probe.pointSize)pt \(probe.weight): expected isNormalText == \(probe.isNormalText)")
+    }
+  }
 }
 
 // MARK: - Helpers
