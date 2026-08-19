@@ -233,7 +233,18 @@ APP_BIN=""
 while IFS= read -r -d '' f; do APP_BIN="$f"; done \
   < <(find "$ARCHIVE/Products/Applications" -type f -path "*/$APP_NAME.app/$APP_NAME" -print0)
 [ -n "$APP_BIN" ] || die "archived app binary not found under $ARCHIVE"
-if nm -a "$APP_BIN" | xcrun swift-demangle | grep -iq ollama; then
+# Capture, don't `| grep -iq` — `-q` exits early, the still-writing upstream
+# SIGPIPEs, and `pipefail` turns a MATCH into a pass, so this guard was working
+# on symbol ordering rather than on the check (#1498). `nm -a` on the app
+# binary is megabytes, far past any pipe buffer.
+# `.claude/rules/ci-workflows.md` § "Rule 3".
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) must abort the
+# release, not report a clean binary. The CI sibling in .github/workflows/ci.yml
+# checks the unsigned build; this copy is the one that gates what ships.
+LEAKED="$(nm -a "$APP_BIN" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })"
+if [ -n "$LEAKED" ]; then
+  printf '%s\n' "$LEAKED" >&2
   die "Ollama symbols leaked into the Release archive (ADR-005 §8.5)."
 fi
 log "  ✓ zero Ollama symbols"

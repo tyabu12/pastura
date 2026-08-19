@@ -22,7 +22,23 @@ cd "$ROOT"
 # Match `.p8` at any path depth — `git diff --cached --name-only` emits
 # repo-relative paths, so anchor the regex to the extension, not the
 # repo root. A key under keys/ or fastlane/ must still be caught.
-if git diff --cached --name-only | grep -qE '\.p8$'; then
+#
+# Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
+# SIGPIPEs, and `pipefail` turns a MATCH into a skip, so a key staged behind
+# enough other paths committed silently (#1498).
+# `.claude/rules/ci-workflows.md` § "Rule 3".
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) must refuse
+# the commit, not map back onto "no key".
+#
+# `-c core.quotepath=false` is load-bearing — a second fail-open at this same
+# line. By default git octal-escapes a non-ASCII path AND double-quotes it, so
+# the trailing `"` defeats the `\.p8$` anchor. `scripts/git-hooks/pre-commit`
+# passes it for the mirror-image reason (a `^`-anchored prefix); arm A13 in the
+# regression test covers it.
+STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E '\.p8$' || [ $? -eq 1 ]; })"
+if [ -n "$MATCHED" ]; then
   {
     echo 'Refusing to commit a *.p8 file — App Store Connect / APNs private'
     echo 'keys must never enter the repo. Store the key outside the tree'

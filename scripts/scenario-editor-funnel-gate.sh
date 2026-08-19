@@ -57,7 +57,12 @@ fi
 
 # Self-gate: in default (pre-commit) mode, skip unless a VM file is staged.
 if [ "$CHECK_ALL" -eq 0 ]; then
-  if ! git diff --cached --name-only | grep -qE "$VM_TRIGGER"; then
+  # Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
+  # SIGPIPEs, and `pipefail` turns a MATCH into a skip (#1498).
+  # `.claude/rules/ci-workflows.md` § "Rule 3".
+  STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
+  MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$VM_TRIGGER" || [ $? -eq 1 ]; })"
+  if [ -z "$MATCHED" ]; then
     exit 0
   fi
 fi

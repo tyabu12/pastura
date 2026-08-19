@@ -388,10 +388,18 @@ evaluate() {
   name="${wt##*/}"
 
   # (b) unnamed (Docker-style auto-generated) worktrees only
-  printf '%s' "$name" | grep -Eq '^[a-z]+-[a-z]+-[0-9a-f]{6}$' || {
+  #
+  # Capture rather than `| grep -Eq` (`.claude/rules/ci-workflows.md` § "Rule 3")
+  # so the #1498 residual guard needs no allow-list entry — this producer is one
+  # short worktree name, so the defect was never reachable here. This file sets
+  # `set -uo pipefail`, NOT `-e`, so the `|| [ $? -eq 1 ]` group aborts nothing:
+  # a broken pattern keeps the worktree, the safe direction for a destructive
+  # script.
+  name_match="$(printf '%s' "$name" | { grep -E '^[a-z]+-[a-z]+-[0-9a-f]{6}$' || [ $? -eq 1 ]; })"
+  if [ -z "$name_match" ]; then
     [ "$VERBOSE" -eq 1 ] && say "keep  $name — named worktree (not auto-generated)"
     return 0
-  }
+  fi
 
   [ -d "$wt" ] || return 0
 

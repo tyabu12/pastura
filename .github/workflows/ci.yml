@@ -146,6 +146,15 @@ jobs:
             exit 0
           fi
           echo "Changed paths classified as: '${TOKENS:-<none>}'"
+          # ⚠️ Do NOT add `set -o pipefail` / `shell: bash` here, nor a
+          # workflow-level `defaults: run: shell:`. Its absence is LOAD-BEARING
+          # for the four `printf … | grep -q` gates in this job (this one,
+          # `scenarios`, `kmp`, and the Gradle one in `kmp-build-test`): with
+          # pipefail an early match SIGPIPEs `printf`, the pipeline reports 141,
+          # and the `else` branch runs — here emitting `ios=false`, which skips
+          # lint-and-test and ui-test with every required check green. `$FILES`
+          # holds up to 3000 names, well past any pipe buffer.
+          # `.claude/rules/ci-workflows.md` § "Rule 3" (#1498).
           if printf '%s\n' "$TOKENS" | grep -qw build; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
@@ -581,7 +590,12 @@ jobs:
           # Demangle before grep: failure output stays human-readable and the
           # check catches future helpers like OllamaClient / ollamaBridge that
           # a narrower match would miss. Matches ADR-005 §8.5.
-          MATCHES=$(nm -a "$BIN" | xcrun swift-demangle | grep -i ollama || true)
+          #
+          # `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) must
+          # fail the step, not print "OK: zero ollama symbols" for a check that
+          # never ran. The capture (no `-q`) must stay; scripts/release.sh
+          # holds the same pair. `.claude/rules/ci-workflows.md` § "Rule 3".
+          MATCHES=$(nm -a "$BIN" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })
           if [ -n "$MATCHES" ]; then
             echo "::error::ollama symbols leaked into Release binary (ADR-005 §8)"
             echo "$MATCHES"

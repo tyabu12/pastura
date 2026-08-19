@@ -29,7 +29,12 @@ cd "$ROOT"
 
 TRIGGER='(^docs/design/design-system\.md$)|(^Pastura/PasturaTests/Views/DesignTokensTests\+MossInkAsWashLabel\.swift$)|(^scripts/check-mossink-wash-membership\.py$)'
 
-if ! git diff --cached --name-only | grep -qE "$TRIGGER"; then
+# Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
+# SIGPIPEs, and `pipefail` turns a MATCH into a skip (#1498).
+# `.claude/rules/ci-workflows.md` § "Rule 3".
+STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
+if [ -z "$MATCHED" ]; then
   exit 0
 fi
 

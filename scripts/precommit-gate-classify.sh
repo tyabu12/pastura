@@ -36,12 +36,30 @@ set -euo pipefail
 # Drop blank lines so an empty changeset (a lone trailing newline) does
 # not read as a single empty, non-safe path. `|| true` absorbs grep's
 # exit-1 on all-blank input under `set -e`.
+#
+# `|| true` here, not the `|| [ $? -eq 1 ]` group the classifications below use:
+# this grep has no `-q` so nothing can SIGPIPE, and its pattern is a fixed
+# literal that cannot produce grep's exit >=2.
 staged="$(grep -v '^[[:space:]]*$' || true)"
 
 tokens=""
 
+# Both classifications below capture, never `| grep -q` — `-q` exits early, the
+# still-writing `printf` SIGPIPEs, and `pipefail` turns a MATCH into no match.
+# Dropping every token is this script's worst case reached from inside: it
+# disarms `swiftlint --strict` + `xcodebuild build` in the pre-commit hook and,
+# via ci.yml's `changes` job deriving `ios` from `build`, skips lint-and-test
+# and ui-test with every required check green. Neither fail-safe ci.yml
+# documents catches it — the file list is not empty, and this script exits 0,
+# it just prints nothing. `.claude/rules/ci-workflows.md` § "Rule 3" (#1498).
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: on exit >=2 (broken pattern) the failed
+# assignment fires ci.yml's `if ! TOKENS=$(...)` fail-safe and defaults to the
+# full suite, instead of silently emitting no tokens.
+
 # `lint`: any Swift source, or the SwiftLint config (at any depth).
-if printf '%s\n' "$staged" | grep -qE '(\.swift$|(^|/)\.swiftlint\.yml$)'; then
+lint_match="$(printf '%s\n' "$staged" | { grep -E '(\.swift$|(^|/)\.swiftlint\.yml$)' || [ $? -eq 1 ]; })"
+if [ -n "$lint_match" ]; then
   tokens="lint"
 fi
 
@@ -62,7 +80,9 @@ fi
 # generated-Kotlin drift guards see a PR that hand-edits one of those files.
 # scripts/tests/precommit-gate-classify-test.sh pins that case.
 SAFE='(^(web/|docs/|\.github/|\.claude/))|(\.md$)|(^(\.gitignore|\.gitattributes|\.editorconfig|LICENSE)$)'
-if [ -n "$staged" ] && printf '%s\n' "$staged" | grep -qvE "$SAFE"; then
+# Capture, don't `grep -qv` — see the note above the `lint` classification.
+unsafe_match="$(printf '%s\n' "$staged" | { grep -vE "$SAFE" || [ $? -eq 1 ]; })"
+if [ -n "$staged" ] && [ -n "$unsafe_match" ]; then
   tokens="${tokens:+$tokens }build"
 fi
 

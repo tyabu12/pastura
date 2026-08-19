@@ -24,7 +24,12 @@ cd "$ROOT"
 # docs/gallery/ now triggers; check-gallery-entry.sh ignores irrelevant
 # siblings. Non-manifest siblings (README.md,
 # shared-scenario-reports.md) stay untriggered — they are not .yaml/.json.
-if ! git diff --cached --name-only | grep -qE '^docs/gallery/.*\.(yaml|json)$'; then
+# Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
+# SIGPIPEs, and `pipefail` turns a MATCH into a skip (#1498).
+# `.claude/rules/ci-workflows.md` § "Rule 3".
+STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E '^docs/gallery/.*\.(yaml|json)$' || [ $? -eq 1 ]; })"
+if [ -z "$MATCHED" ]; then
   exit 0
 fi
 

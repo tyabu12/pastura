@@ -81,6 +81,13 @@
 # to "no section", every other external command is guarded with
 # `2>/dev/null` / `|| true`, and the script ends on an unconditional `exit 0`.
 #
+# ONE deliberate exception since #1498: `changed_matches()` lets grep's exit >=2
+# (a broken pattern) reach `set -e` and abort — the only path here that can exit
+# non-zero. `|| true` instead would map it onto "nothing matched", and section 1
+# would then suppress every later nudge, which is the failure this hook exists to
+# prevent. Reachability is near-nil: the one caller with a runtime-derived
+# pattern uses `-Fx`, where no string is a bad pattern.
+#
 # Reads no stdin. Reference: PR #406/#407; .claude/rules/ in #1026;
 # trim + footprint sections in #1361.
 
@@ -90,13 +97,30 @@ cd "$(git rev-parse --show-toplevel)"
 
 CHANGED=$(git diff main...HEAD --name-only 2>/dev/null || true)
 
+# `$CHANGED` is a whole-branch file list, so it can outrun the pipe buffer:
+# every match against it CAPTURES, never `| grep -q`, since `-q` exits early,
+# the still-writing `printf` SIGPIPEs, and `pipefail` turns a MATCH into no
+# match. The two sections below fall OPPOSITE ways — section 1 would suppress
+# every later nudge, section 2 would nudge about an already-updated mirror — so
+# neither direction is the safe one to leave alone.
+# `.claude/rules/ci-workflows.md` § "Rule 3" (#1498).
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) aborts the hook
+# loudly rather than reading as "nothing matched". The EMIT CONTRACT holds
+# either way — every emit site is downstream, so an abort produces no JSON
+# rather than a partial one.
+changed_matches() { # $@ = grep args; echoes matching lines, empty when none
+  printf '%s\n' "$CHANGED" | { grep "$@" || [ $? -eq 1 ]; }
+}
+
 # --- 1. convention nudge ----------------------------------------------------
 # Early emit + exit. Mutually exclusive with sections 2-4 by construction: no
 # agent-instruction file changed => no mirror-relevant CLAUDE.md edit and zero
 # instruction growth, so nothing below could have fired anyway. Anchored to
 # match section 3's root-exact pathspec — a stray `docs/foo/CLAUDE.md` must
 # not silence this nudge while contributing nothing to the tier sums.
-if ! printf '%s\n' "$CHANGED" | grep -qE '^CLAUDE\.md$|^\.claude/(rules|agents)/'; then
+agent_instruction_files="$(changed_matches -E '^CLAUDE\.md$|^\.claude/(rules|agents)/')"
+if [ -z "$agent_instruction_files" ]; then
   jq -n '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -171,7 +195,8 @@ mirror_targets() {
 }
 
 MIRROR_MSG=""
-if printf '%s\n' "$CHANGED" | grep -Fxq 'CLAUDE.md'; then
+claude_md_changed="$(changed_matches -Fx 'CLAUDE.md')"
+if [ -n "$claude_md_changed" ]; then
   TARGETS=$(mirror_targets || true)
   TARGETS=$(printf '%s' "$TARGETS" | tr -s ' ' | sed 's/^ //; s/ $//')
   # Subtract mirror files already updated on this branch. A dual-mirror
@@ -181,7 +206,8 @@ if printf '%s\n' "$CHANGED" | grep -Fxq 'CLAUDE.md'; then
   # miss exactly the drift this hook exists to catch.
   REMAIN=""
   for f in $TARGETS; do
-    if ! printf '%s\n' "$CHANGED" | grep -Fxq "$f"; then
+    mirror_synced="$(changed_matches -Fx "$f")"
+    if [ -z "$mirror_synced" ]; then
       REMAIN="${REMAIN:+$REMAIN }$f"
     fi
   done
@@ -230,7 +256,15 @@ while IFS=$'\t' read -r added _removed path; do
       # we fail open to the stricter (always-loaded) tier — harmless, since a
       # deletion contributes 0 ADDED lines and the footprint gate below arms
       # only on added > 0.
-      if git show "HEAD:$path" 2>/dev/null | head -n 14 | grep -q '^paths:'; then
+      #
+      # `head -n 14` closes the pipe, so `git show` SIGPIPEs on a rule file
+      # bigger than the pipe buffer. What covers it is the `|| true` spanning
+      # the whole substitution (which also carries the deleted-path fail-open
+      # above), not the dropped `grep -q`. Hardening, not a live bug — no rule
+      # file is close today — but the margin shrinks as rules grow (#1498).
+      frontmatter="$(git show "HEAD:$path" 2>/dev/null | head -n 14 || true)"
+      paths_line="$(printf '%s\n' "$frontmatter" | { grep '^paths:' || [ $? -eq 1 ]; })"
+      if [ -n "$paths_line" ]; then
         tier="scoped"
       fi
       ;;
@@ -308,7 +342,15 @@ always_loaded_bytes() {
     [ -n "$f" ] || continue
     case "$f" in
       .claude/rules/*)
-        head -n 14 "$f" 2>/dev/null | grep -q '^paths:' && continue
+        # Capture rather than `| grep -q`, as elsewhere here — but WITHOUT the
+        # `|| [ $? -eq 1 ]` group: this function runs under an explicit
+        # `set +e`, so exit >=2 aborts nothing and falls through to `fm=""`,
+        # i.e. the conservative always-loaded tier. The producer is bounded
+        # (`head -n 14`), so this site was never reachable; swept only so the
+        # #1498 residual guard needs no allow-list entry.
+        local fm
+        fm=$(head -n 14 "$f" 2>/dev/null | grep '^paths:')
+        [ -z "$fm" ] || continue
         ;;
     esac
     local n
