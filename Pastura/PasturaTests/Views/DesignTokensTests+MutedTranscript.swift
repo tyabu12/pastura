@@ -27,8 +27,9 @@ extension DesignTokensTests {
   /// The figures `docs/design/muted-application-audit.md` §3.1 / §3.2 print,
   /// pinned here so those tables are checkable transcripts rather than a second
   /// source. §3.2 already claims to be a transcript — before #1488 there was
-  /// nothing to check it against, because every `#expect` in this file is an
-  /// inequality or an ordering and no arm named a figure at all.
+  /// nothing to check it against, because every `#expect` in
+  /// ``DesignTokensTests+MutedAsContent`` is an inequality, an ordering or a
+  /// count, and no arm named a figure at all.
   ///
   /// Keyed by **stable tokens** — ground token names and site *type* names —
   /// never by the doc's Site-column prose, which is free to be reworded, and
@@ -144,13 +145,6 @@ extension DesignTokensTests {
     return (light, dark)
   }
 
-  /// Every figure the docs transcribe, recomputed and compared at the docs' own
-  /// precision.
-  ///
-  /// The bijection assertions are not decoration: comparing only the pins that
-  /// happen to find a computed twin would let a renamed ground drop out of the
-  /// comparison while this arm stayed green — the exact silence the pins exist
-  /// to remove.
   /// Diverging `(name, ratio)` pins, as paste-back literals. Shared by the
   /// §3.1 grounds and the brackets — same pin shape, same recovery.
   private static func staleRatioPins(
@@ -184,13 +178,24 @@ extension DesignTokensTests {
 
   /// Pins whose recomputed figure is **lower** than what is pinned.
   ///
-  /// Split out because nothing in either half of this fixture has a floor: every
-  /// other arm asserts `muted` stays *under* the 4.5 bar, so a token or ground
-  /// drifting **quieter** reddens the transcript arm and nothing else — and the
-  /// transcript arm's own instruction is "paste the new figures in", which
-  /// accepts the regression. Naming the direction is what turns a re-record into
-  /// a decision. A raised figure needs no such call-out: it moves `muted` toward
-  /// the bar, which the sub-AA arms next door already bound.
+  /// Split out because the floors that exist leave most of this population
+  /// uncovered, and the ones that do cover it are easy to over-credit. Measured
+  /// against the arms actually present:
+  ///
+  /// * ``theSpanIsTheMinAndMaxOfTheTwelve`` pins the opaque **min and max** by
+  ///   value, so a re-record moving either reddens it. The ten interior grounds
+  ///   are unfloored.
+  /// * ``compositedGroundsStayAboveTheOpaqueWorstCase`` floors the washes only
+  ///   **relative** to the opaque worst, which moves with them — a drift
+  ///   lowering both keeps that arm green.
+  /// * No arm floors a bracket figure at all.
+  ///
+  /// Everything else here bounds `muted` from **above** (sub-AA), which a
+  /// downward drift satisfies more comfortably, so for the uncovered figures
+  /// this arm is the only red and its own instruction is "paste the new figures
+  /// in" — which accepts the regression. Naming the direction is what turns a
+  /// re-record into a decision. A *raised* figure needs no call-out: it moves
+  /// `muted` toward the bar, which the sub-AA arms already bound.
   private static func quieterThanPinned(
     computed: [(name: String, ratio: Double)], pins: [(name: String, ratio: Double)]
   ) -> [String] {
@@ -201,18 +206,22 @@ extension DesignTokensTests {
     }
   }
 
-  /// The same direction test for §3.2, on each row's **lower** end: that end is
-  /// the worst case the row reports, so a wash getting quieter shows there first.
+  /// The same direction test for §3.2, on **both** ends of each row.
+  ///
+  /// Not the lower end alone: four rows collapse to a point, but `ReportSheet`
+  /// quantifies over the twelve, so its ends come from *different* grounds and
+  /// retuning only the one behind the upper end lowers that end with the lower
+  /// one unchanged. A min-only test would miss exactly the row it was written
+  /// for.
   private static func quieterWashRows() -> [String] {
     washRowPins.compactMap { pin in
       guard let got = computedWashRow(pin.site) else { return nil }
-      var moved: [String] = []
-      if rounded3(got.light.min) < pin.light.min {
-        moved.append("light \(printed3(got.light.min)) — was \(String(format: "%.3f", pin.light.min))")
-      }
-      if rounded3(got.dark.min) < pin.dark.min {
-        moved.append("dark \(printed3(got.dark.min)) — was \(String(format: "%.3f", pin.dark.min))")
-      }
+      let ends = [
+        ("light min", got.light.min, pin.light.min), ("light max", got.light.max, pin.light.max),
+        ("dark min", got.dark.min, pin.dark.min), ("dark max", got.dark.max, pin.dark.max)
+      ]
+      let moved = ends.filter { rounded3($0.1) < $0.2 }
+        .map { "\($0.0) \(printed3($0.1)) — was \(String(format: "%.3f", $0.2))" }
       return moved.isEmpty ? nil : "    \(pin.site): \(moved.joined(separator: ", "))"
     }
   }
@@ -227,16 +236,25 @@ extension DesignTokensTests {
     return """
 
 
-      ⚠️ \(quieter.count) of them moved DOWN — less contrast than was recorded. Nothing here \
-      floors that: every other arm in this fixture asserts `muted` stays UNDER the 4.5 bar, so a \
-      token or ground drifting quieter reddens this arm alone, and re-recording it is how the \
-      drift gets accepted. Decide that deliberately — if the retune was not meant to reach these \
-      grounds, fix the palette instead of the pins.
+      ⚠️ \(quieter.count) of them moved DOWN — less contrast than was recorded. Two arms floor \
+      part of that and neither covers all of it: the span arm pins only the opaque min and max, \
+      and `compositedGroundsStayAboveTheOpaqueWorstCase` floors the washes only RELATIVE to that \
+      opaque worst, so a drift lowering both stays green there. Every other arm here bounds \
+      `muted` from ABOVE. For anything outside those two, this arm is the only red and pasting \
+      the new figures in is what accepts the regression. Decide that deliberately — if the retune \
+      was not meant to reach these grounds, fix the palette instead of the pins.
 
       \(quieter.joined(separator: "\n"))
       """
   }
 
+  /// Every figure the docs transcribe, recomputed and compared at the docs' own
+  /// precision.
+  ///
+  /// The bijection assertions are not decoration: comparing only the pins that
+  /// happen to find a computed twin would let a renamed ground drop out of the
+  /// comparison while this arm stayed green — the exact silence the pins exist
+  /// to remove.
   @Test func docTranscriptsMatchTheComputedFigures() {
     #expect(Self.opaqueGroundPins.count == 12)
     #expect(Self.washRowPins.count == 5)

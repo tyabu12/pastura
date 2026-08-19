@@ -18,6 +18,11 @@ import Testing
 // lives at the foot of `DesignTokensTests+NightPalette.swift`; the figures
 // `docs/**` transcribes are pinned in `DesignTokensTests+MutedTranscript.swift`,
 // which recomputes them from the arrays below — hence `internal`, not `private`.
+//
+// This half is the tighter of the two against `file_length` (400, SwiftLint's
+// default; `--strict` promotes the warning). #1488 removed a length-lint
+// directive from here on the strength of that split, so a new arm belongs in
+// the sibling unless it is genuinely about computing a ground.
 extension DesignTokensTests {
 
   /// WCAG 1.4.3 normal-text bar. Both #1427 labels are `caption`-class (~12pt),
@@ -31,40 +36,32 @@ extension DesignTokensTests {
   /// half assigned yet.
   private static let contentTextBar = 4.5
 
-  /// Every opaque ground the app ships that `muted` is or could be drawn on,
-  /// per appearance. Hand-written against the palette rather than derived from
+  /// Every opaque ground the app ships that `muted` is or could be drawn on, per
+  /// appearance. Hand-written rather than derived from
   /// `PasturaDynamicPalette.all`, which would sweep in fills that never carry
-  /// text.
+  /// text — and scoped to grounds, **not** to "grounds `muted` is drawn on
+  /// today": occupancy is #1448's per-site question, the bar applies either way,
+  /// and scoping to it would churn this fixture on every unrelated repoint.
   ///
-  /// Deliberately **not** "grounds `muted` is drawn on today" — occupancy is the
-  /// per-site question #1448 answers, and scoping to it would churn this fixture
-  /// on every unrelated repoint. The bar applies to the ground either way.
-  ///
-  /// **The composited arms further down are occupancy-derived, and that is an
-  /// exception rather than a drift from this rule.** A wash has no existence
-  /// apart from the site painting it: alpha, tint and base are all per-site
-  /// choices, so there is no "the app's translucent grounds" to hand-write
-  /// against the palette. The churn that buys is bounded and stated: a repoint
-  /// away from `muted` at one of those sites **deletes** its entry, which for a
-  /// wash is correct rather than a loss — nothing remains to measure.
-  ///
-  /// **The reverse — a new muted-on-wash ground arriving with no entry — is
-  /// only partly covered, and the gap is worth naming.** `MutedSweepLedgerTests`
-  /// fires on a new `Color.muted` *occurrence*, so a wash painted behind an
-  /// occurrence that already exists moves no map and reddens nothing. Adding a
-  /// `.background(Color.moss.opacity(0.2))` under an existing muted caption is
-  /// invisible to both files. Nothing here closes that; a ground is a property
-  /// of the view hierarchy and neither a census nor a palette can be asked
-  /// about it.
+  /// **The composited arms further down ARE occupancy-derived — an exception,
+  /// not a drift.** A wash has no existence apart from the site painting it
+  /// (alpha, tint and base are all per-site), so there is no "the app's
+  /// translucent grounds" to hand-write against. The churn that buys is bounded:
+  /// a repoint away from `muted` deletes that entry, which for a wash is correct
+  /// — nothing remains to measure. **The reverse is only partly covered.**
+  /// `MutedSweepLedgerTests` fires on a new `Color.muted` *occurrence*, so a
+  /// wash painted behind an occurrence that already exists reddens nothing
+  /// (`.background(Color.moss.opacity(0.2))` under an existing muted caption is
+  /// invisible to both files). Nothing closes that: a ground is a property of
+  /// the view hierarchy, which neither a census nor a palette can be asked about.
   ///
   /// One shipped muted-on-translucent ground is **excluded on purpose**:
-  /// `SimulationView`'s loading-scrim subtitle sits on `.regularMaterial`,
-  /// which composites whatever is behind it at render time, so no static ratio
-  /// exists to assert. `DLCompleteOverlay` states the same reasoning at its own
-  /// site. Ledger § 3.3 carries both.
+  /// `SimulationView`'s loading-scrim subtitle sits on `.regularMaterial`, which
+  /// composites at render time, so no static ratio exists to assert.
+  /// `DLCompleteOverlay` says the same at its own site; ledger §3.3 carries both.
   ///
-  /// The two lists are symmetric, six against six, and the count pins below are
-  /// what keep an omission from silently skewing a "worst case".
+  /// The two lists are symmetric, six against six; the count pins below keep an
+  /// omission from silently skewing a "worst case".
   static let mutedLightGrounds: [(name: String, ratio: Double)] = [
     ("screenBackground", contrastRatio(PasturaPalette.muted, PasturaPalette.screenBackground)),
     ("page", contrastRatio(PasturaPalette.muted, PasturaPalette.page)),

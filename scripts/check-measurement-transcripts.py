@@ -17,30 +17,23 @@ one: every `#expect` in the fixture is an inequality or an ordering, so no arm
 named a figure at all and there was nothing to transcribe *from*. #1488 adds the
 pins; this gate is what makes them reach the docs.
 
-**Why not the mechanism #1488's issue body proposed.** That issue proposed a
-tree-wide exact-match grep for high-precision literals. It is **not** rejected
-for missing the issue's evidence — measured, every wash figure that issue's
-Summary names sits on two doc faces today, so that grep fires on all of them.
-(No figure is quoted here on purpose: this file is the one arguing against
-hand-copied literals. Reproduce with the issue's own `git grep -lF` over
-`docs/**`.) It is rejected because firing is not the goal and this one cannot
-stop:
-most of its firings are structure the repo *mandates* — `ds/README.md` orders
-`ds/*.html` to mirror `design-system.md`, and ADR-028 § "Where new amendment
-content goes" orders measurements into an amendment — so a duplicate-detector
-stays red on correct text forever, and it cannot tell a **checked** transcript
-from an unchecked copy, which is the distinction #1488's goal ("one canonical
-site, the rest pointers") actually turns on.
+**Why not #1488's proposed tree-wide grep for duplicated literals.** Not because
+it misses the issue's evidence — measured, every wash figure that issue's Summary
+names sits on two doc faces, so it fires on all of them. Because it cannot stop
+firing: `ds/README.md` orders `ds/*.html` to mirror `design-system.md` and
+ADR-028 § "Where new amendment content goes" orders measurements into an
+amendment, so most firings are structure the repo mandates. And a
+duplicate-detector cannot tell a **checked** transcript from an unchecked copy,
+which is the distinction #1488's goal ("one canonical site, the rest pointers")
+turns on.
 
-Two coverage facts fall out of that, in opposite directions. A value-keyed
-sweep hits only copies still in **sync** — ADR-028 § "A count mirror that a
-count-keyed sweep structurally cannot find" already records it — so it goes
-quiet on exactly the rotted copy it was wanted for; the three PR #1486 defects
-the issue's rebuttal records (a quantized script, a ground read off a token
-name, two rows carrying no `muted` text) are of that kind, none a duplicate.
-Conversely this gate checks a figure printed on a **single** face, which no
-duplicate-detector can see at all. So the two are not the same instrument aimed
-differently.
+The forward-looking half is what **neither** instrument sees. A value-keyed
+sweep hits only copies still in **sync** (ADR-028 § "A count mirror that a
+count-keyed sweep structurally cannot find"), so it goes quiet on exactly the
+rotted copy it was wanted for — the three PR #1486 defects the issue records are
+of that kind, none a duplicate. This gate, conversely, checks a figure printed on
+a **single** face, but cannot see a row that states a figure some *other* row
+legitimately carries.
 
 **No colour arithmetic lives here.** `design-system.md` §8 warns that a
 hand-rolled script quantizing channels to 0–255 diverges from the fixture, and
@@ -61,11 +54,13 @@ goes wrong: subtracting whole sections from the tree-wide hits under-reports,
 because ADR-028's span amendment and design-system §8 both restate figures in
 running prose a few lines from a block this gate does read. Enumerated at block
 granularity rather than recalled — #1496 carries the command and the current
-count — the residue is prose in both English doc faces, the fixture's own doc
-comments, two further test files, and one production doc comment. `ds/*.html` is
-**not** on that list: it carries three-decimal ratios, but of a different
-population (ground-vs-ground contrast and per-channel pair gaps), none of them a
-copy of these pins.
+count — the residue is prose in both English doc faces, **both halves of the
+fixture** (this file's pins are checked, its doc comments are not, and the
+computing sibling's are not either), two further test files, and one production
+doc comment. Re-derive it after any change to the fixture's shape: #1488's own
+split added a member to this list. `ds/*.html` is **not** on it: it carries
+three-decimal ratios, but of a different population (ground-vs-ground contrast
+and per-channel pair gaps), none of them a copy of these pins.
 
 Anchors. Every one is asserted rather than allowed to degrade — a renumbered
 heading, a renamed declaration, a table whose header row changed, an
@@ -115,10 +110,11 @@ DESIGN_SYSTEM_PATH = Path("docs/design/design-system.md")
 GATE_PATH = Path("scripts/measurement-transcript-precommit-gate.sh")
 CHECKER_PATH = Path("scripts/check-measurement-transcripts.py")
 
-# Every path this module reads. The pre-commit gate decides whether to run at
-# all from its own `TRIGGER` regex, which is a SECOND list — `--self-test`
-# asserts this one is a subset of what that regex matches, because a path
-# present here and absent there is a silent skip rather than a red run.
+# Every path this module reads, plus its own — `CHECKER_PATH` is never read, and
+# `GATE_PATH` only under `--self-test`; both are here because editing either must
+# re-run the gate. The gate decides whether to run at all from its own `TRIGGER`
+# regex, which is a SECOND list, so `--self-test` asserts this one is covered by
+# it: a path present here and absent there is a silent skip, not a red run.
 INPUT_PATHS = (
     FIXTURE_PATH,
     LEDGER_PATH,
@@ -135,8 +131,9 @@ FIXTURE_NAME = "DesignTokensTests+MutedTranscript"
 OPAQUE_DECL = "private static let opaqueGroundPins"
 WASH_DECL = "private static let washRowPins"
 # `("name", 1.234)` — the shared shape of the ratio-keyed pin arrays. The value
-# here is a placeholder on purpose: a real pinned figure written into this file
-# would be one more hand-kept copy, which is the thing it exists to stop.
+# here is a placeholder on purpose — as is every example figure in this file: a
+# real pinned one written here would be one more hand-kept copy, which is what
+# this module exists to stop.
 SWIFT_RATIO_PIN = re.compile(r'\(\s*"([^"]+)"\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*\)')
 SWIFT_WASH_PIN = re.compile(
     r'WashRowPin\(\s*site:\s*"([^"]+)"\s*,\s*'
@@ -199,7 +196,12 @@ LEDGER_5_RATIO_CELL = 2
 LEDGER_5_CELLS = 5
 # Three-digit precision, for deciding whether a §5 table carries *ratios* at all.
 # Plain `DECIMAL` is too loose here: the `Tally` table's "WCAG 1.4.11" yields
-# `1.4` and would make that table look like an unchecked ratio table.
+# `1.4` and would make that table look like an unchecked ratio table. The
+# exemption's blind spot, named rather than left to be discovered: a §5 table
+# whose header drifts AND whose figures are all at some other precision (`3.03`,
+# `3.0291` — `[0-9]{3}` with word boundaries rejects both) is exempted silently.
+# Extraction below still uses `DECIMAL`, so a stray precision inside a *matched*
+# table is caught; only the drifted-header case is uncovered.
 RATIO3 = re.compile(r"\b[0-9]+\.[0-9]{3}\b")
 
 
@@ -752,7 +754,7 @@ def check() -> int:
         for problem in problems:
             print(f"  {problem}", file=sys.stderr)
         return 1
-    print("measurement-transcript gate: clean (4 faces mirrored, ledger §5 in the pins' range)")
+    print("measurement-transcript gate: clean (4 faces mirrored, ledger §5 within the pin set)")
     return 0
 
 
@@ -1556,6 +1558,14 @@ def self_test() -> int:
         "trigger coverage: a dropped fixture alternative is reported too",
         lambda: uncovered_inputs(trigger_without("MutedTranscript")),
         [str(FIXTURE_PATH)],
+    )
+    # The gate's own alternative is the one #1488 ADDS, and the circularity it
+    # creates (the checker reads the gate, so the gate must trigger on itself) is
+    # the claim least likely to be re-derived later. Decoyed for that reason.
+    expect(
+        "trigger coverage: the gate's own alternative is covered, not assumed",
+        lambda: uncovered_inputs(trigger_without("measurement-transcript-precommit-gate")),
+        [str(GATE_PATH)],
     )
     expect_raises(
         "trigger coverage: the gate no longer assigns TRIGGER on its own line",

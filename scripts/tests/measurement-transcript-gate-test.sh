@@ -85,8 +85,12 @@ expect "checker script fires" \
 expect "the gate script itself fires" \
   "$(run_case gate scripts/measurement-transcript-precommit-gate.sh)" fired
 # The COMPUTING sibling deliberately does NOT fire: the checker never reads it.
-# Its figures reach the docs only through the pins, and a change there is caught
-# by the fixture arm under xcodebuild, not by this gate.
+# Not "irrelevant" — an edit there can move every transcribed figure. For the
+# COMPUTED path the coverage merely moves to a slower gate (the fixture's own
+# arm, which needs the simulator, so the pre-commit hook — build, not test —
+# stays quiet and CI catches it). Its doc-comment prose is a different matter:
+# that file restates pinned figures in comments no arm reads, and nothing
+# guards those. See the checker docstring's residue list.
 expect "the computing sibling MutedAsContent skips" \
   "$(run_case ascontent Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift)" skipped
 
@@ -109,14 +113,16 @@ expect "other checker script skips" \
 # any single character here, including the literal `X`.
 expect "design-systemXmd locks dot escape, skips" \
   "$(run_case dotescape docs/design/design-systemXmd)" skipped
-# Locks the `\+` escape in DesignTokensTests\+MutedAsContent. The `+` must be
+# Locks the `\+` escape in DesignTokensTests\+MutedTranscript. The `+` must be
 # DELETED, not substituted: unescaped, `s+` is ERE one-or-more, so
-# `DesignTokensTestsXMutedAsContent` fails to match either way and would be a
+# `DesignTokensTestsXMutedTranscript` fails to match either way and would be a
 # control that cannot redden. With the separator simply gone, an unescaped `+`
 # matches (`s+` consumes the single `s`) and an escaped one does not —
-# measured both ways.
-expect "TestsMutedAsContent locks plus escape, skips" \
-  "$(run_case plusescape Pastura/PasturaTests/Views/DesignTokensTestsMutedAsContent.swift)" skipped
+# re-measured against the live TRIGGER after #1488 repointed it from
+# `+MutedAsContent` (0 / 1 for escaped / unescaped; the old probe path scores
+# 0 / 0 and locks nothing).
+expect "TestsMutedTranscript locks plus escape, skips" \
+  "$(run_case plusescape Pastura/PasturaTests/Views/DesignTokensTestsMutedTranscript.swift)" skipped
 # Locks the trailing `$` anchor — without it, a suffixed filename like a
 # .bak backup would still match.
 expect "muted-application-audit.md.bak locks trailing anchor, skips" \
