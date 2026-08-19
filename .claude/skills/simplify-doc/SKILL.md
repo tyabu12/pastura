@@ -59,9 +59,13 @@ staging — are the rest of the grant, so do not weaken them.
    re-checks before staging.
 3. **Resolve the base.** Any argument that is not the literal `dry-run` is a
    base-ref and becomes `BASE`; with no argument, `git fetch origin main` then
-   `BASE=$(git merge-base origin/main HEAD)`. Either way validate before using
-   it — `git rev-parse --verify "$BASE^{commit}"` — and abort on failure, so a
-   typo fails here rather than as a raw git error in Step 1.
+   `BASE=$(git merge-base origin/main HEAD)`. **Abort if the fetch fails** — a
+   stale `origin/main` passes every later check while moving the merge-base
+   back, so the population silently gains prose other branches already merged
+   to main: exactly the scope creep Step 1 forbids, in its quietest form.
+   Either way validate the result before using it —
+   `git rev-parse --verify "$BASE^{commit}"` — and abort on failure, so a typo
+   fails here rather than as a raw git error in Step 1.
 4. If the argument is `dry-run`, stop after Step 2 and report the table.
 5. **If the request reads as zero-base** — "make `.claude/rules` carry only what
    it needs", or it names files this branch never touched — say so *before*
@@ -105,6 +109,13 @@ git diff -U0 "$BASE"...HEAD -- '*.swift' '*.kt' '*.sh' '*.py' \
 # prose
 git diff --numstat "$BASE"...HEAD -- docs README.md CONTRIBUTING.md
 ```
+
+**The three classes are pathspecs, so they do not partition the population.**
+Compute the remainder — every file the Step 1 `--numstat` names that none of
+the three class commands matched (a YAML comment under `Resources/`, `web/`
+prose, a CI workflow) — and carry it **by name** into Step 6's "not examined"
+report. Without this a candidate in no class is invisible: it is not a skipped
+file class, because it was never in one.
 
 `.claude/skills/**` is in the first list so a prune can see it, but it is
 budgeted per *invocation*, not per turn — apply the classifier there at a looser
@@ -284,8 +295,9 @@ Report:
 
 - **The arithmetic**: enumerated / kept / compressed / dropped / relocated. An
   uncounted drop is indistinguishable from a candidate never examined.
-- **What was not examined** — every file class skipped, and anything the request
-  asked for that Step 0 item 5 put out of scope.
+- **What was not examined** — every file class skipped, Step 1's class
+  remainder, and anything the request asked for that Step 0 item 5 put out of
+  scope.
 - **A ready-to-paste `Context-economy:` line** for the PR body, in the form the
   `gh pr create` nudge asks for:
   `Context-economy: kept N paragraphs, compressed/dropped M — <one-line rationale>`.
