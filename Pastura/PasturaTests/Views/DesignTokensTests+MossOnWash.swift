@@ -22,10 +22,9 @@ import Testing
 // round-readout role — so it is the first member that was not already failing.
 // Nothing below can tell the two motives apart: ``MossWashSite`` records the
 // wash, its alphas and the label's type size, and none of those is why a row
-// joined. So do not read a row as evidence that its site was once sub-AA. The
-// type size is the one property of a label the fixture does observe (#1468),
-// and it observes it as an **admission criterion** — the reason `textBar` is
-// 4.5 — not as a motive.
+// joined. So do not read a row as evidence that its site was once sub-AA — the
+// type size is observed as an **admission criterion** (the reason `textBar` is
+// 4.5), not as a motive.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -89,8 +88,7 @@ extension DesignTokensTests {
       // The one row whose view **inlines** its size rather than reading a token
       // — `.font(.system(size: 9.5, weight: .semibold, design: .monospaced))`.
       // `recommendedTagRowMatchesTheTokenItsViewDocClaimsToReuse` ties this
-      // transcription to `tagPhase`, which is what that view's doc claims it
-      // reuses.
+      // transcription to `tagPhase`.
       MossWashSite(
         "ModelRow.recommendedTag", wash: .moss, light: 0.12, dark: 0.12,
         pointSize: 9.5, weight: .semibold),
@@ -126,19 +124,11 @@ extension DesignTokensTests {
   /// label in the fixture is under the "large text" threshold at the default
   /// content size.
   ///
-  /// That is now a **guard rather than a convention** (#1468): each row carries
+  /// That is a **guard rather than a convention** since #1468: each row carries
   /// its point size and weight, and ``mossOnWashClearsAAOnEveryWashItIsUsedOn``
   /// checks the criterion per row. ``WashLabelWeight`` owns the threshold and
-  /// the `.semibold` half.
-  ///
-  /// `#expect` does not short-circuit, so a large-text row is **flagged and then
-  /// measured at 4.5 anyway** — two reds, which is the safe order: the row is
-  /// named as not belonging here, and the number it would have been judged on is
-  /// still reported. A row that genuinely is large text belongs where 3:1 is
-  /// measured, per the "Large text is out" bullet in
-  /// `DesignTokensTests+MossInkAsWashLabel.swift` (which names the shipped
-  /// precedent, `ModelPickerView`'s 26pt-bold title) — not here with its
-  /// recorded size edited down.
+  /// the `.semibold` half; ``largeTextRejection`` owns what happens to a row
+  /// that fails it, and where such a row belongs instead.
   ///
   /// **No superlative is restated here.** The rows are the authority on which
   /// is largest, and a prose extreme is precisely the mirror that went stale in
@@ -167,9 +157,7 @@ extension DesignTokensTests {
 
     for site in Self.mossWashSites {
       // The admission criterion, applied before the bar it licenses: `textBar`
-      // is 4.5 rather than 3.0 only because this label is WCAG normal text. A
-      // large-text row would answer to 3:1, and until #1468 nothing observed
-      // the difference — the row type stored no font.
+      // is 4.5 rather than 3.0 only because this label is WCAG normal text.
       #expect(
         site.isNormalText,
         "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
@@ -186,23 +174,21 @@ extension DesignTokensTests {
     }
   }
 
-  /// `ModelRow.recommendedTag` is the only row whose point size is a literal:
-  /// its view inlines `.system(size: 9.5, …)` instead of reading a token, so the
-  /// fixture has nothing to reference live. What that view's own doc comment
-  /// claims is that the tag "reuses the existing `tagPhase` typography token",
-  /// which is why the fixture's transcription is 9.5 rather than some other
-  /// number.
+  /// `ModelRow.recommendedTag` is the only row whose point size is a literal —
+  /// its view inlines `.system(size: 9.5, …)` — so the fixture has nothing to
+  /// reference live. That view's own doc claims the tag "reuses the existing
+  /// `tagPhase` typography token", which is why the transcription is 9.5.
   ///
   /// **What this observes is the fixture's transcription against the token —
-  /// not the view.** A red means `tagPhase` moved and the row did not, which is
-  /// the cue to open `ModelRow` and decide whether the tag was meant to follow;
-  /// fix the view (or its doc comment) before the row, since updating the
-  /// literal alone would restore the arithmetic while leaving that doc lying.
+  /// not the view.** A red means `tagPhase` moved and the row did not: open
+  /// `ModelRow` and fix the view (or its doc comment) before the row, since
+  /// updating the literal alone restores the arithmetic while leaving that doc
+  /// lying.
   ///
   /// **Residual**: the view's own literal is read by nothing here. Retype it as
   /// 11 without touching the fixture and this stays green — the
-  /// hand-transcription hazard ``MossWashSite/pointSize`` admits is caught by
-  /// nothing, and this arm narrows it rather than closing it.
+  /// hand-transcription hazard ``MossWashSite/pointSize`` admits is narrowed by
+  /// this arm, not closed.
   @Test func recommendedTagRowMatchesTheTokenItsViewDocClaimsToReuse() {
     let tag = Self.mossWashSites.first { $0.name == "ModelRow.recommendedTag" }
     #expect(tag?.pointSize == Double(Typography.tagPhase.size))
@@ -331,15 +317,13 @@ struct MossWashSite {
   let lightAlpha: Double
   let darkAlpha: Double
 
-  /// The label's point size at the default `.large` content size. The two
-  /// regimes this field spans, and why a wrong transcription is caught by
-  /// nothing: ``WashLabelSemanticSize``, which states them once for both row
-  /// types.
+  /// The label's point size at the default `.large` content size — the two
+  /// regimes it spans, and why a wrong transcription is caught by nothing:
+  /// ``WashLabelSemanticSize``.
   let pointSize: Double
 
-  /// Which WCAG large-text half the label's weight selects — see
-  /// ``WashLabelWeight`` for the `.semibold` decision, and ``WashLabelWeight/init(_:)``
-  /// for deriving this from a token rather than transcribing it.
+  /// Which WCAG large-text half the label's weight selects — the `.semibold`
+  /// decision, and the token-derived form: ``WashLabelWeight``.
   let weight: WashLabelWeight
 
   init(
@@ -355,11 +339,8 @@ struct MossWashSite {
   }
 
   /// Whether this row's label is still WCAG **normal** text, i.e. whether the
-  /// 4.5:1 bar the fixtures pin is the bar it actually answers to.
-  ///
-  /// Both parameters are required at construction, so a row cannot join a
-  /// fixture without declaring a font — which is the half of #1466's failure
-  /// this closes.
+  /// 4.5:1 bar the fixtures pin is the bar it actually answers to. Both fields
+  /// are required at construction, so a row cannot join without declaring a font.
   var isNormalText: Bool { weight.admitsAsNormalText(pointSize: pointSize) }
 
   /// `@MainActor` for the reason in `.claude/rules/swift-isolation.md` Pattern 5

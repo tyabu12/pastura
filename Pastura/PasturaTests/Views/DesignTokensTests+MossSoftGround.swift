@@ -49,11 +49,10 @@ extension DesignTokensTests {
   ///
   /// ⚠️ **Prose, observed by nothing** — `mossSoftTextSites` is a `[String]`,
   /// so neither that claim nor the superlative inside it can redden when a
-  /// fifth label arrives. This is the shape #1466 falsified in
-  /// `DesignTokensTests+MossOnWash.swift`; #1468 made it executable for the
-  /// three *wash* fixtures via ``WashLabelWeight``, and #1495 tracks bringing
-  /// this one along. Do not re-derive the superlative by hand when adding a row
-  /// — promote the list instead.
+  /// fifth label arrives. This is the shape #1466 falsified; ``WashLabelWeight``
+  /// made the criterion executable for the *wash* fixtures and #1495 tracks
+  /// bringing this one along. When adding a row, promote the list to a row type
+  /// rather than re-deriving the superlative by hand.
   private static let textBar = 4.5
 
   /// The ground is the token itself, not a composite: unlike the wash sites,

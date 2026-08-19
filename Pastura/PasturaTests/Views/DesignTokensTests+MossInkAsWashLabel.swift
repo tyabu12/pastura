@@ -107,14 +107,10 @@ extension DesignTokensTests {
   /// **admission criterion** rather than an incidental property: a same-shaped
   /// site above the threshold is excluded (the large-text bullet above).
   ///
-  /// Executed since #1468 — the rows carry their type size and
-  /// ``mossInkClearsAAOnEveryMossWashItLabels`` checks the criterion per row, so
-  /// the per-row sizes are not restated here. `#expect` does not short-circuit,
-  /// so a large-text row is flagged and then measured at 4.5 anyway; where it
-  /// belongs instead is the "Large text is out" bullet above.
-  /// Pinning 4.5 stays conservative at accessibility sizes for the reason
-  /// `+InkOnWash`'s `inkTextBar` gives — do not "correct" it in the other
-  /// direction.
+  /// Executed since #1468 — ``mossInkClearsAAOnEveryMossWashItLabels`` checks
+  /// that per row, so the per-row sizes are not restated here. Pinning 4.5 stays
+  /// conservative at accessibility sizes for the reason `+InkOnWash`'s
+  /// `inkTextBar` gives — do not "correct" it in the other direction.
   private static let mossInkTextBar = 4.5
 
   /// Grounds are the **worst case per appearance** — the convention
@@ -135,10 +131,8 @@ extension DesignTokensTests {
     #expect(Self.mossInkWashSites.count == 2)
 
     for site in Self.mossInkWashSites {
-      // The admission criterion the bar below depends on — see
-      // `mossInkTextBar`. `MossWashSite`'s negative control lives in
-      // `DesignTokensTests+WashLabelTypeSize.swift`; this fixture shares the
-      // row type, so it shares that control.
+      // The admission criterion `mossInkTextBar` depends on — its negative
+      // control is `MossWashSite`'s, in `DesignTokensTests+WashLabelTypeSize.swift`.
       #expect(
         site.isNormalText,
         "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
