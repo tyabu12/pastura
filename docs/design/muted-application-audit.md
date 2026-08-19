@@ -163,13 +163,11 @@ runs **2.136–4.152** across them, against §8's single stated calibration of
 | `whisperBubble` | 2.953 | `nightWhisperBubble` | 2.783 |
 | `mossSoft` | **2.136** ← worst | `nightMossSoft` | 2.413 |
 
-These figures are computed by `DesignTokensTests+MutedAsContent` and pinned in
-its sibling `DesignTokensTests+MutedTranscript` as `opaqueGroundPins`, which an
-arm there compares against what the first file recomputes.
-`scripts/check-measurement-transcripts.py` holds this table equal to those pins
-— edit the table alone and it goes red (#1488). §8 **of this ledger** has the
-procedure. Every other `§8` above — in the intro paragraph and in the table's own
-calibration-point cell — is design-system.md's.
+Computed by `DesignTokensTests+MutedAsContent`, pinned in its sibling
+`DesignTokensTests+MutedTranscript` as `opaqueGroundPins`, and held equal to this
+table by `scripts/check-measurement-transcripts.py` — edit the table alone and it
+goes red (#1488). Procedure: §8 **of this ledger**. Every other `§8` above — the
+intro paragraph, the table's calibration-point cell — is design-system.md's.
 
 ### 3.2 Composited grounds — measured, and separately from the twelve
 
@@ -191,13 +189,11 @@ neither, and was wrong three ways; the record is at ADR-028 § Amendment
 | `ReportSheet` meta chip | `rule@0.45` over an unknown ground — see below | 2.300–3.018 | 2.520–3.503 |
 | `HighlightShareCard` model name | `moss@0.14` / `nightMoss@0.10` light leak over the card background — bound at maximum leak | 2.932 | 3.140 |
 
-These figures are computed by `DesignTokensTests+MutedAsContent` and pinned in
-its sibling `DesignTokensTests+MutedTranscript` as `washRowPins`.
-`scripts/check-measurement-transcripts.py` holds this table equal to those pins,
-and holds ADR-028 § Amendment 2026-08-15's four-row copy to them as well
-(#1488). Until then the transcript claim above this table was only a claim:
-`DesignTokensTests+MutedAsContent`'s arms were all inequalities, orderings and
-counts, so no ratio was named anywhere for a table to be a transcript *of*.
+Same wiring, as `washRowPins` — and the checker holds ADR-028 § Amendment
+2026-08-15's four-row copy to those pins too (#1488). Until then the transcript
+claim above this table was only a claim: `DesignTokensTests+MutedAsContent`'s
+arms were all inequalities, orderings and counts, so no ratio was named anywhere
+for a table to be a transcript *of*.
 
 Corrections beyond the arithmetic, all from reading the sites rather than the
 table:
@@ -536,11 +532,11 @@ against §2 rather than deleting it.
 
 ### Regenerating the ratio tables (§3.1 / §3.2)
 
-Different procedure, different trigger: the count above moves when a **site** is
-added or repointed, these tables when the **palette** moves. Do not compute a
-ratio by hand or with a fresh script — §8 of `design-system.md` records that a
-hand-rolled one quantizing channels to 0–255 diverges from the fixture — one of
-the ways the earlier revision of §3.2 went wrong.
+Different trigger from the count above: that moves when a **site** is added or
+repointed, these tables when the **palette** moves. Do not compute a ratio by
+hand or with a fresh script — §8 of `design-system.md` records that a hand-rolled
+one quantizing channels to 0–255 diverges from the fixture, one of the ways the
+earlier revision of §3.2 went wrong.
 
 ```sh
 scripts/xcodebuild.sh test -only-testing PasturaTests/DesignTokensTests
@@ -560,31 +556,22 @@ It never tells you a row's *site* is wrong — §3.2 files its own corrections u
 pin would have caught one of them.
 
 And it reads **blocks, not sections** — the anchored tables (§3.1, §3.2, §5's
-site tables, ADR-028's copy) and, per span section, the one block that names the
-fixture. **A section this gate reads is not the same as prose this gate reads**,
-and mistaking the two is how an enumeration under-reports: ADR-028's span
-amendment and `design-system.md` §8 each restate a figure in running prose a few
-lines from a block that *is* read. So a figure restated outside a block stays
-hand-kept, in **all three** doc faces, in both halves of the fixture, in two
-further test files and in one production doc comment.
-
-**Do not maintain that list by hand here — print it.**
+site tables, ADR-028's copy) and, per span section, the one block naming the
+fixture. So a figure restated in running prose a few lines from a block that *is*
+read stays hand-kept, across both doc and test files. **Don't enumerate those by
+hand — print them**, because four hand-written versions of that list were wrong:
 
 ```sh
 python3 scripts/check-measurement-transcripts.py --residue
 ```
 
-Four hand-written versions of it were wrong, each for a different reason, which
-is why it is code now: the report subtracts at block granularity, takes the pin
-population from the fixture rather than from a memory of it, enumerates tracked
-files rather than grepping a working tree, and separates an executed `#expect`
-from a copy that can rot. #1496 carries the open judgments. `ds/*.html` does not
-appear: it carries three-decimal ratios, but of a different population
-(ground-vs-ground contrast, per-channel pair gaps), none a copy of these pins.
+#1496 carries the open judgments. `ds/*.html` does not appear: it carries
+three-decimal ratios, but of a different population (ground-vs-ground contrast,
+per-channel pair gaps), none a copy of these pins.
 
 §5 is the one face that moved from that list into the gate: its per-site
-`light/dark` column is now checked for **membership** — every figure there must
-be one the fixture computes somewhere. Not a bijection, because §5 quantifies
-its ground freely ("`screenBackground` or `bubbleBackground`", "same", "worst")
-and deciding which pin a row *ought* to carry is a judgment; #1496 holds that
-question. So a row carrying another row's value still passes.
+`light/dark` column is checked for **membership** — every figure there must be
+one the fixture computes somewhere. Not a bijection, because §5 quantifies its
+ground freely ("`screenBackground` or `bubbleBackground`", "same", "worst") and
+deciding which pin a row *ought* to carry is a judgment (#1496). So a row
+carrying another row's value still passes.

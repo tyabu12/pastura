@@ -4,10 +4,8 @@
 // the sibling file computes.
 //
 // Sibling-file extension rather than a fresh `@Suite`, per
-// `.claude/rules/testing.md` § "Splitting a Suite Across Files". The split is
-// what keeps both halves under `file_length` without a lint directive — the
-// grounds and wash arrays live next door and are `internal` for exactly this
-// reason, which that rule pre-sanctions.
+// `.claude/rules/testing.md` § "Splitting a Suite Across Files"; the grounds and
+// wash arrays live next door and are `internal` for that reason.
 //
 // ⚠️ **`scripts/check-measurement-transcripts.py` anchors on this file by
 // path and on two declarations by name** — `FIXTURE_PATH`, `OPAQUE_DECL`,
@@ -26,36 +24,22 @@ extension DesignTokensTests {
 
   /// The figures `docs/design/muted-application-audit.md` §3.1 / §3.2 print,
   /// pinned here so those tables are checkable transcripts rather than a second
-  /// source. §3.2 already claims to be a transcript — before #1488 there was
-  /// nothing to check it against, because every `#expect` in
-  /// ``DesignTokensTests+MutedAsContent`` is an inequality, an ordering or a
-  /// count, and no arm named a figure at all.
+  /// source.
   ///
   /// Keyed by **stable tokens** — ground token names and site *type* names —
   /// never by the doc's Site-column prose, which is free to be reworded, and
   /// never by array index: the wash arrays are grouped by wash kind rather than
   /// by site, so an index map repoints silently when a row is added.
   ///
-  /// Three things a reader needs before acting on a failure:
-  ///
-  /// 1. **A failure means the palette moved; it is not a defect.** These are
-  ///    measurements. A deliberate retune changes them, and the response is to
-  ///    re-record, not to "fix" anything.
-  /// 2. **Recovery**: the failure message prints each diverging row as a
-  ///    ready-to-paste pin literal. Paste it in here, then carry the same
-  ///    three-digit figures into the doc faces —
-  ///    `python3 scripts/check-measurement-transcripts.py --check` names those
-  ///    faces and stays red until they agree.
-  /// 3. **Green certifies the arithmetic only.** It does not certify that a
-  ///    site still paints the wash its arm composites, nor that the ground read
-  ///    off the view hierarchy is the right one. §3.2 files its own corrections
-  ///    under «beyond the arithmetic, all from reading the sites rather than
-  ///    the table» — a pin like this would have caught none of them.
+  /// **A failure means the palette moved; it is not a defect** — these are
+  /// measurements, so the response is to re-record. The failure message prints
+  /// the recovery, and green certifies the arithmetic only, not that a row
+  /// describes the right site. Procedure:
+  /// `muted-application-audit.md` § "Regenerating the ratio tables".
   ///
   /// Comparison is by the doc's own rounding — `(x * 1000).rounded() / 1000` —
-  /// rather than an epsilon: an epsilon wide enough to absorb the printed
-  /// rounding is also wide enough to hide a genuine move, and an `x.xxx5` value
-  /// sits exactly on the boundary either way.
+  /// rather than an epsilon: one wide enough to absorb the printed rounding is
+  /// also wide enough to hide a genuine move.
   private static let opaqueGroundPins: [(name: String, ratio: Double)] = [
     ("screenBackground", 3.329),
     ("page", 3.030),
@@ -78,12 +62,10 @@ extension DesignTokensTests {
   /// twelve instead.
   ///
   /// **`ReportSheet`'s interval is the min/max of ``mutedRuleWashGrounds``, not
-  /// of ``mutedRuleWashBrackets``** — settled by measurement, because two rules
-  /// both fit the light row and only one fits dark. Light's upper end, 3.018,
-  /// agrees to three digits with the light-over-**white** bracket, an artefact
-  /// of `screenBackground` (#FCFAF4) being very nearly white; dark's 3.503 is
-  /// nowhere near the dark-over-black bracket's 3.919. Reading light alone would
-  /// have locked in the wrong rule.
+  /// of ``mutedRuleWashBrackets``.** Light alone cannot settle that: its upper
+  /// end agrees to three digits with the light-over-**white** bracket, an
+  /// artefact of `screenBackground` (#FCFAF4) being nearly white. Dark is what
+  /// discriminates — it lands nowhere near the dark-over-black bracket.
   ///
   /// A named struct rather than a triple: three members trip `large_tuple`, and
   /// the labels are what `scripts/check-measurement-transcripts.py` keys on.
@@ -101,12 +83,11 @@ extension DesignTokensTests {
     WashRowPin(site: "HighlightShareCard", light: (2.932, 2.932), dark: (3.140, 3.140))
   ]
 
-  /// The four bracket figures. Two of them are quoted in **prose** rather than
-  /// in a table — ``mutedRuleWashBrackets``' own doc comment names 1.739 / 1.825
-  /// as the pair falling below the 2.136 opaque floor, and
-  /// ``compositedGroundsStayAboveTheOpaqueWorstCase`` repeats them as its reason
-  /// for excluding the brackets. Pinned for exactly that reason: a prose figure
-  /// has no table to be re-derived from, so it is the shape most likely to rot.
+  /// The four bracket figures. Two are quoted in **prose** rather than a table —
+  /// ``mutedRuleWashBrackets``' own doc comment, and
+  /// ``compositedGroundsStayAboveTheOpaqueWorstCase``'s reason for excluding the
+  /// brackets. Pinned for exactly that reason: a prose figure has no table to be
+  /// re-derived from, so it is the shape most likely to rot.
   private static let ruleWashBracketPins: [(name: String, ratio: Double)] = [
     ("light rule@0.45 over pure white", 3.018),
     ("light rule@0.45 over pure black", 1.739),
@@ -178,30 +159,15 @@ extension DesignTokensTests {
 
   /// Pins whose recomputed figure is **lower** than what is pinned.
   ///
-  /// Split out because the floors that exist leave most of this population
-  /// uncovered, and the ones that do cover it are easy to over-credit. Measured
-  /// against the arms actually present:
-  ///
-  /// * ``theSpanIsTheMinAndMaxOfTheTwelve`` pins the opaque **min and max** by
-  ///   value, so a re-record moving either reddens it. The ten interior grounds
-  ///   are unfloored.
-  /// * ``compositedGroundsStayAboveTheOpaqueWorstCase`` floors the washes only
-  ///   **relative** to the opaque worst, which moves with them — a drift
-  ///   lowering both keeps that arm green.
-  /// * ``nightPageIsTheGroundNearestTheBar`` pins *which* ground is highest in
-  ///   each appearance, so it catches one interior light ground —
-  ///   `bubbleBackground` — and only once its drift carries it past the
-  ///   next-highest. Relative, like the wash floor, and narrower.
-  /// * No arm floors a bracket figure at all.
-  ///
-  /// No remaining arm floors a **pinned** figure — the ones that assert a floor
-  /// (`>= 4.5`) do it for the *replacement* tokens, not for `muted`, and the
-  /// rest bound `muted` from above (sub-AA), which a downward drift satisfies
-  /// more comfortably. So for the uncovered figures
-  /// this arm is the only red and its own instruction is "paste the new figures
-  /// in" — which accepts the regression. Naming the direction is what turns a
-  /// re-record into a decision. A *raised* figure needs no call-out: it moves
-  /// `muted` toward the bar, which the sub-AA arms already bound.
+  /// Split out because the three arms that floor part of this population leave
+  /// most of it uncovered and are easy to over-credit — ``quieterCallOut``
+  /// enumerates which, since that is what a failing author reads. The remaining
+  /// floors (`>= 4.5`) are for the *replacement* tokens, and the rest bound
+  /// `muted` from above (sub-AA), which a downward drift satisfies more
+  /// comfortably. So for an uncovered figure this arm is the only red, and its
+  /// own instruction — paste the new figures in — accepts the regression:
+  /// naming the direction is what turns a re-record into a decision. A *raised*
+  /// figure needs no call-out; the sub-AA arms already bound it.
   private static func quieterThanPinned(
     computed: [(name: String, ratio: Double)], pins: [(name: String, ratio: Double)]
   ) -> [String] {
@@ -257,12 +223,9 @@ extension DesignTokensTests {
   }
 
   /// Every figure the docs transcribe, recomputed and compared at the docs' own
-  /// precision.
-  ///
-  /// The bijection assertions are not decoration: comparing only the pins that
-  /// happen to find a computed twin would let a renamed ground drop out of the
-  /// comparison while this arm stayed green — the exact silence the pins exist
-  /// to remove.
+  /// precision. The bijection assertions are not decoration: comparing only the
+  /// pins that find a computed twin would let a renamed ground drop out while
+  /// this arm stayed green.
   @Test func docTranscriptsMatchTheComputedFigures() {
     #expect(Self.opaqueGroundPins.count == 12)
     #expect(Self.washRowPins.count == 5)
@@ -272,16 +235,11 @@ extension DesignTokensTests {
     #expect(
       Set(Self.opaqueGroundPins.map(\.name)) == Set(opaque.map(\.name)),
       "§3.1 pins and the computed grounds no longer name the same twelve")
-    // The wash rows' other direction. `staleWashRowPins` walks the *pins*, so a
-    // wash entry whose site has no pin fires nothing there — a new site could be
-    // measured and never transcribed.
-    //
-    // Stated as "entries with no pin", not as a set equality over resolved
-    // sites: resolving first and comparing sets cannot fire, because an
-    // unmatched entry drops out of the resolved set and both sides shrink
-    // together. (Constructed and confirmed — the set form stayed green with a
-    // pin removed.) The opposite direction, a pin with no entry, is
-    // `staleWashRowPins`' `nil` branch.
+    // The wash rows' other direction: `staleWashRowPins` walks the *pins*, so a
+    // new site could be measured and never transcribed. Stated as "entries with
+    // no pin" rather than a set equality over resolved sites — the set form
+    // cannot fire, since an unmatched entry drops out and both sides shrink
+    // together.
     let washEntries =
       Self.mutedSelfWashGrounds + Self.mutedMossWashGrounds + Self.mutedRuleWashGrounds
     let unpinnedWashEntries = washEntries.filter { entry in
@@ -292,11 +250,11 @@ extension DesignTokensTests {
       unpinnedWashEntries.isEmpty,
       "wash entries whose site has no pin: \(unpinnedWashEntries)")
 
-    // `computedWashRow` resolves an entry on TWO conjuncts — the appearance
-    // prefix and the site token — so checking only the site above would leave a
-    // seam: an entry named `"Light ResultsView …"` counts as pinned here, feeds
-    // no interval there, and `staleWashRowPins`' `nil` branch stays quiet
-    // because its correctly-prefixed siblings keep the match non-nil.
+    // `computedWashRow` resolves on TWO conjuncts — appearance prefix and site
+    // token — so checking only the site leaves a seam: `"Light ResultsView …"`
+    // counts as pinned above, feeds no interval there, and `staleWashRowPins`'
+    // `nil` branch stays quiet because correctly-prefixed siblings keep the
+    // match non-nil.
     let misprefixed = washEntries.map(\.name).filter {
       !$0.hasPrefix("light ") && !$0.hasPrefix("dark ")
     }
@@ -325,11 +283,10 @@ extension DesignTokensTests {
       """)
   }
 
-  /// §3.1's span sentence — «`muted` runs **2.136–4.152**» — is a *derived*
-  /// figure rather than a thirteenth measurement: it is the min and max of the
-  /// twelve. `scripts/check-measurement-transcripts.py` re-derives it from the
-  /// pins for that reason, and this arm is what makes the derivation checked
-  /// rather than assumed.
+  /// §3.1's span sentence is a *derived* figure, not a thirteenth measurement:
+  /// the min and max of the twelve. `scripts/check-measurement-transcripts.py`
+  /// re-derives it from the pins for that reason; this arm is what makes the
+  /// derivation checked rather than assumed.
   @Test func theSpanIsTheMinAndMaxOfTheTwelve() {
     let ratios = Self.opaqueGroundPins.map(\.ratio)
     #expect(ratios.min() == 2.136)

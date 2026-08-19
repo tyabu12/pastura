@@ -2,92 +2,59 @@
 r"""Guard: the contrast figures `docs/**` transcribes and the ones
 `DesignTokensTests+MutedTranscript` pins are the **same numbers** (#1488).
 
-Three doc faces copy figures the fixture computes, and before #1488 nothing
-compared them:
-
-- `muted-application-audit.md` §3.1 — the twelve opaque grounds, plus the
-  derived span sentence.
-- `muted-application-audit.md` §3.2 — the five wash rows.
-- `ADR-028.md` § Amendment 2026-08-15 — a **four-row** copy of that same wash
-  table, and § Amendment 2026-08-13's copy of the span.
-- `design-system.md` §8 — a third copy of the span.
-
-§3.2 already calls itself "a transcript rather than a second source". It was not
-one: every `#expect` in `DesignTokensTests+MutedAsContent` was an inequality, an
-ordering or a count, so no arm named a figure at all and there was nothing to
-transcribe *from*. #1488 adds the pins, in the sibling this module reads; this
-gate is what makes them reach the docs.
-
-**Why not #1488's proposed tree-wide grep for duplicated literals.** Not because
-it misses the issue's evidence — measured, every wash figure that issue's Summary
-names sits on two doc faces, so it fires on all of them. Because it cannot stop
-firing: `ds/README.md` orders `ds/*.html` to mirror `design-system.md` and
-ADR-028 § "Where new amendment content goes" orders measurements into an
-amendment, so most firings are structure the repo mandates. And a
-duplicate-detector cannot tell a **checked** transcript from an unchecked copy,
-which is the distinction #1488's goal ("one canonical site, the rest pointers")
-turns on.
-
-The forward-looking half is what **neither** instrument sees. A value-keyed
-sweep hits only copies still in **sync** (ADR-028 § "A count mirror that a
-count-keyed sweep structurally cannot find"), so it goes quiet on exactly the
-rotted copy it was wanted for — the three PR #1486 defects the issue records are
-of that kind, none a duplicate. This gate, conversely, checks a figure printed on
-a **single** face, but cannot see a row that states a figure some *other* row
-legitimately carries.
-
-**No colour arithmetic lives here.** `design-system.md` §8 warns that a
-hand-rolled script quantizing channels to 0–255 diverges from the fixture, and
-that warning is about exactly the script someone would write next. Everything
-below is string and decimal comparison; the fixture stays the only thing that
-composites a colour.
-
-**What a green run does NOT certify.** That the doc rows describe the right
-sites, that a site still paints the wash its arm composites, or that a ground
-read off the view hierarchy is correct. §3.2 files its own corrections under
-"beyond the arithmetic, all from reading the sites rather than the table", and a
-pin would have caught none of them. Green means the numbers agree, no more.
-
-It reads **blocks, not sections** — the anchored tables, the ledger §5 site
-tables, and the one block per span section that names the fixture. **A guarded
-section is not guarded prose**, and that distinction is where an enumeration
-goes wrong: subtracting whole sections from the tree-wide hits under-reports,
-because ADR-028's span amendment and design-system §8 both restate figures in
-running prose a few lines from a block this gate does read. So a figure restated
-outside a block stays hand-kept: prose in all three doc faces, both halves of
-the fixture, two further test files, and one production doc comment.
-
-**That list is printed, not maintained here** — `--residue`. Four hand-written
-versions of it were wrong, each for a different reason, which is why it is code
-now. #1496 carries the open judgments. `ds/*.html` does not appear: it carries
-three-decimal ratios, but of a different population (ground-vs-ground contrast
-and per-channel pair gaps), none of them a copy of these pins.
-
-Anchors. Every one is asserted rather than allowed to degrade — a renumbered
-heading, a renamed declaration, a table whose header row changed, an
-**empty extracted set**, or an unreadable input each raises instead of
-collapsing into an empty-vs-empty "equal" pass.
-
-The span sentence is anchored **structurally, not by its value**: within the
-section, the logical block that names `DesignTokensTests+MutedTranscript` is the
-one that claims the fixture pins the twelve, and the span literal is read out of
-it. Searching for the span's own low end would find what it was told to find
-and prove nothing.
+These doc faces copy figures the fixture computes, and nothing compared them:
+`muted-application-audit.md` §3.1 (twelve opaque grounds + the derived span) and
+§3.2 (five wash rows), `ADR-028.md` § Amendment 2026-08-15 (a four-row copy of
+that wash table) and § Amendment 2026-08-13 (the span), and `design-system.md`
+§8 (the span again). `muted-application-audit.md` § "Regenerating the ratio
+tables" is the reader-facing procedure.
 
 Directions differ by face, deliberately:
 
 - §3.1 and §3.2 are **bijections** with the pins. One-way containment lets an
-  unmatched row drop out of the comparison silently, which is the failure this
-  file exists to remove.
-- ADR-028's table is a **subset**: it carries four of the five rows (no
-  `HighlightShareCard`) and words the `ReportSheet` ground differently. Every
-  ADR row must match a pin; a pin with no ADR row is correct.
+  unmatched row drop out of the comparison silently.
+- ADR-028's table is a **subset**: four of the five rows (no
+  `HighlightShareCard`), worded differently for `ReportSheet`. Every ADR row
+  must match a pin; a pin with no ADR row is correct.
+- §5's site column is **membership only** — see `compare_membership`.
 
-Trigger paths live in `scripts/measurement-transcript-precommit-gate.sh`, which
-is what self-gates on them. That regex and this module's `*_PATH` constants are
-**two lists, and they can drift** — a file added here and not there is a silent
-local skip. `--self-test` asserts `INPUT_PATHS` is covered by that regex, with a
-decoy arm dropping one alternative so the positive arm cannot pass vacuously.
+The span sentence is anchored **structurally**: within the section, the block
+that names `DesignTokensTests+MutedTranscript` is the one claiming the fixture
+pins the twelve, and the span literal is read out of it. Searching for the
+span's own low end would find what it was told to find.
+
+Anchors all assert rather than degrade — a renumbered heading, a renamed
+declaration, a changed table header, an **empty extracted set** or an unreadable
+input each raises, instead of collapsing into an empty-vs-empty "equal" pass.
+
+**No colour arithmetic lives here.** `design-system.md` §8 warns that a
+hand-rolled script quantizing channels to 0–255 diverges from the fixture — and
+that is exactly the script someone would write next. Everything below is string
+and decimal comparison; the fixture stays the only thing that composites.
+
+**Green certifies the arithmetic only** — not that a doc row describes the right
+site, that the site still paints the wash its arm composites, or that a ground
+read off the view hierarchy is correct. §3.2's own corrections are all of that
+kind and a pin would have caught none of them.
+
+**Don't replace this with a tree-wide grep for duplicated literals.** It cannot
+stop firing (`ds/README.md` orders `ds/*.html` to mirror `design-system.md`, and
+ADR-028 orders measurements into an amendment), it cannot tell a **checked**
+transcript from an unchecked copy, and being value-keyed it hits only copies
+still in **sync** — going quiet on exactly the rotted copy it was wanted for
+(ADR-028 § "A count mirror that a count-keyed sweep structurally cannot find").
+
+It reads **blocks, not sections** — the anchored tables, the §5 site tables, and
+the one block per span section that names the fixture. So a figure restated in
+prose a few lines away stays hand-kept. **That list is printed, not maintained
+here** — `--residue`; four hand-written versions of it were wrong. #1496 carries
+the open judgments, and the ledger section above has the report's caveats.
+
+Trigger paths live in `scripts/measurement-transcript-precommit-gate.sh`. That
+regex and this module's `*_PATH` constants are **two lists that can drift** — a
+file added here and not there is a silent local skip — so `--self-test` asserts
+`INPUT_PATHS` is covered by that regex, with a decoy arm dropping one
+alternative so the positive arm cannot pass vacuously.
 
 Usage:
     python3 scripts/check-measurement-transcripts.py --self-test
@@ -113,11 +80,9 @@ DESIGN_SYSTEM_PATH = Path("docs/design/design-system.md")
 GATE_PATH = Path("scripts/measurement-transcript-precommit-gate.sh")
 CHECKER_PATH = Path("scripts/check-measurement-transcripts.py")
 
-# Every path this module reads, plus its own — `CHECKER_PATH` is never read, and
-# `GATE_PATH` only under `--self-test`; both are here because editing either must
-# re-run the gate. The gate decides whether to run at all from its own `TRIGGER`
-# regex, which is a SECOND list, so `--self-test` asserts this one is covered by
-# it: a path present here and absent there is a silent skip, not a red run.
+# Every path this module reads, plus its own — `CHECKER_PATH` is never read and
+# `GATE_PATH` only under `--self-test`; both are listed because editing either
+# must re-run the gate. `--self-test` asserts the gate's `TRIGGER` covers them.
 INPUT_PATHS = (
     FIXTURE_PATH,
     LEDGER_PATH,
@@ -135,10 +100,9 @@ OPAQUE_DECL = "private static let opaqueGroundPins"
 WASH_DECL = "private static let washRowPins"
 # Read only by `--residue`: the gate itself never compares the brackets to a doc.
 BRACKET_DECL = "private static let ruleWashBracketPins"
-# `("name", 1.234)` — the shared shape of the ratio-keyed pin arrays. The value
-# here is a placeholder on purpose — as is every example figure in this file: a
-# real pinned one written here would be one more hand-kept copy, which is what
-# this module exists to stop.
+# `("name", 1.234)` — the shared shape of the ratio-keyed pin arrays. That value,
+# and every example figure below, is synthetic on purpose: a real pinned one
+# written here would be one more hand-kept copy.
 SWIFT_RATIO_PIN = re.compile(r'\(\s*"([^"]+)"\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*\)')
 SWIFT_WASH_PIN = re.compile(
     r'WashRowPin\(\s*site:\s*"([^"]+)"\s*,\s*'
@@ -151,11 +115,9 @@ LIST_ITEM = re.compile(r"^[ \t]*([-*+]|[0-9]+\.)[ \t]")
 BACKTICKED = re.compile(r"`([^`]+)`")
 LEADING_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 DECIMAL = re.compile(r"[0-9]+\.[0-9]+")
-# En dash, em dash, wave dash, fullwidth tilde, ASCII tilde and hyphen: the docs
-# already use two of these (`–` in the English faces, `〜` in the Japanese one),
-# so the set is wider than today's text on purpose. The ASCII hyphen is the
-# member most likely to produce a false red — any hyphenated numeric pair in an
-# anchored block (`3.1-3.2`) reads as a second span.
+# Wider than today's text on purpose (the docs use `–` and `〜`). The ASCII
+# hyphen is the member most likely to produce a false red: a hyphenated numeric
+# pair in an anchored block (`3.1-3.2`) reads as a second span.
 RANGE = re.compile(r"([0-9]+\.[0-9]+)\s*[–—〜～~-]\s*([0-9]+\.[0-9]+)")
 WASH_TABLE_HEADER = re.compile(r"^\|\s*Site\s*\|.*\blight\b.*\bdark\b", re.IGNORECASE)
 OPAQUE_TABLE_HEADER = re.compile(r"^\|\s*Light ground\s*\|", re.IGNORECASE)
@@ -163,23 +125,16 @@ OPAQUE_TABLE_HEADER = re.compile(r"^\|\s*Light ground\s*\|", re.IGNORECASE)
 # Section anchors, named once so `collect` and the self-test cannot drift into
 # two spellings of the same pattern.
 #
-# Two terminators, and the difference is load-bearing. Neither half has a named
-# arm; both are armed by the SHAPE of the synthetic fixtures — `synth_adr` puts a
-# `###` between the amendment heading and its table, and `synth_ledger` puts a
-# `#### ` block that names the fixture inside §3.1. Swapping either terminator
-# then reddens several existing arms (measured: 5 and 8 respectively). Before
-# this, both halves could be broken with `--self-test` fully green, and only
-# `--check` on the real tree caught it.
-# The ledger's faces are `###` subsections, so ANY heading ends them:
-# `^#{2,3} ` would let a future `#### ` silently extend the slice. The ADR's
-# faces are `##` amendments that legitimately CONTAIN `###` subsections (the
-# wash table sits under one), so there the terminator must stay `^## ` or the
-# slice ends before the table.
+# The two terminators differ, and swapping them is not caught by a named arm —
+# only by the SHAPE of the synthetic fixtures. The ledger's faces are `###`
+# subsections, so ANY heading ends them (`^#{2,3} ` would let a future `#### `
+# extend the slice). The ADR's faces are `##` amendments that legitimately
+# CONTAIN `###` subsections — the wash table sits under one — so there the
+# terminator must stay `^## ` or the slice ends before the table.
 #
-# `NEXT_SUBSECTION` also matches a `# comment` line inside a fenced code block,
-# and this corpus has those (ADR-028's own §Context). It fails CLOSED — an
-# early truncation raises the missing-header anchor rather than passing — but
-# a fence inside §3.1/§3.2 would need this reading properly.
+# `NEXT_SUBSECTION` also matches a `# comment` inside a fenced code block, which
+# this corpus has (ADR-028 §Context). It fails CLOSED — early truncation raises
+# the missing-header anchor — but a fence inside §3.1/§3.2 would need handling.
 NEXT_SUBSECTION = re.compile(r"^#{1,6} ")
 NEXT_SECTION = re.compile(r"^## ")
 LEDGER_31 = re.compile(r"^### 3\.1\b")
@@ -188,10 +143,9 @@ ADR_WASHES = re.compile(r"^## Amendment 2026-08-15\b")
 ADR_SPAN = re.compile(r"^## Amendment 2026-08-13 — the quietude tier\b")
 DESIGN_SYSTEM_8 = re.compile(r"^## 8\.")
 
-# ADR-028's copy of the wash table carries four of the five rows. Naming the
-# missing one here is what keeps the omission an assertion rather than a hole:
-# `compare_wash` reddens both if a named row appears and if an unnamed one goes
-# missing.
+# ADR-028's copy carries four of the five rows. Naming the missing one keeps the
+# omission an assertion rather than a hole — `compare_wash` reddens both when a
+# named row appears and when an unnamed one goes missing.
 ADR_OMITS = frozenset({"HighlightShareCard"})
 
 LEDGER_5 = re.compile(r"^## 5\. ")
@@ -200,13 +154,11 @@ LEDGER_5_TABLE = re.compile(r"^\|\s*Site \(file · symbol\)\s*\|")
 LEDGER_5_RATIO_CELL = 2
 LEDGER_5_CELLS = 5
 # Three-digit precision, for deciding whether a §5 table carries *ratios* at all.
-# Plain `DECIMAL` is too loose here: the `Tally` table's "WCAG 1.4.11" yields
-# `1.4` and would make that table look like an unchecked ratio table. The
-# exemption's blind spot, named rather than left to be discovered: a §5 table
-# whose header drifts AND whose figures are all at some other precision (`3.03`,
-# `3.0291` — `[0-9]{3}` with word boundaries rejects both) is exempted silently.
-# Extraction below still uses `DECIMAL`, so a stray precision inside a *matched*
-# table is caught; only the drifted-header case is uncovered.
+# Plain `DECIMAL` is too loose: the `Tally` table's "WCAG 1.4.11" yields `1.4`
+# and would make it look like an unchecked ratio table. Blind spot: a §5 table
+# whose header drifts AND whose figures are all at another precision (`3.03`,
+# `3.0291`) is exempted silently. Extraction below still uses `DECIMAL`, so only
+# the drifted-header case is uncovered.
 RATIO3 = re.compile(r"\b[0-9]+\.[0-9]{3}\b")
 
 
@@ -217,12 +169,9 @@ class AnchorError(Exception):
 def _read(path: Path) -> str:
     """Read a tracked input, or raise `AnchorError` naming both edit sites.
 
-    A file going missing is an anchor loss like any other, and the loudest way it
-    happens is a rename: the gate script's `TRIGGER` regex then stops matching
-    the new path too, so the local gate skips silently and CI is the first thing
-    to notice. Letting `FileNotFoundError` escape would surface that as a bare
-    traceback, and would falsify this module's own claim that every anchor
-    raises.
+    A rename is the loudest way this fires: the gate's `TRIGGER` stops matching
+    the new path too, so the local gate skips silently. A bare
+    `FileNotFoundError` would surface that as a traceback instead.
     """
     try:
         return (REPO_ROOT / path).read_text(encoding="utf-8")
@@ -254,11 +203,8 @@ def gate_trigger(text: str) -> str:
 
 
 def uncovered_inputs(trigger: str) -> list[str]:
-    """Input paths the gate's `TRIGGER` does NOT match.
-
-    Non-empty means editing that file skips the gate locally — the failure is
-    silent and in the permissive direction, which is why it is asserted rather
-    than left to the docstring's word.
+    """Input paths the gate's `TRIGGER` does NOT match — editing one of those
+    skips the gate locally, silently and in the permissive direction.
     """
     pattern = re.compile(trigger)
     return [str(path) for path in INPUT_PATHS if not pattern.search(str(path))]
@@ -274,8 +220,7 @@ def _section_lines(
 ) -> range:
     """One anchored section's 0-based line range, or `AnchorError`.
 
-    Split out of `section` so `--residue` can subtract by line number rather
-    than by content; both callers share the scan and the diagnostic.
+    Split out of `section` so `--residue` can subtract by line number.
     """
     lines = text.splitlines()
     begin = None
@@ -302,11 +247,10 @@ def section(text: str, start: re.Pattern[str], nxt: re.Pattern[str], where: str)
 def logical_blocks(lines: list[str]) -> list[str]:
     """Paragraphs and list items, each joined with its continuation lines.
 
-    Hard-wrapped prose read line by line loses whatever crosses the wrap, and the
-    span sentence does cross one in two of its three faces. Table rows and
-    headings break a block so a table can never merge into the paragraph above
-    it — without that, `design-system.md` §8's consecutive bullets would fuse and
-    the span anchor would pick up an unrelated bullet's range.
+    The span sentence crosses a hard wrap in two of its three faces. Table rows
+    and headings break a block, and `LIST_ITEM` breaks one per bullet: without
+    that, `design-system.md` §8's consecutive bullets fuse and the span anchor
+    picks up an unrelated bullet's range.
     """
     blocks: list[str] = []
     current: list[str] = []
@@ -331,12 +275,10 @@ def logical_blocks(lines: list[str]) -> list[str]:
 def logical_blocks_with_offsets(lines: list[str]) -> list[tuple[str, list[int]]]:
     """``logical_blocks``, each block paired with the 0-based lines it spans.
 
-    Kept next to `logical_blocks` and deliberately mirroring it: `--residue` has
-    to subtract exactly what the gate reads, and reading the gate as "the line
-    naming the fixture" instead of "the block naming the fixture" is precisely
-    the section-vs-block confusion the report exists to end — one wrap and the
-    line carrying the figure is reported as unguarded while the gate compares it.
-    ``residueSubtractsAWrappedBlockWhole`` in the self-test is the arm.
+    Deliberately mirrors `logical_blocks`: `--residue` must subtract exactly what
+    the gate reads. Subtracting "the line naming the fixture" rather than "the
+    block naming the fixture" reports the line carrying the FIGURE as unguarded
+    while the gate is comparing it.
     """
     blocks: list[tuple[str, list[int]]] = []
     current: list[str] = []
@@ -391,10 +333,10 @@ def _decl_block(text: str, decl: str, where: str) -> str:
     """The declaration's lines, joined, from its opening to the `]` at its own
     indentation.
 
-    Joined rather than read per line because swift-format wraps a long literal,
-    and a wrapped `WashRowPin(` + newline + `site: "…"` read per line vanishes —
-    failing with the *inverted* diagnosis ("the docs name a row the fixture
-    lacks") and sending the author to edit the wrong file.
+    Joined rather than read per line: swift-format wraps a long literal, and a
+    wrapped `WashRowPin(` read per line vanishes — failing with the *inverted*
+    diagnosis ("the docs name a row the fixture lacks") and sending the author to
+    edit the wrong file.
     """
     lines = text.splitlines()
     begin = None
@@ -476,10 +418,9 @@ def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
                     f"{name_cell!r} / {ratio_cell!r}."
                 )
             found[name.group(1)] = canonical(ratio.group(0))
-    # A repeated ground name would OVERWRITE, dropping the earlier row's figure
-    # from a comparison that is set-based and therefore blind to a multiset
-    # defect — a stale duplicate row above a correct one would pass. `table_rows`
-    # covers the empty case, so this is the only cardinality guard needed here.
+    # A repeated ground name would OVERWRITE, and the set-based comparison
+    # downstream is blind to a multiset defect — a stale duplicate row above a
+    # correct one would pass. `table_rows` covers the empty case.
     if len(found) != 2 * len(rows):
         raise AnchorError(
             f"{where}: {len(rows)} rows yielded only {len(found)} distinct grounds — "
@@ -511,11 +452,10 @@ def wash_table_rows(lines: list[str], where: str) -> WashRows:
     `` `ResultsView.pillBackground(.pending)` `` and `` `ResultsView` `.pending`
     pill `` both key on `ResultsView`.
 
-    Because the key is a **truncation**, two rows on the same view would collapse
-    onto one entry and the earlier one's figures would never be compared. §3.2 is
-    expected to grow — ADR-028 § Amendment 2026-08-15 records batches 2–5 as open,
-    and `ResultsView` already ships a second pill state — so the duplicate guard
-    below is live, not defensive.
+    Because the key is a **truncation**, two rows on the same view collapse onto
+    one entry and the earlier one's figures are never compared — live rather than
+    defensive: §3.2 is expected to grow and `ResultsView` already ships a second
+    pill state.
     """
     rows = table_rows(lines, WASH_TABLE_HEADER, where)
     found: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {}
@@ -630,14 +570,12 @@ def compare_membership(
 ) -> list[str]:
     """Every §5 ratio must be one the fixture computes somewhere.
 
-    **Membership, not a bijection, and that is the whole claim.** §5 names a
-    ground per row but quantifies freely ("`screenBackground` or
-    `bubbleBackground`", "same", "worst"), so deciding which pin each row *ought*
-    to carry is a judgment rather than a rule — #1496 holds that question open.
-    Membership needs no such rule and still catches the failure this file exists
-    for: a figure hand-carried into §5 that no longer matches anything the
-    fixture computes. It does not catch a row carrying the *wrong* pin's value,
-    and that gap is why #1496 stays open rather than being closed by this arm.
+    **Membership, not a bijection.** §5 quantifies its ground freely
+    ("`screenBackground` or `bubbleBackground`", "same", "worst"), so deciding
+    which pin a row *ought* to carry is a judgment — #1496 holds that open.
+    Membership still catches a figure hand-carried into §5 that no longer matches
+    anything the fixture computes; it does NOT catch a row carrying the wrong
+    pin's value.
     """
     problems = []
     for label, value in sorted(set(found)):
@@ -673,11 +611,9 @@ def compare_wash(
 ) -> list[str]:
     """Per-row comparison. `omits` names the pins this face deliberately lacks.
 
-    An `omits` **set** rather than a subset flag: a flag has no cardinality
-    floor, so the ADR table could shrink to a single row and stay green, and the
-    docstring's checkable claim ("four of the five rows, no `HighlightShareCard`")
-    would go unexecuted. Naming the omission turns that claim into the assertion,
-    and reddens if `HighlightShareCard` is ever added there without updating this
+    A **set** rather than a subset flag: a flag has no cardinality floor, so the
+    ADR table could shrink to a single row and stay green. Naming the omission
+    also reddens if `HighlightShareCard` is added there without updating this
     checker.
     """
     problems = []
@@ -735,10 +671,8 @@ def collect(
     """Every divergence across the four faces.
 
     `adr_omits` is a parameter so the self-test can give the ADR face content the
-    ledger face does not have. When the two synthetic faces were byte-identical,
-    both the direction asymmetry and the face wiring were unguarded: flipping the
-    ADR comparison to the bijection direction, and repointing it at the ledger's
-    own section, each left the suite fully green.
+    ledger face lacks. With the two synthetic faces byte-identical, both the
+    direction asymmetry and the face wiring were unguarded.
     """
     ratio_pins = fixture_ratio_pins(fixture)
     wash_pins = fixture_wash_pins(fixture)
@@ -782,21 +716,14 @@ def collect(
 
 # --- the residue report (#1496) ---------------------------------------------
 #
-# `--residue` enumerates the figures this gate does NOT reach. It exists because
-# the enumeration was carried as prose four times and was wrong every time, for
-# a different reason each time: subtracting whole sections instead of blocks; a
-# file split changing what "the fixture" denotes; `git grep` not seeing an
-# untracked new file; and "both English doc faces" silently dropping the
-# Japanese one. A claim that needs re-deriving belongs in code.
-#
-# Report-only: it never fails, is not wired into the gate, and is the one thing
-# here that shells out to git.
+# `--residue` enumerates the figures this gate does NOT reach. It is code rather
+# than prose because four hand-written versions of that list were wrong, each
+# differently. Report-only: it never fails, is not wired into the gate, and is
+# the one thing here that shells out to git.
 
-# An ALLOWLIST, not a carve-out: every other suffix — and every extensionless
-# tracked file — is skipped. The distinct skipped suffixes are printed for that
-# reason, so a new `.astro` or `.css` copy cannot become invisible behind a bare
-# count. Measured when this landed: of everything excluded, only the App Store
-# badge SVGs carry a pooled value, as path coordinates rather than as a copy.
+# An ALLOWLIST — every other suffix, and every extensionless tracked file, is
+# skipped. The distinct skipped suffixes are printed for that reason, so a new
+# `.astro` or `.css` copy cannot hide behind a bare count.
 RESIDUE_SUFFIXES = frozenset(
     {".md", ".swift", ".py", ".sh", ".yml", ".yaml", ".html", ".kt", ".txt"}
 )
@@ -807,9 +734,8 @@ def residue_rows(
 ) -> tuple[list[tuple[str, int, list[str]]], list[tuple[str, int, list[str]]]]:
     """`(prose, executed)` hits outside `read_index`, one row per line.
 
-    A non-comment line in a `.swift` file is an **executed assertion**: it
-    reddens when the pins move, so it is a guard rather than a copy that can
-    rot, so it is separated rather than counted or dropped.
+    A non-comment line in a `.swift` file is an **executed assertion** — a guard
+    rather than a copy that can rot — so it is separated, not counted or dropped.
     """
     prose: list[tuple[str, int, list[str]]] = []
     executed: list[tuple[str, int, list[str]]] = []
@@ -845,11 +771,9 @@ def gate_read_index(
 ) -> set[tuple[str, int]]:
     """`(path, 1-based line)` for everything the gate actually compares.
 
-    Factored out of `_residue` so the **wiring** is armed and not merely the
-    helper it calls: removing the whole-block subtraction below changes the real
-    report by five lines while leaving a `logical_blocks_with_offsets` unit arm
-    green — measured, which is why this function exists rather than the loop
-    living inline.
+    Factored out of `_residue` so the **wiring** is armed, not merely the helper
+    it calls: dropping the whole-block subtraction below leaves a
+    `logical_blocks_with_offsets` unit arm green.
     """
     index: set[tuple[str, int]] = set()
     for path, text, start, nxt in faces:
@@ -858,7 +782,7 @@ def gate_read_index(
         for i in span:
             if lines[i].strip().startswith("|"):
                 index.add((path, i + 1))
-        # The fixture-naming block, WHOLE — `span_in` reads the joined block, so
+        # The fixture-naming block, WHOLE: `span_in` reads the joined block, so
         # subtracting only the line carrying the name leaves the line carrying
         # the figure looking unguarded whenever the sentence is hard-wrapped.
         for block, offsets in logical_blocks_with_offsets(lines[span.start : span.stop]):
@@ -866,9 +790,8 @@ def gate_read_index(
                 for offset in offsets:
                     index.add((path, span.start + offset + 1))
     # Line-granular for the fixture: nothing in the pin arrays is wrapped today.
-    # If swift-format ever wraps a `WashRowPin(` literal, its continuation lines
-    # fall out of the index and surface under "executed assertions" — mislabelled
-    # but harmless, and not a deliberate omission.
+    # If swift-format ever wraps a `WashRowPin(`, its continuation lines surface
+    # under "executed assertions" — mislabelled but harmless.
     for i, line in enumerate(fixture.splitlines(), start=1):
         if SWIFT_RATIO_PIN.search(line) or "WashRowPin(site:" in line:
             index.add((fixture_path, i))
@@ -935,13 +858,11 @@ def _residue() -> int:
         f"{len(executed)} executed assertion lines | "
         f"{len(files)} tracked files scanned, {total_skipped} skipped"
     )
-    # The matching contract, stated because the report's whole value is being
+    # The matching contract, stated because the report's value is being
     # authoritative: an EXACT literal match against the pinned three-decimal
-    # form. A figure restated at a shorter precision (a two-decimal spelling of a
-    # pinned value) is not seen — measured when this landed, 133 lines are of
-    # that shape and nearly all are SwiftUI spacing constants, not copies. No
-    # example is spelled out here: this module must stay free of pinned literals,
-    # which its own report would otherwise list.
+    # form. A pinned value restated at a shorter precision is NOT seen (mostly
+    # SwiftUI spacing constants, when measured). No example is spelled out — this
+    # module must stay free of pinned literals its own report would then list.
     print(
         "  matched: exact literal, three decimals. Skipped suffixes: "
         + ", ".join(f"{suffix}×{n}" for suffix, n in sorted(skipped.items()))
@@ -989,9 +910,8 @@ def check() -> int:
 
 # --- self-test fixtures -----------------------------------------------------
 #
-# Synthetic figures throughout, never the real ones: these fixtures are
-# self-consistent, so real values here would add decoy hits to any future
-# value-shaped sweep of the tree — the very sweep this gate replaces.
+# Synthetic figures throughout: these fixtures are self-consistent, so real
+# values here would add decoy hits to any value-shaped sweep of the tree.
 
 SYNTH_FIXTURE = """\
 extension DesignTokensTests {
@@ -1020,22 +940,17 @@ SYNTH_SPAN_BLOCK = (
 
 # A sibling bullet carrying its own range and NOT naming the fixture. Live
 # control for the span anchor in the design-system arm: loosen the block anchor
-# and this range is picked up, so the arm reddens.
+# and this range is picked up, so the arm reddens. Three load-bearing
+# properties, none of them incidental:
 #
-# Three properties are load-bearing and each cost a bug to learn:
-#
-# - **Synthetic figures.** An earlier revision used `4.413〜4.773 … #1408`, which
-#   is live shipped text in `design-system.md` four times over — refuting the
-#   "never the real ones" rule stated 20 lines above it.
-# - **Wave dash, not en dash.** The real `design-system.md` §8 spells its span
-#   with `〜`, and this decoy's whole discriminating power depends on `RANGE`
-#   still admitting that character. `waveDashRangeIsRead` below asserts it, so
-#   narrowing `RANGE` reddens the harness instead of quietly inerting the decoy.
-# - **Adjacent to the span block, with no blank line between.** The real §8 is a
-#   solid blank-line-free bullet list, so only the `LIST_ITEM` flush separates
-#   the span-bearing bullet from this one. With a blank line here, deleting that
-#   flush from `logical_blocks` left the suite fully green — its docstring was
-#   right about production and untested by the fixture.
+# - **Synthetic figures**, or the decoy becomes live shipped `design-system.md`
+#   text, refuting the synthetic-throughout rule above.
+# - **Wave dash, not en dash** — the real §8 spells its span with `〜`, so the
+#   decoy's discriminating power depends on `RANGE` admitting it. The
+#   `range: a wave-dash span is read` arm is what reddens if `RANGE` narrows.
+# - **No blank line before it.** The real §8's bullets are adjacent, so only the
+#   `LIST_ITEM` flush separates them; with a blank line here, deleting that
+#   flush from `logical_blocks` leaves the suite green.
 SYNTH_DECOY_RANGE = "- the ink family ran 7.413〜7.773 in dark before #9999\n"
 
 SYNTH_OPAQUE_TABLE = (
@@ -1053,11 +968,10 @@ SYNTH_WASH_TABLE = (
 )
 
 
-# §5's site tables. Two of them, because §5 really is several sub-tables and a
-# single-table fixture cannot witness the walk continuing past the first. The
-# `Tally` table carries no three-digit ratio and is therefore exempt
-# *structurally* — its "WCAG 1.4.11" is the reason the exemption tests
-# three-digit precision rather than `DECIMAL`, which that string satisfies.
+# §5's site tables. Two of them, because a single-table fixture cannot witness
+# the walk continuing past the first. The `Tally` table is exempt *structurally*
+# — it carries no three-digit ratio — and its "WCAG 1.4.11" is why the exemption
+# tests three-digit precision rather than `DECIMAL`, which that string satisfies.
 SYNTH_LEDGER_5_HEADER = (
     "| Site (file · symbol) | Ground | light/dark | Verdict | B |\n|---|---|---|---|---|\n"
 )
@@ -1085,9 +999,9 @@ def synth_ledger(
     return (
         "## 3. Grounds\n\n"
         "### 3.1 The twelve opaque grounds\n\n" + SYNTH_SPAN_BLOCK + "\n" + opaque + "\n"
-        # The `#### ` and its block are the arm for `NEXT_SUBSECTION`: re-narrow
-        # it to `^#{2,3} ` and §3.1's slice runs on into this block, which names
-        # the fixture and states a different span, so `span_in` reddens.
+        # The arm for `NEXT_SUBSECTION`: re-narrow it to `^#{2,3} ` and §3.1's
+        # slice runs on into this block, which names the fixture and states a
+        # different span, so `span_in` reddens.
         "#### A later note\n\n"
         f"`{FIXTURE_NAME}` once ran 5.111–5.777 here.\n\n"
         "### 3.2 Composited grounds\n\n" + wash + "\n"
@@ -1098,12 +1012,10 @@ def synth_ledger(
     )
 
 
-# The ADR face must NOT be a byte-identical copy of the ledger's. When it was,
-# two independent wirings went unguarded and both stayed green under mutation:
-# flipping the ADR comparison to the bijection direction, and repointing it at
-# the ledger's own section. Omitting `BetaSite` here exercises the real
-# asymmetry — ADR-028 carries four of the five rows — and gives the two faces
-# distinguishable content, so a face-identity arm can exist at all.
+# The ADR face must NOT be a byte-identical copy of the ledger's, or a
+# face-identity arm cannot exist at all: with the two identical, flipping the ADR
+# comparison to the bijection direction and repointing it at the ledger's own
+# section both stayed green. Omitting `BetaSite` exercises the real asymmetry.
 SYNTH_ADR_WASH_TABLE = (
     SYNTH_WASH_HEADER_ONLY
     + "| `AlphaSite` pill | `x@0.14` over a ground | 8.100 | 8.200 |\n"
@@ -1118,18 +1030,15 @@ def synth_adr(wash: str = SYNTH_ADR_WASH_TABLE, span: str = SYNTH_SPAN_BLOCK) ->
         + "\n"
         "## Amendment 2026-08-14 — something else (#1455)\n\nprose\n\n"
         "## Amendment 2026-08-15 — the second unmeasured ground (#1448)\n\n"
-        # The `###` between the heading and the table is the arm for
-        # `NEXT_SECTION`: swap the ADR to `NEXT_SUBSECTION` and the slice ends
-        # here, before the table. The real ADR has exactly this shape.
+        # The arm for `NEXT_SECTION`: swap the ADR to `NEXT_SUBSECTION` and the
+        # slice ends at this `###`, before the table. The real ADR has this shape.
         "### The washes are a second unmeasured ground\n\n" + wash + "\n"
         "## Related\n\nprose\n"
     )
 
 
 def synth_design_system(span: str = SYNTH_SPAN_BLOCK) -> str:
-    # No blank line before the decoy: see `SYNTH_DECOY_RANGE`. The real §8's
-    # bullets are adjacent, so only the `LIST_ITEM` flush separates them, and a
-    # blank line here would test a branch production never takes.
+    # No blank line before the decoy — see `SYNTH_DECOY_RANGE`.
     return (
         "## 7. Copywriting\n- unrelated\n\n"
         "## 8. Accessibility\n\n" + span + SYNTH_DECOY_RANGE + "\n"
@@ -1140,10 +1049,9 @@ def synth_design_system(span: str = SYNTH_SPAN_BLOCK) -> str:
 def self_test() -> int:
     """Positive and negative controls.
 
-    A guard whose success case is its only evidence proves nothing. Every arm
-    below asserts an **exact** value rather than merely flagged/clean, so a decoy
-    leaking into an extractor is caught by that extractor's own arm and not only
-    by whichever comparison happens to notice.
+    Every arm asserts an **exact** value rather than merely flagged/clean, so a
+    decoy leaking into an extractor is caught by that extractor's own arm and not
+    only by whichever comparison happens to notice.
     """
     failures = 0
     checked = 0
@@ -1155,9 +1063,8 @@ def self_test() -> int:
 
     def expect(name: str, thunk, want: object) -> None:
         """`thunk`, not a value: an unexpected `AnchorError` raised while
-        building the argument would otherwise escape uncaught, aborting every
-        remaining arm with a traceback and no tally — losing the run's whole
-        diagnostic value at the moment it is most needed.
+        building the argument would otherwise abort every remaining arm with a
+        traceback and no tally.
         """
         nonlocal checked
         checked += 1
@@ -1172,11 +1079,9 @@ def self_test() -> int:
     def expect_raises(name: str, because: str, thunk) -> None:
         """`because` names WHICH anchor must fire, not merely that one did.
 
-        Without it an arm passes off any neighbouring anchor, and a mutation that
-        missed its target reads as coverage. Measured, not hypothetical: the
-        emptied-array arm below fired `_decl_block`'s bracket anchor instead of
-        the empty-set one, because deleting the rows also deleted the closing
-        bracket's indentation.
+        Without it an arm passes off any neighbouring anchor and a mutation that
+        missed its target reads as coverage — as the emptied-array arm below did,
+        firing `_decl_block`'s bracket anchor instead of the empty-set one.
         """
         nonlocal checked
         checked += 1
@@ -1210,9 +1115,6 @@ def self_test() -> int:
             "BetaSite": (("8.300", "8.400"), ("8.500", "8.600")),
         },
     )
-    # swift-format wraps a long literal. Read per line the wrapped row vanishes,
-    # and the gate then fails with the INVERTED diagnosis — "the docs name a row
-    # the fixture lacks" — sending the author to edit the wrong file.
     expect(
         "fixture: a swift-format-wrapped WashRowPin is still read",
         lambda: fixture_wash_pins(
@@ -1257,8 +1159,8 @@ def self_test() -> int:
 
     # --- anchors ------------------------------------------------------------
     #
-    # Each of these would otherwise collapse to an empty set and compare "equal"
-    # against the other side — a green gate that judged nothing.
+    # Each would otherwise collapse to an empty set and compare "equal" against
+    # the other side — a green gate that judged nothing.
 
     expect_raises(
         "fixture: the ratio-pin declaration was renamed",
@@ -1268,10 +1170,9 @@ def self_test() -> int:
     expect_raises(
         "fixture: the ratio-pin array was emptied",
         'yielded no `("name", ratio)` rows',
-        # The rows are replaced by a comment rather than deleted: deleting them
-        # also deletes the closing bracket's indentation, and the arm then
-        # reddens off `_decl_block`'s anchor instead of the empty-set one — a
-        # pass for the wrong reason, which is indistinguishable from a real one.
+        # Replaced by a comment rather than deleted: deleting the rows also
+        # deletes the closing bracket's indentation, and the arm then reddens off
+        # `_decl_block`'s anchor instead of the empty-set one.
         lambda: fixture_ratio_pins(
             re.sub(
                 r'    \("alphaGround".*\n    \("betaGround", 9\.777\)\n',
@@ -1494,9 +1395,9 @@ def self_test() -> int:
         lambda: compare_wash({"AlphaSite": wash_pins["AlphaSite"]}, wash_pins, "face", omits=set()),
         ["face: `BetaSite` is pinned but is not transcribed — add the row."],
     )
-    # The other direction of the same assertion: a face that GAINS a row this
-    # checker still records as deliberately absent must redden too, or
-    # `HighlightShareCard` could be added to ADR-028 and silently go unchecked.
+    # The other direction: a face that GAINS a row this checker still records as
+    # deliberately absent must redden, or `HighlightShareCard` could be added to
+    # ADR-028 and go unchecked.
     expect(
         "compare: a named omission that the face now carries is flagged",
         lambda: compare_wash(wash_pins, wash_pins, "face", omits={"BetaSite"}),
@@ -1524,10 +1425,9 @@ def self_test() -> int:
             "grounds run 9.111–9.777."
         ],
     )
-    # Face identity. With the two synthetic faces byte-identical, repointing the
-    # ADR comparison at the ledger's own section left the suite green — there was
-    # nothing to tell the faces apart. These two arms pin the label on a mutation
-    # that only the ADR text carries.
+    # Face identity: with the two synthetic faces byte-identical, repointing the
+    # ADR comparison at the ledger's own section left the suite green. These arms
+    # pin the label on a mutation only the ADR text carries.
     expect(
         "compare: a figure stale in the ADR wash table only is labelled as the ADR's",
         lambda: collect(
@@ -1559,9 +1459,8 @@ def self_test() -> int:
 
     # --- properties the arms above depend on ---------------------------------
 
-    # `SYNTH_DECOY_RANGE` is wave-dash separated, like the real `design-system.md`
-    # §8 span. Narrow `RANGE` to `[–—]` and the decoy silently stops being a
-    # control — with no arm here, the suite stayed green through that narrowing.
+    # `SYNTH_DECOY_RANGE` is wave-dash separated, like the real §8 span. Narrow
+    # `RANGE` to `[–—]` and the decoy silently stops being a control.
     expect(
         "range: a wave-dash span is read",
         lambda: span_in(
@@ -1582,9 +1481,9 @@ def self_test() -> int:
         ),
         {"alphaGround": "9.110", "betaGround": "9.777"},
     )
-    # A pin written as an integer literal is legal Swift for a `Double`. Unmatched,
-    # the row vanished from the extracted dict and the gate blamed the DOC —
-    # the inverted diagnosis, sending the author to edit the file that did not change.
+    # A pin written as an integer literal is legal Swift for a `Double`.
+    # Unmatched, the row vanishes from the extracted dict and the gate blames the
+    # DOC — the inverted diagnosis again.
     expect(
         "fixture: an integer pin literal is read, not dropped",
         lambda: fixture_ratio_pins(SYNTH_FIXTURE.replace('("betaGround", 9.777)', '("betaGround", 9)')),
@@ -1593,10 +1492,8 @@ def self_test() -> int:
 
     # --- cardinality guards --------------------------------------------------
     #
-    # Both keys are lossy — a ground name straight from the cell, a site key
-    # truncated to its leading identifier — so a repeat OVERWRITES and the earlier
-    # row's figures are never compared. The bijections downstream are set-based
-    # and structurally cannot see a multiset defect.
+    # Both keys are lossy, so a repeat OVERWRITES and the earlier row's figures
+    # are never compared — which the set-based bijections downstream cannot see.
 
     expect_raises(
         "ledger §3.1: a repeated ground name would silently overwrite",
@@ -1658,7 +1555,7 @@ def self_test() -> int:
     synth_pool = {"9.111", "9.777", "8.100", "8.200", "8.300", "8.400", "8.500", "8.600"}
 
     # Exact pairs, not a count: the second table's rows are what prove the walk
-    # does not stop at the first table the way `table_rows` does.
+    # does not stop at the first the way `table_rows` does.
     expect(
         "ledger §5: every site table's ratio column is read, across sub-tables",
         lambda: ledger_site_ratios(ledger_5_of(ledger), "ledger §5"),
@@ -1677,10 +1574,8 @@ def self_test() -> int:
         [],
     )
     def unpinned_report() -> tuple[int, bool, bool, bool]:
-        """Count, plus which row and value the one message names.
-
-        A bare count would pass off any message; the flags are what tie the
-        report to the row that drifted rather than to its clean neighbour.
+        """Count, plus which row and value the message names — a bare count
+        would pass off any message.
         """
         problems = compare_membership(
             ledger_site_ratios(
@@ -1722,8 +1617,7 @@ def self_test() -> int:
             "ledger §5",
         ),
     )
-    # The `Tally` table's exemption must come from carrying no ratio, not from
-    # its name — give it one and it must stop being exempt.
+    # The exemption must come from carrying no ratio, not from the table's name.
     expect_raises(
         "ledger §5: the Tally-shaped table stops being exempt once it carries a ratio",
         "header row no longer matches",
@@ -1760,9 +1654,7 @@ def self_test() -> int:
     # --- residue classification (#1496) ---------------------------------
     #
     # `--residue` shells out to git and reads the whole tree, so only its
-    # classification is unit-testable. That is the half that was wrong twice:
-    # counting an executed assertion as a copy, and failing to subtract a read
-    # block.
+    # classification is unit-testable — and that is the half that was wrong.
     residue_files = [
         ("docs/x.md", "| a | 9.111 |\nprose 9.777 here\n"),
         ("Some/Fixture.swift", "    #expect(x == 9.111)\n    /// prose 9.777\n"),
@@ -1775,19 +1667,16 @@ def self_test() -> int:
             [("Some/Fixture.swift", 1, ["9.111"])],
         ),
     )
-    # Arm 2 is not a weaker restatement of arm 1: subtracting by
-    # `line.startswith("|")` instead of by the read index leaves arm 1 green and
-    # only this one red (constructed and confirmed). It is what pins the
-    # subtraction to the index rather than to a line's shape.
+    # Not a weaker restatement of the arm above: subtracting by
+    # `line.startswith("|")` instead of by the read index leaves that one green
+    # and only this red. It pins the subtraction to the index, not a line's shape.
     expect(
         "residue: without the read-index entry the table row is residue too",
         lambda: len(residue_rows({"9.111", "9.777"}, set(), residue_files)[0]),
         3,
     )
     # The offsets a wrapped block spans — the whole block, not just the line
-    # carrying the fixture name. Reading it line-wise reported the line carrying
-    # the FIGURE as unguarded while the gate was comparing it, which is the
-    # section-vs-block confusion one level down.
+    # carrying the fixture name.
     wrapped = [
         "Pinned by `Some+Fixture`; §8 carries",
         "the same span. It runs 9.111–9.777 across them.",
@@ -1802,11 +1691,8 @@ def self_test() -> int:
         ],
         [[0, 1]],
     )
-    # The WIRING, not just the helper: a synthetic §3.1 whose span sentence wraps
-    # across two lines must have BOTH subtracted. Removing the whole-block loop
-    # in `gate_read_index` leaves the two arms above green and only this one red
-    # (constructed and confirmed) — the report shifts by five lines on the real
-    # tree, which no unit arm on `logical_blocks_with_offsets` would notice.
+    # The WIRING, not just the helper: removing the whole-block loop in
+    # `gate_read_index` leaves the two arms above green and only this one red.
     wrapped_face = (
         "### 3.1 The twelve opaque grounds\n\n"
         f"Pinned by `{FIXTURE_NAME}`; §8 carries\n"
@@ -1835,10 +1721,9 @@ def self_test() -> int:
 
     # --- Trigger coverage (#1488) ---------------------------------------
     #
-    # The only arms that read the REAL tree rather than a synthetic fixture, and
-    # deliberately so: the invariant is about this checker's path constants and
-    # the live gate script agreeing, which no synthetic pair can witness. The
-    # decoy arm below is what keeps the positive one from passing vacuously.
+    # The only arms reading the REAL tree, deliberately: the invariant is this
+    # checker's path constants and the live gate script agreeing, which no
+    # synthetic pair can witness. The decoys keep the positive arm honest.
     real_trigger = gate_trigger(_read(GATE_PATH))
     expect(
         "trigger coverage: every path this checker reads also fires the gate",
@@ -1864,9 +1749,8 @@ def self_test() -> int:
         lambda: uncovered_inputs(trigger_without("MutedTranscript")),
         [str(FIXTURE_PATH)],
     )
-    # The gate's own alternative is the one #1488 ADDS, and the circularity it
-    # creates (the checker reads the gate, so the gate must trigger on itself) is
-    # the claim least likely to be re-derived later. Decoyed for that reason.
+    # The circularity here — the checker reads the gate, so the gate must trigger
+    # on itself — is the claim least likely to be re-derived later.
     expect(
         "trigger coverage: the gate's own alternative is covered, not assumed",
         lambda: uncovered_inputs(trigger_without("measurement-transcript-precommit-gate")),

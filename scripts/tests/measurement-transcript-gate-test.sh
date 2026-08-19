@@ -4,23 +4,17 @@
 # scripts/measurement-transcript-precommit-gate.sh (#1488).
 #
 # Scope: the TRIGGER DECISION only. This test does NOT restate the gate's
-# TRIGGER regex anywhere — the gate script is the single copy of it. This
-# test only stages paths in a throwaway repo and observes what the gate
-# does, via a python3 PATH stub.
+# TRIGGER regex anywhere — the gate script is the single copy of it; it only
+# stages paths in a throwaway repo and observes the gate via a python3 stub.
 #
-# Why the marker, not the exit code: both the fired and skipped arms exit 0
-# (the gate's trigger check is `exit 0` on no match, and the stub itself
-# exits 0), so an exit-code-based test would pass vacuously on a gate that
-# never runs. The marker file — touched only by the stub, only when the
-# gate actually invokes python3 — is what makes "ran / did not run"
-# observable.
+# Why the marker, not the exit code: both the fired and skipped arms exit 0, so
+# an exit-code test would pass vacuously on a gate that never runs. The marker
+# is touched only when the gate actually invokes python3.
 #
-# CI-wired: the `*-test.sh` naming convention makes this a gate under
-# .github/workflows/ci.yml ("Run scripts/tests/*-test.sh", Shell gate
-# tests job — ubuntu, no Xcode/Swift). That runner is bash 5+, so it does
-# NOT catch a bash-3.2 regression in the gate itself — keep the gate 3.2
-# clean by hand. Run manually:
-#   bash scripts/tests/measurement-transcript-gate-test.sh
+# CI-wired by the `*-test.sh` naming convention (ci.yml "Run
+# scripts/tests/*-test.sh", ubuntu). That runner is bash 5+, so it does NOT
+# catch a bash-3.2 regression in the gate — keep the gate 3.2 clean by hand.
+# Run manually: bash scripts/tests/measurement-transcript-gate-test.sh
 
 set -euo pipefail
 
@@ -85,12 +79,10 @@ expect "checker script fires" \
 expect "the gate script itself fires" \
   "$(run_case gate scripts/measurement-transcript-precommit-gate.sh)" fired
 # The COMPUTING sibling deliberately does NOT fire: the checker never reads it.
-# Not "irrelevant" — an edit there can move every transcribed figure. For the
-# COMPUTED path the coverage merely moves to a slower gate (the fixture's own
-# arm, which needs the simulator, so the pre-commit hook — build, not test —
-# stays quiet and CI catches it). Its doc-comment prose is a different matter:
-# that file restates pinned figures in comments no arm reads, and nothing
-# guards those. See the checker docstring's residue list.
+# Not "irrelevant" — an edit there can move every transcribed figure, but for
+# COMPUTED figures the coverage moves to the fixture's own arm (simulator, so
+# pre-commit stays quiet and CI catches it). Its doc-comment prose restates
+# pinned figures no arm reads — `--residue` lists those.
 expect "the computing sibling MutedAsContent skips" \
   "$(run_case ascontent Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift)" skipped
 
@@ -115,12 +107,9 @@ expect "design-systemXmd locks dot escape, skips" \
   "$(run_case dotescape docs/design/design-systemXmd)" skipped
 # Locks the `\+` escape in DesignTokensTests\+MutedTranscript. The `+` must be
 # DELETED, not substituted: unescaped, `s+` is ERE one-or-more, so
-# `DesignTokensTestsXMutedTranscript` fails to match either way and would be a
-# control that cannot redden. With the separator simply gone, an unescaped `+`
-# matches (`s+` consumes the single `s`) and an escaped one does not —
-# re-measured against the live TRIGGER after #1488 repointed it from
-# `+MutedAsContent` (0 / 1 for escaped / unescaped; the old probe path scores
-# 0 / 0 and locks nothing).
+# `DesignTokensTestsXMutedTranscript` fails to match either way — a control that
+# cannot redden. With the separator gone, an unescaped `+` matches (`s+` consumes
+# the single `s`) and an escaped one does not.
 expect "TestsMutedTranscript locks plus escape, skips" \
   "$(run_case plusescape Pastura/PasturaTests/Views/DesignTokensTestsMutedTranscript.swift)" skipped
 # Locks the trailing `$` anchor — without it, a suffixed filename like a
@@ -135,14 +124,10 @@ expect "a nested copy locks the leading anchor, skips" \
 
 # --- The SIGPIPE fail-open, which the cases above cannot reach ---
 #
-# A `git diff --cached --name-only | grep -qE` trigger check fails OPEN under the
-# gate's `set -o pipefail`: grep exits at the first match, git dies on SIGPIPE
-# (141), pipefail promotes that to the pipeline status, and a MATCHING changeset
-# skips. Every case above stages one path, so the list never fills the pipe
-# buffer and the defect is unreachable there.
-#
-# This case stages enough paths to exceed it, with the trigger path sorting
-# early (`Pastura/…` < `zzz-filler/…`, and git emits the list sorted) so grep
+# The gate's header explains the defect. Every case above stages ONE path, so
+# the list never fills the pipe buffer and the defect is unreachable there. This
+# case stages enough to exceed it, with the trigger path sorting early
+# (`Pastura/…` < `zzz-filler/…`, and git emits the list sorted) so a `-q` grep
 # would exit long before the producer finishes.
 sigpipe_case() {
   repo="$TMP/sigpipe"
