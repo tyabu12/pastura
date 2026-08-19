@@ -106,10 +106,14 @@ CHANGED=$(git diff main...HEAD --name-only 2>/dev/null || true)
 # `printf` takes SIGPIPE, and `pipefail` (set above) promotes that to the
 # pipeline's status — an early match then reads exactly like no match (#1498).
 #
-# The two users below fall OPPOSITE ways, so neither direction is the safe one
+# The two sections below fall OPPOSITE ways, so neither direction is the safe one
 # to leave alone: section 1 would take its early-emit path and suppress every
 # later nudge, while section 2 would nudge about a mirror that was in fact
 # updated. Both are fixed the same way.
+#
+# Dropping `-q` is what fixes it, NOT capturing into a variable first — the
+# producer here was already `printf`, and re-adding `-q` inside the helper
+# reinstates the defect unchanged. `.claude/rules/ci-workflows.md` § "Rule 3".
 #
 # `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
 # >=2 means the pattern broke. Under `set -e` the caller's assignment then

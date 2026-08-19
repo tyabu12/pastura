@@ -245,6 +245,10 @@ while IFS= read -r -d '' f; do APP_BIN="$f"; done \
 # OllamaService excluded") already had the capture shape; this is the copy that
 # runs against the *signed archive*, which is what actually ships.
 #
+# Dropping `-q` is what fixes it, NOT capturing into a variable first — the
+# upstream is a pipeline either way, and re-adding `-q` below reinstates the
+# defect unchanged. `.claude/rules/ci-workflows.md` § "Rule 3".
+#
 # `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
 # >=2 means the pattern broke, and `|| true` would report a broken pattern as
 # a clean binary. Under `set -e` the assignment aborts the release instead.

@@ -291,11 +291,14 @@ fi
 # read as wider than it is:
 #   - `|| [ $? -eq 1 ]` relaxed back to `|| true` at a fixed site. That loses
 #     the exit->=2 discrimination without reintroducing the SIGPIPE fail-open,
-#     and it cannot be pattern-guarded here: legitimate `grep … || true` uses
-#     already outnumber the guarded sites' worth of noise it would add. Count
-#     them rather than trusting a figure — the answer moves with both the
-#     enumeration below and how much of the line the pattern may span:
-#       xargs grep -hE 'grep.*\|\|[[:space:]]*true' < <enumerated files>
+#     and it cannot be pattern-guarded here: `grep … || true` is a legitimate,
+#     widely-used idiom in these same scripts (capturing output where a
+#     no-match is an ordinary answer), so such a pattern would fire on code
+#     that is fine and the guard would be noise. Count rather than trust a
+#     figure — the answer moves with how much of the line the pattern may
+#     span, which is the 15-vs-18 fork between these two:
+#       xargs grep -hE 'grep[^|]*\|\|[[:space:]]*true' < "$TMP/prod-scripts.txt" | wc -l
+#       xargs grep -hE 'grep.*\|\|[[:space:]]*true'    < "$TMP/prod-scripts.txt" | wc -l
 #     A8 pins the shape's semantics; it is not a guard over the tree.
 #   - a pipeline wrapped across lines (`producer |` at EOL, `grep -q …` on the
 #     next). `scan` is line-bound, the same blind spot ci-workflows.md §

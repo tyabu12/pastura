@@ -56,6 +56,10 @@ tokens=""
 # check green. Both fail-safes ci.yml documents miss it: the file list is not
 # empty, and this script exits 0, it just prints nothing.
 #
+# Dropping `-q` is what fixes it, NOT capturing into a variable first — the
+# producer here was already `printf`, and re-adding `-q` below reinstates the
+# defect unchanged. `.claude/rules/ci-workflows.md` § "Rule 3".
+#
 # `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
 # >=2 means the pattern broke. `|| true` would map a broken pattern to "no
 # match" — i.e. to no tokens — which is the same silent disarming. Failing the
