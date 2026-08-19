@@ -378,6 +378,19 @@ assert_rc0 r
 assert_contains r "$out" "$TRIM"
 assert_absent r "$out" "$FOOT"
 
+# --- (s) the trim nudge names the skill that runs the pass ------------------
+# The $TRIM marker predates the /simplify-doc tail and cannot discriminate it,
+# so without this case the tail could be dropped or corrupted by a later edit
+# with nothing going red. Reuses (q)'s always-loaded firing shape; asserts the
+# tail only, since the opening sentence already has three controls.
+d="$TMP/s"; new_repo "$d"
+( cd "$d"
+  for i in 1 2 3 4 5 6 7 8 9 10; do printf 'unscoped rule line %d\n' "$i" >> .claude/rules/foo.md; done
+  git commit -qam "unscoped rule growth" )
+out="$(run_hook "$d")"
+assert_rc0 s
+assert_contains s "$out" "/simplify-doc"
+
 if [ "$fail" -eq 0 ]; then
   echo "check-claude-md-modified: all cases passed"
 else
