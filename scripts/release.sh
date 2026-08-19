@@ -233,25 +233,15 @@ APP_BIN=""
 while IFS= read -r -d '' f; do APP_BIN="$f"; done \
   < <(find "$ARCHIVE/Products/Applications" -type f -path "*/$APP_NAME.app/$APP_NAME" -print0)
 [ -n "$APP_BIN" ] || die "archived app binary not found under $ARCHIVE"
-# Capture the matches; never `| grep -iq`. `grep -q` exits at its first hit,
-# the still-writing upstream takes SIGPIPE and returns 141, and `pipefail` (set
-# at the top of this script) promotes that to the pipeline's status — so this
-# guard passed exactly when it should have fired. `nm -a` on the app binary is
-# megabytes, far past any pipe buffer, and the leak this guard exists to catch
-# is a symbol *in* that stream: measured on a 1.5 MB fixture, an `ollama`
-# symbol early in the dump slipped through while the same symbol late in the
-# dump was caught. The guard was working on symbol ordering, not on the check
-# (#1498). The CI sibling at .github/workflows/ci.yml (§ "Verify ADR-005 §8 —
-# OllamaService excluded") already had the capture shape; this is the copy that
-# runs against the *signed archive*, which is what actually ships.
+# Capture, don't `| grep -iq` — `-q` exits early, the still-writing upstream
+# SIGPIPEs, and `pipefail` turns a MATCH into a pass, so this guard was working
+# on symbol ordering rather than on the check (#1498). `nm -a` on the app
+# binary is megabytes, far past any pipe buffer.
+# `.claude/rules/ci-workflows.md` § "Rule 3".
 #
-# Dropping `-q` is what fixes it, NOT capturing into a variable first — the
-# upstream is a pipeline either way, and re-adding `-q` below reinstates the
-# defect unchanged. `.claude/rules/ci-workflows.md` § "Rule 3".
-#
-# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
-# >=2 means the pattern broke, and `|| true` would report a broken pattern as
-# a clean binary. Under `set -e` the assignment aborts the release instead.
+# `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) must abort the
+# release, not report a clean binary. The CI sibling in .github/workflows/ci.yml
+# checks the unsigned build; this copy is the one that gates what ships.
 LEAKED="$(nm -a "$APP_BIN" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })"
 if [ -n "$LEAKED" ]; then
   printf '%s\n' "$LEAKED" >&2

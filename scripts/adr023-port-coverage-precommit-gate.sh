@@ -28,11 +28,9 @@ cd "$ROOT"
 
 TRIGGER='(^Pastura/Pastura/(Engine|LLM)/.*\.swift$)|(^shared/adr-023-port-ledger\.tsv$)|(^scripts/check-adr023-port-coverage\.py$)'
 
-# Capture, don't `| grep -q`: under `pipefail` an early match makes the
-# still-writing producer SIGPIPE and the gate skips despite matching (#1498).
-# Dropping `-q` is what fixes it, NOT the `STAGED=` capture — re-adding `-q`
-# below reinstates the defect on `printf` instead of on `git`. Rationale and
-# the `|| [ $? -eq 1 ]` contract: `.claude/rules/ci-workflows.md` § "Rule 3".
+# Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
+# SIGPIPEs, and `pipefail` turns a MATCH into a skip (#1498).
+# `.claude/rules/ci-workflows.md` § "Rule 3".
 STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
 if [ -z "$MATCHED" ]; then

@@ -3,44 +3,34 @@
 # scripts/tests/staged-trigger-pipefail-test.sh — regression test for #1498.
 #
 # THE DEFECT. Under `set -o pipefail`, `producer | grep -q PATTERN` reports the
-# pipeline as FAILED when the pattern matches early: `grep -q` exits at its
-# first match, the producer takes SIGPIPE and returns 141, and pipefail
-# promotes that to the pipeline's status. So a *matching* input is
-# indistinguishable from a non-matching one — and every consumer of the shape
-# in this repo reads that status as "no match" and skips. A gate that wrongly
-# RUNS gets noticed; one that wrongly SKIPS is silent.
+# pipeline as FAILED when the pattern matches early — so a *matching* input is
+# indistinguishable from a non-matching one, and every consumer of the shape in
+# this repo reads that as "no match" and skips. Mechanism and the alternatives
+# that do NOT fix it: `.claude/rules/ci-workflows.md` § "Rule 3".
 #
-# Guarded here, both by exit code:
-#   - scripts/p8-precommit-gate.sh        a staged ASC / APNs key would be committed
-#   - scripts/precommit-gate-classify.sh  `lint` + `build` tokens vanish, so swiftlint
-#                                         and the iOS build are skipped locally, AND
-#                                         ci.yml's `changes` job emits ios=false, which
-#                                         skips lint-and-test / ui-test with every
-#                                         required check green
+# Guarded here by exit code: scripts/p8-precommit-gate.sh (a staged ASC / APNs
+# key would be committed) and scripts/precommit-gate-classify.sh (`lint` +
+# `build` vanish, so swiftlint and the iOS build are skipped locally AND
+# ci.yml's `changes` job emits ios=false, skipping lint-and-test / ui-test with
+# every required check green).
 #
 # WHY THE SIBLING TESTS CANNOT CATCH THIS. p8-precommit-gate-test.sh and
-# precommit-gate-classify-test.sh both stage a handful of paths, so the whole
-# name list fits inside the pipe buffer, the producer never blocks, and the
-# defect never arms. Size is the entire variable, which is why this file exists
-# separately rather than as extra cases in those.
+# precommit-gate-classify-test.sh stage a handful of paths, which fits inside
+# the pipe buffer, so the producer never blocks and the defect never arms. Size
+# is the entire variable — hence a separate file rather than cases in those.
 #
-# READING THE ARMS. Arm A4 runs an INLINED COPY of the old shape against the
-# same fixture and requires it to SKIP. That is not redundant with A1: it is
-# what proves the fixture is still large enough (and the key still sorted early
-# enough) to arm the defect at all. If A4 ever starts firing, A1 has gone
-# vacuous — it would pass against unfixed code — and A4 fails loudly to say so.
-# Do not "simplify" A4 away, and do not borrow it from a sibling suite: a
-# control that lives elsewhere stops discriminating on the day the lender
-# changes, without reddening anything here (#1481).
+# READING THE ARMS. A4 and A11 run INLINED COPIES of the old shape and require
+# it to MISS: that is what proves each fixture still arms the defect at all. If
+# either starts catching, its paired arm has gone vacuous — it would pass
+# against unfixed code. Do not "simplify" them away, and do not borrow a control
+# from a sibling suite: it stops discriminating on the day the lender changes,
+# without reddening anything here (#1481).
 #
-# Arm A8 pins that the capture SHAPE aborts on grep exit >=2 (broken regex,
-# read error) instead of falling through with an empty match — it runs a
-# heredoc copy, so it fixes the semantics of the idiom and is NOT a guard over
-# the tree: a site relaxed back to `|| true` would still pass it. See A12's
-# header for why that shape cannot be pattern-guarded. It is also the bash-5
-# canary, which is A8's load-bearing job here: the fix shape was
-# measured on bash 3.2 (what the macOS pre-commit hook runs); this arm is what
-# reddens if bash 5 on the ubuntu CI runner treats the construct differently.
+# A8 pins that the capture SHAPE aborts on grep exit >=2 rather than reading
+# empty. It runs a heredoc copy, so it fixes the idiom's semantics and is NOT a
+# guard over the tree (a site relaxed to `|| true` still passes it — see A12 for
+# why that cannot be pattern-guarded). It doubles as the bash-5 canary: the fix
+# was measured on bash 3.2, what the macOS pre-commit hook runs.
 #
 # CI-wired: the `*-test.sh` naming convention makes this a gate under
 # .github/workflows/ci.yml ("Run scripts/tests/*-test.sh"). Run manually:
@@ -60,11 +50,10 @@ bad() { printf 'FAIL: %s\n' "$*" >&2; fail=1; }
 ok()  { printf '  ok: %s\n' "$*"; }
 
 # --- fixture ---------------------------------------------------------------
-# Sized an ORDER OF MAGNITUDE above any pipe capacity rather than "just over"
-# a constant: the capacity that arms this differs between the macOS pre-commit
-# hook and the ubuntu CI runner, so a fixture tuned to one number is not
-# provably armed on the other platform. A9 asserts the size that actually
-# resulted, so a later edit to the generator cannot quietly shrink it.
+# Sized an ORDER OF MAGNITUDE above any pipe capacity rather than "just over" a
+# constant: that capacity differs between the macOS pre-commit hook and the
+# ubuntu CI runner. A9 asserts the size that actually resulted, so a later edit
+# to the generator cannot quietly shrink it.
 PAD="$(awk 'BEGIN{ for (i = 0; i < 190; i++) printf "x" }')"
 
 # Tail paths start `zz/` so they sort AFTER the `keys/` and `Pastura/` heads
@@ -105,13 +94,10 @@ make_repo "$TMP/p8-clean"  "$TMP/list-clean-big.txt"
 make_repo "$TMP/p8-small"  "$TMP/list-p8-small.txt"
 
 # --- A9 / A10: the fixture's own preconditions ------------------------------
-# These gate every other arm. Assert them before reading any verdict, or a
-# shrunken fixture turns the suite green while measuring nothing.
-#
-# Redirect to a file rather than piping into `wc`/`head`: `git … | head -1` is
-# the defect under test, and the first draft of this file killed itself with it
-# (exit 141) before reaching a single verdict. Any early-exiting reader will do
-# it — reading the list once, then measuring the file, is the shape to copy.
+# These gate every other arm: a shrunken fixture would turn the suite green
+# while measuring nothing. Redirect to a file rather than piping into
+# `wc`/`head` — `git … | head -1` is the defect under test, and the first draft
+# of this file killed itself with it (exit 141) before any verdict.
 git -C "$TMP/p8-big" diff --cached --name-only > "$TMP/staged-p8-big.txt"
 
 size="$(wc -c < "$TMP/staged-p8-big.txt" | tr -d ' ')"
@@ -228,18 +214,12 @@ else
 fi
 
 # --- A11: the three-stage symbol-guard shape (scripts/release.sh) ----------
-# release.sh's ADR-005 §8.5 guard is `nm -a "$BIN" | xcrun swift-demangle |
-# grep -i ollama`. It cannot be driven end-to-end here (it needs a signed
-# archive), so the *shape* is pinned instead, on a fixture that models what
-# makes the real one dangerous: an `nm` dump far larger than any pipe buffer
-# with the leaked symbol near the front. Two stages upstream, not one — with
-# `-q` the SIGPIPE can land on either, and only the last stage's status is the
-# one `pipefail` would otherwise hide behind.
-#
-# The old-shape half is the negative control, same role as A4: it must MISS,
-# or the fixture is not modelling the hazard and the new-shape half proves
-# nothing. That the real guard was passing on symbol *ordering* rather than on
-# the check is exactly this pair of results.
+# release.sh's ADR-005 §8.5 guard needs a signed archive, so the *shape* is
+# pinned instead on a fixture modelling what makes the real one dangerous: an
+# `nm` dump far past any pipe buffer with the leaked symbol near the front. Two
+# stages upstream, not one — with `-q` the SIGPIPE can land on either, and only
+# the last stage's status is the one `pipefail` would otherwise hide behind.
+# The old-shape half is the negative control (see A4 in the header).
 awk 'BEGIN {
   print "0000000100000000 T _$s7Pastura13OllamaServiceCN"
   for (i = 0; i < 40000; i++) printf "00000001000%05d T _symbol_filler_%d\n", i, i
@@ -268,17 +248,12 @@ else
 fi
 
 # --- A13: a non-ASCII staged path must not walk past an anchored TRIGGER ----
-# A second fail-open of the same family, found at the same lines: with the
-# default `core.quotepath`, git octal-escapes a non-ASCII path AND wraps it in
-# double quotes, so the leading `"` defeats a `^`-anchored prefix and the
-# trailing `"` defeats a `$`-anchored extension. Measured before the fix: the
-# real navigation-map gate exited 0 for a lone staged
-# `Pastura/Pastura/Views/日本語View.swift`.
-#
-# Driven through the p8 gate because it is the one whose verdict is an exit
-# code — and because a key is the worst thing to let through. The ASCII arm is
-# the positive control: if it ever stops rejecting, this arm's non-ASCII
-# result says nothing about quoting.
+# A second fail-open of the same family, at the same lines: with the default
+# `core.quotepath`, git octal-escapes a non-ASCII path AND double-quotes it, so
+# the leading `"` defeats a `^`-anchored prefix and the trailing `"` a
+# `$`-anchored extension. Driven through the p8 gate because its verdict is an
+# exit code, and a key is the worst thing to let through. The ASCII arm is the
+# positive control: without it a non-ASCII pass says nothing about quoting.
 for variant in "keys/AuthKey_日本語.p8:non-ASCII" "keys/AuthKey_ASCII.p8:ASCII control"; do
   path="${variant%%:*}"; label="${variant#*:}"
   repo="$TMP/nonascii-$(printf '%s' "$label" | tr -cd 'A-Za-z')"
@@ -299,87 +274,65 @@ done
 
 # --- A12: no `| grep -q` left in the production scripts --------------------
 # THIS ARM GUARDS ONE SHAPE, NOT THE CLASS. It scans for `grep -q` behind a
-# pipe. The defect is broader — ANY early-exiting reader (`head`, `sed …q`,
-# `awk …exit`, `grep -m N`) does the same thing to its producer under
-# `pipefail`. `scripts/analyze-streaming-diag.sh` was a live instance of the
-# `head` variant, inside this very pathspec, that this scan could not see; it
-# is fixed on the same branch. `.claude/rules/ci-workflows.md` § "Rule 3" is
-# what covers the class. Extending `scan` to the other readers would need its
-# own C-controls and would fire on many correct `| head` uses, so the split is
-# deliberate: mechanical guard for the shape, rule text for the class.
+# pipe; ANY early-exiting reader (`head`, `sed …q`, `awk …exit`, `grep -m N`)
+# has the same defect. `scripts/analyze-streaming-diag.sh` was a live `head`
+# instance inside this very pathspec that this scan could not see, fixed on the
+# same branch. Extending `scan` to those readers would need its own C-controls
+# and would fire on many correct `| head` uses, so the split is deliberate:
+# mechanical guard for the shape, `.claude/rules/ci-workflows.md` § "Rule 3"
+# for the class.
 #
 # Scope is the executable production surface — `scripts/*.sh`,
 # `scripts/hooks/*.sh`, `scripts/git-hooks/*` and `tools/*/scripts/*.sh`,
-# tracked files only. Deliberately NOT a pathspec over everything, because the
-# precondition is "does a `pipefail` reach this site", not "where does the file
-# live". Four areas were checked and are out of scope for that reason, not by
-# omission — none of them is excluded by an input-size argument, which § Rule 3
-# forbids:
-#   - scripts/tests/**        structural, not size: these are not shipped
-#                             gates, so a false pass here fails the tests it
-#                             guards rather than production. This file's own
-#                             A4 / A11 negative controls are literal old-shape
-#                             copies and MUST stay in any case.
-#   - .claude/skills/**       every site there is outside a `pipefail` scope —
-#                             the `run_tests.sh` harnesses and
-#                             `scenario-factory/scripts/run_scenario.sh` use
-#                             `set -eu`, and `release/SKILL.md`'s snippet is
-#                             run ad hoc in a shell with pipefail off.
-#   - .github/workflows/**    a bare `run:` is `bash -e {0}`, no pipefail
-#                             (ci-workflows.md Rule 2). Latent, not live: a
-#                             later `shell: bash` on one of those steps arms
-#                             all four. Noted in the rule and inline at the
-#                             steps, rather than guarded here, because guarding
-#                             it would need this file to parse YAML step
-#                             options to stay honest.
-#   - docs/**                 two documented snippets. `ADR-028.md`'s
-#                             regeneration loop cannot exit early at all — its
-#                             `tr '\n' ' '` leaves the stream newline-free, so
-#                             grep must reach EOF before any line can match.
-#                             `security/release-checklist.md`'s `curl -sI |
-#                             head -1` runs interactively without pipefail.
+# tracked files only. The predicate is "does a `pipefail` reach this site", not
+# "where does the file live", which is why four areas are out of scope by
+# argument rather than by omission — none of them by an input-size claim, which
+# § Rule 3 forbids:
+#   - scripts/tests/**      not shipped gates, so a false pass here fails the
+#                           tests it guards rather than production. A4 / A11
+#                           are literal old-shape copies and MUST stay.
+#   - .claude/skills/**     every site is outside a `pipefail` scope (`set -eu`
+#                           harnesses; release/SKILL.md's snippet is ad hoc).
+#   - .github/workflows/**  a bare `run:` is `bash -e {0}`, no pipefail — latent,
+#                           not live. Guarding it would mean parsing YAML step
+#                           options; it is covered inline and in § Rule 3.
+#   - docs/**               two documented snippets: ADR-028's cannot exit early
+#                           at all (its `tr '\n' ' '` leaves the stream with no
+#                           line to match), and release-checklist.md's runs
+#                           interactively, without pipefail.
 #
 # Two regression shapes this arm does NOT catch, stated so the coverage is not
 # read as wider than it is:
-#   - `|| [ $? -eq 1 ]` relaxed back to `|| true` at a fixed site. That loses
-#     the exit->=2 discrimination without reintroducing the SIGPIPE fail-open,
-#     and it cannot be pattern-guarded here: `grep … || true` is a legitimate,
-#     widely-used idiom in these same scripts (capturing output where a
-#     no-match is an ordinary answer), so such a pattern would fire on code
-#     that is fine and the guard would be noise. Count rather than trust a
-#     figure — the answer moves with how much of the line the pattern may
-#     span, which is the 15-vs-18 fork between these two:
+#   - `|| [ $? -eq 1 ]` relaxed back to `|| true`. That loses the exit->=2
+#     discrimination without reintroducing the SIGPIPE fail-open, and cannot be
+#     pattern-guarded: `grep … || true` is a legitimate idiom in these same
+#     scripts, so the guard would be noise. A8 pins the shape's semantics
+#     instead. Count rather than trust a figure — the answer moves with how much
+#     of the line the pattern may span:
 #       xargs grep -hE 'grep[^|]*\|\|[[:space:]]*true' < "$TMP/prod-scripts.txt" | wc -l
-#       xargs grep -hE 'grep.*\|\|[[:space:]]*true'    < "$TMP/prod-scripts.txt" | wc -l
-#     A8 pins the shape's semantics; it is not a guard over the tree.
-#   - a pipeline wrapped across lines (`producer |` at EOL, `grep -q …` on the
-#     next). `scan` is line-bound, the same blind spot ci-workflows.md §
-#     "`grep` is line-bound" documents for this repo's other call-shape guards.
-#     Zero such sites today. A trailing comment on a code line goes the other
-#     way and false-positives, which is loud rather than silent.
+#   - a pipeline wrapped across lines (`producer |` at EOL, `grep -q …` next).
+#     `scan` is line-bound, the blind spot ci-workflows.md § "`grep` is
+#     line-bound" documents for this repo's other call-shape guards. Zero such
+#     sites today. A trailing comment on a code line false-positives instead,
+#     which is loud rather than silent.
 #
-# Comment lines are stripped before matching. That is load-bearing and it is
-# also the guard's own weak point: every site fixed for #1498 carries a comment
-# that quotes the banned shape, so without stripping this arm reports its own
-# documentation, and with over-eager stripping it reports nothing at all. C1-C8
-# below pin both directions before the real scan is trusted.
+# Comment lines are stripped before matching — load-bearing, and the guard's own
+# weak point: every site fixed for #1498 carries a comment quoting the banned
+# shape, so without stripping this arm reports its own documentation, and with
+# over-eager stripping it reports nothing. C1-C8 pin both directions.
 #
-# The controls are not ceremony. Two separate drafts of this pattern failed to
-# compile under BWK awk (the macOS default) — first over `\{?`, then over a
-# `-v`-mangled leading `|` — and on BOTH runs the scan still printed "no
-# `| grep -q` remains", because a pattern that never compiles matches nothing
-# and an empty result is exactly what a clean tree looks like. The controls are
-# the only reason either was caught.
+# The controls are not ceremony. Two drafts of this pattern failed to compile
+# under BWK awk (the macOS default) and BOTH still printed "no `| grep -q`
+# remains": a pattern that never compiles matches nothing, and an empty result
+# is exactly what a clean tree looks like.
 #
-# `[^|]*` on both sides of `grep` keeps the match inside ONE pipeline stage,
-# so `| { grep -E "$T" || [ $? -eq 1 ]; }` — the shape this whole PR moves to —
-# does not self-report: the `-E "$T" ` between `grep` and the `||` carries no
-# `q`, and `[^|]*` cannot reach past the `||` to find one. C5 pins that.
+# `[^|]*` on both sides of `grep` keeps the match inside ONE pipeline stage, so
+# the fixed shape `| { grep -E "$T" || [ $? -eq 1 ]; }` does not self-report —
+# `[^|]*` cannot reach past the `||` to find a `q`. C5 pins that.
 #
-# The pattern is written LITERALLY in the awk program, never passed via `-v`.
-# `-v` runs escape processing first, so `\|` arrives as a bare `|`, the regex
-# then starts with an empty alternation, and BWK awk rejects it as an illegal
-# primary — see the note above for what that failure looks like from outside.
+# The pattern is written LITERALLY in the awk program, never passed via `-v`:
+# `-v` runs escape processing first, so `\|` arrives bare, the regex starts with
+# an empty alternation, and BWK awk rejects it as an illegal primary.
 scan() { # $@ = files; echoes offending "file:line: text"
   awk '
     { probe = $0; sub(/^[[:space:]]+/, "", probe) }
@@ -391,11 +344,10 @@ scan() { # $@ = files; echoes offending "file:line: text"
 }
 
 # C1-C8: a CLASS control, not a self-match. C1/C2/C6 are the three producers the
-# defect actually appears behind in this tree (`git`, `printf`, and a multi-stage
-# pipe ending in `head`) — a pattern narrowed to one of them reads clean over
-# live instances of the others, which is exactly how the original enumeration
-# for this issue came up short by two sites. C7 guards the other direction: a
-# stray `q` inside an unrelated argument must not be read as the `-q` flag.
+# defect appears behind in this tree (`git`, `printf`, a multi-stage pipe ending
+# in `head`) — a pattern narrowed to one reads clean over live instances of the
+# others, which is how the original enumeration came up two sites short. C7
+# guards the other direction: a stray `q` in an unrelated argument is not `-q`.
 cat > "$TMP/control.sh" <<'CONTROL'
 if ! git diff --cached --name-only | grep -qE "$T"; then exit 0; fi
   if printf '%s\n' "$X" | grep -q foo; then echo hi; fi
@@ -426,18 +378,12 @@ fi
 
 # `:(glob)` is required, not decoration: a plain `scripts/*.sh` pathspec uses
 # git's wildmatch, where `*` crosses `/`, so it silently pulls in
-# scripts/tests/*.sh — including THIS file and its two deliberate old-shape
-# controls. Measured: 55 files without the magic, 34 with it (scripts/ only).
+# scripts/tests/*.sh — including THIS file and its deliberate old-shape controls.
 #
-# `tools/*/scripts/*.sh` is in scope for the same reason scripts/ is, not as an
-# afterthought: all four kmp-gate-spike scripts run `set -euo pipefail`, two are
-# `ci.yml` gates (check-b-prime-isolation, check-suspendcontroller-drift) and a
-# third runs in `kmp-nightly.yml` (stage-framework). Zero hits there today.
-#
-# `scripts/git-hooks/*` needs its own entry because the files there are
-# EXTENSIONLESS — `pre-commit` is not `*.sh`, so no amount of `scripts/*`
-# globbing reaches it. It sets `set -euo pipefail` and orchestrates all 15
-# gates, so it satisfies the scope predicate as squarely as anything here.
+# `tools/*/scripts/*.sh` qualifies for the same reason scripts/ does: those
+# scripts run `set -euo pipefail` and three are CI gates. `scripts/git-hooks/*`
+# needs its own entry because those files are EXTENSIONLESS — `pre-commit` is
+# not `*.sh`, so no `scripts/*` glob reaches it.
 git -C "$ROOT" ls-files -- ':(glob)scripts/*.sh' ':(glob)scripts/hooks/*.sh' \
                            ':(glob)scripts/git-hooks/*' \
                            ':(glob)tools/*/scripts/*.sh' \

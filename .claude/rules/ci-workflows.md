@@ -69,33 +69,34 @@ $ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  #
 
 **`pipefail` is not the variable — Rule 2 is right to add it. The variable is
 whether the pipeline's reader can exit before the producer finishes. Fix the
-shape, never the option.** That sentence is the arbitration between these two
-rules; without it they read as pulling opposite ways.
+shape, never the option.**
 
 `grep -q` exits at its **first** match; the producer, still writing, takes
 SIGPIPE and returns 141; `pipefail` promotes that to the pipeline's status. So
 `if ! producer | grep -q PAT` skips **because** the pattern matched. Any
-early-exiting reader does this — `head`, `sed …q`, `awk …exit`, `grep -m N`.
-Both fail directions occur in this tree: `grep -q` fails **open** (a gate
-skips), while `| head` fails **loud** (a bare 141 abort, no message) — see
-`scripts/analyze-streaming-diag.sh` and
-`tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh`.
+early-exiting reader does this — `head`, `sed …q`, `awk …exit`, `grep -m N` —
+and both fail directions occur in this tree: `grep -q` fails **open** (a gate
+skips), while `| head` fails **loud** (a bare 141 abort, no message — see
+`scripts/analyze-streaming-diag.sh`).
 
 **Never certify a site safe by comparing an input size to a number.** Pipe
-capacity is a kernel property and differs between the macOS pre-commit hook and
-the ubuntu CI runner, so a threshold measured on one platform is not a fact
-about the other. Ask instead whether the producer can outrun the buffer *at
-all*.
+capacity is a kernel property differing between the macOS pre-commit hook and
+the ubuntu CI runner, so a threshold measured on one is not a fact about the
+other. Ask whether the producer can outrun the buffer *at all*.
 
 **Apply** — capture, then test the captured text:
 
 ```bash
-STAGED="$(git diff --cached --name-only)"
+STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
 if [ -z "$MATCHED" ]; then exit 0; fi
 ```
 
-Three things that look interchangeable and are not:
+`core.quotepath=false` is part of the shape, not tidiness: by default git
+octal-escapes a non-ASCII path **and** double-quotes it, so the quotes defeat a
+`^`- or `$`-anchored `TRIGGER` and the file walks past the gate.
+
+Four variants that look interchangeable and are not:
 
 - **Assigning to a variable first does NOT fix it.** SIGPIPE just moves from
   `git` to `printf`. Dropping `-q` is what fixes it.
@@ -112,16 +113,13 @@ Three things that look interchangeable and are not:
   early exit, which matters when draining the producer is expensive. It is not
   used in this tree, so the residual guard flags it — teach the guard first.
 
-Scope note: 18 sites across this repo's gate scripts, the `/release` archive
-check, two Claude Code hooks and one CI step — 14 under the local pre-commit
-hook, the rest not, so this is not a pre-commit-only concern. A bare `run:` step
-is `bash -e {0}` with no pipefail (Rule 2), which makes `ci.yml`'s four
-`printf … | grep -q` gating steps latent rather than live — adding `shell: bash`
-to one arms it, and three of them gate `ios` / `kmp` / `scenarios` on a file
-list that can reach 3000 names. Guarded by
-`scripts/tests/staged-trigger-pipefail-test.sh`, which scans shell scripts for
-the `grep -q` **shape** only: it does not parse workflow YAML, and it does not
-see the other early-exiting readers. Per-site fail directions: #1498.
+Scope: gate scripts, the `/release` archive check, two Claude Code hooks and one
+CI step — most, but not all, under the local pre-commit hook. A bare `run:` step
+has no pipefail (Rule 2), which leaves `ci.yml`'s `printf … | grep -q` gating
+steps latent rather than live — **adding `shell: bash` to one arms it**.
+Guarded by `scripts/tests/staged-trigger-pipefail-test.sh`, which scans shell
+scripts for the `grep -q` **shape** only: no workflow YAML, no other
+early-exiting readers. Per-site fail directions: #1498.
 
 ## Long-lived branch gating — two layers × two directions
 

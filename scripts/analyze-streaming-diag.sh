@@ -199,17 +199,12 @@ summarise() {
         if (vc < nt) print
       }
     ' "$log")"
-    # Capture, then `sed -n '1,5p'` — never `| head -5`. `head` closes the pipe
-    # after 5 lines, the still-writing `awk` takes SIGPIPE, and `set -o pipefail`
-    # (line 21) promotes that 141 to the pipeline's status, so this report
-    # aborted with a bare 141 and no message EXACTLY when the cancel-race it
-    # hunts reproduced heavily enough to fill the pipe buffer. Measured: 5000
-    # matching lines abort, 3 do not. Same class as #1498 with a different
-    # early-exiting reader; `tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh`
-    # carries the other in-tree instance, and the residual guard in
-    # `scripts/tests/staged-trigger-pipefail-test.sh` scans for `grep -q` only,
-    # so it cannot see this shape — `.claude/rules/ci-workflows.md` § "Rule 3"
-    # is what covers the class. `sed -n` reads to EOF, so nothing SIGPIPEs.
+    # Capture, then `sed -n '1,5p'` — never `| head -5`: `head` closes the pipe,
+    # the still-writing `awk` SIGPIPEs, and `pipefail` aborts this report with a
+    # bare 141 exactly when the cancel-race it hunts reproduced heavily. `sed -n`
+    # reads to EOF instead. The `grep -q` residual guard in
+    # `scripts/tests/staged-trigger-pipefail-test.sh` cannot see this reader;
+    # `.claude/rules/ci-workflows.md` § "Rule 3" covers the class (#1498).
     if [ -n "$occ" ]; then
       printf '%s\n' "$occ" | sed -n '1,5p' |
         sed -E 's/^.*\[app\.pastura\.Pastura:StreamingDiag\] //' |

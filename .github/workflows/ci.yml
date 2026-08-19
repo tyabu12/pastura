@@ -146,17 +146,15 @@ jobs:
             exit 0
           fi
           echo "Changed paths classified as: '${TOKENS:-<none>}'"
-          # ⚠️ Do NOT add `set -o pipefail` (or `shell: bash`) to this step, and
-          # do not add a workflow-level `defaults: run: shell:`. The absence of
-          # pipefail is LOAD-BEARING for the four `printf … | grep -q` gates in
-          # this job (this one plus `scenarios` and `kmp` below, and the Gradle
-          # one in `kmp-build-test`): with pipefail, `grep -q` exiting on an
-          # early match SIGPIPEs `printf`, the pipeline reports 141, and the
-          # `else` branch runs — here that emits `ios=false`, skipping
+          # ⚠️ Do NOT add `set -o pipefail` / `shell: bash` here, nor a
+          # workflow-level `defaults: run: shell:`. Its absence is LOAD-BEARING
+          # for the four `printf … | grep -q` gates in this job (this one,
+          # `scenarios`, `kmp`, and the Gradle one in `kmp-build-test`): with
+          # pipefail an early match SIGPIPEs `printf`, the pipeline reports 141,
+          # and the `else` branch runs — here emitting `ios=false`, which skips
           # lint-and-test and ui-test with every required check green. `$FILES`
-          # is the PR files API list, up to 3000 names, so it is well past any
-          # pipe buffer. `.claude/rules/ci-workflows.md` § "Rule 3"; the sweep
-          # that fixed the same shape across `scripts/**` is #1498.
+          # holds up to 3000 names, well past any pipe buffer.
+          # `.claude/rules/ci-workflows.md` § "Rule 3" (#1498).
           if printf '%s\n' "$TOKENS" | grep -qw build; then
             echo "ios=true" >> "$GITHUB_OUTPUT"
           else
@@ -593,12 +591,10 @@ jobs:
           # check catches future helpers like OllamaClient / ollamaBridge that
           # a narrower match would miss. Matches ADR-005 §8.5.
           #
-          # `|| [ $? -eq 1 ]` rather than `|| true`, kept identical to the
-          # signed-archive copy in scripts/release.sh: exit 1 is grep's real
-          # "no match", but exit >=2 means the pattern broke, and `|| true`
-          # would print "OK: zero ollama symbols" for a check that never ran.
-          # The capture (no `-q`) is already correct here and must stay — see
-          # .claude/rules/ci-workflows.md § "Rule 3".
+          # `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) must
+          # fail the step, not print "OK: zero ollama symbols" for a check that
+          # never ran. The capture (no `-q`) must stay; scripts/release.sh
+          # holds the same pair. `.claude/rules/ci-workflows.md` § "Rule 3".
           MATCHES=$(nm -a "$BIN" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })
           if [ -n "$MATCHES" ]; then
             echo "::error::ollama symbols leaked into Release binary (ADR-005 §8)"

@@ -23,31 +23,19 @@ cd "$ROOT"
 # repo-relative paths, so anchor the regex to the extension, not the
 # repo root. A key under keys/ or fastlane/ must still be caught.
 #
-# Capture the match; never `| grep -q`. `grep -q` exits at its first hit, the
-# still-writing producer takes SIGPIPE and returns 141, and `pipefail` (set
-# above) promotes that to the pipeline's status — so a key staged alongside enough
-# other paths to outrun the pipe buffer read as "no key" and this gate exited
-# 0. Measured: a 91,710-byte staged list with the key sorted first let the key
-# through, while the same key on a short list was caught (#1498).
+# Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
+# SIGPIPEs, and `pipefail` turns a MATCH into a skip, so a key staged behind
+# enough other paths committed silently (#1498).
+# `.claude/rules/ci-workflows.md` § "Rule 3".
 #
-# Dropping `-q` is what fixes it, NOT the `STAGED=` capture — re-adding `-q`
-# below reinstates the defect on `printf` instead of on `git`. The other gates
-# carry a short form of this note; `.claude/rules/ci-workflows.md` § "Rule 3"
-# is the canonical account.
+# `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) must refuse
+# the commit, not map back onto "no key".
 #
-# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", but
-# exit >=2 means the pattern itself broke, and a blanket `|| true` would map
-# that back to "no key" — reopening this same silent skip through a different
-# door. Letting it fail the assignment under `set -e` refuses the commit
-# instead, which is the safe direction for a secret gate.
-#
-# `-c core.quotepath=false` is load-bearing, not tidiness — a second fail-open
-# of the same shape sits at this one line. With the default, git octal-escapes
-# a non-ASCII path AND wraps it in double quotes, so the trailing `"` defeats
-# the `\.p8$` anchor and a key named in any non-ASCII script walks past this
-# gate. `scripts/git-hooks/pre-commit` passes the same flag at its own call
-# site for the mirror-image reason (a `^`-anchored prefix). All 13 staged-list
-# producers in scripts/ carry it; A13 in the regression test is the arm.
+# `-c core.quotepath=false` is load-bearing — a second fail-open at this same
+# line. By default git octal-escapes a non-ASCII path AND double-quotes it, so
+# the trailing `"` defeats the `\.p8$` anchor. `scripts/git-hooks/pre-commit`
+# passes it for the mirror-image reason (a `^`-anchored prefix); arm A13 in the
+# regression test covers it.
 STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | { grep -E '\.p8$' || [ $? -eq 1 ]; })"
 if [ -n "$MATCHED" ]; then

@@ -82,14 +82,11 @@
 # `2>/dev/null` / `|| true`, and the script ends on an unconditional `exit 0`.
 #
 # ONE deliberate exception since #1498: `changed_matches()` lets grep's exit >=2
-# (a broken pattern, not a no-match) reach `set -e` and abort. It is the only
-# path here that can exit non-zero. The trade is deliberate — the alternative,
-# `|| true`, maps a broken pattern onto "nothing matched", and section 1 then
-# emits "no agent-instruction file changed" and suppresses every later nudge,
-# which is the failure this hook exists to prevent. Reachability is near-nil:
-# of the three callers, one passes a literal `-E` pattern and the other two use
-# `-Fx`, where no string is a bad pattern — which covers the one caller whose
-# pattern is runtime-derived (`$f`, from `mirror_targets`).
+# (a broken pattern) reach `set -e` and abort — the only path here that can exit
+# non-zero. `|| true` instead would map it onto "nothing matched", and section 1
+# would then suppress every later nudge, which is the failure this hook exists to
+# prevent. Reachability is near-nil: the one caller with a runtime-derived
+# pattern uses `-Fx`, where no string is a bad pattern.
 #
 # Reads no stdin. Reference: PR #406/#407; .claude/rules/ in #1026;
 # trim + footprint sections in #1361.
@@ -100,26 +97,18 @@ cd "$(git rev-parse --show-toplevel)"
 
 CHANGED=$(git diff main...HEAD --name-only 2>/dev/null || true)
 
-# `$CHANGED` is a whole-branch file list, so it can outrun the pipe buffer.
-# Every match against it therefore CAPTURES rather than testing a `| grep -q`
-# pipeline's status: `grep -q` exits at its first hit, the still-writing
-# `printf` takes SIGPIPE, and `pipefail` (set above) promotes that to the
-# pipeline's status — an early match then reads exactly like no match (#1498).
+# `$CHANGED` is a whole-branch file list, so it can outrun the pipe buffer:
+# every match against it CAPTURES, never `| grep -q`, since `-q` exits early,
+# the still-writing `printf` SIGPIPEs, and `pipefail` turns a MATCH into no
+# match. The two sections below fall OPPOSITE ways — section 1 would suppress
+# every later nudge, section 2 would nudge about an already-updated mirror — so
+# neither direction is the safe one to leave alone.
+# `.claude/rules/ci-workflows.md` § "Rule 3" (#1498).
 #
-# The two sections below fall OPPOSITE ways, so neither direction is the safe one
-# to leave alone: section 1 would take its early-emit path and suppress every
-# later nudge, while section 2 would nudge about a mirror that was in fact
-# updated. Both are fixed the same way.
-#
-# Dropping `-q` is what fixes it, NOT capturing into a variable first — the
-# producer here was already `printf`, and re-adding `-q` inside the helper
-# reinstates the defect unchanged. `.claude/rules/ci-workflows.md` § "Rule 3".
-#
-# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
-# >=2 means the pattern broke. Under `set -e` the caller's assignment then
-# aborts the hook, which is loud, instead of reading as "nothing matched",
-# which is silent. The EMIT CONTRACT holds either way — every emit site is
-# downstream of these, so an abort produces no JSON rather than a partial one.
+# `|| [ $? -eq 1 ]` and not `|| true`: exit >=2 (broken pattern) aborts the hook
+# loudly rather than reading as "nothing matched". The EMIT CONTRACT holds
+# either way — every emit site is downstream, so an abort produces no JSON
+# rather than a partial one.
 changed_matches() { # $@ = grep args; echoes matching lines, empty when none
   printf '%s\n' "$CHANGED" | { grep "$@" || [ $? -eq 1 ]; }
 }
@@ -268,13 +257,11 @@ while IFS=$'\t' read -r added _removed path; do
       # deletion contributes 0 ADDED lines and the footprint gate below arms
       # only on added > 0.
       #
-      # `head -n 14` closes the pipe after 14 lines, so `git show` takes
-      # SIGPIPE on any rule file bigger than the pipe buffer — and under
-      # `pipefail` that would become the pipeline's status. Dropping `grep -q`
-      # is NOT what covers this: the `|| true` spanning the whole substitution
-      # is, and it also carries the deleted-path fail-open described above.
-      # Today no rule file is close (largest is ~41 KB), so this is hardening,
-      # not a live bug — but the margin shrinks as rules grow (#1498).
+      # `head -n 14` closes the pipe, so `git show` SIGPIPEs on a rule file
+      # bigger than the pipe buffer. What covers it is the `|| true` spanning
+      # the whole substitution (which also carries the deleted-path fail-open
+      # above), not the dropped `grep -q`. Hardening, not a live bug — no rule
+      # file is close today — but the margin shrinks as rules grow (#1498).
       frontmatter="$(git show "HEAD:$path" 2>/dev/null | head -n 14 || true)"
       paths_line="$(printf '%s\n' "$frontmatter" | { grep '^paths:' || [ $? -eq 1 ]; })"
       if [ -n "$paths_line" ]; then
@@ -355,16 +342,12 @@ always_loaded_bytes() {
     [ -n "$f" ] || continue
     case "$f" in
       .claude/rules/*)
-        # Capture rather than `| grep -q`, as elsewhere in this file — but
-        # WITHOUT the `|| [ $? -eq 1 ]` group the other sites carry, because
-        # there is nothing for it to do here: this function runs under an
-        # explicit `set +e`, so grep's exit >=2 cannot abort anything, and it
-        # falls through to `fm=""` => the file counts as always-loaded, the
-        # conservative tier. The producer is bounded too (`head -n 14` of a
-        # markdown frontmatter never fills a pipe buffer), so this site was
-        # never reachable; it is swept only so the #1498 residual guard can
-        # assert a clean zero instead of carrying an allow-list entry — and an
-        # allow-list is the thing that rots.
+        # Capture rather than `| grep -q`, as elsewhere here — but WITHOUT the
+        # `|| [ $? -eq 1 ]` group: this function runs under an explicit
+        # `set +e`, so exit >=2 aborts nothing and falls through to `fm=""`,
+        # i.e. the conservative always-loaded tier. The producer is bounded
+        # (`head -n 14`), so this site was never reachable; swept only so the
+        # #1498 residual guard needs no allow-list entry.
         local fm
         fm=$(head -n 14 "$f" 2>/dev/null | grep '^paths:')
         [ -z "$fm" ] || continue

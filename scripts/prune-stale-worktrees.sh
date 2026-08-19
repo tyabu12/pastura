@@ -389,17 +389,12 @@ evaluate() {
 
   # (b) unnamed (Docker-style auto-generated) worktrees only
   #
-  # Capture rather than `| grep -Eq`, matching the rest of the tree. This site
-  # was never reachable — the producer is one short worktree name, nowhere near
-  # a pipe buffer — and it already failed CLOSED (a SIGPIPE keeps the worktree
-  # rather than deleting it). It is swept anyway so the #1498 residual guard
-  # can assert a clean zero instead of carrying an allow-list.
-  #
-  # Note this file sets `set -uo pipefail`, NOT `-e`, so the `|| [ $? -eq 1 ]`
-  # group aborts nothing here — unlike at the other #1498 sites. A broken
-  # pattern lands as an empty `name_match` and keeps the worktree, which is
-  # the safe direction for a destructive script; the group is here for
-  # uniformity, not for an abort that cannot happen.
+  # Capture rather than `| grep -Eq` (`.claude/rules/ci-workflows.md` § "Rule 3")
+  # so the #1498 residual guard needs no allow-list entry — this producer is one
+  # short worktree name, so the defect was never reachable here. This file sets
+  # `set -uo pipefail`, NOT `-e`, so the `|| [ $? -eq 1 ]` group aborts nothing:
+  # a broken pattern keeps the worktree, the safe direction for a destructive
+  # script.
   name_match="$(printf '%s' "$name" | { grep -E '^[a-z]+-[a-z]+-[0-9a-f]{6}$' || [ $? -eq 1 ]; })"
   if [ -z "$name_match" ]; then
     [ "$VERBOSE" -eq 1 ] && say "keep  $name — named worktree (not auto-generated)"

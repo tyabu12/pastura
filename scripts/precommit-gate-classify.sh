@@ -37,42 +37,25 @@ set -euo pipefail
 # not read as a single empty, non-safe path. `|| true` absorbs grep's
 # exit-1 on all-blank input under `set -e`.
 #
-# `|| true` and not the `|| [ $? -eq 1 ]` group the two classifications below
-# use — deliberate, and the difference is not stylistic. This grep has no `-q`,
-# so it drains stdin and nothing can SIGPIPE; and `'^[[:space:]]*$'` is a fixed
-# literal that cannot become a bad pattern, so there is no exit >=2 to
-# discriminate. What `|| true` would hide here is a read error on stdin, which
-# the caller already owns: the pre-commit hook feeds this from a variable it
-# captured itself, and ci.yml wraps the whole call in `if ! TOKENS=$(...)`.
+# `|| true` here, not the `|| [ $? -eq 1 ]` group the classifications below use:
+# this grep has no `-q` so nothing can SIGPIPE, and its pattern is a fixed
+# literal that cannot produce grep's exit >=2.
 staged="$(grep -v '^[[:space:]]*$' || true)"
 
 tokens=""
 
-# Both classifications below capture the match instead of testing a `grep -q`
-# pipeline's status, and the difference is load-bearing rather than stylistic.
-# `grep -q` exits at its first hit; the still-writing `printf` takes SIGPIPE and
-# returns 141; `pipefail` (set above) promotes that to the pipeline's status.
-# So on a changeset whose name list outruns the pipe buffer, with a matching
-# path near the front, BOTH tokens silently dropped: measured, a 92,623-byte
-# list led by a .swift file classified as `` where a short list of the same
-# shape classified as `lint build` (#1498).
+# Both classifications below capture, never `| grep -q` — `-q` exits early, the
+# still-writing `printf` SIGPIPEs, and `pipefail` turns a MATCH into no match.
+# Dropping every token is this script's worst case reached from inside: it
+# disarms `swiftlint --strict` + `xcodebuild build` in the pre-commit hook and,
+# via ci.yml's `changes` job deriving `ios` from `build`, skips lint-and-test
+# and ui-test with every required check green. Neither fail-safe ci.yml
+# documents catches it — the file list is not empty, and this script exits 0,
+# it just prints nothing. `.claude/rules/ci-workflows.md` § "Rule 3" (#1498).
 #
-# That is the "worst case" this script's header names, reached from inside. It
-# disarms `swiftlint --strict` and `xcodebuild build` in the pre-commit hook,
-# and — because .github/workflows/ci.yml's `changes` job derives `ios` from the
-# `build` token — skips lint-and-test and ui-test on CI with every required
-# check green. Both fail-safes ci.yml documents miss it: the file list is not
-# empty, and this script exits 0, it just prints nothing.
-#
-# Dropping `-q` is what fixes it, NOT capturing into a variable first — the
-# producer here was already `printf`, and re-adding `-q` below reinstates the
-# defect unchanged. `.claude/rules/ci-workflows.md` § "Rule 3".
-#
-# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
-# >=2 means the pattern broke. `|| true` would map a broken pattern to "no
-# match" — i.e. to no tokens — which is the same silent disarming. Failing the
-# assignment under `set -e` instead makes ci.yml's `if ! TOKENS=$(...)`
-# fail-safe fire and default to the full suite.
+# `|| [ $? -eq 1 ]` and not `|| true`: on exit >=2 (broken pattern) the failed
+# assignment fires ci.yml's `if ! TOKENS=$(...)` fail-safe and defaults to the
+# full suite, instead of silently emitting no tokens.
 
 # `lint`: any Swift source, or the SwiftLint config (at any depth).
 lint_match="$(printf '%s\n' "$staged" | { grep -E '(\.swift$|(^|/)\.swiftlint\.yml$)' || [ $? -eq 1 ]; })"
