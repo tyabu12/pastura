@@ -107,8 +107,9 @@ Three things that look interchangeable and are not:
 Scope note: a bare `run:` step is `bash -e {0}` with no pipefail (Rule 2), so
 the four `printf … | grep -q` gating steps in `ci.yml` are latent rather than
 live — adding `shell: bash` to one arms it. `scripts/tests/staged-trigger-pipefail-test.sh`
-guards `scripts/*.sh` + `scripts/hooks/*.sh` for zero residuals; it deliberately
-does not parse workflow YAML, so those four are held by this paragraph only.
+guards `scripts/*.sh` + `scripts/hooks/*.sh` + `tools/*/scripts/*.sh` for zero
+residuals; it deliberately does not parse workflow YAML, so those four are held
+by this paragraph only.
 Motivating sweep and the per-site fail directions: #1498.
 
 ## Long-lived branch gating — two layers × two directions

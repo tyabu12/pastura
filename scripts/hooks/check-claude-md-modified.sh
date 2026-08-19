@@ -87,8 +87,9 @@
 # `|| true`, maps a broken pattern onto "nothing matched", and section 1 then
 # emits "no agent-instruction file changed" and suppresses every later nudge,
 # which is the failure this hook exists to prevent. Reachability is near-nil:
-# both callers pass compile-time-literal patterns, and the `-Fx` caller cannot
-# produce a pattern error at all.
+# of the three callers, one passes a literal `-E` pattern and the other two use
+# `-Fx`, where no string is a bad pattern — which covers the one caller whose
+# pattern is runtime-derived (`$f`, from `mirror_targets`).
 #
 # Reads no stdin. Reference: PR #406/#407; .claude/rules/ in #1026;
 # trim + footprint sections in #1361.

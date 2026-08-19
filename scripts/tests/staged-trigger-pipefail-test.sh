@@ -291,9 +291,12 @@ fi
 # read as wider than it is:
 #   - `|| [ $? -eq 1 ]` relaxed back to `|| true` at a fixed site. That loses
 #     the exit->=2 discrimination without reintroducing the SIGPIPE fail-open,
-#     and it cannot be pattern-guarded here: 15 legitimate `grep … || true`
-#     uses already exist across the enumerated scripts, so the pattern would be
-#     noise. A8 pins the shape's semantics; it is not a guard over the tree.
+#     and it cannot be pattern-guarded here: legitimate `grep … || true` uses
+#     already outnumber the guarded sites' worth of noise it would add. Count
+#     them rather than trusting a figure — the answer moves with both the
+#     enumeration below and how much of the line the pattern may span:
+#       xargs grep -hE 'grep.*\|\|[[:space:]]*true' < <enumerated files>
+#     A8 pins the shape's semantics; it is not a guard over the tree.
 #   - a pipeline wrapped across lines (`producer |` at EOL, `grep -q …` on the
 #     next). `scan` is line-bound, the same blind spot ci-workflows.md §
 #     "`grep` is line-bound" documents for this repo's other call-shape guards.
@@ -372,8 +375,9 @@ fi
 # controls. Measured: 55 files without the magic, 34 with it (scripts/ only).
 #
 # `tools/*/scripts/*.sh` is in scope for the same reason scripts/ is, not as an
-# afterthought: all four kmp-gate-spike scripts run `set -euo pipefail` and two
-# of them are CI gates. Zero hits there today.
+# afterthought: all four kmp-gate-spike scripts run `set -euo pipefail`, two are
+# `ci.yml` gates (check-b-prime-isolation, check-suspendcontroller-drift) and a
+# third runs in `kmp-nightly.yml` (stage-framework). Zero hits there today.
 git -C "$ROOT" ls-files -- ':(glob)scripts/*.sh' ':(glob)scripts/hooks/*.sh' \
                            ':(glob)tools/*/scripts/*.sh' \
   > "$TMP/prod-scripts.txt"

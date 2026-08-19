@@ -24,11 +24,17 @@ cd "$ROOT"
 # repo root. A key under keys/ or fastlane/ must still be caught.
 #
 # Capture the match; never `| grep -q`. `grep -q` exits at its first hit, the
-# still-writing `git` takes SIGPIPE and returns 141, and `pipefail` (set above)
+# still-writing producer takes SIGPIPE and returns 141 (in the pre-fix shape
+# that producer was `git`; it is `printf` now), and `pipefail` (set above)
 # promotes that to the pipeline's status — so a key staged alongside enough
 # other paths to outrun the pipe buffer read as "no key" and this gate exited
 # 0. Measured: a 91,710-byte staged list with the key sorted first let the key
 # through, while the same key on a short list was caught (#1498).
+#
+# Dropping `-q` is what fixes it, NOT the `STAGED=` capture — re-adding `-q`
+# below reinstates the defect on `printf` instead of on `git`. The other gates
+# carry a short form of this note; `.claude/rules/ci-workflows.md` § "Rule 3"
+# is the canonical account.
 #
 # `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", but
 # exit >=2 means the pattern itself broke, and a blanket `|| true` would map
