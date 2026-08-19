@@ -22,20 +22,17 @@ import SwiftUI
 
 /// The light↔dark token pairs wired into the app's `Color.*` aliases.
 ///
-/// **69 pairs.** The original eight (ADR-028), plus the §2.6 alert family and
-/// §2.7 interactive states from slice 1 of gate 1 (#1282), plus the §2.4 meta
-/// presets and two of the three §2.12 header slots from slice 2 (#1313), plus
-/// the §2.5 character palette from slice 3 (#1319), plus the §2.1/§2.3/§2.8
-/// remainder and `inkOnAccent` from slice 4 — the last one, which **closed
-/// gate 1**.
+/// ``all`` below is the registry; its size is pinned by
+/// `DesignTokensTests+DarkMode`'s count guard, which is the only place in the
+/// Swift sources that states the number. Which slice contributed which pair is
+/// recorded once, in ADR-028 § "The eight pairs" — not restated here.
 ///
-/// The slices account for 67 of those. The remaining two are the **role
-/// tokens**, `mossOnWash` (#1327) and `inkOnWash` (#1408), both added *after*
-/// gate 1 closed and for a different reason than any slice: not a light token
-/// owed a dark half, but a new light token that had to exist at all, born
-/// paired because §2.9 is now how the palette works. So "which slice is it
-/// from?" has no answer for either, and the enumeration above is a provenance
-/// list rather than a partition of the count.
+/// That provenance list is not a partition. The two **role tokens**,
+/// `mossOnWash` (#1327) and `inkOnWash` (#1408), were added *after* gate 1
+/// closed and for a different reason than any slice: not a light token owed a
+/// dark half, but a new light token that had to exist at all, born paired
+/// because §2.9 is now how the palette works. So "which slice is it from?" has
+/// no answer for either.
 ///
 /// Exactly **one** light token remains unpaired, and gate 1 owes an answer for
 /// **none**. `headerMetaSubdued` is that one: slice 2 recorded it as fixed in
@@ -282,11 +279,11 @@ enum PasturaDynamicPalette {
   ///
   /// Consumed by `DesignTokensTests+DarkMode`'s count assertion. Note what that
   /// does and does not catch: the registry is hand-maintained, so declaring a
-  /// 70th pair and *not* appending it here leaves `all.count == 69` and passes.
-  /// The count guards this list against its own documented size, nothing more —
-  /// the real per-alias coverage is the wiring tests in
-  /// `DesignTokensTests+DarkModeWiring`, which resolve each of the 69 `Color.*`
-  /// aliases under both schemes.
+  /// new pair and *not* appending it here leaves `all.count` unchanged and
+  /// passes. The count guards this list against its own documented size,
+  /// nothing more — the real per-alias coverage is the wiring tests in
+  /// `DesignTokensTests+DarkModeWiring`, which resolve every `Color.*` alias
+  /// under both schemes.
   static let all: [(name: String, pair: PasturaDynamicColor)] = [
     ("screenBackground", screenBackground),
     ("bubbleBackground", bubbleBackground),
