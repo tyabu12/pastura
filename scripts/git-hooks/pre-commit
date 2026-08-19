@@ -126,3 +126,10 @@ bash ./scripts/imagerenderer-injection-precommit-gate.sh
 # closing sub-bullet staying in sync with the fixture's row names. Mirrors the
 # CI shell-tests "Mossink-wash membership check" step locally.
 bash ./scripts/mossink-wash-membership-precommit-gate.sh
+
+# 16. Measurement-transcript gate (#1488) — self-gates on the muted-application
+# ledger, design-system.md, ADR-028, the MutedTranscript pins, the gate itself,
+# or the checker; fails-fast inside. Guards the contrast figures those docs
+# transcribe against the pins the fixture computes them from. Mirrors the CI
+# shell-tests "Measurement transcript check" step locally.
+bash ./scripts/measurement-transcript-precommit-gate.sh

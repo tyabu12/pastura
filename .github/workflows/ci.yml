@@ -1072,6 +1072,19 @@ jobs:
           python3 scripts/check-mossink-wash-membership.py --self-test
           python3 scripts/check-mossink-wash-membership.py --check
 
+      # Measurement transcript check (#1488) — the muted ledger's §3.1/§3.2
+      # tables, ADR-028's copy of the wash table and three copies of the
+      # twelve-ground span all restate figures `DesignTokensTests+MutedTranscript`
+      # pins, and nothing compared them. Self-test first (extraction, comparison
+      # and every anchor arm), then the real four faces. Unconditional for the
+      # same reason as the steps above (`.claude/rules/ci-workflows.md`
+      # § "Required-check-safe path gating"). Defense-in-depth for
+      # scripts/measurement-transcript-precommit-gate.sh (local only).
+      - name: Measurement transcript check
+        run: |
+          python3 scripts/check-measurement-transcripts.py --self-test
+          python3 scripts/check-measurement-transcripts.py --check
+
   gallery-drift:
     name: Gallery drift guard
     runs-on: ubuntu-latest
