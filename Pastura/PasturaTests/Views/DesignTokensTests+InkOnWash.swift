@@ -75,10 +75,10 @@ extension DesignTokensTests {
   /// the row's own, not a flat 14: every semantic-font row here is `.semibold`
   /// or `.bold`, which take different halves.
   ///
-  /// **No superlative is restated in any of the three wash fixtures.** (Not in
-  /// the suite at large — `+MossSoftGround.swift`'s still stands; see
-  /// ``DesignTokensTests/inkWashSiteRejectsLargeTextLabels``' file header.) The
-  /// old advice was
+  /// **No type-size extreme of a fixture is restated in any of the three wash
+  /// files.** (Not in the suite at large — `+MossSoftGround.swift`'s still
+  /// stands; see ``DesignTokensTests/inkWashSiteRejectsLargeTextLabels``' file
+  /// header.) The old advice was
   /// "re-derive this fixture's own extreme, never cite a sibling's" — this
   /// paragraph *was* a citation of `+MossOnWash`'s `~11pt` until #1459
   /// falsified it there. Recording the size per row retires the advice along

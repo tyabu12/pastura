@@ -98,8 +98,8 @@ extension DesignTokensTests {
         "HomePausedCard.eyebrow", wash: .moss, light: 0.16, dark: 0.16,
         pointSize: Double(HomeHeroLayout.eyebrowFontSize), weight: .semibold),
       // `.font(.system(size: HomeHeroLayout.progressFontSize, design: .monospaced))`
-      // — no `weight:`, so regular. The largest row in the fixture, and the one
-      // whose 12pt falsified `textBar`'s old superlative (#1466).
+      // — no `weight:`, so regular. Its 12pt is what falsified `textBar`'s old
+      // superlative (#1466).
       MossWashSite(
         "HomePausedCard.progress", wash: .moss, light: 0.16, dark: 0.16,
         pointSize: Double(HomeHeroLayout.progressFontSize), weight: .regular),
