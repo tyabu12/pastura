@@ -1,0 +1,232 @@
+#!/usr/bin/env bash
+#
+# scripts/tests/staged-trigger-pipefail-test.sh — regression test for #1498.
+#
+# THE DEFECT. Under `set -o pipefail`, `producer | grep -q PATTERN` reports the
+# pipeline as FAILED when the pattern matches early: `grep -q` exits at its
+# first match, the producer takes SIGPIPE and returns 141, and pipefail
+# promotes that to the pipeline's status. So a *matching* input is
+# indistinguishable from a non-matching one — and every consumer of the shape
+# in this repo reads that status as "no match" and skips. A gate that wrongly
+# RUNS gets noticed; one that wrongly SKIPS is silent.
+#
+# Guarded here, both by exit code:
+#   - scripts/p8-precommit-gate.sh        a staged ASC / APNs key would be committed
+#   - scripts/precommit-gate-classify.sh  `lint` + `build` tokens vanish, so swiftlint
+#                                         and the iOS build are skipped locally, AND
+#                                         ci.yml's `changes` job emits ios=false, which
+#                                         skips lint-and-test / ui-test with every
+#                                         required check green
+#
+# WHY THE SIBLING TESTS CANNOT CATCH THIS. p8-precommit-gate-test.sh and
+# precommit-gate-classify-test.sh both stage a handful of paths, so the whole
+# name list fits inside the pipe buffer, the producer never blocks, and the
+# defect never arms. Size is the entire variable, which is why this file exists
+# separately rather than as extra cases in those.
+#
+# READING THE ARMS. Arm A4 runs an INLINED COPY of the old shape against the
+# same fixture and requires it to SKIP. That is not redundant with A1: it is
+# what proves the fixture is still large enough (and the key still sorted early
+# enough) to arm the defect at all. If A4 ever starts firing, A1 has gone
+# vacuous — it would pass against unfixed code — and A4 fails loudly to say so.
+# Do not "simplify" A4 away, and do not borrow it from a sibling suite: a
+# control that lives elsewhere stops discriminating on the day the lender
+# changes, without reddening anything here (#1481).
+#
+# Arm A8 pins that the capture shape ABORTS on grep exit >=2 (broken regex,
+# read error) instead of falling through with an empty match. Without it a
+# future edit that breaks a TRIGGER pattern re-opens the identical fail-open
+# through a different door. It is also the bash-5 canary: the fix shape was
+# measured on bash 3.2 (what the macOS pre-commit hook runs); this arm is what
+# reddens if bash 5 on the ubuntu CI runner treats the construct differently.
+#
+# CI-wired: the `*-test.sh` naming convention makes this a gate under
+# .github/workflows/ci.yml ("Run scripts/tests/*-test.sh"). Run manually:
+#   bash scripts/tests/staged-trigger-pipefail-test.sh
+
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+P8_GATE="$ROOT/scripts/p8-precommit-gate.sh"
+CLASSIFY="$ROOT/scripts/precommit-gate-classify.sh"
+
+TMP="$(mktemp -d)"
+trap 'rm -rf "$TMP"' EXIT
+
+fail=0
+bad() { printf 'FAIL: %s\n' "$*" >&2; fail=1; }
+ok()  { printf '  ok: %s\n' "$*"; }
+
+# --- fixture ---------------------------------------------------------------
+# Sized an ORDER OF MAGNITUDE above any pipe capacity rather than "just over"
+# a constant: the capacity that arms this differs between the macOS pre-commit
+# hook and the ubuntu CI runner, so a fixture tuned to one number is not
+# provably armed on the other platform. A9 asserts the size that actually
+# resulted, so a later edit to the generator cannot quietly shrink it.
+PAD="$(awk 'BEGIN{ for (i = 0; i < 190; i++) printf "x" }')"
+
+# Tail paths start `zz/` so they sort AFTER the `keys/` and `Pastura/` heads
+# below. `git diff --cached --name-only` emits in sorted order, so the head is
+# what `grep -q` matches — it exits on line 1 with ~all of the list unwritten,
+# which is the condition that arms the defect. A10 asserts that ordering.
+awk -v pad="$PAD" 'BEGIN{ for (i = 0; i < 3000; i++) printf "zz/%s_%05d.txt\n", pad, i }' \
+  > "$TMP/tail.txt"
+
+P8_PATH='keys/AuthKey_TEST123.p8'
+SWIFT_PATH='Pastura/Pastura/Engine/Fixture.swift'
+
+{ echo "$P8_PATH"; cat "$TMP/tail.txt"; }    > "$TMP/list-p8-big.txt"
+{ cat "$TMP/tail.txt"; }                      > "$TMP/list-clean-big.txt"
+{ echo "$P8_PATH"; }                          > "$TMP/list-p8-small.txt"
+{ echo "$SWIFT_PATH"; cat "$TMP/tail.txt"; } > "$TMP/list-swift-big.txt"
+{ echo "$SWIFT_PATH"; }                       > "$TMP/list-swift-small.txt"
+# All-SAFE: `docs/` is on the classifier's build-irrelevant denylist, so the
+# correct answer is the empty token set. Distinguishes "correctly quiet" from
+# "silently disarmed", which look identical in the classifier's output.
+awk -v pad="$PAD" 'BEGIN{ for (i = 0; i < 3000; i++) printf "docs/%s_%05d.md\n", pad, i }' \
+  > "$TMP/list-safe-big.txt"
+
+# Stage a path list into a throwaway repo via `update-index --index-info`
+# against one empty blob — no working-tree files, so the fixture costs a single
+# git call instead of thousands of creat()s.
+make_repo() { # $1 = repo dir, $2 = path list
+  git init -q "$1"
+  git -C "$1" config user.email test@example.com
+  git -C "$1" config user.name test
+  blob="$(printf '' | git -C "$1" hash-object -w --stdin)"
+  awk -v b="$blob" '{ printf "100644 %s\t%s\n", b, $0 }' "$2" > "$TMP/index-info"
+  git -C "$1" update-index --index-info < "$TMP/index-info"
+}
+
+make_repo "$TMP/p8-big"    "$TMP/list-p8-big.txt"
+make_repo "$TMP/p8-clean"  "$TMP/list-clean-big.txt"
+make_repo "$TMP/p8-small"  "$TMP/list-p8-small.txt"
+
+# --- A9 / A10: the fixture's own preconditions ------------------------------
+# These gate every other arm. Assert them before reading any verdict, or a
+# shrunken fixture turns the suite green while measuring nothing.
+#
+# Redirect to a file rather than piping into `wc`/`head`: `git … | head -1` is
+# the defect under test, and the first draft of this file killed itself with it
+# (exit 141) before reaching a single verdict. Any early-exiting reader will do
+# it — reading the list once, then measuring the file, is the shape to copy.
+git -C "$TMP/p8-big" diff --cached --name-only > "$TMP/staged-p8-big.txt"
+
+size="$(wc -c < "$TMP/staged-p8-big.txt" | tr -d ' ')"
+if [ "$size" -gt 262144 ]; then
+  ok "A9 staged name list is $size bytes (> 256 KiB)"
+else
+  bad "A9 staged name list is only $size bytes — too small to arm the defect;" \
+      "every other arm below is now vacuous"
+fi
+
+first="$(head -1 "$TMP/staged-p8-big.txt")"
+if [ "$first" = "$P8_PATH" ]; then
+  ok "A10 the .p8 sorts first, so grep -q would exit on line 1"
+else
+  bad "A10 first staged path is '$first', expected '$P8_PATH' — the key no longer" \
+      "sorts early, so the producer finishes before grep exits and A1 goes vacuous"
+fi
+
+# --- A4: negative control — the OLD shape must still fail open --------------
+cat > "$TMP/old-shape.sh" <<'OLD_SHAPE'
+set -euo pipefail
+if git diff --cached --name-only | grep -qE '\.p8$'; then
+  exit 1
+fi
+exit 0
+OLD_SHAPE
+set +e
+( cd "$TMP/p8-big" && bash "$TMP/old-shape.sh" ) >/dev/null 2>&1
+old_rc=$?
+set -e
+if [ "$old_rc" -eq 0 ]; then
+  ok "A4 the old shape skips on this fixture (defect is armed — A1 is meaningful)"
+else
+  bad "A4 the old shape caught the .p8 (rc=$old_rc) — the fixture no longer arms the" \
+      "defect, so A1 would pass against unfixed code. Fix the fixture, not this arm."
+fi
+
+# --- A1 / A2 / A3: the real p8 secret gate ---------------------------------
+set +e
+( cd "$TMP/p8-big" && bash "$P8_GATE" ) >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then
+  ok "A1 p8 gate rejects a staged key behind a huge staged list"
+else
+  bad "A1 p8 gate ACCEPTED a staged .p8 behind a huge staged list — an App Store" \
+      "Connect / APNs private key would be committed (#1498)"
+fi
+
+set +e
+( cd "$TMP/p8-clean" && bash "$P8_GATE" ) >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -eq 0 ]; then
+  ok "A2 p8 gate passes a huge staged list with no key"
+else
+  bad "A2 p8 gate rejected a huge staged list containing no .p8 (rc=$rc)"
+fi
+
+set +e
+( cd "$TMP/p8-small" && bash "$P8_GATE" ) >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then
+  ok "A3 p8 gate rejects a staged key on a small list (positive control)"
+else
+  bad "A3 p8 gate accepted a staged .p8 on a SMALL list (rc=$rc) — the gate is broken" \
+      "outright, independently of #1498"
+fi
+
+# --- A5 / A6 / A7: the changeset classifier --------------------------------
+# `build` is the load-bearing token: ci.yml's `changes` job maps its absence to
+# ios=false, skipping lint-and-test and ui-test with all required checks green.
+out="$(bash "$CLASSIFY" < "$TMP/list-swift-big.txt")"
+if [ "$out" = "lint build" ]; then
+  ok "A5 classifier emits 'lint build' for a huge Swift-bearing changeset"
+else
+  bad "A5 classifier emitted '$out' (expected 'lint build') for a huge Swift-bearing" \
+      "changeset — swiftlint and the iOS build are skipped locally and ios=false on CI"
+fi
+
+out="$(bash "$CLASSIFY" < "$TMP/list-swift-small.txt")"
+if [ "$out" = "lint build" ]; then
+  ok "A6 classifier emits 'lint build' for a small Swift changeset (positive control)"
+else
+  bad "A6 classifier emitted '$out' (expected 'lint build') on a SMALL changeset — the" \
+      "classifier is broken outright, independently of #1498"
+fi
+
+out="$(bash "$CLASSIFY" < "$TMP/list-safe-big.txt")"
+if [ -z "$out" ]; then
+  ok "A7 classifier stays quiet for a huge all-docs changeset (negative control)"
+else
+  bad "A7 classifier emitted '$out' for an all-docs changeset (expected empty)"
+fi
+
+# --- A8: the capture shape must abort on grep exit >= 2 ---------------------
+cat > "$TMP/rc-shape.sh" <<'RC_SHAPE'
+set -euo pipefail
+STAGED="$(cat "$1")"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$2" || [ $? -eq 1 ]; })"
+printf 'reached-end:%s\n' "${MATCHED:+matched}"
+RC_SHAPE
+set +e
+bash "$TMP/rc-shape.sh" "$TMP/list-p8-big.txt" '\.p8\' >/dev/null 2>&1
+rc=$?
+set -e
+if [ "$rc" -ne 0 ]; then
+  ok "A8 capture shape aborts on a broken pattern (grep rc>=2) instead of reading empty"
+else
+  bad "A8 capture shape swallowed a broken pattern and continued — grep rc>=2 is being" \
+      "read as 'no match', which is the same fail-open #1498 fixes. On the ubuntu runner" \
+      "this also means bash 5 does not abort the assignment the way bash 3.2 does."
+fi
+
+if [ "$fail" -ne 0 ]; then
+  echo "staged-trigger-pipefail-test: FAILED" >&2
+  exit 1
+fi
+echo "staged-trigger-pipefail-test: all arms passed"

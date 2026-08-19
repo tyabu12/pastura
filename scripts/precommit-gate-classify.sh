@@ -40,8 +40,31 @@ staged="$(grep -v '^[[:space:]]*$' || true)"
 
 tokens=""
 
+# Both classifications below capture the match instead of testing a `grep -q`
+# pipeline's status, and the difference is load-bearing rather than stylistic.
+# `grep -q` exits at its first hit; the still-writing `printf` takes SIGPIPE and
+# returns 141; `pipefail` (set above) promotes that to the pipeline's status.
+# So on a changeset whose name list outruns the pipe buffer, with a matching
+# path near the front, BOTH tokens silently dropped: measured, a 92,623-byte
+# list led by a .swift file classified as `` where a short list of the same
+# shape classified as `lint build` (#1498).
+#
+# That is the "worst case" this script's header names, reached from inside. It
+# disarms `swiftlint --strict` and `xcodebuild build` in the pre-commit hook,
+# and — because .github/workflows/ci.yml's `changes` job derives `ios` from the
+# `build` token — skips lint-and-test and ui-test on CI with every required
+# check green. Both fail-safes ci.yml documents miss it: the file list is not
+# empty, and this script exits 0, it just prints nothing.
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
+# >=2 means the pattern broke. `|| true` would map a broken pattern to "no
+# match" — i.e. to no tokens — which is the same silent disarming. Failing the
+# assignment under `set -e` instead makes ci.yml's `if ! TOKENS=$(...)`
+# fail-safe fire and default to the full suite.
+
 # `lint`: any Swift source, or the SwiftLint config (at any depth).
-if printf '%s\n' "$staged" | grep -qE '(\.swift$|(^|/)\.swiftlint\.yml$)'; then
+lint_match="$(printf '%s\n' "$staged" | { grep -E '(\.swift$|(^|/)\.swiftlint\.yml$)' || [ $? -eq 1 ]; })"
+if [ -n "$lint_match" ]; then
   tokens="lint"
 fi
 
@@ -62,7 +85,9 @@ fi
 # generated-Kotlin drift guards see a PR that hand-edits one of those files.
 # scripts/tests/precommit-gate-classify-test.sh pins that case.
 SAFE='(^(web/|docs/|\.github/|\.claude/))|(\.md$)|(^(\.gitignore|\.gitattributes|\.editorconfig|LICENSE)$)'
-if [ -n "$staged" ] && printf '%s\n' "$staged" | grep -qvE "$SAFE"; then
+# Capture, don't `grep -qv` — see the note above the `lint` classification.
+unsafe_match="$(printf '%s\n' "$staged" | { grep -vE "$SAFE" || [ $? -eq 1 ]; })"
+if [ -n "$staged" ] && [ -n "$unsafe_match" ]; then
   tokens="${tokens:+$tokens }build"
 fi
 

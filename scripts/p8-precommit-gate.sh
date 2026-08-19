@@ -22,7 +22,22 @@ cd "$ROOT"
 # Match `.p8` at any path depth — `git diff --cached --name-only` emits
 # repo-relative paths, so anchor the regex to the extension, not the
 # repo root. A key under keys/ or fastlane/ must still be caught.
-if git diff --cached --name-only | grep -qE '\.p8$'; then
+#
+# Capture the match; never `| grep -q`. `grep -q` exits at its first hit, the
+# still-writing `git` takes SIGPIPE and returns 141, and `pipefail` (set above)
+# promotes that to the pipeline's status — so a key staged alongside enough
+# other paths to outrun the pipe buffer read as "no key" and this gate exited
+# 0. Measured: a 91,710-byte staged list with the key sorted first let the key
+# through, while the same key on a short list was caught (#1498).
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", but
+# exit >=2 means the pattern itself broke, and a blanket `|| true` would map
+# that back to "no key" — reopening this same silent skip through a different
+# door. Letting it fail the assignment under `set -e` refuses the commit
+# instead, which is the safe direction for a secret gate.
+STAGED="$(git diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E '\.p8$' || [ $? -eq 1 ]; })"
+if [ -n "$MATCHED" ]; then
   {
     echo 'Refusing to commit a *.p8 file — App Store Connect / APNs private'
     echo 'keys must never enter the repo. Store the key outside the tree'
