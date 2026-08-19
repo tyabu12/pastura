@@ -90,13 +90,34 @@ cd "$(git rev-parse --show-toplevel)"
 
 CHANGED=$(git diff main...HEAD --name-only 2>/dev/null || true)
 
+# `$CHANGED` is a whole-branch file list, so it can outrun the pipe buffer.
+# Every match against it therefore CAPTURES rather than testing a `| grep -q`
+# pipeline's status: `grep -q` exits at its first hit, the still-writing
+# `printf` takes SIGPIPE, and `pipefail` (set above) promotes that to the
+# pipeline's status — an early match then reads exactly like no match (#1498).
+#
+# The two users below fall OPPOSITE ways, so neither direction is the safe one
+# to leave alone: section 1 would take its early-emit path and suppress every
+# later nudge, while section 2 would nudge about a mirror that was in fact
+# updated. Both are fixed the same way.
+#
+# `|| [ $? -eq 1 ]` and not `|| true`: exit 1 is grep's real "no match", exit
+# >=2 means the pattern broke. Under `set -e` the caller's assignment then
+# aborts the hook, which is loud, instead of reading as "nothing matched",
+# which is silent. The EMIT CONTRACT holds either way — every emit site is
+# downstream of these, so an abort produces no JSON rather than a partial one.
+changed_matches() { # $@ = grep args; echoes matching lines, empty when none
+  printf '%s\n' "$CHANGED" | { grep "$@" || [ $? -eq 1 ]; }
+}
+
 # --- 1. convention nudge ----------------------------------------------------
 # Early emit + exit. Mutually exclusive with sections 2-4 by construction: no
 # agent-instruction file changed => no mirror-relevant CLAUDE.md edit and zero
 # instruction growth, so nothing below could have fired anyway. Anchored to
 # match section 3's root-exact pathspec — a stray `docs/foo/CLAUDE.md` must
 # not silence this nudge while contributing nothing to the tier sums.
-if ! printf '%s\n' "$CHANGED" | grep -qE '^CLAUDE\.md$|^\.claude/(rules|agents)/'; then
+agent_instruction_files="$(changed_matches -E '^CLAUDE\.md$|^\.claude/(rules|agents)/')"
+if [ -z "$agent_instruction_files" ]; then
   jq -n '{
     hookSpecificOutput: {
       hookEventName: "PreToolUse",
@@ -171,7 +192,8 @@ mirror_targets() {
 }
 
 MIRROR_MSG=""
-if printf '%s\n' "$CHANGED" | grep -Fxq 'CLAUDE.md'; then
+claude_md_changed="$(changed_matches -Fx 'CLAUDE.md')"
+if [ -n "$claude_md_changed" ]; then
   TARGETS=$(mirror_targets || true)
   TARGETS=$(printf '%s' "$TARGETS" | tr -s ' ' | sed 's/^ //; s/ $//')
   # Subtract mirror files already updated on this branch. A dual-mirror
@@ -181,7 +203,8 @@ if printf '%s\n' "$CHANGED" | grep -Fxq 'CLAUDE.md'; then
   # miss exactly the drift this hook exists to catch.
   REMAIN=""
   for f in $TARGETS; do
-    if ! printf '%s\n' "$CHANGED" | grep -Fxq "$f"; then
+    mirror_synced="$(changed_matches -Fx "$f")"
+    if [ -z "$mirror_synced" ]; then
       REMAIN="${REMAIN:+$REMAIN }$f"
     fi
   done
@@ -230,7 +253,17 @@ while IFS=$'\t' read -r added _removed path; do
       # we fail open to the stricter (always-loaded) tier — harmless, since a
       # deletion contributes 0 ADDED lines and the footprint gate below arms
       # only on added > 0.
-      if git show "HEAD:$path" 2>/dev/null | head -n 14 | grep -q '^paths:'; then
+      #
+      # `head -n 14` closes the pipe after 14 lines, so `git show` takes
+      # SIGPIPE on any rule file bigger than the pipe buffer — and under
+      # `pipefail` that would become the pipeline's status. Dropping `grep -q`
+      # is NOT what covers this: the `|| true` spanning the whole substitution
+      # is, and it also carries the deleted-path fail-open described above.
+      # Today no rule file is close (largest is ~41 KB), so this is hardening,
+      # not a live bug — but the margin shrinks as rules grow (#1498).
+      frontmatter="$(git show "HEAD:$path" 2>/dev/null | head -n 14 || true)"
+      paths_line="$(printf '%s\n' "$frontmatter" | { grep '^paths:' || [ $? -eq 1 ]; })"
+      if [ -n "$paths_line" ]; then
         tier="scoped"
       fi
       ;;
@@ -308,7 +341,14 @@ always_loaded_bytes() {
     [ -n "$f" ] || continue
     case "$f" in
       .claude/rules/*)
-        head -n 14 "$f" 2>/dev/null | grep -q '^paths:' && continue
+        # Capture rather than `| grep -q`, matching the rest of this file. Here
+        # the producer is bounded (`head -n 14` of a markdown frontmatter never
+        # fills a pipe buffer) so this one was not reachable, but leaving the
+        # shape behind would mean the #1498 residual guard needs an allow-list
+        # entry — and an allow-list is the thing that rots.
+        local fm
+        fm=$(head -n 14 "$f" 2>/dev/null | grep '^paths:')
+        [ -z "$fm" ] || continue
         ;;
     esac
     local n

@@ -388,10 +388,17 @@ evaluate() {
   name="${wt##*/}"
 
   # (b) unnamed (Docker-style auto-generated) worktrees only
-  printf '%s' "$name" | grep -Eq '^[a-z]+-[a-z]+-[0-9a-f]{6}$' || {
+  #
+  # Capture rather than `| grep -Eq`, matching the rest of the tree. This site
+  # was never reachable — the producer is one short worktree name, nowhere near
+  # a pipe buffer — and it already failed CLOSED (a SIGPIPE keeps the worktree
+  # rather than deleting it). It is swept anyway so the #1498 residual guard
+  # can assert a clean zero instead of carrying an allow-list (#1498).
+  name_match="$(printf '%s' "$name" | { grep -E '^[a-z]+-[a-z]+-[0-9a-f]{6}$' || [ $? -eq 1 ]; })"
+  if [ -z "$name_match" ]; then
     [ "$VERBOSE" -eq 1 ] && say "keep  $name — named worktree (not auto-generated)"
     return 0
-  }
+  fi
 
   [ -d "$wt" ] || return 0
 
