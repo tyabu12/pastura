@@ -1,11 +1,18 @@
 // swiftlint:disable file_length
+//
+// A deliberate deviation from `.claude/rules/testing.md` § "Splitting a Suite
+// Across Files", which prescribes a sibling `+Feature.swift` extension at this
+// threshold — and the first `file_length` disable under `PasturaTests/`, so read
+// the reason before treating it as a precedent. That rule now records the
+// carve-out too; keep the two in sync.
+//
 // Over 400 by the transcript pins (#1488), which are data: twelve opaque
-// grounds, five wash rows and four brackets, each carrying the site token the
-// checker keys on. Splitting them into a sibling file is worse than the
-// disable — the pins are compared against four `private static let` arrays in
-// this file, so a split would have to open all four to `fileprivate` and move
-// `scripts/check-measurement-transcripts.py`'s Swift-side anchors along with
-// them, trading a lint directive for a second file the anchors can drift from.
+// grounds, five wash rows and four brackets. Splitting is *possible* — the
+// arrays they compare against would widen from `private` to internal, which
+// testing.md explicitly pre-sanctions — but it would put
+// `scripts/check-measurement-transcripts.py`'s Swift-side anchors in one file
+// and the values they are checked against in another, which is the drift the
+// checker exists to remove. One file, one lint directive.
 
 import SwiftUI
 import Testing
@@ -468,7 +475,7 @@ extension DesignTokensTests {
   ///
   /// A named struct rather than a triple: three members trip `large_tuple`, and
   /// the labels are what `scripts/check-measurement-transcripts.py` keys on.
-  struct WashRowPin {
+  private struct WashRowPin {
     let site: String
     let light: (min: Double, max: Double)
     let dark: (min: Double, max: Double)
@@ -500,8 +507,12 @@ extension DesignTokensTests {
     (value * 1000).rounded() / 1000
   }
 
+  /// The same rounding the comparison uses, then formatted. `%.3f` on the raw
+  /// value would resolve an exact tie half-to-even while `rounded3` resolves it
+  /// half-away-from-zero, so an `x.xxx5` figure could print a literal the
+  /// comparator still rejects — a paste-back loop that never converges.
   private static func printed3(_ value: Double) -> String {
-    String(format: "%.3f", value)
+    String(format: "%.3f", rounded3(value))
   }
 
   /// The computed interval for a ``washRowPins`` site, resolved by the site
@@ -569,6 +580,26 @@ extension DesignTokensTests {
     #expect(
       Set(Self.opaqueGroundPins.map(\.name)) == Set(opaque.map(\.name)),
       "§3.1 pins and the computed grounds no longer name the same twelve")
+    // The wash rows' other direction. `staleWashRowPins` walks the *pins*, so a
+    // wash entry whose site has no pin fires nothing there — a new site could be
+    // measured and never transcribed.
+    //
+    // Stated as "entries with no pin", not as a set equality over resolved
+    // sites: resolving first and comparing sets cannot fire, because an
+    // unmatched entry drops out of the resolved set and both sides shrink
+    // together. (Constructed and confirmed — the set form stayed green with a
+    // pin removed.) The opposite direction, a pin with no entry, is
+    // `staleWashRowPins`' `nil` branch.
+    let unpinnedWashEntries =
+      (Self.mutedSelfWashGrounds + Self.mutedMossWashGrounds + Self.mutedRuleWashGrounds)
+      .filter { entry in
+        !Self.washRowPins.contains { entry.name.contains(" \($0.site) ") }
+      }
+      .map(\.name)
+    #expect(
+      unpinnedWashEntries.isEmpty,
+      "wash entries whose site has no pin: \(unpinnedWashEntries)")
+
     #expect(
       Set(Self.ruleWashBracketPins.map(\.name)) == Set(Self.mutedRuleWashBrackets.map(\.name)),
       "bracket pins and the computed brackets no longer name the same four")

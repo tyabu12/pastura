@@ -39,11 +39,16 @@ composites a colour.
 sites, that a site still paints the wash its arm composites, or that a ground
 read off the view hierarchy is correct. §3.2 files its own corrections under
 "beyond the arithmetic, all from reading the sites rather than the table", and a
-pin would have caught none of them. Green means the numbers agree, no more. It
-also says nothing about
-figures outside the anchored tables — the ledger §5 per-site columns, the
-`ds/*.html` visual mirror, and the fixture's own doc-comment prose each carry
-copies this gate does not read.
+pin would have caught none of them. Green means the numbers agree, no more.
+
+It also reads only the **anchored tables and span blocks**, so a figure restated
+anywhere else is unchecked. Enumerated rather than recalled (#1496 carries the
+measurement): the ledger §5 per-site ratio column, prose restatements of a single
+figure — including ADR-028's own decision-summary table row — the fixture's
+doc-comment prose, and two other test files plus one production doc comment.
+`ds/*.html` is **not** on that list: it carries three-decimal ratios, but of a
+different population (ground-vs-ground contrast and per-channel pair gaps), none
+of them a copy of these pins.
 
 Anchors. Every one is asserted rather than allowed to degrade — a renumbered
 heading, a renamed declaration, a table whose header row changed, an
@@ -92,11 +97,11 @@ FIXTURE_NAME = "DesignTokensTests+MutedAsContent"
 OPAQUE_DECL = "private static let opaqueGroundPins"
 WASH_DECL = "private static let washRowPins"
 # `("name", 3.329)` — the shared shape of the ratio-keyed pin arrays.
-SWIFT_RATIO_PIN = re.compile(r'\(\s*"([^"]+)"\s*,\s*([0-9]+\.[0-9]+)\s*\)')
+SWIFT_RATIO_PIN = re.compile(r'\(\s*"([^"]+)"\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*\)')
 SWIFT_WASH_PIN = re.compile(
     r'WashRowPin\(\s*site:\s*"([^"]+)"\s*,\s*'
-    r"light:\s*\(\s*([0-9]+\.[0-9]+)\s*,\s*([0-9]+\.[0-9]+)\s*\)\s*,\s*"
-    r"dark:\s*\(\s*([0-9]+\.[0-9]+)\s*,\s*([0-9]+\.[0-9]+)\s*\)\s*\)"
+    r"light:\s*\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\)\s*,\s*"
+    r"dark:\s*\(\s*(\d+(?:\.\d+)?)\s*,\s*(\d+(?:\.\d+)?)\s*\)\s*\)"
 )
 
 # Any list item at any indent — terminates the preceding block's continuations.
@@ -106,9 +111,34 @@ LEADING_IDENTIFIER = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 DECIMAL = re.compile(r"[0-9]+\.[0-9]+")
 # En dash, em dash, wave dash, fullwidth tilde, ASCII tilde and hyphen: the docs
 # already use two of these (`–` in the English faces, `〜` in the Japanese one),
-# so the set is wider than today's text on purpose.
+# so the set is wider than today's text on purpose. The ASCII hyphen is the
+# member most likely to produce a false red — any hyphenated numeric pair in an
+# anchored block (`3.1-3.2`) reads as a second span.
 RANGE = re.compile(r"([0-9]+\.[0-9]+)\s*[–—〜～~-]\s*([0-9]+\.[0-9]+)")
 WASH_TABLE_HEADER = re.compile(r"^\|\s*Site\s*\|.*\blight\b.*\bdark\b", re.IGNORECASE)
+OPAQUE_TABLE_HEADER = re.compile(r"^\|\s*Light ground\s*\|", re.IGNORECASE)
+
+# Section anchors, named once so `collect` and the self-test cannot drift into
+# two spellings of the same pattern.
+#
+# Two terminators, and the difference is load-bearing. The ledger's faces are
+# `###` subsections, so ANY heading ends them — `^#{2,3} ` would let a future
+# `#### ` silently extend the slice. The ADR's faces are `##` amendments that
+# legitimately CONTAIN `###` subsections (the wash table sits under one), so
+# there the terminator must stay `^## ` or the slice ends before the table.
+NEXT_SUBSECTION = re.compile(r"^#{1,6} ")
+NEXT_SECTION = re.compile(r"^## ")
+LEDGER_31 = re.compile(r"^### 3\.1\b")
+LEDGER_32 = re.compile(r"^### 3\.2\b")
+ADR_WASHES = re.compile(r"^## Amendment 2026-08-15\b")
+ADR_SPAN = re.compile(r"^## Amendment 2026-08-13 — the quietude tier\b")
+DESIGN_SYSTEM_8 = re.compile(r"^## 8\.")
+
+# ADR-028's copy of the wash table carries four of the five rows. Naming the
+# missing one here is what keeps the omission an assertion rather than a hole:
+# `compare_wash` reddens both if a named row appears and if an unnamed one goes
+# missing.
+ADR_OMITS = {"HighlightShareCard"}
 
 
 class AnchorError(Exception):
@@ -127,9 +157,9 @@ def _read(path: Path) -> str:
     """
     try:
         return (REPO_ROOT / path).read_text(encoding="utf-8")
-    except OSError as exc:
+    except (OSError, UnicodeDecodeError) as exc:
         raise AnchorError(
-            f"{path}: cannot read it ({exc.strerror}). If it was renamed, update "
+            f"{path}: cannot read it ({exc}). If it was renamed, update "
             "BOTH this checker's path constant AND the TRIGGER regex in "
             "scripts/measurement-transcript-precommit-gate.sh — otherwise the "
             "local gate stops matching the new path and skips silently."
@@ -286,11 +316,13 @@ def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
     annotations (`← §8's calibration point`, `**2.136**`), so the first decimal
     in the cell is the figure and the rest is prose.
     """
-    header = re.compile(r"^\|\s*Light ground\s*\|", re.IGNORECASE)
-    rows = table_rows(lines, header, where)
+    rows = table_rows(lines, OPAQUE_TABLE_HEADER, where)
     found: dict[str, str] = {}
     for cells in rows:
-        if len(cells) < 4:
+        # Exact, not a floor: an inserted column shifts the ratio cells, and a
+        # `< 4` floor would then read the wrong cell's figure and blame the
+        # figures rather than the columns.
+        if len(cells) != 4:
             raise AnchorError(f"{where}: a §3.1 row has {len(cells)} cells, expected 4.")
         for name_cell, ratio_cell in ((cells[0], cells[1]), (cells[2], cells[3])):
             name = BACKTICKED.search(name_cell)
@@ -301,8 +333,15 @@ def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
                     f"{name_cell!r} / {ratio_cell!r}."
                 )
             found[name.group(1)] = canonical(ratio.group(0))
-    # No empty-set guard here: `table_rows` already raises on a header with no
-    # body rows, so an unreachable second one would be a guard with no arm.
+    # A repeated ground name would OVERWRITE, dropping the earlier row's figure
+    # from a comparison that is set-based and therefore blind to a multiset
+    # defect — a stale duplicate row above a correct one would pass. `table_rows`
+    # covers the empty case, so this is the only cardinality guard needed here.
+    if len(found) != 2 * len(rows):
+        raise AnchorError(
+            f"{where}: {len(rows)} rows yielded only {len(found)} distinct grounds — "
+            "a ground name is repeated, and the duplicate would silently win."
+        )
     return found
 
 
@@ -328,11 +367,18 @@ def wash_table_rows(lines: list[str], where: str) -> WashRows:
     so both spellings the two faces use resolve to the same key:
     `` `ResultsView.pillBackground(.pending)` `` and `` `ResultsView` `.pending`
     pill `` both key on `ResultsView`.
+
+    Because the key is a **truncation**, two rows on the same view would collapse
+    onto one entry and the earlier one's figures would never be compared. §3.2 is
+    expected to grow — ADR-028 § Amendment 2026-08-15 records batches 2–5 as open,
+    and `ResultsView` already ships a second pill state — so the duplicate guard
+    below is live, not defensive.
     """
     rows = table_rows(lines, WASH_TABLE_HEADER, where)
     found: dict[str, tuple[tuple[str, str], tuple[str, str]]] = {}
     for cells in rows:
-        if len(cells) < 4:
+        # Exact, not a floor — see `ledger_opaque_rows`.
+        if len(cells) != 4:
             raise AnchorError(f"{where}: a wash row has {len(cells)} cells, expected 4.")
         token = BACKTICKED.search(cells[0])
         if not token:
@@ -343,6 +389,12 @@ def wash_table_rows(lines: list[str], where: str) -> WashRows:
         if not key:
             raise AnchorError(f"{where}: a wash row's Site token is not identifier-shaped.")
         found[key.group(0)] = (_interval(cells[2], where), _interval(cells[3], where))
+    if len(found) != len(rows):
+        raise AnchorError(
+            f"{where}: {len(rows)} rows collapsed onto {len(found)} site keys — two "
+            "rows share a leading identifier, so one row's figures would never be "
+            "compared. Give the table a key the truncation keeps distinct."
+        )
     # Empty-set guard lives in `table_rows` — see `ledger_opaque_rows`.
     return found
 
@@ -365,7 +417,7 @@ def span_in(lines: list[str], where: str) -> tuple[str, str]:
         raise AnchorError(
             f"{where}: the block naming `{FIXTURE_NAME}` states no `low–high` span."
         )
-    if len({span for span in spans}) != 1:
+    if len(set(spans)) != 1:
         raise AnchorError(f"{where}: the anchored block states more than one span: {spans}.")
     low, high = spans[0]
     return canonical(low), canonical(high)
@@ -393,15 +445,28 @@ def compare_wash(
     doc: dict[str, tuple[tuple[str, str], tuple[str, str]]],
     pins: dict[str, tuple[tuple[str, str], tuple[str, str]]],
     where: str,
-    subset: bool,
+    omits: set[str],
 ) -> list[str]:
-    """Per-row comparison. `subset` allows pins the face deliberately omits."""
+    """Per-row comparison. `omits` names the pins this face deliberately lacks.
+
+    An `omits` **set** rather than a subset flag: a flag has no cardinality
+    floor, so the ADR table could shrink to a single row and stay green, and the
+    docstring's checkable claim ("four of the five rows, no `HighlightShareCard`")
+    would go unexecuted. Naming the omission turns that claim into the assertion,
+    and reddens if `HighlightShareCard` is ever added there without updating this
+    checker.
+    """
     problems = []
     for site in sorted(set(doc) - set(pins)):
         problems.append(f"{where}: `{site}` is transcribed but is not a pin — drop it or pin it.")
-    if not subset:
-        for site in sorted(set(pins) - set(doc)):
-            problems.append(f"{where}: `{site}` is pinned but is not transcribed — add the row.")
+    missing = set(pins) - set(doc)
+    for site in sorted(missing - omits):
+        problems.append(f"{where}: `{site}` is pinned but is not transcribed — add the row.")
+    for site in sorted(omits - missing):
+        problems.append(
+            f"{where}: `{site}` is recorded here as deliberately omitted, but the face "
+            "now carries it — drop it from this checker's omission set."
+        )
     for site in sorted(set(doc) & set(pins)):
         for appearance, got, want in (
             ("light", doc[site][0], pins[site][0]),
@@ -431,41 +496,40 @@ def compare_span(got: tuple[str, str], pins: dict[str, str], where: str) -> list
 
 
 def collect(
-    fixture: str, ledger: str, adr: str, design_system: str
+    fixture: str,
+    ledger: str,
+    adr: str,
+    design_system: str,
+    adr_omits: set[str] = ADR_OMITS,
 ) -> list[str]:
-    """Every divergence across the four faces."""
+    """Every divergence across the four faces.
+
+    `adr_omits` is a parameter so the self-test can give the ADR face content the
+    ledger face does not have. When the two synthetic faces were byte-identical,
+    both the direction asymmetry and the face wiring were unguarded: flipping the
+    ADR comparison to the bijection direction, and repointing it at the ledger's
+    own section, each left the suite fully green.
+    """
     ratio_pins = fixture_ratio_pins(fixture)
     wash_pins = fixture_wash_pins(fixture)
 
-    ledger_31 = section(ledger, re.compile(r"^### 3\.1\b"), re.compile(r"^#{2,3} "), "ledger §3.1")
-    ledger_32 = section(ledger, re.compile(r"^### 3\.2\b"), re.compile(r"^#{2,3} "), "ledger §3.2")
-    adr_washes = section(
-        adr,
-        re.compile(r"^## Amendment 2026-08-15\b"),
-        re.compile(r"^## "),
-        "ADR-028 § Amendment 2026-08-15",
-    )
-    adr_span = section(
-        adr,
-        re.compile(r"^## Amendment 2026-08-13 — the quietude tier\b"),
-        re.compile(r"^## "),
-        "ADR-028 § Amendment 2026-08-13 (#1427)",
-    )
-    ds_8 = section(
-        design_system, re.compile(r"^## 8\."), re.compile(r"^## "), "design-system §8"
-    )
+    ledger_31 = section(ledger, LEDGER_31, NEXT_SUBSECTION, "ledger §3.1")
+    ledger_32 = section(ledger, LEDGER_32, NEXT_SUBSECTION, "ledger §3.2")
+    adr_washes = section(adr, ADR_WASHES, NEXT_SECTION, "ADR-028 § Amendment 2026-08-15")
+    adr_span = section(adr, ADR_SPAN, NEXT_SECTION, "ADR-028 § Amendment 2026-08-13 (#1427)")
+    ds_8 = section(design_system, DESIGN_SYSTEM_8, NEXT_SECTION, "design-system §8")
 
     problems = compare_ratios(
         ledger_opaque_rows(ledger_31, "ledger §3.1"), ratio_pins, "ledger §3.1"
     )
     problems += compare_wash(
-        wash_table_rows(ledger_32, "ledger §3.2"), wash_pins, "ledger §3.2", subset=False
+        wash_table_rows(ledger_32, "ledger §3.2"), wash_pins, "ledger §3.2", omits=set()
     )
     problems += compare_wash(
         wash_table_rows(adr_washes, "ADR-028 § Amendment 2026-08-15"),
         wash_pins,
         "ADR-028 § Amendment 2026-08-15",
-        subset=True,
+        omits=adr_omits,
     )
     for lines, where in (
         (ledger_31, "ledger §3.1 span"),
@@ -538,7 +602,22 @@ SYNTH_SPAN_BLOCK = (
 # A sibling bullet carrying its own range and NOT naming the fixture. Live
 # control for the span anchor in the design-system arm: loosen the block anchor
 # and this range is picked up, so the arm reddens.
-SYNTH_DECOY_RANGE = "- the ink family ran 4.413〜4.773 in dark before #1408\n"
+#
+# Three properties are load-bearing and each cost a bug to learn:
+#
+# - **Synthetic figures.** An earlier revision used `4.413〜4.773 … #1408`, which
+#   is live shipped text in `design-system.md` four times over — refuting the
+#   "never the real ones" rule stated 20 lines above it.
+# - **Wave dash, not en dash.** The real `design-system.md` §8 spells its span
+#   with `〜`, and this decoy's whole discriminating power depends on `RANGE`
+#   still admitting that character. `waveDashRangeIsRead` below asserts it, so
+#   narrowing `RANGE` reddens the harness instead of quietly inerting the decoy.
+# - **Adjacent to the span block, with no blank line between.** The real §8 is a
+#   solid blank-line-free bullet list, so only the `LIST_ITEM` flush separates
+#   the span-bearing bullet from this one. With a blank line here, deleting that
+#   flush from `logical_blocks` left the suite fully green — its docstring was
+#   right about production and untested by the fixture.
+SYNTH_DECOY_RANGE = "- the ink family ran 7.413〜7.773 in dark before #9999\n"
 
 SYNTH_OPAQUE_TABLE = (
     "| Light ground | ratio | Dark ground | ratio |\n"
@@ -564,7 +643,20 @@ def synth_ledger(opaque: str = SYNTH_OPAQUE_TABLE, wash: str = SYNTH_WASH_TABLE)
     )
 
 
-def synth_adr(wash: str = SYNTH_WASH_TABLE, span: str = SYNTH_SPAN_BLOCK) -> str:
+# The ADR face must NOT be a byte-identical copy of the ledger's. When it was,
+# two independent wirings went unguarded and both stayed green under mutation:
+# flipping the ADR comparison to the bijection direction, and repointing it at
+# the ledger's own section. Omitting `BetaSite` here exercises the real
+# asymmetry — ADR-028 carries four of the five rows — and gives the two faces
+# distinguishable content, so a face-identity arm can exist at all.
+SYNTH_ADR_WASH_TABLE = (
+    SYNTH_WASH_HEADER_ONLY
+    + "| `AlphaSite` pill | `x@0.14` over a ground | 8.100 | 8.200 |\n"
+)
+SYNTH_ADR_OMITS = {"BetaSite"}
+
+
+def synth_adr(wash: str = SYNTH_ADR_WASH_TABLE, span: str = SYNTH_SPAN_BLOCK) -> str:
     return (
         "## Amendment 2026-08-13 — the quietude tier is ground-relative (#1427)\n\n"
         + span
@@ -576,9 +668,12 @@ def synth_adr(wash: str = SYNTH_WASH_TABLE, span: str = SYNTH_SPAN_BLOCK) -> str
 
 
 def synth_design_system(span: str = SYNTH_SPAN_BLOCK) -> str:
+    # No blank line before the decoy: see `SYNTH_DECOY_RANGE`. The real §8's
+    # bullets are adjacent, so only the `LIST_ITEM` flush separates them, and a
+    # blank line here would test a branch production never takes.
     return (
         "## 7. Copywriting\n- unrelated\n\n"
-        "## 8. Accessibility\n\n" + span + "\n" + SYNTH_DECOY_RANGE + "\n"
+        "## 8. Accessibility\n\n" + span + SYNTH_DECOY_RANGE + "\n"
         "## 9. Rollout\n- unrelated\n"
     )
 
@@ -599,9 +694,19 @@ def self_test() -> int:
         print(f"self-test FAILED: {name} — {detail}", file=sys.stderr)
         failures += 1
 
-    def expect(name: str, got: object, want: object) -> None:
+    def expect(name: str, thunk, want: object) -> None:
+        """`thunk`, not a value: an unexpected `AnchorError` raised while
+        building the argument would otherwise escape uncaught, aborting every
+        remaining arm with a traceback and no tally — losing the run's whole
+        diagnostic value at the moment it is most needed.
+        """
         nonlocal checked
         checked += 1
+        try:
+            got = thunk()
+        except AnchorError as exc:
+            fail(name, f"unexpected AnchorError: {exc}")
+            return
         if got != want:
             fail(name, f"expected {want!r}, got {got!r}")
 
@@ -628,19 +733,19 @@ def self_test() -> int:
 
     def ledger_section(head: str, text: str = "") -> list[str]:
         return section(
-            text or ledger, re.compile(head), re.compile(r"^#{2,3} "), "ledger"
+            text or ledger, re.compile(head), NEXT_SUBSECTION, "ledger"
         )
 
     # --- extraction: the fixture -------------------------------------------
 
     expect(
         "fixture: ratio pins, and a decoy tuple outside the declaration stays out",
-        fixture_ratio_pins(SYNTH_FIXTURE),
+        lambda: fixture_ratio_pins(SYNTH_FIXTURE),
         {"alphaGround": "9.111", "betaGround": "9.777"},
     )
     expect(
         "fixture: wash pins, and a decoy WashRowPin outside the declaration stays out",
-        fixture_wash_pins(SYNTH_FIXTURE),
+        lambda: fixture_wash_pins(SYNTH_FIXTURE),
         {
             "AlphaSite": (("8.100", "8.100"), ("8.200", "8.200")),
             "BetaSite": (("8.300", "8.400"), ("8.500", "8.600")),
@@ -651,14 +756,14 @@ def self_test() -> int:
     # the fixture lacks" — sending the author to edit the wrong file.
     expect(
         "fixture: a swift-format-wrapped WashRowPin is still read",
-        fixture_wash_pins(
-            SYNTH_FIXTURE.replace(
-                '    WashRowPin(site: "BetaSite", light: (8.300, 8.400), dark: (8.500, 8.600))',
-                "    WashRowPin(\n"
-                '      site: "BetaSite", light: (8.300, 8.400),\n'
-                "      dark: (8.500, 8.600))",
-            )
-        )["BetaSite"],
+        lambda: fixture_wash_pins(
+                SYNTH_FIXTURE.replace(
+                    '    WashRowPin(site: "BetaSite", light: (8.300, 8.400), dark: (8.500, 8.600))',
+                    "    WashRowPin(\n"
+                    '      site: "BetaSite", light: (8.300, 8.400),\n'
+                    "      dark: (8.500, 8.600))",
+                )
+            )["BetaSite"],
         (("8.300", "8.400"), ("8.500", "8.600")),
     )
 
@@ -666,12 +771,12 @@ def self_test() -> int:
 
     expect(
         "ledger §3.1: annotations and bold markers are stripped off the ratios",
-        ledger_opaque_rows(ledger_section(r"^### 3\.1"), "ledger §3.1"),
+        lambda: ledger_opaque_rows(ledger_section(r"^### 3\.1"), "ledger §3.1"),
         {"alphaGround": "9.111", "betaGround": "9.777"},
     )
     expect(
         "ledger §3.2: a point row and a range row, keyed by the leading identifier",
-        wash_table_rows(ledger_section(r"^### 3\.2"), "ledger §3.2"),
+        lambda: wash_table_rows(ledger_section(r"^### 3\.2"), "ledger §3.2"),
         {
             "AlphaSite": (("8.100", "8.100"), ("8.200", "8.200")),
             "BetaSite": (("8.300", "8.400"), ("8.500", "8.600")),
@@ -679,15 +784,15 @@ def self_test() -> int:
     )
     expect(
         "span: read out of the block naming the fixture, not searched for by value",
-        span_in(ledger_section(r"^### 3\.1"), "ledger §3.1 span"),
+        lambda: span_in(ledger_section(r"^### 3\.1"), "ledger §3.1 span"),
         ("9.111", "9.777"),
     )
     expect(
         "span: a sibling bullet's own range is not the fixture's span",
-        span_in(
-            section(design_system, re.compile(r"^## 8\."), re.compile(r"^## "), "ds"),
-            "design-system §8 span",
-        ),
+        lambda: span_in(
+                section(design_system, re.compile(r"^## 8\."), re.compile(r"^## "), "ds"),
+                "design-system §8 span",
+            ),
         ("9.111", "9.777"),
     )
 
@@ -872,58 +977,219 @@ def self_test() -> int:
 
     expect(
         "compare: the tree agrees with itself",
-        collect(SYNTH_FIXTURE, ledger, adr, design_system),
+        lambda: collect(SYNTH_FIXTURE, ledger, adr, design_system, SYNTH_ADR_OMITS),
         [],
     )
     expect(
         "compare: a moved opaque ratio",
-        collect(SYNTH_FIXTURE, ledger.replace("| 9.111 ←", "| 9.112 ←"), adr, design_system),
+        lambda: collect(
+            SYNTH_FIXTURE,
+            ledger.replace("| 9.111 ←", "| 9.112 ←"),
+            adr,
+            design_system,
+            SYNTH_ADR_OMITS,
+        ),
         ["ledger §3.1: `alphaGround` reads 9.112, the fixture computes 9.111."],
     )
     expect(
-        "compare: a moved wash bound",
-        compare_wash(
-            {"BetaSite": (("8.300", "8.999"), ("8.500", "8.600"))}, wash_pins, "face", subset=True
+        "compare: a moved wash bound, light side",
+        lambda: compare_wash(
+            {"BetaSite": (("8.300", "8.999"), ("8.500", "8.600"))},
+            wash_pins,
+            "face",
+            omits={"AlphaSite"},
         ),
         ["face: `BetaSite` light reads 8.300–8.999, the fixture computes 8.300–8.400."],
     )
+    # The dark tuple's wiring was covered only indirectly, by the arms that agree.
+    expect(
+        "compare: a moved wash bound, dark side",
+        lambda: compare_wash(
+            {"BetaSite": (("8.300", "8.400"), ("8.500", "8.999"))},
+            wash_pins,
+            "face",
+            omits={"AlphaSite"},
+        ),
+        ["face: `BetaSite` dark reads 8.500–8.999, the fixture computes 8.500–8.600."],
+    )
     expect(
         "compare: a doc row with no pin is flagged in both directions",
-        compare_ratios({"alphaGround": "9.111", "deltaGround": "1.000"}, ratio_pins, "face"),
+        lambda: compare_ratios({"alphaGround": "9.111", "deltaGround": "1.000"}, ratio_pins, "face"),
         [
             "face: `deltaGround` is transcribed but is not a pin — drop it or pin it.",
             "face: `betaGround` is pinned but is not transcribed — add the row.",
         ],
     )
     expect(
-        "compare: a pin the subset face omits is NOT flagged, but an unknown row still is",
-        compare_wash(
+        "compare: a NAMED omission is not flagged, but an unknown row still is",
+        lambda: compare_wash(
             {"GammaSite": (("1.000", "1.000"), ("1.000", "1.000"))},
             wash_pins,
             "face",
-            subset=True,
+            omits={"AlphaSite", "BetaSite"},
         ),
         ["face: `GammaSite` is transcribed but is not a pin — drop it or pin it."],
     )
     expect(
-        "compare: the same omission IS flagged on the bijection face",
-        sorted(
-            compare_wash({"AlphaSite": wash_pins["AlphaSite"]}, wash_pins, "face", subset=False)
-        ),
+        "compare: an UNNAMED omission is flagged — the face cannot silently shrink",
+        lambda: compare_wash({"AlphaSite": wash_pins["AlphaSite"]}, wash_pins, "face", omits=set()),
         ["face: `BetaSite` is pinned but is not transcribed — add the row."],
+    )
+    # The other direction of the same assertion: a face that GAINS a row this
+    # checker still records as deliberately absent must redden too, or
+    # `HighlightShareCard` could be added to ADR-028 and silently go unchecked.
+    expect(
+        "compare: a named omission that the face now carries is flagged",
+        lambda: compare_wash(wash_pins, wash_pins, "face", omits={"BetaSite"}),
+        [
+            "face: `BetaSite` is recorded here as deliberately omitted, but the face "
+            "now carries it — drop it from this checker's omission set."
+        ],
     )
     expect(
         "compare: the span is the min and max of the pins, not a fourth measurement",
-        compare_span(("9.111", "9.500"), ratio_pins, "face"),
+        lambda: compare_span(("9.111", "9.500"), ratio_pins, "face"),
         ["face: the span reads 9.111–9.500, but the pinned grounds run 9.111–9.777."],
     )
     expect(
         "compare: a span stale in one face only is still caught",
-        collect(SYNTH_FIXTURE, ledger, adr, design_system.replace("9.777", "9.778")),
+        lambda: collect(
+            SYNTH_FIXTURE,
+            ledger,
+            adr,
+            design_system.replace("9.777", "9.778"),
+            SYNTH_ADR_OMITS,
+        ),
         [
             "design-system §8 span: the span reads 9.111–9.778, but the pinned "
             "grounds run 9.111–9.777."
         ],
+    )
+    # Face identity. With the two synthetic faces byte-identical, repointing the
+    # ADR comparison at the ledger's own section left the suite green — there was
+    # nothing to tell the faces apart. These two arms pin the label on a mutation
+    # that only the ADR text carries.
+    expect(
+        "compare: a figure stale in the ADR wash table only is labelled as the ADR's",
+        lambda: collect(
+            SYNTH_FIXTURE,
+            ledger,
+            adr.replace("| 8.100 | 8.200 |", "| 8.101 | 8.200 |"),
+            design_system,
+            SYNTH_ADR_OMITS,
+        ),
+        [
+            "ADR-028 § Amendment 2026-08-15: `AlphaSite` light reads 8.101–8.101, "
+            "the fixture computes 8.100–8.100."
+        ],
+    )
+    expect(
+        "compare: a span stale in the ADR only is labelled as the ADR's",
+        lambda: collect(
+            SYNTH_FIXTURE,
+            ledger,
+            synth_adr(span=SYNTH_SPAN_BLOCK.replace("9.777", "9.778")),
+            design_system,
+            SYNTH_ADR_OMITS,
+        ),
+        [
+            "ADR-028 § Amendment 2026-08-13 span: the span reads 9.111–9.778, but "
+            "the pinned grounds run 9.111–9.777."
+        ],
+    )
+
+    # --- properties the arms above depend on ---------------------------------
+
+    # `SYNTH_DECOY_RANGE` is wave-dash separated, like the real `design-system.md`
+    # §8 span. Narrow `RANGE` to `[–—]` and the decoy silently stops being a
+    # control — with no arm here, the suite stayed green through that narrowing.
+    expect(
+        "range: a wave-dash span is read",
+        lambda: span_in(
+            ledger_section(
+                r"^### 3\.1", ledger.replace("**9.111–9.777**", "**9.111〜9.777**")
+            ),
+            "ledger §3.1 span",
+        ),
+        ("9.111", "9.777"),
+    )
+    # `canonical` exists so `2.3` and `2.300` agree; every other fixture writes
+    # three digits on both sides, so without this arm it is only ever identity.
+    expect(
+        "canonical: a doc cell at fewer digits still matches a three-digit pin",
+        lambda: ledger_opaque_rows(
+            ledger_section(r"^### 3\.1", ledger.replace("| 9.111 ←", "| 9.11 ←")),
+            "ledger §3.1",
+        ),
+        {"alphaGround": "9.110", "betaGround": "9.777"},
+    )
+    # A pin written as an integer literal is legal Swift for a `Double`. Unmatched,
+    # the row vanished from the extracted dict and the gate blamed the DOC —
+    # the inverted diagnosis, sending the author to edit the file that did not change.
+    expect(
+        "fixture: an integer pin literal is read, not dropped",
+        lambda: fixture_ratio_pins(SYNTH_FIXTURE.replace('("betaGround", 9.777)', '("betaGround", 9)')),
+        {"alphaGround": "9.111", "betaGround": "9.000"},
+    )
+
+    # --- cardinality guards --------------------------------------------------
+    #
+    # Both keys are lossy — a ground name straight from the cell, a site key
+    # truncated to its leading identifier — so a repeat OVERWRITES and the earlier
+    # row's figures are never compared. The bijections downstream are set-based
+    # and structurally cannot see a multiset defect.
+
+    expect_raises(
+        "ledger §3.1: a repeated ground name would silently overwrite",
+        "a ground name is repeated",
+        lambda: ledger_opaque_rows(
+            ledger_section(
+                r"^### 3\.1",
+                ledger.replace(
+                    "| `alphaGround` | 9.111 ← the calibration point | `betaGround` | **9.777** |\n",
+                    "| `alphaGround` | 1.111 | `betaGround` | 2.222 |\n"
+                    "| `alphaGround` | 9.111 ← the calibration point | `betaGround` | **9.777** |\n",
+                ),
+            ),
+            "ledger §3.1",
+        ),
+    )
+    expect_raises(
+        "ledger §3.2: two rows on the same view collapse onto one site key",
+        "collapsed onto",
+        lambda: wash_table_rows(
+            ledger_section(
+                r"^### 3\.2",
+                ledger.replace(
+                    "| `BetaSite` chip |",
+                    "| `AlphaSite.completed` | `z@0.2` over a ground | 1.000 | 1.000 |\n"
+                    "| `BetaSite` chip |",
+                ),
+            ),
+            "ledger §3.2",
+        ),
+    )
+    expect_raises(
+        "ledger §3.1: an inserted column shifts the ratio cells",
+        "cells, expected 4",
+        lambda: ledger_opaque_rows(
+            ledger_section(
+                r"^### 3\.1",
+                ledger.replace("| `alphaGround` | 9.111 ←", "| note | `alphaGround` | 9.111 ←"),
+            ),
+            "ledger §3.1",
+        ),
+    )
+    expect_raises(
+        "ledger §3.2: an inserted column shifts the light/dark cells",
+        "cells, expected 4",
+        lambda: wash_table_rows(
+            ledger_section(
+                r"^### 3\.2",
+                ledger.replace("| `AlphaSite.pill(.pending)` |", "| note | `AlphaSite.pill(.pending)` |"),
+            ),
+            "ledger §3.2",
+        ),
     )
 
     if failures:

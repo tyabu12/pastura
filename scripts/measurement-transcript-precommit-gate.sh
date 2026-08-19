@@ -33,7 +33,18 @@ cd "$ROOT"
 
 TRIGGER='(^docs/design/muted-application-audit\.md$)|(^docs/design/design-system\.md$)|(^docs/decisions/ADR-028\.md$)|(^Pastura/PasturaTests/Views/DesignTokensTests\+MutedAsContent\.swift$)|(^scripts/check-measurement-transcripts\.py$)'
 
-if ! git diff --cached --name-only | grep -qE "$TRIGGER"; then
+# NOT `git diff --cached --name-only | grep -qE`, which fails OPEN under the
+# `pipefail` above. `-q` makes grep exit at the first match; the producer then
+# dies on SIGPIPE (141), `pipefail` promotes that to the pipeline status, and
+# the gate skips a changeset that DID match. Needs a staged list bigger than the
+# pipe buffer, so it is rare — but it is silent and in the wrong direction.
+# Dropping `-q` is the fix, not capturing first: `printf "$staged" | grep -q`
+# SIGPIPEs identically (measured both, with a no-match control, #1488). Without
+# `-q` grep consumes all input, so nothing can die early.
+# The same shape is in 13 sibling gates and is left to one sweep — see #1497.
+STAGED="$(git diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | grep -E "$TRIGGER" || true)"
+if [ -z "$MATCHED" ]; then
   exit 0
 fi
 

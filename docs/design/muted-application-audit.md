@@ -166,7 +166,8 @@ runs **2.136–4.152** across them, against §8's single stated calibration of
 These figures are computed by the fixture and pinned there as
 `opaqueGroundPins`, which the fixture compares against what it recomputes.
 `scripts/check-measurement-transcripts.py` holds this table equal to those pins
-— edit the table alone and it goes red (#1488). §8 has the procedure.
+— edit the table alone and it goes red (#1488). §8 **of this ledger** has the
+procedure; the two `§8`s in the paragraph above are design-system.md's.
 
 ### 3.2 Composited grounds — measured, and separately from the twelve
 
@@ -549,8 +550,17 @@ ready-to-paste pin literal; paste those into the fixture, then carry the same
 three-digit figures here. The `--check` run names each doc face still
 disagreeing, ADR-028's copy included, and stays red until they all agree.
 
-Two things it does **not** do. It never tells you a row's *site* is wrong — §3.2
-files its own corrections under «beyond the arithmetic, all from reading the
-sites rather than the table», and no pin would have caught one of them — and it
-reads only the anchored tables, so §5's per-site ratio column, `ds/*.html`, and
-the fixture's own doc-comment prose stay hand-kept.
+Two things it does **not** do.
+
+It never tells you a row's *site* is wrong — §3.2 files its own corrections under
+«beyond the arithmetic, all from reading the sites rather than the table», and no
+pin would have caught one of them.
+
+And it reads only the anchored **tables and span blocks**, so a figure restated
+anywhere else stays hand-kept: §5's per-site ratio column, prose restatements of
+a single figure (ADR-028's own decision-summary table row among them), this
+ledger's §1.1 / §2.1 / §6.2, the fixture's doc-comment prose, and two further
+test files plus one production doc comment. That list is measured, not recalled —
+#1496 carries the enumeration and the command that reproduces it. `ds/*.html` is
+**not** on it: it does carry three-decimal ratios, but of a different population
+(ground-vs-ground contrast, per-channel pair gaps), none a copy of these pins.

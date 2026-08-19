@@ -69,7 +69,7 @@ expect() {
   fi
 }
 
-# --- Fires: the five files the checker reads, plus the checker itself. ---
+# --- Fires: the four files the checker reads, plus the checker itself. ---
 expect "muted-application-audit.md fires" \
   "$(run_case audit docs/design/muted-application-audit.md)" fired
 expect "design-system.md fires" \
@@ -112,6 +112,11 @@ expect "TestsMutedAsContent locks plus escape, skips" \
 # .bak backup would still match.
 expect "muted-application-audit.md.bak locks trailing anchor, skips" \
   "$(run_case trailinganchor docs/design/muted-application-audit.md.bak)" skipped
+# Locks the leading `^` anchor — without it a vendored or nested copy under
+# another prefix would match. Over-trigger only, so lower stakes than the
+# others, but it was the one regex feature with no control.
+expect "a nested copy locks the leading anchor, skips" \
+  "$(run_case leadinganchor web/docs/design/design-system.md)" skipped
 
 if [ "$fail" -eq 0 ]; then
   echo "measurement-transcript-gate: all cases passed"
