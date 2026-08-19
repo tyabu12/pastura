@@ -150,7 +150,7 @@ anything.
 
 ### 3.1 The twelve opaque grounds
 
-Pinned by `DesignTokensTests+MutedAsContent`; §8 carries the same span. `muted`
+Pinned by `DesignTokensTests+MutedTranscript`; §8 carries the same span. `muted`
 runs **2.136–4.152** across them, against §8's single stated calibration of
 ≈3.3:1 on `screenBackground`.
 
@@ -163,8 +163,9 @@ runs **2.136–4.152** across them, against §8's single stated calibration of
 | `whisperBubble` | 2.953 | `nightWhisperBubble` | 2.783 |
 | `mossSoft` | **2.136** ← worst | `nightMossSoft` | 2.413 |
 
-These figures are computed by the fixture and pinned there as
-`opaqueGroundPins`, which the fixture compares against what it recomputes.
+These figures are computed by `DesignTokensTests+MutedAsContent` and pinned in
+its sibling `DesignTokensTests+MutedTranscript` as `opaqueGroundPins`, which an
+arm there compares against what the first file recomputes.
 `scripts/check-measurement-transcripts.py` holds this table equal to those pins
 — edit the table alone and it goes red (#1488). §8 **of this ledger** has the
 procedure. Every other `§8` above — in the intro paragraph and in the table's own
@@ -190,7 +191,8 @@ neither, and was wrong three ways; the record is at ADR-028 § Amendment
 | `ReportSheet` meta chip | `rule@0.45` over an unknown ground — see below | 2.300–3.018 | 2.520–3.503 |
 | `HighlightShareCard` model name | `moss@0.14` / `nightMoss@0.10` light leak over the card background — bound at maximum leak | 2.932 | 3.140 |
 
-These figures are computed by the fixture and pinned there as `washRowPins`.
+These figures are computed by `DesignTokensTests+MutedAsContent` and pinned in
+its sibling `DesignTokensTests+MutedTranscript` as `washRowPins`.
 `scripts/check-measurement-transcripts.py` holds this table equal to those pins,
 and holds ADR-028 § Amendment 2026-08-15's four-row copy to them as well
 (#1488). Until then the transcript claim above this table was only a claim: the
@@ -557,11 +559,22 @@ It never tells you a row's *site* is wrong — §3.2 files its own corrections u
 «beyond the arithmetic, all from reading the sites rather than the table», and no
 pin would have caught one of them.
 
-And it reads only the anchored **tables and span blocks**, so a figure restated
-anywhere else stays hand-kept: §5's per-site ratio column, prose restatements of
-a single figure (ADR-028's own decision-summary table row among them), this
-ledger's §1.1 / §2.1 / §6.2, the fixture's doc-comment prose, and two further
-test files plus one production doc comment. That list is measured, not recalled —
-#1496 carries the enumeration and the command that reproduces it. `ds/*.html` is
-**not** on it: it does carry three-decimal ratios, but of a different population
+And it reads **blocks, not sections** — the anchored tables (§3.1, §3.2, §5's
+site tables, ADR-028's copy) and, per span section, the one block that names the
+fixture. **A section this gate reads is not the same as prose this gate reads**,
+and mistaking the two is how an enumeration under-reports: ADR-028's span
+amendment and `design-system.md` §8 each restate a figure in running prose a few
+lines from a block that *is* read. So a figure restated outside a block stays
+hand-kept — prose in both English doc faces, this ledger's §1.1 / §2.1 / §6.2,
+the fixture's own doc comments, two further test files and one production doc
+comment. That list is measured at block granularity, not recalled — #1496 carries
+the command that reproduces it and the current count. `ds/*.html` is **not** on
+it: it does carry three-decimal ratios, but of a different population
 (ground-vs-ground contrast, per-channel pair gaps), none a copy of these pins.
+
+§5 is the one face that moved from that list into the gate: its per-site
+`light/dark` column is now checked for **membership** — every figure there must
+be one the fixture computes somewhere. Not a bijection, because §5 quantifies
+its ground freely ("`screenBackground` or `bubbleBackground`", "same", "worst")
+and deciding which pin a row *ought* to carry is a judgment; #1496 holds that
+question. So a row carrying another row's value still passes.

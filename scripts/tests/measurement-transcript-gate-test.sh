@@ -69,17 +69,26 @@ expect() {
   fi
 }
 
-# --- Fires: the four files the checker reads, plus the checker itself. ---
+# --- Fires: every file the checker reads, plus the checker itself. ---
 expect "muted-application-audit.md fires" \
   "$(run_case audit docs/design/muted-application-audit.md)" fired
 expect "design-system.md fires" \
   "$(run_case designsys docs/design/design-system.md)" fired
 expect "ADR-028.md fires" \
   "$(run_case adr028 docs/decisions/ADR-028.md)" fired
-expect "DesignTokensTests+MutedAsContent.swift fires" \
-  "$(run_case fixture Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift)" fired
+expect "DesignTokensTests+MutedTranscript.swift fires" \
+  "$(run_case fixture Pastura/PasturaTests/Views/DesignTokensTests+MutedTranscript.swift)" fired
 expect "checker script fires" \
   "$(run_case checker scripts/check-measurement-transcripts.py)" fired
+# The gate script itself: the checker reads it (--self-test asserts this very
+# regex covers every path the checker reads), so editing it must re-run both.
+expect "the gate script itself fires" \
+  "$(run_case gate scripts/measurement-transcript-precommit-gate.sh)" fired
+# The COMPUTING sibling deliberately does NOT fire: the checker never reads it.
+# Its figures reach the docs only through the pins, and a change there is caught
+# by the fixture arm under xcodebuild, not by this gate.
+expect "the computing sibling MutedAsContent skips" \
+  "$(run_case ascontent Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift)" skipped
 
 # --- Skips: each locks a specific escape in the TRIGGER regex. ---
 
@@ -89,7 +98,7 @@ expect "unrelated README skips" \
 # Sibling ADR — the ADR-028 alternative must not swallow neighbors.
 expect "sibling ADR-029 skips" \
   "$(run_case adr029 docs/decisions/ADR-029.md)" skipped
-# Sibling fixture in the same directory — the +MutedAsContent suffix must
+# Sibling fixture in the same directory — the +MutedTranscript suffix must
 # be exact, not a prefix match.
 expect "sibling fixture NightPalette skips" \
   "$(run_case nightpalette Pastura/PasturaTests/Views/DesignTokensTests+NightPalette.swift)" skipped
@@ -138,7 +147,7 @@ sigpipe_case() {
     git config user.email test@example.com
     git config user.name test
     mkdir -p Pastura/PasturaTests/Views zzz-filler
-    : > "Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift"
+    : > "Pastura/PasturaTests/Views/DesignTokensTests+MutedTranscript.swift"
     i=0
     while [ "$i" -lt 2500 ]; do
       : > "zzz-filler/padding-file-with-a-fairly-long-name-$i.txt"

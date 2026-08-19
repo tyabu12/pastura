@@ -11,10 +11,11 @@
 # copy of the wash table and three copies of the twelve-ground span all restate
 # figures the fixture computes. None of it was checked — every `#expect` in
 # `DesignTokensTests+MutedAsContent` was an inequality or an ordering, so the
-# fixture named no figure to transcribe FROM. #1488 adds the pins; this gate is
-# what makes them reach the docs.
+# fixture named no figure to transcribe FROM. #1488 adds the pins (in the sibling
+# `DesignTokensTests+MutedTranscript`); this gate is what makes them reach the
+# docs.
 #
-# Trigger scope is the four files the checker reads plus the checker itself — a
+# Trigger scope is every file the checker reads, plus the checker itself — a
 # commit touching none of them cannot move any of these figures, so it skips.
 # CI keeps its own copy (defense in depth).
 #
@@ -31,7 +32,11 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-TRIGGER='(^docs/design/muted-application-audit\.md$)|(^docs/design/design-system\.md$)|(^docs/decisions/ADR-028\.md$)|(^Pastura/PasturaTests/Views/DesignTokensTests\+MutedAsContent\.swift$)|(^scripts/check-measurement-transcripts\.py$)'
+# The checker asserts, in `--self-test`, that every path it reads matches this
+# regex — including this file, which it reads for exactly that arm. Two lists
+# DO exist (this one and the checker's `*_PATH` constants); what keeps them
+# together is that arm, not the fact that the regex is written once.
+TRIGGER='(^docs/design/muted-application-audit\.md$)|(^docs/design/design-system\.md$)|(^docs/decisions/ADR-028\.md$)|(^Pastura/PasturaTests/Views/DesignTokensTests\+MutedTranscript\.swift$)|(^scripts/check-measurement-transcripts\.py$)|(^scripts/measurement-transcript-precommit-gate\.sh$)'
 
 # NOT `git diff --cached --name-only | grep -qE`, which fails OPEN under the
 # `pipefail` above. `-q` makes grep exit at the first match; the producer then

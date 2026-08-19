@@ -1075,7 +1075,7 @@ jobs:
       # Measurement transcript check (#1488) — the muted ledger's §3.1/§3.2
       # tables, ADR-028's four-row copy of the wash table and three copies of
       # the twelve-ground span all restate figures `DesignTokensTests+
-      # MutedAsContent` computes, and nothing compared them. Self-test first
+      # MutedTranscript` pins, and nothing compared them. Self-test first
       # (every anchor arm asserts WHICH anchor fired, plus the extraction and
       # comparison arms), then the real four faces. Unconditional for the same
       # reason as the steps above (`.claude/rules/ci-workflows.md`

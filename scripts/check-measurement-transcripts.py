@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 r"""Guard: the contrast figures `docs/**` transcribes and the ones
-`DesignTokensTests+MutedAsContent` pins are the **same numbers** (#1488).
+`DesignTokensTests+MutedTranscript` pins are the **same numbers** (#1488).
 
 Three doc faces copy figures the fixture computes, and before #1488 nothing
 compared them:
@@ -18,16 +18,29 @@ named a figure at all and there was nothing to transcribe *from*. #1488 adds the
 pins; this gate is what makes them reach the docs.
 
 **Why not the mechanism #1488's issue body proposed.** That issue proposed a
-tree-wide exact-match grep for high-precision literals. Measured, most of its
-firings are structure the repo mandates — `ds/README.md` orders `ds/*.html` to
-mirror `design-system.md`, and ADR-028 § "Where new amendment content goes"
-orders measurements into an amendment — so the gate would fire forever on
-correct text. Worse, it catches **none** of the three defects the issue itself
-records from PR #1486 (a quantized script, a ground read off a token name, two
-rows carrying no `muted` text): not one of those is a duplicate, and ADR-028
-§ "A count mirror that a count-keyed sweep structurally cannot find" already
-records that a value-keyed sweep hits only the copies that are still in sync.
-This gate instead makes the docs' *self-declared* canonical source real.
+tree-wide exact-match grep for high-precision literals. It is **not** rejected
+for missing the issue's evidence — measured, every wash figure that issue's
+Summary names sits on two doc faces today, so that grep fires on all of them.
+(No figure is quoted here on purpose: this file is the one arguing against
+hand-copied literals. Reproduce with the issue's own `git grep -lF` over
+`docs/**`.) It is rejected because firing is not the goal and this one cannot
+stop:
+most of its firings are structure the repo *mandates* — `ds/README.md` orders
+`ds/*.html` to mirror `design-system.md`, and ADR-028 § "Where new amendment
+content goes" orders measurements into an amendment — so a duplicate-detector
+stays red on correct text forever, and it cannot tell a **checked** transcript
+from an unchecked copy, which is the distinction #1488's goal ("one canonical
+site, the rest pointers") actually turns on.
+
+Two coverage facts fall out of that, in opposite directions. A value-keyed
+sweep hits only copies still in **sync** — ADR-028 § "A count mirror that a
+count-keyed sweep structurally cannot find" already records it — so it goes
+quiet on exactly the rotted copy it was wanted for; the three PR #1486 defects
+the issue's rebuttal records (a quantized script, a ground read off a token
+name, two rows carrying no `muted` text) are of that kind, none a duplicate.
+Conversely this gate checks a figure printed on a **single** face, which no
+duplicate-detector can see at all. So the two are not the same instrument aimed
+differently.
 
 **No colour arithmetic lives here.** `design-system.md` §8 warns that a
 hand-rolled script quantizing channels to 0–255 diverges from the fixture, and
@@ -41,14 +54,18 @@ read off the view hierarchy is correct. §3.2 files its own corrections under
 "beyond the arithmetic, all from reading the sites rather than the table", and a
 pin would have caught none of them. Green means the numbers agree, no more.
 
-It also reads only the **anchored tables and span blocks**, so a figure restated
-anywhere else is unchecked. Enumerated rather than recalled (#1496 carries the
-measurement): the ledger §5 per-site ratio column, prose restatements of a single
-figure — including ADR-028's own decision-summary table row — the fixture's
-doc-comment prose, and two other test files plus one production doc comment.
-`ds/*.html` is **not** on that list: it carries three-decimal ratios, but of a
-different population (ground-vs-ground contrast and per-channel pair gaps), none
-of them a copy of these pins.
+It reads **blocks, not sections** — the anchored tables, the ledger §5 site
+tables, and the one block per span section that names the fixture. **A guarded
+section is not guarded prose**, and that distinction is where an enumeration
+goes wrong: subtracting whole sections from the tree-wide hits under-reports,
+because ADR-028's span amendment and design-system §8 both restate figures in
+running prose a few lines from a block this gate does read. Enumerated at block
+granularity rather than recalled — #1496 carries the command and the current
+count — the residue is prose in both English doc faces, the fixture's own doc
+comments, two further test files, and one production doc comment. `ds/*.html` is
+**not** on that list: it carries three-decimal ratios, but of a different
+population (ground-vs-ground contrast and per-channel pair gaps), none of them a
+copy of these pins.
 
 Anchors. Every one is asserted rather than allowed to degrade — a renumbered
 heading, a renamed declaration, a table whose header row changed, an
@@ -56,9 +73,10 @@ heading, a renamed declaration, a table whose header row changed, an
 collapsing into an empty-vs-empty "equal" pass.
 
 The span sentence is anchored **structurally, not by its value**: within the
-section, the logical block that names `DesignTokensTests+MutedAsContent` is the
+section, the logical block that names `DesignTokensTests+MutedTranscript` is the
 one that claims the fixture pins the twelve, and the span literal is read out of
-it. Searching for `2.136` would find what it was told to find and prove nothing.
+it. Searching for the span's own low end would find what it was told to find
+and prove nothing.
 
 Directions differ by face, deliberately:
 
@@ -70,7 +88,10 @@ Directions differ by face, deliberately:
   ADR row must match a pin; a pin with no ADR row is correct.
 
 Trigger paths live in `scripts/measurement-transcript-precommit-gate.sh`, which
-is what self-gates on them — one copy, so the two cannot drift.
+is what self-gates on them. That regex and this module's `*_PATH` constants are
+**two lists, and they can drift** — a file added here and not there is a silent
+local skip. `--self-test` asserts `INPUT_PATHS` is covered by that regex, with a
+decoy arm dropping one alternative so the positive arm cannot pass vacuously.
 
 Usage:
     python3 scripts/check-measurement-transcripts.py --self-test
@@ -87,16 +108,35 @@ from pathlib import Path
 # Repo-relative for display; `_read` resolves against the repo root so a run from
 # a subdirectory reads the right files instead of raising.
 REPO_ROOT = Path(__file__).resolve().parent.parent
-FIXTURE_PATH = Path("Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift")
+FIXTURE_PATH = Path("Pastura/PasturaTests/Views/DesignTokensTests+MutedTranscript.swift")
 LEDGER_PATH = Path("docs/design/muted-application-audit.md")
 ADR_PATH = Path("docs/decisions/ADR-028.md")
 DESIGN_SYSTEM_PATH = Path("docs/design/design-system.md")
+GATE_PATH = Path("scripts/measurement-transcript-precommit-gate.sh")
+CHECKER_PATH = Path("scripts/check-measurement-transcripts.py")
 
-FIXTURE_NAME = "DesignTokensTests+MutedAsContent"
+# Every path this module reads. The pre-commit gate decides whether to run at
+# all from its own `TRIGGER` regex, which is a SECOND list — `--self-test`
+# asserts this one is a subset of what that regex matches, because a path
+# present here and absent there is a silent skip rather than a red run.
+INPUT_PATHS = (
+    FIXTURE_PATH,
+    LEDGER_PATH,
+    ADR_PATH,
+    DESIGN_SYSTEM_PATH,
+    GATE_PATH,
+    CHECKER_PATH,
+)
+
+GATE_TRIGGER_LINE = re.compile(r"^TRIGGER='(?P<pattern>.+)'$", re.MULTILINE)
+
+FIXTURE_NAME = "DesignTokensTests+MutedTranscript"
 
 OPAQUE_DECL = "private static let opaqueGroundPins"
 WASH_DECL = "private static let washRowPins"
-# `("name", 3.329)` — the shared shape of the ratio-keyed pin arrays.
+# `("name", 1.234)` — the shared shape of the ratio-keyed pin arrays. The value
+# here is a placeholder on purpose: a real pinned figure written into this file
+# would be one more hand-kept copy, which is the thing it exists to stop.
 SWIFT_RATIO_PIN = re.compile(r'\(\s*"([^"]+)"\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*\)')
 SWIFT_WASH_PIN = re.compile(
     r'WashRowPin\(\s*site:\s*"([^"]+)"\s*,\s*'
@@ -152,6 +192,16 @@ DESIGN_SYSTEM_8 = re.compile(r"^## 8\.")
 # missing.
 ADR_OMITS = frozenset({"HighlightShareCard"})
 
+LEDGER_5 = re.compile(r"^## 5\. ")
+LEDGER_5_TABLE = re.compile(r"^\|\s*Site \(file · symbol\)\s*\|")
+# The `light/dark` column, 0-indexed, of the §5 site tables.
+LEDGER_5_RATIO_CELL = 2
+LEDGER_5_CELLS = 5
+# Three-digit precision, for deciding whether a §5 table carries *ratios* at all.
+# Plain `DECIMAL` is too loose here: the `Tally` table's "WCAG 1.4.11" yields
+# `1.4` and would make that table look like an unchecked ratio table.
+RATIO3 = re.compile(r"\b[0-9]+\.[0-9]{3}\b")
+
 
 class AnchorError(Exception):
     """An extraction anchor stopped matching — the gate cannot judge."""
@@ -178,8 +228,37 @@ def _read(path: Path) -> str:
         ) from exc
 
 
+def gate_trigger(text: str) -> str:
+    """The gate's `TRIGGER` regex, or `AnchorError` if it stopped being findable.
+
+    Anchored on the assignment line rather than on any path inside it: searching
+    for a path would find what it was told to find, which is the thing under
+    test here.
+    """
+    match = GATE_TRIGGER_LINE.search(text)
+    if match is None:
+        raise AnchorError(
+            f"{GATE_PATH}: no `TRIGGER='...'` assignment on a line of its own. "
+            "That assignment is what this checker reads to confirm every file it "
+            "reads also fires the gate; re-anchor it or this coverage arm is "
+            "measuring nothing."
+        )
+    return match.group("pattern")
+
+
+def uncovered_inputs(trigger: str) -> list[str]:
+    """Input paths the gate's `TRIGGER` does NOT match.
+
+    Non-empty means editing that file skips the gate locally — the failure is
+    silent and in the permissive direction, which is why it is asserted rather
+    than left to the docstring's word.
+    """
+    pattern = re.compile(trigger)
+    return [str(path) for path in INPUT_PATHS if not pattern.search(str(path))]
+
+
 def canonical(value: str) -> str:
-    """A decimal at the docs' printed precision, so `2.3` and `2.300` agree."""
+    """A decimal at the docs' printed precision, so `1.2` and `1.200` agree."""
     return f"{float(value):.3f}"
 
 
@@ -325,7 +404,7 @@ def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
     """§3.1's twelve grounds as `{ground name: ratio}`.
 
     Each row carries a light pair and a dark pair, and the ratio cells carry
-    annotations (`← §8's calibration point`, `**2.136**`), so the first decimal
+    annotations (`← §8's calibration point`, `**1.234**`), so the first decimal
     in the cell is the figure and the rest is prose.
     """
     rows = table_rows(lines, OPAQUE_TABLE_HEADER, where)
@@ -436,6 +515,87 @@ def span_in(lines: list[str], where: str) -> tuple[str, str]:
 
 
 # --- comparison -------------------------------------------------------------
+
+
+def ledger_site_ratios(lines: list[str], where: str) -> list[tuple[str, str]]:
+    """Every decimal in the §5 site tables' `light/dark` column, with its row label.
+
+    §5 spans five sub-tables, so this walks all of them rather than reusing
+    `table_rows`, which stops at the first. Two anchors, both raising:
+
+    * a table inside §5 that carries decimals but whose header row does **not**
+      match — a renamed or reordered column would otherwise drop that whole
+      sub-table out of the comparison while the run stayed green. The `Tally`
+      table is exempt by carrying no decimals, which is a property of the text
+      rather than a name this checker has to keep in sync.
+    * an empty extraction, so an emptied §5 cannot pass by agreeing with nothing.
+    """
+    found: list[tuple[str, str]] = []
+    unmatched: list[str] = []
+    i = 0
+    while i < len(lines):
+        if not lines[i].strip().startswith("|"):
+            i += 1
+            continue
+        header = lines[i]
+        body: list[str] = []
+        i += 1
+        while i < len(lines) and lines[i].strip().startswith("|"):
+            body.append(lines[i])
+            i += 1
+        decimals_here = any(RATIO3.search(row) for row in body)
+        if not LEDGER_5_TABLE.match(header.strip()):
+            if decimals_here:
+                unmatched.append(header.strip()[:60])
+            continue
+        for row in body:
+            cells = [cell.strip() for cell in row.strip().strip("|").split("|")]
+            if all(set(cell) <= set("-: ") for cell in cells):
+                continue
+            if len(cells) != LEDGER_5_CELLS:
+                raise AnchorError(
+                    f"{where}: a row has {len(cells)} cells, expected {LEDGER_5_CELLS} — "
+                    f"a column was inserted or removed: {row.strip()[:60]}"
+                )
+            label = cells[0]
+            for value in DECIMAL.findall(cells[LEDGER_5_RATIO_CELL]):
+                found.append((label, canonical(value)))
+    if unmatched:
+        raise AnchorError(
+            f"{where}: {len(unmatched)} table(s) carry ratios but their header row no "
+            f"longer matches, so they would go unchecked: {unmatched}"
+        )
+    if not found:
+        raise AnchorError(
+            f"{where}: no ratio cell yielded a decimal — the column moved, or the "
+            "tables did. An empty extraction must not agree with an empty pin set."
+        )
+    return found
+
+
+def compare_membership(
+    found: list[tuple[str, str]], pool: set[str], where: str
+) -> list[str]:
+    """Every §5 ratio must be one the fixture computes somewhere.
+
+    **Membership, not a bijection, and that is the whole claim.** §5 names a
+    ground per row but quantifies freely ("`screenBackground` or
+    `bubbleBackground`", "same", "worst"), so deciding which pin each row *ought*
+    to carry is a judgment rather than a rule — #1496 holds that question open.
+    Membership needs no such rule and still catches the failure this file exists
+    for: a figure hand-carried into §5 that no longer matches anything the
+    fixture computes. It does not catch a row carrying the *wrong* pin's value,
+    and that gap is why #1496 stays open rather than being closed by this arm.
+    """
+    problems = []
+    for label, value in sorted(set(found)):
+        if value not in pool:
+            problems.append(
+                f"{where}: `{label}` reads {value}, which is not any figure the fixture "
+                "pins — a ground was retuned and this row was not re-recorded, or the row "
+                "names a ratio nothing computes."
+            )
+    return problems
 
 
 def compare_ratios(doc: dict[str, str], pins: dict[str, str], where: str) -> list[str]:
@@ -555,6 +715,16 @@ def collect(
         (adr_span, "ADR-028 § Amendment 2026-08-13 span"),
     ):
         problems += compare_span(span_in(lines, where), ratio_pins, where)
+
+    # §5's per-site column, checked only for membership — see `compare_membership`
+    # for why the direction is weaker here than on the other faces.
+    pool = set(ratio_pins.values())
+    for light, dark in wash_pins.values():
+        pool |= {light[0], light[1], dark[0], dark[1]}
+    ledger_5 = section(ledger, LEDGER_5, NEXT_SECTION, "ledger §5")
+    problems += compare_membership(
+        ledger_site_ratios(ledger_5, "ledger §5"), pool, "ledger §5"
+    )
     return problems
 
 
@@ -582,7 +752,7 @@ def check() -> int:
         for problem in problems:
             print(f"  {problem}", file=sys.stderr)
         return 1
-    print("measurement-transcript gate: clean (4 faces mirrored)")
+    print("measurement-transcript gate: clean (4 faces mirrored, ledger §5 in the pins' range)")
     return 0
 
 
@@ -613,7 +783,7 @@ extension DesignTokensTests {
 """
 
 SYNTH_SPAN_BLOCK = (
-    "Pinned by `DesignTokensTests+MutedAsContent`; §8 carries the same span.\n"
+    f"Pinned by `{FIXTURE_NAME}`; §8 carries the same span.\n"
     "`muted` runs **9.111–9.777** across them.\n"
 )
 
@@ -652,7 +822,35 @@ SYNTH_WASH_TABLE = (
 )
 
 
-def synth_ledger(opaque: str = SYNTH_OPAQUE_TABLE, wash: str = SYNTH_WASH_TABLE) -> str:
+# §5's site tables. Two of them, because §5 really is several sub-tables and a
+# single-table fixture cannot witness the walk continuing past the first. The
+# `Tally` table carries no three-digit ratio and is therefore exempt
+# *structurally* — its "WCAG 1.4.11" is the reason the exemption tests
+# three-digit precision rather than `DECIMAL`, which that string satisfies.
+SYNTH_LEDGER_5_HEADER = (
+    "| Site (file · symbol) | Ground | light/dark | Verdict | B |\n|---|---|---|---|---|\n"
+)
+
+SYNTH_LEDGER_5_TABLES = (
+    "### Components\n\n"
+    + SYNTH_LEDGER_5_HEADER
+    + "| `AlphaView` · caption | `alphaGround` | 9.111 / 9.777 | S | — |\n"
+    "| `AlphaView` · comment | — | — | C | — |\n\n"
+    "### Results\n\n"
+    + SYNTH_LEDGER_5_HEADER
+    + "| `BetaView` · pill | `x@0.14` | 8.100 / 8.200 | **M (A4)** | B2 |\n"
+    "| `BetaView` · timestamp | same | same | S | — |\n\n"
+    "### Tally\n\n"
+    "| | count |\n|---|---|\n"
+    "| — non-text (WCAG 1.4.11, out of §8's scope) | 16 |\n"
+)
+
+
+def synth_ledger(
+    opaque: str = SYNTH_OPAQUE_TABLE,
+    wash: str = SYNTH_WASH_TABLE,
+    ledger_5: str = SYNTH_LEDGER_5_TABLES,
+) -> str:
     return (
         "## 3. Grounds\n\n"
         "### 3.1 The twelve opaque grounds\n\n" + SYNTH_SPAN_BLOCK + "\n" + opaque + "\n"
@@ -660,9 +858,12 @@ def synth_ledger(opaque: str = SYNTH_OPAQUE_TABLE, wash: str = SYNTH_WASH_TABLE)
         # it to `^#{2,3} ` and §3.1's slice runs on into this block, which names
         # the fixture and states a different span, so `span_in` reddens.
         "#### A later note\n\n"
-        "`DesignTokensTests+MutedAsContent` once ran 5.111–5.777 here.\n\n"
+        f"`{FIXTURE_NAME}` once ran 5.111–5.777 here.\n\n"
         "### 3.2 Composited grounds\n\n" + wash + "\n"
-        "### 3.3 Grounds that are not computable\n\nprose\n"
+        "### 3.3 Grounds that are not computable\n\nprose\n\n"
+        "## 4. Recorded refusal\n\nprose\n\n"
+        "## 5. The ledger\n\n" + ledger_5 + "\n"
+        "## 6. Decisions\n\nprose\n"
     )
 
 
@@ -1140,7 +1341,7 @@ def self_test() -> int:
         ),
         ("9.111", "9.777"),
     )
-    # `canonical` exists so `2.3` and `2.300` agree; every other fixture writes
+    # `canonical` exists so `1.2` and `1.200` agree; every other fixture writes
     # three digits on both sides, so without this arm it is only ever identity.
     expect(
         "canonical: a doc cell at fewer digits still matches a three-digit pin",
@@ -1217,6 +1418,149 @@ def self_test() -> int:
             ),
             "ledger §3.2",
         ),
+    )
+
+    # --- ledger §5 membership (#1488) -----------------------------------
+    def ledger_5_of(text: str) -> list[str]:
+        return section(text, LEDGER_5, NEXT_SECTION, "ledger §5")
+
+    synth_pool = {"9.111", "9.777", "8.100", "8.200", "8.300", "8.400", "8.500", "8.600"}
+
+    # Exact pairs, not a count: the second table's rows are what prove the walk
+    # does not stop at the first table the way `table_rows` does.
+    expect(
+        "ledger §5: every site table's ratio column is read, across sub-tables",
+        lambda: ledger_site_ratios(ledger_5_of(ledger), "ledger §5"),
+        [
+            ("`AlphaView` · caption", "9.111"),
+            ("`AlphaView` · caption", "9.777"),
+            ("`BetaView` · pill", "8.100"),
+            ("`BetaView` · pill", "8.200"),
+        ],
+    )
+    expect(
+        "ledger §5: a clean ledger reports nothing",
+        lambda: compare_membership(
+            ledger_site_ratios(ledger_5_of(ledger), "ledger §5"), synth_pool, "ledger §5"
+        ),
+        [],
+    )
+    def unpinned_report() -> tuple[int, bool, bool, bool]:
+        """Count, plus which row and value the one message names.
+
+        A bare count would pass off any message; the flags are what tie the
+        report to the row that drifted rather than to its clean neighbour.
+        """
+        problems = compare_membership(
+            ledger_site_ratios(
+                ledger_5_of(
+                    synth_ledger(
+                        ledger_5=SYNTH_LEDGER_5_TABLES.replace(
+                            "| 8.100 / 8.200 |", "| 7.777 / 8.200 |"
+                        )
+                    )
+                ),
+                "ledger §5",
+            ),
+            synth_pool,
+            "ledger §5",
+        )
+        joined = " ".join(problems)
+        return (
+            len(problems),
+            "`BetaView` · pill" in joined,
+            "7.777" in joined,
+            "`AlphaView`" in joined,
+        )
+
+    expect(
+        "ledger §5: a figure matching no pin is reported, naming its row",
+        unpinned_report,
+        (1, True, True, False),
+    )
+    expect_raises(
+        "ledger §5: a ratio table whose header drifted would go unchecked",
+        "header row no longer matches",
+        lambda: ledger_site_ratios(
+            ledger_5_of(synth_ledger(ledger_5=SYNTH_LEDGER_5_TABLES.replace(
+                "| Site (file · symbol) | Ground | light/dark | Verdict | B |\n|---|---|---|---|---|\n"
+                "| `BetaView` · pill |",
+                "| Where | Ground | light/dark | Verdict | B |\n|---|---|---|---|---|\n"
+                "| `BetaView` · pill |",
+            ))),
+            "ledger §5",
+        ),
+    )
+    # The `Tally` table's exemption must come from carrying no ratio, not from
+    # its name — give it one and it must stop being exempt.
+    expect_raises(
+        "ledger §5: the Tally-shaped table stops being exempt once it carries a ratio",
+        "header row no longer matches",
+        lambda: ledger_site_ratios(
+            ledger_5_of(synth_ledger(ledger_5=SYNTH_LEDGER_5_TABLES.replace(
+                "| — non-text (WCAG 1.4.11, out of §8's scope) | 16 |",
+                "| — non-text (WCAG 1.4.11, out of §8's scope) | 9.111 |",
+            ))),
+            "ledger §5",
+        ),
+    )
+    expect_raises(
+        "ledger §5: an inserted column shifts the ratio cell",
+        "cells, expected 5",
+        lambda: ledger_site_ratios(
+            ledger_5_of(synth_ledger(ledger_5=SYNTH_LEDGER_5_TABLES.replace(
+                "| `AlphaView` · caption |", "| note | `AlphaView` · caption |"))),
+            "ledger §5",
+        ),
+    )
+    expect_raises(
+        "ledger §5: emptied tables must not agree with the pins by carrying nothing",
+        "no ratio cell yielded a decimal",
+        lambda: ledger_site_ratios(
+            ledger_5_of(synth_ledger(ledger_5=SYNTH_LEDGER_5_HEADER)), "ledger §5"
+        ),
+    )
+    expect_raises(
+        "ledger §5: the section heading was renumbered",
+        "the section heading is gone",
+        lambda: ledger_5_of(ledger.replace("## 5. The ledger", "## 5bis. The ledger")),
+    )
+
+    # --- Trigger coverage (#1488) ---------------------------------------
+    #
+    # The only arms that read the REAL tree rather than a synthetic fixture, and
+    # deliberately so: the invariant is about this checker's path constants and
+    # the live gate script agreeing, which no synthetic pair can witness. The
+    # decoy arm below is what keeps the positive one from passing vacuously.
+    real_trigger = gate_trigger(_read(GATE_PATH))
+    expect(
+        "trigger coverage: every path this checker reads also fires the gate",
+        lambda: uncovered_inputs(real_trigger),
+        [],
+    )
+
+    def trigger_without(needle: str) -> str:
+        """The real trigger with the alternative naming `needle` removed."""
+        alternatives = [alt for alt in real_trigger.split("|") if needle not in alt]
+        assert len(alternatives) == len(real_trigger.split("|")) - 1, (
+            f"decoy did not remove exactly one alternative for {needle!r}"
+        )
+        return "|".join(alternatives)
+
+    expect(
+        "trigger coverage: a dropped ledger alternative is reported, not absorbed",
+        lambda: uncovered_inputs(trigger_without("muted-application-audit")),
+        [str(LEDGER_PATH)],
+    )
+    expect(
+        "trigger coverage: a dropped fixture alternative is reported too",
+        lambda: uncovered_inputs(trigger_without("MutedTranscript")),
+        [str(FIXTURE_PATH)],
+    )
+    expect_raises(
+        "trigger coverage: the gate no longer assigns TRIGGER on its own line",
+        "no `TRIGGER=",
+        lambda: gate_trigger(_read(GATE_PATH).replace("TRIGGER=", "TRIGGER_RENAMED=")),
     )
 
     if failures:

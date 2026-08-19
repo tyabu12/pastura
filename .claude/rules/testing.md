@@ -57,20 +57,6 @@ regression test was originally split into a standalone `@Suite`. The new
 suite raced against `ModelManagerTests/modelNotDownloaded()` on the shared
 model file path; it passed locally but failed on CI.
 
-### The one carve-out: a file an external checker anchors into
-
-Split unless a **script outside the test target extracts declarations from this
-file by name**. Splitting then puts the checker's anchors in one file and the
-values they are compared against in another, re-creating the two-file drift the
-checker exists to remove — so take a `// swiftlint:disable file_length` with the
-reason at line 1 instead. Access level is not the obstacle (a sibling extension
-needs **internal**, which the rule above already sanctions — not `fileprivate`,
-which cannot serve another file at all); the anchor split is.
-
-Sole instance: `DesignTokensTests+MutedAsContent.swift`, anchored by
-`scripts/check-measurement-transcripts.py` (#1488). A second one wants a
-conversation, not a copy of this paragraph.
-
 ## `.timeLimit` Trait on Every Suite (CI-Hang Diagnostic)
 
 Every Swift Testing suite under `Pastura/PasturaTests/` **must** carry
