@@ -2,17 +2,14 @@
 """Guard: design-system §8's closing sub-bullet and the `mossInkWashSites`
 fixture name the **same set** of rows.
 
-Why this exists. §8's closing sub-bullet quotes the fixture's row names and
-adjudicates each against §8's four-condition exception. It states outright that
-the fixture is the membership authority and that the names written there are
-"today's copy" — but nothing enforced that. A third row added to
-`mossInkWashSites` left the bullet stale with nothing to notice (#1467).
+§8's closing sub-bullet quotes the fixture's row names and adjudicates each
+against §8's four-condition exception, declaring the fixture the membership
+authority and its own names "today's copy" — with nothing enforcing that.
 
-Same failure class as ADR-028 § "Count-mirror sweep", one step weaker. #1466
-removed the *count* from that bullet on exactly those grounds; naming escapes
-the digit, not the mirror. That sweep's command matches counts spelled `seven`
-or a digit + `sites`, so run verbatim it returns nothing for a name set — "I
-re-ran the sweep" keeps reading clean while this mirror rots.
+**Re-running ADR-028 § "Count-mirror sweep" does not reach this mirror.** That
+sweep matches counts spelled `seven` or a digit + `sites`; a name set escapes
+the digit, so the sweep returns nothing here and "I re-ran it" keeps reading
+clean while the mirror rots.
 
 Why set equality rather than subset, and why the direction matters. Doc-subset-
 of-fixture catches §8 naming a row the fixture dropped but misses the **add**
@@ -59,10 +56,8 @@ Every anchor is asserted rather than allowed to degrade: a missing §8, a missin
 sub-bullet anchor, a missing declaration, or an empty extracted set each raises
 instead of collapsing into an empty-vs-empty "equal" pass.
 
-Trigger paths (mirrored by scripts/mossink-wash-membership-precommit-gate.sh):
-    docs/design/design-system.md
-    Pastura/PasturaTests/Views/DesignTokensTests+MossInkAsWashLabel.swift
-    scripts/check-mossink-wash-membership.py
+Trigger paths live in `scripts/mossink-wash-membership-precommit-gate.sh`, which
+is what self-gates on them — one copy, so the two cannot drift.
 
 Usage:
     python3 scripts/check-mossink-wash-membership.py --self-test
@@ -235,15 +230,24 @@ def check() -> int:
 
 # --- self-test fixtures -----------------------------------------------------
 #
-# The synthetic doc keeps two decoys in every case rather than only in the arm
-# that names them: the top-level §8 bullet that also mentions the fixture (the
-# anchor must skip it) and the `role="status" aria-live="polite"` bullet (a
-# quoted string that is not a row name). A decoy present only in its own arm
-# stops covering the arms it was meant to protect.
+# The synthetic doc mirrors the real §8's neighbourhood, but only ONE of its two
+# props is a live control — say which, because a prop that cannot redden reads
+# like coverage:
+#
+# - `TOP_LEVEL_MENTION` IS live, in every arm that consumes a doc. It is a
+#   column-0 bullet naming the fixture and carrying a row name in the quoted
+#   form, so any loosening of the sub-bullet anchor pulls `TopLevel.phantom`
+#   into the expected set. It is shared rather than local to one arm precisely
+#   so the anchor stays constrained everywhere.
+# - `ARIA_DECOY` is NOT a control. It is realism — the real §8 carries
+#   `role="status" aria-live="polite"` two bullets down — and being column-0 it
+#   is dropped by the anchor before `QUOTED_ROW` ever sees it. The live control
+#   for the row-name form is inside the sub-bullet of the first arm below
+#   (a bare-backtick identifier and a bare double-quoted phrase).
 
 TOP_LEVEL_MENTION = (
-    "- ⚠️ The sweep behind `DesignTokensTests+MossInkAsWashLabel` is "
-    "manual, and `HomePausedCard`'s progress label was repointed in #1459\n"
+    "- ⚠️ The sweep behind `DesignTokensTests+MossInkAsWashLabel` is manual, and "
+    '`HomePausedCard`\'s `"TopLevel.phantom"` label was repointed in #1459\n'
 )
 ARIA_DECOY = '- Progress uses `role="status" aria-live="polite"`\n'
 
@@ -301,6 +305,9 @@ def self_test() -> int:
     not only by whichever comparison happens to notice.
     """
     failures = 0
+    # Derived, never hand-maintained: the printed tally is itself a claim about
+    # how much ran, so a new arm must not be able to leave it stale.
+    extraction_arms = 0
 
     def fail(name: str, detail: str) -> None:
         nonlocal failures
@@ -308,6 +315,8 @@ def self_test() -> int:
         failures += 1
 
     def expect_set(name: str, got: set[str], want: set[str]) -> None:
+        nonlocal extraction_arms
+        extraction_arms += 1
         if got != want:
             fail(name, f"expected {sorted(want)}, got {sorted(got)}")
 
@@ -332,21 +341,9 @@ def self_test() -> int:
         BASELINE,
     )
 
-    # The anchor is the indented sub-bullet only. A top-level §8 line naming the
-    # fixture discusses a REMOVED row (#1459) — it must contribute nothing even
-    # when it carries the quoted form.
-    expect_set(
-        "doc: a top-level anchor mention contributes nothing",
-        doc_row_names(
-            _doc(
-                TOP_LEVEL_MENTION.rstrip("\n")
-                + ' and `"TopLevel.phantom"`\n'
-                + _sub_bullet('`"GameHeader.statusPill"` and `"ResultsView.completed"`')
-                + ARIA_DECOY
-            )
-        ),
-        BASELINE,
-    )
+    # No separate arm for the sub-bullet anchor: `TOP_LEVEL_MENTION` carries
+    # `"TopLevel.phantom"` in EVERY doc arm above and below, so loosening the
+    # anchor reddens all of them rather than one.
 
     # Block scoping: a `MossWashSite(...)` outside the declaration, and the
     # `.filter` name strings, must not leak in.
@@ -467,7 +464,7 @@ def self_test() -> int:
             continue
         fail(name, f"expected AnchorError, got {sorted(got)}")
 
-    total = 4 + len(comparisons) + len(anchor_cases)
+    total = extraction_arms + len(comparisons) + len(anchor_cases)
     if failures:
         return 1
     print(f"mossink-wash-membership self-test: {total}/{total} passed")
