@@ -421,9 +421,10 @@ on a miss (`LlamaCppService.grammarConstrainedSample`, mirroring llama.cpp's
 `common_sampler_sample`) — see ADR-002 § "Grammar-all-rejected dist
 fallthrough". The retry budget itself is unchanged; the failure is gone at
 the sampler. **Not a b8694 workaround**: at the current b10327 pin the
-upstream function changed only inside a backend-sampler early return Pastura
-never enters, and the two-pass core this mirrors is unchanged — measured at the
-bump, ADR-002 § "Amendment 2026-08-15 — llama.swift pin bumped to 2.10327.0".
+upstream function changed only in a backend-sampler early return Pastura never
+enters and in a `set_logits` hoist above it, and the two-pass core this mirrors
+is byte-identical across the tags — measured at the bump and re-measured in
+#1415, ADR-002 § "Amendment 2026-08-15 — llama.swift pin bumped to 2.10327.0".
 So pin age alone is never a reason to retire the split — re-read the function
 at each bump, per ADR-002 § "Pin Strategy" verification item 2. Diagnostic
 `samplerGrammarResample` (position-0) measures the
