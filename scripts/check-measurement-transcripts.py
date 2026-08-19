@@ -394,21 +394,26 @@ def fixture_wash_pins(text: str) -> dict[str, tuple[tuple[str, str], tuple[str, 
 # --- extraction: the docs ---------------------------------------------------
 
 
-def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
-    """§3.1's twelve grounds as `{ground name: ratio}`.
+def _opaque_row_cells(lines: list[str], where: str) -> list[tuple[tuple[str, str], ...]]:
+    """§3.1's rows as `((light name, light ratio), (dark name, dark ratio))`.
 
     Each row carries a light pair and a dark pair, and the ratio cells carry
     annotations (`← §8's calibration point`, `**1.234**`), so the first decimal
     in the cell is the figure and the rest is prose.
+
+    Shared by the two public readers so they cannot drift into two parses of one
+    table — and so `ledger_opaque_pairs` inherits every anchor below rather than
+    restating them.
     """
     rows = table_rows(lines, OPAQUE_TABLE_HEADER, where)
-    found: dict[str, str] = {}
+    parsed: list[tuple[tuple[str, str], ...]] = []
     for cells in rows:
         # Exact, not a floor: an inserted column shifts the ratio cells, and a
         # `< 4` floor would then read the wrong cell's figure and blame the
         # figures rather than the columns.
         if len(cells) != 4:
             raise AnchorError(f"{where}: a §3.1 row has {len(cells)} cells, expected 4.")
+        row: list[tuple[str, str]] = []
         for name_cell, ratio_cell in ((cells[0], cells[1]), (cells[2], cells[3])):
             name = BACKTICKED.search(name_cell)
             ratio = DECIMAL.search(ratio_cell)
@@ -417,16 +422,51 @@ def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
                     f"{where}: a §3.1 row is not `name` + ratio — got "
                     f"{name_cell!r} / {ratio_cell!r}."
                 )
-            found[name.group(1)] = canonical(ratio.group(0))
+            row.append((name.group(1), canonical(ratio.group(0))))
+        parsed.append(tuple(row))
+    return parsed
+
+
+def ledger_opaque_rows(lines: list[str], where: str) -> dict[str, str]:
+    """§3.1's twelve grounds as `{ground name: ratio}`, both columns flattened."""
+    rows = _opaque_row_cells(lines, where)
+    found = {name: ratio for row in rows for name, ratio in row}
     # A repeated ground name would OVERWRITE, and the set-based comparison
     # downstream is blind to a multiset defect — a stale duplicate row above a
-    # correct one would pass. `table_rows` covers the empty case.
+    # correct one would pass. `table_rows` covers the empty case. This also
+    # covers `ledger_opaque_pairs`' disjointness: a name in both columns lands
+    # here as one key for two slots.
     if len(found) != 2 * len(rows):
         raise AnchorError(
             f"{where}: {len(rows)} rows yielded only {len(found)} distinct grounds — "
             "a ground name is repeated, and the duplicate would silently win."
         )
     return found
+
+
+def ledger_opaque_pairs(lines: list[str], where: str) -> dict[str, str]:
+    """§3.1's rows as `{light ground: dark ground}` — the pairing itself.
+
+    **§3.1 is the only source of this pairing**, and that is a residual rather
+    than a choice. `opaqueGroundPins` is a flat `[(name, ratio)]` carrying no
+    pair structure; its order differs from this table's; and reading either by
+    array index is what that array's own doc comment forbids. So nothing above
+    §3.1 can adjudicate *which* dark ground answers a given light one, and this
+    reader asserts nothing beyond `_opaque_row_cells`' anchors.
+
+    What does catch a swapped pairing is §5 consuming it — `compare_site_rows`
+    resolves a §5 row's dark figure through this map, so the three pairs §5
+    names (`screenBackground`, `bubbleBackground`, `page`) redden on a swap and
+    a wholesale column swap raises there as an unknown ground. The other three
+    (`whisperBubble`, `promoBackground`, `mossSoft`) stay unguarded as a
+    pairing; #1496 records that residual rather than closing it.
+    """
+    rows = _opaque_row_cells(lines, where)
+    # Runs `ledger_opaque_rows`' duplicate anchor for its side effect: without
+    # it a name repeated across the two columns would build a pairing that
+    # silently loses a row.
+    ledger_opaque_rows(lines, where)
+    return {light[0]: dark[0] for light, dark in rows}
 
 
 def _interval(cell: str, where: str) -> tuple[str, str]:
@@ -478,6 +518,54 @@ def wash_table_rows(lines: list[str], where: str) -> WashRows:
             "rows share a leading identifier, so one row's figures would never be "
             "compared. Give the table a key the truncation keeps distinct."
         )
+    # Empty-set guard lives in `table_rows` — see `ledger_opaque_rows`.
+    return found
+
+
+def wash_row_grounds(lines: list[str], where: str) -> dict[str, str]:
+    """A wash table's `Wash over ground` column as `{ground token: site key}`.
+
+    The ground token is the first backticked token of `cells[1]` — `mossDark@0.10`
+    out of `` `mossDark@0.10` over `screenBackground` / `nightBackground` ``. That
+    cell is prose past the token (it names the grounds composited under, and one
+    row says "over an unknown ground — see below"), so the token is the only part
+    two faces spell identically.
+
+    Keyed **ground → site**, the direction §5 needs: a §5 row names the wash it
+    sits on, not the §3.2 row label. Site-keyed would be wrong outright — §5 has
+    eight `ResultsView` rows and only one of them is the wash.
+
+    Nothing read this cell before (#1496). Two anchors, both raising: a cell with
+    no backticked token, and two rows sharing a token — the second would collapse
+    onto one entry and send every §5 row on that wash to the surviving row's
+    figures.
+    """
+    rows = table_rows(lines, WASH_TABLE_HEADER, where)
+    found: dict[str, str] = {}
+    for cells in rows:
+        # Exact, not a floor — see `_opaque_row_cells`.
+        if len(cells) != 4:
+            raise AnchorError(f"{where}: a wash row has {len(cells)} cells, expected 4.")
+        site = BACKTICKED.search(cells[0])
+        if not site:
+            raise AnchorError(
+                f"{where}: a wash row's Site cell names no `site` — got {cells[0]!r}."
+            )
+        key = LEADING_IDENTIFIER.match(site.group(1))
+        if not key:
+            raise AnchorError(f"{where}: a wash row's Site token is not identifier-shaped.")
+        ground = BACKTICKED.search(cells[1])
+        if not ground:
+            raise AnchorError(
+                f"{where}: a wash row names no `wash` ground in its ground cell — "
+                f"got {cells[1]!r}. §5 joins on that token."
+            )
+        if ground.group(1) in found:
+            raise AnchorError(
+                f"{where}: two wash rows share a ground token ({ground.group(1)!r}) — "
+                "§5 joins on it, so one row's figures would never be reached."
+            )
+        found[ground.group(1)] = key.group(0)
     # Empty-set guard lives in `table_rows` — see `ledger_opaque_rows`.
     return found
 
@@ -1134,6 +1222,38 @@ def self_test() -> int:
         "ledger §3.1: annotations and bold markers are stripped off the ratios",
         lambda: ledger_opaque_rows(ledger_section(r"^### 3\.1"), "ledger §3.1"),
         {"alphaGround": "9.111", "betaGround": "9.777"},
+    )
+    expect(
+        "ledger §3.1: the row-wise light↔dark pairing, which the flat pins do not carry",
+        lambda: ledger_opaque_pairs(ledger_section(r"^### 3\.1"), "ledger §3.1"),
+        {"alphaGround": "betaGround"},
+    )
+    expect(
+        "ledger §3.2: the ground token of each wash row, keyed to the same site key",
+        lambda: wash_row_grounds(ledger_section(r"^### 3\.2"), "ledger §3.2"),
+        {"x@0.14": "AlphaSite", "y@0.45": "BetaSite"},
+    )
+    expect_raises(
+        "ledger §3.2: a wash row's ground cell lost its backticks",
+        "names no `wash` ground",
+        lambda: wash_row_grounds(
+            ledger_section(
+                r"^### 3\.2",
+                ledger.replace("| `x@0.14` over a ground |", "| over a ground |"),
+            ),
+            "ledger §3.2",
+        ),
+    )
+    expect_raises(
+        "ledger §3.2: two wash rows on the same ground would collapse the §5 lookup",
+        "share a ground token",
+        lambda: wash_row_grounds(
+            ledger_section(
+                r"^### 3\.2",
+                ledger.replace("| `y@0.45` over every ground |", "| `x@0.14` over every ground |"),
+            ),
+            "ledger §3.2",
+        ),
     )
     expect(
         "ledger §3.2: a point row and a range row, keyed by the leading identifier",
