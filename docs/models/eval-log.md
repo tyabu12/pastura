@@ -486,10 +486,10 @@ Reproduce: identical to the baseline's block above.
   build measured to load a 541-tensor QAT file, so nothing is known about the
   builds between it and b8694. This does **not** revive *this* candidate: per
   § "`BLOCKED` entries" the row names the condition allowing a **retry**, that
-  retry already ran (§2026-08-12), and it was a clean NO-GO. The live
-  *adoption* candidate is `UD-Q4_K_XL` — §2026-08-13 carries its current
-  status, do not restate it here; QAT-Mobile `UD-Q2_K_XL` (§2026-08-13) stays
-  BLOCKED on its own, pin-independent blocker.
+  retry already ran (§2026-08-12), and it was a clean NO-GO. The adoption that
+  did land is `UD-Q4_K_XL` — §2026-08-13 carries its state, do not restate it
+  here; QAT-Mobile `UD-Q2_K_XL` (§2026-08-13) stays BLOCKED on its own,
+  pin-independent blocker.
 - **Retry**: **ran** inside the #1415 spike — the 2026-08-12 entry above, a clean
   NO-GO. Follow that entry, not #1416, which has since been repointed at the
   QAT-Mobile retry. This entry stays a `BLOCKED` record of 2026-08-08 rather than
@@ -503,9 +503,9 @@ Reproduce: identical to the baseline's block above.
   `<turn|>` terminates generation on both builds and there is no runaway-generation
   risk. Both unsloth re-exports — `UD-Q4_K_XL`, flagged here, and the QAT-Mobile one
   this entry missed — have since been measured; see their 2026-08-13 entries above.
-  **P3–P5 remain untouched for this candidate** (Gate 2) *— true of the Google
-  QAT `Q4_0` file this entry is about, which never left Gate 1; the two
-  re-exports named above carry their own P3–P5 state in their own entries*.
+  **P3–P5 remain untouched** (Gate 2) *— this entry's Google QAT `Q4_0` file
+  never left Gate 1; the two re-exports named above carry their own P3–P5 state
+  in their own entries*.
 - **Pointers**: raw scorecard → `data/models/eval-digest.md` §2026-08-08 ·
   gemma-4-e2b-q4-k-m (gitignored, and replaced by key `(date, profile_id)` — which
   here is the *incumbent's* id, so treat it as volatile) · intake → #979 · pin
