@@ -1060,6 +1060,18 @@ jobs:
           python3 scripts/check_imagerenderer_injection.py --self-test
           python3 scripts/check_imagerenderer_injection.py --check
 
+      # Mossink-wash membership check (#1467) — design-system.md §8's closing
+      # sub-bullet quotes the fixture's row names, and nothing enforced the
+      # two staying in sync. Self-test first (positive control + the
+      # wrapped-row / phantom-member traps), then the real pair. Unconditional
+      # for the same reason as the steps above (`.claude/rules/ci-workflows.md`
+      # § "Required-check-safe path gating"). Defense-in-depth for
+      # scripts/mossink-wash-membership-precommit-gate.sh (local only).
+      - name: Mossink-wash membership check
+        run: |
+          python3 scripts/check-mossink-wash-membership.py --self-test
+          python3 scripts/check-mossink-wash-membership.py --check
+
   gallery-drift:
     name: Gallery drift guard
     runs-on: ubuntu-latest

@@ -120,3 +120,9 @@ bash ./scripts/action-pin-consistency-precommit-gate.sh
 # `ImageRenderer` export that injects no `\.colorScheme` rasterizes light on any
 # device (#1070), and ADR-009 rules out the snapshot test that would see it.
 bash ./scripts/imagerenderer-injection-precommit-gate.sh
+
+# 15. Mossink-wash membership gate (#1467) — self-gates on design-system.md,
+# the mossInkWashSites fixture, or the checker; fails-fast inside. Guards §8's
+# closing sub-bullet staying in sync with the fixture's row names. Mirrors the
+# CI shell-tests "Mossink-wash membership check" step locally.
+bash ./scripts/mossink-wash-membership-precommit-gate.sh
