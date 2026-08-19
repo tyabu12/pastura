@@ -590,15 +590,25 @@ extension DesignTokensTests {
     // together. (Constructed and confirmed — the set form stayed green with a
     // pin removed.) The opposite direction, a pin with no entry, is
     // `staleWashRowPins`' `nil` branch.
-    let unpinnedWashEntries =
-      (Self.mutedSelfWashGrounds + Self.mutedMossWashGrounds + Self.mutedRuleWashGrounds)
-      .filter { entry in
-        !Self.washRowPins.contains { entry.name.contains(" \($0.site) ") }
-      }
-      .map(\.name)
+    let washEntries =
+      Self.mutedSelfWashGrounds + Self.mutedMossWashGrounds + Self.mutedRuleWashGrounds
+    let unpinnedWashEntries = washEntries.filter { entry in
+      !Self.washRowPins.contains { entry.name.contains(" \($0.site) ") }
+    }
+    .map(\.name)
     #expect(
       unpinnedWashEntries.isEmpty,
       "wash entries whose site has no pin: \(unpinnedWashEntries)")
+
+    // `computedWashRow` resolves an entry on TWO conjuncts — the appearance
+    // prefix and the site token — so checking only the site above would leave a
+    // seam: an entry named `"Light ResultsView …"` counts as pinned here, feeds
+    // no interval there, and `staleWashRowPins`' `nil` branch stays quiet
+    // because its correctly-prefixed siblings keep the match non-nil.
+    let misprefixed = washEntries.map(\.name).filter {
+      !$0.hasPrefix("light ") && !$0.hasPrefix("dark ")
+    }
+    #expect(misprefixed.isEmpty, "wash entries with no appearance prefix: \(misprefixed)")
 
     #expect(
       Set(Self.ruleWashBracketPins.map(\.name)) == Set(Self.mutedRuleWashBrackets.map(\.name)),

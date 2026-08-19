@@ -118,6 +118,40 @@ expect "muted-application-audit.md.bak locks trailing anchor, skips" \
 expect "a nested copy locks the leading anchor, skips" \
   "$(run_case leadinganchor web/docs/design/design-system.md)" skipped
 
+# --- The SIGPIPE fail-open, which the cases above cannot reach ---
+#
+# A `git diff --cached --name-only | grep -qE` trigger check fails OPEN under the
+# gate's `set -o pipefail`: grep exits at the first match, git dies on SIGPIPE
+# (141), pipefail promotes that to the pipeline status, and a MATCHING changeset
+# skips. Every case above stages one path, so the list never fills the pipe
+# buffer and the defect is unreachable there.
+#
+# This case stages enough paths to exceed it, with the trigger path sorting
+# early (`Pastura/…` < `zzz-filler/…`, and git emits the list sorted) so grep
+# would exit long before the producer finishes.
+sigpipe_case() {
+  repo="$TMP/sigpipe"
+  marker="$TMP/sigpipe.marker"
+  git init -q "$repo"
+  (
+    cd "$repo"
+    git config user.email test@example.com
+    git config user.name test
+    mkdir -p Pastura/PasturaTests/Views zzz-filler
+    : > "Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift"
+    i=0
+    while [ "$i" -lt 2500 ]; do
+      : > "zzz-filler/padding-file-with-a-fairly-long-name-$i.txt"
+      i=$((i + 1))
+    done
+    git add -f . >/dev/null 2>&1
+    MEASUREMENT_GATE_MARKER="$marker" PATH="$STUB_BIN:$PATH" bash "$GATE" >/dev/null 2>&1
+  )
+  if [ -f "$marker" ]; then echo "fired"; else echo "skipped"; fi
+}
+
+expect "a staged list larger than the pipe buffer still fires" "$(sigpipe_case)" fired
+
 if [ "$fail" -eq 0 ]; then
   echo "measurement-transcript-gate: all cases passed"
 else

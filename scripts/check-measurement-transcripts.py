@@ -121,11 +121,23 @@ OPAQUE_TABLE_HEADER = re.compile(r"^\|\s*Light ground\s*\|", re.IGNORECASE)
 # Section anchors, named once so `collect` and the self-test cannot drift into
 # two spellings of the same pattern.
 #
-# Two terminators, and the difference is load-bearing. The ledger's faces are
-# `###` subsections, so ANY heading ends them — `^#{2,3} ` would let a future
-# `#### ` silently extend the slice. The ADR's faces are `##` amendments that
-# legitimately CONTAIN `###` subsections (the wash table sits under one), so
-# there the terminator must stay `^## ` or the slice ends before the table.
+# Two terminators, and the difference is load-bearing. Neither half has a named
+# arm; both are armed by the SHAPE of the synthetic fixtures — `synth_adr` puts a
+# `###` between the amendment heading and its table, and `synth_ledger` puts a
+# `#### ` block that names the fixture inside §3.1. Swapping either terminator
+# then reddens several existing arms (measured: 5 and 8 respectively). Before
+# this, both halves could be broken with `--self-test` fully green, and only
+# `--check` on the real tree caught it.
+# The ledger's faces are `###` subsections, so ANY heading ends them:
+# `^#{2,3} ` would let a future `#### ` silently extend the slice. The ADR's
+# faces are `##` amendments that legitimately CONTAIN `###` subsections (the
+# wash table sits under one), so there the terminator must stay `^## ` or the
+# slice ends before the table.
+#
+# `NEXT_SUBSECTION` also matches a `# comment` line inside a fenced code block,
+# and this corpus has those (ADR-028's own §Context). It fails CLOSED — an
+# early truncation raises the missing-header anchor rather than passing — but
+# a fence inside §3.1/§3.2 would need this reading properly.
 NEXT_SUBSECTION = re.compile(r"^#{1,6} ")
 NEXT_SECTION = re.compile(r"^## ")
 LEDGER_31 = re.compile(r"^### 3\.1\b")
@@ -138,7 +150,7 @@ DESIGN_SYSTEM_8 = re.compile(r"^## 8\.")
 # missing one here is what keeps the omission an assertion rather than a hole:
 # `compare_wash` reddens both if a named row appears and if an unnamed one goes
 # missing.
-ADR_OMITS = {"HighlightShareCard"}
+ADR_OMITS = frozenset({"HighlightShareCard"})
 
 
 class AnchorError(Exception):
@@ -445,7 +457,7 @@ def compare_wash(
     doc: dict[str, tuple[tuple[str, str], tuple[str, str]]],
     pins: dict[str, tuple[tuple[str, str], tuple[str, str]]],
     where: str,
-    omits: set[str],
+    omits: frozenset[str] | set[str],
 ) -> list[str]:
     """Per-row comparison. `omits` names the pins this face deliberately lacks.
 
@@ -462,7 +474,13 @@ def compare_wash(
     missing = set(pins) - set(doc)
     for site in sorted(missing - omits):
         problems.append(f"{where}: `{site}` is pinned but is not transcribed — add the row.")
-    for site in sorted(omits - missing):
+    for site in sorted(omits - set(pins)):
+        problems.append(
+            f"{where}: `{site}` is recorded here as deliberately omitted, but no pin has "
+            "that name — it was renamed or removed. Update this checker's omission set, "
+            "not the doc."
+        )
+    for site in sorted((omits & set(pins)) - missing):
         problems.append(
             f"{where}: `{site}` is recorded here as deliberately omitted, but the face "
             "now carries it — drop it from this checker's omission set."
@@ -500,7 +518,7 @@ def collect(
     ledger: str,
     adr: str,
     design_system: str,
-    adr_omits: set[str] = ADR_OMITS,
+    adr_omits: frozenset[str] = ADR_OMITS,
 ) -> list[str]:
     """Every divergence across the four faces.
 
@@ -638,6 +656,11 @@ def synth_ledger(opaque: str = SYNTH_OPAQUE_TABLE, wash: str = SYNTH_WASH_TABLE)
     return (
         "## 3. Grounds\n\n"
         "### 3.1 The twelve opaque grounds\n\n" + SYNTH_SPAN_BLOCK + "\n" + opaque + "\n"
+        # The `#### ` and its block are the arm for `NEXT_SUBSECTION`: re-narrow
+        # it to `^#{2,3} ` and §3.1's slice runs on into this block, which names
+        # the fixture and states a different span, so `span_in` reddens.
+        "#### A later note\n\n"
+        "`DesignTokensTests+MutedAsContent` once ran 5.111–5.777 here.\n\n"
         "### 3.2 Composited grounds\n\n" + wash + "\n"
         "### 3.3 Grounds that are not computable\n\nprose\n"
     )
@@ -662,7 +685,11 @@ def synth_adr(wash: str = SYNTH_ADR_WASH_TABLE, span: str = SYNTH_SPAN_BLOCK) ->
         + span
         + "\n"
         "## Amendment 2026-08-14 — something else (#1455)\n\nprose\n\n"
-        "## Amendment 2026-08-15 — the second unmeasured ground (#1448)\n\n" + wash + "\n"
+        "## Amendment 2026-08-15 — the second unmeasured ground (#1448)\n\n"
+        # The `###` between the heading and the table is the arm for
+        # `NEXT_SECTION`: swap the ADR to `NEXT_SUBSECTION` and the slice ends
+        # here, before the table. The real ADR has exactly this shape.
+        "### The washes are a second unmeasured ground\n\n" + wash + "\n"
         "## Related\n\nprose\n"
     )
 

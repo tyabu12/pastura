@@ -167,7 +167,8 @@ These figures are computed by the fixture and pinned there as
 `opaqueGroundPins`, which the fixture compares against what it recomputes.
 `scripts/check-measurement-transcripts.py` holds this table equal to those pins
 — edit the table alone and it goes red (#1488). §8 **of this ledger** has the
-procedure; the two `§8`s in the paragraph above are design-system.md's.
+procedure. Every other `§8` above — in the intro paragraph and in the table's own
+calibration-point cell — is design-system.md's.
 
 ### 3.2 Composited grounds — measured, and separately from the twelve
 

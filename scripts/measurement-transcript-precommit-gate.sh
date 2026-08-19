@@ -38,9 +38,14 @@ TRIGGER='(^docs/design/muted-application-audit\.md$)|(^docs/design/design-system
 # dies on SIGPIPE (141), `pipefail` promotes that to the pipeline status, and
 # the gate skips a changeset that DID match. Needs a staged list bigger than the
 # pipe buffer, so it is rare — but it is silent and in the wrong direction.
-# Dropping `-q` is the fix, not capturing first: `printf "$staged" | grep -q`
-# SIGPIPEs identically (measured both, with a no-match control, #1488). Without
-# `-q` grep consumes all input, so nothing can die early.
+# Dropping `-q` is what fixes it — capturing first does NOT: `printf "$staged" |
+# grep -q` SIGPIPEs identically, with printf as the victim (measured both ways,
+# with a no-match control, #1488). Without `-q` grep consumes all input, so
+# nothing can die early.
+# The capture is still not redundant, so don't "simplify" this back to one
+# pipeline: `git … | grep -E … || true` would swallow a git failure and skip,
+# which is the same fail-open by another route. `STAGED="$(…)"` under `set -e`
+# aborts on it instead.
 # The same shape is in 13 sibling gates and is left to one sweep — see #1498.
 STAGED="$(git diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | grep -E "$TRIGGER" || true)"
