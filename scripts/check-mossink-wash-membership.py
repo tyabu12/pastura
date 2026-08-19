@@ -234,16 +234,18 @@ def check() -> int:
 # props is a live control — say which, because a prop that cannot redden reads
 # like coverage:
 #
-# - `TOP_LEVEL_MENTION` IS live, in every arm that consumes a doc. It is a
-#   column-0 bullet naming the fixture and carrying a row name in the quoted
-#   form, so any loosening of the sub-bullet anchor pulls `TopLevel.phantom`
-#   into the expected set. It is shared rather than local to one arm precisely
-#   so the anchor stays constrained everywhere.
+# - `TOP_LEVEL_MENTION` IS live, in every arm that reaches the sub-bullet
+#   anchor — measured: all but `§8 renumbered away`, where the *section* anchor
+#   raises first and nothing below it runs. It is a column-0 bullet naming the
+#   fixture and carrying a row name in the quoted form, so loosening the
+#   sub-bullet anchor pulls `TopLevel.phantom` into the expected set. It is
+#   shared rather than local to one arm precisely so the anchor stays
+#   constrained everywhere it can be.
 # - `ARIA_DECOY` is NOT a control. It is realism — the real §8 carries
-#   `role="status" aria-live="polite"` two bullets down — and being column-0 it
-#   is dropped by the anchor before `QUOTED_ROW` ever sees it. The live control
-#   for the row-name form is inside the sub-bullet of the first arm below
-#   (a bare-backtick identifier and a bare double-quoted phrase).
+#   `role="status" aria-live="polite"` as a sibling bullet in the same section
+#   — and being column-0 it is dropped by the anchor before `QUOTED_ROW` ever
+#   sees it. The live control for the row-name form is inside the sub-bullet of
+#   the first arm below (a bare-backtick identifier and a bare quoted phrase).
 
 TOP_LEVEL_MENTION = (
     "- ⚠️ The sweep behind `DesignTokensTests+MossInkAsWashLabel` is manual, and "
@@ -306,7 +308,9 @@ def self_test() -> int:
     """
     failures = 0
     # Derived, never hand-maintained: the printed tally is itself a claim about
-    # how much ran, so a new arm must not be able to leave it stale.
+    # how much ran, so a new arm must not be able to leave it stale. It counts
+    # extraction arms only via `expect_set` — assert through it, or the tally
+    # under-counts and the staleness is back one indirection further in.
     extraction_arms = 0
 
     def fail(name: str, detail: str) -> None:
