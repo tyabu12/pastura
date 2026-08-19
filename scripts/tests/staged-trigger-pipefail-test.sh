@@ -265,6 +265,122 @@ else
       "would ship a leaking archive (ADR-005 §8.5)"
 fi
 
+# --- A12: no `| grep -q` left in the production scripts --------------------
+# Scope is the executable production surface — `scripts/*.sh` and
+# `scripts/hooks/*.sh`, tracked files only. Deliberately NOT a pathspec over
+# everything, because the precondition is "does a `pipefail` reach this site",
+# not "where does the file live". Three areas were checked and are out of
+# scope for that reason, not by omission:
+#   - scripts/tests/**        this file's own A4 / A11 negative controls are
+#                             literal old-shape copies and MUST stay; the other
+#                             harnesses feed short strings
+#   - .claude/skills/**       the two run_tests.sh harnesses use `set -eu` with
+#                             no pipefail; release/SKILL.md's documented
+#                             snippet reads a 3 KB Swift file in a shell that
+#                             has pipefail off
+#   - .github/workflows/**    a bare `run:` is `bash -e {0}`, no pipefail
+#                             (ci-workflows.md Rule 2). Latent, not live: a
+#                             later `shell: bash` on one of those steps arms
+#                             all four. Noted in the rule rather than guarded,
+#                             because guarding it here would need this file to
+#                             parse YAML step options to stay honest.
+#
+# Comment lines are stripped before matching. That is load-bearing and it is
+# also the guard's own weak point: every site fixed for #1498 carries a comment
+# that quotes the banned shape, so without stripping this arm reports its own
+# documentation, and with over-eager stripping it reports nothing at all. C1-C8
+# below pin both directions before the real scan is trusted.
+#
+# The controls are not ceremony. Two separate drafts of this pattern failed to
+# compile under BWK awk (the macOS default) — first over `\{?`, then over a
+# `-v`-mangled leading `|` — and on BOTH runs the scan still printed "no
+# `| grep -q` remains", because a pattern that never compiles matches nothing
+# and an empty result is exactly what a clean tree looks like. The controls are
+# the only reason either was caught.
+#
+# `[^|]*` on both sides of `grep` keeps the match inside ONE pipeline stage,
+# so `| { grep -E "$T" || [ $? -eq 1 ]; }` — the shape this whole PR moves to —
+# does not self-report: the `-E "$T" ` between `grep` and the `||` carries no
+# `q`, and `[^|]*` cannot reach past the `||` to find one. C5 pins that.
+#
+# The pattern is written LITERALLY in the awk program, never passed via `-v`.
+# `-v` runs escape processing first, so `\|` arrives as a bare `|`, the regex
+# then starts with an empty alternation, and BWK awk rejects it as an illegal
+# primary — see the note above for what that failure looks like from outside.
+scan() { # $@ = files; echoes offending "file:line: text"
+  awk '
+    { probe = $0; sub(/^[[:space:]]+/, "", probe) }
+    substr(probe, 1, 1) == "#" { next }
+    probe ~ /\|[^|]*grep[[:space:]][^|]*(-[A-Za-z]*q|--quiet)/ {
+      print FILENAME ":" FNR ": " $0
+    }
+  ' "$@"
+}
+
+# C1-C8: a CLASS control, not a self-match. C1/C2/C6 are the three producers the
+# defect actually appears behind in this tree (`git`, `printf`, and a multi-stage
+# pipe ending in `head`) — a pattern narrowed to one of them reads clean over
+# live instances of the others, which is exactly how the original enumeration
+# for this issue came up short by two sites. C7 guards the other direction: a
+# stray `q` inside an unrelated argument must not be read as the `-q` flag.
+cat > "$TMP/control.sh" <<'CONTROL'
+if ! git diff --cached --name-only | grep -qE "$T"; then exit 0; fi
+  if printf '%s\n' "$X" | grep -q foo; then echo hi; fi
+# Capture, don't `| grep -q`: this comment must NOT be reported.
+   # indented comment quoting `| grep -qE "$T"` must NOT be reported either.
+MATCHED="$(printf '%s\n' "$S" | { grep -E "$T" || [ $? -eq 1 ]; })"
+if git show "HEAD:$p" 2>/dev/null | head -n 14 | grep -q '^paths:'; then :; fi
+cat x | sed -e 's/seq//' | grep -E 'foo'
+LEAKED="$(nm -a "$B" | xcrun swift-demangle | { grep -i ollama || [ $? -eq 1 ]; })"
+CONTROL
+ctl="$(scan "$TMP/control.sh" || true)"
+must_hit=""
+must_miss=""
+for n in 1 2 6; do
+  case "$ctl" in *":$n: "*) : ;; *) must_hit="${must_hit}C$n " ;; esac
+done
+for n in 3 4 5 7 8; do
+  case "$ctl" in *":$n: "*) must_miss="${must_miss}C$n " ;; esac
+done
+if [ -z "$must_hit" ] && [ -z "$must_miss" ]; then
+  ok "A12 control: catches git-fed / printf-fed / head-fed old shapes; ignores comments," \
+     "both fixed shapes, and an unrelated 'seq' argument"
+else
+  bad "A12 control failed — missed: [${must_hit:-none}] false-positive: [${must_miss:-none}]." \
+      "The scan below cannot be trusted: a pattern that stops compiling or stops matching" \
+      "reports zero hits, which is indistinguishable from a clean tree. Reported lines:" "$ctl"
+fi
+
+# `:(glob)` is required, not decoration: a plain `scripts/*.sh` pathspec uses
+# git's wildmatch, where `*` crosses `/`, so it silently pulls in
+# scripts/tests/*.sh — including THIS file and its two deliberate old-shape
+# controls. Measured: 55 files without the magic, 34 with it.
+git -C "$ROOT" ls-files -- ':(glob)scripts/*.sh' ':(glob)scripts/hooks/*.sh' \
+  > "$TMP/prod-scripts.txt"
+n_files="$(wc -l < "$TMP/prod-scripts.txt" | tr -d ' ')"
+if [ "$n_files" -lt 25 ]; then
+  bad "A12 only $n_files production scripts enumerated — the ls-files pathspec stopped" \
+      "matching, so a clean scan would prove nothing"
+else
+  ok "A12 scanning $n_files tracked production scripts"
+fi
+
+residual=""
+while IFS= read -r f; do
+  [ -n "$f" ] || continue
+  hit="$(scan "$ROOT/$f" || true)"
+  [ -z "$hit" ] || residual="${residual}${hit}
+"
+done < "$TMP/prod-scripts.txt"
+
+if [ -z "$residual" ]; then
+  ok "A12 no \`| grep -q\` remains in scripts/*.sh or scripts/hooks/*.sh"
+else
+  bad "A12 \`| grep -q\` under pipefail still present — each of these skips silently when" \
+      "its producer outruns the pipe buffer (#1498):"
+  printf '%s' "$residual" >&2
+fi
+
 if [ "$fail" -ne 0 ]; then
   echo "staged-trigger-pipefail-test: FAILED" >&2
   exit 1

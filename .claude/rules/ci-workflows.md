@@ -65,6 +65,47 @@ $ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  #
 
 **Apply:** when adding a pipe to an existing step, check which shape it is before touching its exit handling — and never add pipefail to a `|| true` + PIPESTATUS step without also removing the `|| true`. Motivating incident: the Release-build step followed this rule's *earlier* advice ("just write `cmd | tee log`, GHA defaults to pipefail") and masked a `** BUILD FAILED **` as green; the failure surfaced one step later as a misleading "Expected exactly 1 Release binary, found 0" (#1141).
 
+### Rule 3 — `producer | grep -q` under `pipefail` reports a MATCH as a failure
+
+Sibling of Rule 2, opposite composition: there pipefail was missing, here it is
+present. `grep -q` exits at its **first** match; the producer, still writing,
+takes SIGPIPE and returns 141; `pipefail` promotes that to the pipeline's
+status. So `if ! producer | grep -q PAT` skips **because** the pattern matched.
+
+**Never certify a site safe by comparing an input size to a number.** Pipe
+capacity is a kernel property and differs between the macOS pre-commit hook and
+the ubuntu CI runner, so a threshold you measured on one platform is not a fact
+about the other. The right question is whether the producer can outrun the
+buffer *at all* — `git diff --cached --name-only`, `nm -a` on an app binary and
+any whole-branch file list all can.
+
+**Apply** — capture, then test the captured text:
+
+```bash
+STAGED="$(git diff --cached --name-only)"
+MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
+if [ -z "$MATCHED" ]; then exit 0; fi
+```
+
+Three things that look interchangeable and are not:
+
+- **Assigning to a variable first does NOT fix it.** SIGPIPE just moves from
+  `git` to `printf`. Measured both ways; dropping `-q` is what fixes it.
+- **`|| [ $? -eq 1 ]`, not `|| true`.** `|| true` maps grep's exit ≥2 (broken
+  pattern, read error) onto the same empty string as a real no-match, which
+  reopens the fail-open through a different door. As a bare assignment the
+  group's status reaches `set -e`, so a broken pattern fails loudly.
+- **Do not fold it into `if [ -z "$(… )" ]`.** A command substitution used as an
+  argument to `[` has its status discarded, and the exit-code discrimination is
+  silently lost.
+
+Scope note: a bare `run:` step is `bash -e {0}` with no pipefail (Rule 2), so
+the four `printf … | grep -q` gating steps in `ci.yml` are latent rather than
+live — adding `shell: bash` to one arms it. `scripts/tests/staged-trigger-pipefail-test.sh`
+guards `scripts/*.sh` + `scripts/hooks/*.sh` for zero residuals; it deliberately
+does not parse workflow YAML, so those four are held by this paragraph only.
+Motivating sweep and the per-site fail directions: #1498.
+
 ## Long-lived branch gating — two layers × two directions
 
 For CI on long-lived integration / release-train / spike-staging branches, the gate is **two layers**, each at **two directions**:
