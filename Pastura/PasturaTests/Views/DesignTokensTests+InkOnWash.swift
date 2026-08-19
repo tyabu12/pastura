@@ -75,7 +75,10 @@ extension DesignTokensTests {
   /// the row's own, not a flat 14: every semantic-font row here is `.semibold`
   /// or `.bold`, which take different halves.
   ///
-  /// **No superlative is restated, here or anywhere.** The old advice was
+  /// **No superlative is restated in any of the three wash fixtures.** (Not in
+  /// the suite at large — `+MossSoftGround.swift`'s still stands; see
+  /// ``DesignTokensTests/inkWashSiteRejectsLargeTextLabels``' file header.) The
+  /// old advice was
   /// "re-derive this fixture's own extreme, never cite a sibling's" — this
   /// paragraph *was* a citation of `+MossOnWash`'s `~11pt` until #1459
   /// falsified it there. Recording the size per row retires the advice along
@@ -132,8 +135,7 @@ extension DesignTokensTests {
       // Prose until #1468, over a row type that stored no font.
       #expect(
         site.isNormalText,
-        "\(site.name) is large text (\(site.pointSize)pt \(site.weight)) and does not belong in a normal-text fixture"
-      )
+        "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
 
       let lightGround = composite(
         PasturaPalette.inkSecondary, over: PasturaPalette.screenBackground, alpha: site.alpha)

@@ -22,6 +22,17 @@ import UIKit
 // here, and it keeps the controls off the two fixture files closest to
 // swiftlint's 400-line `file_length` error under `--strict`.
 //
+// **Two sibling fixtures in this suite still carry the unexecuted form, and the
+// class is not closed** (#1495). `DesignTokensTests+MossSoftGround.swift`'s
+// `textBar` pins 4.5 over a `[String]` site list and keeps a superlative on top
+// of it — the exact state #1466 falsified — and
+// `DesignTokensTests+MutedAsContent.swift`'s `contentTextBar` carries the
+// shorter form. They are excluded here rather than overlooked, and for
+// different reasons: the first would need its list promoted to a row type, and
+// the second stores **grounds** rather than labels, so there is no row for a
+// font to hang on and its claim needs a fixture that does not exist yet. Do not
+// read the criterion below as covering either.
+//
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
 // with the parent and is explicitly forbidden. Inherits the parent's
@@ -155,13 +166,23 @@ enum WashLabelWeight {
   func admitsAsNormalText(pointSize: Double) -> Bool { pointSize < largeTextThreshold }
 }
 
+/// The failure message the three wash fixtures share when a row is large text.
+///
+/// One wording in one place: the criterion lives here, so a message that drifts
+/// per fixture is the plausible failure — three byte-identical string literals
+/// across files are a mirror like any other.
+func largeTextRejection(_ name: String, pointSize: Double, weight: WashLabelWeight) -> String {
+  "\(name) is large text (\(pointSize)pt \(weight)) and does not belong in a normal-text fixture"
+}
+
 /// Point sizes of the semantic SwiftUI text styles the wash fixtures use, at
 /// the default `.large` content size.
 ///
-/// Rows whose view reads a `Typography.*` token reference that token's `size`
-/// live instead — those are fixed-size by design (``PasturaTextStyle/font``'s
-/// doc comment) so the value is the size, full stop. These two have no such
-/// value to read, which is why they are named here and measured by
+/// Rows on a `.system(size:)` label carry that size instead — from a
+/// `Typography.*` token, a layout constant, or a literal the view inlines — and
+/// those are fixed-size by design (``PasturaTextStyle/font``'s doc comment), so
+/// the value is the size, full stop. These two have no such value to read,
+/// which is why they are named here and measured by
 /// ``DesignTokensTests/semanticLabelSizesMatchUIKitAtTheDefaultContentSize``
 /// rather than written down.
 enum WashLabelSemanticSize {

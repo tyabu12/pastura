@@ -138,8 +138,7 @@ extension DesignTokensTests {
       // row type, so it shares that control.
       #expect(
         site.isNormalText,
-        "\(site.name) is large text (\(site.pointSize)pt \(site.weight)) and does not belong in a normal-text fixture"
-      )
+        "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
 
       let lightGround = composite(
         site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)

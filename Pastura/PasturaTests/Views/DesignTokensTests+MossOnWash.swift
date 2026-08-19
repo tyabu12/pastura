@@ -87,8 +87,9 @@ extension DesignTokensTests {
         pointSize: Double(Typography.tagPhase.size), weight: .semibold),
       // The one row whose view **inlines** its size rather than reading a token
       // — `.font(.system(size: 9.5, weight: .semibold, design: .monospaced))`.
-      // `recommendedTagInlinesTheSizeItsDocClaimsToReuse` executes the "reuses
-      // tagPhase" claim that view's own doc comment makes.
+      // `recommendedTagRowMatchesTheTokenItsViewDocClaimsToReuse` ties this
+      // transcription to `tagPhase`, which is what that view's doc claims it
+      // reuses.
       MossWashSite(
         "ModelRow.recommendedTag", wash: .moss, light: 0.12, dark: 0.12,
         pointSize: 9.5, weight: .semibold),
@@ -161,8 +162,7 @@ extension DesignTokensTests {
       // the difference — the row type stored no font.
       #expect(
         site.isNormalText,
-        "\(site.name) is large text (\(site.pointSize)pt \(site.weight)) and does not belong in a normal-text fixture"
-      )
+        "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
 
       let lightGround = composite(
         site.lightToken, over: PasturaPalette.screenBackground, alpha: site.lightAlpha)
@@ -178,15 +178,22 @@ extension DesignTokensTests {
 
   /// `ModelRow.recommendedTag` is the only row whose point size is a literal:
   /// its view inlines `.system(size: 9.5, …)` instead of reading a token, so the
-  /// fixture has nothing to reference live. What it *does* have is that view's
-  /// own doc comment, which claims the tag "reuses the existing `tagPhase`
-  /// typography token" — a claim two files now depend on and neither executes.
+  /// fixture has nothing to reference live. What that view's own doc comment
+  /// claims is that the tag "reuses the existing `tagPhase` typography token",
+  /// which is why the fixture's transcription is 9.5 rather than some other
+  /// number.
   ///
-  /// This is the executable form of that claim. A red here means the token and
-  /// the inlined literal have diverged: fix the **view** (or its doc comment)
-  /// first and the row second — updating the literal alone would preserve the
-  /// fixture's arithmetic while leaving the view's doc lying.
-  @Test func recommendedTagInlinesTheSizeItsDocClaimsToReuse() {
+  /// **What this observes is the fixture's transcription against the token —
+  /// not the view.** A red means `tagPhase` moved and the row did not, which is
+  /// the cue to open `ModelRow` and decide whether the tag was meant to follow;
+  /// fix the view (or its doc comment) before the row, since updating the
+  /// literal alone would restore the arithmetic while leaving that doc lying.
+  ///
+  /// **Residual**: the view's own literal is read by nothing here. Retype it as
+  /// 11 without touching the fixture and this stays green — the
+  /// hand-transcription hazard ``MossWashSite/pointSize`` admits is caught by
+  /// nothing, and this arm narrows it rather than closing it.
+  @Test func recommendedTagRowMatchesTheTokenItsViewDocClaimsToReuse() {
     let tag = Self.mossWashSites.first { $0.name == "ModelRow.recommendedTag" }
     #expect(tag?.pointSize == Double(Typography.tagPhase.size))
     #expect(tag?.weight == .semibold)
@@ -314,14 +321,20 @@ struct MossWashSite {
 
   /// The label's point size at the default `.large` content size.
   ///
-  /// **Two regimes share this field.** A row whose view reads a `Typography.*`
-  /// token references that token's `size` live, and those are fixed-size by
-  /// design (``PasturaTextStyle/font``) — the value is the size at every content
-  /// size. A row on a semantic SwiftUI font (`.caption` / `.caption2`) names a
-  /// ``WashLabelSemanticSize`` constant instead, and that one is the size *at
-  /// the default*: it scales, and at accessibility sizes such a label crosses
-  /// into large text, which only **relaxes** the bar the fixture applies. So
-  /// this field decides admission at the default and nothing else.
+  /// **Two regimes share this field**, and the split is fixed-size vs scaling
+  /// rather than which expression the view wrote.
+  ///
+  /// *Fixed size* covers every `.system(size:)` label — whether it comes from a
+  /// `Typography.*` token (referenced live via the token's `size`, and
+  /// fixed-size by design per ``PasturaTextStyle/font``), from a layout constant
+  /// read live (`HomeHeroLayout.*FontSize`), or from a literal the view inlines.
+  /// For those the value is the size at every content size.
+  ///
+  /// *Scaling* covers the semantic SwiftUI fonts (`.caption` / `.caption2`),
+  /// which name a ``WashLabelSemanticSize`` constant: that is the size **at the
+  /// default**, and at accessibility sizes such a label crosses into large text
+  /// — which only **relaxes** the bar the fixture applies. So this field decides
+  /// admission at the default and nothing else.
   ///
   /// **Hand-recorded against the view, and a wrong transcription is caught by
   /// nothing.** Live references and
