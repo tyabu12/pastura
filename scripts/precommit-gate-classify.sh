@@ -36,6 +36,14 @@ set -euo pipefail
 # Drop blank lines so an empty changeset (a lone trailing newline) does
 # not read as a single empty, non-safe path. `|| true` absorbs grep's
 # exit-1 on all-blank input under `set -e`.
+#
+# `|| true` and not the `|| [ $? -eq 1 ]` group the two classifications below
+# use — deliberate, and the difference is not stylistic. This grep has no `-q`,
+# so it drains stdin and nothing can SIGPIPE; and `'^[[:space:]]*$'` is a fixed
+# literal that cannot become a bad pattern, so there is no exit >=2 to
+# discriminate. What `|| true` would hide here is a read error on stdin, which
+# the caller already owns: the pre-commit hook feeds this from a variable it
+# captured itself, and ci.yml wraps the whole call in `if ! TOKENS=$(...)`.
 staged="$(grep -v '^[[:space:]]*$' || true)"
 
 tokens=""

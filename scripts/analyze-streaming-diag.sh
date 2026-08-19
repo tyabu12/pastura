@@ -190,7 +190,7 @@ summarise() {
   if [ "$rcancelled_count" != "0" ]; then
     echo ""
     echo "  ⚠️  (d) is non-zero — investigate. First 5 occurrences:"
-    awk '
+    occ="$(awk '
       /streamTargetChange/ && /taskCancelled=true/ {
         for (i = 1; i <= NF; i++) {
           if ($i ~ /^visibleChars=/) { split($i, a, "="); vc = a[2] + 0 }
@@ -198,9 +198,23 @@ summarise() {
         }
         if (vc < nt) print
       }
-    ' "$log" | head -5 |
-      sed -E 's/^.*\[app\.pastura\.Pastura:StreamingDiag\] //' |
-      sed 's/^/    /'
+    ' "$log")"
+    # Capture, then `sed -n '1,5p'` — never `| head -5`. `head` closes the pipe
+    # after 5 lines, the still-writing `awk` takes SIGPIPE, and `set -o pipefail`
+    # (line 21) promotes that 141 to the pipeline's status, so this report
+    # aborted with a bare 141 and no message EXACTLY when the cancel-race it
+    # hunts reproduced heavily enough to fill the pipe buffer. Measured: 5000
+    # matching lines abort, 3 do not. Same class as #1498 with a different
+    # early-exiting reader; `tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh`
+    # carries the other in-tree instance, and the residual guard in
+    # `scripts/tests/staged-trigger-pipefail-test.sh` scans for `grep -q` only,
+    # so it cannot see this shape — `.claude/rules/ci-workflows.md` § "Rule 3"
+    # is what covers the class. `sed -n` reads to EOF, so nothing SIGPIPEs.
+    if [ -n "$occ" ]; then
+      printf '%s\n' "$occ" | sed -n '1,5p' |
+        sed -E 's/^.*\[app\.pastura\.Pastura:StreamingDiag\] //' |
+        sed 's/^/    /'
+    fi
     echo "  → B5 residual: REPRODUCED (cancel-race surface still exercised)"
   else
     echo "  → B5 residual: clean (cancel-race surface not triggered this session)"

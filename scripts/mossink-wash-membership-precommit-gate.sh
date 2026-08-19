@@ -34,7 +34,7 @@ TRIGGER='(^docs/design/design-system\.md$)|(^Pastura/PasturaTests/Views/DesignTo
 # Dropping `-q` is what fixes it, NOT the `STAGED=` capture — re-adding `-q`
 # below reinstates the defect on `printf` instead of on `git`. Rationale and
 # the `|| [ $? -eq 1 ]` contract: `.claude/rules/ci-workflows.md` § "Rule 3".
-STAGED="$(git diff --cached --name-only)"
+STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
 if [ -z "$MATCHED" ]; then
   exit 0

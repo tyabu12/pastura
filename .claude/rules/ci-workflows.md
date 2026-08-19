@@ -12,7 +12,7 @@ Ten concern families when editing CI workflow YAML or supporting scripts on this
 
 Target **≤10 min**, up to ~12 min acceptable, **20 min is a blocker** — at 20 min the feedback loop on UI-test-affected PRs is unusable. When adding CI steps (new test targets, matrix builds, coverage passes), estimate wall-clock impact **before** proposing; if a change pushes above ~12 min, surface the trade-off explicitly (drop a redundant test, build-sharing, move to a nightly schedule) rather than shipping a slow suite and fixing later. UI tests especially run several times slower on CI simulators than locally — budget them aggressively.
 
-## Shell scripting gotchas (macOS GHA runners)
+## Shell scripting gotchas (macOS GHA runners and repo scripts)
 
 ### Rule 1 — bash 3.2 on macOS runners: no `mapfile` / `readarray`
 
@@ -65,24 +65,27 @@ $ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  #
 
 **Apply:** when adding a pipe to an existing step, check which shape it is before touching its exit handling — and never add pipefail to a `|| true` + PIPESTATUS step without also removing the `|| true`. Motivating incident: the Release-build step followed this rule's *earlier* advice ("just write `cmd | tee log`, GHA defaults to pipefail") and masked a `** BUILD FAILED **` as green; the failure surfaced one step later as a misleading "Expected exactly 1 Release binary, found 0" (#1141).
 
-### Rule 3 — `producer | grep -q` under `pipefail` reports a MATCH as a failure
+### Rule 3 — an early-exiting reader under `pipefail` reports a MATCH as a failure
 
-Sibling of Rule 2, opposite composition: there pipefail was missing, here it is
-present. Filed under this section for that pairing, but note the population is
-inverted too — the live sites are the repo's own `scripts/**` gates under the
-**local pre-commit hook**, and the GHA half is the explicitly-latent case at the
-end of this rule.
+**`pipefail` is not the variable — Rule 2 is right to add it. The variable is
+whether the pipeline's reader can exit before the producer finishes. Fix the
+shape, never the option.** That sentence is the arbitration between these two
+rules; without it they read as pulling opposite ways.
 
-`grep -q` exits at its **first** match; the producer, still writing,
-takes SIGPIPE and returns 141; `pipefail` promotes that to the pipeline's
-status. So `if ! producer | grep -q PAT` skips **because** the pattern matched.
+`grep -q` exits at its **first** match; the producer, still writing, takes
+SIGPIPE and returns 141; `pipefail` promotes that to the pipeline's status. So
+`if ! producer | grep -q PAT` skips **because** the pattern matched. Any
+early-exiting reader does this — `head`, `sed …q`, `awk …exit`, `grep -m N`.
+Both fail directions occur in this tree: `grep -q` fails **open** (a gate
+skips), while `| head` fails **loud** (a bare 141 abort, no message) — see
+`scripts/analyze-streaming-diag.sh` and
+`tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh`.
 
 **Never certify a site safe by comparing an input size to a number.** Pipe
 capacity is a kernel property and differs between the macOS pre-commit hook and
-the ubuntu CI runner, so a threshold you measured on one platform is not a fact
-about the other. The right question is whether the producer can outrun the
-buffer *at all* — `git diff --cached --name-only`, `nm -a` on an app binary and
-any whole-branch file list all can.
+the ubuntu CI runner, so a threshold measured on one platform is not a fact
+about the other. Ask instead whether the producer can outrun the buffer *at
+all*.
 
 **Apply** — capture, then test the captured text:
 
@@ -95,22 +98,30 @@ if [ -z "$MATCHED" ]; then exit 0; fi
 Three things that look interchangeable and are not:
 
 - **Assigning to a variable first does NOT fix it.** SIGPIPE just moves from
-  `git` to `printf`. Measured both ways; dropping `-q` is what fixes it.
+  `git` to `printf`. Dropping `-q` is what fixes it.
 - **`|| [ $? -eq 1 ]`, not `|| true`.** `|| true` maps grep's exit ≥2 (broken
   pattern, read error) onto the same empty string as a real no-match, which
   reopens the fail-open through a different door. As a bare assignment the
-  group's status reaches `set -e`, so a broken pattern fails loudly.
+  group's status reaches `set -e` — **wherever `-e` is actually in effect**;
+  two swept files here run without it (`set -uo pipefail`, and one helper under
+  an explicit `set +e`), where the group is uniformity, not an abort.
 - **Do not fold it into `if [ -z "$(… )" ]`.** A command substitution used as an
   argument to `[` has its status discarded, and the exit-code discrimination is
   silently lost.
+- **`; [ "${PIPESTATUS[1]}" -eq 0 ]` is also correct** and keeps the reader's
+  early exit, which matters when draining the producer is expensive. It is not
+  used in this tree, so the residual guard flags it — teach the guard first.
 
-Scope note: a bare `run:` step is `bash -e {0}` with no pipefail (Rule 2), so
-the four `printf … | grep -q` gating steps in `ci.yml` are latent rather than
-live — adding `shell: bash` to one arms it. `scripts/tests/staged-trigger-pipefail-test.sh`
-guards `scripts/*.sh` + `scripts/hooks/*.sh` + `tools/*/scripts/*.sh` for zero
-residuals; it deliberately does not parse workflow YAML, so those four are held
-by this paragraph only.
-Motivating sweep and the per-site fail directions: #1498.
+Scope note: 18 sites across this repo's gate scripts, the `/release` archive
+check, two Claude Code hooks and one CI step — 14 under the local pre-commit
+hook, the rest not, so this is not a pre-commit-only concern. A bare `run:` step
+is `bash -e {0}` with no pipefail (Rule 2), which makes `ci.yml`'s four
+`printf … | grep -q` gating steps latent rather than live — adding `shell: bash`
+to one arms it, and three of them gate `ios` / `kmp` / `scenarios` on a file
+list that can reach 3000 names. Guarded by
+`scripts/tests/staged-trigger-pipefail-test.sh`, which scans shell scripts for
+the `grep -q` **shape** only: it does not parse workflow YAML, and it does not
+see the other early-exiting readers. Per-site fail directions: #1498.
 
 ## Long-lived branch gating — two layers × two directions
 

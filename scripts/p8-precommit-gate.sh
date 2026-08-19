@@ -40,7 +40,15 @@ cd "$ROOT"
 # that back to "no key" — reopening this same silent skip through a different
 # door. Letting it fail the assignment under `set -e` refuses the commit
 # instead, which is the safe direction for a secret gate.
-STAGED="$(git diff --cached --name-only)"
+#
+# `-c core.quotepath=false` is load-bearing, not tidiness — a second fail-open
+# of the same shape sits at this one line. With the default, git octal-escapes
+# a non-ASCII path AND wraps it in double quotes, so the trailing `"` defeats
+# the `\.p8$` anchor and a key named in any non-ASCII script walks past this
+# gate. `scripts/git-hooks/pre-commit` passes the same flag at its own call
+# site for the mirror-image reason (a `^`-anchored prefix). All 13 staged-list
+# producers in scripts/ carry it; A13 in the regression test is the arm.
+STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | { grep -E '\.p8$' || [ $? -eq 1 ]; })"
 if [ -n "$MATCHED" ]; then
   {

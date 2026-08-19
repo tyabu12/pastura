@@ -267,25 +267,77 @@ else
       "would ship a leaking archive (ADR-005 §8.5)"
 fi
 
+# --- A13: a non-ASCII staged path must not walk past an anchored TRIGGER ----
+# A second fail-open of the same family, found at the same lines: with the
+# default `core.quotepath`, git octal-escapes a non-ASCII path AND wraps it in
+# double quotes, so the leading `"` defeats a `^`-anchored prefix and the
+# trailing `"` defeats a `$`-anchored extension. Measured before the fix: the
+# real navigation-map gate exited 0 for a lone staged
+# `Pastura/Pastura/Views/日本語View.swift`.
+#
+# Driven through the p8 gate because it is the one whose verdict is an exit
+# code — and because a key is the worst thing to let through. The ASCII arm is
+# the positive control: if it ever stops rejecting, this arm's non-ASCII
+# result says nothing about quoting.
+for variant in "keys/AuthKey_日本語.p8:non-ASCII" "keys/AuthKey_ASCII.p8:ASCII control"; do
+  path="${variant%%:*}"; label="${variant#*:}"
+  repo="$TMP/nonascii-$(printf '%s' "$label" | tr -cd 'A-Za-z')"
+  printf '%s\n' "$path" > "$TMP/one-path.txt"
+  make_repo "$repo" "$TMP/one-path.txt"
+  set +e
+  ( cd "$repo" && bash "$P8_GATE" ) >/dev/null 2>&1
+  rc=$?
+  set -e
+  if [ "$rc" -ne 0 ]; then
+    ok "A13 p8 gate rejects a staged key named in $label"
+  else
+    bad "A13 p8 gate ACCEPTED a staged .p8 named in $label — git quotes and" \
+        "octal-escapes such a path, so the trailing quote defeats the \`\\.p8\$\`" \
+        "anchor. The producer needs \`-c core.quotepath=false\` (#1498)."
+  fi
+done
+
 # --- A12: no `| grep -q` left in the production scripts --------------------
+# THIS ARM GUARDS ONE SHAPE, NOT THE CLASS. It scans for `grep -q` behind a
+# pipe. The defect is broader — ANY early-exiting reader (`head`, `sed …q`,
+# `awk …exit`, `grep -m N`) does the same thing to its producer under
+# `pipefail`. `scripts/analyze-streaming-diag.sh` was a live instance of the
+# `head` variant, inside this very pathspec, that this scan could not see; it
+# is fixed on the same branch. `.claude/rules/ci-workflows.md` § "Rule 3" is
+# what covers the class. Extending `scan` to the other readers would need its
+# own C-controls and would fire on many correct `| head` uses, so the split is
+# deliberate: mechanical guard for the shape, rule text for the class.
+#
 # Scope is the executable production surface — `scripts/*.sh`,
-# `scripts/hooks/*.sh` and `tools/*/scripts/*.sh`, tracked files only.
-# Deliberately NOT a pathspec over everything, because the precondition is
-# "does a `pipefail` reach this site", not "where does the file live". Three
-# areas were checked and are out of scope for that reason, not by omission:
-#   - scripts/tests/**        this file's own A4 / A11 negative controls are
-#                             literal old-shape copies and MUST stay; the other
-#                             harnesses feed short strings
-#   - .claude/skills/**       the run_tests.sh harnesses that carry the shape
-#                             all use `set -eu` with no pipefail;
-#                             release/SKILL.md's documented snippet reads a
-#                             3 KB Swift file in a shell that has pipefail off
+# `scripts/hooks/*.sh`, `scripts/git-hooks/*` and `tools/*/scripts/*.sh`,
+# tracked files only. Deliberately NOT a pathspec over everything, because the
+# precondition is "does a `pipefail` reach this site", not "where does the file
+# live". Four areas were checked and are out of scope for that reason, not by
+# omission — none of them is excluded by an input-size argument, which § Rule 3
+# forbids:
+#   - scripts/tests/**        structural, not size: these are not shipped
+#                             gates, so a false pass here fails the tests it
+#                             guards rather than production. This file's own
+#                             A4 / A11 negative controls are literal old-shape
+#                             copies and MUST stay in any case.
+#   - .claude/skills/**       every site there is outside a `pipefail` scope —
+#                             the `run_tests.sh` harnesses and
+#                             `scenario-factory/scripts/run_scenario.sh` use
+#                             `set -eu`, and `release/SKILL.md`'s snippet is
+#                             run ad hoc in a shell with pipefail off.
 #   - .github/workflows/**    a bare `run:` is `bash -e {0}`, no pipefail
 #                             (ci-workflows.md Rule 2). Latent, not live: a
 #                             later `shell: bash` on one of those steps arms
-#                             all four. Noted in the rule rather than guarded,
-#                             because guarding it here would need this file to
-#                             parse YAML step options to stay honest.
+#                             all four. Noted in the rule and inline at the
+#                             steps, rather than guarded here, because guarding
+#                             it would need this file to parse YAML step
+#                             options to stay honest.
+#   - docs/**                 two documented snippets. `ADR-028.md`'s
+#                             regeneration loop cannot exit early at all — its
+#                             `tr '\n' ' '` leaves the stream newline-free, so
+#                             grep must reach EOF before any line can match.
+#                             `security/release-checklist.md`'s `curl -sI |
+#                             head -1` runs interactively without pipefail.
 #
 # Two regression shapes this arm does NOT catch, stated so the coverage is not
 # read as wider than it is:
@@ -381,7 +433,13 @@ fi
 # afterthought: all four kmp-gate-spike scripts run `set -euo pipefail`, two are
 # `ci.yml` gates (check-b-prime-isolation, check-suspendcontroller-drift) and a
 # third runs in `kmp-nightly.yml` (stage-framework). Zero hits there today.
+#
+# `scripts/git-hooks/*` needs its own entry because the files there are
+# EXTENSIONLESS — `pre-commit` is not `*.sh`, so no amount of `scripts/*`
+# globbing reaches it. It sets `set -euo pipefail` and orchestrates all 15
+# gates, so it satisfies the scope predicate as squarely as anything here.
 git -C "$ROOT" ls-files -- ':(glob)scripts/*.sh' ':(glob)scripts/hooks/*.sh' \
+                           ':(glob)scripts/git-hooks/*' \
                            ':(glob)tools/*/scripts/*.sh' \
   > "$TMP/prod-scripts.txt"
 n_files="$(wc -l < "$TMP/prod-scripts.txt" | tr -d ' ')"
@@ -395,16 +453,31 @@ fi
 residual=""
 while IFS= read -r f; do
   [ -n "$f" ] || continue
-  hit="$(scan "$ROOT/$f" || true)"
+  # No `|| true` on the scan: an awk that cannot read the file would otherwise
+  # return empty, which is byte-identical to "this file is clean". The whole
+  # point of C1-C8 is that a silent zero is the failure mode here.
+  set +e
+  hit="$(scan "$ROOT/$f")"
+  scan_rc=$?
+  set -e
+  if [ "$scan_rc" -ne 0 ]; then
+    bad "A12 scan failed on $f (awk rc=$scan_rc) — a failed scan reads as a clean" \
+        "file, so treat this as unscanned rather than passing"
+  fi
   [ -z "$hit" ] || residual="${residual}${hit}
 "
 done < "$TMP/prod-scripts.txt"
 
 if [ -z "$residual" ]; then
-  ok "A12 no \`| grep -q\` remains in scripts/*.sh, scripts/hooks/*.sh or tools/*/scripts/*.sh"
+  ok "A12 no \`| grep -q\` remains in any of the $n_files enumerated production scripts"
 else
   bad "A12 \`| grep -q\` under pipefail still present — each of these skips silently when" \
-      "its producer outruns the pipe buffer (#1498):"
+      "its producer outruns the pipe buffer. There is no exemption: rewrite it to capture," \
+      "per .claude/rules/ci-workflows.md § \"Rule 3\", which also explains why an" \
+      "intermediate variable alone does NOT fix it. If the producer genuinely must not be" \
+      "drained, \`; [ \"\${PIPESTATUS[1]}\" -eq 0 ]\` is correct too — but teach it to \`scan\`" \
+      "and give it a C-control before using it, or this arm will keep calling it a defect" \
+      "(#1498). Offending lines:"
   printf '%s' "$residual" >&2
 fi
 
