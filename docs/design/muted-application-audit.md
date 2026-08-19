@@ -163,6 +163,11 @@ runs **2.136–4.152** across them, against §8's single stated calibration of
 | `whisperBubble` | 2.953 | `nightWhisperBubble` | 2.783 |
 | `mossSoft` | **2.136** ← worst | `nightMossSoft` | 2.413 |
 
+These figures are computed by the fixture and pinned there as
+`opaqueGroundPins`, which the fixture compares against what it recomputes.
+`scripts/check-measurement-transcripts.py` holds this table equal to those pins
+— edit the table alone and it goes red (#1488). §8 has the procedure.
+
 ### 3.2 Composited grounds — measured, and separately from the twelve
 
 Translucent washes the app paints under `muted` text. sRGB alpha-composite, then
@@ -182,6 +187,13 @@ neither, and was wrong three ways; the record is at ADR-028 § Amendment
 | `ModelRow` selected | `moss@0.06` over `bubbleBackground` / `nightBubble` | 3.287 | **2.693** |
 | `ReportSheet` meta chip | `rule@0.45` over an unknown ground — see below | 2.300–3.018 | 2.520–3.503 |
 | `HighlightShareCard` model name | `moss@0.14` / `nightMoss@0.10` light leak over the card background — bound at maximum leak | 2.932 | 3.140 |
+
+These figures are computed by the fixture and pinned there as `washRowPins`.
+`scripts/check-measurement-transcripts.py` holds this table equal to those pins,
+and holds ADR-028 § Amendment 2026-08-15's four-row copy to them as well
+(#1488). Until then the transcript claim above this table was only a claim: the
+fixture's arms were all inequalities, orderings and counts, so no ratio was
+named anywhere for a table to be a transcript *of*.
 
 Corrections beyond the arithmetic, all from reading the sites rather than the
 table:
@@ -517,3 +529,28 @@ Compare against §1's figure and the per-file expectations in
 an **addition** as well as on a regression, which prose alone cannot do. A row
 whose file+symbol no longer resolves was renamed, not fixed; re-adjudicate it
 against §2 rather than deleting it.
+
+### Regenerating the ratio tables (§3.1 / §3.2)
+
+Different procedure, different trigger: the count above moves when a **site** is
+added or repointed, these tables when the **palette** moves. Do not compute a
+ratio by hand or with a fresh script — §8 of `design-system.md` records that a
+hand-rolled one quantizing channels to 0–255 diverges from the fixture — one of
+the ways the earlier revision of §3.2 went wrong.
+
+```sh
+scripts/xcodebuild.sh test -only-testing PasturaTests/DesignTokensTests
+python3 scripts/check-measurement-transcripts.py --self-test
+python3 scripts/check-measurement-transcripts.py --check
+```
+
+`docTranscriptsMatchTheComputedFigures` prints every figure that moved as a
+ready-to-paste pin literal; paste those into the fixture, then carry the same
+three-digit figures here. The `--check` run names each doc face still
+disagreeing, ADR-028's copy included, and stays red until they all agree.
+
+Two things it does **not** do. It never tells you a row's *site* is wrong — §3.2
+files its own corrections under «beyond the arithmetic, all from reading the
+sites rather than the table», and no pin would have caught one of them — and it
+reads only the anchored tables, so §5's per-site ratio column, `ds/*.html`, and
+the fixture's own doc-comment prose stay hand-kept.

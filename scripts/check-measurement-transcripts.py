@@ -37,8 +37,10 @@ composites a colour.
 
 **What a green run does NOT certify.** That the doc rows describe the right
 sites, that a site still paints the wash its arm composites, or that a ground
-read off the view hierarchy is correct. All three of PR #1486's corrections were
-of that kind. Green means the numbers agree, no more. It also says nothing about
+read off the view hierarchy is correct. §3.2 files its own corrections under
+"beyond the arithmetic, all from reading the sites rather than the table", and a
+pin would have caught none of them. Green means the numbers agree, no more. It
+also says nothing about
 figures outside the anchored tables — the ledger §5 per-site columns, the
 `ds/*.html` visual mirror, and the fixture's own doc-comment prose each carry
 copies this gate does not read.

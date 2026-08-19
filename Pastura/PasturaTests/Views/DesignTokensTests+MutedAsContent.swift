@@ -429,9 +429,9 @@ extension DesignTokensTests {
   ///    faces and stays red until they agree.
   /// 3. **Green certifies the arithmetic only.** It does not certify that a
   ///    site still paints the wash its arm composites, nor that the ground read
-  ///    off the view hierarchy is the right one. §3.2's three recorded
-  ///    corrections all came from re-reading the sites, and not one of them was
-  ///    an arithmetic error a pin like this would have caught.
+  ///    off the view hierarchy is the right one. §3.2 files its own corrections
+  ///    under «beyond the arithmetic, all from reading the sites rather than
+  ///    the table» — a pin like this would have caught none of them.
   ///
   /// Comparison is by the doc's own rounding — `(x * 1000).rounded() / 1000` —
   /// rather than an epsilon: an epsilon wide enough to absorb the printed
