@@ -1,6 +1,6 @@
 ---
 name: simplify-doc
-description: Prune this branch's own added prose — compress or delete self-evident, redundant, or duplicated comments and documentation, with the back-reference, duplicate-claim, and mirror checks that make a deletion safe. Use when the user asks to simplify or compress docs or comments, trim what a branch added to .claude/rules, run a Context-economy pass, or 冗長なコメント / ドキュメントを削る.
+description: Prune this branch's own added prose — compress or delete self-evident, redundant, or duplicated comments and documentation, gated by the five checks that make a deletion safe (back-references, duplicate claims, mirrors, self-quoted numbers, machine-parsed prose). Use when the user asks to simplify or compress docs or comments, trim what a branch added to .claude/rules, run a Context-economy pass, or 冗長なコメント / ドキュメントを削る.
 allowed-tools: Read, Write, Edit, Bash, Agent
 argument-hint: "[base-ref | dry-run]"
 ---
@@ -31,7 +31,7 @@ turn. It is not a compression target for its own campaigns.
   They compose; neither substitutes.
 - **Not a review gate.** `/code-review` and the `code-reviewer` subagent judge a
   diff against conventions. This judges whether prose earns its place.
-- **Not a zero-base sweep.** See Step 0.5 and Step 1.
+- **Not a zero-base sweep.** See Step 0 item 5 and Step 1.
 - **Not an unattended generator**, so `.claude/rules/automation-output-contract.md`
   does not bind: a human invokes this, watches it, and reviews the commit. It
   queues no artifact into anyone's review backlog.
@@ -42,8 +42,9 @@ On a feature branch, normally just before `/orchestrate` Step 4 so the reviewer
 sees the pruned diff. CLAUDE.md § "Implementation Entry Point" carves this skill
 out of the `/orchestrate`-only rule on structural grounds — it edits prose, runs
 no build, touches none of the shared artifacts worktree isolation exists for,
-creates no branch and pushes nothing. Step 0's guards are the additional layer,
-and the carve-out names them, so do not weaken them.
+creates no branch and pushes nothing. The three revocable guards the carve-out
+names — Step 0's two refusals, and Step 4's explicit-path staging — are the rest
+of the grant, so do not weaken them.
 
 ## Step 0 — Preflight (refuse, don't degrade)
 
@@ -55,10 +56,11 @@ and the carve-out names them, so do not weaken them.
    commits them attributes another session's work to this one. Abort and report
    what is dirty rather than stashing it. This is a point measurement — Step 6
    re-checks before staging.
-3. **Resolve the base**: `BASE=$(git merge-base origin/main HEAD)`, after
-   `git fetch origin main`. Any argument that is not the literal `dry-run` is a
-   base-ref: validate it with `git rev-parse --verify "$ARG^{commit}"` and abort
-   on failure, so a typo fails here rather than as a raw git error in Step 1.
+3. **Resolve the base.** Any argument that is not the literal `dry-run` is a
+   base-ref and becomes `BASE`; with no argument, `git fetch origin main` then
+   `BASE=$(git merge-base origin/main HEAD)`. Either way validate before using
+   it — `git rev-parse --verify "$BASE^{commit}"` — and abort on failure, so a
+   typo fails here rather than as a raw git error in Step 1.
 4. If the argument is `dry-run`, stop after Step 2 and report the table.
 5. **If the request reads as zero-base** — "make `.claude/rules` carry only what
    it needs", or it names files this branch never touched — say so *before*
@@ -152,7 +154,7 @@ but not a wrap whose continuation line carries a `> ` blockquote marker, as
 
 **Pick the rarest space-free token, not the first, and enumerate the result.**
 Noise is the cost of the technique: `-lw lock` returns tens of files for a
-heading with two real citers, and for one whose distinctive words are all common
+heading cited from a handful, and for one whose distinctive words are all common
 (`reviewer`) it is worse. **If the result set is too large to enumerate, that IS
 the verdict: Keep**, or narrow with a second token. Never delete against a
 superset you did not read. Same shape as check B — unproven ⇒ Keep.
@@ -213,8 +215,10 @@ error — only silence:
   roster makes it skip per-ADR drift detection entirely.
 - **A `.claude/rules/*.md` `paths:` block.** Compressing it changes what the rule
   fires on, *and* re-tiers the file in the trim nudge and footprint sum — both
-  decide always-loaded vs path-scoped purely on whether the frontmatter carries a
-  `^paths:` line. A rules file whose frontmatter is touched also needs re-probing
+  decide always-loaded vs path-scoped by looking for a `^paths:` line in the
+  file's **first 14 lines only**, so padding the frontmatter past that window
+  re-tiers the file as surely as deleting the block. A rules file whose
+  frontmatter is touched also needs re-probing
   (`knowledge-layering.md` § "A rules file created mid-session never injects in
   that session").
 
@@ -284,7 +288,7 @@ Report:
 - **The arithmetic**: enumerated / kept / compressed / dropped / relocated. An
   uncounted drop is indistinguishable from a candidate never examined.
 - **What was not examined** — every file class skipped, and anything the request
-  asked for that Step 0.5 put out of scope.
+  asked for that Step 0 item 5 put out of scope.
 - **A ready-to-paste `Context-economy:` line** for the PR body, in the form the
   `gh pr create` nudge asks for:
   `Context-economy: kept N paragraphs, compressed/dropped M — <one-line rationale>`.

@@ -163,13 +163,13 @@ is also exempt: a tag ref is not branch-protected, edits no tracked files, and
 is gated behind the skill's mandatory confirmation. Any *code* change a release
 needs (a `MARKETING_VERSION` bump) still goes through `/orchestrate`.
 
-`/simplify-doc` is exempt for its **edit + commit**, on structural grounds like
-`/release`'s: it edits prose only and runs no build, so it never touches the
-shared artifacts the collision reason names, and it creates no branch and pushes
-nothing, so review still happens at the PR. Its preflight adds two revocable
-guards — refuse on the default branch, refuse on a dirty tree, stage explicit
-paths — which is why weakening them is a change to *this exemption*, not to the
-skill alone.
+`/simplify-doc` is exempt for its **edit + commit**. Structurally it edits prose
+only and runs no build, so it never touches the shared artifacts the collision
+reason names, and it creates no branch and pushes nothing, so review still
+happens at the PR. Three revocable guards close the rest: its preflight refuses
+on the default branch and on a dirty tree, and it stages explicit paths rather
+than `-A` / `-u`. Those are part of the grant — weaken one and this exemption
+narrows with it.
 
 ### TDD Approach
 
