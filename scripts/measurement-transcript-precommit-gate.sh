@@ -41,7 +41,7 @@ TRIGGER='(^docs/design/muted-application-audit\.md$)|(^docs/design/design-system
 # Dropping `-q` is the fix, not capturing first: `printf "$staged" | grep -q`
 # SIGPIPEs identically (measured both, with a no-match control, #1488). Without
 # `-q` grep consumes all input, so nothing can die early.
-# The same shape is in 13 sibling gates and is left to one sweep — see #1497.
+# The same shape is in 13 sibling gates and is left to one sweep — see #1498.
 STAGED="$(git diff --cached --name-only)"
 MATCHED="$(printf '%s\n' "$STAGED" | grep -E "$TRIGGER" || true)"
 if [ -z "$MATCHED" ]; then
