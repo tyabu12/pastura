@@ -42,8 +42,14 @@
 #
 #   3. Trim nudge — if the branch's ADDED lines across agent-instruction files
 #      cross a per-tier threshold, ask for a `context-budget.md` Keep/Drop
-#      pass recorded as a `Context-economy:` line in the PR body. Size is a
-#      trigger, not a verdict. Threshold rationale: #1361.
+#      pass recorded as a `Context-economy:` line in the PR body, and name
+#      `/simplify-doc` as the skill that runs it. Size is a trigger, not a
+#      verdict. Threshold rationale: #1361.
+#      The nudge stays advisory: a hook CAN refuse the `gh pr create` outright
+#      (`permissionDecision: deny`, which is unrelated to the exit-code
+#      fail-open below), and deliberately does not — a size threshold is not
+#      evidence that anything needs cutting. Text is the ceiling for anything
+#      stronger: hooks cannot invoke a skill on the operator's behalf.
 #
 #   4. Footprint nudge — if the branch ADDED lines to any ALWAYS-LOADED
 #      instruction file and the repo-wide always-loaded byte total exceeds a
@@ -289,7 +295,14 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
   # The `Context-economy:` token is fixed on purpose: it makes compliance
   # grep-able from `gh pr list` later, which is the data source for the
   # deferred reflection-hook-backstop decision (#1361).
-  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale')."
+  #
+  # APPEND ONLY. The opening sentence's `+N always-loaded / +N path-scoped`
+  # phrasing is asserted verbatim by both tier-classification positive controls
+  # (`scripts/tests/check-claude-md-modified-test.sh` cases (l) and (q) —
+  # measured by perturbing it, which reddens exactly those two). Reword it and
+  # the honest-looking fix is to loosen those assertions, retiring the only
+  # tests that prove a file was classified into the right tier.
+  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale'). /simplify-doc runs that pass: it is scoped to the lines this branch added, verifies each deletion against the back-reference, duplicate-claim and mirror checks, and emits the 'Context-economy:' line for you."
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------
