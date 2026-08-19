@@ -13,9 +13,10 @@ compared them:
 - `design-system.md` §8 — a third copy of the span.
 
 §3.2 already calls itself "a transcript rather than a second source". It was not
-one: every `#expect` in the fixture is an inequality or an ordering, so no arm
-named a figure at all and there was nothing to transcribe *from*. #1488 adds the
-pins; this gate is what makes them reach the docs.
+one: every `#expect` in `DesignTokensTests+MutedAsContent` was an inequality, an
+ordering or a count, so no arm named a figure at all and there was nothing to
+transcribe *from*. #1488 adds the pins, in the sibling this module reads; this
+gate is what makes them reach the docs.
 
 **Why not #1488's proposed tree-wide grep for duplicated literals.** Not because
 it misses the issue's evidence — measured, every wash figure that issue's Summary
@@ -53,12 +54,15 @@ section is not guarded prose**, and that distinction is where an enumeration
 goes wrong: subtracting whole sections from the tree-wide hits under-reports,
 because ADR-028's span amendment and design-system §8 both restate figures in
 running prose a few lines from a block this gate does read. Enumerated at block
-granularity rather than recalled — #1496 carries the command and the current
-count — the residue is prose in both English doc faces, **both halves of the
-fixture** (this file's pins are checked, its doc comments are not, and the
-computing sibling's are not either), two further test files, and one production
-doc comment. Re-derive it after any change to the fixture's shape: #1488's own
-split added a member to this list. `ds/*.html` is **not** on it: it carries
+granularity rather than recalled — #1496 carries the command, the current count
+and the reproduction — the residue is prose in **all three** doc faces (the
+Japanese one included: `design-system.md` §8 restates a figure one line outside
+its span block), **both halves of the fixture** (`FIXTURE_PATH`'s pins are
+checked, its doc comments are not, and the computing sibling's are not either),
+two further test files, and one production doc comment. Re-derive from #1496's
+command rather than editing an entry here: this list has been wrong three times,
+once by subtracting sections instead of blocks, once because #1488's own split
+added a member, and once because `git grep` does not see an untracked new file. `ds/*.html` is **not** on it: it carries
 three-decimal ratios, but of a different population (ground-vs-ground contrast
 and per-channel pair gaps), none of them a copy of these pins.
 

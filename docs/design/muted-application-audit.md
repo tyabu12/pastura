@@ -565,13 +565,15 @@ fixture. **A section this gate reads is not the same as prose this gate reads**,
 and mistaking the two is how an enumeration under-reports: ADR-028's span
 amendment and `design-system.md` §8 each restate a figure in running prose a few
 lines from a block that *is* read. So a figure restated outside a block stays
-hand-kept — prose in both English doc faces, this ledger's §1.1 / §2.1 / §6.2,
-**both halves of the fixture's** doc comments, two further test files and one
-production doc comment. That list is measured at block granularity, not recalled
-— #1496 carries the command that reproduces it and the current count. Re-derive
-it after any change to the fixture's shape rather than editing a row: #1488's own
-file split added a member, and the first re-derivation missed it because the new
-file was still untracked and `git grep` does not see those. `ds/*.html` is **not** on
+hand-kept — prose in **all three** doc faces (this ledger's §1.1 / §2.1 / §6.2,
+ADR-028's span amendment, and `design-system.md` §8 one line outside its span
+block), **both halves of the fixture's** doc comments, two further test files and
+one production doc comment. That list is measured at block granularity, not
+recalled — #1496 carries the command that reproduces it and the current count.
+Re-derive from that command rather than editing a row here: this list has been
+wrong three times — once by subtracting sections instead of blocks, once because
+#1488's own file split added a member, and once because the new file was still
+untracked and `git grep` does not see those. `ds/*.html` is **not** on
 it: it does carry three-decimal ratios, but of a different population
 (ground-vs-ground contrast, per-channel pair gaps), none a copy of these pins.
 

@@ -10,8 +10,8 @@
 # transcript rather than a second source", and §3.1's table, ADR-028's four-row
 # copy of the wash table and three copies of the twelve-ground span all restate
 # figures the fixture computes. None of it was checked — every `#expect` in
-# `DesignTokensTests+MutedAsContent` was an inequality or an ordering, so the
-# fixture named no figure to transcribe FROM. #1488 adds the pins (in the sibling
+# `DesignTokensTests+MutedAsContent` was an inequality, an ordering or a count,
+# so the fixture named no figure to transcribe FROM. #1488 adds the pins (in the sibling
 # `DesignTokensTests+MutedTranscript`); this gate is what makes them reach the
 # docs.
 #

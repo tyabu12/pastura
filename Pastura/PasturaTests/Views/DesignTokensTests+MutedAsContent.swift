@@ -20,9 +20,9 @@ import Testing
 // which recomputes them from the arrays below — hence `internal`, not `private`.
 //
 // This half is the tighter of the two against `file_length` (400, SwiftLint's
-// default; `--strict` promotes the warning). #1488 removed a length-lint
-// directive from here on the strength of that split, so a new arm belongs in
-// the sibling unless it is genuinely about computing a ground.
+// default; `--strict` promotes the warning), and the split is what keeps it
+// under without a lint directive. So a new arm belongs in the sibling unless it
+// is genuinely about computing a ground.
 extension DesignTokensTests {
 
   /// WCAG 1.4.3 normal-text bar. Both #1427 labels are `caption`-class (~12pt),
