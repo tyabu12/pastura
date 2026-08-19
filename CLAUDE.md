@@ -163,6 +163,12 @@ is also exempt: a tag ref is not branch-protected, edits no tracked files, and
 is gated behind the skill's mandatory confirmation. Any *code* change a release
 needs (a `MARKETING_VERSION` bump) still goes through `/orchestrate`.
 
+`/simplify-doc` is exempt for its **edit + commit** because its preflight
+discharges both reasons above: it refuses on the default branch (push
+protection) and on a dirty working tree, staging explicit paths only
+(concurrent-session collision). It creates no branch and pushes nothing —
+weakening either guard removes the exemption.
+
 ### TDD Approach
 
 Engine and LLM layer: test-first (write failing test → minimal implementation → refactor).
