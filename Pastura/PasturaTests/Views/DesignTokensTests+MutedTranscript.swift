@@ -194,8 +194,10 @@ extension DesignTokensTests {
   ///   next-highest. Relative, like the wash floor, and narrower.
   /// * No arm floors a bracket figure at all.
   ///
-  /// Every remaining arm bounds `muted` from **above** (sub-AA), which a
-  /// downward drift satisfies more comfortably. So for the uncovered figures
+  /// No remaining arm floors a **pinned** figure — the ones that assert a floor
+  /// (`>= 4.5`) do it for the *replacement* tokens, not for `muted`, and the
+  /// rest bound `muted` from above (sub-AA), which a downward drift satisfies
+  /// more comfortably. So for the uncovered figures
   /// this arm is the only red and its own instruction is "paste the new figures
   /// in" — which accepts the regression. Naming the direction is what turns a
   /// re-record into a decision. A *raised* figure needs no call-out: it moves
@@ -240,13 +242,15 @@ extension DesignTokensTests {
     return """
 
 
-      ⚠️ \(quieter.count) of them moved DOWN — less contrast than was recorded. Two arms floor \
-      part of that and neither covers all of it: the span arm pins only the opaque min and max, \
-      and `compositedGroundsStayAboveTheOpaqueWorstCase` floors the washes only RELATIVE to that \
-      opaque worst, so a drift lowering both stays green there — and the ordering arms catch a \
-      ground only once it overtakes a neighbour. No other arm floors a figure at all. For anything outside those two, this arm is the only red and pasting \
-      the new figures in is what accepts the regression. Decide that deliberately — if the retune \
-      was not meant to reach these grounds, fix the palette instead of the pins.
+      ⚠️ \(quieter.count) of them moved DOWN — less contrast than was recorded. Three arms floor \
+      part of that and none covers all of it: the span arm pins only the opaque min and max; \
+      `compositedGroundsStayAboveTheOpaqueWorstCase` floors the washes only RELATIVE to that \
+      opaque worst, so a drift lowering both stays green there; and \
+      `nightPageIsTheGroundNearestTheBar` catches a ground only once it overtakes a neighbour. \
+      No other arm floors a pinned figure. For anything outside those three, this arm is the \
+      only red and pasting the new figures in is what accepts the regression. Decide that \
+      deliberately — if the retune was not meant to reach these grounds, fix the palette \
+      instead of the pins.
 
       \(quieter.joined(separator: "\n"))
       """

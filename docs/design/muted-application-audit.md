@@ -195,9 +195,9 @@ These figures are computed by `DesignTokensTests+MutedAsContent` and pinned in
 its sibling `DesignTokensTests+MutedTranscript` as `washRowPins`.
 `scripts/check-measurement-transcripts.py` holds this table equal to those pins,
 and holds ADR-028 § Amendment 2026-08-15's four-row copy to them as well
-(#1488). Until then the transcript claim above this table was only a claim: the
-fixture's arms were all inequalities, orderings and counts, so no ratio was
-named anywhere for a table to be a transcript *of*.
+(#1488). Until then the transcript claim above this table was only a claim:
+`DesignTokensTests+MutedAsContent`'s arms were all inequalities, orderings and
+counts, so no ratio was named anywhere for a table to be a transcript *of*.
 
 Corrections beyond the arithmetic, all from reading the sites rather than the
 table:
@@ -565,16 +565,21 @@ fixture. **A section this gate reads is not the same as prose this gate reads**,
 and mistaking the two is how an enumeration under-reports: ADR-028's span
 amendment and `design-system.md` §8 each restate a figure in running prose a few
 lines from a block that *is* read. So a figure restated outside a block stays
-hand-kept — prose in **all three** doc faces (this ledger's §1.1 / §2.1 / §6.2,
-ADR-028's span amendment, and `design-system.md` §8 one line outside its span
-block), **both halves of the fixture's** doc comments, two further test files and
-one production doc comment. That list is measured at block granularity, not
-recalled — #1496 carries the command that reproduces it and the current count.
-Re-derive from that command rather than editing a row here: this list has been
-wrong three times — once by subtracting sections instead of blocks, once because
-#1488's own file split added a member, and once because the new file was still
-untracked and `git grep` does not see those. `ds/*.html` is **not** on
-it: it does carry three-decimal ratios, but of a different population
+hand-kept, in **all three** doc faces, in both halves of the fixture, in two
+further test files and in one production doc comment.
+
+**Do not maintain that list by hand here — print it.**
+
+```sh
+python3 scripts/check-measurement-transcripts.py --residue
+```
+
+Four hand-written versions of it were wrong, each for a different reason, which
+is why it is code now: the report subtracts at block granularity, takes the pin
+population from the fixture rather than from a memory of it, enumerates tracked
+files rather than grepping a working tree, and separates an executed `#expect`
+from a copy that can rot. #1496 carries the open judgments. `ds/*.html` does not
+appear: it carries three-decimal ratios, but of a different population
 (ground-vs-ground contrast, per-channel pair gaps), none a copy of these pins.
 
 §5 is the one face that moved from that list into the gate: its per-site

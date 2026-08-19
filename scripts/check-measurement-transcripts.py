@@ -53,16 +53,13 @@ tables, and the one block per span section that names the fixture. **A guarded
 section is not guarded prose**, and that distinction is where an enumeration
 goes wrong: subtracting whole sections from the tree-wide hits under-reports,
 because ADR-028's span amendment and design-system §8 both restate figures in
-running prose a few lines from a block this gate does read. Enumerated at block
-granularity rather than recalled — #1496 carries the command, the current count
-and the reproduction — the residue is prose in **all three** doc faces (the
-Japanese one included: `design-system.md` §8 restates a figure one line outside
-its span block), **both halves of the fixture** (`FIXTURE_PATH`'s pins are
-checked, its doc comments are not, and the computing sibling's are not either),
-two further test files, and one production doc comment. Re-derive from #1496's
-command rather than editing an entry here: this list has been wrong three times,
-once by subtracting sections instead of blocks, once because #1488's own split
-added a member, and once because `git grep` does not see an untracked new file. `ds/*.html` is **not** on it: it carries
+running prose a few lines from a block this gate does read. So a figure restated
+outside a block stays hand-kept: prose in all three doc faces, both halves of
+the fixture, two further test files, and one production doc comment.
+
+**That list is printed, not maintained here** — `--residue`. Four hand-written
+versions of it were wrong, each for a different reason, which is why it is code
+now. #1496 carries the open judgments. `ds/*.html` does not appear: it carries
 three-decimal ratios, but of a different population (ground-vs-ground contrast
 and per-channel pair gaps), none of them a copy of these pins.
 
@@ -95,12 +92,14 @@ decoy arm dropping one alternative so the positive arm cannot pass vacuously.
 Usage:
     python3 scripts/check-measurement-transcripts.py --self-test
     python3 scripts/check-measurement-transcripts.py --check
+    python3 scripts/check-measurement-transcripts.py --residue   # report-only
 """
 
 from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -134,6 +133,8 @@ FIXTURE_NAME = "DesignTokensTests+MutedTranscript"
 
 OPAQUE_DECL = "private static let opaqueGroundPins"
 WASH_DECL = "private static let washRowPins"
+# Read only by `--residue`: the gate itself never compares the brackets to a doc.
+BRACKET_DECL = "private static let ruleWashBracketPins"
 # `("name", 1.234)` — the shared shape of the ratio-keyed pin arrays. The value
 # here is a placeholder on purpose — as is every example figure in this file: a
 # real pinned one written here would be one more hand-kept copy, which is what
@@ -732,6 +733,133 @@ def collect(
         ledger_site_ratios(ledger_5, "ledger §5"), pool, "ledger §5"
     )
     return problems
+
+
+# --- the residue report (#1496) ---------------------------------------------
+#
+# `--residue` enumerates the figures this gate does NOT reach. It exists because
+# the enumeration was carried as prose four times and was wrong every time —
+# once by subtracting whole sections instead of blocks, once because a file
+# split changed what "the fixture" denotes, once because `git grep` does not see
+# an untracked new file, and once because "both English doc faces" silently drops
+# the Japanese one. A claim that needs re-deriving belongs in code.
+#
+# Report-only: it never fails, is not wired into the gate, and is the one thing
+# here that shells out to git.
+
+# Extensions that can carry a figure as prose or code. `.svg`/`.json` are out on
+# purpose and the count of skipped files is printed, so the exclusion is visible
+# rather than assumed: path coordinates in the App Store badge SVGs coincide with
+# pinned values and are not copies of anything.
+RESIDUE_SUFFIXES = frozenset(
+    {".md", ".swift", ".py", ".sh", ".yml", ".yaml", ".html", ".kt", ".txt"}
+)
+
+
+def residue_rows(
+    pool: set[str], read_index: set[tuple[str, int]], files: list[tuple[str, str]]
+) -> tuple[list[tuple[str, int, list[str]]], list[tuple[str, int, list[str]]]]:
+    """`(prose, executed)` hits outside `read_index`, one row per line.
+
+    A non-comment line in a `.swift` file is an **executed assertion**: it
+    reddens when the pins move, so it is a guard rather than a copy that can
+    rot. Counting those as residue is the fourth way this enumeration went
+    wrong, so they are separated rather than dropped.
+    """
+    prose: list[tuple[str, int, list[str]]] = []
+    executed: list[tuple[str, int, list[str]]] = []
+    for path, text in files:
+        for i, line in enumerate(text.splitlines(), start=1):
+            if (path, i) in read_index:
+                continue
+            found = sorted({v for v in pool if v in line}, key=float)
+            if not found:
+                continue
+            is_code = path.endswith(".swift") and not line.lstrip().startswith("//")
+            (executed if is_code else prose).append((path, i, found))
+    return prose, executed
+
+
+def _section_lines(text: str, start: re.Pattern[str], nxt: re.Pattern[str]) -> range:
+    lines = text.splitlines()
+    begin = next((i for i, line in enumerate(lines) if start.match(line)), None)
+    if begin is None:
+        raise AnchorError(f"residue: {start.pattern} no longer matches any heading.")
+    end = len(lines)
+    for i in range(begin + 1, len(lines)):
+        if nxt.match(lines[i]):
+            end = i
+            break
+    return range(begin, end)
+
+
+def residue() -> int:
+    fixture = _read(FIXTURE_PATH)
+    pool = set(fixture_ratio_pins(fixture).values())
+    for light, dark in fixture_wash_pins(fixture).values():
+        pool |= {light[0], light[1], dark[0], dark[1]}
+    brackets = _decl_block(fixture, BRACKET_DECL, str(FIXTURE_PATH))
+    pool |= {canonical(m.group(2)) for m in SWIFT_RATIO_PIN.finditer(brackets)}
+
+    # What the gate reads, at BLOCK granularity: table rows, and the one block
+    # per span section that names the fixture. Section granularity is what made
+    # the first enumeration wrong.
+    read_index: set[tuple[str, int]] = set()
+    ledger, adr, design_system = _read(LEDGER_PATH), _read(ADR_PATH), _read(DESIGN_SYSTEM_PATH)
+    for path, text, start, nxt in (
+        (LEDGER_PATH, ledger, LEDGER_31, NEXT_SUBSECTION),
+        (LEDGER_PATH, ledger, LEDGER_32, NEXT_SUBSECTION),
+        (LEDGER_PATH, ledger, LEDGER_5, NEXT_SECTION),
+        (ADR_PATH, adr, ADR_WASHES, NEXT_SECTION),
+        (ADR_PATH, adr, ADR_SPAN, NEXT_SECTION),
+        (DESIGN_SYSTEM_PATH, design_system, DESIGN_SYSTEM_8, NEXT_SECTION),
+    ):
+        lines = text.splitlines()
+        for i in _section_lines(text, start, nxt):
+            if lines[i].strip().startswith("|") or FIXTURE_NAME in lines[i]:
+                read_index.add((str(path), i + 1))
+    for i, line in enumerate(fixture.splitlines(), start=1):
+        if SWIFT_RATIO_PIN.search(line) or "WashRowPin(site:" in line:
+            read_index.add((str(FIXTURE_PATH), i))
+
+    listed = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "-z"],
+        capture_output=True, check=True,
+    ).stdout.decode("utf-8").split("\0")
+    files, skipped = [], 0
+    for name in listed:
+        if not name:
+            continue
+        if Path(name).suffix not in RESIDUE_SUFFIXES:
+            skipped += 1
+            continue
+        try:
+            files.append((name, (REPO_ROOT / name).read_text(encoding="utf-8")))
+        except (OSError, UnicodeDecodeError):
+            skipped += 1
+
+    prose, executed = residue_rows(pool, read_index, files)
+    by_file: dict[str, list[tuple[int, list[str]]]] = {}
+    for path, line, values in prose:
+        by_file.setdefault(path, []).append((line, values))
+
+    print(
+        f"measurement-transcript residue: {len(pool)} pinned values | "
+        f"{len(prose)} prose lines across {len(by_file)} files | "
+        f"{len(executed)} executed assertion lines | "
+        f"{len(files)} tracked files scanned, {skipped} skipped by suffix"
+    )
+    for path in sorted(by_file, key=lambda p: (-len(by_file[p]), p)):
+        rows = sorted(by_file[path])
+        distinct = sorted({v for _, values in rows for v in values}, key=float)
+        print(f"\n{path}: {len(rows)} prose lines, {len(distinct)} distinct")
+        for line, values in rows:
+            print(f"  :{line}  {' '.join(values)}")
+    if executed:
+        print("\nExecuted assertions (guards, not residue):")
+        for path, line, values in sorted(executed):
+            print(f"  {path}:{line}  {' '.join(values)}")
+    return 0
 
 
 def check() -> int:
@@ -1532,6 +1660,30 @@ def self_test() -> int:
         lambda: ledger_5_of(ledger.replace("## 5. The ledger", "## 5bis. The ledger")),
     )
 
+    # --- residue classification (#1496) ---------------------------------
+    #
+    # `--residue` shells out to git and reads the whole tree, so only its
+    # classification is unit-testable. That is the half that was wrong twice:
+    # counting an executed assertion as a copy, and failing to subtract a read
+    # block.
+    residue_files = [
+        ("docs/x.md", "| a | 9.111 |\nprose 9.777 here\n"),
+        ("Some/Fixture.swift", "    #expect(x == 9.111)\n    /// prose 9.777\n"),
+    ]
+    expect(
+        "residue: a read line is subtracted, prose is kept, assertions are split out",
+        lambda: residue_rows({"9.111", "9.777"}, {("docs/x.md", 1)}, residue_files),
+        (
+            [("docs/x.md", 2, ["9.777"]), ("Some/Fixture.swift", 2, ["9.777"])],
+            [("Some/Fixture.swift", 1, ["9.111"])],
+        ),
+    )
+    expect(
+        "residue: without the read-index entry the table row is residue too",
+        lambda: len(residue_rows({"9.111", "9.777"}, set(), residue_files)[0]),
+        3,
+    )
+
     # --- Trigger coverage (#1488) ---------------------------------------
     #
     # The only arms that read the REAL tree rather than a synthetic fixture, and
@@ -1587,13 +1739,18 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--check", action="store_true")
+    parser.add_argument("--residue", action="store_true")
     args = parser.parse_args()
     if args.self_test:
         rc = self_test()
         if rc or not args.check:
             return rc
     if args.check:
-        return check()
+        rc = check()
+        if rc or not args.residue:
+            return rc
+    if args.residue:
+        return residue()
     parser.print_help()
     return 2
 
