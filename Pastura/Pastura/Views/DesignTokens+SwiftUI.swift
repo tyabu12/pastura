@@ -10,25 +10,20 @@ import SwiftUI
 
 extension Color {
   // The aliases sourced from `PasturaDynamicPalette` resolve light/dark
-  // against the ambient interface style (§2.9 — ADR-028's original eight, the
-  // §2.6/§2.7 slice in #1282, the §2.4 meta presets plus two §2.12 header
-  // slots in #1313, the §2.5 character palette in #1319, the §2.1/§2.3/§2.8
-  // remainder plus `inkOnAccent` in slice 4, which closed gate 1, and then the
-  // two post-gate-1 role tokens `mossOnWash` in #1327 and `inkOnWash` in
-  // #1408). **Exactly one
-  // light token is left in pairing scope and it is resolved, not pending**:
-  // `headerMetaSubdued`, fixed in both appearances by decision — see
+  // against the ambient interface style (§2.9 — per-slice provenance in
+  // ADR-028 § "The eight pairs"). **Exactly one light token is left in
+  // pairing scope and it is resolved, not pending**: `headerMetaSubdued`,
+  // fixed in both appearances by decision — see
   // `DesignTokens+NightPalette`'s §2.12 MARK. The remaining aliases below are
   // outside that scope entirely: the §2.9 `night*` ones are the dark halves
-  // themselves (note `night` alone is §2.10, not one of them — so
-  // `grep -c '^  static let night' DesignTokens+SwiftUI.swift` returns one more
-  // than the pair count, never the pair count itself; the leading anchor is what
-  // keeps this very line out of its own count), and §2.10 time-of-day /
-  // §2.11 chart are decorative reservations that were never candidates for
-  // pairing. `Info.plist`'s `UIUserInterfaceStyle` lock has been removed
-  // (ADR-028 gates 4/5), so every half-dark surface now renders on a device set
-  // to dark appearance — nothing missing holds it back, since slice 4 already
-  // closed gate 1.
+  // themselves — `night` alone is §2.10, not a pair, so
+  // `grep -c '^  static let night' Pastura/Pastura/Views/DesignTokens+SwiftUI.swift`
+  // returns the pair count plus that one (keep the leading anchor, or the count
+  // includes this comment). §2.10 time-of-day / §2.11 chart are decorative
+  // reservations that were never candidates for pairing. `Info.plist`'s
+  // `UIUserInterfaceStyle` lock has been removed (ADR-028 gates 4/5), so every
+  // half-dark surface now renders on a device set to dark appearance — nothing
+  // missing holds it back, since slice 4 already closed gate 1.
   //
   // Need a specific appearance regardless of the device — e.g. an
   // `ImageRenderer` export, which does not inherit the ambient environment?

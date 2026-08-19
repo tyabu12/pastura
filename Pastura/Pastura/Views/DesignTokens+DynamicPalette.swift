@@ -24,15 +24,17 @@ import SwiftUI
 ///
 /// ``all`` below is the registry; its size is pinned by
 /// `DesignTokensTests+DarkMode`'s count guard, which is the only place in the
-/// Swift sources that states the number. Which slice contributed which pair is
-/// recorded once, in ADR-028 § "The eight pairs" — not restated here.
+/// Swift sources that states the number — a numeral anywhere else in Swift is a
+/// stale mirror. Which slice contributed which pair is recorded in ADR-028
+/// § "The eight pairs" (which covers all of them, not only the original eight),
+/// not restated here.
 ///
-/// That provenance list is not a partition. The two **role tokens**,
-/// `mossOnWash` (#1327) and `inkOnWash` (#1408), were added *after* gate 1
-/// closed and for a different reason than any slice: not a light token owed a
-/// dark half, but a new light token that had to exist at all, born paired
-/// because §2.9 is now how the palette works. So "which slice is it from?" has
-/// no answer for either.
+/// That record is a provenance list, not a partition of ``all``: two entries
+/// belong to no slice. They are the **role tokens**, `mossOnWash` (#1327) and
+/// `inkOnWash` (#1408), added *after* gate 1 closed and for a different reason
+/// than any slice — not a light token owed a dark half, but a new light token
+/// that had to exist at all, born paired because §2.9 is now how the palette
+/// works. So "which slice is it from?" has no answer for either.
 ///
 /// Exactly **one** light token remains unpaired, and gate 1 owes an answer for
 /// **none**. `headerMetaSubdued` is that one: slice 2 recorded it as fixed in
