@@ -11,10 +11,7 @@ import UIKit
 // `+InkOnWash.swift` each pin a 4.5:1 bar, and each is only the right bar
 // because every label in its fixture is WCAG **normal** text. Until #1468 that
 // was a prose claim over row types storing no font, so no arm observed it and a
-// large-text row would have been admitted silently. #1466 is the demonstration:
-// a superlative in `textBar`'s doc survived until a new 12pt row falsified it,
-// and only a hand census of all nine rows caught that — while a second claim
-// citing it in `+InkOnWash.swift` went stale at the same moment.
+// large-text row would have been admitted silently (#1466).
 //
 // This file owns the criterion and the negative controls for it; the fixtures
 // own their rows. That split is deliberate: the controls exercise
@@ -27,11 +24,14 @@ import UIKit
 // `textBar` pins 4.5 over a `[String]` site list and keeps a superlative on top
 // of it — the exact state #1466 falsified — and
 // `DesignTokensTests+MutedAsContent.swift`'s `contentTextBar` carries the
-// shorter form. They are excluded here rather than overlooked, and for
-// different reasons: the first would need its list promoted to a row type, and
-// the second stores **grounds** rather than labels, so there is no row for a
-// font to hang on and its claim needs a fixture that does not exist yet. Do not
-// read the criterion below as covering either.
+// shorter form. They are excluded here rather than overlooked, and **one
+// obstacle is common to both**: `PredictionOutcomeBadge`'s streak sub-label is
+// `.caption.weight(.medium)`, and both fixtures speak for it — so either would
+// force a fourth ``WashLabelWeight`` case, i.e. a WCAG judgement call this
+// branch had no occasion to make. On top of that the first needs its `[String]`
+// list promoted to a row type, and the second's remaining claim is entangled
+// with the occupancy question it explicitly defers to #1448. Do not read the
+// criterion below as covering either.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
@@ -48,6 +48,16 @@ extension DesignTokensTests {
   /// `.bold`, while `18` rejected and `17.9` admitted are what say the half it
   /// takes is ≥18 rather than merely >14. With only the first, a threshold
   /// typed as 20 would pass every arm in the repo.
+  ///
+  /// **This table is the sole arbiter for both controls, so editing a row to
+  /// green a red disarms them together.** That is the failure to guard against
+  /// — not sabotage, just the ordinary red-test reflex: someone re-deciding a
+  /// half edits ``WashLabelWeight/largeTextThreshold``, sees three reds, and
+  /// "fixes" the expectations. No shipped row would redden alongside, since all
+  /// of them sit far from either threshold.
+  /// ``everyWeightHalfIsPinnedFromBothSidesInTheTable`` is what makes a *lost*
+  /// pin visible; a row *moved* (18 → 19) still passes it, and the count pin
+  /// below survives any same-cardinality swap.
   static let washLabelBoundaryCases: [WashLabelBoundaryCase] = [
     WashLabelBoundaryCase(14, .bold, isNormalText: false),
     WashLabelBoundaryCase(13.9, .bold, isNormalText: true),
@@ -74,6 +84,44 @@ extension DesignTokensTests {
     let caption2 = UIFont.preferredFont(forTextStyle: .caption2, compatibleWith: large)
     #expect(Double(caption.pointSize) == WashLabelSemanticSize.caption)
     #expect(Double(caption2.pointSize) == WashLabelSemanticSize.caption2)
+  }
+
+  /// Coverage over the boundary table, which its own count pin cannot give:
+  /// `count == 7` survives a same-cardinality swap, and says nothing at all
+  /// about a **fourth** ``WashLabelWeight`` case, which would ship with zero
+  /// control rows while both negative controls stayed green.
+  ///
+  /// Deliberately structural, not value-derived: it asks that each case be
+  /// pinned on both sides of its threshold without saying where that threshold
+  /// is, so the table stays an independent statement rather than a restatement
+  /// of the implementation.
+  @Test func everyWeightHalfIsPinnedFromBothSidesInTheTable() {
+    for weight in WashLabelWeight.allCases {
+      let rows = Self.washLabelBoundaryCases.filter { $0.weight == weight }
+      #expect(rows.contains { $0.isNormalText }, "no admitted boundary row for \(weight)")
+      #expect(rows.contains { !$0.isNormalText }, "no rejected boundary row for \(weight)")
+    }
+  }
+
+  /// ``WashLabelWeight/init(_:)`` is what lets a token-backed row take its
+  /// weight live instead of transcribing it, so this pins both halves of that
+  /// initializer: the mappings the fixtures rely on, and — through
+  /// `withKnownIssue` — that an unmodelled weight is *recorded* rather than
+  /// quietly folded into `.regular`.
+  ///
+  /// The second half is the one that matters. Defaulting silently would still
+  /// be the over-strict direction, so no arm would ever redden to reveal it,
+  /// and the "a fourth weight is a decision" property would be gone with
+  /// nothing to show for it.
+  @Test func tokenWeightsMapToHalvesAndUnmodelledOnesAreRecorded() {
+    #expect(WashLabelWeight(.regular) == .regular)
+    #expect(WashLabelWeight(.semibold) == .semibold)
+    #expect(WashLabelWeight(.bold) == .bold)
+    #expect(WashLabelWeight(.heavy) == .bold)
+
+    withKnownIssue("an unmodelled weight must record an issue, not default silently") {
+      _ = WashLabelWeight(.medium)
+    }
   }
 
   /// The negative control for ``MossWashSite/isNormalText``.
@@ -133,22 +181,53 @@ extension DesignTokensTests {
 /// **`.semibold` takes the ≥18pt half, decided here rather than per row.**
 /// WCAG's "bold" is conventionally ≥700 and `.semibold` is 600, so the ≥14pt
 /// half would be the more permissive reading of a weight WCAG does not call
-/// bold; the ≥18pt half holds a semibold row to the stricter 4.5:1 bar for
-/// longer. #1466 settled that as a convention in prose; this is where it became
+/// bold. #1466 settled that as a convention in prose; this is where it became
 /// executable — ``DesignTokensTests/mossWashSiteRejectsLargeTextLabels``
 /// separates it from `.bold` *and* pins the value, which a lone `14pt semibold`
 /// case could not.
 ///
-/// Only the three weights the fixtures actually use are modelled. A fourth
-/// (`.heavy`, `.medium`, ...) is a decision rather than a mechanical addition —
-/// it has to choose a half — so it belongs in this switch, not at a call site.
+/// **What makes the choice safe is a property, not a preference**: the fixtures
+/// pin one bar, the strictest available, and a row failing the criterion is a
+/// red rather than a silent drop. So *every* misclassification this type can
+/// produce errs toward over-strictness — a row wrongly on the ≥18 half is held
+/// to 4.5 where WCAG would allow 3:1, and one wrongly on ≥14 reddens and gets
+/// looked at. No misclassification routes a label to a *looser* bar, because no
+/// looser bar exists in these files.
+///
+/// Only the three weights the fixtures use are modelled, and a fourth is a
+/// decision rather than a mechanical addition — it has to choose a half. Both
+/// the `largeTextThreshold` switch and ``init(_:)`` are written so that a new
+/// weight cannot arrive without one being made (the first by having no
+/// `default:`, the second by recording an issue). A live case in the tree
+/// waiting on that decision: `PredictionOutcomeBadge`'s streak sub-label is
+/// `.caption.weight(.medium)` (#1495).
 ///
 /// File scope per `.claude/rules/testing.md` § "Splitting a Suite Across Files":
 /// helpers in a sibling file live outside the suite struct.
-enum WashLabelWeight {
+enum WashLabelWeight: CaseIterable {
   case regular
   case semibold
   case bold
+
+  /// The half a design-token weight selects, **derived rather than
+  /// transcribed** — so a row whose view reads a `Typography.*` token can take
+  /// both of its figures live, the way it already takes `size`.
+  ///
+  /// Records an issue rather than folding an unmodelled weight into `.regular`:
+  /// silently defaulting would be the over-strict direction and therefore safe
+  /// in outcome, but it would erase the "a fourth weight is a decision"
+  /// property this type exists to hold. `.medium` is the case that would hit it
+  /// today.
+  init(_ weight: Font.Weight) {
+    switch weight {
+    case .bold, .heavy, .black: self = .bold
+    case .semibold: self = .semibold
+    case .regular, .light, .thin, .ultraLight: self = .regular
+    default:
+      Issue.record("unmodelled Font.Weight — decide its WCAG half in WashLabelWeight")
+      self = .regular
+    }
+  }
 
   /// The point size **at or above which** a label of this weight is WCAG large
   /// text, i.e. answers to the 3:1 bar instead of 4.5:1.
@@ -171,20 +250,46 @@ enum WashLabelWeight {
 /// One wording in one place: the criterion lives here, so a message that drifts
 /// per fixture is the plausible failure — three byte-identical string literals
 /// across files are a mirror like any other.
+///
+/// **It carries the repair direction because the cheapest repair is wrong.**
+/// A rejected row reddens twice (this arm, then the 4.5 assertions it is not
+/// exempt from), and both `pointSize` and `weight` are recorded by hand — so
+/// editing the record is the path of least resistance out of the red, and
+/// nothing would catch it. `DesignTokensTests+MossInkAsWashLabel.swift`'s
+/// "Large text is out" bullet is where a genuinely large-text site goes.
 func largeTextRejection(_ name: String, pointSize: Double, weight: WashLabelWeight) -> String {
-  "\(name) is large text (\(pointSize)pt \(weight)) and does not belong in a normal-text fixture"
+  """
+  \(name) is large text (\(pointSize)pt \(weight)) and does not belong in a normal-text fixture \
+  — measure it at WCAG 1.4.11's 3:1 or exclude it deliberately; do not adjust the recorded \
+  size/weight to clear this
+  """
 }
 
 /// Point sizes of the semantic SwiftUI text styles the wash fixtures use, at
-/// the default `.large` content size.
+/// the default `.large` content size — and the reference for what a row's
+/// `pointSize` means in either regime, for both ``MossWashSite`` and
+/// ``InkWashSite``.
 ///
-/// Rows on a `.system(size:)` label carry that size instead — from a
-/// `Typography.*` token, a layout constant, or a literal the view inlines — and
-/// those are fixed-size by design (``PasturaTextStyle/font``'s doc comment), so
-/// the value is the size, full stop. These two have no such value to read,
-/// which is why they are named here and measured by
+/// **The split is fixed-size vs scaling, not which expression the view wrote.**
+///
+/// *Fixed size* covers every `.system(size:)` label — from a `Typography.*`
+/// token (referenced live via the token's `size`, and fixed-size by design per
+/// ``PasturaTextStyle/font``), from a layout constant read live
+/// (`HomeHeroLayout.*FontSize`), or from a literal the view inlines. For those
+/// the recorded value is the size at every content size.
+///
+/// *Scaling* covers the two constants below. Their value is the size **at the
+/// default**: at accessibility sizes such a label crosses into large text,
+/// which only **relaxes** the bar the fixtures apply. So a row's `pointSize`
+/// decides admission at the default and nothing else.
+///
+/// **Hand-recorded against the view, and a wrong transcription is caught by
+/// nothing.** Live references, ``WashLabelWeight/init(_:)`` and
 /// ``DesignTokensTests/semanticLabelSizesMatchUIKitAtTheDefaultContentSize``
-/// rather than written down.
+/// remove the guesswork from every figure that has a source — which is why
+/// these two are measured here rather than written down. But *which* figure a
+/// row takes is still a reader's judgement, the same standing the fixtures give
+/// their grounds. A reviewer has to open the view when a row is added.
 enum WashLabelSemanticSize {
   static let caption = 12.0
   static let caption2 = 11.0

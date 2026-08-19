@@ -46,6 +46,14 @@ extension DesignTokensTests {
   /// WCAG 1.4.3 normal-text bar. All four labels are under the "large text"
   /// threshold (≥14pt bold / ≥18pt regular) — the largest is `caption`-class at
   /// ~12pt and the chip is 10pt bold — so 3:1 never applies to any of them.
+  ///
+  /// ⚠️ **Prose, observed by nothing** — `mossSoftTextSites` is a `[String]`,
+  /// so neither that claim nor the superlative inside it can redden when a
+  /// fifth label arrives. This is the shape #1466 falsified in
+  /// `DesignTokensTests+MossOnWash.swift`; #1468 made it executable for the
+  /// three *wash* fixtures via ``WashLabelWeight``, and #1495 tracks bringing
+  /// this one along. Do not re-derive the superlative by hand when adding a row
+  /// — promote the list instead.
   private static let textBar = 4.5
 
   /// The ground is the token itself, not a composite: unlike the wash sites,

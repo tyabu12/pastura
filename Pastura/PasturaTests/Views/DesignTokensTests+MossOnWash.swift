@@ -84,7 +84,8 @@ extension DesignTokensTests {
       // `.textStyle(Typography.tagPhase)`
       MossWashSite(
         "PhaseTypeLabel", wash: .moss, light: 0.15, dark: 0.15,
-        pointSize: Double(Typography.tagPhase.size), weight: .semibold),
+        pointSize: Double(Typography.tagPhase.size),
+        weight: WashLabelWeight(Typography.tagPhase.weight)),
       // The one row whose view **inlines** its size rather than reading a token
       // — `.font(.system(size: 9.5, weight: .semibold, design: .monospaced))`.
       // `recommendedTagRowMatchesTheTokenItsViewDocClaimsToReuse` ties this
@@ -111,11 +112,13 @@ extension DesignTokensTests {
       // `.textStyle(Typography.pillStatus)`
       MossWashSite(
         "GalleryHighlightRunFigure.recordedPill", wash: .mossDark, light: 0.14, dark: 0.14,
-        pointSize: Double(Typography.pillStatus.size), weight: .semibold),
+        pointSize: Double(Typography.pillStatus.size),
+        weight: WashLabelWeight(Typography.pillStatus.weight)),
       // `.textStyle(Typography.pillStatus)`, via `GameHeader.statusPill`
       MossWashSite(
         "GameHeaderStatus.active", wash: .moss, light: 0.14, dark: 0.14,
-        pointSize: Double(Typography.pillStatus.size), weight: .semibold)
+        pointSize: Double(Typography.pillStatus.size),
+        weight: WashLabelWeight(Typography.pillStatus.weight))
     ]
   }
 
@@ -124,11 +127,18 @@ extension DesignTokensTests {
   /// content size.
   ///
   /// That is now a **guard rather than a convention** (#1468): each row carries
-  /// its point size and weight, and
-  /// ``mossOnWashClearsAAOnEveryWashItIsUsedOn`` rejects a row that is large
-  /// text before it applies this bar to it. ``WashLabelWeight`` owns the
-  /// threshold and the `.semibold` half; a large-text row is *excluded*, not
-  /// relaxed to 3:1, because no site in this family is meant to be one.
+  /// its point size and weight, and ``mossOnWashClearsAAOnEveryWashItIsUsedOn``
+  /// checks the criterion per row. ``WashLabelWeight`` owns the threshold and
+  /// the `.semibold` half.
+  ///
+  /// `#expect` does not short-circuit, so a large-text row is **flagged and then
+  /// measured at 4.5 anyway** — two reds, which is the safe order: the row is
+  /// named as not belonging here, and the number it would have been judged on is
+  /// still reported. A row that genuinely is large text belongs where 3:1 is
+  /// measured, per the "Large text is out" bullet in
+  /// `DesignTokensTests+MossInkAsWashLabel.swift` (which names the shipped
+  /// precedent, `ModelPickerView`'s 26pt-bold title) — not here with its
+  /// recorded size edited down.
   ///
   /// **No superlative is restated here.** The rows are the authority on which
   /// is largest, and a prose extreme is precisely the mirror that went stale in
@@ -196,7 +206,9 @@ extension DesignTokensTests {
   @Test func recommendedTagRowMatchesTheTokenItsViewDocClaimsToReuse() {
     let tag = Self.mossWashSites.first { $0.name == "ModelRow.recommendedTag" }
     #expect(tag?.pointSize == Double(Typography.tagPhase.size))
-    #expect(tag?.weight == .semibold)
+    // Token-derived on both sides, like every other token-backed row — a
+    // literal-vs-literal weight check would assert nothing about `tagPhase`.
+    #expect(tag?.weight == WashLabelWeight(Typography.tagPhase.weight))
   }
 
   /// The negative control, and the whole reason the token exists.
@@ -319,33 +331,15 @@ struct MossWashSite {
   let lightAlpha: Double
   let darkAlpha: Double
 
-  /// The label's point size at the default `.large` content size.
-  ///
-  /// **Two regimes share this field**, and the split is fixed-size vs scaling
-  /// rather than which expression the view wrote.
-  ///
-  /// *Fixed size* covers every `.system(size:)` label — whether it comes from a
-  /// `Typography.*` token (referenced live via the token's `size`, and
-  /// fixed-size by design per ``PasturaTextStyle/font``), from a layout constant
-  /// read live (`HomeHeroLayout.*FontSize`), or from a literal the view inlines.
-  /// For those the value is the size at every content size.
-  ///
-  /// *Scaling* covers the semantic SwiftUI fonts (`.caption` / `.caption2`),
-  /// which name a ``WashLabelSemanticSize`` constant: that is the size **at the
-  /// default**, and at accessibility sizes such a label crosses into large text
-  /// — which only **relaxes** the bar the fixture applies. So this field decides
-  /// admission at the default and nothing else.
-  ///
-  /// **Hand-recorded against the view, and a wrong transcription is caught by
-  /// nothing.** Live references and
-  /// ``DesignTokensTests/semanticLabelSizesMatchUIKitAtTheDefaultContentSize``
-  /// remove the guesswork from every figure that has a source, but which figure
-  /// a row *takes* is still a reader's judgement — same standing as the grounds
-  /// the arms below pin. A reviewer has to open the view when a row is added.
+  /// The label's point size at the default `.large` content size. The two
+  /// regimes this field spans, and why a wrong transcription is caught by
+  /// nothing: ``WashLabelSemanticSize``, which states them once for both row
+  /// types.
   let pointSize: Double
 
   /// Which WCAG large-text half the label's weight selects — see
-  /// ``WashLabelWeight`` for the `.semibold` decision.
+  /// ``WashLabelWeight`` for the `.semibold` decision, and ``WashLabelWeight/init(_:)``
+  /// for deriving this from a token rather than transcribing it.
   let weight: WashLabelWeight
 
   init(

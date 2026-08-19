@@ -91,7 +91,8 @@ extension DesignTokensTests {
       // `.textStyle(Typography.pillStatus)`
       MossWashSite(
         "GameHeader.statusPill", wash: .mossDark, light: 0.14, dark: 0.14,
-        pointSize: Double(Typography.pillStatus.size), weight: .semibold),
+        pointSize: Double(Typography.pillStatus.size),
+        weight: WashLabelWeight(Typography.pillStatus.weight)),
       // `.font(.caption)` + `.fontWeight(.semibold)` — one `resultPill` helper
       // renders both this and `+InkOnWash`'s `ResultsView.paused`, so the two
       // genuinely share a font.
@@ -107,8 +108,10 @@ extension DesignTokensTests {
   /// site above the threshold is excluded (the large-text bullet above).
   ///
   /// Executed since #1468 — the rows carry their type size and
-  /// ``mossInkClearsAAOnEveryMossWashItLabels`` rejects a large-text row before
-  /// applying this bar to it, so the per-row sizes are not restated here.
+  /// ``mossInkClearsAAOnEveryMossWashItLabels`` checks the criterion per row, so
+  /// the per-row sizes are not restated here. `#expect` does not short-circuit,
+  /// so a large-text row is flagged and then measured at 4.5 anyway; where it
+  /// belongs instead is the "Large text is out" bullet above.
   /// Pinning 4.5 stays conservative at accessibility sizes for the reason
   /// `+InkOnWash`'s `inkTextBar` gives — do not "correct" it in the other
   /// direction.

@@ -20,6 +20,14 @@ extension DesignTokensTests {
 
   /// WCAG 1.4.3 normal-text bar. Both #1427 labels are `caption`-class (~12pt),
   /// under the "large text" threshold, so 3:1 never applies to either.
+  ///
+  /// ⚠️ **Prose, observed by nothing.** #1468 made this criterion executable
+  /// for the three *wash* fixtures via ``WashLabelWeight``; #1495 tracks this
+  /// one. The two arms that use this bar as a **floor** speak for named labels
+  /// (the miss arm and the streak sub-label) and could carry the fields, so the
+  /// obstacle is not the fixture's ground-oriented shape — it is that the
+  /// streak label is `.caption.weight(.medium)`, and `.medium` has no WCAG half
+  /// assigned yet.
   private static let contentTextBar = 4.5
 
   /// Every opaque ground the app ships that `muted` is or could be drawn on,

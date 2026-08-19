@@ -50,7 +50,8 @@ extension DesignTokensTests {
       // `.textStyle(Typography.tagPhase)`
       InkWashSite(
         "PhaseTypeLabel", alpha: 0.15,
-        pointSize: Double(Typography.tagPhase.size), weight: .semibold),
+        pointSize: Double(Typography.tagPhase.size),
+        weight: WashLabelWeight(Typography.tagPhase.weight)),
       // `.font(.caption)` + `.fontWeight(.semibold)` — one `resultPill` helper
       // renders this and `+MossInkAsWashLabel`'s `ResultsView.completed`.
       InkWashSite(
@@ -64,9 +65,11 @@ extension DesignTokensTests {
   /// content size.
   ///
   /// Executed since #1468 — the rows carry their type size and
-  /// ``inkOnWashClearsAAOnEverySelfWashItIsUsedOn`` rejects a large-text row
-  /// before applying this bar to it; ``WashLabelWeight`` owns the threshold and
-  /// the `.semibold` half.
+  /// ``inkOnWashClearsAAOnEverySelfWashItIsUsedOn`` checks the criterion per
+  /// row; ``WashLabelWeight`` owns the threshold and the `.semibold` half.
+  /// `#expect` does not short-circuit, so a large-text row is flagged and then
+  /// measured at 4.5 anyway, and belongs where 3:1 is measured — see the "Large
+  /// text is out" bullet in `DesignTokensTests+MossInkAsWashLabel.swift`.
   ///
   /// Pinning 4.5 stays conservative at accessibility sizes: the semantic-font
   /// rows scale past their weight's threshold there and the 3:1 large-text bar
@@ -78,11 +81,9 @@ extension DesignTokensTests {
   /// **No type-size extreme of a fixture is restated in any of the three wash
   /// files.** (Not in the suite at large — `+MossSoftGround.swift`'s still
   /// stands; see ``DesignTokensTests/inkWashSiteRejectsLargeTextLabels``' file
-  /// header.) The old advice was
-  /// "re-derive this fixture's own extreme, never cite a sibling's" — this
-  /// paragraph *was* a citation of `+MossOnWash`'s `~11pt` until #1459
-  /// falsified it there. Recording the size per row retires the advice along
-  /// with the hazard: there is no longer an extreme to quote or to keep true.
+  /// header.) The old advice — "re-derive this fixture's own extreme, never
+  /// cite a sibling's" — is retired along with the hazard it managed: with the
+  /// size recorded per row there is no extreme left to quote or to keep true.
   private static let inkTextBar = 4.5
 
   /// "Clears the bar" and "has margin above it" are different claims, and this
@@ -303,13 +304,15 @@ struct InkWashSite {
   let name: String
   let alpha: Double
 
-  /// The label's point size at the default `.large` content size. Both regimes
-  /// this field spans, and why a wrong transcription is caught by nothing:
-  /// ``MossWashSite/pointSize``, which states them once for both row types.
+  /// The label's point size at the default `.large` content size. The two
+  /// regimes this field spans, and why a wrong transcription is caught by
+  /// nothing: ``WashLabelSemanticSize``, which states them once for both row
+  /// types.
   let pointSize: Double
 
   /// Which WCAG large-text half the label's weight selects — see
-  /// ``WashLabelWeight`` for the `.semibold` decision.
+  /// ``WashLabelWeight`` for the `.semibold` decision, and ``WashLabelWeight/init(_:)``
+  /// for deriving this from a token rather than transcribing it.
   let weight: WashLabelWeight
 
   init(_ name: String, alpha: Double, pointSize: Double, weight: WashLabelWeight) {
