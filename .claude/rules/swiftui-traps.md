@@ -428,3 +428,41 @@ and ADR-028 § Amendment (#1284, #1373, #1378). Reference: `ModelPickerView`,
 
 Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
 "what does it composite over" question of a *presented surface* rather than an occluder.
+
+## Compile-checking `#if !targetEnvironment(simulator)` code
+
+Here rather than in `build-traps.md` by this file's § Scope rule: every current
+site is entered from a UI-layer file (`git grep -n '#if !targetEnvironment(simulator)'`
+→ `Views/Settings/SettingsView.swift`, `Views/Settings/SettingsView+Models.swift`,
+`App/AppDependencies.swift`). Move the section if one ever appears outside them —
+and when weighing that, do not assume `build-traps.md`'s globs are the wider set:
+its `Pastura/Pastura/**/*.swift` does not match top-level `PasturaApp.swift`
+(git pathspec, measured), which this file lists separately.
+
+Such blocks are excluded from the simulator build, which is what
+`scripts/xcodebuild.sh build` and `scripts/ui-tour.sh` use — so a compile error in
+one survives a green local build. **CI is not blind to them**: `ci.yml`'s
+`release-build` job builds `-sdk iphoneos`, failing every iOS-touching PR — but in
+**Release configuration only**, so a block behind `#if DEBUG` *and*
+`!targetEnvironment(simulator)` would be compiled by no CI job (none exists today).
+
+Compile-check locally without provisioning — signing is skipped and Swift compiles
+before signing, so `** BUILD SUCCEEDED **` confirms the block compiles:
+
+```bash
+scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
+```
+
+The wrapper passes no `-configuration`, so that is a **Debug** device build and it
+does reach a `#if DEBUG` device-only block CI cannot. `-destination` is additive
+rather than last-wins, so this refreshes the simulator slice alongside the device
+one (measured: one invocation rebuilt both `Debug-iphoneos` and
+`Debug-iphonesimulator`). **Layout / visual** still needs a real device — flag
+device-QA explicitly in PRs touching these blocks.
+
+**Don't pattern-match the directive.** `#if DEBUG || targetEnvironment(simulator)`
+(`LLM/OllamaService.swift`, three arms of `AppDependencies`) is a *different*
+condition, not the complement — it is true in the Debug device build the recipe
+above produces. The actual complement is the bare `#if targetEnvironment(simulator)`
+(`PasturaApp.swift`, `GalleryScenarioDetailView+RecommendedModel.swift`). A file
+merely *referenced* from inside a device-only block is not a site either.

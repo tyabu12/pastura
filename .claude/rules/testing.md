@@ -147,10 +147,26 @@ targeting works correctly for.
 `@Suite("SimulationViewCompletionChrome") struct SimulationViewCompletionChromeTests`
 matches only the latter; the display name silently resolves to zero tests and
 still prints `TEST SUCCEEDED`. Confirm the `✔ Test` / `Test run with N tests`
-markers, per `xcodebuild-cli.md` § "\"Executed 0 tests\" in the XCTest stanza is
-cosmetic for Swift-Testing suites".
+markers — see § "`Executed 0 tests` in the XCTest stanza is cosmetic" below.
 
 **Verify:** Always check the test count in the output to confirm tests actually ran.
+
+## `Executed 0 tests` in the XCTest stanza is cosmetic
+
+The XCTest output stanza (`Executed N tests`) counts only `XCTestCase` subclasses,
+so a Swift-Testing-only run always prints `Executed 0 tests` — **cosmetic, not a
+"file not in target" signal**. The real count is in the Swift Testing stanza below
+it (`✔ Test … passed`, `Test run with N tests …`). Most Pastura tests are Swift
+Testing.
+
+**Disambiguate a true zero**: `✔` markers / `Test run with N tests` present →
+normal; absent → real bug (file at the wrong path, not compiled, or the
+`-only-testing` zero-match trap above). When filtering xcodebuild output, keep the
+markers:
+
+```bash
+grep -E "(error:|Test Suite|Executed|passed|failed|✔ Test|Test run)"
+```
 
 ## Duplicate Suite Names Silently Halve `-only-testing`
 

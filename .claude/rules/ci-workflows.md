@@ -121,6 +121,34 @@ Guarded by `scripts/tests/staged-trigger-pipefail-test.sh`, which scans shell
 scripts for the `grep -q` **shape** only: no workflow YAML, no other
 early-exiting readers. Per-site fail directions: #1498.
 
+### Rule 4 — `$(set +o)` cannot round-trip errexit
+
+A script that snapshots the caller's shell options with `_old=$(set +o)` and
+restores them with `eval "$_old"` **drops a caller's `set -e`**: bash has already
+cleared errexit inside the command substitution, so the snapshot records
+`set +o errexit` whatever the caller's real state was. errexit is the only option
+this hits, and *not* because it is a `$-` letter flag — `nounset` is one too and
+round-trips fine, as does pipefail. That last one is load-bearing rather than
+trivia: `sim-dest.sh` turns pipefail on for itself, so a failure to round-trip it
+would silently promote every caller.
+
+**Apply**: capture errexit separately from `$-` (`case $- in *e*) had=1 ;; esac`)
+and re-apply it on every restore path. `shopt inherit_errexit` (bash 4.4+)
+reverses the whole effect, but macOS ships bash 3.2.
+`scripts/sim-dest.sh` is the worked example and
+`scripts/tests/simdest-errexit-test.sh` pins it, its A7 pinning the letter-flag
+half. The "only option" scope is asserted, not measured — widen it only from a
+new measurement.
+
+**A failing `source` aborts an errexit-on caller only in the bare form.** Bash
+suppresses errexit for the left operand of `||`, so the call sites written
+`source … || { …; exit 1; }` still depend on that `exit`: deleting the handler
+hands the job back to the restore fix, reducing it to a bare message does not.
+Bare-form callers do gain the abort — among them `ci.yml`'s two `run:` steps (a
+`run:` is `bash -e {0}`), which previously swallowed a failed source and wrote an
+empty `DEST=` into `$GITHUB_ENV`. Enumerate the callers before claiming a set:
+`grep -rn 'sim-dest\.sh' --include='*.sh' --include='*.yml' .`
+
 ## Long-lived branch gating — two layers × two directions
 
 For CI on long-lived integration / release-train / spike-staging branches, the gate is **two layers**, each at **two directions**:

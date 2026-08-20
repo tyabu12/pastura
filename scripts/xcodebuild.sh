@@ -18,14 +18,14 @@
 # Caller passthrough / flag override:
 #
 # Subcommand maps directly to xcodebuild's; remaining args forward
-# verbatim via "$@". xcodebuild honors the last value for many repeated
-# single-value flags, so caller passthrough wins on duplicates (e.g.
-# override the destination: `... test -destination 'platform=iOS Simulator,name=...'`).
-# Note: `-scheme`, `-project`, and `-derivedDataPath` are exceptions —
-# xcodebuild rejects duplicates with `error: option 'X' may only be
-# provided once`. Re-pass only `-destination` from the wrapper-supplied
-# set; see `.claude/rules/xcodebuild-cli.md` §"Re-passing wrapper-supplied
-# flags" for the full table.
+# verbatim via "$@". The wrapper supplies `-scheme`, `-project`,
+# `-derivedDataPath` and `-destination` itself, and re-passing any of them is
+# now REJECTED up front rather than documented — see the guard above
+# `case "$cmd"`, which carries the reason per flag. The one exception is
+# `-destination` on `build`, still accepted so the device compile-check recipe
+# works: `scripts/xcodebuild.sh build -destination 'generic/platform=iOS'
+# CODE_SIGNING_ALLOWED=NO`. To pin a single simulator for `test`, export
+# PASTURA_SIM_NAME.
 #
 # Mode-specific behavior:
 #
@@ -135,9 +135,83 @@ done
 # `set -u` on macOS bash 3.2 when forwarded[] is empty.
 set -- ${forwarded[@]+"${forwarded[@]}"}
 
+# Reject flags the wrapper already supplies, BEFORE anything slow runs: below
+# this point `test` sources sim-dest.sh, whose gate polls up to 900 s, so a
+# rejection placed later costs a quarter-hour before printing one line.
+#
+# Arms are per-flag because xcodebuild's own handling differs. It rejects a
+# repeated `-scheme` / `-project` / `-derivedDataPath` itself, but between the
+# xtrace and a full usage page, which reads like a wrapper bug.
+#
+# The `=`-joined form is the one worth a guard: xcodebuild takes it, exits 0, and
+# DROPS the flag. Measured on Xcode 26.6 for `-derivedDataPath=` alone and pinned
+# by no test here, so re-run the pair on a new Xcode rather than trusting this:
+# `-showBuildSettings … -derivedDataPath=/tmp/x` reports BUILD_DIR under
+# ~/Library/…/DerivedData, the space-separated control /tmp/x/Build/Products.
+# For the three above the drop is merely inert — the wrapper supplies its own
+# value anyway; `-destination=` is where inert turns dangerous, see its arm below.
+#
+# A second bare `-destination` is ADDITIVE, so `test` would run on both devices
+# with either failure aborting; `build` keeps accepting the space form for the
+# device compile-check recipe.
+for _arg in "$@"; do
+  case "$_arg" in
+    -scheme|-project|-derivedDataPath)
+      echo "$_arg is supplied by this wrapper — drop it (xcodebuild accepts it only once)." >&2
+      exit 2
+      ;;
+    -scheme=*|-project=*|-derivedDataPath=*)
+      echo "${_arg%%=*} takes a SPACE-separated value; the \`=\` form is silently ignored." >&2
+      echo "  It is also supplied by this wrapper already — drop the flag." >&2
+      exit 2
+      ;;
+    -destination=*)
+      # Rejected for BOTH subcommands, unlike the bare form below. The `=` shape
+      # is dropped here too, and `build` is where it bites: the documented device
+      # compile-check recipe IS a `build -destination …`, so an `=` there silently
+      # loses the device slice, builds the simulator one, and still prints
+      # `** BUILD SUCCEEDED **` — the exact false green that recipe exists to
+      # prevent.
+      echo "-destination takes a SPACE-separated value; the \`=\` form is silently dropped." >&2
+      echo "  On \`build\` that loses the device slice while still printing BUILD SUCCEEDED." >&2
+      exit 2
+      ;;
+    -destination)
+      if [[ "$cmd" == "test" ]]; then
+        echo "-destination is additive for \`test\`: xcodebuild would run the suite on the" >&2
+        echo "  wrapper's simulator AND yours, and a failure on either aborts the run." >&2
+        echo "  To pin ONE simulator:  export PASTURA_SIM_NAME=\"iPhone 17 Pro Max\"" >&2
+        exit 2
+      fi
+      ;;
+  esac
+done
+
 case "$cmd" in
   test)
     extra_flags=(-parallel-testing-enabled NO)
+    # Integration suites (Ollama, llama.cpp) gate on an env var read by the TEST
+    # RUNNER, and a runner is a separate process that does NOT inherit what was
+    # exported here — the suite skips while xcodebuild still prints
+    # `** TEST SUCCEEDED **`. Nothing else says so, hence this line. The scheme's
+    # LaunchAction > EnvironmentVariables is the surface that works.
+    #
+    # ADVISORY, not a gate: `|| [ $? -eq 1 ]` keeps grep's no-match (exit 1,
+    # the common case) from aborting under errexit while still letting a real
+    # grep error (exit >= 2) abort. A gate would want the opposite — a broken
+    # pattern there must never read as "nothing found". Capture, never
+    # `grep -q`: an early-exiting reader under `pipefail` turns a match into a
+    # failure. `env` lists exported variables only, which is exactly the set
+    # that could have been meant for the runner.
+    _integration_vars="$(env | { grep -E '^[A-Za-z_][A-Za-z0-9_]*_INTEGRATION=' || [ $? -eq 1 ]; })"
+    if [[ -n "$_integration_vars" ]]; then
+      {
+        echo "warning: *_INTEGRATION set in this shell, but CLI env vars do NOT reach the"
+        echo "  test runner — the suite will skip and still report TEST SUCCEEDED."
+        printf '%s\n' "$_integration_vars" | sed 's/^/    /'
+        echo "  Enable it in the scheme instead (LaunchAction > EnvironmentVariables)."
+      } >&2
+    fi
     ;;
   build)
     extra_flags=()
@@ -158,6 +232,59 @@ if [[ "$cmd" == "build" ]]; then
   destination="generic/platform=iOS Simulator"
 else
   destination="$DEST"
+fi
+
+# Resolve SPM dependencies up front when this DerivedData has none. A fresh
+# worktree gets an empty Pastura/DerivedData/, and the first xcodebuild there
+# dies at package resolution — which the pre-commit hook then reports as
+# `Build failed. Fix compile errors before committing.`, sending the reader
+# after a compile error that does not exist.
+#
+# The predicate is "nothing was ever resolved into this DerivedData", not "the
+# state file is missing": a FAILED resolve still writes workspace-state.json with
+# no `"identity"` anywhere, so keying on existence would skip the retry of the
+# very case this exists for (measured in #1503 — that failure happened here, with
+# the file already present). It does NOT cover a resolution that is stale or
+# PARTIAL rather than absent (a `Package.resolved` bump, a moved revision, some
+# but not all of this tree's dependencies resolving): an identity is present in
+# all of those, the pre-flight stays quiet, and the build fails as it does today
+# — widen it only with a case that reproduces. Cost: a grep over one small file
+# on a warm tree; ~23 s once on a cold one, which the build was going to spend on
+# resolution anyway.
+#
+# Rot direction, should Apple stop emitting `"identity"`: every invocation
+# resolves. That is the loud failure (~23 s per TDD cycle, and the stderr line
+# below prints every time) rather than the silent one, which is the right way
+# round. Its only CI consumer is `.github/workflows/codeql.yml`, which is
+# cron-only — so a regression here surfaces on an unwatched nightly, not on a PR.
+_spm_state="$DERIVED_DATA/SourcePackages/workspace-state.json"
+_spm_resolved=""
+if [[ -f "$_spm_state" ]]; then
+  # `|| [ $? -eq 1 ]` because errexit is in force: grep's exit 1 is the "no
+  # identities, resolve now" answer, not a failure. It stays narrower than
+  # `|| true` so a real grep error (exit >= 2) still aborts rather than being
+  # read as "unresolved". No pipeline here, so the SIGPIPE hazard behind the
+  # `_integration_vars` capture (the `env | grep` one, earlier in this file) does
+  # NOT apply — don't generalize this site into a rule about pipefail.
+  _spm_resolved="$({ grep '"identity"' "$_spm_state" || [ $? -eq 1 ]; })"
+fi
+if [[ -z "$_spm_resolved" ]]; then
+  echo "pre-flight: no resolved SPM packages in $DERIVED_DATA — resolving first." >&2
+  # Explicit `if !` rather than a bare call: errexit is in force here, and a
+  # resolve failure must stay advisory. Letting the build run anyway keeps this
+  # from adding a failure path of its own — and the build's own error is what
+  # the operator needs to see, now with the real cause named above it.
+  if ! xcodebuild -resolvePackageDependencies \
+      -project "$REPO_ROOT/Pastura/Pastura.xcodeproj" \
+      -scheme Pastura \
+      -derivedDataPath "$DERIVED_DATA" \
+      -quiet; then
+    {
+      echo "warning: -resolvePackageDependencies failed."
+      echo "  If the build below dies at 'Could not resolve package dependencies',"
+      echo "  that is a DEPENDENCY RESOLUTION failure, not a compile error."
+    } >&2
+  fi
 fi
 
 # Auto-sync Localizable.xcstrings before xcodebuild runs. Xcode IDE's

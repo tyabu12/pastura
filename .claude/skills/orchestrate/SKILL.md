@@ -415,7 +415,7 @@ Determine label from the commit prefix (TASK_TYPE or dominant commit type):
 Additionally, if the changes are security-related, add the `security` label alongside the prefix-based label.
 
 **Determine device-QA need.** Manual on-device QA is required when the diff touches a surface the iOS Simulator build cannot exercise:
-- `#if !targetEnvironment(simulator)` blocks (e.g. `SettingsView` model-management UI, `ModelSettingsRow`) — excluded from the simulator build entirely.
+- `#if !targetEnvironment(simulator)` blocks (enumerate them — `git grep -n '#if !targetEnvironment(simulator)'` — rather than recalling filenames) — excluded from the simulator build entirely.
 - Metal / llama.cpp on-device inference (`LlamaCppService`, GGUF model load, GPU paths).
 - Layout / visual regressions inside those device-only blocks (the simulator never renders them).
 - Pattern-6 executor-inheritance UI freezes (`.claude/rules/swift-isolation.md`) — reproduce only on a real device.
