@@ -55,8 +55,15 @@ an omission nobody sees. It still cannot tell a checked transcript from an
 unchecked one, and it still goes quiet on a copy that rotted in step with the
 pins. What it buys is narrower than the word "census" sounds: the unclassified
 set cannot grow silently **within the suffixes `RESIDUE_SUFFIXES` scans, at the
-pinned three-decimal form, and outside Swift block comments**. A copy in an
-unscanned file type or written at shorter precision is not seen at all, and
+pinned three-decimal form, and — in Swift — only where the figure sits inside a
+comment**. That third bound is easy to state backwards: a Swift figure with any
+occurrence *outside* every comment span is an executed assertion, i.e. a guard,
+and never enters the inventory at all; `//`, `///` and `/* … */` are one case
+here, not two. A copy in an unscanned file type or written at shorter precision
+is not seen either — though matching is substring, so a longer literal that
+contains a pin over-counts rather than under-counts. (Writing that example out
+with a real pin in it is what this module's own `argued` row would be; the
+census caught exactly that during #1496's review-fix.) And
 `swift_comment_spans`'s string-literal gap can put a Swift line in the wrong
 list in either direction.
 
@@ -2833,6 +2840,15 @@ def self_test() -> int:
         "census: a removed copy is reported, not quietly accepted",
         lambda: [pr for pr in census_says(shrunk) if "REMOVED" in pr],
         ["docs/face.md [argued]: 1 line(s) declared, none found — the copies were REMOVED. Drop the entry."],
+    )
+    # The DROP arm above empties the face, so it lands in the `got is None`
+    # branch and never reaches the verb. A *partial* drop is a separate branch:
+    # collapsing `verb` to a constant "ADDED" left the suite green until this
+    # arm existed, so a removal could be reported as an addition unseen (#1496).
+    expect(
+        "census: a partial drop is reported as REMOVED, not as an addition",
+        lambda: [pr for pr in census_says(declaration=census_inventory(grown)) if "REMOVED" in pr],
+        ["docs/face.md [argued]: 2 line(s) declared, 1 found — a copy was REMOVED."],
     )
     rotted = census_scan._replace(
         files=[

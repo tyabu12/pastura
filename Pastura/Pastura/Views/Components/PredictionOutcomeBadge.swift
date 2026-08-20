@@ -46,8 +46,8 @@ extension PredictionOutcomeBadge {
   /// on `bubbleBackground`, 6.934 / 5.975, replacing `muted`'s sub-AA pairing.
   /// `metaBaseL3` clears the bar too, but at 8.6 the *failure* state would
   /// out-shout the hit arm — rejection derived in ADR-028
-  /// § Amendment 2026-08-13 (#1427), which also carries the `muted` figures
-  /// this sentence used to transcribe.
+  /// § Amendment 2026-08-13 (#1427), which derives the `muted` figures for
+  /// this pairing.
   var labelToken: Color {
     isHit ? Color.mossInk : Color.inkSecondary
   }
