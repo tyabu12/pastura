@@ -78,8 +78,10 @@ esac
 # concurrent-`xcodebuild test` gate (see .claude/rules/xcodebuild-cli.md).
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/sim-dest.sh"
-# sim-dest.sh restores the *pre-source* shell options on exit, which clears
-# our `set -e`; re-assert it so the rest of the script still fails fast.
+# sim-dest.sh used to clear our `set -e` on the way out (#1503 — its snapshot
+# recorded errexit as off whatever the caller had set). Fixed at the source, so
+# this re-assert is now defence in depth rather than the thing keeping the rest
+# of the script fail-fast.
 set -euo pipefail
 UDID="${DEST##*id=}"
 

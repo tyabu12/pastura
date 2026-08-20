@@ -49,12 +49,14 @@ export PASTURA_SKIP_XCSTRINGS_SYNC=1
 # writing it must happen inside the concurrent-session gate — skipping the wait
 # would flip the appearance of another session's in-flight `xcodebuild test` on
 # the same simulator. `scripts/motion-capture.sh` sources with the gate for the
-# same reason. Sourcing restores the caller's shell options on exit, which drops
-# errexit — hence both the explicit `||` on the source itself (errexit is
-# provably off at the instant it returns) and the re-assert below
-# (.claude/rules/xcodebuild-cli.md § "Sourcing it in a script clears your
-# `set -e`"; measured by reading $-, not `set -o` inside a command substitution,
-# which reports "off" regardless).
+# same reason. Sourcing used to drop the caller's errexit — sim-dest.sh's own
+# snapshot recorded it as off whatever the caller had set — so neither a failing
+# source nor a later failure aborted. #1503 fixed that inside sim-dest.sh, and a
+# bare `source` now aborts an errexit-on caller by itself. The `||` handler below
+# is kept for its caller-specific message (PASTURA_SIM_NAME is what usually makes
+# resolution fail here), and the re-assert as defence in depth
+# (.claude/rules/xcodebuild-cli.md; deliberately no § anchor — that section is
+# compressible and a named anchor here would dangle).
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/sim-dest.sh" \
   || { echo "ERROR: simulator resolution failed (PASTURA_SIM_NAME=$PASTURA_SIM_NAME)" >&2; exit 1; }

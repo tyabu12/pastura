@@ -69,8 +69,10 @@ export PASTURA_SKIP_XCSTRINGS_SYNC=1
 # (CoreSimulator error 405 on Shutdown); xcodebuild boots the same one moments
 # later anyway. Sourced WITH the concurrent-session gate: appearance is
 # device-global, so writing it while another session holds the simulator would
-# flip that run's appearance mid-suite. Sourcing drops errexit, hence both the
-# explicit `||` and the re-assert (.claude/rules/xcodebuild-cli.md).
+# flip that run's appearance mid-suite. Sourcing used to drop errexit (#1503,
+# fixed inside sim-dest.sh), so the `||` handler and the re-assert below are now
+# a message and defence in depth respectively, not the abort mechanism
+# (.claude/rules/xcodebuild-cli.md).
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/sim-dest.sh" \
   || { echo "ERROR: simulator resolution failed" >&2; exit 1; }
