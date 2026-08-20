@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// A muted section header laid above a ``PasturaCard``, reproducing the
+/// A section header laid above a ``PasturaCard``, reproducing the
 /// inset-grouped section structure that browse screens used before moving
 /// to `ScrollView` + ``PasturaCard``.
 ///
@@ -42,7 +42,7 @@ struct PasturaSection<Content: View>: View {
       if let title {
         Text(title)
           .font(.subheadline)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
           .padding(.leading, headerLeadingInset)
       }
       PasturaCard(style: style) { content }

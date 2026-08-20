@@ -321,7 +321,8 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
     } header: {
       HStack {
         // §2.2: `--ink-2` label / `--muted` meta. Only the count-bearing
-        // headers qualify; rationale + `PasturaSection` divergence in §2.2.
+        // headers qualify — this sheet's other system `Form` headers stay on
+        // the system default (ledger §6.3's open question). Rationale in §2.2.
         Text(String(localized: "Personas"))
           .foregroundStyle(Color.inkSecondary)
         Spacer()

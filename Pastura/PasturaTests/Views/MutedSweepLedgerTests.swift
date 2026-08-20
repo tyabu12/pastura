@@ -29,8 +29,9 @@ struct MutedSweepLedgerTests {
   /// `Pastura/Pastura`. Reproduce with the ledger § 8 command; every entry is
   /// a row (or group of rows) in § 5.
   ///
-  /// Batch 1 (#1448) removed eight occurrences and emptied three files, so
-  /// this table is the post-batch-1 population, not § 1's `9a40565a` baseline.
+  /// Batch 1 (#1448) removed eight occurrences and emptied three files, and
+  /// batch 5 (#1485) removed three more and emptied three more, so this table
+  /// is the post-batch-5 population, not § 1's `9a40565a` baseline.
   private static let expectedMutedOccurrences: [String: Int] = [
     "Views/Community/SharedScenarios/GalleryCatalogRow.swift": 1,
     "Views/Community/SharedScenarios/GalleryScenarioDetailView+Highlight.swift": 2,
@@ -43,7 +44,6 @@ struct MutedSweepLedgerTests {
     "Views/Components/IdleFriendlyProgressView.swift": 1,
     "Views/Components/PasturaCard.swift": 1,
     "Views/Components/PasturaRowLabel.swift": 1,
-    "Views/Components/PasturaSection.swift": 1,
     "Views/Components/PersonaDetailSheet.swift": 1,
     "Views/Components/SheepAvatar.swift": 4,
     "Views/Components/SimulationResultCard.swift": 5,
@@ -51,7 +51,6 @@ struct MutedSweepLedgerTests {
     "Views/Editor/PhaseEditorSheet+ConditionalSection.swift": 1,
     "Views/Editor/ScenarioEditorView.swift": 2,
     "Views/Home/HomeCompactScenarioRow.swift": 2,
-    "Views/Home/HomeView.swift": 1,
     "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift": 5,
     "Views/ModelSelection/ModelPickerView.swift": 2,
     "Views/ModelSelection/ModelRow.swift": 1,
@@ -63,7 +62,6 @@ struct MutedSweepLedgerTests {
     "Views/Results/ResultsView.swift": 6,
     "Views/ScenarioDetail/ScenarioDetailView+Sections.swift": 2,
     "Views/Settings/ModelSettingsRow.swift": 1,
-    "Views/Settings/SettingsView+Models.swift": 1,
     "Views/Settings/SettingsView+PastResults.swift": 1,
     "Views/Settings/SettingsView.swift": 2,
     "Views/Simulation/HighlightCandidatesSection.swift": 2,
