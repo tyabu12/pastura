@@ -22,8 +22,35 @@
 #
 # Update this list when new Xcode versions add newer default simulators.
 # Save caller's shell options so sourcing doesn't permanently alter them.
+#
+# errexit is captured from `$-`, NOT from the `$(set +o)` snapshot below, and
+# that split is load-bearing: bash clears errexit inside a command substitution,
+# so the snapshot records `set +o errexit` whatever the caller's real state was.
+# Restoring it therefore *dropped* a caller's `set -e` — the defect #1503 fixed.
+# pipefail came back correctly through the same snapshot because it is not a
+# `$-` letter flag, which is why only errexit went missing. Measured on bash
+# 3.2.57; `set -o` read inside a substitution reports "off" regardless, so a
+# probe written that way cannot see any of this.
+case $- in
+  *e*) _simdest_had_errexit=1 ;;
+  *) _simdest_had_errexit=0 ;;
+esac
 _simdest_old_opts=$(set +o)
 set -euo pipefail
+
+# Restore the caller's options. Every exit path calls this instead of a bare
+# `eval`, which would re-apply the snapshot's wrong `set +o errexit`. Because
+# the failure paths below restore errexit *before* returning non-zero, a caller
+# running under `set -e` now aborts on a plain `source scripts/sim-dest.sh` —
+# no `|| { …; exit 1; }` handler needed to catch it.
+_simdest_restore_opts() {
+  eval "$_simdest_old_opts"
+  if [ "$_simdest_had_errexit" = 1 ]; then
+    set -e
+  fi
+  unset _simdest_old_opts _simdest_had_errexit
+  unset -f _simdest_restore_opts
+}
 
 # PASTURA_SIM_NAME pins a single simulator by exact name, bypassing the
 # priority list. Used by scripts/store-shots.sh to force the 6.9" device
@@ -75,7 +102,7 @@ if [ -z "$_simdest_result" ]; then
   echo "Error: No available iOS Simulator found. Tried: ${SIMULATOR_NAMES[*]}" >&2
   [ -s "$_simdest_errfile" ] && echo "Details:" >&2 && cat "$_simdest_errfile" >&2
   rm -f "$_simdest_errfile"
-  eval "$_simdest_old_opts"
+  _simdest_restore_opts
   return 1 2>/dev/null || exit 1
 fi
 rm -f "$_simdest_errfile"
@@ -94,7 +121,7 @@ export DEST="platform=iOS Simulator,id=$_simdest_udid"
 # abort the script with pipefail still active in the caller's shell).
 _simdest_repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
   echo "Error: scripts/sim-dest.sh must be sourced from inside the git worktree." >&2
-  eval "$_simdest_old_opts"
+  _simdest_restore_opts
   return 1 2>/dev/null || exit 1
 }
 export DERIVED_DATA="$_simdest_repo_root/Pastura/DerivedData"
@@ -166,12 +193,12 @@ _simdest_wait_for_simulator() {
 if ! _simdest_wait_for_simulator; then
   unset _simdest_result _simdest_udid _simdest_name _simdest_os _simdest_errfile _simdest_repo_root
   unset -f _simdest_wait_for_simulator
-  eval "$_simdest_old_opts"
+  _simdest_restore_opts
   return 1 2>/dev/null || exit 1
 fi
 
 unset _simdest_result _simdest_udid _simdest_name _simdest_os _simdest_errfile _simdest_repo_root
 unset -f _simdest_wait_for_simulator
-eval "$_simdest_old_opts"
+_simdest_restore_opts
 # return when sourced, exit when executed directly
 return 0 2>/dev/null || exit 0
