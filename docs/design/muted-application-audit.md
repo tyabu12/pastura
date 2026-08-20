@@ -480,23 +480,38 @@ design-system §2.2 assigns section labels to `--ink-2` and records that
 statement of the role, #1298 already moved `ScenarioEditorView`'s two headers that
 way, and no argument for the table being wrong surfaced in the audit.
 
-Measured blast radius, larger than the three drawing sites suggest:
+Blast radius is **three different quantities**, and one enumeration feeds all
+three. Conflating them mis-sizes the work in opposite directions, so read which
+one a figure is before reusing it:
 
 ```sh
-rg -l 'PasturaSection\(' Pastura/Pastura/Views/   # 9 consumers + the definition's own #Preview
+rg -l 'PasturaSection\s*[({]' Pastura/Pastura/Views/   # 11 = 10 consumers + the definition
 ```
 
-Nine consumer files across five screens:
-`GalleryScenarioDetailView`, `GalleryScenarioDetailView+Highlight`,
-`SharedScenariosListView`, `ResultsView`, `ScenarioDetailView+Sections`,
-`SettingsView`, `SettingsView+Feedback`, `SettingsView+Models`,
-`SettingsView+PastResults` — plus the two hand-rolled headers
-(`HomeView.scenariosSectionHeader`, `SettingsView+Models.modelsHeader`) and a
-third variant §2.2 names as still on the system `secondaryLabel`. Use the
-**call-shape** grep above; a type-name grep also matches `PasturaSectionStyle`.
+- **10 consumer files.** The character class, not a bare `\(`: the
+  trailing-closure form `PasturaSection { … }` is an untitled card, and
+  `GalleryScenarioDetailView+RecommendedModel` reaches `PasturaSection` by no
+  other spelling — a `\(`-only grep drops it silently. Both shapes are still
+  **call-shape** greps; a type-name one additionally matches
+  `PasturaSectionStyle`.
+- **7 of those 10 draw a header.** An untitled call renders none, and
+  `SettingsView+Models` and `SharedScenariosListView` pass no title. The drawing
+  set is `SettingsView`, `SettingsView+Feedback`, `SettingsView+PastResults`,
+  `ScenarioDetailView+Sections`, `ResultsView`, `GalleryScenarioDetailView`,
+  `GalleryScenarioDetailView+Highlight`.
+- **5 screens change visually** — the figure that sizes the QA. Settings,
+  ScenarioDetail, Results and GalleryScenarioDetail from the seven above, plus
+  Home for `HomeView.scenariosSectionHeader`. `SettingsView+Models.modelsHeader`
+  is hand-rolled but sits on Settings, already counted; さがす
+  (`SharedScenariosListView`) is a consumer that renders **no** header, so it is
+  not a QA screen.
 
-Decided here, applied in batch 5 under #1485 — the change is visual,
-app-wide, and needs ADR-028 gate 4/5 QA of its own.
+Two hand-rolled headers sit outside `PasturaSection` and take the same decision:
+`HomeView.scenariosSectionHeader` and `SettingsView+Models.modelsHeader`. §2.2
+names a third treatment — headers still on the system `secondaryLabel`.
+
+Decided here, applied in batch 5 under #1485 — the change is visual across those
+five screens and needs ADR-028 gate 4/5 QA of its own.
 
 ## 7. Batches
 
@@ -506,7 +521,7 @@ app-wide, and needs ADR-028 gate 4/5 QA of its own.
 | **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open — **ADR-028 gate 4/5 device QA required** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
-| **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumer files (5 screens) + 2 hand-rolled headers + the `secondaryLabel` variant | — | open — #1485 |
+| **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones, 3 drawing sites over 5 screens | 3 | open — #1485 |
 
 B2 is the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast
@@ -522,8 +537,8 @@ straightforward applications of §2 once B1 establishes the shape; B4 needs §8 
 say what a *material or otherwise unmeasurable* ground routes to before any
 site moves — the routing for a merely-composited one is already in §8's
 `*-on-wash` bullet, so stating the gate that way would leave it already
-satisfied; B5 is a visual
-change to five screens — six with the hand-rolled headers — across nine files.
+satisfied; B5 edits three drawing sites but repaints five screens, because one
+of the three is a shared component — §6.3 separates the three figures.
 
 ## 8. Regenerating this ledger
 
