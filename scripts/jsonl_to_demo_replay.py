@@ -31,7 +31,14 @@ conditional rather than the phase that spoke, and `BundledDemoReplaySource`
 catches that only when `phases[idx].type` happens not to match the emitted
 `phase_type`. No `Resources/DemoPresets/` preset uses one today; four bundled
 presets do (`word_wolf{,_en}`, `target_score_race{,_en}`), so promoting one
-needs #1473's branch-aware derivation, not just a re-capture.
+needs #1505 first.
+
+#1473 fixed the same derivation on the highlight side and deliberately stopped
+there: that schema's `phase_index` names a position in a FLATTENED list, so
+branch-awareness was a derivation fix into a coordinate system that already
+existed. Here the schema says top-level, and what a branch sub-phase should
+record is undesigned — a schema decision, not a derivation bug. Do not port
+`gallery_highlight_extract.annotate`'s resolver across without settling that.
 
 Recapture workflow (full demo-set swap):
   1. Run each scenario N times through the harness:

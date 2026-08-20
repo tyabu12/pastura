@@ -1424,13 +1424,14 @@ expect_out "highlight: phase tree" "T2 names the tree check"
 expect_out "the sibling scenario YAML flattens to" \
   "T2 names the YAML as the source that caught it"
 
-# T3 — control for T2: the same fixture undrifted does NOT emit the tree message.
-# `gate` still reddens here (the conditional refusal is a separate check), so
-# expect_fail is the honest assertion and expect_no_out is what discriminates.
+# T3 — control for T2: the same fixture undrifted passes outright. Keeping the
+# expect_no_out alongside expect_ok is not redundant — it is what still
+# discriminates if some unrelated check starts reddening this fixture.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" tree_v1 "$TREE_NESTED"
 mk_highlight "$R" tree_v1 "$EX_OK"; link_highlight "$R" tree_v1
-gate "$R"; expect_no_out "highlight: phase tree" "T3 an undrifted phases list clears the tree check"
+gate "$R"; expect_ok "T3 an undrifted nested scenario passes the gate"
+expect_no_out "highlight: phase tree" "T3 an undrifted phases list clears the tree check"
 
 # T4 — shapes the engine refuses are refused here too, so no fixture the loader
 # would reject can reach the position rule. One probe, with its own positive
