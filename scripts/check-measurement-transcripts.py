@@ -71,6 +71,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import NoReturn
 
 # Repo-relative for display; `_read` resolves against the repo root so a run from
 # a subdirectory reads the right files instead of raising.
@@ -169,9 +170,11 @@ LEDGER_5_CELLS = 5
 # would let a new spelling drop rows out of the comparison silently.
 LEDGER_5_SAME = "same"
 LEDGER_5_UNCOMPARED = frozenset({"—", "unmeasured", "unmeasurable", "mixed"})
-# `worst` is matched BEFORE the plain pair, and is the only thing making a
-# two-ground cell a minimum rather than a qualifier: `moss@0.06` when selected,
-# else `bubbleBackground` also names two grounds and is not one.
+# The `worst` suffix is the only thing making a two-ground cell a minimum rather
+# than a qualifier — `moss@0.06` when selected, else `bubbleBackground` also
+# names two grounds and is not one. (Match order between these two is NOT
+# load-bearing: `LEDGER_5_INTERVAL_PAIR` is `$`-anchored and cannot match a
+# `worst` cell at any ordering. Measured, so nobody restores an inert reason.)
 LEDGER_5_WORST = re.compile(r"^(?P<light>[0-9.]+)\s*/\s*(?P<dark>[0-9.]+)\s+worst$")
 _SIDE = r"[0-9]+\.[0-9]+(?:\s*[–—〜～~-]\s*[0-9]+\.[0-9]+)?"
 LEDGER_5_INTERVAL_PAIR = re.compile(
@@ -716,14 +719,23 @@ def compare_membership(
     """Every §5 ratio must be one the fixture computes somewhere.
 
     **Membership, not a bijection**, and no longer §5's only check: which pin a
-    row ought to carry was #1496's judgment 1, and `compare_site_rows` now
-    answers it. The two are kept apart because they fail on disjoint defects —
-    this one on a figure matching **no** pin (a ground retuned and a row not
-    re-recorded), that one on a row carrying **another** row's pin.
+    row ought to carry was #1496's judgment 1, and `compare_site_rows` answers
+    it.
 
-    Its table-level anchors are the other reason to keep it: `ledger_site_ratios`
-    is what raises when a sub-table's header drifts or the section empties, and
-    both comparisons would otherwise pass by reading nothing.
+    **On today's ledger this check is subsumed, and that was measured, not
+    assumed.** A figure matching no pin cannot equal its own ground's pin either,
+    so both reddened (1 problem each) on the one injected here; and a drifted
+    sub-table header raises identically from both, since `ledger_site_rows`
+    shares `_ledger_5_tables`. Two earlier drafts of this docstring claimed
+    disjoint defects and an exclusive table anchor. Both were false.
+
+    It is kept because the subsumption is a property of the **form set**, not of
+    the two checks: `ledger_site_ratios` reads every decimal in the cell, while
+    `compare_site_rows` reads only cells matching a declared compared form. Add
+    a `LEDGER_5_UNCOMPARED` spelling that still carries a figure — an
+    approximation, a bound, a footnoted value — and those figures leave the row
+    check and stay here. Today that set is empty (measured: 0 rows), so if this
+    check is ever deleted, delete it for that reason and not as duplication.
     """
     problems = []
     for label, value in sorted(set(found)):
@@ -780,8 +792,9 @@ def compare_site_rows(
     **Dispatch reads the ratio cell first.** Two token grounds in the shipped
     ledger carry both a figure pair and a `—`, so a ground-first dispatch reddens
     the three `#Preview` rows that name a real ground and measure nothing. It is
-    also what makes §5's two `muted@0.14` cells safe: one is a wash row, the
-    other `unmeasurable`, and only the ratio form separates them.
+    also what makes §5's two distinct `muted@0.14` ground cells safe — three rows,
+    one reaching its cell through `same`: one is a wash row, the others
+    `unmeasurable`, and only the ratio form separates them.
     """
     problems: list[str] = []
     for table in tables:
@@ -823,12 +836,11 @@ def compare_site_rows(
                         f"names {len(tokens)} ground — a per-appearance minimum needs "
                         "exactly the two grounds it is taken over."
                     )
-                sides = [
-                    _opaque_expectation(token, ratio_pins, pairs, label, where)
-                    if token in ratio_pins
-                    else _unknown_ground(token, label, where)
-                    for token in tokens
-                ]
+                sides = []
+                for token in tokens:
+                    if token not in ratio_pins:
+                        _unknown_ground(token, label, where)
+                    sides.append(_opaque_expectation(token, ratio_pins, pairs, label, where))
                 low_light = min((side[0][0] for side in sides), key=float)
                 low_dark = min((side[1][0] for side in sides), key=float)
                 expected = ((low_light, low_light), (low_dark, low_dark))
@@ -839,6 +851,16 @@ def compare_site_rows(
                         f"{where}: `{label}` carries figures but its ground cell names "
                         f"no `ground` — got {ground!r}."
                     )
+                # **The first token wins, and any later one goes unchecked.**
+                # A qualified cell — `moss@0.06` when selected, else
+                # `bubbleBackground` — states a primary ground and an
+                # alternative, and only the primary is compared. One shipped row
+                # is in this shape (`ModelRow` · vendor · size meta); the other
+                # two-token cell never reaches here, its figures being
+                # `unmeasurable`. Deliberately not asserted `len(tokens) == 1`,
+                # which would redden that row on correct content — but it IS a
+                # hole, recorded rather than closed, like `ledger_opaque_pairs`'
+                # three unguarded pairs. #1496 carries it.
                 named = tokens[0]
                 if named in ratio_pins:
                     expected = _opaque_expectation(named, ratio_pins, pairs, label, where)
@@ -865,7 +887,7 @@ def compare_site_rows(
     return problems
 
 
-def _unknown_ground(token: str, label: str, where: str) -> tuple[Interval, Interval]:
+def _unknown_ground(token: str, label: str, where: str) -> NoReturn:
     raise AnchorError(
         f"{where}: `{label}` names no ground this checker can resolve — `{token}` is "
         "neither one of §3.1's light grounds nor a §3.2 wash. Add and pin the ground, "
@@ -987,10 +1009,10 @@ def collect(
     ):
         problems += compare_span(span_in(lines, where), ratio_pins, where)
 
-    # §5's per-site column, both ways round. `compare_site_rows` holds each row
-    # to the pin its own `Ground` cell names; `compare_membership` still catches
-    # a figure matching no pin at all, and carries the table-level anchors that
-    # stop a sub-table dropping out of either comparison.
+    # §5's per-site column. `compare_site_rows` holds each row to the pin its own
+    # `Ground` cell names; `compare_membership` runs alongside it and is subsumed
+    # on today's form set — its own docstring has the measurement and the one
+    # reason it is still wired in.
     pool = set(ratio_pins.values())
     for light, dark in wash_pins.values():
         pool |= {light[0], light[1], dark[0], dark[1]}
@@ -1325,7 +1347,11 @@ SYNTH_LEDGER_5_POSITIONAL = (
     "| `BetaView` · timestamp | same | same | S | — |\n"
     "| `BetaView` · degraded | same | same | S | — |\n"
     "| `BetaView` · chip | `y@0.45` | 8.300–8.400 / 8.500–8.600 | S | — |\n"
-    "| `BetaView` · sheet | sheet default | unmeasured | U | B4 |\n\n"
+    "| `BetaView` · sheet | sheet default | unmeasured | U | B4 |\n"
+    # A qualified ground: the primary token is compared and the alternative is
+    # not. The shipped ledger has one row in this shape.
+    "| `BetaView` · qualified | `x@0.14` when selected, else `alphaGround` "
+    "| 8.100 / 8.200 | S | — |\n\n"
     "### Tally\n\n"
     "| | count |\n|---|---|\n"
     "| — non-text (WCAG 1.4.11, out of §8's scope) | 16 |\n"
@@ -2029,9 +2055,9 @@ def self_test() -> int:
     # Dispatch reads the RATIO cell first and the `Ground` cell only after. That
     # ordering is load-bearing twice over: two token grounds in the shipped
     # ledger carry both a figure pair and a `—` (three `#Preview` rows), and
-    # §5's two `muted@0.14` cells — one a wash, one `unmeasurable` — share a
-    # leading token, so a ground-first dispatch would have to tell them apart
-    # and cannot.
+    # §5's two distinct `muted@0.14` ground cells — one a wash, one
+    # `unmeasurable` — share a leading token, so a ground-first dispatch would
+    # have to tell them apart and cannot.
     def positional_ledger(ledger_5: str = SYNTH_LEDGER_5_POSITIONAL, **kwargs) -> str:
         kwargs.setdefault("opaque", SYNTH_OPAQUE_TABLE_5)
         return synth_ledger(ledger_5=ledger_5, **kwargs)
@@ -2059,7 +2085,7 @@ def self_test() -> int:
         lambda: [len(table) for table in ledger_site_rows(
             section(positional_ledger(), LEDGER_5, NEXT_SECTION, "ledger §5"), "ledger §5"
         )],
-        [4, 5],
+        [4, 6],
     )
     expect(
         "ledger §5: a clean ledger reports nothing — opaque, wash, range, worst and a 2-chain",
@@ -2123,9 +2149,10 @@ def self_test() -> int:
                 .replace("`TMP`", "`y@0.45`"),
             )
         )),
-        # Four: the wash row, the two `same` rows inheriting its resolved ground,
-        # and the range row that now joins the other site.
-        4,
+        # Five: the wash row, the two `same` rows inheriting its resolved ground,
+        # the qualified row on the same primary token, and the range row that now
+        # joins the other site.
+        5,
     )
     expect_raises(
         "ledger §5: an unknown ratio form must not be skipped into silence",
@@ -2155,6 +2182,44 @@ def self_test() -> int:
                 SYNTH_LEDGER_5_POSITIONAL.replace(
                     "| `BetaView` · pill | `x@0.14` | 8.100 / 8.200 | **M (A4)** | B2 |\n", ""
                 )
+            )
+        ),
+    )
+    # The tokens[0]-wins residual, pinned so it is a recorded behaviour rather
+    # than an accident: the row above is clean against the PRIMARY ground, and
+    # reddens when given the alternative ground's figures.
+    expect(
+        "ledger §5: a qualified ground compares against its primary token only",
+        lambda: len(site_problems(
+            positional_ledger(
+                SYNTH_LEDGER_5_POSITIONAL.replace(
+                    "| `BetaView` · qualified | `x@0.14` when selected, else `alphaGround` "
+                    "| 8.100 / 8.200 |",
+                    "| `BetaView` · qualified | `x@0.14` when selected, else `alphaGround` "
+                    "| 9.111 / 9.777 |",
+                )
+            )
+        )),
+        1,
+    )
+    expect_raises(
+        "ledger §5: a row naming a DARK ground has no light figure to compare",
+        "carries as a DARK ground",
+        lambda: site_problems(
+            positional_ledger(
+                SYNTH_LEDGER_5_POSITIONAL.replace(
+                    "| `AlphaView` · caption | `alphaGround` |",
+                    "| `AlphaView` · caption | `betaGround` |",
+                )
+            )
+        ),
+    )
+    expect_raises(
+        "ledger §5: a wash ground resolving to a site the fixture does not pin",
+        "which the fixture does not pin",
+        lambda: site_problems(
+            positional_ledger(
+                wash=SYNTH_WASH_TABLE.replace("`AlphaSite.pill(.pending)`", "`GammaSite` pill"),
             )
         ),
     )
