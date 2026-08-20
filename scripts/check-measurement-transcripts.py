@@ -1057,25 +1057,100 @@ RESIDUE_SUFFIXES = frozenset(
 )
 
 
+def swift_comment_spans(text: str) -> dict[int, list[tuple[int, int]]]:
+    """1-based line number -> comment column spans `(start, end)` (half-open).
+
+    Tracks `/* … */` depth **across lines** so a nested block comment
+    (`/* /* … */ … */`) closes only at its outer `*/`; at depth 0, `//` opens a
+    comment running to end of line. This is a scanner, not a lexer, and one gap
+    is retained rather than fixed: a `/*` or `//` sitting inside a Swift string
+    literal still opens a phantom comment span here, so a figure following it on
+    the same line can be misclassified as prose. A full lexer (string-literal
+    awareness, raw strings, interpolation) is out of proportion for a
+    report-only classifier — see `residue_rows`.
+    """
+    spans: dict[int, list[tuple[int, int]]] = {}
+    depth = 0
+    start_col = 0
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if depth > 0:
+            start_col = 0
+        i, n = 0, len(line)
+        while i < n:
+            two = line[i : i + 2]
+            if depth == 0:
+                if two == "//":
+                    spans.setdefault(lineno, []).append((i, n))
+                    i = n
+                elif two == "/*":
+                    depth = 1
+                    start_col = i
+                    i += 2
+                else:
+                    i += 1
+            else:
+                if two == "/*":
+                    depth += 1
+                    i += 2
+                elif two == "*/":
+                    depth -= 1
+                    i += 2
+                    if depth == 0:
+                        spans.setdefault(lineno, []).append((start_col, i))
+                else:
+                    i += 1
+        if depth > 0:
+            spans.setdefault(lineno, []).append((start_col, n))
+    return spans
+
+
 def residue_rows(
     pool: set[str], read_index: set[tuple[str, int]], files: list[tuple[str, str]]
 ) -> tuple[list[tuple[str, int, list[str]]], list[tuple[str, int, list[str]]]]:
     """`(prose, executed)` hits outside `read_index`, one row per line.
 
-    A non-comment line in a `.swift` file is an **executed assertion** — a guard
-    rather than a copy that can rot — so it is separated, not counted or dropped.
+    A `.swift` line's matched values are split by WHERE each value occurs, via
+    `swift_comment_spans`, not by the line's leading token: a value every one of
+    whose occurrences on that line falls inside a comment span is **prose** — a
+    copy that can rot; a value with at least one occurrence outside every
+    comment span is an **executed assertion** — a guard. A line with both kinds
+    appears in both lists, each with its own disjoint, `float`-sorted values.
+    Non-`.swift` files are unchanged: everything is prose.
     """
     prose: list[tuple[str, int, list[str]]] = []
     executed: list[tuple[str, int, list[str]]] = []
     for path, text in files:
+        is_swift = path.endswith(".swift")
+        comment_spans = swift_comment_spans(text) if is_swift else {}
         for i, line in enumerate(text.splitlines(), start=1):
             if (path, i) in read_index:
                 continue
             found = sorted({v for v in pool if v in line}, key=float)
             if not found:
                 continue
-            is_code = path.endswith(".swift") and not line.lstrip().startswith("//")
-            (executed if is_code else prose).append((path, i, found))
+            if not is_swift:
+                prose.append((path, i, found))
+                continue
+            spans = comment_spans.get(i, [])
+            prose_values: list[str] = []
+            executed_values: list[str] = []
+            for v in found:
+                positions: list[int] = []
+                start = 0
+                while True:
+                    idx = line.find(v, start)
+                    if idx == -1:
+                        break
+                    positions.append(idx)
+                    start = idx + 1
+                all_in_comment = all(
+                    any(s <= p and p + len(v) <= e for s, e in spans) for p in positions
+                )
+                (prose_values if all_in_comment else executed_values).append(v)
+            if prose_values:
+                prose.append((path, i, prose_values))
+            if executed_values:
+                executed.append((path, i, executed_values))
     return prose, executed
 
 
@@ -2269,6 +2344,57 @@ def self_test() -> int:
         "residue: without the read-index entry the table row is residue too",
         lambda: len(residue_rows({"9.111", "9.777"}, set(), residue_files)[0]),
         3,
+    )
+    # Comment-span classification (#1496 PR2) — a prefix test only recognized
+    # `//`, so a figure inside a `/* … */` block was mislabelled as an executed
+    # assertion. Each arm below asserts which list a figure lands in.
+    expect(
+        "residue: `//` line comment is prose",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "// 9.111\n")]),
+        ([("F.swift", 1, ["9.111"])], []),
+    )
+    expect(
+        "residue: `///` doc comment is prose",
+        lambda: residue_rows({"9.222"}, set(), [("F.swift", "/// 9.222\n")]),
+        ([("F.swift", 1, ["9.222"])], []),
+    )
+    expect(
+        "residue: a single-line `/* … */` is prose",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "/* 9.111 */\n")]),
+        ([("F.swift", 1, ["9.111"])], []),
+    )
+    expect(
+        "residue: a multi-line block comment's interior line is prose",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "/*\n9.111\n*/\n")]),
+        ([("F.swift", 2, ["9.111"])], []),
+    )
+    # Nesting: the inner `*/` must NOT close the outer comment. If nesting were
+    # mishandled, line 3's `9.222` would read as code (the outer close missed).
+    expect(
+        "residue: a nested block comment keeps the outer span open past the inner `*/`",
+        lambda: residue_rows(
+            {"9.111", "9.222"},
+            set(),
+            [("F.swift", "/* outer\n/* 9.111 inner */\n9.222 still outer\n*/\n")],
+        ),
+        ([("F.swift", 2, ["9.111"]), ("F.swift", 3, ["9.222"])], []),
+    )
+    expect(
+        "residue: code after `*/` on the same line is executed",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "/* note */ let x = 9.111\n")]),
+        ([], [("F.swift", 1, ["9.111"])]),
+    )
+    expect(
+        "residue: a plain code line is executed",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "let x = 9.111\n")]),
+        ([], [("F.swift", 1, ["9.111"])]),
+    )
+    expect(
+        "residue: a mixed line splits into both lists with disjoint values",
+        lambda: residue_rows(
+            {"9.111", "9.777"}, set(), [("F.swift", "let x = 9.111  // was 9.777\n")]
+        ),
+        ([("F.swift", 1, ["9.777"])], [("F.swift", 1, ["9.111"])]),
     )
     # The offsets a wrapped block spans — the whole block, not just the line
     # carrying the fixture name.
