@@ -701,8 +701,10 @@ def flatten_phase_tree(scenario):
     refuse cannot reach the position rule:
 
     - a `conditional` with neither branch populated (`ScenarioValidator`'s
-      `validateConditionalPhase`: at least one of `then:` / `else:` must be
-      non-empty);
+      `validateConditionalPhase` throws `.conditionalEmptyBranches`: at least
+      one of `then:` / `else:` must be non-empty). Note the stage: `ScenarioLoader`
+      does NOT check this, so such a file loads and is refused afterwards —
+      the opposite of the nested case below, which never loads at all;
     - a `conditional` nested inside a branch (the depth-1 rule). Three guards
       enforce it upstream, and only one of them is on this input's path:
       `ScenarioLoader.parsePhaseType` rejects at PARSE time, which is what a

@@ -1327,11 +1327,12 @@ expect_ok "C3d the extractor accepts a two-round conditional run"
 runc "$R" jq -r '[.excerpt[].phase_index] | @tsv' docs/gallery/highlights/cond_v1.json
 expect_eq "5	1" "C3d round 1 resolves to else and round 2 to then, same phase_path"
 
-# C3e — the per-round reset's only asserter. When round 2's
-# `conditional_evaluated` is missing, the run dies rather than reusing round 1's
-# verdict. Distinct from C3c: there a conditional was NEVER evaluated, so a
-# resolver with no reset would fail anyway. Here one was — which is what makes
-# this the case that reddens when the reset is removed.
+# C3e — the reset on the ROUND axis (C3g covers the ATTEMPT axis; both redden on
+# the same `pending_branch = None` statement, so neither is the sole asserter).
+# When round 2's `conditional_evaluated` is missing, the run dies rather than
+# reusing round 1's verdict. Distinct from C3c: there a conditional was NEVER
+# evaluated, so a resolver with no reset would fail anyway. Here one was — which
+# is what makes this the case that reddens when the reset is removed.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 4
 mk_run_cond2 "$R" "$R/run.jsonl"
@@ -1383,6 +1384,17 @@ assert len(hits) == 1, f"anchor matched {len(hits)} lines — probe invalid"
 del lines[hits[0]]
 io.open(p, "w", encoding="utf-8").write("\n".join(lines) + "\n")
 PY
+# Re-point the pick: deleting line 9 shifts the utterance from 11 to 10. Leaving
+# it at 11 would name `run_end`, and the arm would then pass on a pick-type error
+# whenever `annotate` stopped dying first. `expect_out` is what discriminates
+# here — `expect_fail` alone cannot tell a refusal from an unrelated failure.
+cat > "$R/sel.json" <<'JSON'
+{
+  "picks": [10],
+  "yaml_hook": { "kind": "raw", "fragment": "phases:\n  - type: conditional", "caption": "この一行が分岐を生む" },
+  "teaser": "最後の一言は、まだ言われていない。"
+}
+JSON
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
 expect_fail "C3g an attempt whose conditional_evaluated is missing is refused"
 expect_out "branch unattributed" "C3g refuses rather than inheriting attempt 1's branch"
@@ -1432,9 +1444,10 @@ expect_out "no usable \`phase_path\`" "C4 names the missing field"
 # says `conditional` never reaches the position rule on the YAML's silence.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
-# Nest a conditional inside a branch — legal YAML, refused by the flattener
-# (and by ScenarioValidator), so the tree comes back None while `phases` is
-# untouched and still contains `conditional`.
+# Nest a conditional inside a branch — legal YAML, refused by the flattener (and
+# upstream by ScenarioLoader at parse time, not by ScenarioValidator: such a
+# file never loads), so the tree comes back None while `phases` is untouched and
+# still contains `conditional`.
 python3 - "$R" <<'PY'
 import io, sys
 p = sys.argv[1] + "/docs/gallery/cond_v1.yaml"
@@ -1518,10 +1531,12 @@ expect_out "highlight: round window" "C8 names the round window"
 #     emptiness reddens whenever a developer runs the suite mid-work on a
 #     highlight-ADDING PR (staged entries under that path) — the very PR shape
 #     that most needs this arm.
-#   - `check_highlights` is a documented no-op when the repo has neither a
-#     highlights/ directory nor a paired index field (check-gallery-entry.sh;
-#     H0 above covers that path deliberately), so if the directory ever went
-#     missing the gate arm below would pass having checked nothing. Count first.
+#   - `check_highlights` is a documented no-op only when BOTH are absent — no
+#     highlights/ directory AND no paired index field (check-gallery-entry.sh;
+#     H0 above covers that path deliberately). With the directory gone but
+#     `gallery.json` still carrying highlight_url, the validator runs and fails
+#     loudly; it is the both-gone case that would pass having checked nothing,
+#     and that is what the count guards. Count first.
 #     The `-d` test is not decoration: under this file's `set -euo pipefail` a
 #     `find` on a missing directory exits non-zero and would abort the suite
 #     before reaching the `bad` branch written for exactly that case.

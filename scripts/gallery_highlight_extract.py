@@ -37,8 +37,9 @@ Hard-fails (each with a distinct, greppable message):
   - the scenario YAML declares the `secret:` mechanism (ADR-029 Decision 2 —
     the spoiler rules are unvalidated for it);
   - a scenario whose `phases:` tree cannot be flattened — a `conditional`
-    with neither branch, one nested inside a branch (both refused by
-    `ScenarioValidator` too), or any other malformed `phases:` shape;
+    with neither branch (which `ScenarioValidator` refuses, post-load), one
+    nested inside a branch (which `ScenarioLoader` refuses earlier, at parse
+    time), or any other malformed `phases:` shape;
   - a `phase_started` line carrying no usable `phase_path`, one deeper than
     the engine's depth-1 rule allows, or one naming a phase / branch position
     the pinned YAML does not have;
@@ -186,12 +187,13 @@ def annotate(lines, nodes):
                     "phase the run never entered")
             if len(path) > 2:
                 die(f"phase_path depth — line {lineno} `phase_path` {path} is "
-                    f"{len(path)} deep, but "
-                    "the engine's depth-1 rule bounds it to 2 (ScenarioValidator "
-                    "blocks a nested `conditional` at load; ConditionalHandler "
-                    "registers no sub-handler for one at run time). A deeper path "
-                    "means the transcript and that rule disagree — resolving it "
-                    "would need a branch decision this tool cannot make.")
+                    f"{len(path)} deep, but the engine's depth-1 rule bounds it "
+                    "to 2 (ScenarioLoader.parsePhaseType refuses a nested "
+                    "`conditional` at parse time, so such a scenario never "
+                    "loads; ConditionalHandler registers no sub-handler for one "
+                    "at run time). A deeper path means the transcript and that "
+                    "rule disagree — resolving it would need a branch decision "
+                    "this tool cannot make.")
             if len(path) == 1:
                 if path[0] not in by_top:
                     die(f"phase_path unknown — line {lineno} `phase_path` {path} "
