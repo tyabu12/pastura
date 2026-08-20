@@ -45,6 +45,7 @@ scripts/xcodebuild.sh test …
 | TDD red/green (single class) | `scripts/xcodebuild.sh test -only-testing PasturaTests/<Class>` |
 | Pre-PR full local run | `scripts/xcodebuild.sh test` |
 | Build only (no tests) | `scripts/xcodebuild.sh build` |
+| Compile-check device-only code | `scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — see `build-traps.md` |
 | Cap output for context-window budget | `scripts/xcodebuild.sh <cmd> --tail N [args]` |
 | CI full run | `.github/workflows/ci.yml` (bypasses wrapper) |
 
@@ -123,43 +124,15 @@ killing anything** — a concurrent worktree's run looks identical. Inspect / ki
 [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md)
 § Recovery / § Local full-suite flake.
 
-## "Executed 0 tests" in the XCTest stanza is cosmetic for Swift-Testing suites
-
-The XCTest output stanza (`Executed N tests`) counts only `XCTestCase` subclasses — for
-Swift-Testing-only files it always prints `Executed 0 tests`, which is **cosmetic, not a
-"file not in target" signal**. The real count is in the Swift Testing stanza below
-(`✔ Test … passed`, `Test run with N tests …`). Most Pastura tests are Swift Testing.
-**Disambiguate a true zero**: `✔` markers / `Test run with N tests` present → normal; absent
-→ real bug (file at wrong path / not compiled — cf. the `-only-testing` zero-match trap in
-`testing.md`). When filtering output keep the markers:
-`grep -E "(error:|Test Suite|Executed|passed|failed|✔ Test|Test run)"`.
-
 ## Engine/Models/`SimulationEvent` changes need local `swift build` (harness)
 
 The ADR-013 harness is a SwiftPM package reusing `Models`/`LLM`/`Engine`, built by
-`swift build` / `swift test` — NOT by `scripts/xcodebuild.sh` or the pre-commit hook (iOS
-app target only). So a change to a `SimulationEvent` case (or any harness-reused Engine/
-Models source) can pass the full xcodebuild suite + pre-commit locally and still break the
-CI "Harness package build" job — `EventLineMapper.swift` has an intentional no-`default:`
-exhaustive switch (compile-time canary). **Apply**: on any such change, run `swift build`
-from the repo root before push and map the new event in `EventLineMapper` (`nil` for
-internal/persistence events). See ADR-013.
-
-## Compile-checking device-only (`#if !targetEnvironment(simulator)`) code
-
-`#if !targetEnvironment(simulator)` blocks (e.g. `SettingsView` model-management UI,
-`ModelSettingsRow`) are excluded from the simulator build, which is what
-`scripts/xcodebuild.sh build` and `scripts/ui-tour.sh` use. **CI is not blind to them**:
-`ci.yml`'s `release-build` job builds `-sdk iphoneos`, so a compile error there fails every
-iOS-touching PR — in **Release configuration only**. A block behind `#if DEBUG` *and*
-`!targetEnvironment(simulator)` would therefore be compiled by no CI job; none exists today.
-Compile-check locally without provisioning:
-`scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`
-(signing is skipped, and Swift compiles before signing, so `** BUILD SUCCEEDED **` confirms
-the block compiles). That one is a **Debug** device build — the wrapper passes no
-`-configuration` — so it does reach a `#if DEBUG` device-only block that CI cannot.
-**Layout/visual** still needs a real device — flag device-QA explicitly in PRs touching
-these blocks.
+`swift build` — **not** by `scripts/xcodebuild.sh` or the pre-commit hook, which
+cover the iOS app target only. So such a change passes the full local suite and
+still breaks CI's "Harness package build". **Apply**: run `swift build` from the
+repo root before push, and map any new `SimulationEvent` case in the harness's
+`EventLineMapper` (`nil` for internal / persistence events) — its switch is
+deliberately `default:`-less as a compile-time canary. See ADR-013.
 
 ## A stale SPM resolution reads as a compile error
 
