@@ -16,7 +16,9 @@ Directions differ by face, deliberately:
 - ADR-028's table is a **subset**: four of the five rows (no
   `HighlightShareCard`), worded differently for `ReportSheet`. Every ADR row
   must match a pin; a pin with no ADR row is correct.
-- §5's site column is **membership only** — see `compare_membership`.
+- §5's site column is checked **both ways**: `compare_site_rows` holds each
+  row to the pin its own `Ground` cell names, and `compare_membership` still
+  catches a figure matching no pin at all.
 
 The span sentence is anchored **structurally**: within the section, the block
 that names `DesignTokensTests+MutedTranscript` is the one claiming the fixture
@@ -157,9 +159,10 @@ LEDGER_5_CELLS = 5
 
 # §5's `light/dark` vocabulary — **eight** forms over the shipped 94 rows,
 # enumerated from the ledger rather than assumed. Dispatch reads THIS cell and
-# only then the `Ground` one: six `Ground` values carry two different ratio
-# forms, so a ground-first dispatch reddens rows whose content is correct (a
-# `#Preview` row names a real token ground and measures nothing).
+# only then the `Ground` one: `screenBackground` and `bubbleBackground` each
+# carry BOTH a figure pair and a `—`, so a ground-first dispatch reddens three
+# rows whose content is correct — `DogMark`, `PasturaCard` and `SheepAvatar`
+# name a real token ground and, being `#Preview`, measure nothing.
 #
 # Three forms are compared, `same` inherits, and the four below are the whole of
 # what §5 declines to measure. An unknown ninth **raises** — skipping by default
@@ -712,12 +715,15 @@ def compare_membership(
 ) -> list[str]:
     """Every §5 ratio must be one the fixture computes somewhere.
 
-    **Membership, not a bijection.** §5 quantifies its ground freely
-    ("`screenBackground` or `bubbleBackground`", "same", "worst"), so deciding
-    which pin a row *ought* to carry is a judgment — #1496 holds that open.
-    Membership still catches a figure hand-carried into §5 that no longer matches
-    anything the fixture computes; it does NOT catch a row carrying the wrong
-    pin's value.
+    **Membership, not a bijection**, and no longer §5's only check: which pin a
+    row ought to carry was #1496's judgment 1, and `compare_site_rows` now
+    answers it. The two are kept apart because they fail on disjoint defects —
+    this one on a figure matching **no** pin (a ground retuned and a row not
+    re-recorded), that one on a row carrying **another** row's pin.
+
+    Its table-level anchors are the other reason to keep it: `ledger_site_ratios`
+    is what raises when a sub-table's header drifts or the section empties, and
+    both comparisons would otherwise pass by reading nothing.
     """
     problems = []
     for label, value in sorted(set(found)):
@@ -771,11 +777,11 @@ def compare_site_rows(
     (`wash_row_grounds`). Perturb either and rows here redden — which is the only
     thing holding §3.1's pairing at all.
 
-    **Dispatch reads the ratio cell first.** Six `Ground` values in the shipped
-    ledger carry two different ratio forms, so a ground-first dispatch reddens a
-    `#Preview` row that names a real token ground and measures nothing. It is
+    **Dispatch reads the ratio cell first.** Two token grounds in the shipped
+    ledger carry both a figure pair and a `—`, so a ground-first dispatch reddens
+    the three `#Preview` rows that name a real ground and measure nothing. It is
     also what makes §5's two `muted@0.14` cells safe: one is a wash row, the
-    other `unmeasurable`, and only the second's ratio form separates them.
+    other `unmeasurable`, and only the ratio form separates them.
     """
     problems: list[str] = []
     for table in tables:
@@ -2021,11 +2027,11 @@ def self_test() -> int:
     # --- ledger §5 positional comparison (#1496) ------------------------
     #
     # Dispatch reads the RATIO cell first and the `Ground` cell only after. That
-    # ordering is load-bearing twice over: six `Ground` values in the shipped
-    # ledger carry two different ratio forms (a token ground with a `—` cell is
-    # a real `#Preview` shape), and §5's two `muted@0.14` cells — one a wash,
-    # one `unmeasurable` — share a leading token, so a ground-first dispatch
-    # would have to tell them apart and cannot.
+    # ordering is load-bearing twice over: two token grounds in the shipped
+    # ledger carry both a figure pair and a `—` (three `#Preview` rows), and
+    # §5's two `muted@0.14` cells — one a wash, one `unmeasurable` — share a
+    # leading token, so a ground-first dispatch would have to tell them apart
+    # and cannot.
     def positional_ledger(ledger_5: str = SYNTH_LEDGER_5_POSITIONAL, **kwargs) -> str:
         kwargs.setdefault("opaque", SYNTH_OPAQUE_TABLE_5)
         return synth_ledger(ledger_5=ledger_5, **kwargs)
