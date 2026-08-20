@@ -178,6 +178,28 @@ done
 case "$cmd" in
   test)
     extra_flags=(-parallel-testing-enabled NO)
+    # Integration suites (Ollama, llama.cpp) gate on an env var read by the TEST
+    # RUNNER, and a runner is a separate process that does NOT inherit what was
+    # exported here — the suite skips while xcodebuild still prints
+    # `** TEST SUCCEEDED **`. Nothing else says so, hence this line. The scheme's
+    # LaunchAction > EnvironmentVariables is the surface that works.
+    #
+    # ADVISORY, not a gate: `|| [ $? -eq 1 ]` keeps grep's no-match (exit 1,
+    # the common case) from aborting under errexit while still letting a real
+    # grep error (exit >= 2) abort. A gate would want the opposite — a broken
+    # pattern there must never read as "nothing found". Capture, never
+    # `grep -q`: an early-exiting reader under `pipefail` turns a match into a
+    # failure. `env` lists exported variables only, which is exactly the set
+    # that could have been meant for the runner.
+    _integration_vars="$(env | { grep -E '^[A-Za-z_][A-Za-z0-9_]*_INTEGRATION=' || [ $? -eq 1 ]; })"
+    if [[ -n "$_integration_vars" ]]; then
+      {
+        echo "warning: *_INTEGRATION set in this shell, but CLI env vars do NOT reach the"
+        echo "  test runner — the suite will skip and still report TEST SUCCEEDED."
+        printf '%s\n' "$_integration_vars" | sed 's/^/    /'
+        echo "  Enable it in the scheme instead (LaunchAction > EnvironmentVariables)."
+      } >&2
+    fi
     ;;
   build)
     extra_flags=()
