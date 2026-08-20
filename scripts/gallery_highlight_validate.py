@@ -463,15 +463,54 @@ def _check_yaml_hook_fragment(doc, where):
     return failures
 
 
+def _preceding_in_round(nodes, idx):
+    """-> phase types that can precede ``nodes[idx]`` within one round.
+
+    Two contributions, and they differ in kind:
+
+    - **Every node at a smaller top-level index.** For a *preceding*
+      `conditional` that pulls in BOTH branches. Deliberate and conservative:
+      an excerpt records no branch, so not even an honest one can say which
+      branch a preceding conditional took in the round it came from. The union
+      is the only fail-safe reading, and it is the reason a scenario that
+      continues past its conditional is handled here rather than refused.
+    - **Siblings before it inside its own branch.** Here the flattened index
+      does identify the branch, so this part is exact.
+
+    The containing `conditional` is the pick's parent, not something preceding
+    it, so it contributes nothing (and is not outcome-class either way).
+
+    What this does NOT do is defend against a `phase_index` that names the
+    wrong branch — see `_check_position`'s note on what the gate can verify.
+    """
+    node = nodes[idx]
+    out = [n.type for n in nodes if n.top < node.top]
+    if node.branch is not None:
+        out += [n.type for n in nodes
+                if n.top == node.top and n.branch == node.branch
+                and n.inner is not None and n.inner < node.inner]
+    return out
+
+
 def _check_position(doc, entry, where, phase_tree):
     """Decision 3's two-part position rule, against the index entry.
 
-    Also the home of the `conditional`-scenario refusal: the rule is stated in
-    terms of `phase_index`, so the scenario class whose `phase_index` cannot be
-    derived is refused where that index is read, not at an unrelated callsite.
-    Being here means the extractor inherits it too — `check_content` dispatches
-    this function for both callers, so the two cannot disagree about which
-    highlights are publishable.
+    `check_content` dispatches this for both the extractor and the gate, so the
+    two cannot disagree about which highlights are publishable.
+
+    **What the gate verifies is the claimed coordinate's CONSISTENCY, not its
+    truth.** It never reads the transcript (by design — a hand-edited highlight
+    never runs the extractor), so a `phase_index` that names a different
+    same-typed position than the utterance actually came from passes: the phase
+    check still matches and the preceding set is then computed over the wrong
+    range. That exposure is not specific to `conditional` — it is live on flat
+    entries today (`hitsuji_kaigi_v1` / `ijin_kaigi_v1` are
+    `[speak_each, reflect, speak_each, choose, speak_each, summarize]`, where
+    labelling a post-`choose` utterance `phase_index: 0` passes). Truth is
+    anchored upstream instead: the extractor derives the index from the
+    transcript, and ADR-029 Decision 2 requires human sign-off. Narrowing only
+    the conditional arm of this would close nothing and cost real rejections —
+    do not add it (#1473).
     """
     failures = []
     phases = entry.get("phases")
@@ -479,41 +518,25 @@ def _check_position(doc, entry, where, phase_tree):
     if not isinstance(phases, list) or not phases:
         return [f"highlight: schema — {where} gallery.json entry has no `phases` list "
                 "to check the within-round bound against"]
-    # Refused as a class, deliberately wider than the broken cases — the failure
-    # message says so. `phases` is the FULLY-FLATTENED depth-first list (the
-    # `conditional`, then its then-branch, then its else-branch) while a
-    # transcript's `phase_path` indexes the TOP-LEVEL list, so the outcome-phase
-    # prefix `phases[:idx]` spans branches that never ran together in one round.
-    # Telling a sound pick from a skewed one needs the branch structure this
-    # function does not have, which is #1473's work.
-    #
-    # Picks at or inside the conditional fail loudly today only because no
-    # shipped scenario continues past its conditional; one that did could match
-    # `phases[idx]` by coincidence and evaluate that prefix over the wrong range,
-    # silently. Returning early keeps such speculation out of the report, and
-    # drops the round-window arms too — derivable, but worth nothing on a
-    # highlight that cannot ship.
-    #
-    # Either source alone triggers the refusal: a drifted index could otherwise
-    # disable the guard (nothing on a highlight PR's path re-derives `phases` —
-    # see `flatten_phase_tree`), while keying on the YAML alone would
-    # miss an index claiming a conditional the YAML no longer has. Disagreement
-    # between them is itself a reason not to publish.
-    nodes, _reason = phase_tree
-    # Tri-state, as before: `None` = the tree could not be derived, so the
-    # scenario's own answer is unknown and only the index's claim is left.
-    yaml_has_conditional = (
-        None if nodes is None else any(n.type == "conditional" for n in nodes))
-    if "conditional" in phases or yaml_has_conditional:
-        source = ("the entry's `phases` list" if "conditional" in phases
-                  else "the sibling scenario YAML's `phases:`")
-        return [f"highlight: conditional scenario — {where} {source} contains "
-                "`conditional`, whose branch sub-phases are flattened into the "
-                "index's list. `phase_index` is not branch-aware, so neither the "
-                "index nor the within-round bound can be derived correctly (#1473). "
-                "Highlights are refused for this scenario class until that lands — "
-                "including a pick before the conditional, which is sound but not "
-                "distinguishable here."]
+    # Branch-aware only when the tree was derivable AND agrees with the
+    # denormalized list `phase_index` actually indexes into. `_check_phase_tree`
+    # reports either divergence in its own words; re-testing the pair here keeps
+    # THIS function's verdict from resting on an unchecked correspondence.
+    nodes, reason = phase_tree
+    tree = (nodes if nodes is not None and [n.type for n in nodes] == phases
+            else None)
+    if tree is None and "conditional" in phases:
+        # Fail-closed residue of the class-wide refusal this replaces. Without
+        # the tree, `phases` is all there is — a fully-flattened depth-first
+        # list in which the outcome-phase prefix `phases[:idx]` spans branches
+        # that never ran together in one round. Flat entries need no such
+        # residue: for them the flat prefix IS the round's phase list.
+        return [f"highlight: conditional scenario — {where} the entry's `phases` "
+                "list contains `conditional`, but its branch structure is "
+                f"unavailable ({reason or 'it disagrees with the sibling scenario YAML'}). "
+                "The flattened list interleaves both branches, so the within-round "
+                "bound cannot be evaluated — fix the scenario YAML or the entry and "
+                "re-run rather than publishing an unchecked position."]
     if not isinstance(rounds, int) or isinstance(rounds, bool) or rounds < 1:
         return [f"highlight: schema — {where} gallery.json entry has no usable "
                 "`rounds` value to compute the round window"]
@@ -529,7 +552,11 @@ def _check_position(doc, entry, where, phase_tree):
                 failures.append(
                     f"highlight: phase_index mismatch — {loc}.phase_index={idx} names "
                     f"phases[{idx}]={phases[idx]!r} but phase={ex.get('phase')!r}")
-            preceding = [p for p in phases[:idx] if p in OUTCOME_PHASES]
+            # `phases[:idx]` is correct for a flat scenario and only for one;
+            # with a tree, the round's real preceding set is branch-aware.
+            candidates = (_preceding_in_round(tree, idx) if tree is not None
+                          else phases[:idx])
+            preceding = [p for p in candidates if p in OUTCOME_PHASES]
             if preceding:
                 failures.append(
                     f"highlight: within-round bound — {loc}.phase_index={idx} is "

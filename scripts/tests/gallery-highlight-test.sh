@@ -892,6 +892,33 @@ mk_selection() {  # repo path
 JSON
 }
 
+# A run over TREE_HISSATSU: round 1 evaluates the condition false and takes the
+# ELSE branch, so its utterance's phase_path is [0, 0] with a `conditional_evaluated`
+# result of false in front of it. Shaped from a real harness transcript —
+# `conditional_evaluated` carries no phase_path of its own.
+mk_run_cond() {
+  cat > "$2" <<'JSONL'
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"cond_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":2}
+{"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[0]}
+{"type":"event","t":0.3,"attempt":1,"event":"conditional_evaluated","condition":"current_round == total_rounds","result":false}
+{"type":"event","t":0.4,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[0,0]}
+{"type":"event","t":0.5,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"私はBだと思う。","inner_thought":"本当はCかも。"}}
+{"type":"event","t":0.6,"attempt":1,"event":"phase_started","phase_type":"vote","phase_path":[0,1]}
+{"type":"event","t":0.7,"attempt":1,"event":"run_end","run_id":"run-1","status":"ok","attempts":1,"duration_sec":9.0}
+JSONL
+}
+
+mk_selection_cond() {  # repo path
+  cat > "$2" <<'JSON'
+{
+  "picks": [6],
+  "yaml_hook": { "kind": "raw", "fragment": "phases:\n  - type: conditional", "caption": "この一行が分岐を生む" },
+  "teaser": "最後の一言は、まだ言われていない。"
+}
+JSON
+}
+
 # E1 — end-to-end: extractor writes a file the gate then accepts.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"; mk_selection "$R" "$R/sel.json"
@@ -1115,44 +1142,58 @@ expect_out "Pass --model with the registry id" "E15 names the escape hatch"
 # lost its `^\s*` anchor. This is the control for that anchoring — an unrelated
 # string would be rejected under either anchor, i.e. would measure nothing.
 
-# --- conditional-scenario refusal (#1473) ---------------------------------
+# --- conditional scenarios: branch-aware position rule (#1473) -------------
 #
-# The refusal lives in `_check_position`, which `check_content` dispatches for
-# BOTH the gate and the extractor — so it is asserted on both, not on whichever
-# one happens to be convenient.
+# The rule lives in `_check_position`, which `check_content` dispatches for BOTH
+# the gate and the extractor — so it is asserted on both, not on whichever one
+# happens to be convenient.
 #
-# The fixture YAML writes `- type: conditional` with no `then:`/`else:` branch,
-# which a real scenario would never do. Deliberate: the check reads the entry's
-# flattened `phases`, never the tree, and mk_scenario cannot nest. An arm that
-# needs the tree belongs with #1473's branch-aware work, not here.
+# Every arm here needs a REAL `then:`/`else:` tree, so they use mk_scenario_tree.
+# mk_scenario cannot nest: it writes `- type: X` lines only, which is why the
+# refusal-era arms this block replaces used a branchless `conditional` — a shape
+# flatten_phase_tree now rejects outright (T4).
 
-# C1 — a conditional-bearing scenario is refused at the gate.
+# `hissatsu_naming_v1`'s real shape: the only top-level phase is a conditional
+# whose branches are identical. rounds=2 → window=1, and round 1 takes the ELSE
+# branch, so the sole eligible utterance sits at flattened index 5.
+TREE_HISSATSU='[{"type":"conditional",
+  "then":[{"type":"speak_all"},{"type":"vote"},{"type":"score_calc"},{"type":"summarize"}],
+  "else":[{"type":"speak_all"},{"type":"vote"},{"type":"score_calc"},{"type":"summarize"}]}]'
+EX_ELSE_BRANCH='[{"agent":"アヤ","round":1,"phase":"speak_all","phase_index":5,"source_field":"statement","text":"私はBだと思う。"}]'
+
+# C1 — the acceptance criterion: an else-branch pick passes the gate. This is
+# the arm that discriminates the branch-aware rule from the flat one. Under
+# `phases[:5]` the prefix is [conditional, speak_all, vote, score_calc,
+# summarize] and the pick is rejected; under the tree the else branch's own
+# preceding set is empty and it is sound. No --window-override (round 1 ≤ 1).
 R="$(new_repo)"; init_index "$R"
-mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
-mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
-gate "$R"; expect_fail "C1 gate refuses a conditional-bearing scenario"
-expect_out "highlight: conditional scenario" "C1 names the refused class"
-expect_out "#1473" "C1 points at the follow-up that lifts it"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_highlight "$R" cond_v1 "$EX_ELSE_BRANCH"; link_highlight "$R" cond_v1
+gate "$R"; expect_ok "C1 an else-branch pick passes on a conditional-only scenario"
 
-# C2 — control: the same fixture without the `conditional` entry passes. Without
-# this, C1 would also pass if the refusal fired on every scenario.
+# C2 — control: the same fixture without any conditional still passes. Without
+# it, C1 would also pass if the position rule had stopped rejecting anything.
 R="$(new_repo)"; init_index "$R"
 mk_scenario "$R" cond_v1 '["speak_each","summarize"]'
 mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
-gate "$R"; expect_ok 'C2 the same fixture minus the conditional entry still passes'
+gate "$R"; expect_ok 'C2 a flat scenario still passes'
 
-# C3 — and the extractor refuses it too, from the shared dispatch rather than a
-# second copy of the predicate.
+# C3 — the extractor's own derivation is NOT branch-aware yet: annotate() still
+# reads phase_path[0], so a branch utterance reports the conditional's top-level
+# index and the shared phase check catches the disagreement. Asserted rather
+# than left silent — this is precisely what the next commit replaces, and an
+# unasserted gap here would let a half-finished resolver look finished.
 R="$(new_repo)"; init_index "$R"
-mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
-mk_run "$R" "$R/run.jsonl"; mk_selection "$R" "$R/sel.json"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_run_cond "$R" "$R/run.jsonl"; mk_selection_cond "$R" "$R/sel.json"
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
-expect_fail "C3 extractor refuses a conditional-bearing scenario"
-expect_out "highlight: conditional scenario" "C3 names the same class as the gate"
+expect_fail "C3 the extractor cannot yet derive a branch index"
+expect_out "phase_index mismatch" "C3 the shared phase check catches the top-level index"
 
 # C4 — a `phase_started` with no `phase_path` is refused rather than defaulted
 # to top-level index 0. The earlier `or [0]` fallback asserted a position the
 # transcript never stated, and every downstream check read it as measured.
+# Untouched by the lift: it is about a missing field, not about branches.
 R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
 mk_run "$R" "$R/run.jsonl"; mk_selection "$R" "$R/sel.json"
 python3 - "$R" <<'PY'
@@ -1168,18 +1209,87 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo
 expect_fail "C4 a phase_started without phase_path is refused"
 expect_out "no usable \`phase_path\`" "C4 names the missing field"
 
-# C5 — a `phases` list that DRIFTED from its YAML cannot disable the refusal.
-# Nothing on a highlight PR's path re-derives that denormalized field (why:
-# `scenario_declares_conditional`'s docstring), so the refusal reads the YAML
-# too — this arm is what proves that side live rather than decorative.
+# C5 — fail-closed residue. When the tree cannot be derived at all, a
+# conditional entry is refused rather than checked against the flattened list,
+# which interleaves branches. This is what survives of the class-wide refusal,
+# and it is the successor to the old C5's property: an entry whose `phases`
+# says `conditional` never reaches the position rule on the YAML's silence.
 R="$(new_repo)"; init_index "$R"
-mk_scenario "$R" cond_v1 '["speak_each","conditional","summarize"]'
-# Drop `conditional` from the INDEX only; the YAML still declares it.
-jq '.scenarios |= map(if .id == "cond_v1" then .phases = ["speak_each","summarize"] else . end)' \
-  "$R/docs/gallery/gallery.json" > "$R/t" && mv "$R/t" "$R/docs/gallery/gallery.json"
-mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
-gate "$R"; expect_fail "C5 a drifted phases list cannot disable the refusal"
-expect_out "sibling scenario YAML" "C5 names the YAML as the source that caught it"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+# Nest a conditional inside a branch — legal YAML, refused by the flattener
+# (and by ScenarioValidator), so the tree comes back None while `phases` is
+# untouched and still contains `conditional`.
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/docs/gallery/cond_v1.yaml"
+text = io.open(p, encoding="utf-8").read()
+# mk_scenario_tree emits branch children at 6 spaces (top level 2, `then:`/`else:`
+# at 4). Anchor on that exact indent and assert the hit count, or a silent
+# no-op replace would leave the tree derivable and C5 would pass vacuously.
+old = "      - type: speak_all\n"
+assert text.count(old) == 2, f"anchor matched {text.count(old)} times — probe invalid"
+io.open(p, "w", encoding="utf-8").write(
+    text.replace(old, "      - type: conditional\n        then:\n          - type: speak_all\n", 1))
+PY
+repin_yaml "$R" cond_v1
+mk_highlight "$R" cond_v1 "$EX_ELSE_BRANCH"; link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C5 an underivable tree refuses a conditional entry"
+expect_out "branch structure is unavailable" "C5 names the residue, not the lifted class refusal"
+
+# C6 — negative control: a pick genuinely preceded by an outcome phase INSIDE
+# its own branch is still rejected. Without this, C1 would be satisfied by a
+# rule that had simply stopped looking at branches.
+TREE_DIRTY_BRANCH='[{"type":"conditional",
+  "then":[{"type":"speak_all"}],
+  "else":[{"type":"vote"},{"type":"speak_all"}]}]'
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_DIRTY_BRANCH" 2
+mk_highlight "$R" cond_v1 \
+  '[{"agent":"アヤ","round":1,"phase":"speak_all","phase_index":3,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C6 an in-branch pick after an outcome phase is rejected"
+expect_out "within-round bound" "C6 names the position rule"
+# C6b — control on the SAME tree: the sibling branch's pick, whose own preceding
+# set is empty, passes. This is what shows C6 measured the branch and not the
+# scenario.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_DIRTY_BRANCH" 2
+mk_highlight "$R" cond_v1 \
+  '[{"agent":"アヤ","round":1,"phase":"speak_all","phase_index":1,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" cond_v1
+gate "$R"; expect_ok "C6b the clean branch's pick on the same tree passes"
+
+# C7 — the both-branch union for a PRECEDING conditional. A top-level pick after
+# a conditional is judged against BOTH branches, because the excerpt records no
+# branch and so cannot say which one ran in its round. No shipped scenario has
+# this shape; the arm exists so one cannot arrive and leak silently.
+TREE_AFTER_COND='[{"type":"conditional","then":[{"type":"speak_all"}],"else":[{"type":"vote"}]},{"type":"speak_each"}]'
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_AFTER_COND" 2
+mk_highlight "$R" cond_v1 \
+  '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":3,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C7 a pick after a conditional sees the non-taken branch's outcome phase"
+expect_out "within-round bound" "C7 names the position rule"
+# C7b — control: the same shape with no outcome phase in either branch passes,
+# so C7 reddens on the `vote` rather than on "sits after a conditional".
+TREE_AFTER_COND_CLEAN='[{"type":"conditional","then":[{"type":"speak_all"}],"else":[{"type":"speak_all"}]},{"type":"speak_each"}]'
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_AFTER_COND_CLEAN" 2
+mk_highlight "$R" cond_v1 \
+  '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":3,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" cond_v1
+gate "$R"; expect_ok "C7b the same shape with clean branches passes"
+
+# C8 — the round-window arms now run for a conditional entry. The class refusal
+# returned before reaching them, so nothing has ever exercised this pairing.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_highlight "$R" cond_v1 \
+  '[{"agent":"アヤ","round":2,"phase":"speak_all","phase_index":5,"source_field":"statement","text":"私はBだと思う。"}]'
+link_highlight "$R" cond_v1
+gate "$R"; expect_fail "C8 a late-round pick on a conditional entry hits the round window"
+expect_out "round window" "C8 names the round window"
 
 # --- phase tree: flattening + gallery.json cross-check (#1473) -------------
 #
