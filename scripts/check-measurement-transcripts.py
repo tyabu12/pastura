@@ -53,21 +53,27 @@ per file, per class, a line count, a distinct-value count and a digest — again
 a declaration, so classifying a new copy is a decision someone makes rather than
 an omission nobody sees. It still cannot tell a checked transcript from an
 unchecked one, and it still goes quiet on a copy that rotted in step with the
-pins. What it buys is narrower than the word "census" sounds: the unclassified
-set cannot grow silently **within the suffixes `RESIDUE_SUFFIXES` scans, at the
-pinned three-decimal form, and — in Swift — only where the figure sits inside a
-comment**. That third bound is easy to state backwards: on a given line, a
-Swift figure with any occurrence *outside* every comment span is an executed
-assertion — a guard — and that occurrence is not inventoried. The split is per
-occurrence, not per line, so one line can feed both lists; and `//`, `///` and
-`/* … */` are one case here, not two. A copy in an unscanned file type or written at shorter precision
-is not seen either. The full matching contract — substring, so it over-counts
-rather than under-counts — is stated once, at the `--residue` report that prints
-it. (Spelling an example out with a real pin in it is what would give this module
-its own `argued` row; the census caught exactly that during #1496's review-fix,
-in its own habitat.) And
-`swift_comment_spans`'s string-literal gap can put a Swift line in the wrong
-list in either direction.
+pins. What it buys is narrower than the word "census" sounds, so state the
+bounds rather than footnote them: **no copy written at the pins' three-decimal
+spelling can enter a readable tracked file without this failing** — inside
+`RESIDUE_SUFFIXES` it must be classified and declared, outside it is reported as
+unclassified. Two gaps are left, and they are the whole of what green does not
+cover: a file that does not decode as UTF-8 (binaries, by construction carrying
+no prose copy), and a figure restated at **shorter precision**, which is not the
+same string and is not looked for.
+
+In Swift there is a third bound, on classification rather than on reach: on a
+given line, a figure with any occurrence *outside* every comment span is an
+executed assertion — a guard — and that occurrence is not inventoried. The split
+is per occurrence, not per line, so one line can feed both lists; `//`, `///`
+and `/* … */` are one case here, not two; and `swift_comment_spans`'s
+string-literal gap can put a Swift line in the wrong list in either direction.
+
+Matching is bounded on both sides (`pin_positions`), so a pin inside a longer
+number is not a copy — without that, SVG path data reads as six copies. No
+example is spelled out with a real pin in it: that is what would give this
+module its own `argued` row, and the census caught exactly that during #1496's
+review-fix, in its own habitat.
 
 It reads **blocks, not sections** — the anchored tables, the §5 site tables, and
 the one block per span section that names the fixture. So a figure restated in
@@ -1100,9 +1106,11 @@ def collect(
 # local pre-commit gate: they are the two modes that shell out to git
 # (`scan_tree`), and the gate's header says why that keeps them out of it.
 
-# An ALLOWLIST — every other suffix, and every extensionless tracked file, is
-# skipped. The distinct skipped suffixes are printed for that reason, so a new
-# `.astro` or `.css` copy cannot hide behind a bare count.
+# An ALLOWLIST for CLASSIFICATION, not for reach. Files with any other suffix
+# are still read and searched for pins (`scan_tree` -> `TreeScan.outside`); what
+# they do not get is a class and a declared face. So a `.astro` or `.css` copy
+# fails the census as UNCLASSIFIED rather than slipping past it. The skipped
+# suffix counts are printed as context, and are asserted on by nothing.
 RESIDUE_SUFFIXES = frozenset(
     {".md", ".swift", ".py", ".sh", ".yml", ".yaml", ".html", ".kt", ".txt"}
 )
@@ -1155,6 +1163,22 @@ def swift_comment_spans(text: str) -> dict[int, list[tuple[int, int]]]:
     return spans
 
 
+PIN_BOUNDARY = r"(?<![0-9.])%s(?![0-9])"
+
+
+def pin_positions(value: str, line: str) -> list[int]:
+    """Where `value` occurs in `line` as a figure in its own right.
+
+    Bounded on both sides, so a pin is not matched inside a LONGER number: the
+    App Store badge SVGs carry `12.41351`, `-4.15206`, `2.69336` and `23.91992`
+    in their path data, and a plain substring test reads all four as copies of
+    pins (#1496 review). Nothing shipped depends on the looser rule — switching
+    to this one left the inventory byte-identical, and took the out-of-scan hit
+    count from six to zero.
+    """
+    return [m.start() for m in re.finditer(PIN_BOUNDARY % re.escape(value), line)]
+
+
 def residue_rows(
     pool: set[str], read_index: set[tuple[str, int]], files: list[tuple[str, str]]
 ) -> tuple[list[tuple[str, int, list[str]]], list[tuple[str, int, list[str]]]]:
@@ -1176,7 +1200,7 @@ def residue_rows(
         for i, line in enumerate(text.splitlines(), start=1):
             if (path, i) in read_index:
                 continue
-            found = sorted({v for v in pool if v in line}, key=float)
+            found = sorted({v for v in pool if pin_positions(v, line)}, key=float)
             if not found:
                 continue
             if not is_swift:
@@ -1186,14 +1210,7 @@ def residue_rows(
             prose_values: list[str] = []
             executed_values: list[str] = []
             for v in found:
-                positions: list[int] = []
-                start = 0
-                while True:
-                    idx = line.find(v, start)
-                    if idx == -1:
-                        break
-                    positions.append(idx)
-                    start = idx + 1
+                positions = pin_positions(v, line)
                 all_in_comment = all(
                     any(s <= p and p + len(v) <= e for s, e in spans) for p in positions
                 )
@@ -1271,6 +1288,10 @@ class TreeScan(NamedTuple):
     # Defaulted so the positional constructions in `--self-test` stay valid;
     # a tuple rather than a list because a mutable NamedTuple default is shared.
     unreadable: tuple[str, ...] = ()
+    # Pins found in files OUTSIDE `RESIDUE_SUFFIXES`. `skipped` counts those
+    # files; this says whether any of them actually carries a copy. The census
+    # asserts on this, never on the suffix names — see `census_problems`.
+    outside: tuple[tuple[str, int, tuple[str, ...]], ...] = ()
 
 
 def _faces_with_text() -> list[tuple[str, str, re.Pattern[str], re.Pattern[str]]]:
@@ -1329,12 +1350,26 @@ def scan_tree() -> TreeScan:
     files: list[tuple[str, str]] = []
     skipped: dict[str, int] = {}
     unreadable: list[str] = []
+    outside: list[tuple[str, int, tuple[str, ...]]] = []
     for name in listed:
         if not name:
             continue
         suffix = Path(name).suffix or "(no suffix)"
         if Path(name).suffix not in RESIDUE_SUFFIXES:
+            # Outside the classified population, but NOT unexamined: read it and
+            # look for a pin. This replaces declaring the set of skipped suffix
+            # NAMES, which reddened on any new file type anywhere in the repo
+            # while never once looking at a byte of it (#1496 review). A type
+            # that cannot be decoded carries no prose copy by construction.
             skipped[suffix] = skipped.get(suffix, 0) + 1
+            try:
+                outside_text = (REPO_ROOT / name).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError):
+                continue
+            for lineno, line in enumerate(outside_text.splitlines(), start=1):
+                found = tuple(sorted({v for v in pool if pin_positions(v, line)}, key=float))
+                if found:
+                    outside.append((name, lineno, found))
             continue
         try:
             files.append((name, (REPO_ROOT / name).read_text(encoding="utf-8")))
@@ -1345,7 +1380,9 @@ def scan_tree() -> TreeScan:
             # it — self-contradictory, and pasting the block would have baked
             # that lie into the declaration (#1496).
             unreadable.append(name)
-    return TreeScan(pool, read_index, section_index, files, skipped, tuple(unreadable))
+    return TreeScan(
+        pool, read_index, section_index, files, skipped, tuple(unreadable), tuple(outside)
+    )
 
 
 def _residue() -> int:
@@ -1372,7 +1409,8 @@ def _residue() -> int:
     # growth. No example is spelled out — this module must stay free of pinned
     # literals its own report would then list.
     print(
-        "  matched: literal substring, three decimals. Skipped suffixes: "
+        "  matched: three decimals, not embedded in a longer number. "
+        f"Unclassified file types carrying a pin: {len(scan.outside)}. Skipped suffixes: "
         + ", ".join(f"{suffix}×{n}" for suffix, n in sorted(skipped.items()))
     )
     for path in sorted(by_file, key=lambda p: (-len(by_file[p]), p)):
@@ -1471,13 +1509,19 @@ def residue_inventory(
 def census_problems(
     scan: TreeScan,
     declaration: dict[tuple[str, str], tuple[int, int, str]],
-    declared_suffixes: frozenset[str],
-) -> tuple[list[str], dict[tuple[str, str], tuple[int, int, str]], frozenset[str]]:
-    """`(problems, observed inventory, observed skipped suffixes)`.
+) -> tuple[list[str], dict[tuple[str, str], tuple[int, int, str]]]:
+    """`(problems, observed inventory)`.
 
     Every direction fails, including a count that DROPPED: a declaration nobody
     lowers stops describing the tree, and then the digest it carries is checking
     a set that no longer exists.
+
+    Files outside `RESIDUE_SUFFIXES` are asserted on by CONTENT, not by suffix
+    name: `scan.outside` already holds the pins found in them. Declaring the
+    suffix set instead meant any new file type anywhere in the repo reddened
+    this gate — 26 first appeared in one recent stretch — while never reading a
+    byte of the file, and it claimed only that the allowlist's outside had not
+    widened. This asserts the thing that was actually wanted (#1496 review).
     """
     for path, cls in declaration:
         if cls not in RESIDUE_CLASSES:
@@ -1522,36 +1566,26 @@ def census_problems(
             )
     for name in sorted(scan.unreadable):
         problems.append(
-            f"{name}: a scanned suffix, but unreadable as UTF-8 — the census never saw this "
-            "file, so its claim does not cover it. Fix the file's encoding, or take its suffix "
-            "out of RESIDUE_SUFFIXES so the skip is declared rather than silent."
+            f"{name}: a classified suffix, but unreadable as UTF-8 — the census never saw "
+            "this file, so its claim does not cover it. Fix the file's encoding, or take its "
+            "suffix out of RESIDUE_SUFFIXES, where an undecodable file is expected and "
+            "carries no prose copy by construction."
         )
-    observed_suffixes = frozenset(scan.skipped)
-    for suffix in sorted(observed_suffixes - declared_suffixes):
+    for name, lineno, values in sorted(scan.outside):
         problems.append(
-            f"skipped suffix {suffix}: a new file type appeared — widen RESIDUE_SUFFIXES to "
-            "scan it, or accept the skip by declaring it."
+            f"{name}:{lineno}: a file type this scan does not classify carries "
+            f"{len(values)} pinned figure(s) — the copy is real but lands in no class. "
+            "Bring the suffix into RESIDUE_SUFFIXES and declare the face, or remove the copy."
         )
-    for suffix in sorted(declared_suffixes - observed_suffixes):
-        problems.append(f"skipped suffix {suffix}: no longer in the tree — drop it.")
-    return problems, observed, observed_suffixes
+    return problems, observed
 
 
-def census_block(
-    inventory: dict[tuple[str, str], tuple[int, int, str]], suffixes: frozenset[str]
-) -> str:
-    """The two declaration constants, rendered so the fix is a paste."""
+def census_block(inventory: dict[tuple[str, str], tuple[int, int, str]]) -> str:
+    """The declaration constant, rendered so the fix is a paste."""
     lines = ["RESIDUE_DECLARATION: dict[tuple[str, str], tuple[int, int, str]] = {"]
     for (path, cls), (rows, distinct, digest) in sorted(inventory.items()):
         lines.append(f'    ("{path}", "{cls}"): ({rows}, {distinct}, "{digest}"),')
     lines.append("}")
-    lines.append("")
-    lines.append("RESIDUE_SKIPPED_SUFFIXES = frozenset(")
-    lines.append("    {")
-    for suffix in sorted(suffixes):
-        lines.append(f'        "{suffix}",')
-    lines.append("    }")
-    lines.append(")")
     return "\n".join(lines)
 
 
@@ -1569,39 +1603,6 @@ RESIDUE_DECLARATION: dict[tuple[str, str], tuple[int, int, str]] = {
     ("docs/design/muted-application-audit.md", "in-read-section"): (5, 5, "9cb7a0e4fe45"),
 }
 
-RESIDUE_SKIPPED_SUFFIXES: frozenset[str] = frozenset(
-    {
-        "(no suffix)",
-        ".astro",
-        ".bat",
-        ".css",
-        ".entitlements",
-        ".example",
-        ".h",
-        ".jar",
-        ".js",
-        ".json",
-        ".jsonl",
-        ".kts",
-        ".lock",
-        ".mjs",
-        ".mm",
-        ".pbxproj",
-        ".plist",
-        ".png",
-        ".properties",
-        ".resolved",
-        ".svg",
-        ".toml",
-        ".ts",
-        ".tsv",
-        ".xcprivacy",
-        ".xcscheme",
-        ".xcsettings",
-        ".xcstrings",
-        ".xcworkspacedata",
-    }
-)
 
 
 def census(scan: TreeScan | None = None) -> int:
@@ -1609,9 +1610,7 @@ def census(scan: TreeScan | None = None) -> int:
     try:
         if scan is None:
             scan = scan_tree()
-        problems, inventory, suffixes = census_problems(
-            scan, RESIDUE_DECLARATION, RESIDUE_SKIPPED_SUFFIXES
-        )
+        problems, inventory = census_problems(scan, RESIDUE_DECLARATION)
     except AnchorError as exc:
         print(f"measurement-transcript census: {exc}", file=sys.stderr)
         print(
@@ -1650,13 +1649,14 @@ def census(scan: TreeScan | None = None) -> int:
         )
     for problem in problems:
         print(f"  - {problem}", file=sys.stderr)
-    print("\nPaste-ready replacement for the two declarations:\n", file=sys.stderr)
-    print(census_block(inventory, suffixes), file=sys.stderr)
+    print("\nPaste-ready replacement for the declaration:\n", file=sys.stderr)
+    print(census_block(inventory), file=sys.stderr)
     print(
-        "\nWhat this gate does and does not claim: it covers only the file suffixes it "
-        "scans, only the pins' three-decimal spelling, and in Swift only figures sitting "
-        "inside comments — a copy outside any of those three is invisible to it, so green "
-        "is not 'no copies exist'. Classes: `code-comment` (in a Swift comment), "
+        "\nWhat this gate does and does not claim: it finds a pinned figure at its "
+        "three-decimal spelling in any readable tracked file — classified and declared "
+        "inside the suffixes it scans, reported as unclassified outside them. It does NOT "
+        "look for a figure restated at shorter precision, and in Swift it classifies only "
+        "figures inside comments. Classes: `code-comment` (in a Swift comment), "
         "`in-read-section` (inside a section the gate reads but outside the block it "
         "compares), `argued` (prose where the figure carries the sentence). None of the "
         "three is a defect to drive to zero. Derivation: ADR-028 § Amendment 2026-08-20 "
@@ -2841,7 +2841,6 @@ def self_test() -> int:
         ],
         skipped={".png": 3},
     )
-    census_suffixes = frozenset({".png"})
 
     def census_inventory(scan: TreeScan = census_scan):
         rows, _ = residue_rows(scan.pool, scan.read_index, scan.files)
@@ -2869,19 +2868,17 @@ def self_test() -> int:
     )
     expect(
         "census: a tree matching its declaration is silent",
-        lambda: census_problems(census_scan, census_inventory(), census_suffixes)[0],
+        lambda: census_problems(census_scan, census_inventory())[0],
         [],
     )
 
     def census_says(
         scan: TreeScan = census_scan,
         declaration=None,
-        suffixes: frozenset[str] = census_suffixes,
     ) -> list[str]:
         return census_problems(
             scan,
             census_inventory() if declaration is None else declaration,
-            suffixes,
         )[0]
 
     grown = census_scan._replace(
@@ -2951,12 +2948,12 @@ def self_test() -> int:
     # type. Folding the two together made the census advise widening
     # RESIDUE_SUFFIXES for a suffix already in it.
     expect(
-        "census: an unreadable scanned file is reported as itself, not as a new file type",
+        "census: an unreadable classified file is reported as itself, not as a file type",
         lambda: [
             pr.split(" — ")[0]
             for pr in census_says(census_scan._replace(unreadable=("docs/face.md",)))
         ],
-        ["docs/face.md: a scanned suffix, but unreadable as UTF-8"],
+        ["docs/face.md: a classified suffix, but unreadable as UTF-8"],
     )
     rotted = census_scan._replace(
         files=[
@@ -2982,29 +2979,44 @@ def self_test() -> int:
         ],
         ["Some/Test.swift [code-comment]: 1 line(s), nothing declared"],
     )
+    # A copy in an unclassified file type is reported — by CONTENT.
     expect(
-        "census: a file type the tree gained is reported",
-        lambda: [pr.split(" — ")[0] for pr in census_says(suffixes=frozenset())],
-        ["skipped suffix .png: a new file type appeared"],
+        "census: a pin in a file type the scan does not classify is reported",
+        lambda: [
+            pr.split(" — ")[0]
+            for pr in census_says(census_scan._replace(outside=(("web/x.svg", 4, ("9.111",)),)))
+        ],
+        ["web/x.svg:4: a file type this scan does not classify carries 1 pinned figure(s)"],
     )
+    # The negative control, and the whole point of replacing the suffix
+    # declaration: a new file type that carries NO copy must be silent. Under
+    # the old design this arm could not exist — the suffix name alone reddened.
     expect(
-        "census: a declared file type the tree no longer has is reported",
-        lambda: [pr for pr in census_says(suffixes=frozenset({".png", ".zzz"}))],
-        ["skipped suffix .zzz: no longer in the tree — drop it."],
+        "census: a new file type carrying no pin is silent",
+        lambda: census_says(census_scan._replace(skipped={".png": 1, ".zzz": 3}, outside=())),
+        [],
+    )
+    # Boundary control for `pin_positions`: a pin embedded in a longer number is
+    # not a copy. Real instance — SVG path data (#1496 review).
+    expect(
+        "census: a pin embedded in a longer number is not a hit",
+        lambda: (
+            pin_positions("9.111", "d=\"M1,1c19.1115,2\""),
+            pin_positions("9.111", "the ratio is 9.111 on page"),
+        ),
+        ([], [13]),
     )
     expect_raises(
         "census: a mistyped class in the declaration raises rather than reading as a vanished face",
         "not one of",
-        lambda: census_problems(
-            census_scan, {("docs/face.md", "argued-ish"): (1, 1, "0")}, census_suffixes
-        ),
+        lambda: census_problems(census_scan, {("docs/face.md", "argued-ish"): (1, 1, "0")}),
     )
 
     # WIRING, not the helper: drives `census()` itself against the REAL
     # declaration with an injected empty scan. A `census()` that stopped
     # consulting `RESIDUE_DECLARATION` — or stopped classifying — returns 0 here.
     def census_mode_on_empty_tree() -> tuple[int, bool]:
-        empty = TreeScan(set(), set(), set(), [], dict.fromkeys(RESIDUE_SKIPPED_SUFFIXES, 1))
+        empty = TreeScan(set(), set(), set(), [], {})
         buf = io.StringIO()
         with contextlib.redirect_stderr(buf):
             rc = census(empty)

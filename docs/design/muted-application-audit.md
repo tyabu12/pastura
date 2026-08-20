@@ -590,12 +590,13 @@ saying an addition to the inventory is not by itself a defect.
 
 Read what it claims at the width of the mechanism — the operative statement is
 the checker's module docstring, which is what CI runs and what its failure text
-prints; this is a summary of it: the unclassified set cannot
-grow silently **within the suffixes it scans, at the pins' three-decimal
-spelling, and — in Swift — only where the figure sits inside a comment** (a pin
-with any occurrence outside every comment span is a guard, and that occurrence is
-not inventoried — the split is per occurrence, so one line can contribute to
-both). It classifies each line
+prints; this is a summary of it. **No copy written at the pins' three-decimal
+spelling reaches a readable tracked file without this failing**: inside the
+suffixes it scans the copy must be classified and declared, outside them it is
+reported as unclassified. The one gap is a figure restated at shorter precision.
+In Swift, classification covers figures inside comments only — a pin with any
+occurrence outside every comment span is a guard, and that occurrence is not
+inventoried; the split is per occurrence, so one line can contribute to both. It classifies each line
 `code-comment`, `in-read-section`, or `argued`; the last is prose whose number
 carries the sentence, and **none of the three is a defect to drive to zero**.
 Widening the compared blocks to swallow the second is not the cheap fix it

@@ -1096,11 +1096,10 @@ jobs:
       # scripts/measurement-transcript-precommit-gate.sh (local only) — except
       # --census (#1496), which runs ONLY here: it reads the whole tracked tree,
       # so no staged-path TRIGGER can cover it and the pre-commit gate would be
-      # judging the working tree from an index-based decision. Within what the
-      # census reaches — the suffixes it scans, the pins' three-decimal
-      # spelling, and in Swift only figures inside comments — this step is the
-      # only thing between a new hand-kept copy and main; outside those bounds
-      # nothing checks at all. Either way, do not path-gate it.
+      # judging the working tree from an index-based decision. For a copy
+      # written at the pins' three-decimal spelling in any readable tracked
+      # file, this step is the only thing between it and main; a restatement at
+      # shorter precision is not checked anywhere. Do not path-gate it.
       - name: Measurement transcript check
         run: |
           python3 scripts/check-measurement-transcripts.py --self-test
