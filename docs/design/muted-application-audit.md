@@ -480,17 +480,22 @@ its ground is a `muted`-on-`muted` **self-wash** at 2.895 / 3.239, which §8's
 exemption never measured. Recorded as **U** and revisited in batch 4 with the
 other composited grounds, as one question rather than five.
 
-### 6.3 §2.2's section labels — `--ink-2` or `--muted`
+### 6.3 §2.2's section labels — decided `--ink-2`, applied in B5
 
-design-system §2.2 assigns section labels to `--ink-2` and records that
-`PasturaSection` draws them with `--muted` instead, deferring the choice to «掃引時»
-— this sweep. **Decision: align the code to the table.** §2.2 is the normative
-statement of the role, #1298 already moved `ScenarioEditorView`'s two headers that
-way, and no argument for the table being wrong surfaced in the audit.
+design-system §2.2 assigned section labels to `--ink-2` and recorded that
+`PasturaSection` drew them with `--muted` instead, deferring the choice to «掃引時»
+— this sweep. (§2.2 no longer records either, having been rewritten to the
+resolved state; this paragraph is the account of why.) **Decision: align the
+code to the table.** §2.2 is the normative statement of the role, #1298 already
+moved `ScenarioEditorView`'s two headers that way, and no argument for the table
+being wrong surfaced in the audit.
 
-Blast radius is **three different quantities**, and one enumeration feeds all
-three. Conflating them mis-sizes the work in opposite directions, so read which
-one a figure is before reusing it:
+**The edit is three `.foregroundStyle` call sites. The blast radius is not
+three of anything** — `PasturaSection` draws for many screens from one line, so
+that figure is the one that reads smallest and it is not any of the three below.
+Those three are what sizes review and QA, one enumeration feeds all of them, and
+conflating them mis-sizes the work in opposite directions. Read which one a
+figure is before reusing it:
 
 ```sh
 rg -l 'PasturaSection\s*[({]' Pastura/Pastura/Views/   # 11 = 10 consumers + the definition
@@ -502,9 +507,11 @@ rg -l 'PasturaSection\s*[({]' Pastura/Pastura/Views/   # 11 = 10 consumers + the
   other spelling — a `\(`-only grep drops it silently. Both shapes are still
   **call-shape** greps; a type-name one additionally matches
   `PasturaSectionStyle`.
-- **7 of those 10 draw a header.** An untitled call renders none, and
-  `SettingsView+Models` and `SharedScenariosListView` pass no title. The drawing
-  set is `SettingsView`, `SettingsView+Feedback`, `SettingsView+PastResults`,
+- **7 of those 10 draw a header.** An untitled call renders none, and three
+  files pass no title anywhere: `SettingsView+Models`, `SharedScenariosListView`,
+  and `GalleryScenarioDetailView+RecommendedModel` — whose calls are all of the
+  trailing-closure form the bullet above is about. The drawing set is
+  `SettingsView`, `SettingsView+Feedback`, `SettingsView+PastResults`,
   `ScenarioDetailView+Sections`, `ResultsView`, `GalleryScenarioDetailView`,
   `GalleryScenarioDetailView+Highlight`.
 - **5 screens change visually** — the figure that sizes the QA. Settings,
@@ -517,8 +524,8 @@ rg -l 'PasturaSection\s*[({]' Pastura/Pastura/Views/   # 11 = 10 consumers + the
 Two hand-rolled headers sit outside `PasturaSection` and take the same decision:
 `HomeView.scenariosSectionHeader` and `SettingsView+Models.modelsHeader`.
 
-Decided here, **applied in batch 5 (#1485)** — those three drawing sites now
-draw `--ink-2`, repainting the five screens above under ADR-028 gate 4/5 QA.
+Decided here, **applied in batch 5 (#1485)** — those three call sites now draw
+`--ink-2`, repainting the five screens above under ADR-028 gate 4/5 QA.
 
 **§2.2's third treatment is not folded in, and what it raises is left open.**
 Headers still on the system `secondaryLabel` are not a residue of this one:
@@ -548,7 +555,7 @@ titles, not subordinate labels.
 | **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open — **ADR-028 gate 4/5 device QA required** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
-| **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones, 3 drawing sites over 5 screens | 3 | **applied (#1485)** |
+| **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
 | **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them. Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
 
 B2 is the larger visual change of the two batches carrying a QA note — nineteen
@@ -565,8 +572,9 @@ straightforward applications of §2 once B1 establishes the shape; B4 needs §8 
 say what a *material or otherwise unmeasurable* ground routes to before any
 site moves — the routing for a merely-composited one is already in §8's
 `*-on-wash` bullet, so stating the gate that way would leave it already
-satisfied; B5 edits three drawing sites but repaints five screens, because one
-of the three is a shared component — §6.3 separates the three figures.
+satisfied; B5 edits three call sites but repaints five screens, because one of
+the three is a shared component — §6.3 separates that figure from the three the
+blast radius actually has.
 
 ## 8. Regenerating this ledger
 
