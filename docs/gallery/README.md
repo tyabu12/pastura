@@ -381,7 +381,12 @@ covers the workflow and the taste calls the gate cannot make.
 2. **Read the transcript and choose the lines yourself.** Eligible lines are
    `agent_output` events from `speak_all` / `speak_each`, `statement` field,
    in rounds 1 through ⌈rounds/2⌉, with no outcome-class phase earlier in the
-   same round. A retried run appends a second attempt to the same file and
+   same round. Under a `conditional`, "the same round" is the **branch that
+   ran**, not the flattened phase list — read the transcript's
+   `conditional_evaluated` to see which one, and judge a pick against that
+   branch's own earlier phases. A pick *after* a conditional is judged against
+   both branches, since the excerpt records neither (ADR-029 Decision 3).
+   A retried run appends a second attempt to the same file and
    restarts round numbering, so only the final attempt is pickable. A later
    round is reachable, but only by passing `--window-override` at extraction,
    which records `window_override: true` in the file for the reviewer to weigh.
