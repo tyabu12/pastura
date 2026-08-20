@@ -17,8 +17,9 @@ Directions differ by face, deliberately:
   `HighlightShareCard`), worded differently for `ReportSheet`. Every ADR row
   must match a pin; a pin with no ADR row is correct.
 - §5's site column is checked **both ways**: `compare_site_rows` holds each
-  row to the pin its own `Ground` cell names, and `compare_membership` still
-  catches a figure matching no pin at all.
+  row to the pin its own `Ground` cell names, and `compare_membership` holds
+  every figure to the pin set. The second is subsumed by the first on today's
+  ledger — measured, and why it stays is `compare_membership`'s docstring.
 
 The span sentence is anchored **structurally**: within the section, the block
 that names `DesignTokensTests+MutedTranscript` is the one claiming the fixture
@@ -633,10 +634,14 @@ def ledger_site_ratios(lines: list[str], where: str) -> list[tuple[str, str]]:
     `table_rows`, which stops at the first. Two anchors, both raising:
 
     * a table inside §5 that carries decimals but whose header row does **not**
-      match — a renamed or reordered column would otherwise drop that whole
-      sub-table out of the comparison while the run stayed green. The `Tally`
-      table is exempt by carrying no decimals, which is a property of the text
-      rather than a name this checker has to keep in sync.
+      match — a renamed FIRST column would otherwise drop that whole sub-table
+      out of the comparison while the run stayed green. `LEDGER_5_TABLE` anchors
+      on that cell alone, so renaming a later header is **not** caught (measured:
+      `light/dark` → `contrast` raises nothing). A reordering that keeps five
+      cells is caught only downstream and only for compared rows, where
+      `compare_site_rows` finds no backticked ground. The `Tally` table is exempt
+      by carrying no decimals, which is a property of the text rather than a name
+      this checker has to keep in sync.
     * an empty extraction, so an emptied §5 cannot pass by agreeing with nothing.
     """
     found: list[tuple[str, str]] = []
@@ -734,8 +739,13 @@ def compare_membership(
     `compare_site_rows` reads only cells matching a declared compared form. Add
     a `LEDGER_5_UNCOMPARED` spelling that still carries a figure — an
     approximation, a bound, a footnoted value — and those figures leave the row
-    check and stay here. Today that set is empty (measured: 0 rows), so if this
-    check is ever deleted, delete it for that reason and not as duplication.
+    check and stay here. Today that set is empty (measured: 0 rows).
+
+    **Reaching that state takes an edit to this file, not to the ledger**, since
+    the set is matched as an exact whole cell: a figure-bearing cell nobody
+    declared *raises* rather than being skipped. So do not test the reason by
+    writing one into §5. And if this check is ever deleted, delete it for that
+    reason and not as duplication.
     """
     problems = []
     for label, value in sorted(set(found)):
@@ -781,8 +791,9 @@ def compare_site_rows(
 
     This is what `compare_membership` cannot do (#1496 judgment 1): a row
     carrying **another** row's pinned figures is a member of the pin set and
-    passes there. Both are kept — membership still catches a figure matching no
-    pin at all, and its table anchors are what stop a sub-table dropping out.
+    passes there. Both are still wired in, but not for the reason this docstring
+    used to give — the one surviving reason is in `compare_membership`'s own
+    docstring, with the measurement that retired the other two.
 
     Two derivations, neither a new hand-kept copy: the light↔dark pairing comes
     from §3.1 (`ledger_opaque_pairs`) and the wash join from §3.2's ground column
