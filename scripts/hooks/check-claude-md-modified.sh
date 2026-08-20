@@ -312,12 +312,14 @@ fi
 # The total was 91,615 bytes at introduction (#1361, 2026-08-05) and had drifted
 # to 98,036 — above the ceiling, so the nudge fired on every PR — until #1442
 # evacuated the kit-mirror rules' depth to docs/agent-tooling/ on 2026-08-13,
-# bringing it to 94,038.
+# bringing it to 94,038. #1503 then compressed xcodebuild-cli.md (14,202 -> 9,088)
+# on 2026-08-20, landing at 91,068.
 #
 # A slim campaign (#1310 / #1315 style) that lands below the ceiling should
 # re-baseline this default in its own PR — otherwise the nudge decays into
 # permanent wallpaper that everyone scrolls past. #1442 discharged that duty by
-# ratcheting 96,000 -> 95,500. The bar it used, recorded so the next campaign
+# ratcheting 96,000 -> 95,500; #1503 by 95,500 -> 92,600 (91,068 + 1,532, the bar
+# below). The bar it used, recorded so the next campaign
 # does not re-derive one: leave about one rule section (~1.5 KB) of headroom, no
 # less. Tighter and the nudge trips on roughly one added rule paragraph —
 # wallpaper from over-firing instead of under-firing. That is why -3,211 bytes
@@ -337,7 +339,7 @@ fi
 # inert (fixtures are kilobytes, and the firing cases pass an explicit ceiling),
 # which is exactly why a re-baseline would forget it — update it anyway so the
 # two never read as disagreeing about the production value.
-FOOTPRINT_CEILING_DEFAULT=95500
+FOOTPRINT_CEILING_DEFAULT=92600
 FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-$FOOTPRINT_CEILING_DEFAULT}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.
