@@ -591,7 +591,9 @@ saying an addition to the inventory is not by itself a defect.
 Read what it claims at the width of the mechanism: the unclassified set cannot
 grow silently **within the suffixes it scans, at the pins' three-decimal
 spelling, and — in Swift — only where the figure sits inside a comment** (a pin
-on an executable line is classified as a guard, not inventoried). It classifies each line
+with any occurrence outside every comment span is a guard, and that occurrence is
+not inventoried — the split is per occurrence, so one line can contribute to
+both). It classifies each line
 `code-comment`, `in-read-section`, or `argued`; the last is prose whose number
 carries the sentence, and **none of the three is a defect to drive to zero** —
 widening the compared blocks to swallow the second would put this guard in

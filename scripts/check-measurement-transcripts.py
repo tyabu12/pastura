@@ -56,14 +56,16 @@ unchecked one, and it still goes quiet on a copy that rotted in step with the
 pins. What it buys is narrower than the word "census" sounds: the unclassified
 set cannot grow silently **within the suffixes `RESIDUE_SUFFIXES` scans, at the
 pinned three-decimal form, and — in Swift — only where the figure sits inside a
-comment**. That third bound is easy to state backwards: a Swift figure with any
-occurrence *outside* every comment span is an executed assertion, i.e. a guard,
-and never enters the inventory at all; `//`, `///` and `/* … */` are one case
-here, not two. A copy in an unscanned file type or written at shorter precision
-is not seen either — though matching is substring, so a longer literal that
-contains a pin over-counts rather than under-counts. (Writing that example out
-with a real pin in it is what this module's own `argued` row would be; the
-census caught exactly that during #1496's review-fix.) And
+comment**. That third bound is easy to state backwards: on a given line, a
+Swift figure with any occurrence *outside* every comment span is an executed
+assertion — a guard — and that occurrence is not inventoried. The split is per
+occurrence, not per line, so one line can feed both lists; and `//`, `///` and
+`/* … */` are one case here, not two. A copy in an unscanned file type or written at shorter precision
+is not seen either. The full matching contract — substring, so it over-counts
+rather than under-counts — is stated once, at the `--residue` report that prints
+it. (Spelling an example out with a real pin in it is what would give this module
+its own `argued` row; the census caught exactly that during #1496's review-fix,
+in its own habitat.) And
 `swift_comment_spans`'s string-literal gap can put a Swift line in the wrong
 list in either direction.
 
@@ -1352,12 +1354,15 @@ def _residue() -> int:
         f"{len(files)} tracked files scanned, {total_skipped} skipped"
     )
     # The matching contract, stated because the report's value is being
-    # authoritative: an EXACT literal match against the pinned three-decimal
-    # form. A pinned value restated at a shorter precision is NOT seen (mostly
-    # SwiftUI spacing constants, when measured). No example is spelled out — this
-    # module must stay free of pinned literals its own report would then list.
+    # authoritative: a literal SUBSTRING match against the pinned three-decimal
+    # form. So it fails in one direction only — a pinned value restated at a
+    # shorter precision is NOT seen (mostly SwiftUI spacing constants, when
+    # measured), while a longer literal that happens to contain a pin IS counted.
+    # Over-counting is the safe side for a report whose job is to refuse silent
+    # growth. No example is spelled out — this module must stay free of pinned
+    # literals its own report would then list.
     print(
-        "  matched: exact literal, three decimals. Skipped suffixes: "
+        "  matched: literal substring, three decimals. Skipped suffixes: "
         + ", ".join(f"{suffix}×{n}" for suffix, n in sorted(skipped.items()))
     )
     for path in sorted(by_file, key=lambda p: (-len(by_file[p]), p)):
