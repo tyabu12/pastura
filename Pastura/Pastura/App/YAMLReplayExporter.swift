@@ -58,10 +58,11 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
 /// shared schema constants. File writing is thread-safe through
 /// `FileManager`.
 nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_length
-  /// Current on-disk schema version. Must match ``YAMLReplaySource``'s
-  /// `supportedSchemaVersion` so round-trip works without a version
-  /// negotiation step.
-  static let schemaVersion = 1
+  /// Current on-disk schema version. Must be a MEMBER of
+  /// ``YAMLReplaySource/supportedSchemaVersions`` so round-trip works
+  /// without a version negotiation step — membership, not equality, since
+  /// that set also carries the older versions still readable (spec §3.5).
+  static let schemaVersion = 2
 
   /// Output bundle returned to the caller. Mirrors
   /// ``ResultMarkdownExporter/ExportedResult`` so the Share Sheet
@@ -208,6 +209,12 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       let phaseIndex = phaseIndices[safe: idx] ?? 0
       lines.append("  - round: \(turn.roundNumber)")
       lines.append("    phase_index: \(phaseIndex)")
+      // `phase_path` (schema v2) is omitted for pre-v6 rows — `turn.phasePath`
+      // reads `nil` when `phasePathJSON` was never captured, and the reader
+      // falls back to `[phase_index]` for those, which is what v1 always meant.
+      if let path = turn.phasePath {
+        lines.append("    phase_path: \(Self.yamlIntArray(path))")
+      }
       lines.append("    phase_type: \(Self.yamlValue(turn.phaseType))")
       lines.append("    agent: \(Self.yamlValue(agent))")
       let fields = Self.decodeTurnFields(turn, filter: contentFilter)
@@ -239,6 +246,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       let phaseIndex = phaseIndices[safe: idx] ?? 0
       lines.append("  - round: \(event.roundNumber)")
       lines.append("    phase_index: \(phaseIndex)")
+      // Same pre-v6 omission rationale as `renderTurns` above.
+      if let path = event.phasePath {
+        lines.append("    phase_path: \(Self.yamlIntArray(path))")
+      }
       lines.append("    phase_type: \(Self.yamlValue(event.phaseType))")
       lines.append("    summary: \(Self.yamlValue(summary, indent: 4))")
       lines.append(contentsOf: renderPayloadStanza(payload, filter: contentFilter))
@@ -547,6 +558,14 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     if text.contains("\n") { return blockScalar(text, baseIndent: indent) }
     if containsControlChars(text) { return doubleQuoted(text) }
     return singleQuoted(text)
+  }
+
+  /// Renders `[Int]` in YAML flow style on one line (e.g. `[1, 0]`), matching
+  /// the spec §3.2 example. A tiny local join rather than routing through
+  /// `yamlValue` — that helper picks scalar quoting strategies for `String`,
+  /// which an `[Int]` flow sequence has no use for.
+  private static func yamlIntArray(_ values: [Int]) -> String {
+    "[\(values.map(String.init).joined(separator: ", "))]"
   }
 
   private static func singleQuoted(_ text: String) -> String {
