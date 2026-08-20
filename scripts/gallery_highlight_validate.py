@@ -707,10 +707,8 @@ def flatten_phase_tree(scenario):
     `_check_phase_tree` below: it re-derives the list here and compares, making
     this the first gate-side drift check on that field for flat entries too.
 
-    The reason string travels back so the failure text can name the actual
-    cause, as `_read_persona_names` does: on a machine without PyYAML the fix
-    is an install, and a message blaming the scenario would send the curator to
-    the wrong file.
+    The reason string travels back because the failure text must name the
+    actual cause — ``_read_scenario`` documents the coupling that applies here.
 
     Rejects two shapes the engine also rejects, so a fixture the loader would
     refuse cannot reach the position rule:
@@ -906,12 +904,13 @@ def _entry_index(gallery_json):
 def _read_scenario(yaml_path):
     """-> (parsed sibling scenario YAML, None), or (None, reason).
 
-    Separate from `_read_persona_names`, which parses the same file again: that
+    Separate from `_read_persona_names`, which reads through this one: that
     one returns names, while ``flatten_phase_tree`` wants the document itself
-    and derives the whole phase tree from it. Same catch set, so the two agree
-    on what "unreadable" means — and the same `(value, reason)` shape, since
-    `flatten_phase_tree` can only see a `None` document and would otherwise
-    report "not a mapping" for what was really a missing PyYAML.
+    and derives the whole phase tree from it. One catch set rather than two
+    kept in step, so they cannot disagree on what "unreadable" means — and it
+    hands back the same `(value, reason)` shape, since `flatten_phase_tree`
+    can only see a `None` document and would otherwise report "not a mapping"
+    for what was really a missing PyYAML.
 
     The pair shape alone does not buy that: an empty or comments-only document
     parses to `None` with NO reason, so `(None, None)` is returnable. What
@@ -938,12 +937,11 @@ def _read_persona_names(yaml_path):
     machine without PyYAML the fix is an install, and a message blaming the YAML
     would send the curator to the wrong file.
 
-    Reads through ``_read_scenario`` rather than parsing again. The two used to
-    carry identical read-and-catch bodies with a docstring apiece pinning "same
-    catch set" as a hand-maintained invariant — which is the drift they exist to
-    prevent: adding a catch to one and not the other would make the two checks
-    disagree about why the same file is unreadable, sending the curator to the
-    wrong file. Delegating also halves the parses per highlighted entry.
+    Reads through ``_read_scenario`` rather than keeping a second copy of the
+    read-and-catch body, so the catch set cannot drift: two copies disagreeing
+    about why one file is unreadable is the same wrong-file failure. It buys
+    no parse: `validate_repo` calls `_read_scenario` again for the phase tree,
+    so the count per entry is 2 either way (measured).
     """
     parsed, reason = _read_scenario(yaml_path)
     if reason is not None:

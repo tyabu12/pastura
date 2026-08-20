@@ -1606,23 +1606,20 @@ gate "$R"; expect_fail "C8 a late-round pick on a conditional entry hits the rou
 expect_out "highlight: round window" "C8 names the round window"
 
 # C9 — regression: the shipped highlights still validate and the gate rewrites
-# none of them. Two things this arm has to get right:
-#   - "byte-identical" is a BEFORE/AFTER comparison, not `== ""`. Asserting
-#     emptiness reddens whenever a developer runs the suite mid-work on a
-#     highlight-ADDING PR (staged entries under that path) — the very PR shape
-#     that most needs this arm.
-#   - `check_highlights` is a documented no-op only when BOTH are absent — no
-#     highlights/ directory AND no paired index field (check-gallery-entry.sh;
-#     H0 above covers that path deliberately). With the directory gone but
-#     `gallery.json` still carrying highlight_url, the validator runs and fails
-#     loudly; it is the both-gone case that would pass having checked nothing,
-#     and that is what the count guards. Note the count asserts that highlight
-#     FILES exist, not that the validator examined an entry — files present with
-#     no paired `highlight_url` is caught by the orphan check (cf. H4), so
-#     non-vacuity rests on the count and `expect_ok` together. Count first.
-#     The `-d` test is not decoration: under this file's `set -euo pipefail` a
-#     `find` on a missing directory exits non-zero and would abort the suite
-#     before reaching the `bad` branch written for exactly that case.
+# none of them. Three things this arm has to get right:
+#   - "byte-identical" is a BEFORE/AFTER comparison, not `== ""`, which would
+#     redden mid-work on a highlight-ADDING PR (staged entries under that
+#     path) — the shape that most needs this arm.
+#   - The count guards non-vacuity: `check_highlights` (check-gallery-entry.sh)
+#     is a documented no-op only when the highlights/ directory AND the paired
+#     index field are both absent — H0 covers that path deliberately. The count
+#     asserts highlight FILES exist, not that the validator examined an entry;
+#     files present with no paired `highlight_url` is the orphan check's
+#     (cf. H4), so non-vacuity rests on the count and `expect_ok` together.
+#     Count first.
+#   - The `-d` test is load-bearing: under this file's `set -euo pipefail` a
+#     `find` on a missing directory aborts the suite before the `bad` branch
+#     written for exactly that case.
 if [ -d "$REAL_ROOT/docs/gallery/highlights" ]; then
   HL_COUNT="$(find "$REAL_ROOT/docs/gallery/highlights" -name '*.json' | wc -l | tr -d ' ')"
 else
