@@ -1472,8 +1472,7 @@ def _residue() -> int:
 #
 # `--residue` reports; `--census` FAILS when the report moves away from the
 # declaration below. Wired to CI's unconditional `shell-tests` step only, NOT to
-# the local pre-commit gate — see that gate's header for why (the gate decides
-# from the index, this reads the working tree, and `--check` stays git-free).
+# the local pre-commit gate — see that gate's header for why.
 #
 # What the classes mean, and why only one of the three is a judgment:
 #
@@ -1485,20 +1484,14 @@ def _residue() -> int:
 #   `Views/` file to name, and stating it that way again would be stale.
 # - `in-read-section` — inside one of the six sections the gate reads, outside
 #   the blocks it compares. Derived mechanically. NOT closed by widening those
-#   blocks, and the reason is per face rather than one rule: most of this class
-#   does not live in an ADR.
-#     * Mechanically, on every face: these lines carry figures that are not
-#       pins — RETRACTED draft values kept as a record (`2.434`, at ADR-028 and
-#       at the ledger's §3.2), and before/after pairs spanning two populations. A value-equality comparison reddens on those by
-#       construction, so widening needs a value allowlist, not a wider block.
-#     * On the ADR faces additionally: an amendment is *where* derivations and
-#       retracted drafts belong (ADR-028 § "Where new amendment content goes"),
-#       so machine-comparing that prose would put this gate at odds with the
-#       ADR's own placement rule. This clause covers the ADR faces ONLY.
-#     * On design-system §8 the option is not even shaped: its line states an
-#       ordering ("no wash falls below the opaque worst"), which is the `argued`
-#       form sitting inside a read section.
-#   #1496 judgment 4.
+#   blocks: these lines carry figures that are deliberately not pins — RETRACTED
+#   draft values kept as a record, and before/after pairs spanning two
+#   populations — so a value-equality comparison reddens on them by
+#   construction, and widening needs a value allowlist, not a wider block. The
+#   rest of the argument is per face, including the one clause that covers the
+#   ADR faces only (§ "Where new amendment content goes"): ADR-028 § Amendment
+#   2026-08-20 § "Why the read blocks were not simply widened to swallow the
+#   rest". #1496 judgment 4.
 # - `argued` — everything else: prose where the figure carries the sentence.
 #   The residual, and the only class that is a judgment. #1496 judgment 2 is
 #   that this cannot be driven to zero; a pointer makes the sentence unreadable.
