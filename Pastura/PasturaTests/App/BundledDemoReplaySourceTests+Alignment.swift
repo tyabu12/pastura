@@ -146,7 +146,7 @@ extension BundledDemoReplaySourceTests {
     let found = try diagnostic([
       "phase_index": 1, "phase_path": [1, 3], "branch": "then", "phase_type": "vote"
     ])
-    #expect(found?.contains("that branch has 1 phases") == true, "got: \(found ?? "nil")")
+    #expect(found?.contains("that branch holds 1 phase(s)") == true, "got: \(found ?? "nil")")
   }
 
   @Test func overDeepPhasePathIsCaught() throws {
@@ -164,5 +164,74 @@ extension BundledDemoReplaySourceTests {
   @Test func topLevelTypeMismatchIsCaught() throws {
     let found = try diagnostic(["phase_index": 0, "phase_path": [0], "phase_type": "vote"])
     #expect(found?.contains("resolves to speak_all") == true, "got: \(found ?? "nil")")
+  }
+
+  // MARK: - Mistyped optional fields
+  //
+  // Both fields are optional, so the obvious spelling is `if let x = entry[k]
+  // as? T`, which SKIPS the check when the cast fails rather than failing it.
+  // `YAMLReplaySource.resolvePhasePath` fails on the identical cast and falls
+  // back to `[phase_index]`, so a wrong-typed `phase_path` would be invisible
+  // in both places at once — these pin the presence-keyed form instead.
+
+  @Test func phasePathOfWrongElementTypeIsCaught() throws {
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": ["1", "0"], "phase_type": "vote"
+    ])
+    #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func phasePathThatIsNotAListIsCaught() throws {
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": "1,0", "phase_type": "vote"
+    ])
+    #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func branchOfWrongTypeIsCaught() throws {
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": [1, 0], "branch": 0, "phase_type": "vote"
+    ])
+    #expect(found?.contains("not a String") == true, "got: \(found ?? "nil")")
+  }
+
+  // MARK: - Remaining diagnostics
+  //
+  // Every `return` in `alignmentDiagnostic` / `conditionalDiagnostic` needs a
+  // control, or the ones without are the same unverified-guard defect the
+  // negative controls above exist to prevent.
+
+  @Test func emptyPhasePathIsCaught() throws {
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": [Int](), "phase_type": "vote"
+    ])
+    #expect(found?.contains("phase_path is empty") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func branchNamingNeitherThenNorElseIsCaught() throws {
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": [1, 0], "branch": "maybe", "phase_type": "vote"
+    ])
+    #expect(found?.contains("neither 'then' nor 'else'") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func branchWithoutANestedPathIsCaught() throws {
+    // Reachable from writer drift, not just from a hand-edit: a curator that
+    // emitted `branch:` while the path stayed top-level lands here.
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": [1], "branch": "then", "phase_type": "vote"
+    ])
+    #expect(
+      found?.contains("without a nested phase_path") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func missingPhaseIndexIsCaught() throws {
+    let found = try diagnostic(["phase_type": "vote"])
+    #expect(found?.contains("non-Int phase_index") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func missingPhaseTypeIsCaught() throws {
+    let found = try diagnostic(["phase_index": 0])
+    #expect(found?.contains("non-String phase_type") == true, "got: \(found ?? "nil")")
   }
 }

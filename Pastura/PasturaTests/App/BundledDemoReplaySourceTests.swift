@@ -408,7 +408,17 @@ struct BundledDemoReplaySourceTests {
     // `phase_index` IS `phase_path[0]` by definition (spec §3.2), so a
     // demo carrying both and disagreeing is self-inconsistent before any
     // scenario is consulted — checked first for that reason.
-    if let path = entry["phase_path"] as? [Int] {
+    //
+    // Keyed on PRESENCE, not on cast success. `as? [Int]` inside an `if let`
+    // would skip this whole block for `phase_path: ["1", "0"]` — and
+    // `YAMLReplaySource.resolvePhasePath` fails on the identical cast, falling
+    // back to `[phase_index]`. Two checks that fail on the same predicate
+    // detect nothing between them, and spec §3.3 makes this function the only
+    // owner, so nothing downstream would catch it either.
+    if entry["phase_path"] != nil {
+      guard let path = entry["phase_path"] as? [Int] else {
+        return "phase_path is present but is not a list of Int"
+      }
       guard let top = path.first else {
         return "phase_path is empty; it must name at least the top-level phase"
       }
@@ -460,7 +470,12 @@ struct BundledDemoReplaySourceTests {
     }
     let thenPhases = phase.thenPhases ?? []
     let elsePhases = phase.elsePhases ?? []
-    if let branch = entry["branch"] as? String {
+    if entry["branch"] != nil {
+      // Same presence-not-cast rule as `phase_path` above: `branch: 0` would
+      // otherwise fall through to the loose union check with no diagnostic.
+      guard let branch = entry["branch"] as? String else {
+        return "branch is present but is not a String"
+      }
       guard branch == "then" || branch == "else" else {
         return "branch '\(branch)' is neither 'then' nor 'else'"
       }
@@ -469,7 +484,10 @@ struct BundledDemoReplaySourceTests {
         return "branch '\(branch)' given without a nested phase_path to index into it"
       }
       guard taken.indices.contains(inner) else {
-        return "phase_path names \(branch)[\(inner)], but that branch has \(taken.count) phases"
+        return """
+          phase_path names \(branch)[\(inner)], but that branch holds \
+          \(taken.count) phase(s)
+          """
       }
       guard taken[inner].type.rawValue == phaseTypeRaw else {
         return """

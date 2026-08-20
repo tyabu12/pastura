@@ -11,7 +11,9 @@
 #   - `phase_index` derivation and its refusals (#1474 — the same invention was
 #     removed from gallery_highlight_extract.annotate, whose arm is C4 in
 #     gallery-highlight-test.sh);
-#   - `branch` resolution for a `conditional`'s sub-phases (#1505).
+#   - `branch` resolution for a `conditional`'s sub-phases (#1505), including
+#     each of its five refusals — an unarmed refusal is what this header's own
+#     rule below forbids, and three of them were unarmed when first written.
 # A guard with no arm is silently unverified, and both are otherwise unreachable
 # from any in-repo test. The `branch` arms matter more than they look: NO shipped
 # demo has a conditional, so the Swift-side alignment gate cannot reach that
@@ -209,6 +211,9 @@ else
       echo "FAIL: (f) refused, but not with the intended message: $out_f" >&2; fail=1 ;;
   esac
 fi
+if [ -e "$TMP/out_f.yaml" ]; then
+  echo "FAIL: (f) wrote an output despite refusing" >&2; fail=1
+fi
 
 # (g) Negative — a non-boolean verdict is refused. `result` decides then-vs-else
 # by truthiness, so a string would silently resolve every non-empty value to
@@ -235,6 +240,9 @@ else
     *)
       echo "FAIL: (g) refused, but not with the intended message: $out_g" >&2; fail=1 ;;
   esac
+fi
+if [ -e "$TMP/out_g.yaml" ]; then
+  echo "FAIL: (g) wrote an output despite refusing" >&2; fail=1
 fi
 
 # (h) A top-level phase clears the branch — otherwise a later top-level turn
@@ -263,6 +271,119 @@ print(';'.join('%s/%s' % (t['phase_path'], t.get('branch')) for t in d['turns'])
   fi
 else
   echo "FAIL: (h) converter rejected a well-formed mixed transcript" >&2; fail=1
+fi
+
+# (i) Negative — a verdict with no conditional in flight. Distinct from (f):
+# there the branch phase had no verdict, here the verdict has no phase to
+# attribute it to, and only this arm reaches that refusal.
+python3 - "$TMP" <<'PY'
+import sys
+src = sys.argv[1] + "/then.jsonl"
+text = open(src, encoding="utf-8").read()
+old = '"phase_type":"conditional","phase_path":[1]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+# Retype the opening phase so no conditional is ever in flight; the verdict
+# line that follows is then unattributable.
+open(sys.argv[1] + "/orphanverdict.jsonl", "w", encoding="utf-8").write(
+    text.replace(old, '"phase_type":"speak_all","phase_path":[1]'))
+PY
+set +e
+out_i="$(python3 "$CONVERTER" "$TMP/orphanverdict.jsonl" "$TMP/preset.yaml" "$TMP/out_i.yaml" 2>&1)"
+rc_i=$?
+set -e
+if [ "$rc_i" -eq 0 ]; then
+  echo "FAIL: (i) an orphan conditional_evaluated was accepted: $out_i" >&2; fail=1
+else
+  case "$out_i" in
+    *"has no preceding"*)
+      echo "ok   (i) an orphan conditional_evaluated is refused by name" ;;
+    *)
+      echo "FAIL: (i) refused, but not with the intended message: $out_i" >&2; fail=1 ;;
+  esac
+fi
+
+# (j) Negative — a bool element in `phase_path`. `isinstance(True, int)` is True
+# in Python, so this guard is the only thing between `[true, 0]` and a demo
+# naming phase 1; every other check downstream would see a well-formed int.
+python3 - "$TMP" <<'PY'
+import sys
+src = sys.argv[1] + "/then.jsonl"
+text = open(src, encoding="utf-8").read()
+old = '"phase_path":[1,0]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+open(sys.argv[1] + "/boolpath.jsonl", "w", encoding="utf-8").write(
+    text.replace(old, '"phase_path":[true,0]'))
+PY
+set +e
+out_j="$(python3 "$CONVERTER" "$TMP/boolpath.jsonl" "$TMP/preset.yaml" "$TMP/out_j.yaml" 2>&1)"
+rc_j=$?
+set -e
+if [ "$rc_j" -eq 0 ]; then
+  echo "FAIL: (j) a bool phase_path element was accepted: $out_j" >&2; fail=1
+else
+  case "$out_j" in
+    *"a bool"*)
+      echo "ok   (j) a bool phase_path element is refused by name" ;;
+    *)
+      echo "FAIL: (j) refused, but not with the intended message: $out_j" >&2; fail=1 ;;
+  esac
+fi
+
+# (k) Negative — a path deeper than the engine's depth-1 rule allows.
+python3 - "$TMP" <<'PY'
+import sys
+src = sys.argv[1] + "/then.jsonl"
+text = open(src, encoding="utf-8").read()
+old = '"phase_path":[1,0]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+open(sys.argv[1] + "/deeppath.jsonl", "w", encoding="utf-8").write(
+    text.replace(old, '"phase_path":[1,0,0]'))
+PY
+set +e
+out_k="$(python3 "$CONVERTER" "$TMP/deeppath.jsonl" "$TMP/preset.yaml" "$TMP/out_k.yaml" 2>&1)"
+rc_k=$?
+set -e
+if [ "$rc_k" -eq 0 ]; then
+  echo "FAIL: (k) an over-deep phase_path was accepted: $out_k" >&2; fail=1
+else
+  case "$out_k" in
+    *"deep, but the engine's"*)
+      echo "ok   (k) an over-deep phase_path is refused by name" ;;
+    *)
+      echo "FAIL: (k) refused, but not with the intended message: $out_k" >&2; fail=1 ;;
+  esac
+fi
+
+# (l) The hazard arm (h)'s comment actually names is MULTI-round: round 2's
+# branch must NOT inherit round 1's verdict. (h) shows the clear happens; only
+# this shows what the clear buys — round 2 has no verdict of its own, so the
+# branch phase must be refused rather than resolved against round 1's.
+cat > "$TMP/tworound.jsonl" <<'JSONL'
+{"type":"run_start","run_id":"r1","date":"2026-08-14T00:00:00Z","scenario_id":"fixture_v1","language":"ja","model":"Gemma 4 E2B (Q4_K_M)"}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":2}
+{"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[1]}
+{"type":"event","t":0.3,"attempt":1,"event":"conditional_evaluated","condition":"x > 0","result":true}
+{"type":"event","t":0.4,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[1,0]}
+{"type":"event","t":0.5,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"r1."}}
+{"type":"event","t":0.6,"attempt":1,"event":"round_started","round":2,"total_rounds":2}
+{"type":"event","t":0.7,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[1]}
+{"type":"event","t":0.8,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[1,0]}
+{"type":"event","t":0.9,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"r2."}}
+{"type":"run_end","run_id":"r1","status":"ok","attempts":1,"duration_sec":1.0}
+JSONL
+set +e
+out_l="$(python3 "$CONVERTER" "$TMP/tworound.jsonl" "$TMP/preset.yaml" "$TMP/out_l.yaml" 2>&1)"
+rc_l=$?
+set -e
+if [ "$rc_l" -eq 0 ]; then
+  echo "FAIL: (l) round 2 inherited round 1's verdict instead of refusing" >&2; fail=1
+else
+  case "$out_l" in
+    *"is inside a branch, but no"*)
+      echo "ok   (l) a later round does not inherit an earlier verdict" ;;
+    *)
+      echo "FAIL: (l) refused, but not with the intended message: $out_l" >&2; fail=1 ;;
+  esac
 fi
 
 if [ "$fail" -eq 0 ]; then

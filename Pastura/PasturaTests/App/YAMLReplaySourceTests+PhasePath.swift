@@ -9,9 +9,10 @@ import Testing
 //
 // Extension + sibling file, NOT a new `@Suite` — a second suite would race
 // against the original on shared state (see `.claude/rules/testing.md`).
-// Split out rather than appended to `+PlannedEvents.swift` because that
-// file sits at 367 lines against SwiftLint's 400-line `file_length` cap,
-// which `--strict` promotes to an error.
+// Split out rather than appended to a sibling because both were already near
+// SwiftLint's 400-line `file_length` cap, which `--strict` promotes to an
+// error. Deliberately no line count here: it would be a snapshot that rots
+// silently, while the constraint it is evidence for does not.
 extension YAMLReplaySourceTests {
 
   // MARK: - Fixture
@@ -235,5 +236,41 @@ extension YAMLReplaySourceTests {
     let source = try YAMLReplaySource(yaml: yaml, scenario: makeConditionalScenario())
 
     #expect(phaseStartedPaths(source.plannedEvents()) == [[1, 0]])
+  }
+
+  // MARK: - Schema version acceptance
+  //
+  // Here rather than in the parent file, which sits within a couple of
+  // lines of SwiftLint's 400-line `file_length` cap that `--strict`
+  // promotes to an error. Every other fixture there stays at v1, which is
+  // this branch's v1-back-compat coverage — do not sweep them to v2.
+
+  @Test func acceptsSchemaVersion2() throws {
+    let yaml = """
+      schema_version: 2
+      turns: []
+      """
+    let scenario = try makeScenario()
+    // Widened acceptance (spec §3.5) — v2 must not throw, even though no
+    // writer emits it yet. `phase_path` / `branch` parsing is out of scope
+    // for this change; an empty `turns:` is enough to prove acceptance.
+    #expect(throws: Never.self) {
+      _ = try YAMLReplaySource(yaml: yaml, scenario: scenario)
+    }
+  }
+
+  /// `true` must NOT be read as `1`. Python's `True == 1` made the drift
+  /// guard's old `!= 1` check accept `schema_version: true`; this pins the
+  /// Swift side so the claim that the two loaders agree is measured rather
+  /// than reasoned from Yams' bridging behaviour.
+  @Test func throwsOnBooleanSchemaVersion() throws {
+    let yaml = """
+      schema_version: true
+      turns: []
+      """
+    let scenario = try makeScenario()
+    #expect(throws: YAMLReplaySourceError.unsupportedSchemaVersion(nil)) {
+      _ = try YAMLReplaySource(yaml: yaml, scenario: scenario)
+    }
   }
 }

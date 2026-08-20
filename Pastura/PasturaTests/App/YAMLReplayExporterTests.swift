@@ -490,6 +490,28 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
     #expect(!result.text.contains("phase_path"))
   }
 
+  @Test func emptyPersistedPathEmitsNoPhasePathLine() throws {
+    // `phasePathJSON: "[]"` decodes to a non-nil EMPTY array — `phasePath`
+    // nils out only on a nil / empty *string*. So `phasePath?.first` is nil and
+    // `phase_index` comes from the cursor; emitting `phase_path: []` alongside
+    // it would write the two fields from different sources and produce a
+    // document violating spec §3.2's `phase_index == phase_path[0]`.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(
+        round: 1, seq: 1, phase: "speak_all", agent: "Alice",
+        fields: ["statement": "s"], phasePathJSON: "[]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(result.text.contains("phase_index:"))
+    #expect(!result.text.contains("phase_path"))
+  }
+
   // MARK: - YAML emitter edge cases (Japanese / multi-line / control chars)
 
   @Test func japaneseStatementUsesSingleQuoted() throws {

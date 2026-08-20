@@ -144,7 +144,7 @@ Scenario definition (personas, phases, score rules) is *not* inlined.
 At load time the replay locates its `preset_ref.id` in the already-
 bundled presets and uses that scenario as the render context.
 
-### 3.2 Full schema (v1)
+### 3.2 Full schema (v2)
 
 ```yaml
 schema_version: 2
@@ -288,8 +288,9 @@ zero playable demos.
 the SHA check above, and easy to assume lives beside it: the assertion
 that a demo's `phase_index` / `phase_path` / `branch` actually resolve to
 a phase of type `phase_type` in the shipped preset is enforced by the
-Swift test `BundledDemoReplaySourceTests.bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes`
-and its `assertPhaseAlignment` helper — **not** by
+Swift test `BundledDemoReplaySourceTests.bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes`,
+whose `assertPhaseAlignment` defers the whole decision to
+`alignmentDiagnostic` — **not** by
 `scripts/check_demo_replay_drift.py`, and **not** by the runtime loader
 (`BundledDemoReplaySource` is integrity-only per the posture above).
 The drift script deliberately does not mirror it: duplicating the check

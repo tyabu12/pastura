@@ -21,7 +21,10 @@ nonisolated public enum YAMLReplaySourceError: Error, Equatable {
   /// The YAML could not be parsed as a mapping.
   case malformedYAML(description: String)
   /// Present but not a member of ``YAMLReplaySource/supportedSchemaVersions``.
-  /// `nil` means the `schema_version` key was missing entirely.
+  /// `nil` covers two shapes, not one: the key was missing, OR its value is
+  /// not an `Int` (`'2'`, `[1]`, `true`) and so did not survive the cast. The
+  /// offending value is not carried — a reader diagnosing a rejected demo
+  /// needs the YAML, not this payload.
   case unsupportedSchemaVersion(Int?)
   /// A required top-level or per-turn key was missing.
   case missingRequiredField(String)

@@ -60,35 +60,6 @@ struct YAMLReplaySourceTests {
     }
   }
 
-  @Test func acceptsSchemaVersion2() throws {
-    let yaml = """
-      schema_version: 2
-      turns: []
-      """
-    let scenario = try makeScenario()
-    // Widened acceptance (spec §3.5) — v2 must not throw, even though no
-    // writer emits it yet. `phase_path` / `branch` parsing is out of scope
-    // for this change; an empty `turns:` is enough to prove acceptance.
-    #expect(throws: Never.self) {
-      _ = try YAMLReplaySource(yaml: yaml, scenario: scenario)
-    }
-  }
-
-  /// `true` must NOT be read as `1`. Python's `True == 1` made the drift
-  /// guard's old `!= 1` check accept `schema_version: true`; this pins the
-  /// Swift side so the claim that the two loaders agree is measured rather
-  /// than reasoned from Yams' bridging behaviour.
-  @Test func throwsOnBooleanSchemaVersion() throws {
-    let yaml = """
-      schema_version: true
-      turns: []
-      """
-    let scenario = try makeScenario()
-    #expect(throws: YAMLReplaySourceError.unsupportedSchemaVersion(nil)) {
-      _ = try YAMLReplaySource(yaml: yaml, scenario: scenario)
-    }
-  }
-
   @Test func throwsOnMissingSchemaVersion() throws {
     let yaml = """
       turns: []

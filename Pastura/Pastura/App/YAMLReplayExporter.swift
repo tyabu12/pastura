@@ -212,7 +212,15 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       // `phase_path` (schema v2) is omitted for pre-v6 rows — `turn.phasePath`
       // reads `nil` when `phasePathJSON` was never captured, and the reader
       // falls back to `[phase_index]` for those, which is what v1 always meant.
-      if let path = turn.phasePath {
+      //
+      // `!path.isEmpty` keeps this gated on the SAME value `phaseIndices` was
+      // derived from. `phasePathJSON == "[]"` decodes to a non-nil EMPTY array
+      // (`TurnRecord.phasePath` nils out only on a nil / empty *string*), so
+      // `phasePath?.first` in `resolvePhaseIndices` is nil and the index comes
+      // from the cursor — emitting the empty array here anyway would write
+      // `phase_index` and `phase_path` from two different sources and break
+      // spec §3.2's `phase_index == phase_path[0]`.
+      if let path = turn.phasePath, !path.isEmpty {
         lines.append("    phase_path: \(Self.yamlIntArray(path))")
       }
       lines.append("    phase_type: \(Self.yamlValue(turn.phaseType))")
@@ -246,8 +254,8 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       let phaseIndex = phaseIndices[safe: idx] ?? 0
       lines.append("  - round: \(event.roundNumber)")
       lines.append("    phase_index: \(phaseIndex)")
-      // Same pre-v6 omission rationale as `renderTurns` above.
-      if let path = event.phasePath {
+      // Same pre-v6 omission and same-source rationale as `renderTurns`.
+      if let path = event.phasePath, !path.isEmpty {
         lines.append("    phase_path: \(Self.yamlIntArray(path))")
       }
       lines.append("    phase_type: \(Self.yamlValue(event.phaseType))")
