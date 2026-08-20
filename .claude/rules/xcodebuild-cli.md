@@ -3,74 +3,40 @@
 Always-loaded — see CLAUDE.md "Context-Specific Rules" for the
 loading-mode rationale.
 
-Local `xcodebuild test` / `build` invocations — including the
-`git commit` pre-commit hook — go through `scripts/xcodebuild.sh`.
-CI bypasses the wrapper (uses `xcodebuild ... -parallel-testing-enabled NO`
-inline; SPM cache key depends on the default `~/Library/...`
-DerivedData path — see [#189](https://github.com/tyabu12/pastura/issues/189)).
+Local `xcodebuild test` / `build` invocations — including the `git commit`
+pre-commit hook — go through `scripts/xcodebuild.sh`. CI bypasses the wrapper
+([#189](https://github.com/tyabu12/pastura/issues/189)).
 
 ## Canonical invocation
 
-**Run from the repository root with the cwd-relative path:**
+**Run from the repository root, bare and cwd-relative:**
 
 ```bash
 scripts/xcodebuild.sh <subcommand> [--tail N] [args]
 ```
 
-Allowlist: `Bash(scripts/xcodebuild.sh*)` and `Bash(source scripts/sim-dest.sh)`.
-Both are exact-prefix literal matches — do **not** introduce variable
-expansion (`"$xcb" ...`), `cd ... && scripts/xcodebuild.sh ...`,
-leading env-var assignments
-(`PASTURA_SKIP_XCSTRINGS_SYNC=1 scripts/xcodebuild.sh ...`), or
-absolute paths in agent invocations. They bypass the allowlist and
-trigger an approval prompt.
+Allowlist: `Bash(scripts/xcodebuild.sh*)` and `Bash(source scripts/sim-dest.sh)`
+— **exact-prefix literal matches**, so four shapes miss them and raise an
+approval prompt, which on an unattended run kills that run rather than teaching
+it anything: variable expansion (`"$xcb" …`), `cd … && scripts/xcodebuild.sh …`,
+a leading env-var assignment (`PASTURA_SKIP_XCSTRINGS_SYNC=1 scripts/…`), and an
+absolute path. The wrapper resolves `REPO_ROOT` itself, so it never needs a `cd`.
+Scope that to these two entries, **not** to the matcher generally — `git -C
+<path> diff` has been observed to run unprompted under an equally bare
+`Bash(git diff*)`. A `$(…)`-bearing form prompts whatever the allowlist says
+([claude-code#31373](https://github.com/anthropics/claude-code/issues/31373),
+OPEN); `.claude/settings.json` hooks keep `$()` on purpose — they run as direct
+shell processes and never reach the permission gate.
 
-`scripts/xcodebuild.sh` resolves `REPO_ROOT` internally so
-subdirectory invocations still produce correct paths — but the
-allowlist match is on the literal command prefix, so always run from
-the repo root in agent sessions.
-
-### Why cwd-relative (#31373)
-
-Claude Code's permission safety heuristic raises an approval dialog
-for any executed command containing `$(...)`, regardless of `allow`
-rules ([anthropics/claude-code#31373](https://github.com/anthropics/claude-code/issues/31373) — OPEN).
-The previous canonical form used `$(git rev-parse --show-toplevel)/scripts/...`;
-the cwd-relative form sidesteps the heuristic.
-
-Hook commands in `.claude/settings.json` continue to use the `$()`
-form because hooks execute as direct shell processes and bypass the
-permission gate (and the heuristic). The asymmetry between allowlist
-entries and hook commands is intentional.
-
-### Re-passing wrapper-supplied flags
-
-The wrapper supplies `-scheme`, `-project`, `-destination` and
-`-derivedDataPath`, and **rejects a re-pass with a one-line error** before
-xcodebuild can bury its own between the xtrace and its full usage page.
 Forward only what the wrapper does not supply — typically `-only-testing` /
-`-skip-testing`, plus the wrapper-only `--tail N`.
-
-Two of those rejections encode something you would not guess, and the guard in
-`scripts/xcodebuild.sh` carries the reason per flag: the `=`-joined form
-(`-derivedDataPath=…`) is **silently ignored** by Xcode 15.4+ rather than
-rejected, and `-destination` is **additive, not last-wins** — a second one runs
-`test` on both devices and a failure on either aborts the run. `build` still
-accepts `-destination`, which is what makes the device compile-check recipe
-below work; additive applies there too, so that recipe builds the simulator
-slice alongside the device one (measured: one invocation refreshed both
-`Debug-iphoneos` and `Debug-iphonesimulator`). To pin a **single** simulator for
-`test`, export `PASTURA_SIM_NAME` (honored by `sim-dest.sh`) on its own line —
-the leading-assignment form (`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips
-the allowlist approval prompt, per § "Canonical invocation":
+`-skip-testing`, plus the wrapper-only `--tail N`. It rejects a re-passed
+`-scheme` / `-project` / `-destination` / `-derivedDataPath` with the reason per
+flag, ahead of the simulator gate. To pin **one** simulator for `test`:
 
 ```bash
 export PASTURA_SIM_NAME="iPhone 17 Pro Max"
 scripts/xcodebuild.sh test …
 ```
-
-(`scripts/store-shots.sh` uses this `export` form to force the 6.9″ device for
-App Store screenshots.)
 
 ## When to use what
 

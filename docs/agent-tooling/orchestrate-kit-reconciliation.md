@@ -68,7 +68,3 @@ A template *defect* is reported upstream; its entry names the tracking issue and
 - `.claude/agents/code-reviewer.md` runs its own `git diff HEAD` and `head -14 .claude/rules/*.md`
   cwd-relative; the Step 4 prompt roots only the diff. On a branch editing `.claude/rules/**`, a
   reviewer whose cwd resolved to the main checkout would sweep the pre-change rule set.
-- `.claude/rules/xcodebuild-cli.md`'s "the allowlist match is on the literal command prefix" is
-  unscoped and reads as a claim about the matcher generally; `git -C <path> diff` has been observed
-  to run unprompted under an equally bare `Bash(git diff*)`. The narrower "Both are exact-prefix
-  literal matches" a few lines above is correctly bound to its two named entries.
