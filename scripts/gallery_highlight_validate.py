@@ -909,10 +909,15 @@ def _read_scenario(yaml_path):
     Separate from `_read_persona_names`, which parses the same file again: that
     one returns names, while ``flatten_phase_tree`` wants the document itself
     and derives the whole phase tree from it. Same catch set, so the two agree
-    on what "unreadable" means — and the same `(value, reason)` shape, so a
-    caller cannot report "the YAML is not a mapping" for what was really a
-    missing PyYAML. `flatten_phase_tree` can only see a `None` document, so the
-    true cause has to travel separately or it is lost here.
+    on what "unreadable" means — and the same `(value, reason)` shape, since
+    `flatten_phase_tree` can only see a `None` document and would otherwise
+    report "not a mapping" for what was really a missing PyYAML.
+
+    The pair shape alone does not buy that: an empty or comments-only document
+    parses to `None` with NO reason, so `(None, None)` is returnable. What
+    closes it is the caller short-circuiting on a non-`None` reason (see
+    `validate_repo`) and letting `flatten_phase_tree` re-derive its own for the
+    rest — for an empty document "not a mapping" is the accurate answer.
     """
     if yaml is None:
         return None, ("PyYAML is not installed, so the sibling scenario YAML "

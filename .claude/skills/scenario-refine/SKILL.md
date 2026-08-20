@@ -219,7 +219,12 @@ this, so a proposal that ignores it wastes the curator's time): `agent_output`
 events whose `phase_type` is `speak_all` / `speak_each`, `statement` field
 only, `round` within 1..⌈rounds/2⌉, with no outcome-class phase
 (`vote` / `eliminate` / `score_calc` / `choose` / `summarize`) earlier in that
-same round. Draw only from the **final** attempt — a retried run appends
+same round. On a `conditional`-bearing scenario "that same round" is the
+**branch that ran** (the transcript's `conditional_evaluated` says which), not
+the flattened phase list; a pick after a conditional is judged against both
+branches. Proposing against the flat list there under-counts eligible lines —
+which is the whole reason such scenarios were unexcerptable until #1473. Draw
+only from the **final** attempt — a retried run appends
 attempt 2 to the same JSONL and restarts round numbering. Never propose a later
 round: reaching one needs an audited `window_override`, a curator's call.
 

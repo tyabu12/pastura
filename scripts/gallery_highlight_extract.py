@@ -60,7 +60,6 @@ convenience and share their implementation with the gate
 (`scripts/gallery_highlight_validate.py`).
 """
 import argparse
-import collections
 import datetime
 import json
 import os
@@ -425,7 +424,9 @@ def main():
     yaml_path = os.path.join(args.gallery_dir, os.path.basename(entry.get("yaml_url", "")))
     if not os.path.isfile(yaml_path):
         die(f"sibling YAML not found: {yaml_path}")
-    scenario = yaml.safe_load(open(yaml_path, encoding="utf-8"))
+    scenario, scenario_reason = ghv._read_scenario(yaml_path)
+    if scenario_reason is not None:
+        die(f"unreadable scenario — {scenario_reason}")
     if declares_secret(scenario):
         die(f"secret mechanism — {yaml_path} declares `secret:` persona fields. "
             "ADR-029 Decision 2 refuses this branch: the spoiler rules are "

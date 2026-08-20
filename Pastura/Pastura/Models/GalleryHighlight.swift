@@ -151,9 +151,15 @@ nonisolated public struct GalleryHighlightExcerptEntry: Codable, Equatable, Send
   /// reason as ``GalleryScenario/phases``.
   public let phase: String
 
-  /// Index of this phase within its round's phase list — the value the
-  /// repo-side gate checks against the entry's `phases` list to enforce
-  /// the within-round spoiler bound.
+  /// Index into the entry's **flattened** `phases` list (`gallery.json` order,
+  /// ADR-020 D2a) — the value the repo-side gate checks to enforce the
+  /// within-round spoiler bound.
+  ///
+  /// Not a position within the round as executed: for a `conditional` scenario
+  /// that list spans BOTH branches, so an utterance in the else branch can be
+  /// index 5 of a nine-entry list while the round ran five phases. The gate
+  /// resolves it back through the scenario's phase tree (#1473). Read that
+  /// before wiring the first rendering consumer — there is none today.
   public let phaseIndex: Int
 
   /// Index of ``agent`` in the scenario's `personas:` list — the value a real

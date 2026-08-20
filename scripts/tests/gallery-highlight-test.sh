@@ -1421,6 +1421,83 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond
 expect_fail "C3f a non-integer phase_path element is refused"
 expect_out "non-integer element" "C3f names the element type, not a downstream mismatch"
 
+# C3h — a transcript carrying a `run_start` but no `event` lines is refused by
+# name. Real input, not hypothetical: `HarnessRunner.execute` writes `run_start`
+# unconditionally, so two attempts that both fail at model load produce exactly
+# this file. Before the guard it reached `build_excerpt`'s `max()` over an empty
+# iterable and surfaced as a bare `ValueError` traceback. The event-bearing
+# fixture immediately below (C4, and every extractor arm above) is the positive
+# control — this pair is what stops a typo'd predicate from reading as green.
+R="$(new_repo)"; init_index "$R"; mk_scenario "$R" demo_v1 '["speak_each","summarize"]'
+mk_selection "$R" "$R/sel.json"
+cat > "$R/run.jsonl" <<'JSONL'
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"demo_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
+{"type":"run_end","run_id":"run-1","status":"failed","attempts":2,"duration_sec":1.0}
+JSONL
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id demo_v1 --selection sel.json
+expect_fail "C3h a transcript with no event lines is refused"
+expect_out "no event lines" "C3h names the missing events, not a downstream crash"
+expect_no_out "Traceback" "C3h fails by name rather than by traceback"
+
+# C3i — the OTHER unblocked shape, end-to-end. `detective_scene_v1` and
+# `kasei_sanso_touban_v1` put the conditional LAST, so their only eligible pick
+# is the top-level utterance BEFORE it — a case the branch resolver contributes
+# nothing to (they are unblocked by the class-refusal lift, not by it). Every
+# other extractor arm here picks a branch-interior line, so without this one
+# that shape is asserted only by direct `_check_position` calls, never through
+# the extractor. Modelled on kasei down to the `event_inject` branch child,
+# which no other fixture in this file exercises.
+TREE_KASEI='[{"type":"speak_all"},{"type":"vote"},{"type":"score_calc"},
+  {"type":"conditional","then":[{"type":"summarize"}],
+   "else":[{"type":"event_inject"},{"type":"speak_all"}]}]'
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_KASEI" 2
+cat > "$R/run.jsonl" <<'JSONL'
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"cond_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":2}
+{"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[0]}
+{"type":"event","t":0.3,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"conditional の手前の発言。"}}
+{"type":"event","t":0.4,"attempt":1,"event":"phase_started","phase_type":"vote","phase_path":[1]}
+{"type":"event","t":0.5,"attempt":1,"event":"phase_started","phase_type":"score_calc","phase_path":[2]}
+{"type":"event","t":0.6,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[3]}
+{"type":"event","t":0.7,"attempt":1,"event":"conditional_evaluated","condition":"current_round == total_rounds","result":false}
+{"type":"event","t":0.8,"attempt":1,"event":"phase_started","phase_type":"event_inject","phase_path":[3,0]}
+{"type":"event","t":0.9,"attempt":1,"event":"event_injected","value":"事件発生"}
+{"type":"event","t":1.0,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[3,1]}
+{"type":"event","t":1.1,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"分岐の中の発言。"}}
+{"type":"event","t":1.2,"attempt":1,"event":"run_end","run_id":"run-1","status":"ok","attempts":1,"duration_sec":9.0}
+JSONL
+cat > "$R/sel.json" <<'JSON'
+{
+  "picks": [4],
+  "yaml_hook": { "kind": "raw", "fragment": "phases:\n  - type: conditional", "caption": "この一行が分岐を生む" },
+  "teaser": "最後の一言は、まだ言われていない。"
+}
+JSON
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 \
+  --selection sel.json --generated-at 2026-08-05
+expect_ok "C3i a pre-conditional top-level pick extracts"
+runc "$R" jq -r '.excerpt[0].phase_index' docs/gallery/highlights/cond_v1.json
+expect_eq "0" "C3i resolves the pre-conditional pick to top-level index 0"
+link_highlight "$R" cond_v1
+gate "$R"; expect_ok "C3i the gate accepts it"
+
+# C3i-b — control on the SAME transcript: the else-branch `speak_all` (flat
+# index 6) IS preceded by `vote`/`score_calc` at top level, so it must be
+# rejected. Without this, C3i's green would also be produced by a rule that had
+# stopped looking at anything preceding a branch pick.
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/sel.json"
+text = io.open(p, encoding="utf-8").read()
+old = '"picks": [4]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+io.open(p, "w", encoding="utf-8").write(text.replace(old, '"picks": [12]'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3i-b the in-branch pick after top-level vote/score_calc is rejected"
+expect_out "highlight: within-round bound" "C3i-b names the position rule"
+
 # C4 — a `phase_started` with no `phase_path` is refused rather than defaulted
 # to top-level index 0. The earlier `or [0]` fallback asserted a position the
 # transcript never stated, and every downstream check read it as measured.
