@@ -154,11 +154,12 @@ fi
 
 # --- A5: real script, SUCCESS path (needs a simulator; ubuntu CI cannot) ----
 #
-# The caller deliberately enters with errexit ON and pipefail OFF — the one
-# combination in which BOTH halves discriminate. sim-dest.sh turns pipefail on
-# for itself, so a caller that already had it on would print A5_PIPEFAIL_ON
-# whether or not the restore ever ran; requiring it back OFF is what a no-op
-# restore fails.
+# The caller enters with errexit ON and pipefail OFF so that each half catches a
+# different mutant. Measured against both: a no-op restore keeps pipefail ON
+# (sim-dest.sh sets it for itself) and fails the pipefail half; the pre-#1503
+# snapshot-only restore comes back errexit OFF and fails the errexit half. Enter
+# with pipefail already ON — as this arm originally did — and the pipefail half
+# passes whether or not the restore ran at all.
 if command -v xcrun > /dev/null 2>&1; then
   cat > "$TMP/a5.sh" <<A5
 export PASTURA_SKIP_SIM_WAIT=1
@@ -183,10 +184,14 @@ fi
 # --- A6: the restore helper and its own two variables are cleaned up --------
 #
 # Scoped to what #1503 introduced, NOT to "sim-dest.sh leaks nothing". It does
-# leak: the early-return path measured here leaves `_simdest_errfile` (a temp
-# path) and `SIMULATOR_NAMES` set, because only the success path's `unset` lines
-# clear them. That is pre-existing and out of this fix's scope — named here so
-# the arm cannot be read as certifying it away.
+# leak: the early-return path measured here leaves `_simdest_errfile`,
+# `_simdest_result` and `SIMULATOR_NAMES` set, because only the success path's
+# `unset` lines clear them. Pre-existing and out of this fix's scope — named
+# here so the arm cannot be read as certifying it away.
+#
+# Enumerate that residual with `${x+SET}` or a `set` name diff, never `${x:-}`:
+# `_simdest_result` is set-but-EMPTY on this path, so a `:-` probe reports it
+# absent and the list comes back one short (it did, the first time).
 cat > "$TMP/a6.sh" <<A6
 export PASTURA_SKIP_SIM_WAIT=1
 export PASTURA_SIM_NAME='$NO_SUCH_SIM'

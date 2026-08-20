@@ -250,8 +250,9 @@ if [[ -f "$_spm_state" ]]; then
   # `|| [ $? -eq 1 ]` because errexit is in force: grep's exit 1 is the "no
   # identities, resolve now" answer, not a failure. It stays narrower than
   # `|| true` so a real grep error (exit >= 2) still aborts rather than being
-  # read as "unresolved". No pipeline here, so the SIGPIPE hazard that governs
-  # the `env | grep` capture below does NOT apply — don't generalize this one.
+  # read as "unresolved". No pipeline here, so the SIGPIPE hazard behind the
+  # `_integration_vars` capture (the `env | grep` one, earlier in this file) does
+  # NOT apply — don't generalize this site into a rule about pipefail.
   _spm_resolved="$({ grep '"identity"' "$_spm_state" || [ $? -eq 1 ]; })"
 fi
 if [[ -z "$_spm_resolved" ]]; then

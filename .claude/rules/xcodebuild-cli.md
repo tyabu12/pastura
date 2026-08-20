@@ -60,10 +60,9 @@ accepts `-destination`, which is what makes the device compile-check recipe
 below work; additive applies there too, so that recipe builds the simulator
 slice alongside the device one (measured: one invocation refreshed both
 `Debug-iphoneos` and `Debug-iphonesimulator`). To pin a **single** simulator for
-`test`, export `PASTURA_SIM_NAME`
-(honored by `sim-dest.sh`) on its own line — the leading-assignment form
-(`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips the allowlist approval
-prompt, per § "Canonical invocation":
+`test`, export `PASTURA_SIM_NAME` (honored by `sim-dest.sh`) on its own line —
+the leading-assignment form (`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips
+the allowlist approval prompt, per § "Canonical invocation":
 
 ```bash
 export PASTURA_SIM_NAME="iPhone 17 Pro Max"
