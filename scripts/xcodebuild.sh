@@ -135,25 +135,18 @@ done
 # `set -u` on macOS bash 3.2 when forwarded[] is empty.
 set -- ${forwarded[@]+"${forwarded[@]}"}
 
-# Reject flags the wrapper already supplies, BEFORE anything slow runs. Position
-# is load-bearing: below this point `test` sources sim-dest.sh, whose
-# concurrent-session gate polls for up to 900 s, so a rejection placed after it
-# would make the operator wait a quarter of an hour for a one-line message.
+# Reject flags the wrapper already supplies, BEFORE anything slow runs: below
+# this point `test` sources sim-dest.sh, whose gate polls up to 900 s, so a
+# rejection placed later costs a quarter-hour before printing one line.
 #
-# `-scheme` / `-project` / `-derivedDataPath` — xcodebuild rejects duplicates
-# itself, but with `error: option '-X' may only be provided once` buried between
-# the wrapper's xtrace and its own full usage page, which reads like a wrapper
-# bug. Say it in one line instead.
-#
-# `-derivedDataPath=…` — the `=`-joined form is SILENTLY IGNORED (Xcode 15.4+),
-# so the build lands in the default ~/Library DerivedData while looking correct.
-# Rejecting it is the only way it is ever noticed. Checked for all three flags
-# since none of them accepts `=` here.
-#
-# `-destination` on `test` — multiple `-destination` are ADDITIVE, not
-# last-wins: the suite runs on the wrapper's simulator AND yours, and a failure
-# on either aborts the run. `build` must keep accepting it — the device
-# compile-check recipe below passes `generic/platform=iOS` on purpose.
+# Per flag, because xcodebuild's own handling differs. `-scheme` / `-project` /
+# `-derivedDataPath`: it rejects these too, but between the xtrace and a full
+# usage page, which reads like a wrapper bug. The `=`-joined form: SILENTLY
+# IGNORED (Xcode 15.4+), landing the build in ~/Library while looking correct —
+# checked for all three, since none of them takes `=` here. A second
+# `-destination`: ADDITIVE, so `test` would run on both devices with either
+# failure aborting; `build` must keep accepting it for the device compile-check
+# recipe below.
 for _arg in "$@"; do
   case "$_arg" in
     -scheme|-project|-derivedDataPath)
@@ -230,20 +223,16 @@ fi
 # `Build failed. Fix compile errors before committing.`, sending the reader
 # after a compile error that does not exist.
 #
-# The predicate is "no dependency was ever resolved into this DerivedData", not
-# "the state file is missing": a FAILED resolve still writes
-# workspace-state.json, with empty `artifacts`/`dependencies` arrays and no
-# `"identity"` key anywhere, so keying on the file's existence would skip the
-# retry of the exact case this exists for (measured while writing #1503 — the
-# failure above happened in this worktree, and the file was already there).
-#
-# What it does NOT cover: a resolution that is stale rather than absent (a
-# `Package.resolved` bump, a revision that moved). Identities are present then,
-# so the pre-flight stays out of the way and the build fails as it does today.
-# Widen the predicate only with a case that reproduces.
-#
-# Cost: nothing on a warm tree (predicate is a grep over one small file); ~23 s
-# once on a cold one, which the build was going to spend on resolution anyway.
+# The predicate is "nothing was ever resolved into this DerivedData", not "the
+# state file is missing": a FAILED resolve still writes workspace-state.json,
+# with empty `artifacts`/`dependencies` and no `"identity"` anywhere, so keying
+# on existence would skip the retry of the very case this exists for (measured
+# in #1503 — that failure happened here, with the file already present). It does
+# NOT cover a resolution that is stale rather than absent (a `Package.resolved`
+# bump, a moved revision): identities are present then, the pre-flight stays
+# quiet, and the build fails as it does today — widen it only with a case that
+# reproduces. Cost: a grep over one small file on a warm tree; ~23 s once on a
+# cold one, which the build was going to spend on resolution anyway.
 _spm_state="$DERIVED_DATA/SourcePackages/workspace-state.json"
 _spm_resolved=""
 if [[ -f "$_spm_state" ]]; then

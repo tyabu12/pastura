@@ -2,40 +2,33 @@
 #
 # scripts/tests/simdest-errexit-test.sh — regression test for #1503.
 #
-# THE DEFECT. `scripts/sim-dest.sh` saved the caller's shell options with
-# `_simdest_old_opts=$(set +o)`. bash clears errexit inside a command
-# substitution, so that snapshot recorded `set +o errexit` no matter what the
-# caller had set, and restoring it DROPPED a caller's `set -e`. pipefail came
-# back correctly through the same snapshot — it is not a `$-` letter flag —
-# which is why only errexit went missing and the loss stayed invisible for so
-# long. Mechanism: `.claude/rules/xcodebuild-cli.md` (no § anchor — that section
-# is compressible, and a named one here would dangle).
+# THE DEFECT. `sim-dest.sh` saved shell options with `$(set +o)`, a command
+# substitution — where bash has already cleared errexit — so the snapshot said
+# `set +o errexit` whatever the caller had set, and restoring it DROPPED the
+# caller's `set -e`. pipefail came back correctly through the same snapshot (no
+# `$-` letter flag), which is why only errexit went missing and stayed
+# invisible. Mechanism: `.claude/rules/xcodebuild-cli.md` (no § anchor — that
+# section is compressible and a named one here would dangle).
 #
-# WHAT EACH ARM RUNS. A1, A2 and A6 source the REAL `scripts/sim-dest.sh`; A3
-# and A4 run in-file fixtures. The split is forced by the runner: the CI
-# "Shell gate tests" job is ubuntu with no `xcrun`, so the real script's
-# SUCCESS path cannot execute there. Its FAILURE path can, and it restores
-# options through the same helper, so A1/A2 still bind the real file on both
-# OSes — A1 from an errexit-ON caller (must abort), A2 from an errexit-OFF one
-# (must NOT be promoted to on). A5 covers the success path and SKIPS loudly
-# where it cannot run; do not silence that notice.
+# REAL vs FIXTURE. A1, A2, A6 source the REAL sim-dest.sh; A3, A4 run in-file
+# fixtures. The runner forces the split: CI's ubuntu job has no `xcrun`, so the
+# real SUCCESS path cannot run there — but its FAILURE path can, through the
+# same helper, so A1 (errexit-ON caller must abort) and A2 (errexit-OFF must not
+# be promoted) bind the real file on both OSes. A5 covers the success path and
+# SKIPS loudly where it cannot run; do not silence that notice.
 #
-# NOT COVERED. sim-dest.sh restores on four paths; the arms below reach two of
-# them (the simulator-resolution failure and, on macOS, the success path). The
-# `git rev-parse` guard and the wait-gate timeout are unexercised — the latter
-# unreachable while every arm exports PASTURA_SKIP_SIM_WAIT=1. Read this file as
-# pinning the capture, not the whole restore contract.
+# A3 IS THE NEGATIVE CONTROL AND IS NOT OPTIONAL: it reproduces the pre-#1503
+# capture and requires errexit to end up OFF, without which A1/A2 would pass
+# against a sim-dest.sh that restores nothing. A4 is its positive twin, so a
+# fixture harness that stopped executing anything cannot read as green. Both are
+# fixtures on purpose — a control borrowed from the file under test stops
+# discriminating the day that file changes (#1481).
 #
-# A3 IS THE NEGATIVE CONTROL AND IS NOT OPTIONAL. It reproduces the pre-#1503
-# capture and requires errexit to end up OFF. Without it, A1 and A2 would pass
-# against a sim-dest.sh that never restores anything, and nothing here would
-# say so. A4 is its positive twin — same harness, corrected capture — so a
-# fixture harness that stopped executing anything at all cannot read as green.
-# Both are fixtures on purpose: a control borrowed from the file under test
-# stops discriminating the moment that file changes (#1481).
+# NOT COVERED: two of sim-dest.sh's four restore paths — the `git rev-parse`
+# guard, and the wait-gate timeout (unreachable while every arm exports
+# PASTURA_SKIP_SIM_WAIT=1). This pins the capture, not the whole contract.
 #
-# CI-wired: the `*-test.sh` naming convention makes this a gate under
-# .github/workflows/ci.yml ("Run scripts/tests/*-test.sh"). Run manually:
+# CI-wired by the `*-test.sh` name. Run manually:
 #   bash scripts/tests/simdest-errexit-test.sh
 
 set -euo pipefail
