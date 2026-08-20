@@ -17,8 +17,10 @@
 # unstaging does not fix; and TRIGGER is a staged-path predicate, which cannot
 # cover a tree-wide population however it is written. So `--check` stays
 # git-free here, and CI is the only place the census speaks. Widening TRIGGER
-# to the files that hold declared residue would not change that — it would just
-# bind a `Views/` production file to this gate for no coverage gained.
+# to the files that hold declared residue would not change either reason — it
+# would just bind three unrelated test files to this gate for no coverage
+# gained. (#1496 judgment 3 cut the last PRODUCTION file out of that set, so do
+# not restate this argument as being about a `Views/` file.)
 #
 # bash 3.2 portable — ships to dev macOS via the pre-commit hook. NO
 # mapfile/readarray, declare -A, ${var^^}, or <<< here-strings.

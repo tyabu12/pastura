@@ -1267,6 +1267,10 @@ class TreeScan(NamedTuple):
     section_index: set[tuple[str, int]]
     files: list[tuple[str, str]]
     skipped: dict[str, int]
+    # Kept apart from `skipped` on purpose — see the `except` in `scan_tree`.
+    # Defaulted so the positional constructions in `--self-test` stay valid;
+    # a tuple rather than a list because a mutable NamedTuple default is shared.
+    unreadable: tuple[str, ...] = ()
 
 
 def _faces_with_text() -> list[tuple[str, str, re.Pattern[str], re.Pattern[str]]]:
@@ -1324,6 +1328,7 @@ def scan_tree() -> TreeScan:
         ) from exc
     files: list[tuple[str, str]] = []
     skipped: dict[str, int] = {}
+    unreadable: list[str] = []
     for name in listed:
         if not name:
             continue
@@ -1334,8 +1339,13 @@ def scan_tree() -> TreeScan:
         try:
             files.append((name, (REPO_ROOT / name).read_text(encoding="utf-8")))
         except (OSError, UnicodeDecodeError):
-            skipped[suffix] = skipped.get(suffix, 0) + 1
-    return TreeScan(pool, read_index, section_index, files, skipped)
+            # NOT `skipped`: that bucket means "this suffix is outside
+            # RESIDUE_SUFFIXES". Folding an unreadable file in here made the
+            # census advise widening RESIDUE_SUFFIXES for a suffix already in
+            # it — self-contradictory, and pasting the block would have baked
+            # that lie into the declaration (#1496).
+            unreadable.append(name)
+    return TreeScan(pool, read_index, section_index, files, skipped, tuple(unreadable))
 
 
 def _residue() -> int:
@@ -1388,14 +1398,26 @@ def _residue() -> int:
 # What the classes mean, and why only one of the three is a judgment:
 #
 # - `code-comment` — a figure inside a Swift comment. Derived mechanically.
-#   NOT brought under the doc gate: doing so would put a `Views/` production
-#   file and three test files into the gate's TRIGGER, so an unrelated edit to
-#   a view would re-run this. #1496 judgment 3.
+#   NOT brought under the doc gate: doing so would put the three test files
+#   that hold these comments into the gate's TRIGGER, so an unrelated edit to
+#   one would re-run this. #1496 judgment 3, which ALSO cut the one production
+#   file that used to be in this class — so the argument no longer has a
+#   `Views/` file to name, and stating it that way again would be stale.
 # - `in-read-section` — inside one of the six sections the gate reads, outside
 #   the blocks it compares. Derived mechanically. NOT closed by widening those
-#   blocks: an ADR amendment is *where* derivations and measurements belong
-#   (ADR-028 § "Where new amendment content goes"), so machine-comparing that
-#   prose would put this gate at odds with the ADR's own placement rule.
+#   blocks, and the reason is per face rather than one rule: most of this class
+#   does not live in an ADR.
+#     * Mechanically, on every face: these lines carry figures that are not
+#       pins — RETRACTED draft values kept as a record (`2.434`, at ADR-028 and
+#       at the ledger's §3.2), and before/after pairs spanning two populations. A value-equality comparison reddens on those by
+#       construction, so widening needs a value allowlist, not a wider block.
+#     * On the ADR faces additionally: an amendment is *where* derivations and
+#       retracted drafts belong (ADR-028 § "Where new amendment content goes"),
+#       so machine-comparing that prose would put this gate at odds with the
+#       ADR's own placement rule. This clause covers the ADR faces ONLY.
+#     * On design-system §8 the option is not even shaped: its line states an
+#       ordering ("no wash falls below the opaque worst"), which is the `argued`
+#       form sitting inside a read section.
 #   #1496 judgment 4.
 # - `argued` — everything else: prose where the figure carries the sentence.
 #   The residual, and the only class that is a judgment. #1496 judgment 2 is
@@ -1477,18 +1499,33 @@ def census_problems(
         elif got is None:
             problems.append(
                 f"{path} [{cls}]: {want[0]} line(s) declared, none found — the copies were "
-                "REMOVED. Drop the entry."
+                "REMOVED, or every one of them ROTTED. A rotted figure matches no pin, so it "
+                "leaves the scan exactly as a deletion does. Diff `--residue` against the "
+                "declaration before dropping the entry: dropping it on a rot leaves the bad "
+                "copy in the tree with nothing watching it."
             )
         elif got[0] != want[0]:
-            verb = "ADDED" if got[0] > want[0] else "REMOVED"
-            problems.append(
-                f"{path} [{cls}]: {want[0]} line(s) declared, {got[0]} found — a copy was {verb}."
-            )
+            if got[0] > want[0]:
+                problems.append(
+                    f"{path} [{cls}]: {want[0]} line(s) declared, {got[0]} found — a copy was ADDED."
+                )
+            else:
+                problems.append(
+                    f"{path} [{cls}]: {want[0]} line(s) declared, {got[0]} found — a copy was "
+                    "REMOVED, or one ROTTED: a figure that no longer matches any pin drops out "
+                    "of this scan exactly as a deletion does. Check `--residue` before pasting."
+                )
         elif got != want:
             problems.append(
                 f"{path} [{cls}]: same line count, different figures — a copy ROTTED, or the "
                 "pins MOVED. Run --check first; if it is clean the pins did not move."
             )
+    for name in sorted(scan.unreadable):
+        problems.append(
+            f"{name}: a scanned suffix, but unreadable as UTF-8 — the census never saw this "
+            "file, so its claim does not cover it. Fix the file's encoding, or take its suffix "
+            "out of RESIDUE_SUFFIXES so the skip is declared rather than silent."
+        )
     observed_suffixes = frozenset(scan.skipped)
     for suffix in sorted(observed_suffixes - declared_suffixes):
         problems.append(
@@ -1591,16 +1628,41 @@ def census(scan: TreeScan | None = None) -> int:
         )
         return 0
     print("measurement-transcript census: the unguarded inventory MOVED.", file=sys.stderr)
-    print(
-        "\nThis is an inventory addition, not a defect. The census does not read your figures — "
-        "it only refuses to let the set of hand-kept copies change without a decision. Classify "
-        "the new line (or remove the copy), then paste the block below.\n",
-        file=sys.stderr,
-    )
+    # The preamble branches on DIRECTION. Saying "an addition, not a defect"
+    # over a shrink is how a rotted copy gets pasted out of the inventory: a rot
+    # and a deletion are indistinguishable here, and only one of them is benign.
+    shrank = any("REMOVED" in problem for problem in problems)
+    if shrank:
+        print(
+            "\nSomething LEFT the inventory. Read this before pasting: a copy that ROTTED — a "
+            "figure edited until it matches no pin — leaves this scan exactly as a deletion "
+            "does, and `--check` will not see it, because these lines sit outside the blocks it "
+            "compares. Diff `--residue` against the declaration and confirm you meant to remove "
+            "each line. Pasting over a rot drops the bad copy out of the inventory for good.\n",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "\nThis is an inventory addition, not a defect. The census does not read your "
+            "figures — it only refuses to let the set of hand-kept copies change without a "
+            "decision. Classify the new line (or remove the copy), then paste the block below.\n",
+            file=sys.stderr,
+        )
     for problem in problems:
         print(f"  - {problem}", file=sys.stderr)
     print("\nPaste-ready replacement for the two declarations:\n", file=sys.stderr)
     print(census_block(inventory, suffixes), file=sys.stderr)
+    print(
+        "\nWhat this gate does and does not claim: it covers only the file suffixes it "
+        "scans, only the pins' three-decimal spelling, and in Swift only figures sitting "
+        "inside comments — a copy outside any of those three is invisible to it, so green "
+        "is not 'no copies exist'. Classes: `code-comment` (in a Swift comment), "
+        "`in-read-section` (inside a section the gate reads but outside the block it "
+        "compares), `argued` (prose where the figure carries the sentence). None of the "
+        "three is a defect to drive to zero. Derivation: ADR-028 § Amendment 2026-08-20 "
+        "(#1496).",
+        file=sys.stderr,
+    )
     print("\nThe per-line detail is `--residue`.", file=sys.stderr)
     return 1
 
@@ -2842,9 +2904,19 @@ def self_test() -> int:
     # A DROP fails too: a declaration nobody lowers stops describing the tree,
     # and its digest then guards a set that no longer exists.
     expect(
-        "census: a removed copy is reported, not quietly accepted",
-        lambda: [pr for pr in census_says(shrunk) if "REMOVED" in pr],
-        ["docs/face.md [argued]: 1 line(s) declared, none found — the copies were REMOVED. Drop the entry."],
+        "census: a face emptied is reported, and names ROT as the other cause",
+        lambda: [pr.split(" — ")[0] for pr in census_says(shrunk) if "REMOVED" in pr],
+        ["docs/face.md [argued]: 1 line(s) declared, none found"],
+    )
+    # A rot and a deletion are INDISTINGUISHABLE to this scan — a figure that
+    # matches no pin simply stops being found. So the message must offer both,
+    # or its own advice ("drop the entry") silently launders a rotted copy out
+    # of the inventory while it stays in the tree, with `--check` green because
+    # these lines sit outside the compared blocks (#1496 review).
+    expect(
+        "census: an emptied face names ROT, not deletion alone",
+        lambda: [("ROTTED" in pr, "--residue" in pr) for pr in census_says(shrunk) if "REMOVED" in pr],
+        [(True, True)],
     )
     # The DROP arm above empties the face, so it lands in the `got is None`
     # branch and never reaches the verb. A *partial* drop is a separate branch:
@@ -2852,8 +2924,39 @@ def self_test() -> int:
     # arm existed, so a removal could be reported as an addition unseen (#1496).
     expect(
         "census: a partial drop is reported as REMOVED, not as an addition",
-        lambda: [pr for pr in census_says(declaration=census_inventory(grown)) if "REMOVED" in pr],
-        ["docs/face.md [argued]: 2 line(s) declared, 1 found — a copy was REMOVED."],
+        lambda: [pr.split(" — ")[0] for pr in census_says(declaration=census_inventory(grown)) if "REMOVED" in pr],
+        ["docs/face.md [argued]: 2 line(s) declared, 1 found"],
+    )
+    expect(
+        "census: a partial drop names ROT too, for the same indistinguishability",
+        lambda: [("ROTTED" in pr, "--residue" in pr) for pr in census_says(declaration=census_inventory(grown)) if "REMOVED" in pr],
+        [(True, True)],
+    )
+    # Habitat control for the two arms above: an ACTUAL rot — the line is still
+    # there, its figure just stopped matching a pin — must reach the same branch.
+    # Without this, both arms only prove the wording of a branch reached by
+    # deletion, and the claim they are defending is about rot.
+    rot_only = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n\nfar off, 9.222 there\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    expect(
+        "census: a rotted figure reaches the same branch a deletion does",
+        lambda: [pr.split(" — ")[0] for pr in census_says(rot_only)],
+        ["docs/face.md [argued]: 1 line(s) declared, none found"],
+    )
+    # A file inside a scanned suffix that cannot be read is NOT a skipped file
+    # type. Folding the two together made the census advise widening
+    # RESIDUE_SUFFIXES for a suffix already in it.
+    expect(
+        "census: an unreadable scanned file is reported as itself, not as a new file type",
+        lambda: [
+            pr.split(" — ")[0]
+            for pr in census_says(census_scan._replace(unreadable=("docs/face.md",)))
+        ],
+        ["docs/face.md: a scanned suffix, but unreadable as UTF-8"],
     )
     rotted = census_scan._replace(
         files=[

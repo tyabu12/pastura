@@ -588,18 +588,23 @@ which direction fired — a copy appeared, was added, was removed, or rotted (ke
 distinct from the pins having moved, which `--check` settles) — and opens by
 saying an addition to the inventory is not by itself a defect.
 
-Read what it claims at the width of the mechanism: the unclassified set cannot
+Read what it claims at the width of the mechanism — the operative statement is
+the checker's module docstring, which is what CI runs and what its failure text
+prints; this is a summary of it: the unclassified set cannot
 grow silently **within the suffixes it scans, at the pins' three-decimal
 spelling, and — in Swift — only where the figure sits inside a comment** (a pin
 with any occurrence outside every comment span is a guard, and that occurrence is
 not inventoried — the split is per occurrence, so one line can contribute to
 both). It classifies each line
 `code-comment`, `in-read-section`, or `argued`; the last is prose whose number
-carries the sentence, and **none of the three is a defect to drive to zero** —
-widening the compared blocks to swallow the second would put this guard in
-conflict with ADR-028 § "Where new amendment content goes". Derivation, and why
-one product-code copy was cut while this file's §1.1 / §2.1 / §6.2 prose stays:
-ADR-028 § Amendment 2026-08-20 (#1496).
+carries the sentence, and **none of the three is a defect to drive to zero**.
+Widening the compared blocks to swallow the second is not the cheap fix it
+looks: §3.2's lines in that class carry figures that are deliberately not pins —
+the retracted `2.434` at :212 among them — so a value comparison reddens on them
+by construction. (On ADR-028's own faces a second reason applies, from
+its § "Where new amendment content goes"; that one does not reach this file.)
+Derivation, and why one product-code copy was cut while this file's §1.1 / §2.1
+/ §6.2 prose stays: ADR-028 § Amendment 2026-08-20 (#1496).
 
 §5 is the one face that moved from that list into the gate, and it is checked
 **row by row**: each row's `light/dark` figures must equal the pin its own
