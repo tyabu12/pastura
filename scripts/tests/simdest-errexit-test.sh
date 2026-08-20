@@ -7,7 +7,7 @@
 # `set +o errexit` whatever the caller had set, and restoring it DROPPED the
 # caller's `set -e`. errexit is the ONLY option affected, which A7 pins: letter-
 # flag-ness is not the discriminator (`nounset` is one and survives). Mechanism:
-# `.claude/rules/xcodebuild-cli.md` (no § anchor — that section is compressible
+# `.claude/rules/ci-workflows.md` (no § anchor — that section is compressible
 # and a named one here would dangle).
 #
 # REAL vs FIXTURE. A1, A2, A6 source the REAL sim-dest.sh; A3, A4 run in-file

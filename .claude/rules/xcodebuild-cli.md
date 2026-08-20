@@ -85,45 +85,22 @@ When the marker was trimmed off entirely:
 
 ## Concurrent-session simulator gate
 
-`sim-dest.sh` blocks at `source` time if another `xcodebuild test`
-with `,id=<UDID>` destination is already running on this machine
-(poll 5s / jitter 1.0–5.0s / 15-min timeout). Build-only invocations
-bypass the gate (`generic/platform=...`, no UDID).
+`test` blocks at `source scripts/sim-dest.sh` while another `xcodebuild test`
+with a `,id=<UDID>` destination runs on this machine — **up to 15 minutes**, so
+size the bash `timeout` for it and do not kill a run that merely looks stuck. It
+announces the wait, naming the busy PIDs and the bypass variable. `build` never
+waits (`generic/platform=…`, no UDID).
 
-Override (rare manual operation, e.g. parallel-suite work or
-`xcrun simctl` / `xcodebuild -showBuildSettings` inspection):
+Manual override for genuine parallelism, or for `simctl` /
+`-showBuildSettings` inspection. This exact form misses the allowlist and
+prompts, by design:
 
 ```bash
 PASTURA_SKIP_SIM_WAIT=1 source scripts/sim-dest.sh
 ```
 
-This exact form does not match the allowlist entry and triggers an
-approval prompt by design.
-
-If the gate consistently times out and you do not recall starting
-another test run, the busy PID is likely a stale
-`xcodebuild`/`testmanagerd`/`XCTRunner` from a prior timeout-killed
-run — see Recovery below.
-
-### Sourcing it no longer clears your `set -e`
-
-`sim-dest.sh` snapshotted the caller's options with `$(set +o)` — a command
-substitution, where bash has already cleared errexit — so restoring that
-snapshot dropped a caller's `set -e`. **errexit is the only option this hits**,
-and *not* because it is a `$-` letter flag. `shopt inherit_errexit` (bash 4.4+)
-reverses the whole effect. Fixed in #1503 by capturing errexit from `$-`;
-`scripts/tests/simdest-errexit-test.sh` pins the fix, and its A7 pins the
-letter-flag half (`nounset` round-trips, errexit does not). The "only option"
-scope itself is asserted, not measured — widen it only from a new measurement.
-
-**Apply**: any new save/restore of shell options needs the `$-` capture, not
-`$(set +o)` alone. **A failing `source` aborts an errexit-on caller only in the
-bare form** — bash suppresses errexit for the left operand of `||`, so the three
-sites written `source … || { …; exit 1; }` still depend on that `exit`; deleting
-the whole handler hands the job back to the fix, reducing it to a bare message
-does not. `ci.yml`'s two `run:` steps take the bare form, so they gain the abort:
-a `run:` is `bash -e {0}`, and they used to swallow a failed source and write an
-empty `DEST=` into `$GITHUB_ENV`.
+A gate that times out when you started no other run is a stale
+`xcodebuild`/`testmanagerd`/`XCTRunner` — see § Agent session guardrails.
 
 ## Agent session guardrails
 

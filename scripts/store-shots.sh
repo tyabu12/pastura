@@ -60,7 +60,7 @@ export PASTURA_SKIP_XCSTRINGS_SYNC=1
 # it to a bare message does NOT — it falls through to the `SIM_UDID=` line below
 # with `DEST` unset or, worse, stale from an earlier source in the same shell.
 # The `set -euo pipefail` below is defence in depth
-# (.claude/rules/xcodebuild-cli.md — no § anchor on purpose: that section is
+# (.claude/rules/ci-workflows.md — no § anchor on purpose: that section is
 # compressible and a named anchor here would dangle).
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/sim-dest.sh" \
