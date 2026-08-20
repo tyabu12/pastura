@@ -114,18 +114,13 @@ A gate that times out when you started no other run is a stale
 - Narrow scope with `-only-testing PasturaTests/<Suite>` whenever
   possible.
 
-**Recovery (hang or stalled retry)**: a bash `timeout` kills the shell
-wrapper but NOT spawned `xcodebuild` / `testmanagerd` / `XCTRunner` —
-they keep the simulator busy and later runs queue behind them.
-**Read command lines before killing** so you do not clobber a
-concurrent-worktree run: `pgrep -af "xcodebuild|XCTRunner|testmanagerd"`;
-if all are yours, `pkill -f "xcodebuild test"` then
-`xcrun simctl shutdown "$(echo "$DEST" | sed -n 's/.*id=//p')"`. UI-test
-`FBSOpenApplicationServiceErrorDomain Code=1` → `xcrun simctl erase <UDID>`
-+ retry **once** (persistent = real signing / plist / app-state bug).
-A local full-suite UI-test failure at `t = 0.00s` with no `Pastura-*.ips` is
-simulator infrastructure, not the app — re-run rather than diagnose.
-Full walkthrough: [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md)
+**Recovery (hang or stalled retry)**: a bash `timeout` kills the shell wrapper
+but NOT the spawned `xcodebuild` / `testmanagerd` / `XCTRunner`, which keep the
+simulator busy so later runs queue behind them. **Read their command lines before
+killing anything** — a concurrent worktree's run looks identical. Inspect / kill /
+`simctl erase` steps, the UI-test launch-failure marker, and the local
+`t = 0.00s` failure that is simulator infrastructure rather than the app:
+[`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md)
 § Recovery / § Local full-suite flake.
 
 ## "Executed 0 tests" in the XCTest stanza is cosmetic for Swift-Testing suites
@@ -180,20 +175,16 @@ xcodebuild -resolvePackageDependencies -project Pastura/Pastura.xcodeproj -schem
 
 ## CI flake catalog
 
-CI UI-test failures cluster into known flake classes — within-process
-clone cascade (retired post-#1053, see below), app-launch timeout,
-runner-init Accessibility, and XCUITest idle-stall — auto-retried by
-`.github/workflows/ci-retry.yml`
-(max 3 attempts on main / 2 on PR, ui-test-failure-gated).
-**Check `run_attempt` on the failed run before intervening**: if 1, let
-auto-retry fire; only after it exhausts do `gh run rerun --failed <run_id>`
-once; escalate to real-bug investigation only when the same message recurs
-at the same stage across reruns (real signing / Info.plist / app-init
-regressions do not self-recover). Flake signatures, distinguishing signals,
-the idle-stall `--ui-test` suppression, and the full escalation tree:
+CI UI-test failures cluster into known classes — app-launch timeout, runner-init
+Accessibility, and XCUITest idle-stall — auto-retried by
+`.github/workflows/ci-retry.yml`. A fourth, **within-process clone cascade, is
+retired**: #1053 made the `ui-test` job serialized, so a recurrence of it (or of
+the contention stall) means `-parallel-testing-enabled NO` was dropped from that
+job, not that a flake came back.
+
+**Check `run_attempt` on the failed run before intervening**: if 1, let auto-retry
+fire; only after it exhausts, `gh run rerun --failed <run_id>` once; escalate to
+real-bug investigation only when the same message recurs at the same stage across
+reruns (signing / Info.plist / app-init regressions do not self-recover).
+Signatures, distinguishing signals and the escalation tree:
 [`docs/ci/xcodebuild-flakes.md`](../../docs/ci/xcodebuild-flakes.md).
-Runner-pressure tracking: [#189](https://github.com/tyabu12/pastura/issues/189).
-Post-#1053 the `ui-test` job runs serialized (`-parallel-testing-enabled NO`,
-like `lint-and-test`), which retires the clone-dependent classes
-(within-process clone cascade + contention stall) — a recurrence of either
-means the flag was dropped, not a new flake.
