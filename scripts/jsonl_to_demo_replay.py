@@ -6,7 +6,7 @@ plan (demo-replay-spec.md §6): instead of hand-authoring demo YAMLs, run a
 scenario through `pastura-harness` (ADR-013, real local Gemma inference),
 pick the best transcript, and convert it here.
 
-Output schema: demo-replay-spec.md §3.2 (schema_version=1, preset_ref,
+Output schema: demo-replay-spec.md §3.2 (schema_version=2, preset_ref,
 metadata, turns, code_phase_events). Field selection mirrors
 `Pastura/Pastura/App/YAMLReplayExporter.swift`; payload `kind`
 discriminators match `YAMLReplaySource.decodePayloadStanza`.
@@ -23,22 +23,25 @@ Mapping:
   - `summary`       -> `summary`
   - `event_injected`-> `eventInjected`
   - `pairing_result`-> `pairingResult`
-`phase_index` is the most recent `phase_started.phase_path[0]`, an index into
-the scenario's TOP-LEVEL phase list — what the demo schema expects **only while
-the preset's phase list is flat**. A `conditional`'s branch sub-phases are
-reached through a nested `phase_path`, so their top-level index names the
-conditional rather than the phase that spoke, and `BundledDemoReplaySource`
-catches that only when `phases[idx].type` happens not to match the emitted
-`phase_type`. No `Resources/DemoPresets/` preset uses one today; four bundled
-presets do (`word_wolf{,_en}`, `target_score_race{,_en}`), so promoting one
-needs #1505 first.
+Phase coordinates (settled by #1505; spec §3.2 is the authority):
+`phase_path` is written verbatim from `phase_started.phase_path`, `phase_index`
+is `phase_path[0]`, and `phase_type` names the LEAF phase. A branch sub-phase
+therefore records `[i, j]` and a `phase_type` that does NOT equal
+`phases[phase_index].type` — the enclosing `conditional`'s. That asymmetry is
+the point; `BundledDemoReplaySourceTests.assertPhaseAlignment` is the sole owner
+of checking it (spec §3.3), not this script and not the runtime loader.
 
-#1473 fixed the same derivation on the highlight side and deliberately stopped
-there: that schema's `phase_index` names a position in a FLATTENED list, so
-branch-awareness was a derivation fix into a coordinate system that already
-existed. Here the schema says top-level, and what a branch sub-phase should
-record is undesigned — a schema decision, not a derivation bug. Do not port
-`gallery_highlight_extract.annotate`'s resolver across without settling that.
+`branch` is resolved here and only here. `[i, j]` cannot say whether `then[j]`
+or `else[j]` ran — they carry the identical path — so the branch comes from the
+`conditional_evaluated` the harness emits between the conditional's own
+`phase_started` and its branch's. `YAMLReplayExporter` cannot supply it (no
+column persists the branch), which is why the field is optional rather than
+required. The resolver mirrors `gallery_highlight_extract.annotate`, whose
+prose has the fuller derivation; the one deliberate difference is that this
+script reads the open conditional from the transcript's own `phase_type`
+rather than from the scenario's phase tree, because a curator's job here is to
+record what the transcript says and the minimal preset it is handed need not
+carry `phases:` at all.
 
 Recapture workflow (full demo-set swap):
   1. Run each scenario N times through the harness:
@@ -83,6 +86,11 @@ CODE_KIND = {
 #   IGNORED_EVENTS — reaches JSONL but is deliberately dropped from the demo
 #                    (lifecycle / diagnostic events the replay schema has no
 #                    slot for; moving one here is a reviewed diff).
+# NOTE the set means "not EMITTED", not "not READ". `conditional_evaluated` sits
+# in IGNORED_EVENTS and yet drives `branch` resolution below — the demo schema
+# has no slot for the event itself, but the verdict it carries is the only
+# source for which branch ran. Adding a read of an ignored event is fine; what
+# the classification forbids is emitting one without a reviewed diff.
 # An event in NEITHER set is a HARD ERROR at convert time (see the guard in
 # `main`) — previously a silent drop with no failure mode at all. The
 # `scripts/tests/demo-replay-event-coverage-test.sh` shell gate cross-checks
@@ -101,7 +109,7 @@ IGNORED_EVENTS = {
     "relationship_update",  # raw affinity matrix (#910); demo/replay drops it
     "narration",  # live commentary (#909); curated demos don't use narrate yet
     # — teletop demo integration is a follow-up. Reviewed drop per ADR-022 §D4.
-    "conditional_evaluated",
+    "conditional_evaluated",  # read for `branch` (see note above), never emitted
     "simulation_completed",
     "simulation_paused",
     "error",
@@ -190,20 +198,29 @@ def main():
     preset = yaml.safe_load(open(a.preset, encoding="utf-8"))
 
     turns, code = [], []
-    # `phase_idx` starts None, not 0: an event reaching the emit sites below
-    # before the first `phase_started` has no index, and 0 would be the same
-    # invention the `phase_path` guard refuses — removed from one source only,
-    # it would survive here. (`round_no` is left at 0: nothing here has measured
-    # what a round-0 turn does downstream.)
-    round_no, phase_idx, phase_type_cur = 0, None, ""
+    # `phase_path_cur` starts None, not [0]: an event reaching the emit sites
+    # below before the first `phase_started` has no coordinate, and 0 would be
+    # the same invention the `phase_path` guard refuses — removed from one
+    # source only, it would survive here. (`round_no` is left at 0: nothing here
+    # has measured what a round-0 turn does downstream.)
+    round_no, phase_path_cur, phase_type_cur = 0, None, ""
+    branch_cur = None        # "then" / "else" while inside a branch sub-phase
+    open_conditional = None  # top-level index of the conditional in flight
+    pending_branch = None    # (top, "then"/"else") from the last verdict
 
-    def emitted_phase_index():
-        """The current phase index, or refuse. Reads `phase_idx` live."""
-        if phase_idx is None:
+    def emitted_coords():
+        """The current phase's coordinate fields, or refuse. Reads live state."""
+        if phase_path_cur is None:
             raise SystemExit(
                 f"jsonl_to_demo_replay: an event in {a.run} precedes the first "
                 "`phase_started`, so phase_index cannot be derived.")
-        return phase_idx
+        # `phase_index` is `phase_path[0]` BY DEFINITION (spec §3.2) — it is
+        # emitted rather than dropped because it stays required in v2, so a
+        # reader that predates `phase_path` still orders correctly.
+        coords = {"phase_index": phase_path_cur[0], "phase_path": list(phase_path_cur)}
+        if branch_cur is not None:
+            coords["branch"] = branch_cur
+        return coords
 
     for l in lines:
         if l.get("type") != "event":
@@ -220,29 +237,67 @@ def main():
                 "emit surface change?) — see ADR-022 §D4.")
         if e == "round_started":
             round_no = l["round"]
+        elif e == "conditional_evaluated":
+            # Ignored for emission, read for `branch` — see the IGNORED_EVENTS
+            # note. Both refusals below are fatal: an invented branch would be
+            # indistinguishable from a measured one in the shipped demo.
+            if open_conditional is None:
+                raise SystemExit(
+                    f"jsonl_to_demo_replay: a `conditional_evaluated` in {a.run} "
+                    "has no preceding `phase_started` of type `conditional`, so "
+                    "the branch it decides cannot be attributed to a phase.")
+            result = l.get("result")
+            if not isinstance(result, bool):
+                raise SystemExit(
+                    f"jsonl_to_demo_replay: a `conditional_evaluated` in {a.run} "
+                    f"carries result {result!r}, not a boolean; the taken branch "
+                    "cannot be derived from it.")
+            pending_branch = (open_conditional, "then" if result else "else")
         elif e == "phase_started":
-            # Track both the index and the phase_type of the current phase.
-            # Code-phase events (vote_results / score_update / summary /
-            # event_injected) carry NO phase_type of their own, so the demo's
-            # phase_type — which must equal scenario.phases[phase_index].type
-            # (BundledDemoReplaySource rejects the demo otherwise) — has to
+            # Track the path and the phase_type of the current phase. Code-phase
+            # events (vote_results / score_update / summary / event_injected)
+            # carry NO phase_type of their own, so the demo's phase_type has to
             # come from the enclosing phase_started, not the event name.
-            # The index is refused rather than defaulted to 0 — the same
-            # invention removed from `gallery_highlight_extract.annotate`
-            # (#1474). That type equality usually catches a fabricated 0, so it
-            # survives exactly when phases[0] happens to match: the case no
-            # reader would think to check.
             path = l.get("phase_path")
             if not isinstance(path, list) or not path:
                 raise SystemExit(
                     f"jsonl_to_demo_replay: a `phase_started` in {a.run} carries "
                     "no usable `phase_path`, so phase_index cannot be derived.")
-            phase_idx = path[0]
+            if any(not isinstance(x, int) or isinstance(x, bool) for x in path):
+                raise SystemExit(
+                    f"jsonl_to_demo_replay: a `phase_started` in {a.run} carries "
+                    f"`phase_path` {path} with a non-integer element; a bool "
+                    "would resolve as 0/1 and name a phase the run never entered.")
+            if len(path) > 2:
+                raise SystemExit(
+                    f"jsonl_to_demo_replay: a `phase_started` in {a.run} carries "
+                    f"`phase_path` {path}, {len(path)} deep, but the engine's "
+                    "depth-1 rule bounds it to 2 (ScenarioLoader.parsePhaseType "
+                    "refuses a nested `conditional` at parse time). A deeper path "
+                    "means the transcript and that rule disagree.")
             phase_type_cur = l.get("phase_type", "")
+            if len(path) == 1:
+                open_conditional = path[0] if phase_type_cur == "conditional" else None
+                branch_cur = None
+                # Cleared on EVERY top-level phase, conditional included: the
+                # engine re-evaluates the condition once per round, so carrying
+                # the previous round's verdict forward would resolve round N's
+                # branch phases against round N-1's branch instead of failing.
+                pending_branch = None
+            else:
+                if pending_branch is None or pending_branch[0] != path[0]:
+                    raise SystemExit(
+                        f"jsonl_to_demo_replay: a `phase_started` in {a.run} with "
+                        f"`phase_path` {path} is inside a branch, but no "
+                        "`conditional_evaluated` for that conditional precedes it. "
+                        "`then[j]` and `else[j]` share the path, so the branch is "
+                        "what disambiguates them and it cannot be guessed.")
+                branch_cur = pending_branch[1]
+            phase_path_cur = list(path)
         elif e == "agent_output":
             turns.append({
                 "round": round_no,
-                "phase_index": emitted_phase_index(),
+                **emitted_coords(),
                 "phase_type": l["phase_type"],
                 "agent": l["agent"],
                 "fields": ordered_fields(l["fields"]),
@@ -253,7 +308,7 @@ def main():
             value = l.get("value", "")
             code.append({
                 "round": round_no,
-                "phase_index": emitted_phase_index(),
+                **emitted_coords(),
                 "phase_type": phase_type_cur,
                 "summary": value,
                 "payload": {"kind": "sharedAssignment", "value": value},
@@ -265,7 +320,7 @@ def main():
             agent, value = l.get("agent", ""), l.get("value", "")
             code.append({
                 "round": round_no,
-                "phase_index": emitted_phase_index(),
+                **emitted_coords(),
                 "phase_type": phase_type_cur,
                 "summary": f"{agent} assigned: {value}",
                 "payload": {"kind": "assignment", "agent": agent, "value": value},
@@ -273,14 +328,14 @@ def main():
         elif e in CODE_KIND:
             code.append({
                 "round": round_no,
-                "phase_index": emitted_phase_index(),
+                **emitted_coords(),
                 "phase_type": l.get("phase_type") or phase_type_cur,
                 "summary": code_summary(l),
                 "payload": code_payload(l),
             })
 
     doc = {
-        "schema_version": 1,
+        "schema_version": 2,
         "preset_ref": {
             "id": preset["id"],
             "version": "1.0",
