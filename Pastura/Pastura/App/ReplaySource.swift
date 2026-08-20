@@ -109,10 +109,17 @@ nonisolated public protocol ReplaySource: Sendable {
   ///   finishing; a synthesised terminator would race with the
   ///   consumer's own end-of-iteration detection.
   ///
-  /// **Known fidelity gap** (matches ``YAMLReplayExporter`` limitation,
-  /// see that type's `resolvePhaseIndices` doc): `.phaseStarted.phasePath`
-  /// is flattened to `[phaseIndex]`. Sub-phases inside a `conditional`
-  /// resolve to the outer conditional's index. Acceptable for Phase 2
-  /// linear presets (Word Wolf, Prisoner's Dilemma).
+  /// `.phaseStarted.phasePath` carries the source's own `phase_path`
+  /// (spec §3.2, schema v2), so a sub-phase inside a `conditional` reaches
+  /// the consumer as `[i, j]`. A v1 source has no such field and resolves
+  /// to `[phase_index]` — exact for a preset with no `conditional`, and
+  /// the flattening this doc used to describe for one that has one.
+  ///
+  /// What the path still cannot say is WHICH branch ran: `then[j]` and
+  /// `else[j]` are the same path, matching `SimulationEvent.phaseStarted`
+  /// itself, whose payload `ConditionalHandler` builds the same way. A
+  /// demo YAML may carry a `branch:` field to disambiguate, but it is not
+  /// surfaced here — no consumer of this array needs it, and no exporter
+  /// can supply it (nothing persists the branch).
   func plannedEvents() -> [PacedEvent]
 }
