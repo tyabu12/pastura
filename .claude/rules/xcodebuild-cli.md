@@ -48,48 +48,40 @@ scripts/xcodebuild.sh test …
 | Cap output for context-window budget | `scripts/xcodebuild.sh <cmd> --tail N [args]` |
 | CI full run | `.github/workflows/ci.yml` (bypasses wrapper) |
 
-Skip UI tests with `-skip-testing:PasturaUITests` when the change
-does not touch UI (UI tests are not required for MVP). Integration
-tests (Ollama / Llama) require their `*_INTEGRATION` env var enabled
-**in the scheme** (`LaunchAction > EnvironmentVariables` inherited by
-`TestAction` via `shouldUseLaunchSchemeArgsEnv="YES"`) — a CLI-passed
-one reaches no test runner, and the wrapper warns when it sees one
-exported. Toggle in Xcode UI, or temporarily flip `isEnabled="YES"`
-in the XML before running — revert before commit.
+Skip UI tests with `-skip-testing:PasturaUITests` when the change does not touch
+UI (UI tests are not required for MVP). Integration suites gate on a
+`*_INTEGRATION` env var read by the **test runner**, which inherits nothing from
+the CLI — so a CLI-set one skips the suite and still prints `TEST SUCCEEDED`
+(the wrapper warns if it sees one exported). Set it in the scheme, or flip
+`isEnabled="YES"` in the scheme XML and **revert before commit**; each
+integration suite's doc comment carries the procedure.
 
 ## --tail (built-in, pipefail-safe)
 
-`--tail N` is a wrapper-only flag. xcodebuild uses single-dash flags
-so `--`-prefixed names are unambiguous. Accepted at any position;
-last value wins on duplicates. Use this instead of external `| tail`
-— external tail defeats `pipefail`, masking failed builds as exit 0.
+`--tail N` is a wrapper-only flag, accepted at any position (last value wins).
+Use it instead of an external `| tail`, which defeats `pipefail` and reports a
+**failed build as exit 0**.
 
-External `| grep` is OK for filtering, but the pipe replaces the
-wrapper's exit code with grep's. Verify success by grepping output
-for `** BUILD SUCCEEDED **` / `** TEST SUCCEEDED **` (or the
-corresponding `FAILED` markers), or use caller-side `set -o pipefail`.
-When the SUCCEEDED marker has been trimmed off entirely:
+External `| grep` is fine for filtering, but the pipe replaces the wrapper's exit
+code with grep's — verify by grepping for `** BUILD SUCCEEDED **` /
+`** TEST SUCCEEDED **` (or the `FAILED` markers), or set `pipefail` caller-side.
+When the marker was trimmed off entirely:
 `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
 
 ## Wrapper behavior
 
-- **`test`**: UDID-pinned simulator + `-parallel-testing-enabled NO`
-  (CI workaround for within-process clone cascade — [#189](https://github.com/tyabu12/pastura/issues/189)).
-- **`build`**: `generic/platform=iOS Simulator`, no UDID booking,
-  exports `PASTURA_SKIP_SIM_WAIT=1` to bypass the simulator gate.
-- **Auto-sync**: runs `xcrun xcstringstool extract` + `sync` against
-  `Pastura/Pastura/Resources/Localizable.xcstrings` before xcodebuild.
-  Opt out with `PASTURA_SKIP_XCSTRINGS_SYNC=1` (already set in the
-  pre-commit hook so commits do not mutate the catalog outside the
-  staging index). Failures write a sentinel at
-  `Pastura/DerivedData/.xcstrings-sync-failed` and return 0 — never
-  blocks build. Stale entries (kept by Apple by design) can be pruned
-  manually via `python3 scripts/xcstrings-prune-stale.py` — read
-  `.claude/rules/i18n-catalog.md` first (path-scoped to the catalog; a
-  script run loads none of it).
-- **DerivedData**: pinned to worktree-local `Pastura/DerivedData/`
-  via `-derivedDataPath "$DERIVED_DATA"`. **Pass with a space, not
-  `=`** — the `=` form is silently ignored (Xcode 15.4+).
+- **`test`**: UDID-pinned simulator + `-parallel-testing-enabled NO` ([#189](https://github.com/tyabu12/pastura/issues/189)).
+- **`build`**: `generic/platform=iOS Simulator`, no UDID booking; it exports
+  `PASTURA_SKIP_SIM_WAIT=1`, so the gate below never applies to a build.
+- **Auto-sync**: both subcommands **mutate** `Localizable.xcstrings`
+  (`xcstringstool extract` + `sync`) before xcodebuild — opt out with
+  `PASTURA_SKIP_XCSTRINGS_SYNC=1` (already set in the pre-commit hook, so a
+  commit does not mutate the catalog outside its staging index). A sync failure
+  is advisory, never a build failure. Pruning stale entries is manual and
+  separate: read `.claude/rules/i18n-catalog.md` first (a script run loads none
+  of it), then `python3 scripts/xcstrings-prune-stale.py`.
+- **DerivedData**: worktree-local `Pastura/DerivedData/`, so
+  `git worktree remove` cleans it.
 
 ## Concurrent-session simulator gate
 
@@ -197,19 +189,17 @@ the block compiles). That one is a **Debug** device build — the wrapper passes
 **Layout/visual** still needs a real device — flag device-QA explicitly in PRs touching
 these blocks.
 
-## Fresh worktree's first build (SPM resolution)
+## A stale SPM resolution reads as a compile error
 
-The wrapper resolves SPM packages itself when this DerivedData holds none, so the
-fresh-worktree failure repairs itself — a first build that would otherwise die at package
-resolution and be reported by the pre-commit hook as
-`Build failed. Fix compile errors before committing.`, sending you after a compile error
-that does not exist.
+The wrapper resolves SPM packages when this DerivedData holds **none**, so a fresh
+worktree repairs itself. A resolution that is *stale* rather than absent (a
+`Package.resolved` bump, a moved revision) is not covered: the pre-flight stays
+quiet and the pre-commit hook reports `Build failed. Fix compile errors before
+committing.` for a compile error that does not exist. Recover, then re-commit:
 
-It does **not** cover a resolution that is *stale* rather than absent (a `Package.resolved`
-bump, a moved revision): identities are present then, the pre-flight stays quiet, and the
-misleading message is back. Recover by hand, then re-commit:
-`xcodebuild -resolvePackageDependencies -project Pastura/Pastura.xcodeproj -scheme Pastura -derivedDataPath Pastura/DerivedData`.
-Distinct from the harness `swift build` entry above (that's the SwiftPM *harness*).
+```bash
+xcodebuild -resolvePackageDependencies -project Pastura/Pastura.xcodeproj -scheme Pastura -derivedDataPath Pastura/DerivedData
+```
 
 ## CI flake catalog
 
