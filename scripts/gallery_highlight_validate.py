@@ -29,6 +29,7 @@ line on stdout prefixed `highlight: <check> — …` so the bash gate can
 aggregate them and a reader can grep a specific class.
 """
 import argparse
+import collections
 import hashlib
 import json
 import math
@@ -462,7 +463,7 @@ def _check_yaml_hook_fragment(doc, where):
     return failures
 
 
-def _check_position(doc, entry, where, yaml_has_conditional):
+def _check_position(doc, entry, where, phase_tree):
     """Decision 3's two-part position rule, against the index entry.
 
     Also the home of the `conditional`-scenario refusal: the rule is stated in
@@ -495,9 +496,14 @@ def _check_position(doc, entry, where, yaml_has_conditional):
     #
     # Either source alone triggers the refusal: a drifted index could otherwise
     # disable the guard (nothing on a highlight PR's path re-derives `phases` —
-    # see `scenario_declares_conditional`), while keying on the YAML alone would
+    # see `flatten_phase_tree`), while keying on the YAML alone would
     # miss an index claiming a conditional the YAML no longer has. Disagreement
     # between them is itself a reason not to publish.
+    nodes, _reason = phase_tree
+    # Tri-state, as before: `None` = the tree could not be derived, so the
+    # scenario's own answer is unknown and only the index's claim is left.
+    yaml_has_conditional = (
+        None if nodes is None else any(n.type == "conditional" for n in nodes))
     if "conditional" in phases or yaml_has_conditional:
         source = ("the entry's `phases` list" if "conditional" in phases
                   else "the sibling scenario YAML's `phases:`")
@@ -631,31 +637,111 @@ def scenario_persona_names(scenario):
     return names
 
 
-def scenario_declares_conditional(scenario):
-    """-> True / False from the scenario YAML's TOP-LEVEL `phases:`, or None.
+PhaseNode = collections.namedtuple("PhaseNode", "type top branch inner")
+"""One entry of the flattened phase list.
 
-    Read from the YAML rather than from `gallery.json`'s denormalized `phases`
-    because nothing on a highlight PR's path re-derives that field: the gate
-    never reads it against the YAML, and its only cross-check
-    (`GallerySeedYAMLTests.galleryPhasesMatchYAML`) sits in the iOS suite, which
+`top` is the index into the scenario's TOP-LEVEL `phases:`. `branch` is
+`None` for a top-level phase, else `"then"` / `"else"`; `inner` is the
+position within that branch (`None` at top level). Together they carry the
+tree structure the flat list drops — which is what makes a `conditional`
+scenario's `phase_index` resolvable in both directions (#1473).
+"""
+
+
+def flatten_phase_tree(scenario):
+    """-> ([PhaseNode], None) in `gallery.json` `phases` order, or (None, reason).
+
+    Three implementations of this depth-first order exist and must agree:
+    `add-gallery-entry.sh`'s inline `flat()` (which WRITES the denormalized
+    `gallery.json` `phases`), `GallerySeedYAMLTests.flattenPhaseKinds` (Swift),
+    and this one. The Swift copy runs in the iOS suite, which
     `precommit-gate-classify.sh` skips for a `docs/`-only changeset — the shape
-    every highlight batch has. A `phases` list that lost its `conditional`
-    would otherwise disable the refusal silently.
+    every highlight batch has — so it is not a gate on this path. Hence
+    `_check_phase_tree` below: it re-derives the list here and compares, making
+    this the first gate-side drift check on that field for flat entries too.
 
-    `None` means the list could not be read at all; the caller treats that as
-    "cannot verify" rather than "no conditional".
+    The reason string travels back so the failure text can name the actual
+    cause, as `_read_persona_names` does: on a machine without PyYAML the fix
+    is an install, and a message blaming the scenario would send the curator to
+    the wrong file.
+
+    Rejects two shapes the engine also rejects, so a fixture the loader would
+    refuse cannot reach the position rule:
+
+    - a `conditional` with neither branch populated (`ScenarioValidator`'s
+      `validateConditionalPhase`: at least one of `then:` / `else:` must be
+      non-empty);
+    - a `conditional` nested inside a branch (the depth-1 rule, enforced twice
+      upstream — `ScenarioValidator` blocks `depth > 0`, and
+      `ConditionalHandler.subHandlers` deliberately omits `.conditional`).
+      That upstream guarantee is what bounds a transcript `phase_path` to
+      length 2, which the extractor's resolver relies on.
     """
     if not isinstance(scenario, dict):
-        return None
+        return None, "the sibling scenario YAML is not a mapping"
     phases = scenario.get("phases")
     if not isinstance(phases, list) or not phases:
-        return None
-    for phase in phases:
+        return None, ("the sibling scenario YAML has no non-empty `phases:` "
+                      "list, so its phase tree cannot be derived")
+    nodes = []
+    for top, phase in enumerate(phases):
         if not isinstance(phase, dict) or not isinstance(phase.get("type"), str):
-            return None
-        if phase["type"] == "conditional":
-            return True
-    return False
+            return None, (f"the sibling scenario YAML's `phases:`[{top}] is not a "
+                          "mapping carrying a string `type`")
+        nodes.append(PhaseNode(phase["type"], top, None, None))
+        if phase["type"] != "conditional":
+            continue
+        populated = 0
+        for branch in ("then", "else"):
+            sub = phase.get(branch)
+            if sub is None:
+                continue
+            if not isinstance(sub, list):
+                return None, (f"the sibling scenario YAML's `phases:`[{top}].{branch} "
+                              "is not a list")
+            populated += len(sub)
+            for inner, child in enumerate(sub):
+                if not isinstance(child, dict) or not isinstance(child.get("type"), str):
+                    return None, (f"the sibling scenario YAML's `phases:`[{top}]."
+                                  f"{branch}[{inner}] is not a mapping carrying a "
+                                  "string `type`")
+                if child["type"] == "conditional":
+                    return None, (f"the sibling scenario YAML nests a `conditional` at "
+                                  f"`phases:`[{top}].{branch}[{inner}], which the "
+                                  "engine's depth-1 rule refuses (ScenarioValidator "
+                                  "blocks depth > 0; ConditionalHandler registers no "
+                                  "sub-handler for it)")
+                nodes.append(PhaseNode(child["type"], top, branch, inner))
+        if populated == 0:
+            return None, (f"the sibling scenario YAML's `conditional` at "
+                          f"`phases:`[{top}] populates neither `then:` nor `else:`, "
+                          "which the engine refuses (ScenarioValidator requires at "
+                          "least one non-empty branch)")
+    return nodes, None
+
+
+def _check_phase_tree(entry, phase_tree, where):
+    """`gallery.json`'s denormalized `phases` must equal the YAML-derived tree.
+
+    Nothing else on a highlight PR's path re-derives that field (see
+    `flatten_phase_tree`), and every check stated in terms of `phase_index`
+    reads it — so a drifted list would silently move what the position rule
+    measures against. Failing here rather than inside `_check_position` keeps
+    the drift reported as drift, not as a mismatched excerpt.
+    """
+    nodes, reason = phase_tree
+    phases = entry.get("phases")
+    if nodes is None:
+        return [f"highlight: phase tree — {where} cannot be re-derived because "
+                f"{reason}, so `phases` is unverified and every `phase_index` "
+                "check reads an unchecked list"]
+    derived = [n.type for n in nodes]
+    if not isinstance(phases, list) or derived != phases:
+        return [f"highlight: phase tree — {where} gallery.json `phases` is "
+                f"{phases!r} but the sibling scenario YAML flattens to {derived!r}. "
+                "Regenerate the entry (scripts/add-gallery-entry.sh --update); the "
+                "denormalized list is what every `phase_index` check reads."]
+    return []
 
 
 def _check_persona_index(doc, personas, where):
@@ -713,7 +799,7 @@ def _check_persona_index(doc, personas, where):
 
 
 def check_content(doc, entry, blocklist, where, personas, allowed_model_ids,
-                  yaml_has_conditional):
+                  phase_tree):
     """Every rule derivable from the highlight doc + its index entry.
 
     Shared by the extractor (fail-fast) and the gate (enforcement). Excludes
@@ -731,8 +817,8 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids,
 
     `personas` is ``_read_persona_names``'s `(names, reason)` pair;
     `allowed_model_ids` is ``registry_model_ids`` ∪ ``RETIRED_MODEL_IDS``;
-    `yaml_has_conditional` is ``scenario_declares_conditional``'s tri-state read
-    of the sibling YAML (`None` = unreadable). All three are required rather
+    `phase_tree` is ``flatten_phase_tree``'s `(nodes, reason)` pair over the
+    sibling YAML (`nodes is None` = unreadable). All three are required rather
     than defaulted, so a caller cannot skip a check by omission — the gate is
     the only place any of these failures would surface.
     """
@@ -742,7 +828,8 @@ def check_content(doc, entry, blocklist, where, personas, allowed_model_ids,
     failures += _check_source_model(doc, allowed_model_ids, where)
     failures += _check_yaml_hook_secret(doc, where)
     failures += _check_yaml_hook_fragment(doc, where)
-    failures += _check_position(doc, entry, where, yaml_has_conditional)
+    failures += _check_phase_tree(entry, phase_tree, where)
+    failures += _check_position(doc, entry, where, phase_tree)
     failures += check_blocklist(doc, blocklist, where)
     return failures
 
@@ -759,9 +846,9 @@ def _read_scenario(yaml_path):
     """-> the parsed sibling scenario YAML, or None if it cannot be read.
 
     Separate from `_read_persona_names`, which parses the same file again: that
-    one returns names plus a *reason* string its failure text needs, while the
-    conditional refusal wants the document itself and has only a tri-state to
-    report through. Same catch set, so the two agree on what "unreadable" means.
+    one returns names, while ``flatten_phase_tree`` wants the document itself
+    and derives the whole phase tree from it. Same catch set, so the two agree
+    on what "unreadable" means.
     """
     if yaml is None:
         return None
@@ -893,9 +980,9 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
         yaml_path = os.path.join(gallery_dir, os.path.basename(entry.get("yaml_url", "")))
         personas = (None, f"the sibling scenario YAML {yaml_path} is missing")
         # Bound here, like `personas`, so the missing-YAML path below does not
-        # leave it unbound. `None` = cannot verify; that path already fails the
-        # highlight on the persona check, so it never ships unverified.
-        yaml_has_conditional = None
+        # leave it unbound. A `None` node list = cannot verify; that path already
+        # fails the highlight on the persona check, so it never ships unverified.
+        phase_tree = (None, f"the sibling scenario YAML {yaml_path} is missing")
         if not os.path.isfile(yaml_path):
             failures.append(
                 f"highlight: yaml_sha256 mismatch — id={entry_id} sibling YAML "
@@ -910,13 +997,12 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
                     f"YAML bytes hash to {yaml_sha}. Regenerate or delete the highlight "
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
             personas = _read_persona_names(yaml_path)
-            yaml_has_conditional = scenario_declares_conditional(
-                _read_scenario(yaml_path))
+            phase_tree = flatten_phase_tree(_read_scenario(yaml_path))
 
         failures += check_content(
             doc, entry, blocklist, where,
             personas=personas, allowed_model_ids=allowed_model_ids,
-            yaml_has_conditional=yaml_has_conditional)
+            phase_tree=phase_tree)
 
     for path in sorted(on_disk - referenced):
         rel = os.path.relpath(path, os.path.dirname(gallery_dir))

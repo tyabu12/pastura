@@ -388,7 +388,7 @@ def main():
     failures = ghv.check_content(
         doc, entry, blocklist, f"[{args.id}]",
         personas=(persona_names, None), allowed_model_ids=allowed_model_ids,
-        yaml_has_conditional=ghv.scenario_declares_conditional(scenario))
+        phase_tree=ghv.flatten_phase_tree(scenario))
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

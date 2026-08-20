@@ -52,6 +52,10 @@ expect_out()  { case "$OUT" in *"$1"*) PASS=$((PASS + 1));; *) bad "$2 (missing 
 # on 10 or on an error string containing a 1 — a substring match cannot assert
 # that a derived number is the RIGHT number.
 expect_eq()   { if [ "$OUT" = "$1" ]; then PASS=$((PASS + 1)); else bad "$2 (expected '$1', got '$OUT')"; fi; }
+# Asserts a message is ABSENT. Only meaningful next to an arm that proves the
+# same run reddens for something else — on its own it also "passes" when the
+# tool never ran at all.
+expect_no_out() { case "$OUT" in *"$1"*) bad "$2 (unexpected '$1'): $OUT";; *) PASS=$((PASS + 1));; esac; }
 
 # --- Scaffold --------------------------------------------------------------
 
@@ -138,6 +142,72 @@ YAML
   s="$(sha "$d/docs/gallery/$id.yaml")"
   jq --arg id "$id" --arg sha "$s" --argjson phases "$phases" \
      --argjson rounds "$rounds" \
+     '.scenarios += [{id: $id, title: ("T " + $id), rounds: $rounds,
+                      phases: $phases, language: "ja",
+                      yaml_url: ($id + ".yaml"), yaml_sha256: $sha}]' \
+     "$d/docs/gallery/gallery.json" > "$d/docs/gallery/gallery.json.tmp"
+  mv "$d/docs/gallery/gallery.json.tmp" "$d/docs/gallery/gallery.json"
+}
+
+# mk_scenario_tree <repo> <id> <tree-json> [rounds] [extra-personas]
+# Like mk_scenario, but `tree-json` mirrors the YAML `phases:` shape so a
+# `conditional`'s branches are real:
+#   '[{"type":"speak_each"},
+#     {"type":"conditional","then":[{"type":"summarize"}],
+#                           "else":[{"type":"speak_each"},{"type":"summarize"}]}]'
+# mk_scenario cannot express this — it writes `- type: X` lines only, so its
+# `conditional` has no branches at all and every branch-aware arm would be
+# measuring the empty case.
+#
+# The `phases` it denormalizes into gallery.json is flattened depth-first, the
+# order add-gallery-entry.sh's `flat()` writes. That copy is deliberate: a
+# fixture must be a known-good pair by construction, or a `flat()` regression
+# would redden every arm here instead of the one that measures it (T1).
+mk_scenario_tree() {
+  local d="$1" id="$2" tree="$3" rounds="${4:-4}" extra_personas="${5:-}"
+  cat > "$d/docs/gallery/$id.yaml" <<YAML
+id: $id
+language: ja
+name: Name of $id
+agents: 3
+rounds: $rounds
+description: card description
+personas:
+  - name: アヤ
+    description: aa
+YAML
+  if [ -n "$extra_personas" ]; then
+    printf '%b\n' "$extra_personas" >> "$d/docs/gallery/$id.yaml"
+  fi
+  local flat
+  flat="$(python3 - "$tree" "$d/docs/gallery/$id.yaml" <<'PY'
+import json, sys
+tree = json.loads(sys.argv[1])
+lines = []
+def emit(ps, ind):
+    for p in ps:
+        lines.append("%s- type: %s" % (" " * ind, p["type"]))
+        for br in ("then", "else"):
+            if br in p:
+                lines.append("%s  %s:" % (" " * ind, br))
+                emit(p[br], ind + 4)
+emit(tree, 2)
+with open(sys.argv[2], "a", encoding="utf-8") as f:
+    f.write("phases:\n" + "\n".join(lines) + "\n")
+def flat(ps):
+    out = []
+    for p in ps:
+        out.append(p["type"])
+        if p["type"] == "conditional":
+            for br in ("then", "else"):
+                out += flat(p.get(br) or [])
+    return out
+print(json.dumps(flat(tree)))
+PY
+)"
+  local s
+  s="$(sha "$d/docs/gallery/$id.yaml")"
+  jq --arg id "$id" --arg sha "$s" --argjson phases "$flat" --argjson rounds "$rounds" \
      '.scenarios += [{id: $id, title: ("T " + $id), rounds: $rounds,
                       phases: $phases, language: "ja",
                       yaml_url: ($id + ".yaml"), yaml_sha256: $sha}]' \
@@ -1110,6 +1180,94 @@ jq '.scenarios |= map(if .id == "cond_v1" then .phases = ["speak_each","summariz
 mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
 gate "$R"; expect_fail "C5 a drifted phases list cannot disable the refusal"
 expect_out "sibling scenario YAML" "C5 names the YAML as the source that caught it"
+
+# --- phase tree: flattening + gallery.json cross-check (#1473) -------------
+#
+# `gallery.json`'s `phases` is denormalized, and every check stated in terms of
+# `phase_index` reads it. Three implementations of the flattening exist —
+# add-gallery-entry.sh's `flat()` (which WRITES the field),
+# GallerySeedYAMLTests.flattenPhaseKinds (Swift), and
+# gallery_highlight_validate.flatten_phase_tree (which re-derives it here).
+#
+# T1 asserts the first against the third by running the REAL add-gallery-entry.sh.
+# The Swift copy cannot be asserted here: this suite runs in the ubuntu
+# `shell-tests` job with no Swift toolchain. It is pinned transitively instead —
+# `galleryPhasesMatchYAML` compares it against the same `gallery.json` field T1
+# compares against, so a divergence in any one of the three reddens somewhere.
+
+TREE_NESTED='[{"type":"speak_each"},{"type":"conditional","then":[{"type":"summarize"}],"else":[{"type":"speak_all"},{"type":"summarize"}]}]'
+
+# T1 — add-gallery-entry.sh's `flat()` and flatten_phase_tree agree on a nested
+# scenario. Asymmetric branches (1 vs 2) on purpose: with equal-length branches
+# a walker that ignored the then-branch length would still land on the right
+# index, so the arm would pass while measuring nothing.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" tree_v1 "$TREE_NESTED"
+cp "$SRC_SCRIPTS/add-gallery-entry.sh" "$R/scripts/"
+# Drop the fixture's own entry so the real script writes `phases` from scratch.
+jq '.scenarios = []' "$R/docs/gallery/gallery.json" > "$R/t" && mv "$R/t" "$R/docs/gallery/gallery.json"
+runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/tree_v1.yaml --non-interactive \
+  --category creative --description "card" --author tester \
+  --recommended-model gemma-4-e2b-q4-k-m --estimated-inferences 8
+expect_ok "T1 add-gallery-entry.sh accepts a nested-conditional scenario"
+runc "$R" python3 -c '
+import json, sys
+sys.path.insert(0, "scripts")
+import gallery_highlight_validate as ghv
+nodes, reason = ghv.flatten_phase_tree(ghv._read_scenario("docs/gallery/tree_v1.yaml"))
+assert nodes is not None, reason
+written = json.load(open("docs/gallery/gallery.json"))["scenarios"][0]["phases"]
+print("agree" if [n.type for n in nodes] == written else
+      "DIVERGE %r != %r" % ([n.type for n in nodes], written))'
+expect_eq "agree" "T1 flatten_phase_tree matches the phases add-gallery-entry.sh wrote"
+
+# T2 — a `phases` list that drifted from its YAML is caught at the gate. This is
+# the property C5 measured through the conditional refusal; it now has its own
+# check, so it survives the refusal being lifted.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" tree_v1 "$TREE_NESTED"
+jq '.scenarios |= map(if .id == "tree_v1" then .phases = ["speak_each","summarize"] else . end)' \
+  "$R/docs/gallery/gallery.json" > "$R/t" && mv "$R/t" "$R/docs/gallery/gallery.json"
+mk_highlight "$R" tree_v1 "$EX_OK"; link_highlight "$R" tree_v1
+gate "$R"; expect_fail "T2 a drifted phases list fails the tree cross-check"
+expect_out "highlight: phase tree" "T2 names the tree check"
+expect_out "the sibling scenario YAML flattens to" \
+  "T2 names the YAML as the source that caught it"
+
+# T3 — control for T2: the same fixture undrifted does NOT emit the tree message.
+# `gate` still reddens here (the conditional refusal is a separate check), so
+# expect_fail is the honest assertion and expect_no_out is what discriminates.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" tree_v1 "$TREE_NESTED"
+mk_highlight "$R" tree_v1 "$EX_OK"; link_highlight "$R" tree_v1
+gate "$R"; expect_no_out "highlight: phase tree" "T3 an undrifted phases list clears the tree check"
+
+# T4 — shapes the engine refuses are refused here too, so no fixture the loader
+# would reject can reach the position rule. One probe, with its own positive
+# control: a well-formed tree must still resolve, or a flattener broken outright
+# would "pass" both rejection arms.
+runc "$REAL_ROOT" python3 -c '
+import sys
+sys.path.insert(0, "scripts")
+import gallery_highlight_validate as ghv
+
+def reason(doc):
+    nodes, why = ghv.flatten_phase_tree(doc)
+    return "OK/%d" % len(nodes) if nodes is not None else why
+
+# positive control — a legal one-branch conditional resolves (3 nodes)
+print(reason({"phases": [{"type": "conditional", "else": [{"type": "speak_all"}]},
+                         {"type": "summarize"}]}))
+# neither branch populated (ScenarioValidator requires at least one)
+print(reason({"phases": [{"type": "conditional"}]}))
+print(reason({"phases": [{"type": "conditional", "then": [], "else": []}]}))
+# nested conditional (the depth-1 rule)
+print(reason({"phases": [{"type": "conditional",
+                          "then": [{"type": "conditional",
+                                    "then": [{"type": "speak_all"}]}]}]}))'
+expect_out "OK/3" "T4 control: a legal one-branch conditional flattens"
+expect_out "populates neither" "T4 a branchless conditional is refused"
+expect_out "depth-1 rule" "T4 a nested conditional is refused"
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
