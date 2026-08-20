@@ -18,14 +18,14 @@
 # Caller passthrough / flag override:
 #
 # Subcommand maps directly to xcodebuild's; remaining args forward
-# verbatim via "$@". xcodebuild honors the last value for many repeated
-# single-value flags, so caller passthrough wins on duplicates (e.g.
-# override the destination: `... test -destination 'platform=iOS Simulator,name=...'`).
-# Note: `-scheme`, `-project`, and `-derivedDataPath` are exceptions —
-# xcodebuild rejects duplicates with `error: option 'X' may only be
-# provided once`. Re-pass only `-destination` from the wrapper-supplied
-# set; see `.claude/rules/xcodebuild-cli.md` §"Re-passing wrapper-supplied
-# flags" for the full table.
+# verbatim via "$@". The wrapper supplies `-scheme`, `-project`,
+# `-derivedDataPath` and `-destination` itself, and re-passing any of them is
+# now REJECTED up front rather than documented — see the guard above
+# `case "$cmd"`, which carries the reason per flag. The one exception is
+# `-destination` on `build`, still accepted so the device compile-check recipe
+# works: `scripts/xcodebuild.sh build -destination 'generic/platform=iOS'
+# CODE_SIGNING_ALLOWED=NO`. To pin a single simulator for `test`, export
+# PASTURA_SIM_NAME.
 #
 # Mode-specific behavior:
 #
@@ -134,6 +134,46 @@ done
 # expansion mirrors `extra_flags` below — bare `"${arr[@]}"` would trip
 # `set -u` on macOS bash 3.2 when forwarded[] is empty.
 set -- ${forwarded[@]+"${forwarded[@]}"}
+
+# Reject flags the wrapper already supplies, BEFORE anything slow runs. Position
+# is load-bearing: below this point `test` sources sim-dest.sh, whose
+# concurrent-session gate polls for up to 900 s, so a rejection placed after it
+# would make the operator wait a quarter of an hour for a one-line message.
+#
+# `-scheme` / `-project` / `-derivedDataPath` — xcodebuild rejects duplicates
+# itself, but with `error: option '-X' may only be provided once` buried above a
+# 64-line usage page, which reads like a wrapper bug. Say it in one line instead.
+#
+# `-derivedDataPath=…` — the `=`-joined form is SILENTLY IGNORED (Xcode 15.4+),
+# so the build lands in the default ~/Library DerivedData while looking correct.
+# Rejecting it is the only way it is ever noticed. Checked for all three flags
+# since none of them accepts `=` here.
+#
+# `-destination` on `test` — multiple `-destination` are ADDITIVE, not
+# last-wins: the suite runs on the wrapper's simulator AND yours, and a failure
+# on either aborts the run. `build` must keep accepting it — the device
+# compile-check recipe below passes `generic/platform=iOS` on purpose.
+for _arg in "$@"; do
+  case "$_arg" in
+    -scheme|-project|-derivedDataPath)
+      echo "$_arg is supplied by this wrapper — drop it (xcodebuild accepts it only once)." >&2
+      exit 2
+      ;;
+    -scheme=*|-project=*|-derivedDataPath=*)
+      echo "${_arg%%=*} takes a SPACE-separated value; the \`=\` form is silently ignored." >&2
+      echo "  It is also supplied by this wrapper already — drop the flag." >&2
+      exit 2
+      ;;
+    -destination|-destination=*)
+      if [[ "$cmd" == "test" ]]; then
+        echo "-destination is additive for \`test\`: xcodebuild would run the suite on the" >&2
+        echo "  wrapper's simulator AND yours, and a failure on either aborts the run." >&2
+        echo "  To pin ONE simulator:  export PASTURA_SIM_NAME=\"iPhone 17 Pro Max\"" >&2
+        exit 2
+      fi
+      ;;
+  esac
+done
 
 case "$cmd" in
   test)
