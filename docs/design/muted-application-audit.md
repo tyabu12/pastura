@@ -574,9 +574,29 @@ hand — print them**, because four hand-written versions of that list were wron
 python3 scripts/check-measurement-transcripts.py --residue
 ```
 
-#1496 carries the open judgments. `ds/*.html` does not appear: it carries
-three-decimal ratios, but of a different population (ground-vs-ground contrast,
-per-channel pair gaps), none a copy of these pins.
+`ds/*.html` does not appear: it carries three-decimal ratios, but of a different
+population (ground-vs-ground contrast, per-channel pair gaps), none a copy of
+these pins.
+
+That list is no longer only *reported*. `--census` (#1496) holds its **shape** —
+per file and class, a line count, a distinct-value count and a digest — against a
+declaration in the checker, so a new copy is something someone classified rather
+than something nobody saw. It runs in CI's `shell-tests` only, never in the
+pre-commit gate, because it reads the working tree while that gate decides from
+the index. When it fires, run it and paste the block it prints; the message names
+which direction fired — a copy appeared, was added, was removed, or rotted (kept
+distinct from the pins having moved, which `--check` settles) — and opens by
+saying an addition to the inventory is not by itself a defect.
+
+Read what it claims at the width of the mechanism: the unclassified set cannot
+grow silently **within the suffixes it scans, at the pins' three-decimal
+spelling, and outside Swift block comments**. It classifies each line
+`code-comment`, `in-read-section`, or `argued`; the last is prose whose number
+carries the sentence, and **none of the three is a defect to drive to zero** —
+widening the compared blocks to swallow the second would put this guard in
+conflict with ADR-028 § "Where new amendment content goes". Derivation, and why
+one product-code copy was cut while this file's §1.1 / §2.1 / §6.2 prose stays:
+ADR-028 § Amendment 2026-08-20 (#1496).
 
 §5 is the one face that moved from that list into the gate, and it is checked
 **row by row**: each row's `light/dark` figures must equal the pin its own
