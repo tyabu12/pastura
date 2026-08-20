@@ -105,6 +105,13 @@ def read_transcript(path):
                 run_start = obj
     if run_start is None:
         die(f"no run_start line in {path} — is this a pastura-harness transcript?")
+    # Checked here rather than where it first breaks: `build_excerpt`'s
+    # `max(...)` over the attempt numbers raises a bare `ValueError` on an empty
+    # iterable, which reaches the curator as a traceback instead of one of this
+    # tool's named failures.
+    if not any(o.get("type") == "event" for o in lines.values()):
+        die(f"no event lines in {path} — the transcript carries a run_start but "
+            "no events, so no line is excerpt-eligible")
     return lines, run_start
 
 
@@ -147,9 +154,6 @@ def annotate(lines, nodes):
             by_top[node.top] = flat_idx
         else:
             by_branch[(node.top, node.branch, node.inner)] = flat_idx
-    branch_len = collections.Counter(
-        (n.top, n.branch) for n in nodes if n.branch is not None)
-
     context, round_no, phase_idx = {}, None, None
     pending_branch = None   # (top, "then"/"else") from the last conditional_evaluated
     open_conditional = None  # top-level index of the conditional currently in flight
@@ -224,7 +228,8 @@ def annotate(lines, nodes):
                     die(f"phase_path unknown — line {lineno} `phase_path` {path} "
                         f"names position {inner} "
                         f"of the `{branch}` branch at top-level phase {top}, which "
-                        f"has {branch_len[(top, branch)]} phase(s). The transcript "
+                        f"has {sum(1 for n in nodes if (n.top, n.branch) == (top, branch))} "
+                        "phase(s). The transcript "
                         "and the pinned YAML disagree — check that the run used "
                         "this exact scenario file.")
                 phase_idx = by_branch[key]

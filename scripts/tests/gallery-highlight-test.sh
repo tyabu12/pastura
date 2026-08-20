@@ -158,8 +158,9 @@ YAML
 #     {"type":"conditional","then":[{"type":"summarize"}],
 #                           "else":[{"type":"speak_each"},{"type":"summarize"}]}]'
 # mk_scenario cannot express this — it writes `- type: X` lines only, so its
-# `conditional` has no branches at all and every branch-aware arm would be
-# measuring the empty case.
+# `conditional` carries no branches, a shape `flatten_phase_tree` refuses
+# outright (asserted by T4). Such a fixture never reaches the branch-aware
+# logic at all; it is rejected before it, not measured as an empty case.
 #
 # The `phases` it denormalizes into gallery.json is flattened depth-first, the
 # order add-gallery-entry.sh's `flat()` writes. That copy is deliberate: a
@@ -684,7 +685,8 @@ expect_out "persona_index must be an integer" "H26b names the persona_index sche
 # H26c/H26d — the SCHEMA `persona_index` guards (`isinstance(…, bool)` and
 # `< 0`), which H26/H26b do not reach. Measured: dropping either clause from
 # `_check_excerpt_shape` reddens the matching arm here. (`_check_persona_index`'s
-# own skip is not a guard — dropping it leaves the suite green.)
+# own skip additionally keeps a `null`/omitted index from raising TypeError
+# there — measured; it is not merely a de-duplicator.)
 #
 # `True` IS an `int` in Python, so the agent here is ケン at index 1: with the
 # schema clause gone, `persona_names[True]` resolves and PASSES, rather than
@@ -1203,8 +1205,9 @@ TREE_HISSATSU='[{"type":"conditional",
   "else":[{"type":"speak_all"},{"type":"vote"},{"type":"score_calc"},{"type":"summarize"}]}]'
 EX_ELSE_BRANCH='[{"agent":"アヤ","round":1,"phase":"speak_all","phase_index":5,"source_field":"statement","text":"私はBだと思う。"}]'
 
-# C1 — the acceptance criterion: an else-branch pick passes the gate. This is
-# the arm that discriminates the branch-aware rule from the flat one. Under
+# C1 — the acceptance criterion: an else-branch pick passes the gate. An arm
+# that discriminates the branch-aware rule from the flat one — C3 covers the
+# same property end-to-end through the extractor, and both redden together. Under
 # `phases[:5]` the prefix is [conditional, speak_all, vote, score_calc,
 # summarize] and the pick is rejected; under the tree the else branch's own
 # preceding set is empty and it is sound. No --window-override (round 1 ≤ 1).
@@ -1515,8 +1518,8 @@ mk_highlight "$R" cond_v1 \
 link_highlight "$R" cond_v1
 gate "$R"; expect_ok "C7b the same shape with clean branches passes"
 
-# C8 — the round-window arms now run for a conditional entry. The class refusal
-# returned before reaching them, so nothing has ever exercised this pairing.
+# C8 — the round-window arms run for a conditional entry, which no other arm
+# pairs with a branch-resolved `phase_index`.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
 mk_highlight "$R" cond_v1 \
@@ -1536,7 +1539,10 @@ expect_out "highlight: round window" "C8 names the round window"
 #     H0 above covers that path deliberately). With the directory gone but
 #     `gallery.json` still carrying highlight_url, the validator runs and fails
 #     loudly; it is the both-gone case that would pass having checked nothing,
-#     and that is what the count guards. Count first.
+#     and that is what the count guards. Note the count asserts that highlight
+#     FILES exist, not that the validator examined an entry — files present with
+#     no paired `highlight_url` is caught by the orphan check (cf. H4), so
+#     non-vacuity rests on the count and `expect_ok` together. Count first.
 #     The `-d` test is not decoration: under this file's `set -euo pipefail` a
 #     `find` on a missing directory exits non-zero and would abort the suite
 #     before reaching the `bad` branch written for exactly that case.
@@ -1571,9 +1577,11 @@ expect_eq "$HL_STATUS_BEFORE" "C9 the gate rewrote no shipped highlight"
 TREE_NESTED='[{"type":"speak_each"},{"type":"conditional","then":[{"type":"summarize"}],"else":[{"type":"speak_all"},{"type":"summarize"}]}]'
 
 # T1 — add-gallery-entry.sh's `flat()` and flatten_phase_tree agree on a nested
-# scenario. Asymmetric branches (1 vs 2) on purpose: with equal-length branches
-# a walker that ignored the then-branch length would still land on the right
-# index, so the arm would pass while measuring nothing.
+# scenario. Asymmetric branches (1 vs 2) on purpose, and for branch ORDER rather
+# than index arithmetic: this arm compares type lists, so with equal-length
+# identical branches a then/else emission-order swap would produce byte-identical
+# lists and go unnoticed. Measured: swapping the order in `flat()` reddens T1
+# alone.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" tree_v1 "$TREE_NESTED"
 cp "$SRC_SCRIPTS/add-gallery-entry.sh" "$R/scripts/"
@@ -1616,6 +1624,10 @@ R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" tree_v1 "$TREE_NESTED"
 mk_highlight "$R" tree_v1 "$EX_OK"; link_highlight "$R" tree_v1
 gate "$R"; expect_ok "T3 an undrifted nested scenario passes the gate"
+# Diagnostic, not a second discriminator: check-gallery-entry.sh surfaces the
+# validator's output only when it exits non-zero, so this string cannot appear
+# while the arm above is green. Its value is that when the fixture DOES redden,
+# a green line here says the tree check was not the cause.
 expect_no_out "highlight: phase tree" "T3 an undrifted phases list clears the tree check"
 
 # T4 — shapes the engine refuses are refused here too, so no fixture the loader

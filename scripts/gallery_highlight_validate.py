@@ -257,8 +257,8 @@ def _check_excerpt_shape(doc, where):
 def _persona_entries(parsed):
     """-> the entry list for either accepted persona-fragment shape, else None.
 
-    ADR-029 Decision 1 pins two: a bare block sequence of mappings (what both
-    shipped hooks use — PyYAML parses one at any indent without dedenting) or a
+    ADR-029 Decision 1 pins two: a bare block sequence of mappings (what every
+    shipped hook uses — PyYAML parses one at any indent without dedenting) or a
     `personas:`-keyed mapping holding one.
     """
     if isinstance(parsed, list):
@@ -425,9 +425,15 @@ def _check_yaml_hook_fragment(doc, where):
         # `RecursionError` is not a `YAMLError`, and PyYAML's parser recurses —
         # ~500 levels of nesting raises it here. Reported as unparseable (which
         # it effectively is) rather than escaping as a traceback.
+        # Whitespace-collapsed: PyYAML's `str(exc)` spans several lines (the
+        # snippet and its caret), and `check-gallery-entry.sh` calls `fail` once
+        # per output line — so the raw form turns one parse error into four gate
+        # failures, three of them without the `highlight:` prefix this file's
+        # header promises every failure carries.
+        detail = " ".join(str(exc).split())
         return [
             f"highlight: yaml_hook fragment — {where} kind=persona but the fragment is "
-            f"not parseable YAML: {type(exc).__name__}: {exc}"]
+            f"not parseable YAML: {type(exc).__name__}: {detail}"]
 
     entries = _persona_entries(parsed)
     if not entries:
@@ -508,14 +514,23 @@ def _check_position(doc, entry, where, phase_tree):
     never runs the extractor), so a `phase_index` that names a different
     same-typed position than the utterance actually came from passes: the phase
     check still matches and the preceding set is then computed over the wrong
-    range. That exposure is not specific to `conditional` — it is live on flat
-    entries today (`hitsuji_kaigi_v1` / `ijin_kaigi_v1` are
+    range.
+
+    The exposure predates `conditional`: any flat entry with two same-typed
+    eligible phases has it — `hitsuji_kaigi_v1` / `ijin_kaigi_v1` are
     `[speak_each, reflect, speak_each, choose, speak_each, summarize]`, where
-    labelling a post-`choose` utterance `phase_index: 0` passes). Truth is
-    anchored upstream instead: the extractor derives the index from the
-    transcript, and ADR-029 Decision 2 requires human sign-off. Narrowing only
-    the conditional arm of this would close nothing and cost real rejections —
-    do not add it (#1473).
+    labelling a post-`choose` utterance `phase_index: 0` passes. Neither carries
+    a highlight, and each of the six that do has exactly one eligible phase
+    type, so no shipped highlight can express it — latent there, not live.
+
+    A conditional makes it **more** reachable, not equal: `hissatsu_naming_v1`'s
+    two branches are type-identical, so index 1 and 5 are indistinguishable here
+    by construction rather than by coincidence. Adding a conditional-only check
+    is still the wrong answer — applied consistently the same principle unions
+    every same-typed position and empties `hitsuji_kaigi`'s eligible set — but
+    it is a real widening, not a null one. The guard is elsewhere: the extractor
+    derives the index from the transcript, and ADR-029 Decision 2 requires human
+    sign-off on each excerpt (#1473).
     """
     failures = []
     phases = entry.get("phases")
@@ -813,9 +828,12 @@ def _check_persona_index(doc, personas, where):
         loc = f"{where} excerpt[{i}]"
         idx = ex.get("persona_index")
         if not isinstance(idx, int) or isinstance(idx, bool) or idx < 0:
-            # NOT a guard — `_check_excerpt_shape` already fails all of these
-            # (measured: removing this line leaves the suite green). It only
-            # avoids double-reporting. Do not describe it as catching anything.
+            # Skips the shapes `_check_excerpt_shape` already reports, so they
+            # are not double-reported — but it is ALSO load-bearing: without the
+            # `isinstance(idx, int)` test a `null` or omitted index reaches
+            # `idx >= len(persona_names)` and raises `TypeError`, which escapes
+            # `check_content` and `validate_repo` so the gate prints a traceback
+            # instead of the accumulated failure list. Do not remove it.
             continue
         agent = ex.get("agent")
         if idx >= len(persona_names):
@@ -830,7 +848,8 @@ def _check_persona_index(doc, personas, where):
         elif idx >= 0 and persona_names.index(agent) != idx:
             # Name-match alone is too weak when a scenario declares the same
             # name twice: either index would satisfy it, while the app resolves
-            # the slot with `firstIndex(of:)` and so uses the first. Requiring
+            # the slot with `firstIndex { $0.name == agent }` and so uses the
+            # first (`SimulationView.personaItem(for:)`). Requiring
             # the first keeps the excerpt's colours equal to the run's.
             failures.append(
                 f"highlight: persona_index — {loc}.persona_index={idx} is a later "
@@ -912,20 +931,18 @@ def _read_persona_names(yaml_path):
 
     The reason travels back so the failure text can name the actual cause: on a
     machine without PyYAML the fix is an install, and a message blaming the YAML
-    would send the curator to the wrong file. `RecursionError` is caught
-    alongside `YAMLError` for the reason the sibling checks here document — it
-    is not a `YAMLError`, so deep nesting escapes as a traceback otherwise.
+    would send the curator to the wrong file.
+
+    Reads through ``_read_scenario`` rather than parsing again. The two used to
+    carry identical read-and-catch bodies with a docstring apiece pinning "same
+    catch set" as a hand-maintained invariant — which is the drift they exist to
+    prevent: adding a catch to one and not the other would make the two checks
+    disagree about why the same file is unreadable, sending the curator to the
+    wrong file. Delegating also halves the parses per highlighted entry.
     """
-    if yaml is None:
-        return None, ("PyYAML is not installed, so the sibling scenario YAML "
-                      "cannot be parsed (python3 -m pip install 'pyyaml>=6,<7')")
-    try:
-        with open(yaml_path, encoding="utf-8") as f:
-            parsed = yaml.safe_load(f)
-    except (OSError, UnicodeDecodeError) as exc:
-        return None, f"the sibling scenario YAML could not be read ({exc})"
-    except (yaml.YAMLError, RecursionError) as exc:
-        return None, f"the sibling scenario YAML does not parse ({type(exc).__name__})"
+    parsed, reason = _read_scenario(yaml_path)
+    if reason is not None:
+        return None, reason
     names = scenario_persona_names(parsed)
     if names is None:
         return None, ("the sibling scenario YAML has no `personas:` list of "
