@@ -47,11 +47,26 @@ transcript from an unchecked copy, and being value-keyed it hits only copies
 still in **sync** — going quiet on exactly the rotted copy it was wanted for
 (ADR-028 § "A count mirror that a count-keyed sweep structurally cannot find").
 
+**`--census` is not that grep, and withdraws none of the paragraph above.** It
+compares no figures to each other. It holds the *shape* of the unguarded set —
+per file, per class, a line count, a distinct-value count and a digest — against
+a declaration, so classifying a new copy is a decision someone makes rather than
+an omission nobody sees. It still cannot tell a checked transcript from an
+unchecked one, and it still goes quiet on a copy that rotted in step with the
+pins. What it buys is narrower than the word "census" sounds: the unclassified
+set cannot grow silently **within the suffixes `RESIDUE_SUFFIXES` scans, at the
+pinned three-decimal form, and outside Swift block comments**. A copy in an
+unscanned file type or written at shorter precision is not seen at all, and
+`swift_comment_spans`'s string-literal gap can put a Swift line in the wrong
+list in either direction.
+
 It reads **blocks, not sections** — the anchored tables, the §5 site tables, and
 the one block per span section that names the fixture. So a figure restated in
-prose a few lines away stays hand-kept. **That list is printed, not maintained
-here** — `--residue`; four hand-written versions of it were wrong. #1496 carries
-the open judgments, and the ledger section above has the report's caveats.
+prose a few lines away stays hand-kept; the census calls that `in-read-section`
+rather than `argued`, and neither class is a defect to be driven to zero.
+**That list is printed, not maintained here** — `--residue`; four hand-written
+versions of it were wrong. Why each class stays hand-kept is on the census
+section below (#1496); the ledger section above has the report's caveats.
 
 Trigger paths live in `scripts/measurement-transcript-precommit-gate.sh`. That
 regex and this module's `*_PATH` constants are **two lists that can drift** — a
@@ -88,9 +103,11 @@ DESIGN_SYSTEM_PATH = Path("docs/design/design-system.md")
 GATE_PATH = Path("scripts/measurement-transcript-precommit-gate.sh")
 CHECKER_PATH = Path("scripts/check-measurement-transcripts.py")
 
-# Every path this module reads, plus its own — `CHECKER_PATH` is never read and
-# `GATE_PATH` only under `--self-test`; both are listed because editing either
-# must re-run the gate. `--self-test` asserts the gate's `TRIGGER` covers them.
+# Every path this module reads **in `--check`**, plus its own — `CHECKER_PATH` is
+# never read and `GATE_PATH` only under `--self-test`; both are listed because
+# editing either must re-run the gate. `--self-test` asserts the gate's `TRIGGER`
+# covers them. `--census` reads far more than this — every tracked file — which is
+# why it is not run from the gate at all; the gate's header has that decision.
 INPUT_PATHS = (
     FIXTURE_PATH,
     LEDGER_PATH,
@@ -1067,10 +1084,12 @@ def collect(
 
 # --- the residue report (#1496) ---------------------------------------------
 #
-# `--residue` enumerates the figures this gate does NOT reach. It is code rather
-# than prose because four hand-written versions of that list were wrong, each
-# differently. Report-only: it never fails, is not wired into the gate, and is
-# the one thing here that shells out to git.
+# `--residue` enumerates the figures this gate does NOT reach; `--census` below
+# fails when that enumeration moves. Both are code rather than prose because four
+# hand-written versions of the list were wrong, each differently. `--residue`
+# fails only on a broken anchor, never on a finding. Neither is wired into the
+# local pre-commit gate: they are the two modes that shell out to git
+# (`scan_tree`), and the gate's header says why that keeps them out of it.
 
 # An ALLOWLIST — every other suffix, and every extensionless tracked file, is
 # skipped. The distinct skipped suffixes are printed for that reason, so a new
