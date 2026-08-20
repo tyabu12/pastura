@@ -1097,9 +1097,9 @@ jobs:
       # --census (#1496), which runs ONLY here: it reads the whole tracked tree,
       # so no staged-path TRIGGER can cover it and the pre-commit gate would be
       # judging the working tree from an index-based decision. For a copy
-      # written at the pins' three-decimal spelling in any readable tracked
-      # file, this step is the only thing between it and main; a restatement at
-      # shorter precision is not checked anywhere. Do not path-gate it.
+      # written at the pins' three-decimal spelling in any tracked file, this
+      # step is the only thing between it and main; a restatement at shorter
+      # precision is not checked anywhere. Do not path-gate it.
       - name: Measurement transcript check
         run: |
           python3 scripts/check-measurement-transcripts.py --self-test

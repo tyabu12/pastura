@@ -55,12 +55,14 @@ an omission nobody sees. It still cannot tell a checked transcript from an
 unchecked one, and it still goes quiet on a copy that rotted in step with the
 pins. What it buys is narrower than the word "census" sounds, so state the
 bounds rather than footnote them: **no copy written at the pins' three-decimal
-spelling can enter a readable tracked file without this failing** — inside
+spelling can enter a tracked file without this failing** — inside
 `RESIDUE_SUFFIXES` it must be classified and declared, outside it is reported as
-unclassified. Two gaps are left, and they are the whole of what green does not
-cover: a file that does not decode as UTF-8 (binaries, by construction carrying
-no prose copy), and a figure restated at **shorter precision**, which is not the
-same string and is not looked for.
+unclassified, and a file the scan cannot read is reported too rather than
+skipped. Two gaps are left, and they are the whole of what green does not cover:
+a figure restated at **shorter precision**, which is a different string and is
+not looked for; and a file outside the classified suffixes that does not decode
+as UTF-8, which by construction holds no prose copy. Both are named at the
+failure text, not only here.
 
 In Swift there is a third bound, on classification rather than on reach: on a
 given line, a figure with any occurrence *outside* every comment span is an
@@ -1166,16 +1168,54 @@ def swift_comment_spans(text: str) -> dict[int, list[tuple[int, int]]]:
 PIN_BOUNDARY = r"(?<![0-9.])%s(?![0-9])"
 
 
+def outside_read_failure_is_silent(exc: BaseException) -> bool:
+    """Is this read failure expected for a file OUTSIDE the classified suffixes?
+
+    Only a decode failure is: a non-text file carries no prose copy. Everything
+    else — missing from the working tree (which is what `--census` judges),
+    permission-denied, a directory or gitlink — is a file that COULD hold a copy
+    and that the scan did not see, so it is reported. These were one `except`
+    clause until #1496's review measured a `chmod 000` passing silently.
+    """
+    return isinstance(exc, UnicodeDecodeError)
+
+
 def pin_positions(value: str, line: str) -> list[int]:
     """Where `value` occurs in `line` as a figure in its own right.
 
-    Bounded on both sides, so a pin is not matched inside a LONGER number: the
-    App Store badge SVGs carry `12.41351`, `-4.15206`, `2.69336` and `23.91992`
-    in their path data, and a plain substring test reads all four as copies of
-    pins (#1496 review). Nothing shipped depends on the looser rule — switching
-    to this one left the inventory byte-identical, and took the out-of-scan hit
-    count from six to zero.
+    Bounded on both sides, so a pin is not matched inside a LONGER number. The
+    motivating habitat is SVG path data, where coordinate runs embed a pin
+    between other digits; a plain substring test read six of those as copies.
+
+    **The two bounds are not equally corroborated by that habitat, and the arms
+    say so.** Every SVG case has digits on BOTH sides, so either bound alone
+    rejects all six — measured, and both one-sided variants also left the
+    self-test fully green until an arm was added for each. The right bound is
+    what the habitat needs (right-only still scores zero out-of-scan hits;
+    left-only scores three). The left bound is kept for the case the habitat
+    does not contain: a pin at the END of a longer number.
+
+    Asymmetric on purpose: the lookbehind rejects a preceding `.` but the
+    lookahead permits a following one, so a sentence that ENDS on a figure —
+    full stop immediately after it — still matches, while a dotted version
+    string carrying the figure as its last component does not. A full-width-digit
+    restatement is not matched either. (None of those is written out here with a
+    real pin in it: doing so opens an `argued` face on this module, which is what
+    the paragraph above is about, and it happened three times while #1496 was
+    being reviewed.)
+
+    Switching from substring left the classified inventory unchanged, and the two
+    rules still agree on every line of the tree — re-derive rather than trust
+    that, since it is a property of today's prose, not of the rules. It held only
+    after the habitat examples here were rewritten without literals: spelled out,
+    they were a line where the rules DID differ, i.e. an `argued` face on this
+    module that only the bounded rule was suppressing.
     """
+    if value not in line:
+        # Fast reject. `finditer` on every pin for every line of every tracked
+        # file cost ~14x the substring scan it replaced; this restores it with
+        # byte-identical results, since the bounded match is a strict subset.
+        return []
     return [m.start() for m in re.finditer(PIN_BOUNDARY % re.escape(value), line)]
 
 
@@ -1364,7 +1404,9 @@ def scan_tree() -> TreeScan:
             skipped[suffix] = skipped.get(suffix, 0) + 1
             try:
                 outside_text = (REPO_ROOT / name).read_text(encoding="utf-8")
-            except (OSError, UnicodeDecodeError):
+            except (OSError, UnicodeDecodeError) as exc:
+                if not outside_read_failure_is_silent(exc):
+                    unreadable.append(name)
                 continue
             for lineno, line in enumerate(outside_text.splitlines(), start=1):
                 found = tuple(sorted({v for v in pool if pin_positions(v, line)}, key=float))
@@ -1566,16 +1608,25 @@ def census_problems(
             )
     for name in sorted(scan.unreadable):
         problems.append(
-            f"{name}: a classified suffix, but unreadable as UTF-8 — the census never saw "
-            "this file, so its claim does not cover it. Fix the file's encoding, or take its "
-            "suffix out of RESIDUE_SUFFIXES, where an undecodable file is expected and "
-            "carries no prose copy by construction."
+            f"{name}: tracked, but this scan could not read it — missing from the working "
+            "tree, permission-denied, not a regular file, or (inside the classified suffixes) "
+            "not valid UTF-8. The census never saw it, so its claim does not cover it. Fix or "
+            "untrack the file. Only ONE read failure is silent: an undecodable file OUTSIDE "
+            "the classified suffixes, which carries no prose copy by construction."
         )
-    for name, lineno, values in sorted(scan.outside):
+    outside_by_file: dict[str, list[int]] = {}
+    for name, lineno, _values in sorted(scan.outside):
+        outside_by_file.setdefault(name, []).append(lineno)
+    for name, linenos in sorted(outside_by_file.items()):
+        # One problem per FILE, not per line: a generated file with many hits
+        # would otherwise bury the paste-ready block under its own output.
+        shown = ", ".join(str(n) for n in linenos[:5])
+        more = f" (+{len(linenos) - 5} more)" if len(linenos) > 5 else ""
         problems.append(
-            f"{name}:{lineno}: a file type this scan does not classify carries "
-            f"{len(values)} pinned figure(s) — the copy is real but lands in no class. "
-            "Bring the suffix into RESIDUE_SUFFIXES and declare the face, or remove the copy."
+            f"{name}: a file type this scan does not classify carries a pinned figure on "
+            f"{len(linenos)} line(s) — {shown}{more}. The copy is real but lands in no "
+            "class. Bring the suffix into RESIDUE_SUFFIXES and declare the face, or remove "
+            "the copy."
         )
     return problems, observed
 
@@ -1653,10 +1704,11 @@ def census(scan: TreeScan | None = None) -> int:
     print(census_block(inventory), file=sys.stderr)
     print(
         "\nWhat this gate does and does not claim: it finds a pinned figure at its "
-        "three-decimal spelling in any readable tracked file — classified and declared "
-        "inside the suffixes it scans, reported as unclassified outside them. It does NOT "
-        "look for a figure restated at shorter precision, and in Swift it classifies only "
-        "figures inside comments. Classes: `code-comment` (in a Swift comment), "
+        "three-decimal spelling in any tracked file — classified and declared inside the "
+        "suffixes it scans, reported as unclassified outside them, reported also when it "
+        "cannot read the file. It does NOT look for a figure restated at shorter precision, "
+        "nor inside a file outside those suffixes that is not valid UTF-8; and in Swift it "
+        "classifies only figures inside comments. Classes: `code-comment` (in a Swift comment), "
         "`in-read-section` (inside a section the gate reads but outside the block it "
         "compares), `argued` (prose where the figure carries the sentence). None of the "
         "three is a defect to drive to zero. Derivation: ADR-028 § Amendment 2026-08-20 "
@@ -2948,12 +3000,12 @@ def self_test() -> int:
     # type. Folding the two together made the census advise widening
     # RESIDUE_SUFFIXES for a suffix already in it.
     expect(
-        "census: an unreadable classified file is reported as itself, not as a file type",
+        "census: a file the scan could not read is reported as itself, not as a file type",
         lambda: [
             pr.split(" — ")[0]
             for pr in census_says(census_scan._replace(unreadable=("docs/face.md",)))
         ],
-        ["docs/face.md: a classified suffix, but unreadable as UTF-8"],
+        ["docs/face.md: tracked, but this scan could not read it"],
     )
     rotted = census_scan._replace(
         files=[
@@ -2986,7 +3038,7 @@ def self_test() -> int:
             pr.split(" — ")[0]
             for pr in census_says(census_scan._replace(outside=(("web/x.svg", 4, ("9.111",)),)))
         ],
-        ["web/x.svg:4: a file type this scan does not classify carries 1 pinned figure(s)"],
+        ["web/x.svg: a file type this scan does not classify carries a pinned figure on 1 line(s)"],
     )
     # The negative control, and the whole point of replacing the suffix
     # declaration: a new file type that carries NO copy must be silent. Under
@@ -2998,13 +3050,35 @@ def self_test() -> int:
     )
     # Boundary control for `pin_positions`: a pin embedded in a longer number is
     # not a copy. Real instance — SVG path data (#1496 review).
+    # One case per BOUND, because either bound alone rejects the both-sides case
+    # and so a two-sided rule cannot be told from a one-sided one by that case:
+    # both one-sided variants passed the whole suite until these arms existed
+    # (#1496 review). `19.111` is rejected only by the lookbehind, `9.1115` only
+    # by the lookahead, and the last case must still MATCH or the rule is inert.
     expect(
-        "census: a pin embedded in a longer number is not a hit",
+        "census: a pin embedded in a longer number is not a hit, on either side",
         lambda: (
-            pin_positions("9.111", "d=\"M1,1c19.1115,2\""),
+            pin_positions("9.111", 'd="M1,1c19.1115,2"'),
+            pin_positions("9.111", "coords 19.111 here"),
+            pin_positions("9.111", "coords 9.1115 here"),
             pin_positions("9.111", "the ratio is 9.111 on page"),
         ),
-        ([], [13]),
+        ([], [], [], [13]),
+    )
+    # The silent/reported split for a read failure outside the classified
+    # suffixes. A `chmod 000` file passed silently until this was separated.
+    expect(
+        "census: only a decode failure is silent outside the classified suffixes",
+        lambda: [
+            outside_read_failure_is_silent(exc)
+            for exc in (
+                UnicodeDecodeError("utf-8", b"\xff", 0, 1, "bad"),
+                FileNotFoundError(2, "No such file"),
+                PermissionError(13, "Permission denied"),
+                IsADirectoryError(21, "Is a directory"),
+            )
+        ],
+        [True, False, False, False],
     )
     expect_raises(
         "census: a mistyped class in the declaration raises rather than reading as a vanished face",

@@ -591,9 +591,11 @@ saying an addition to the inventory is not by itself a defect.
 Read what it claims at the width of the mechanism — the operative statement is
 the checker's module docstring, which is what CI runs and what its failure text
 prints; this is a summary of it. **No copy written at the pins' three-decimal
-spelling reaches a readable tracked file without this failing**: inside the
-suffixes it scans the copy must be classified and declared, outside them it is
-reported as unclassified. The one gap is a figure restated at shorter precision.
+spelling reaches a tracked file without this failing**: inside the suffixes it
+scans the copy must be classified and declared, outside them it is reported as
+unclassified, and a file the scan cannot read is reported rather than skipped.
+Two gaps: a figure restated at shorter precision, and a file outside the
+classified suffixes that is not valid UTF-8.
 In Swift, classification covers figures inside comments only — a pin with any
 occurrence outside every comment span is a guard, and that occurrence is not
 inventoried; the split is per occurrence, so one line can contribute to both. It classifies each line
