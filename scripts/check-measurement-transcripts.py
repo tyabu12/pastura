@@ -47,11 +47,43 @@ transcript from an unchecked copy, and being value-keyed it hits only copies
 still in **sync** — going quiet on exactly the rotted copy it was wanted for
 (ADR-028 § "A count mirror that a count-keyed sweep structurally cannot find").
 
+**`--census` is not that grep, and withdraws none of the paragraph above.** It
+compares no figures to each other. It holds the *shape* of the unguarded set —
+per file, per class, a line count, a distinct-value count and a digest — against
+a declaration, so classifying a new copy is a decision someone makes rather than
+an omission nobody sees. It still cannot tell a checked transcript from an
+unchecked one, and it still goes quiet on a copy that rotted in step with the
+pins. What it buys is narrower than the word "census" sounds, so state the
+bounds rather than footnote them: **no copy written at the pins' three-decimal
+spelling can enter a tracked file without this failing** — inside
+`RESIDUE_SUFFIXES` it must be classified and declared, outside it is reported as
+unclassified, and a file the scan cannot read is reported too rather than
+skipped. Two gaps are left, and they are the whole of what green does not cover:
+a figure restated at **shorter precision**, which is a different string and is
+not looked for; and a file outside the classified suffixes that does not decode
+as UTF-8, which by construction holds no prose copy. Both are named at the
+failure text, not only here.
+
+In Swift there is a third bound, on classification rather than on reach: on a
+given line, a figure with any occurrence *outside* every comment span is an
+executed assertion — a guard — and that occurrence is not inventoried. The split
+is per occurrence, not per line, so one line can feed both lists; `//`, `///`
+and `/* … */` are one case here, not two; and `swift_comment_spans`'s
+string-literal gap can put a Swift line in the wrong list in either direction.
+
+Matching is bounded on both sides (`pin_positions`), so a pin inside a longer
+number is not a copy — without that, SVG path data reads as six copies. No
+example is spelled out with a real pin in it: that is what would give this
+module its own `argued` row, and the census caught exactly that during #1496's
+review-fix, in its own habitat.
+
 It reads **blocks, not sections** — the anchored tables, the §5 site tables, and
 the one block per span section that names the fixture. So a figure restated in
-prose a few lines away stays hand-kept. **That list is printed, not maintained
-here** — `--residue`; four hand-written versions of it were wrong. #1496 carries
-the open judgments, and the ledger section above has the report's caveats.
+prose a few lines away stays hand-kept; the census calls that `in-read-section`
+rather than `argued`, and neither class is a defect to be driven to zero.
+**That list is printed, not maintained here** — `--residue`; four hand-written
+versions of it were wrong. Why each class stays hand-kept is on the census
+section below (#1496); the ledger section above has the report's caveats.
 
 Trigger paths live in `scripts/measurement-transcript-precommit-gate.sh`. That
 regex and this module's `*_PATH` constants are **two lists that can drift** — a
@@ -63,16 +95,20 @@ Usage:
     python3 scripts/check-measurement-transcripts.py --self-test
     python3 scripts/check-measurement-transcripts.py --check
     python3 scripts/check-measurement-transcripts.py --residue   # report-only
+    python3 scripts/check-measurement-transcripts.py --census    # CI only
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
+import io
 import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import NoReturn
+from typing import NamedTuple, NoReturn
 
 # Repo-relative for display; `_read` resolves against the repo root so a run from
 # a subdirectory reads the right files instead of raising.
@@ -84,9 +120,11 @@ DESIGN_SYSTEM_PATH = Path("docs/design/design-system.md")
 GATE_PATH = Path("scripts/measurement-transcript-precommit-gate.sh")
 CHECKER_PATH = Path("scripts/check-measurement-transcripts.py")
 
-# Every path this module reads, plus its own — `CHECKER_PATH` is never read and
-# `GATE_PATH` only under `--self-test`; both are listed because editing either
-# must re-run the gate. `--self-test` asserts the gate's `TRIGGER` covers them.
+# Every path this module reads **in `--check`**, plus its own — `CHECKER_PATH` is
+# never read and `GATE_PATH` only under `--self-test`; both are listed because
+# editing either must re-run the gate. `--self-test` asserts the gate's `TRIGGER`
+# covers them. `--census` reads far more than this — every tracked file — which is
+# why it is not run from the gate at all; the gate's header has that decision.
 INPUT_PATHS = (
     FIXTURE_PATH,
     LEDGER_PATH,
@@ -158,6 +196,25 @@ LEDGER_5_TABLE = re.compile(r"^\|\s*Site \(file · symbol\)\s*\|")
 LEDGER_5_GROUND_CELL = 1
 LEDGER_5_RATIO_CELL = 2
 LEDGER_5_CELLS = 5
+
+# The six anchored sections the gate reads, as `(path, start, terminator)`. The
+# tree scan needs them twice — once for the block-level read index it subtracts,
+# once for the section spans the census classifies against — so they are named
+# here rather than spelled twice at the two call sites.
+#
+# **Every entry is markdown.** That is what makes the census's two mechanical
+# classes disjoint by construction: a `.swift` line can never fall inside a read
+# section, so `code-comment` and `in-read-section` cannot both apply. A
+# self-test arm asserts it, because adding a Swift face here would silently make
+# the classification order load-bearing.
+READ_FACES: tuple[tuple[Path, "re.Pattern[str]", "re.Pattern[str]"], ...] = (
+    (LEDGER_PATH, LEDGER_31, NEXT_SUBSECTION),
+    (LEDGER_PATH, LEDGER_32, NEXT_SUBSECTION),
+    (LEDGER_PATH, LEDGER_5, NEXT_SECTION),
+    (ADR_PATH, ADR_WASHES, NEXT_SECTION),
+    (ADR_PATH, ADR_SPAN, NEXT_SECTION),
+    (DESIGN_SYSTEM_PATH, DESIGN_SYSTEM_8, NEXT_SECTION),
+)
 
 # §5's `light/dark` vocabulary — **eight** forms over the shipped 94 rows,
 # enumerated from the ledger rather than assumed. Dispatch reads THIS cell and
@@ -1044,17 +1101,122 @@ def collect(
 
 # --- the residue report (#1496) ---------------------------------------------
 #
-# `--residue` enumerates the figures this gate does NOT reach. It is code rather
-# than prose because four hand-written versions of that list were wrong, each
-# differently. Report-only: it never fails, is not wired into the gate, and is
-# the one thing here that shells out to git.
+# `--residue` enumerates the figures this gate does NOT reach; `--census` below
+# fails when that enumeration moves. Both are code rather than prose because four
+# hand-written versions of the list were wrong, each differently. `--residue`
+# fails only on a broken anchor, never on a finding. Neither is wired into the
+# local pre-commit gate: they are the two modes that shell out to git
+# (`scan_tree`), and the gate's header says why that keeps them out of it.
 
-# An ALLOWLIST — every other suffix, and every extensionless tracked file, is
-# skipped. The distinct skipped suffixes are printed for that reason, so a new
-# `.astro` or `.css` copy cannot hide behind a bare count.
+# An ALLOWLIST for CLASSIFICATION, not for reach. Files with any other suffix
+# are still read and searched for pins (`scan_tree` -> `TreeScan.outside`); what
+# they do not get is a class and a declared face. So a `.astro` or `.css` copy
+# fails the census as UNCLASSIFIED rather than slipping past it. The skipped
+# suffix counts are printed as context, and are asserted on by nothing.
 RESIDUE_SUFFIXES = frozenset(
     {".md", ".swift", ".py", ".sh", ".yml", ".yaml", ".html", ".kt", ".txt"}
 )
+
+
+def swift_comment_spans(text: str) -> dict[int, list[tuple[int, int]]]:
+    """1-based line number -> comment column spans `(start, end)` (half-open).
+
+    Tracks `/* … */` depth **across lines** so a nested block comment
+    (`/* /* … */ … */`) closes only at its outer `*/`; at depth 0, `//` opens a
+    comment running to end of line. This is a scanner, not a lexer, and one gap
+    is retained rather than fixed: a `/*` or `//` sitting inside a Swift string
+    literal still opens a phantom comment span here, so a figure following it on
+    the same line can be misclassified as prose. A full lexer (string-literal
+    awareness, raw strings, interpolation) is out of proportion for a
+    report-only classifier — see `residue_rows`.
+    """
+    spans: dict[int, list[tuple[int, int]]] = {}
+    depth = 0
+    start_col = 0
+    for lineno, line in enumerate(text.splitlines(), start=1):
+        if depth > 0:
+            start_col = 0
+        i, n = 0, len(line)
+        while i < n:
+            two = line[i : i + 2]
+            if depth == 0:
+                if two == "//":
+                    spans.setdefault(lineno, []).append((i, n))
+                    i = n
+                elif two == "/*":
+                    depth = 1
+                    start_col = i
+                    i += 2
+                else:
+                    i += 1
+            else:
+                if two == "/*":
+                    depth += 1
+                    i += 2
+                elif two == "*/":
+                    depth -= 1
+                    i += 2
+                    if depth == 0:
+                        spans.setdefault(lineno, []).append((start_col, i))
+                else:
+                    i += 1
+        if depth > 0:
+            spans.setdefault(lineno, []).append((start_col, n))
+    return spans
+
+
+PIN_BOUNDARY = r"(?<![0-9.])%s(?![0-9])"
+
+
+def outside_read_failure_is_silent(exc: BaseException) -> bool:
+    """Is this read failure expected for a file OUTSIDE the classified suffixes?
+
+    Only a decode failure is: a non-text file carries no prose copy. Everything
+    else — missing from the working tree (which is what `--census` judges),
+    permission-denied, a directory or gitlink — is a file that COULD hold a copy
+    and that the scan did not see, so it is reported. These were one `except`
+    clause until #1496's review measured a `chmod 000` passing silently.
+    """
+    return isinstance(exc, UnicodeDecodeError)
+
+
+def pin_positions(value: str, line: str) -> list[int]:
+    """Where `value` occurs in `line` as a figure in its own right.
+
+    Bounded on both sides, so a pin is not matched inside a LONGER number. The
+    motivating habitat is SVG path data, where coordinate runs embed a pin
+    between other digits; a plain substring test read six of those as copies.
+
+    **The two bounds are not equally corroborated by that habitat, and the arms
+    say so.** Every SVG case has digits on BOTH sides, so either bound alone
+    rejects all six — measured, and both one-sided variants also left the
+    self-test fully green until an arm was added for each. The right bound is
+    what the habitat needs (right-only still scores zero out-of-scan hits;
+    left-only scores three). The left bound is kept for the case the habitat
+    does not contain: a pin at the END of a longer number.
+
+    Asymmetric on purpose: the lookbehind rejects a preceding `.` but the
+    lookahead permits a following one, so a sentence that ENDS on a figure —
+    full stop immediately after it — still matches, while a dotted version
+    string carrying the figure as its last component does not. A full-width-digit
+    restatement is not matched either. (None of those is written out here with a
+    real pin in it: doing so opens an `argued` face on this module, which is what
+    the paragraph above is about, and it happened three times while #1496 was
+    being reviewed.)
+
+    Switching from substring left the classified inventory unchanged, and the two
+    rules still agree on every line of the tree — re-derive rather than trust
+    that, since it is a property of today's prose, not of the rules. It held only
+    after the habitat examples here were rewritten without literals: spelled out,
+    they were a line where the rules DID differ, i.e. an `argued` face on this
+    module that only the bounded rule was suppressing.
+    """
+    if value not in line:
+        # Fast reject. `finditer` on every pin for every line of every tracked
+        # file cost ~14x the substring scan it replaced; this restores it with
+        # byte-identical results, since the bounded match is a strict subset.
+        return []
+    return [m.start() for m in re.finditer(PIN_BOUNDARY % re.escape(value), line)]
 
 
 def residue_rows(
@@ -1062,20 +1224,41 @@ def residue_rows(
 ) -> tuple[list[tuple[str, int, list[str]]], list[tuple[str, int, list[str]]]]:
     """`(prose, executed)` hits outside `read_index`, one row per line.
 
-    A non-comment line in a `.swift` file is an **executed assertion** — a guard
-    rather than a copy that can rot — so it is separated, not counted or dropped.
+    A `.swift` line's matched values are split by WHERE each value occurs, via
+    `swift_comment_spans`, not by the line's leading token: a value every one of
+    whose occurrences on that line falls inside a comment span is **prose** — a
+    copy that can rot; a value with at least one occurrence outside every
+    comment span is an **executed assertion** — a guard. A line with both kinds
+    appears in both lists, each with its own disjoint, `float`-sorted values.
+    Non-`.swift` files are unchanged: everything is prose.
     """
     prose: list[tuple[str, int, list[str]]] = []
     executed: list[tuple[str, int, list[str]]] = []
     for path, text in files:
+        is_swift = path.endswith(".swift")
+        comment_spans = swift_comment_spans(text) if is_swift else {}
         for i, line in enumerate(text.splitlines(), start=1):
             if (path, i) in read_index:
                 continue
-            found = sorted({v for v in pool if v in line}, key=float)
+            found = sorted({v for v in pool if pin_positions(v, line)}, key=float)
             if not found:
                 continue
-            is_code = path.endswith(".swift") and not line.lstrip().startswith("//")
-            (executed if is_code else prose).append((path, i, found))
+            if not is_swift:
+                prose.append((path, i, found))
+                continue
+            spans = comment_spans.get(i, [])
+            prose_values: list[str] = []
+            executed_values: list[str] = []
+            for v in found:
+                positions = pin_positions(v, line)
+                all_in_comment = all(
+                    any(s <= p and p + len(v) <= e for s, e in spans) for p in positions
+                )
+                (prose_values if all_in_comment else executed_values).append(v)
+            if prose_values:
+                prose.append((path, i, prose_values))
+            if executed_values:
+                executed.append((path, i, executed_values))
     return prose, executed
 
 
@@ -1126,7 +1309,61 @@ def gate_read_index(
     return index
 
 
-def _residue() -> int:
+class TreeScan(NamedTuple):
+    """One enumeration of the tracked tree, shared by `--residue` and `--census`.
+
+    `read_index` is block-granular (what the gate actually compares);
+    `section_index` is every line of the six anchored sections, which is coarser
+    and is what the census classifies against. Keeping both is what separates
+    #1496's judgment 4 (prose a few lines from a compared block) from its
+    judgment 2 (prose nowhere near one).
+    """
+
+    pool: set[str]
+    read_index: set[tuple[str, int]]
+    section_index: set[tuple[str, int]]
+    files: list[tuple[str, str]]
+    skipped: dict[str, int]
+    # Kept apart from `skipped` on purpose — see the `except` in `scan_tree`.
+    # Defaulted so the positional constructions in `--self-test` stay valid;
+    # a tuple rather than a list because a mutable NamedTuple default is shared.
+    unreadable: tuple[str, ...] = ()
+    # Pins found in files OUTSIDE `RESIDUE_SUFFIXES`. `skipped` counts those
+    # files; this says whether any of them actually carries a copy. The census
+    # asserts on this, never on the suffix names — see `census_problems`.
+    outside: tuple[tuple[str, int, tuple[str, ...]], ...] = ()
+
+
+def _faces_with_text() -> list[tuple[str, str, re.Pattern[str], re.Pattern[str]]]:
+    """`READ_FACES` with each face's file text attached, read once per path."""
+    texts: dict[str, str] = {}
+    faces: list[tuple[str, str, re.Pattern[str], re.Pattern[str]]] = []
+    for path, start, nxt in READ_FACES:
+        key = str(path)
+        if key not in texts:
+            texts[key] = _read(path)
+        faces.append((key, texts[key], start, nxt))
+    return faces
+
+
+def section_index_of(
+    faces: list[tuple[str, str, re.Pattern[str], re.Pattern[str]]],
+) -> set[tuple[str, int]]:
+    """`(path, 1-based line)` for every line inside an anchored read section.
+
+    Deliberately NOT `gate_read_index`: that one subtracts only what is
+    compared. The census needs the wider "inside a section the gate reads"
+    predicate, because that is the distinction judgment 4 turns on.
+    """
+    index: set[tuple[str, int]] = set()
+    for path, text, start, nxt in faces:
+        for i in _section_lines(text, start, nxt, path):
+            index.add((path, i + 1))
+    return index
+
+
+def scan_tree() -> TreeScan:
+    """Enumerate the tracked tree once. Raises `AnchorError`, never degrades."""
     fixture = _read(FIXTURE_PATH)
     pool = set(fixture_ratio_pins(fixture).values())
     for light, dark in fixture_wash_pins(fixture).values():
@@ -1134,19 +1371,9 @@ def _residue() -> int:
     brackets = _decl_block(fixture, BRACKET_DECL, str(FIXTURE_PATH))
     pool |= {canonical(m.group(2)) for m in SWIFT_RATIO_PIN.finditer(brackets)}
 
-    ledger, adr, design_system = _read(LEDGER_PATH), _read(ADR_PATH), _read(DESIGN_SYSTEM_PATH)
-    read_index = gate_read_index(
-        [
-            (str(LEDGER_PATH), ledger, LEDGER_31, NEXT_SUBSECTION),
-            (str(LEDGER_PATH), ledger, LEDGER_32, NEXT_SUBSECTION),
-            (str(LEDGER_PATH), ledger, LEDGER_5, NEXT_SECTION),
-            (str(ADR_PATH), adr, ADR_WASHES, NEXT_SECTION),
-            (str(ADR_PATH), adr, ADR_SPAN, NEXT_SECTION),
-            (str(DESIGN_SYSTEM_PATH), design_system, DESIGN_SYSTEM_8, NEXT_SECTION),
-        ],
-        str(FIXTURE_PATH),
-        fixture,
-    )
+    faces = _faces_with_text()
+    read_index = gate_read_index(faces, str(FIXTURE_PATH), fixture)
+    section_index = section_index_of(faces)
 
     try:
         listed = subprocess.run(
@@ -1154,27 +1381,56 @@ def _residue() -> int:
             capture_output=True, check=True,
         ).stdout.decode("utf-8").split("\0")
     except FileNotFoundError as exc:
-        raise AnchorError("residue: `git` is not on PATH — this mode enumerates tracked files.") from exc
+        raise AnchorError("tree scan: `git` is not on PATH — this mode enumerates tracked files.") from exc
     except subprocess.CalledProcessError as exc:
         raise AnchorError(
-            "residue: `git ls-files` failed — not a repository, or the index is unreadable. "
+            "tree scan: `git ls-files` failed — not a repository, or the index is unreadable. "
             f"git said: {exc.stderr.decode('utf-8', 'replace').strip()}"
         ) from exc
     files: list[tuple[str, str]] = []
     skipped: dict[str, int] = {}
+    unreadable: list[str] = []
+    outside: list[tuple[str, int, tuple[str, ...]]] = []
     for name in listed:
         if not name:
             continue
         suffix = Path(name).suffix or "(no suffix)"
         if Path(name).suffix not in RESIDUE_SUFFIXES:
+            # Outside the classified population, but NOT unexamined: read it and
+            # look for a pin. This replaces declaring the set of skipped suffix
+            # NAMES, which reddened on any new file type anywhere in the repo
+            # while never once looking at a byte of it (#1496 review). A type
+            # that cannot be decoded carries no prose copy by construction.
             skipped[suffix] = skipped.get(suffix, 0) + 1
+            try:
+                outside_text = (REPO_ROOT / name).read_text(encoding="utf-8")
+            except (OSError, UnicodeDecodeError) as exc:
+                if not outside_read_failure_is_silent(exc):
+                    unreadable.append(name)
+                continue
+            for lineno, line in enumerate(outside_text.splitlines(), start=1):
+                found = tuple(sorted({v for v in pool if pin_positions(v, line)}, key=float))
+                if found:
+                    outside.append((name, lineno, found))
             continue
         try:
             files.append((name, (REPO_ROOT / name).read_text(encoding="utf-8")))
         except (OSError, UnicodeDecodeError):
-            skipped[suffix] = skipped.get(suffix, 0) + 1
+            # NOT `skipped`: that bucket means "this suffix is outside
+            # RESIDUE_SUFFIXES". Folding an unreadable file in here made the
+            # census advise widening RESIDUE_SUFFIXES for a suffix already in
+            # it — self-contradictory, and pasting the block would have baked
+            # that lie into the declaration (#1496).
+            unreadable.append(name)
+    return TreeScan(
+        pool, read_index, section_index, files, skipped, tuple(unreadable), tuple(outside)
+    )
 
-    prose, executed = residue_rows(pool, read_index, files)
+
+def _residue() -> int:
+    scan = scan_tree()
+    pool, files, skipped = scan.pool, scan.files, scan.skipped
+    prose, executed = residue_rows(pool, scan.read_index, files)
     by_file: dict[str, list[tuple[int, list[str]]]] = {}
     for path, line, values in prose:
         by_file.setdefault(path, []).append((line, values))
@@ -1187,12 +1443,16 @@ def _residue() -> int:
         f"{len(files)} tracked files scanned, {total_skipped} skipped"
     )
     # The matching contract, stated because the report's value is being
-    # authoritative: an EXACT literal match against the pinned three-decimal
-    # form. A pinned value restated at a shorter precision is NOT seen (mostly
-    # SwiftUI spacing constants, when measured). No example is spelled out — this
-    # module must stay free of pinned literals its own report would then list.
+    # authoritative: a literal SUBSTRING match against the pinned three-decimal
+    # form. So it fails in one direction only — a pinned value restated at a
+    # shorter precision is NOT seen (mostly SwiftUI spacing constants, when
+    # measured), while a longer literal that happens to contain a pin IS counted.
+    # Over-counting is the safe side for a report whose job is to refuse silent
+    # growth. No example is spelled out — this module must stay free of pinned
+    # literals its own report would then list.
     print(
-        "  matched: exact literal, three decimals. Skipped suffixes: "
+        "  matched: three decimals, not embedded in a longer number. "
+        f"Unclassified file types carrying a pin: {len(scan.outside)}. Skipped suffixes: "
         + ", ".join(f"{suffix}×{n}" for suffix, n in sorted(skipped.items()))
     )
     for path in sorted(by_file, key=lambda p: (-len(by_file[p]), p)):
@@ -1206,6 +1466,250 @@ def _residue() -> int:
         for path, line, values in sorted(executed):
             print(f"  {path}:{line}  {' '.join(values)}")
     return 0
+
+
+# --- the census (#1496 judgments 2-4) ---------------------------------------
+#
+# `--residue` reports; `--census` FAILS when the report moves away from the
+# declaration below. Wired to CI's unconditional `shell-tests` step only, NOT to
+# the local pre-commit gate — see that gate's header for why.
+#
+# What the classes mean, and why only one of the three is a judgment:
+#
+# - `code-comment` — a figure inside a Swift comment. Derived mechanically.
+#   NOT brought under the doc gate: doing so would put the three test files
+#   that hold these comments into the gate's TRIGGER, so an unrelated edit to
+#   one would re-run this. #1496 judgment 3, which ALSO cut the one production
+#   file that used to be in this class — so the argument no longer has a
+#   `Views/` file to name, and stating it that way again would be stale.
+# - `in-read-section` — inside one of the six sections the gate reads, outside
+#   the blocks it compares. Derived mechanically. NOT closed by widening those
+#   blocks: these lines carry figures that are deliberately not pins — RETRACTED
+#   draft values kept as a record, and before/after pairs spanning two
+#   populations — so a value-equality comparison reddens on them by
+#   construction, and widening needs a value allowlist, not a wider block. The
+#   rest of the argument is per face, including the one clause that covers the
+#   ADR faces only (§ "Where new amendment content goes"): ADR-028 § Amendment
+#   2026-08-20 § "Why the read blocks were not simply widened to swallow the
+#   rest". #1496 judgment 4.
+# - `argued` — everything else: prose where the figure carries the sentence.
+#   The residual, and the only class that is a judgment. #1496 judgment 2 is
+#   that this cannot be driven to zero; a pointer makes the sentence unreadable.
+CLASS_CODE_COMMENT = "code-comment"
+CLASS_IN_READ_SECTION = "in-read-section"
+CLASS_ARGUED = "argued"
+RESIDUE_CLASSES = frozenset({CLASS_CODE_COMMENT, CLASS_IN_READ_SECTION, CLASS_ARGUED})
+
+
+def residue_class(path: str, line: int, section_index: set[tuple[str, int]]) -> str:
+    """Which class a residue line falls in.
+
+    The first two tests are disjoint by construction — `READ_FACES` is all
+    markdown — so this order is documentation, not precedence. A self-test arm
+    asserts the disjointness; without it, adding a Swift face would make the
+    order load-bearing with nothing saying so.
+    """
+    if path.endswith(".swift"):
+        return CLASS_CODE_COMMENT
+    if (path, line) in section_index:
+        return CLASS_IN_READ_SECTION
+    return CLASS_ARGUED
+
+
+def _digest(multiset: list[str]) -> str:
+    """12 hex chars over the sorted value multiset.
+
+    Hex on purpose: the declaration must carry no three-decimal literal, or this
+    module becomes one more face its own report lists (the matching-contract
+    comment in `_residue` states that constraint). Counts alone would let a
+    delete-one/add-one inside a single file pass unseen; this does not.
+    """
+    return hashlib.sha256("\n".join(multiset).encode("utf-8")).hexdigest()[:12]
+
+
+def residue_inventory(
+    prose: list[tuple[str, int, list[str]]], section_index: set[tuple[str, int]]
+) -> dict[tuple[str, str], tuple[int, int, str]]:
+    """`(path, class)` -> `(line count, distinct-value count, digest)`."""
+    grouped: dict[tuple[str, str], list[list[str]]] = {}
+    for path, line, values in prose:
+        grouped.setdefault((path, residue_class(path, line, section_index)), []).append(values)
+    inventory: dict[tuple[str, str], tuple[int, int, str]] = {}
+    for key, rows in sorted(grouped.items()):
+        multiset = sorted((v for values in rows for v in values), key=float)
+        inventory[key] = (len(rows), len(set(multiset)), _digest(multiset))
+    return inventory
+
+
+def census_problems(
+    scan: TreeScan,
+    declaration: dict[tuple[str, str], tuple[int, int, str]],
+) -> tuple[list[str], dict[tuple[str, str], tuple[int, int, str]]]:
+    """`(problems, observed inventory)`.
+
+    Every direction fails, including a count that DROPPED: a declaration nobody
+    lowers stops describing the tree, and then the digest it carries is checking
+    a set that no longer exists.
+
+    Files outside `RESIDUE_SUFFIXES` are asserted on by CONTENT, not by suffix
+    name: `scan.outside` already holds the pins found in them. Declaring the
+    suffix set instead meant any new file type anywhere in the repo reddened
+    this gate — 26 first appeared in one recent stretch — while never reading a
+    byte of the file, and it claimed only that the allowlist's outside had not
+    widened. This asserts the thing that was actually wanted (#1496 review).
+    """
+    for path, cls in declaration:
+        if cls not in RESIDUE_CLASSES:
+            raise AnchorError(
+                f"census: the declaration names class {cls!r} for {path} — not one of "
+                f"{sorted(RESIDUE_CLASSES)}. A typo here would read as a face that vanished."
+            )
+    prose, _ = residue_rows(scan.pool, scan.read_index, scan.files)
+    observed = residue_inventory(prose, scan.section_index)
+    problems: list[str] = []
+    for key in sorted(set(observed) | set(declaration)):
+        path, cls = key
+        got, want = observed.get(key), declaration.get(key)
+        if want is None:
+            problems.append(
+                f"{path} [{cls}]: {got[0]} line(s), nothing declared — a copy APPEARED "
+                "in a face that held none."
+            )
+        elif got is None:
+            problems.append(
+                f"{path} [{cls}]: {want[0]} line(s) declared, none found — the copies were "
+                "REMOVED, or every one of them ROTTED. A rotted figure matches no pin, so it "
+                "leaves the scan exactly as a deletion does. Diff `--residue` against the "
+                "declaration before dropping the entry: dropping it on a rot leaves the bad "
+                "copy in the tree with nothing watching it."
+            )
+        elif got[0] != want[0]:
+            if got[0] > want[0]:
+                problems.append(
+                    f"{path} [{cls}]: {want[0]} line(s) declared, {got[0]} found — a copy was ADDED."
+                )
+            else:
+                problems.append(
+                    f"{path} [{cls}]: {want[0]} line(s) declared, {got[0]} found — a copy was "
+                    "REMOVED, or one ROTTED: a figure that no longer matches any pin drops out "
+                    "of this scan exactly as a deletion does. Check `--residue` before pasting."
+                )
+        elif got != want:
+            problems.append(
+                f"{path} [{cls}]: same line count, different figures — a copy ROTTED, or the "
+                "pins MOVED. Run --check first; if it is clean the pins did not move."
+            )
+    for name in sorted(scan.unreadable):
+        problems.append(
+            f"{name}: tracked, but this scan could not read it — missing from the working "
+            "tree, permission-denied, not a regular file, or (inside the classified suffixes) "
+            "not valid UTF-8. The census never saw it, so its claim does not cover it. Fix or "
+            "untrack the file. Only ONE read failure is silent: an undecodable file OUTSIDE "
+            "the classified suffixes, which carries no prose copy by construction."
+        )
+    outside_by_file: dict[str, list[int]] = {}
+    for name, lineno, _values in sorted(scan.outside):
+        outside_by_file.setdefault(name, []).append(lineno)
+    for name, linenos in sorted(outside_by_file.items()):
+        # One problem per FILE, not per line: a generated file with many hits
+        # would otherwise bury the paste-ready block under its own output.
+        shown = ", ".join(str(n) for n in linenos[:5])
+        more = f" (+{len(linenos) - 5} more)" if len(linenos) > 5 else ""
+        problems.append(
+            f"{name}: a file type this scan does not classify carries a pinned figure on "
+            f"{len(linenos)} line(s) — {shown}{more}. The copy is real but lands in no "
+            "class. Bring the suffix into RESIDUE_SUFFIXES and declare the face, or remove "
+            "the copy."
+        )
+    return problems, observed
+
+
+def census_block(inventory: dict[tuple[str, str], tuple[int, int, str]]) -> str:
+    """The declaration constant, rendered so the fix is a paste."""
+    lines = ["RESIDUE_DECLARATION: dict[tuple[str, str], tuple[int, int, str]] = {"]
+    for (path, cls), (rows, distinct, digest) in sorted(inventory.items()):
+        lines.append(f'    ("{path}", "{cls}"): ({rows}, {distinct}, "{digest}"),')
+    lines.append("}")
+    return "\n".join(lines)
+
+
+# Declared by `--census` itself: run it, paste the block it prints. Never
+# hand-edited to make a failure go away — the numbers are integers and a hex
+# digest precisely so that bumping one is not the same act as reading a figure.
+RESIDUE_DECLARATION: dict[tuple[str, str], tuple[int, int, str]] = {
+    ("Pastura/PasturaTests/Views/DesignTokensTests+MossSoftGround.swift", "code-comment"): (1, 2, "5c7f42d2a20b"),
+    ("Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift", "code-comment"): (6, 6, "b31a637443fa"),
+    ("Pastura/PasturaTests/Views/PredictionOutcomeBadgeTokenTests.swift", "code-comment"): (2, 4, "0a1b0ab549e0"),
+    ("docs/decisions/ADR-028.md", "argued"): (2, 2, "a056d04e6d95"),
+    ("docs/decisions/ADR-028.md", "in-read-section"): (4, 5, "cba33b1fdd00"),
+    ("docs/design/design-system.md", "in-read-section"): (1, 1, "cdef395c33c3"),
+    ("docs/design/muted-application-audit.md", "argued"): (3, 6, "5785fb2a1a70"),
+    ("docs/design/muted-application-audit.md", "in-read-section"): (5, 5, "9cb7a0e4fe45"),
+}
+
+
+
+def census(scan: TreeScan | None = None) -> int:
+    """Compare the tree against the declaration. `scan` is the self-test seam."""
+    try:
+        if scan is None:
+            scan = scan_tree()
+        problems, inventory = census_problems(scan, RESIDUE_DECLARATION)
+    except AnchorError as exc:
+        print(f"measurement-transcript census: {exc}", file=sys.stderr)
+        print(
+            "The census cannot judge with a broken anchor. Fix it (or this mode) — the gate "
+            "itself is unaffected; run --check for its verdict.",
+            file=sys.stderr,
+        )
+        return 1
+    if not problems:
+        declared = sum(rows for rows, _, _ in RESIDUE_DECLARATION.values())
+        print(
+            f"measurement-transcript census: inventory unchanged — {declared} unguarded prose "
+            f"line(s) across {len(RESIDUE_DECLARATION)} declared face(s)."
+        )
+        return 0
+    print("measurement-transcript census: the unguarded inventory MOVED.", file=sys.stderr)
+    # The preamble branches on DIRECTION. Saying "an addition, not a defect"
+    # over a shrink is how a rotted copy gets pasted out of the inventory: a rot
+    # and a deletion are indistinguishable here, and only one of them is benign.
+    shrank = any("REMOVED" in problem for problem in problems)
+    if shrank:
+        print(
+            "\nSomething LEFT the inventory. Read this before pasting: a copy that ROTTED — a "
+            "figure edited until it matches no pin — leaves this scan exactly as a deletion "
+            "does, and `--check` will not see it, because these lines sit outside the blocks it "
+            "compares. Diff `--residue` against the declaration and confirm you meant to remove "
+            "each line. Pasting over a rot drops the bad copy out of the inventory for good.\n",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            "\nThis is an inventory addition, not a defect. The census does not read your "
+            "figures — it only refuses to let the set of hand-kept copies change without a "
+            "decision. Classify the new line (or remove the copy), then paste the block below.\n",
+            file=sys.stderr,
+        )
+    for problem in problems:
+        print(f"  - {problem}", file=sys.stderr)
+    print("\nPaste-ready replacement for the declaration:\n", file=sys.stderr)
+    print(census_block(inventory), file=sys.stderr)
+    print(
+        "\nWhat this gate does and does not claim: it finds a pinned figure at its "
+        "three-decimal spelling in any tracked file — classified and declared inside the "
+        "suffixes it scans, reported as unclassified outside them, reported also when it "
+        "cannot read the file. It does NOT look for a figure restated at shorter precision, "
+        "nor inside a file outside those suffixes that is not valid UTF-8; and in Swift it "
+        "classifies only figures inside comments. Classes: `code-comment` (in a Swift comment), "
+        "`in-read-section` (inside a section the gate reads but outside the block it "
+        "compares), `argued` (prose where the figure carries the sentence). None of the "
+        "three is a defect to drive to zero. Derivation: ADR-028 § Amendment 2026-08-20 "
+        "(#1496).",
+        file=sys.stderr,
+    )
+    print("\nThe per-line detail is `--residue`.", file=sys.stderr)
+    return 1
 
 
 def check() -> int:
@@ -2270,6 +2774,57 @@ def self_test() -> int:
         lambda: len(residue_rows({"9.111", "9.777"}, set(), residue_files)[0]),
         3,
     )
+    # Comment-span classification (#1496 PR2) — a prefix test only recognized
+    # `//`, so a figure inside a `/* … */` block was mislabelled as an executed
+    # assertion. Each arm below asserts which list a figure lands in.
+    expect(
+        "residue: `//` line comment is prose",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "// 9.111\n")]),
+        ([("F.swift", 1, ["9.111"])], []),
+    )
+    expect(
+        "residue: `///` doc comment is prose",
+        lambda: residue_rows({"9.222"}, set(), [("F.swift", "/// 9.222\n")]),
+        ([("F.swift", 1, ["9.222"])], []),
+    )
+    expect(
+        "residue: a single-line `/* … */` is prose",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "/* 9.111 */\n")]),
+        ([("F.swift", 1, ["9.111"])], []),
+    )
+    expect(
+        "residue: a multi-line block comment's interior line is prose",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "/*\n9.111\n*/\n")]),
+        ([("F.swift", 2, ["9.111"])], []),
+    )
+    # Nesting: the inner `*/` must NOT close the outer comment. If nesting were
+    # mishandled, line 3's `9.222` would read as code (the outer close missed).
+    expect(
+        "residue: a nested block comment keeps the outer span open past the inner `*/`",
+        lambda: residue_rows(
+            {"9.111", "9.222"},
+            set(),
+            [("F.swift", "/* outer\n/* 9.111 inner */\n9.222 still outer\n*/\n")],
+        ),
+        ([("F.swift", 2, ["9.111"]), ("F.swift", 3, ["9.222"])], []),
+    )
+    expect(
+        "residue: code after `*/` on the same line is executed",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "/* note */ let x = 9.111\n")]),
+        ([], [("F.swift", 1, ["9.111"])]),
+    )
+    expect(
+        "residue: a plain code line is executed",
+        lambda: residue_rows({"9.111"}, set(), [("F.swift", "let x = 9.111\n")]),
+        ([], [("F.swift", 1, ["9.111"])]),
+    )
+    expect(
+        "residue: a mixed line splits into both lists with disjoint values",
+        lambda: residue_rows(
+            {"9.111", "9.777"}, set(), [("F.swift", "let x = 9.111  // was 9.777\n")]
+        ),
+        ([("F.swift", 1, ["9.777"])], [("F.swift", 1, ["9.111"])]),
+    )
     # The offsets a wrapped block spans — the whole block, not just the line
     # carrying the fixture name.
     wrapped = [
@@ -2312,6 +2867,233 @@ def self_test() -> int:
         "residue: block offsets stay aligned with `logical_blocks`",
         lambda: [block for block, _ in logical_blocks_with_offsets(wrapped)],
         logical_blocks(wrapped),
+    )
+
+    # --- census (#1496 judgments 2-4) ------------------------------------
+    #
+    # The declaration is integers plus a digest, so these arms cannot be written
+    # against figures; they are written against MOVEMENT. Every direction the
+    # census can fail in gets its own arm, and the last one drives the mode
+    # itself rather than the helper — the `gate_read_index` docstring above
+    # records what happens when only the helper is armed.
+    census_scan = TreeScan(
+        pool={"9.111", "9.777"},
+        read_index={("docs/face.md", 1)},
+        section_index={("docs/face.md", 1), ("docs/face.md", 2)},
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n\nfar off, 9.111 there\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ],
+        skipped={".png": 3},
+    )
+
+    def census_inventory(scan: TreeScan = census_scan):
+        rows, _ = residue_rows(scan.pool, scan.read_index, scan.files)
+        return residue_inventory(rows, scan.section_index)
+
+    # All three classes come out of one scan, so an arm below cannot pass by a
+    # classifier that collapses two of them.
+    expect(
+        "census: one scan yields all three classes",
+        lambda: sorted(census_inventory()),
+        [
+            ("Some/Test.swift", CLASS_CODE_COMMENT),
+            ("docs/face.md", CLASS_ARGUED),
+            ("docs/face.md", CLASS_IN_READ_SECTION),
+        ],
+    )
+    # Disjointness, asserted rather than argued: `residue_class` tests `.swift`
+    # before the section index, and that order is only safe while no face is
+    # Swift. Adding one here reddens this instead of silently making the order
+    # load-bearing.
+    expect(
+        "census: no read face is a Swift file, so the two mechanical classes cannot overlap",
+        lambda: [str(path) for path, _, _ in READ_FACES if str(path).endswith(".swift")],
+        [],
+    )
+    expect(
+        "census: a tree matching its declaration is silent",
+        lambda: census_problems(census_scan, census_inventory())[0],
+        [],
+    )
+
+    def census_says(
+        scan: TreeScan = census_scan,
+        declaration=None,
+    ) -> list[str]:
+        return census_problems(
+            scan,
+            census_inventory() if declaration is None else declaration,
+        )[0]
+
+    grown = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n\nfar off, 9.111 there\n9.777 too\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    expect(
+        "census: an added copy is reported as ADDED",
+        lambda: [pr for pr in census_says(grown) if "ADDED" in pr],
+        ["docs/face.md [argued]: 1 line(s) declared, 2 found — a copy was ADDED."],
+    )
+    shrunk = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    # A DROP fails too: a declaration nobody lowers stops describing the tree,
+    # and its digest then guards a set that no longer exists.
+    expect(
+        "census: a face emptied is reported, and names ROT as the other cause",
+        lambda: [pr.split(" — ")[0] for pr in census_says(shrunk) if "REMOVED" in pr],
+        ["docs/face.md [argued]: 1 line(s) declared, none found"],
+    )
+    # A rot and a deletion are INDISTINGUISHABLE to this scan — a figure that
+    # matches no pin simply stops being found. So the message must offer both,
+    # or its own advice ("drop the entry") silently launders a rotted copy out
+    # of the inventory while it stays in the tree, with `--check` green because
+    # these lines sit outside the compared blocks (#1496 review).
+    expect(
+        "census: an emptied face names ROT, not deletion alone",
+        lambda: [("ROTTED" in pr, "--residue" in pr) for pr in census_says(shrunk) if "REMOVED" in pr],
+        [(True, True)],
+    )
+    # The DROP arm above empties the face, so it lands in the `got is None`
+    # branch and never reaches the verb. A *partial* drop is a separate branch:
+    # collapsing `verb` to a constant "ADDED" left the suite green until this
+    # arm existed, so a removal could be reported as an addition unseen (#1496).
+    expect(
+        "census: a partial drop is reported as REMOVED, not as an addition",
+        lambda: [pr.split(" — ")[0] for pr in census_says(declaration=census_inventory(grown)) if "REMOVED" in pr],
+        ["docs/face.md [argued]: 2 line(s) declared, 1 found"],
+    )
+    expect(
+        "census: a partial drop names ROT too, for the same indistinguishability",
+        lambda: [("ROTTED" in pr, "--residue" in pr) for pr in census_says(declaration=census_inventory(grown)) if "REMOVED" in pr],
+        [(True, True)],
+    )
+    # Habitat control for the two arms above: an ACTUAL rot — the line is still
+    # there, its figure just stopped matching a pin — must reach the same branch.
+    # Without this, both arms only prove the wording of a branch reached by
+    # deletion, and the claim they are defending is about rot.
+    rot_only = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n\nfar off, 9.222 there\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    expect(
+        "census: a rotted figure reaches the same branch a deletion does",
+        lambda: [pr.split(" — ")[0] for pr in census_says(rot_only)],
+        ["docs/face.md [argued]: 1 line(s) declared, none found"],
+    )
+    # A file inside a scanned suffix that cannot be read is NOT a skipped file
+    # type. Folding the two together made the census advise widening
+    # RESIDUE_SUFFIXES for a suffix already in it.
+    expect(
+        "census: a file the scan could not read is reported as itself, not as a file type",
+        lambda: [
+            pr.split(" — ")[0]
+            for pr in census_says(census_scan._replace(unreadable=("docs/face.md",)))
+        ],
+        ["docs/face.md: tracked, but this scan could not read it"],
+    )
+    rotted = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.111 here\n\nfar off, 9.111 there\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    # The digest's whole reason: line counts are unchanged here.
+    expect(
+        "census: a figure that changed with the line count unchanged is reported as ROTTED",
+        lambda: [pr.split(" — ")[0] for pr in census_says(rotted)],
+        ["docs/face.md [in-read-section]: same line count, different figures"],
+    )
+    expect(
+        "census: an undeclared face is reported as an appearance",
+        lambda: [
+            pr.split(" — ")[0]
+            for pr in census_says(
+                declaration={
+                    k: v for k, v in census_inventory().items() if k[0] != "Some/Test.swift"
+                }
+            )
+        ],
+        ["Some/Test.swift [code-comment]: 1 line(s), nothing declared"],
+    )
+    # A copy in an unclassified file type is reported — by CONTENT.
+    expect(
+        "census: a pin in a file type the scan does not classify is reported",
+        lambda: [
+            pr.split(" — ")[0]
+            for pr in census_says(census_scan._replace(outside=(("web/x.svg", 4, ("9.111",)),)))
+        ],
+        ["web/x.svg: a file type this scan does not classify carries a pinned figure on 1 line(s)"],
+    )
+    # The negative control, and the whole point of replacing the suffix
+    # declaration: a new file type that carries NO copy must be silent. Under
+    # the old design this arm could not exist — the suffix name alone reddened.
+    expect(
+        "census: a new file type carrying no pin is silent",
+        lambda: census_says(census_scan._replace(skipped={".png": 1, ".zzz": 3}, outside=())),
+        [],
+    )
+    # Boundary control for `pin_positions`: a pin embedded in a longer number is
+    # not a copy. Real instance — SVG path data (#1496 review).
+    # One case per BOUND, because either bound alone rejects the both-sides case
+    # and so a two-sided rule cannot be told from a one-sided one by that case:
+    # both one-sided variants passed the whole suite until these arms existed
+    # (#1496 review). `19.111` is rejected only by the lookbehind, `9.1115` only
+    # by the lookahead, and the last case must still MATCH or the rule is inert.
+    expect(
+        "census: a pin embedded in a longer number is not a hit, on either side",
+        lambda: (
+            pin_positions("9.111", 'd="M1,1c19.1115,2"'),
+            pin_positions("9.111", "coords 19.111 here"),
+            pin_positions("9.111", "coords 9.1115 here"),
+            pin_positions("9.111", "the ratio is 9.111 on page"),
+        ),
+        ([], [], [], [13]),
+    )
+    # The silent/reported split for a read failure outside the classified
+    # suffixes. A `chmod 000` file passed silently until this was separated.
+    expect(
+        "census: only a decode failure is silent outside the classified suffixes",
+        lambda: [
+            outside_read_failure_is_silent(exc)
+            for exc in (
+                UnicodeDecodeError("utf-8", b"\xff", 0, 1, "bad"),
+                FileNotFoundError(2, "No such file"),
+                PermissionError(13, "Permission denied"),
+                IsADirectoryError(21, "Is a directory"),
+            )
+        ],
+        [True, False, False, False],
+    )
+    expect_raises(
+        "census: a mistyped class in the declaration raises rather than reading as a vanished face",
+        "not one of",
+        lambda: census_problems(census_scan, {("docs/face.md", "argued-ish"): (1, 1, "0")}),
+    )
+
+    # WIRING, not the helper: drives `census()` itself against the REAL
+    # declaration with an injected empty scan. A `census()` that stopped
+    # consulting `RESIDUE_DECLARATION` — or stopped classifying — returns 0 here.
+    def census_mode_on_empty_tree() -> tuple[int, bool]:
+        empty = TreeScan(set(), set(), set(), [], {})
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            rc = census(empty)
+        text = buf.getvalue()
+        return rc, all(f"{path} [{cls}]" in text for path, cls in RESIDUE_DECLARATION)
+
+    expect(
+        "census: the mode itself reads the real declaration and names every face it loses",
+        census_mode_on_empty_tree,
+        (1, True),
     )
 
     # --- Trigger coverage (#1488) ---------------------------------------
@@ -2368,17 +3150,23 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--residue", action="store_true")
+    parser.add_argument("--census", action="store_true")
     args = parser.parse_args()
+    later = (args.check, args.residue, args.census)
     if args.self_test:
         rc = self_test()
-        if rc or not (args.check or args.residue):
+        if rc or not any(later):
             return rc
     if args.check:
         rc = check()
-        if rc or not args.residue:
+        if rc or not (args.residue or args.census):
             return rc
     if args.residue:
-        return residue()
+        rc = residue()
+        if rc or not args.census:
+            return rc
+    if args.census:
+        return census()
     parser.print_help()
     return 2
 

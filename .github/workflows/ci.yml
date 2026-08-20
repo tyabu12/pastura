@@ -1093,11 +1093,17 @@ jobs:
       # and every anchor arm), then the real four faces. Unconditional for the
       # same reason as the steps above (`.claude/rules/ci-workflows.md`
       # § "Required-check-safe path gating"). Defense-in-depth for
-      # scripts/measurement-transcript-precommit-gate.sh (local only).
+      # scripts/measurement-transcript-precommit-gate.sh (local only) — except
+      # --census (#1496), which runs ONLY here: it reads the whole tracked tree,
+      # so no staged-path TRIGGER can cover it (that gate's header has the rest
+      # of the reason). For a copy written at the pins' three-decimal spelling
+      # in any tracked file, this step is the only thing between it and main.
+      # Do not path-gate it.
       - name: Measurement transcript check
         run: |
           python3 scripts/check-measurement-transcripts.py --self-test
           python3 scripts/check-measurement-transcripts.py --check
+          python3 scripts/check-measurement-transcripts.py --census
 
   gallery-drift:
     name: Gallery drift guard

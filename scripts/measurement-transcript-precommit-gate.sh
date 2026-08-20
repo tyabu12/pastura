@@ -10,6 +10,18 @@
 # PALETTE moves and needs the simulator; this gate fires when a DOC moves away
 # from the pins and needs only python3. Neither subsumes the other.
 #
+# `--census` (#1496) is deliberately NOT run here — only in CI's unconditional
+# `shell-tests` job. Two reasons, and speed is neither: this gate decides from
+# the INDEX (`git diff --cached`) while the census reads the WORKING TREE, so an
+# unstaged edit somewhere else in the tree could block a commit in a way that
+# unstaging does not fix; and TRIGGER is a staged-path predicate, which cannot
+# cover a tree-wide population however it is written. So `--check` stays
+# git-free here, and CI is the only place the census speaks. Widening TRIGGER
+# to the files that hold declared residue would not change either reason — it
+# would just bind three unrelated test files to this gate for no coverage
+# gained. (#1496 judgment 3 cut the last PRODUCTION file out of that set, so do
+# not restate this argument as being about a `Views/` file.)
+#
 # bash 3.2 portable — ships to dev macOS via the pre-commit hook. NO
 # mapfile/readarray, declare -A, ${var^^}, or <<< here-strings.
 

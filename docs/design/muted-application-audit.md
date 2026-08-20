@@ -574,9 +574,35 @@ hand — print them**, because four hand-written versions of that list were wron
 python3 scripts/check-measurement-transcripts.py --residue
 ```
 
-#1496 carries the open judgments. `ds/*.html` does not appear: it carries
-three-decimal ratios, but of a different population (ground-vs-ground contrast,
-per-channel pair gaps), none a copy of these pins.
+`ds/*.html` does not appear: it carries three-decimal ratios, but of a different
+population (ground-vs-ground contrast, per-channel pair gaps), none a copy of
+these pins.
+
+That list is no longer only *reported*. `--census` (#1496) holds its **shape** —
+per file and class, a line count, a distinct-value count and a digest — against a
+declaration in the checker, so a new copy is something someone classified rather
+than something nobody saw. It runs in CI's `shell-tests` only, never in the
+pre-commit gate, because it reads the working tree while that gate decides from
+the index. When it fires, diff `--residue` against the declaration before pasting
+anything: it names which direction fired — a copy appeared, was added, was
+removed, or rotted (kept distinct from the pins having moved, which `--check`
+settles) — but a rot leaves this scan in exactly the state a deletion does, and a
+rot that keeps a face's line count unchanged is announced under the *addition*
+preamble, which calls it "not a defect".
+
+Read what it claims at the width of the mechanism. **Except for two gaps, no copy
+written at the pins' three-decimal spelling reaches a tracked file without this
+failing** — classified and declared inside the suffixes it scans, reported as
+unclassified outside them, reported rather than skipped when a file will not
+read. The gap that changes what a doc author writes is the first: round a figure
+to fewer decimals and it passes silently. That one, the other, and the narrower
+bound that applies to Swift are stated in the checker's module docstring — the
+operative copy, what CI runs and what its failure text prints. Each line is
+classified `code-comment`, `in-read-section`, or `argued`, and **none of the
+three is a defect to drive to zero**. Derivation, why widening the compared
+blocks to swallow the `in-read-section` class is not the cheap fix it looks, and
+why one product-code copy was cut while this file's §1.1 / §2.1 / §6.2 prose
+stays: ADR-028 § Amendment 2026-08-20 (#1496).
 
 §5 is the one face that moved from that list into the gate, and it is checked
 **row by row**: each row's `light/dark` figures must equal the pin its own

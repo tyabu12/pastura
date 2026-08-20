@@ -43,10 +43,11 @@ extension PredictionOutcomeBadge {
 
   /// Icon + primary label. Hit: §2.6's `<family>Soft` + `<family>Ink` pairing on
   /// the opaque capsule, 6.537 light / 6.505 dark (#1407). Miss: `inkSecondary`
-  /// on `bubbleBackground`, 6.934 / 5.975, replacing `muted`'s sub-AA
-  /// 3.475 / 3.021. `metaBaseL3` clears the bar too, but at 8.6 the *failure*
-  /// state would out-shout the hit arm — rejection derived in ADR-028
-  /// § Amendment 2026-08-13 (#1427).
+  /// on `bubbleBackground`, 6.934 / 5.975, replacing `muted`'s sub-AA pairing.
+  /// `metaBaseL3` clears the bar too, but at 8.6 the *failure* state would
+  /// out-shout the hit arm — rejection derived in ADR-028
+  /// § Amendment 2026-08-13 (#1427), which derives the `muted` figures for
+  /// this pairing.
   var labelToken: Color {
     isHit ? Color.mossInk : Color.inkSecondary
   }
