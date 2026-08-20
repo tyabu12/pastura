@@ -191,14 +191,17 @@ fi
 #
 # Enumerate that residual with `${x+SET}` or a `set` name diff, never `${x:-}`:
 # `_simdest_result` is set-but-EMPTY on this path, so a `:-` probe reports it
-# absent and the list comes back one short (it did, the first time).
+# absent and the list comes back one short (it did, the first time). The arm's
+# own loop below uses `+SET` for the same reason — both variables it checks are
+# structurally non-empty today, so `:-` would not yet lie, but the shape an arm
+# models is the shape the next editor copies.
 cat > "$TMP/a6.sh" <<A6
 export PASTURA_SKIP_SIM_WAIT=1
 export PASTURA_SIM_NAME='$NO_SUCH_SIM'
 set +e
 source '$SIMDEST'
 for v in _simdest_old_opts _simdest_had_errexit; do
-  eval "val=\\\${\$v:-}"
+  eval "val=\\\${\$v+SET}"
   if [ -n "\$val" ]; then echo "A6_LEAKED_\$v"; fi
 done
 if type _simdest_restore_opts > /dev/null 2>&1; then echo 'A6_LEAKED_restore_fn'; fi
