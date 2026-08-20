@@ -141,8 +141,9 @@ set -- ${forwarded[@]+"${forwarded[@]}"}
 # would make the operator wait a quarter of an hour for a one-line message.
 #
 # `-scheme` / `-project` / `-derivedDataPath` — xcodebuild rejects duplicates
-# itself, but with `error: option '-X' may only be provided once` buried above a
-# 64-line usage page, which reads like a wrapper bug. Say it in one line instead.
+# itself, but with `error: option '-X' may only be provided once` buried between
+# the wrapper's xtrace and its own full usage page, which reads like a wrapper
+# bug. Say it in one line instead.
 #
 # `-derivedDataPath=…` — the `=`-joined form is SILENTLY IGNORED (Xcode 15.4+),
 # so the build lands in the default ~/Library DerivedData while looking correct.
@@ -246,9 +247,11 @@ fi
 _spm_state="$DERIVED_DATA/SourcePackages/workspace-state.json"
 _spm_resolved=""
 if [[ -f "$_spm_state" ]]; then
-  # Capture rather than `grep -q`: an early-exiting reader under `pipefail`
-  # turns a match into a failure. `|| [ $? -eq 1 ]` keeps a real grep error
-  # (exit >= 2) distinguishable from "no match", which `|| true` would flatten.
+  # `|| [ $? -eq 1 ]` because errexit is in force: grep's exit 1 is the "no
+  # identities, resolve now" answer, not a failure. It stays narrower than
+  # `|| true` so a real grep error (exit >= 2) still aborts rather than being
+  # read as "unresolved". No pipeline here, so the SIGPIPE hazard that governs
+  # the `env | grep` capture below does NOT apply — don't generalize this one.
   _spm_resolved="$({ grep '"identity"' "$_spm_state" || [ $? -eq 1 ]; })"
 fi
 if [[ -z "$_spm_resolved" ]]; then

@@ -8,7 +8,8 @@
 # caller had set, and restoring it DROPPED a caller's `set -e`. pipefail came
 # back correctly through the same snapshot — it is not a `$-` letter flag —
 # which is why only errexit went missing and the loss stayed invisible for so
-# long. Mechanism: `.claude/rules/xcodebuild-cli.md` § "Sourcing it".
+# long. Mechanism: `.claude/rules/xcodebuild-cli.md` (no § anchor — that section
+# is compressible, and a named one here would dangle).
 #
 # WHAT EACH ARM RUNS. A1, A2 and A6 source the REAL `scripts/sim-dest.sh`; A3
 # and A4 run in-file fixtures. The split is forced by the runner: the CI
@@ -18,6 +19,12 @@
 # OSes — A1 from an errexit-ON caller (must abort), A2 from an errexit-OFF one
 # (must NOT be promoted to on). A5 covers the success path and SKIPS loudly
 # where it cannot run; do not silence that notice.
+#
+# NOT COVERED. sim-dest.sh restores on four paths; the arms below reach two of
+# them (the simulator-resolution failure and, on macOS, the success path). The
+# `git rev-parse` guard and the wait-gate timeout are unexercised — the latter
+# unreachable while every arm exports PASTURA_SKIP_SIM_WAIT=1. Read this file as
+# pinning the capture, not the whole restore contract.
 #
 # A3 IS THE NEGATIVE CONTROL AND IS NOT OPTIONAL. It reproduces the pre-#1503
 # capture and requires errexit to end up OFF. Without it, A1 and A2 would pass
@@ -146,27 +153,40 @@ else
 fi
 
 # --- A5: real script, SUCCESS path (needs a simulator; ubuntu CI cannot) ----
+#
+# The caller deliberately enters with errexit ON and pipefail OFF — the one
+# combination in which BOTH halves discriminate. sim-dest.sh turns pipefail on
+# for itself, so a caller that already had it on would print A5_PIPEFAIL_ON
+# whether or not the restore ever ran; requiring it back OFF is what a no-op
+# restore fails.
 if command -v xcrun > /dev/null 2>&1; then
   cat > "$TMP/a5.sh" <<A5
 export PASTURA_SKIP_SIM_WAIT=1
-set -euo pipefail
+set -eu
+set +o pipefail
 source '$SIMDEST' > /dev/null
 case "\$-" in *e*) echo 'A5_ERREXIT_ON' ;; *) echo 'A5_ERREXIT_OFF' ;; esac
 pf="\$(set -o | { grep '^pipefail' || [ \$? -eq 1 ]; })"
 case "\$pf" in *on*) echo 'A5_PIPEFAIL_ON' ;; *) echo 'A5_PIPEFAIL_OFF' ;; esac
 A5
   run_probe "$TMP/a5.sh"
-  if has 'A5_ERREXIT_ON' "$probe_out" && has 'A5_PIPEFAIL_ON' "$probe_out"; then
-    ok "A5 the success path restores BOTH errexit and pipefail"
+  if has 'A5_ERREXIT_ON' "$probe_out" && has 'A5_PIPEFAIL_OFF' "$probe_out"; then
+    ok "A5 the success path reproduces the caller's options (errexit on, pipefail off)"
   else
-    bad "A5 the success path lost an option (errexit and/or pipefail). This is the path every" \
+    bad "A5 the success path did not reproduce the caller's options. This is the path every" \
         "local xcodebuild run takes. Output: $probe_out"
   fi
 else
   printf '  SKIP: A5 (success path) needs xcrun — not present on this runner\n'
 fi
 
-# --- A6: no namespace leak into the caller ---------------------------------
+# --- A6: the restore helper and its own two variables are cleaned up --------
+#
+# Scoped to what #1503 introduced, NOT to "sim-dest.sh leaks nothing". It does
+# leak: the early-return path measured here leaves `_simdest_errfile` (a temp
+# path) and `SIMULATOR_NAMES` set, because only the success path's `unset` lines
+# clear them. That is pre-existing and out of this fix's scope — named here so
+# the arm cannot be read as certifying it away.
 cat > "$TMP/a6.sh" <<A6
 export PASTURA_SKIP_SIM_WAIT=1
 export PASTURA_SIM_NAME='$NO_SUCH_SIM'
@@ -183,7 +203,8 @@ run_probe "$TMP/a6.sh"
 if has 'A6_DONE' "$probe_out" && ! has 'A6_LEAKED' "$probe_out"; then
   ok "A6 the restore helper and its two state variables are unset before returning"
 else
-  bad "A6 sim-dest.sh leaked internal state into the caller's shell. Output: $probe_out"
+  bad "A6 the restore helper or one of its two state variables survived into the caller's" \
+      "shell. Output: $probe_out"
 fi
 
 if [ "$fail" -ne 0 ]; then

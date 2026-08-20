@@ -47,7 +47,7 @@ entries and hook commands is intentional.
 
 The wrapper supplies `-scheme`, `-project`, `-destination` and
 `-derivedDataPath`, and **rejects a re-pass with a one-line error** before
-xcodebuild can bury its own between the xtrace and a 64-line usage page.
+xcodebuild can bury its own between the xtrace and its full usage page.
 Forward only what the wrapper does not supply — typically `-only-testing` /
 `-skip-testing`, plus the wrapper-only `--tail N`.
 
@@ -57,7 +57,10 @@ Two of those rejections encode something you would not guess, and the guard in
 rejected, and `-destination` is **additive, not last-wins** — a second one runs
 `test` on both devices and a failure on either aborts the run. `build` still
 accepts `-destination`, which is what makes the device compile-check recipe
-below work. To pin a **single** simulator for `test`, export `PASTURA_SIM_NAME`
+below work; additive applies there too, so that recipe builds the simulator
+slice alongside the device one (measured: one invocation refreshed both
+`Debug-iphoneos` and `Debug-iphonesimulator`). To pin a **single** simulator for
+`test`, export `PASTURA_SIM_NAME`
 (honored by `sim-dest.sh`) on its own line — the leading-assignment form
 (`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips the allowlist approval
 prompt, per § "Canonical invocation":
@@ -157,7 +160,10 @@ pins that with a negative control reproducing the old capture.
 **Apply**: any new save/restore of shell options needs the `$-` capture, not
 `$(set +o)` alone. The `||` handlers and `set -euo pipefail` re-asserts still in
 the sourcing scripts are defence in depth now — not the abort mechanism, and not
-a reason a new call site needs one.
+a reason a new call site needs one. The widest consequence is in `ci.yml`, whose
+two `run:` steps source it bare: a `run:` is `bash -e {0}`, so those steps used
+to swallow a failed source and write an empty `DEST=` into `$GITHUB_ENV`, and
+now abort on sim-dest's own message instead.
 
 ## Agent session guardrails
 
