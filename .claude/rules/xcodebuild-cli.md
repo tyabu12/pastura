@@ -151,18 +151,22 @@ run — see Recovery below.
 
 `sim-dest.sh` snapshotted the caller's options with `$(set +o)` — a command
 substitution, where bash has already cleared errexit — so restoring that
-snapshot dropped a caller's `set -e` (pipefail survived — it is no `$-` letter
-flag). Fixed in #1503 by capturing errexit from `$-`; a failing `source` now
-aborts an errexit-on caller by itself, and `scripts/tests/simdest-errexit-test.sh`
-pins that with a negative control reproducing the old capture.
+snapshot dropped a caller's `set -e`. **errexit is the only option this hits**,
+and not because of letter-flag-ness: measured on bash 3.2.57, `nounset` and
+`xtrace` are `$-` letter flags and round-trip correctly, as does everything
+else. `shopt inherit_errexit` (bash 4.4+) is the knob that reverses it. Fixed in
+#1503 by capturing errexit from `$-`, pinned by
+`scripts/tests/simdest-errexit-test.sh` with a negative control reproducing the
+old capture.
 
 **Apply**: any new save/restore of shell options needs the `$-` capture, not
-`$(set +o)` alone. The `||` handlers and `set -euo pipefail` re-asserts still in
-the sourcing scripts are defence in depth now — not the abort mechanism, and not
-a reason a new call site needs one. The widest consequence is in `ci.yml`, whose
-two `run:` steps source it bare: a `run:` is `bash -e {0}`, so those steps used
-to swallow a failed source and write an empty `DEST=` into `$GITHUB_ENV`, and
-now abort on sim-dest's own message instead.
+`$(set +o)` alone. **A failing `source` aborts an errexit-on caller only in the
+bare form** — bash suppresses errexit for the left operand of `||`, so the three
+sites written `source … || { …; exit 1; }` still depend on that `exit`; deleting
+the whole handler hands the job back to the fix, reducing it to a bare message
+does not. `ci.yml`'s two `run:` steps take the bare form, so they gain the abort:
+a `run:` is `bash -e {0}`, and they used to swallow a failed source and write an
+empty `DEST=` into `$GITHUB_ENV`.
 
 ## Agent session guardrails
 

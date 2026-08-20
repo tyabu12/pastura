@@ -141,12 +141,19 @@ set -- ${forwarded[@]+"${forwarded[@]}"}
 #
 # Per flag, because xcodebuild's own handling differs. `-scheme` / `-project` /
 # `-derivedDataPath`: it rejects these too, but between the xtrace and a full
-# usage page, which reads like a wrapper bug. The `=`-joined form: SILENTLY
-# IGNORED (Xcode 15.4+), landing the build in ~/Library while looking correct —
-# checked for all three, since none of them takes `=` here. A second
-# `-destination`: ADDITIVE, so `test` would run on both devices with either
-# failure aborting; `build` must keep accepting it for the device compile-check
-# recipe below.
+# usage page, which reads like a wrapper bug.
+#
+# The `=`-joined form is the one worth a guard: xcodebuild takes it, exits 0, and
+# DROPS the flag. Measured on Xcode 26.6 — `-showBuildSettings … -derivedDataPath=/tmp/x`
+# reports `BUILD_DIR = ~/Library/Developer/Xcode/DerivedData/…` while the
+# space-separated control reports `/tmp/x/Build/Products`. Here the wrapper
+# supplies its own value anyway, so a caller's `=` copy is merely inert — the
+# relocation hazard is the one the wrapper's own space-separated flag already
+# avoids. `-destination=` is where inert turns dangerous; see its arm below.
+#
+# A second bare `-destination` is ADDITIVE, so `test` would run on both devices
+# with either failure aborting; `build` keeps accepting the space form for the
+# device compile-check recipe.
 for _arg in "$@"; do
   case "$_arg" in
     -scheme|-project|-derivedDataPath)
@@ -158,7 +165,18 @@ for _arg in "$@"; do
       echo "  It is also supplied by this wrapper already — drop the flag." >&2
       exit 2
       ;;
-    -destination|-destination=*)
+    -destination=*)
+      # Rejected for BOTH subcommands, unlike the bare form below. The `=` shape
+      # is dropped here too, and `build` is where it bites: the documented device
+      # compile-check recipe IS a `build -destination …`, so an `=` there silently
+      # loses the device slice, builds the simulator one, and still prints
+      # `** BUILD SUCCEEDED **` — the exact false green that recipe exists to
+      # prevent.
+      echo "-destination takes a SPACE-separated value; the \`=\` form is silently dropped." >&2
+      echo "  On \`build\` that loses the device slice while still printing BUILD SUCCEEDED." >&2
+      exit 2
+      ;;
+    -destination)
       if [[ "$cmd" == "test" ]]; then
         echo "-destination is additive for \`test\`: xcodebuild would run the suite on the" >&2
         echo "  wrapper's simulator AND yours, and a failure on either aborts the run." >&2
@@ -228,11 +246,18 @@ fi
 # with empty `artifacts`/`dependencies` and no `"identity"` anywhere, so keying
 # on existence would skip the retry of the very case this exists for (measured
 # in #1503 — that failure happened here, with the file already present). It does
-# NOT cover a resolution that is stale rather than absent (a `Package.resolved`
-# bump, a moved revision): identities are present then, the pre-flight stays
-# quiet, and the build fails as it does today — widen it only with a case that
+# NOT cover a resolution that is stale or PARTIAL rather than absent (a
+# `Package.resolved` bump, a moved revision, or 2 of this tree's 3 dependencies
+# resolving): an identity is present in all of those, the pre-flight stays quiet,
+# and the build fails as it does today — widen it only with a case that
 # reproduces. Cost: a grep over one small file on a warm tree; ~23 s once on a
 # cold one, which the build was going to spend on resolution anyway.
+#
+# Rot direction, should Apple stop emitting `"identity"`: every invocation
+# resolves. That is the loud failure (~23 s per TDD cycle, and the stderr line
+# below prints every time) rather than the silent one, which is the right way
+# round. Its only CI consumer is `.github/workflows/codeql.yml`, which is
+# cron-only — so a regression here surfaces on an unwatched nightly, not on a PR.
 _spm_state="$DERIVED_DATA/SourcePackages/workspace-state.json"
 _spm_resolved=""
 if [[ -f "$_spm_state" ]]; then

@@ -70,8 +70,10 @@ export PASTURA_SKIP_XCSTRINGS_SYNC=1
 # later anyway. Sourced WITH the concurrent-session gate: appearance is
 # device-global, so writing it while another session holds the simulator would
 # flip that run's appearance mid-suite. Sourcing used to drop errexit (#1503,
-# fixed inside sim-dest.sh), so the `||` handler and the re-assert below are now
-# a message and defence in depth respectively, not the abort mechanism
+# fixed inside sim-dest.sh) — but not for this shape: bash suppresses errexit for
+# the left operand of `||`, so the handler's `exit 1` below is still the only
+# thing that aborts a failed resolution (measured). Delete the whole `|| { … }`
+# and the fix takes over; do NOT reduce it to a bare message
 # (.claude/rules/xcodebuild-cli.md).
 # shellcheck source=/dev/null
 source "$REPO_ROOT/scripts/sim-dest.sh" \

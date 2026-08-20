@@ -27,10 +27,15 @@
 # that split is load-bearing: bash clears errexit inside a command substitution,
 # so the snapshot records `set +o errexit` whatever the caller's real state was.
 # Restoring it therefore *dropped* a caller's `set -e` — the defect #1503 fixed.
-# pipefail came back correctly through the same snapshot because it is not a
-# `$-` letter flag, which is why only errexit went missing. Measured on bash
-# 3.2.57; `set -o` read inside a substitution reports "off" regardless, so a
-# probe written that way cannot see any of this.
+#
+# errexit is the ONLY option affected — that is the whole rule, and it is not
+# about letter-flags: measured on bash 3.2.57, `nounset` and `xtrace` are `$-`
+# letter flags and both round-trip through the snapshot correctly, as does every
+# other option including pipefail (`$-` itself goes `ehuBc` outside a
+# substitution, `huBc` inside). `shopt inherit_errexit` (bash 4.4+) is the knob
+# that reverses this; the capture below is the 3.2-compatible equivalent, and it
+# only ever re-adds errexit that was genuinely on, so it stays a no-op wherever
+# bash already inherits it.
 case $- in
   *e*) _simdest_had_errexit=1 ;;
   *) _simdest_had_errexit=0 ;;
@@ -41,8 +46,10 @@ set -euo pipefail
 # Restore the caller's options. Every exit path calls this instead of a bare
 # `eval`, which would re-apply the snapshot's wrong `set +o errexit`. Because
 # the failure paths below restore errexit *before* returning non-zero, a caller
-# running under `set -e` now aborts on a plain `source scripts/sim-dest.sh` —
-# no `|| { …; exit 1; }` handler needed to catch it.
+# running under `set -e` now aborts on a PLAIN `source scripts/sim-dest.sh`.
+# That does NOT extend to `source … || handler`: bash suppresses errexit for the
+# left operand of `||`, so a caller written that way still aborts only if its
+# handler says `exit` (measured — three call sites here are written that way).
 _simdest_restore_opts() {
   eval "$_simdest_old_opts"
   if [ "$_simdest_had_errexit" = 1 ]; then

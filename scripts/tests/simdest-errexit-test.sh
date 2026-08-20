@@ -5,10 +5,10 @@
 # THE DEFECT. `sim-dest.sh` saved shell options with `$(set +o)`, a command
 # substitution — where bash has already cleared errexit — so the snapshot said
 # `set +o errexit` whatever the caller had set, and restoring it DROPPED the
-# caller's `set -e`. pipefail came back correctly through the same snapshot (no
-# `$-` letter flag), which is why only errexit went missing and stayed
-# invisible. Mechanism: `.claude/rules/xcodebuild-cli.md` (no § anchor — that
-# section is compressible and a named one here would dangle).
+# caller's `set -e`. errexit is the ONLY option affected, which A7 pins: letter-
+# flag-ness is not the discriminator (`nounset` is one and survives). Mechanism:
+# `.claude/rules/xcodebuild-cli.md` (no § anchor — that section is compressible
+# and a named one here would dangle).
 #
 # REAL vs FIXTURE. A1, A2, A6 source the REAL sim-dest.sh; A3, A4 run in-file
 # fixtures. The runner forces the split: CI's ubuntu job has no `xcrun`, so the
@@ -206,6 +206,52 @@ if has 'A6_DONE' "$probe_out" && ! has 'A6_LEAKED' "$probe_out"; then
 else
   bad "A6 the restore helper or one of its two state variables survived into the caller's" \
       "shell. Output: $probe_out"
+fi
+
+# --- A7: the mechanism claim — errexit is the ONLY option `$(set +o)` loses ---
+#
+# A3/A4 control the EFFECT (does errexit survive). This controls the stated
+# CAUSE. The comments used to say pipefail survived "because it is not a `$-`
+# letter flag", which predicts `nounset` — a letter flag — is lost too. It is
+# not. If this arm ever reddens on `nounset`, the rewritten mechanism sentence
+# in sim-dest.sh and the rules file is what needs re-measuring, not this test.
+cat > "$TMP/a7.sh" <<'A7'
+set -o nounset
+snap="$(set +o)"
+case "$snap" in *"set -o nounset"*) echo 'A7_NOUNSET_KEPT' ;; *) echo 'A7_NOUNSET_LOST' ;; esac
+set -o errexit
+snap2="$(set +o)"
+case "$snap2" in *"set -o errexit"*) echo 'A7_ERREXIT_KEPT' ;; *) echo 'A7_ERREXIT_LOST' ;; esac
+A7
+run_probe "$TMP/a7.sh"
+if has 'A7_NOUNSET_KEPT' "$probe_out" && has 'A7_ERREXIT_LOST' "$probe_out"; then
+  ok "A7 control: \`\$(set +o)\` loses errexit and ONLY errexit — \`nounset\` round-trips"
+else
+  bad "A7 the mechanism this fix rests on no longer holds on this bash. If errexit now" \
+      "round-trips the fix is a harmless no-op, but the prose is wrong; if nounset stopped" \
+      "round-tripping the capture is too narrow. Output: $probe_out"
+fi
+
+# --- A8: `source … || handler` still needs its own `exit` -------------------
+#
+# The fix makes a BARE `source` abort an errexit-on caller. It does not extend to
+# the `||` form — bash suppresses errexit for the left operand — and three call
+# sites are written that way. Pinned here because the natural mis-edit is to trim
+# such a handler to a bare message on the grounds that the fix now aborts.
+cat > "$TMP/a8.sh" <<A8
+export PASTURA_SKIP_SIM_WAIT=1
+export PASTURA_SIM_NAME='$NO_SUCH_SIM'
+set -euo pipefail
+source '$SIMDEST' 2>/dev/null || echo 'A8_HANDLER_RAN'
+echo 'A8_FELL_THROUGH'
+A8
+run_probe "$TMP/a8.sh"
+if has 'A8_FELL_THROUGH' "$probe_out"; then
+  ok "A8 a \`|| handler\` without \`exit\` still falls through — those sites keep their \`exit 1\`"
+else
+  bad "A8 the \`||\` form aborted on its own. If bash stopped suppressing errexit for the left" \
+      "operand, the three \`|| { …; exit 1; }\` sites can drop their handlers and the comments" \
+      "there need updating. Output: $probe_out"
 fi
 
 if [ "$fail" -ne 0 ]; then
