@@ -144,9 +144,10 @@ new measurement.
 suppresses errexit for the left operand of `||`, so the call sites written
 `source … || { …; exit 1; }` still depend on that `exit`: deleting the handler
 hands the job back to the restore fix, reducing it to a bare message does not.
-`ci.yml`'s two `run:` steps use the bare form (a `run:` is `bash -e {0}`) and so
-do gain the abort — they previously swallowed a failed source and wrote an empty
-`DEST=` into `$GITHUB_ENV`.
+Bare-form callers do gain the abort — among them `ci.yml`'s two `run:` steps (a
+`run:` is `bash -e {0}`), which previously swallowed a failed source and wrote an
+empty `DEST=` into `$GITHUB_ENV`. Enumerate the callers before claiming a set:
+`grep -rn 'sim-dest\.sh' --include='*.sh' --include='*.yml' .`
 
 ## Long-lived branch gating — two layers × two directions
 

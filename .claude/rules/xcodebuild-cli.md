@@ -16,7 +16,7 @@ scripts/xcodebuild.sh <subcommand> [--tail N] [args]
 ```
 
 Allowlist: `Bash(scripts/xcodebuild.sh*)` and `Bash(source scripts/sim-dest.sh)`
-— **exact-prefix literal matches**, so four shapes miss them and raise an
+— **exact-prefix literal matches**, so these shapes miss them and raise an
 approval prompt, which on an unattended run kills that run rather than teaching
 it anything: variable expansion (`"$xcb" …`), `cd … && scripts/xcodebuild.sh …`,
 a leading env-var assignment (`PASTURA_SKIP_XCSTRINGS_SYNC=1 scripts/…`), and an
@@ -30,8 +30,10 @@ shell processes and never reach the permission gate.
 
 Forward only what the wrapper does not supply — typically `-only-testing` /
 `-skip-testing`, plus the wrapper-only `--tail N`. It rejects a re-passed
-`-scheme` / `-project` / `-destination` / `-derivedDataPath` with the reason per
-flag, ahead of the simulator gate. To pin **one** simulator for `test`:
+`-scheme` / `-project` / `-derivedDataPath`, and `-destination` on `test` (where
+xcodebuild treats it as additive, not last-wins) — each with its reason, ahead of
+the simulator gate. **`build -destination` stays accepted**: it is the
+device compile-check row below. To pin **one** simulator for `test`:
 
 ```bash
 export PASTURA_SIM_NAME="iPhone 17 Pro Max"
@@ -45,7 +47,7 @@ scripts/xcodebuild.sh test …
 | TDD red/green (single class) | `scripts/xcodebuild.sh test -only-testing PasturaTests/<Class>` |
 | Pre-PR full local run | `scripts/xcodebuild.sh test` |
 | Build only (no tests) | `scripts/xcodebuild.sh build` |
-| Compile-check device-only code | `scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — see `build-traps.md` |
+| Compile-check device-only code | `scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` — see `swiftui-traps.md` |
 | Cap output for context-window budget | `scripts/xcodebuild.sh <cmd> --tail N [args]` |
 | CI full run | `.github/workflows/ci.yml` (bypasses wrapper) |
 
@@ -66,6 +68,10 @@ Use it instead of an external `| tail`, which defeats `pipefail` and reports a
 External `| grep` is fine for filtering, but the pipe replaces the wrapper's exit
 code with grep's — verify by grepping for `** BUILD SUCCEEDED **` /
 `** TEST SUCCEEDED **` (or the `FAILED` markers), or set `pipefail` caller-side.
+**`TEST SUCCEEDED` does not mean tests ran**: a Swift-Testing run prints
+`Executed 0 tests` in the XCTest stanza regardless, and a `-only-testing` that
+matches nothing also succeeds. Confirm the `✔ Test` / `Test run with N tests`
+markers — both traps are in `testing.md`.
 When the marker was trimmed off entirely:
 `xcrun xcresulttool get test-results summary --path "$XCRESULT" --format json`.
 
@@ -81,8 +87,9 @@ When the marker was trimmed off entirely:
   is advisory, never a build failure. Pruning stale entries is manual and
   separate: read `.claude/rules/i18n-catalog.md` first (a script run loads none
   of it), then `python3 scripts/xcstrings-prune-stale.py`.
-- **DerivedData**: worktree-local `Pastura/DerivedData/`, so
-  `git worktree remove` cleans it.
+- **DerivedData**: worktree-local `Pastura/DerivedData/`. When you pass
+  `-derivedDataPath` yourself — as the recipe at the end of this file does — use a
+  **space, not `=`**; the `=` form is silently ignored (Xcode 15.4+).
 
 ## Concurrent-session simulator gate
 
@@ -90,7 +97,8 @@ When the marker was trimmed off entirely:
 with a `,id=<UDID>` destination runs on this machine — **up to 15 minutes**, so
 size the bash `timeout` for it and do not kill a run that merely looks stuck. It
 announces the wait, naming the busy PIDs and the bypass variable. `build` never
-waits (`generic/platform=…`, no UDID).
+waits — the wrapper exports the bypass for it; its generic destination is instead
+why a build never makes *other* sessions wait.
 
 Manual override for genuine parallelism, or for `simctl` /
 `-showBuildSettings` inspection. This exact form misses the allowlist and
@@ -100,8 +108,9 @@ prompts, by design:
 PASTURA_SKIP_SIM_WAIT=1 source scripts/sim-dest.sh
 ```
 
-A gate that times out when you started no other run is a stale
-`xcodebuild`/`testmanagerd`/`XCTRunner` — see § Agent session guardrails.
+A gate that times out when you started no other run is **most likely** a stale
+`xcodebuild`/`testmanagerd`/`XCTRunner` — but it can equally be a live sibling
+worktree's, so see § Agent session guardrails before killing anything.
 
 ## Agent session guardrails
 
@@ -137,8 +146,9 @@ deliberately `default:`-less as a compile-time canary. See ADR-013.
 ## A stale SPM resolution reads as a compile error
 
 The wrapper resolves SPM packages when this DerivedData holds **none**, so a fresh
-worktree repairs itself. A resolution that is *stale* rather than absent (a
-`Package.resolved` bump, a moved revision) is not covered: the pre-flight stays
+worktree repairs itself. A resolution that is stale, moved, or **partial** rather
+than absent (a `Package.resolved` bump, a moved revision, some but not all of this
+tree's dependencies resolved) is not covered: the pre-flight stays
 quiet and the pre-commit hook reports `Build failed. Fix compile errors before
 committing.` for a compile error that does not exist. Recover, then re-commit:
 
@@ -150,7 +160,7 @@ xcodebuild -resolvePackageDependencies -project Pastura/Pastura.xcodeproj -schem
 
 CI UI-test failures cluster into known classes — app-launch timeout, runner-init
 Accessibility, and XCUITest idle-stall — auto-retried by
-`.github/workflows/ci-retry.yml`. A fourth, **within-process clone cascade, is
+`.github/workflows/ci-retry.yml` (max 3 attempts on main / 2 on PR). A fourth, **within-process clone cascade, is
 retired**: #1053 made the `ui-test` job serialized, so a recurrence of it (or of
 the contention stall) means `-parallel-testing-enabled NO` was dropped from that
 job, not that a flake came back.
