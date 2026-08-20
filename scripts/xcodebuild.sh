@@ -160,6 +160,54 @@ else
   destination="$DEST"
 fi
 
+# Resolve SPM dependencies up front when this DerivedData has none. A fresh
+# worktree gets an empty Pastura/DerivedData/, and the first xcodebuild there
+# dies at package resolution ("Could not resolve package dependencies: Couldn't
+# check out revision …") — which the pre-commit hook then reports as
+# `Build failed. Fix compile errors before committing.`, sending the reader
+# after a compile error that does not exist.
+#
+# The predicate is "no dependency was ever resolved into this DerivedData", not
+# "the state file is missing": a FAILED resolve still writes
+# workspace-state.json, with empty `artifacts`/`dependencies` arrays and no
+# `"identity"` key anywhere, so keying on the file's existence would skip the
+# retry of the exact case this exists for (measured while writing #1503 — the
+# failure above happened in this worktree, and the file was already there).
+#
+# What it does NOT cover: a resolution that is stale rather than absent (a
+# `Package.resolved` bump, a revision that moved). Identities are present then,
+# so the pre-flight stays out of the way and the build fails as it does today.
+# Widen the predicate only with a case that reproduces.
+#
+# Cost: nothing on a warm tree (predicate is a grep over one small file); ~23 s
+# once on a cold one, which the build was going to spend on resolution anyway.
+_spm_state="$DERIVED_DATA/SourcePackages/workspace-state.json"
+_spm_resolved=""
+if [[ -f "$_spm_state" ]]; then
+  # Capture rather than `grep -q`: an early-exiting reader under `pipefail`
+  # turns a match into a failure. `|| [ $? -eq 1 ]` keeps a real grep error
+  # (exit >= 2) distinguishable from "no match", which `|| true` would flatten.
+  _spm_resolved="$({ grep '"identity"' "$_spm_state" || [ $? -eq 1 ]; })"
+fi
+if [[ -z "$_spm_resolved" ]]; then
+  echo "pre-flight: no resolved SPM packages in $DERIVED_DATA — resolving first." >&2
+  # Explicit `if !` rather than a bare call: errexit is in force here, and a
+  # resolve failure must stay advisory. Letting the build run anyway keeps this
+  # from adding a failure path of its own — and the build's own error is what
+  # the operator needs to see, now with the real cause named above it.
+  if ! xcodebuild -resolvePackageDependencies \
+      -project "$REPO_ROOT/Pastura/Pastura.xcodeproj" \
+      -scheme Pastura \
+      -derivedDataPath "$DERIVED_DATA" \
+      -quiet; then
+    {
+      echo "warning: -resolvePackageDependencies failed."
+      echo "  If the build below dies at 'Could not resolve package dependencies',"
+      echo "  that is a DEPENDENCY RESOLUTION failure, not a compile error."
+    } >&2
+  fi
+fi
+
 # Auto-sync Localizable.xcstrings before xcodebuild runs. Xcode IDE's
 # Build action extracts `String(localized:)` keys into the catalog
 # automatically; `xcodebuild build` from CLI does not (Apple has no
