@@ -366,7 +366,8 @@ to its v1 form apart from the version line, and refused by any already-shipped
 build, whose loader compared for equality against a single constant. That is
 accepted rather than worked around: demo YAMLs ship inside the app binary, so
 the rotation never sees a version it was not built with, and the exporter's
-Share-Sheet output has no import path in the app at all. Making the emitted
+Share-Sheet output has no REPLAY-import path in the app at all (the one
+`fileImporter` that exists ingests scenario YAML into the editor). Making the emitted
 version data-dependent (v1 when no row carries a `phase_path`) would preserve
 old-reader compatibility, and is the change to make if an importer ever lands —
 not before, since a branch nothing exercises is a branch nothing checks.

@@ -512,7 +512,10 @@ struct BundledDemoReplaySourceTests {
     return nil
   }
 
-  private static func parseYAMLAsDictionary(_ text: String) throws -> [String: Any] {
+  // Internal, not `private`: the sibling `+Alignment.swift` extension calls it
+  // to drive one fixture through the real parser, and `private` is file-scoped
+  // even for an extension of the same type.
+  static func parseYAMLAsDictionary(_ text: String) throws -> [String: Any] {
     // Reuse Yams indirectly via ScenarioLoader's parse path is overkill
     // — but BundledDemoReplaySource already forwards to YAMLReplaySource
     // for the same parse, and Yams is the project's only YAML lib.

@@ -175,17 +175,36 @@ extension BundledDemoReplaySourceTests {
   // in both places at once — these pin the presence-keyed form instead.
 
   @Test func phasePathOfWrongElementTypeIsCaught() throws {
-    // `[true, 0]` is the mirror of the curator's arm (j): there the guard is
-    // load-bearing because `isinstance(True, int)` is True in Python. Swift's
-    // `as?` does not bridge `Bool` to `Int`, so this should already reject —
-    // measured rather than reasoned from bridging behaviour, matching what
-    // `throwsOnBooleanSchemaVersion` does for the version field.
     for badPath in [["1", "0"] as [Any], [true, 0] as [Any]] {
       let found = try diagnostic([
         "phase_index": 1, "phase_path": badPath, "phase_type": "vote"
       ])
       #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
     }
+  }
+
+  @Test func parsedBooleanPhasePathElementIsCaught() throws {
+    // The mirror of the curator's arm (j), where the guard is load-bearing
+    // because `isinstance(True, int)` is True in Python. The Swift question is
+    // NOT whether `[Any]` casts to `[Int]` — the arm above settles that — but
+    // which scalar type the PARSER hands back: a Swift `Bool` fails `as? Int`,
+    // an `NSNumber` would succeed and resolve to phase 1. Every other fixture
+    // in this file is hand-built and so cannot see that boundary, which is why
+    // this one goes through Yams.
+    let demo = """
+      schema_version: 2
+      turns:
+        - round: 1
+          phase_index: 1
+          phase_path: [true, 0]
+          phase_type: vote
+          agent: Alice
+          fields: {}
+      """
+    let raw = try BundledDemoReplaySourceTests.parseYAMLAsDictionary(demo)
+    let entry = try #require((raw["turns"] as? [[String: Any]])?.first)
+    let found = Self.alignmentDiagnostic(entry: entry, phases: try conditionalPhases())
+    #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
   }
 
   @Test func explicitlyNullPhasePathIsCaught() throws {

@@ -411,16 +411,35 @@ fi
 # (`default_flow_style=None` on the dump) also folds `metadata` and each turn's
 # `fields` into one-line mappings — and `fields.*` is what the §3.4 content
 # audit is read against by hand.
-if python3 "$CONVERTER" "$TMP/then.jsonl" "$TMP/preset.yaml" "$TMP/out_m.yaml" >/dev/null 2>&1; then
-  if grep -q '^  phase_path: \[1, 0\]$' "$TMP/out_m.yaml"; then
-    if grep -q '^  fields:$' "$TMP/out_m.yaml"; then
-      echo "ok   (m) phase_path renders inline while fields stays block"
+# The fixture carries a code-phase event as well as a turn: both sections take
+# their coordinates from the one `emitted_coords()`, so they cannot diverge
+# today — but the spec §3.2 example now promises they render identically, and a
+# promise about a section no arm reads is the unarmed half all over again.
+cat > "$TMP/render.jsonl" <<'JSONL'
+{"type":"run_start","run_id":"r1","date":"2026-08-14T00:00:00Z","scenario_id":"fixture_v1","language":"ja","model":"Gemma 4 E2B (Q4_K_M)"}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":1}
+{"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[1]}
+{"type":"event","t":0.3,"attempt":1,"event":"conditional_evaluated","condition":"x > 0","result":true}
+{"type":"event","t":0.4,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[1,0]}
+{"type":"event","t":0.5,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"ひとこと。"}}
+{"type":"event","t":0.6,"attempt":1,"event":"summary","value":"まとめ。"}
+{"type":"run_end","run_id":"r1","status":"ok","attempts":1,"duration_sec":1.0}
+JSONL
+if python3 "$CONVERTER" "$TMP/render.jsonl" "$TMP/preset.yaml" "$TMP/out_m.yaml" >/dev/null 2>&1; then
+  # Two occurrences expected: one in `turns`, one in `code_phase_events`.
+  inline_count="$(grep -c '^  phase_path: \[1, 0\]$' "$TMP/out_m.yaml" || true)"
+  if [ "$inline_count" = "2" ]; then
+    # `fields` and `metadata` are the two mappings a document-wide flow switch
+    # would fold; `fields.*` is what the spec §3.4 content audit is read
+    # against by hand, so the scope of the switch is the assertion here.
+    if grep -q '^  fields:$' "$TMP/out_m.yaml" && grep -q '^metadata:$' "$TMP/out_m.yaml"; then
+      echo "ok   (m) phase_path renders inline in both sections; fields/metadata stay block"
     else
-      echo "FAIL: (m) fields was folded to flow style — the switch is too broad" >&2
-      grep -n 'fields' "$TMP/out_m.yaml" >&2; fail=1
+      echo "FAIL: (m) fields or metadata was folded to flow — the switch is too broad" >&2
+      grep -n '^metadata\|fields' "$TMP/out_m.yaml" >&2; fail=1
     fi
   else
-    echo "FAIL: (m) phase_path did not render inline as '[1, 0]'" >&2
+    echo "FAIL: (m) expected 2 inline 'phase_path: [1, 0]' lines, got $inline_count" >&2
     grep -n 'phase_path' "$TMP/out_m.yaml" >&2; fail=1
   fi
 else
