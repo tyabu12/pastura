@@ -166,8 +166,15 @@ runs **2.136–4.152** across them, against §8's single stated calibration of
 Computed by `DesignTokensTests+MutedAsContent`, pinned in its sibling
 `DesignTokensTests+MutedTranscript` as `opaqueGroundPins`, and held equal to this
 table by `scripts/check-measurement-transcripts.py` — edit the table alone and it
-goes red (#1488). Procedure: §8 **of this ledger**. Every other `§8` above — the
-intro paragraph, the table's calibration-point cell — is design-system.md's.
+goes red (#1488). **The rows are also where §5's check learns which dark ground
+answers which light one**: `opaqueGroundPins` is flat and its order differs from
+this table's, so nothing above this table carries that pairing. Permute the dark
+halves of the three rows §5 names (`screenBackground`, `bubbleBackground`,
+`page`) and 28–72 §5 rows redden — measured over all five non-identity
+permutations, not the three transpositions alone. Permute them among the other
+three and **none** does; that half of the pairing stays unguarded (#1496).
+Procedure: §8 **of this ledger**. Every other `§8` above — the intro paragraph,
+the table's calibration-point cell — is design-system.md's.
 
 ### 3.2 Composited grounds — measured, and separately from the twelve
 
@@ -190,10 +197,12 @@ neither, and was wrong three ways; the record is at ADR-028 § Amendment
 | `HighlightShareCard` model name | `moss@0.14` / `nightMoss@0.10` light leak over the card background — bound at maximum leak | 2.932 | 3.140 |
 
 Same wiring, as `washRowPins` — and the checker holds ADR-028 § Amendment
-2026-08-15's four-row copy to those pins too (#1488). Until then the transcript
-claim above this table was only a claim: `DesignTokensTests+MutedAsContent`'s
-arms were all inequalities, orderings and counts, so no ratio was named anywhere
-for a table to be a transcript *of*.
+2026-08-15's four-row copy to those pins too (#1488). The `Wash over ground`
+column is read as well: its leading backticked token is what a §5 row joins on,
+so two rows sharing one raises rather than collapsing (#1496). Until then the
+transcript claim above this table was only a claim:
+`DesignTokensTests+MutedAsContent`'s arms were all inequalities, orderings and
+counts, so no ratio was named anywhere for a table to be a transcript *of*.
 
 Corrections beyond the arithmetic, all from reading the sites rather than the
 table:
@@ -569,9 +578,25 @@ python3 scripts/check-measurement-transcripts.py --residue
 three-decimal ratios, but of a different population (ground-vs-ground contrast,
 per-channel pair gaps), none a copy of these pins.
 
-§5 is the one face that moved from that list into the gate: its per-site
-`light/dark` column is checked for **membership** — every figure there must be
-one the fixture computes somewhere. Not a bijection, because §5 quantifies its
-ground freely ("`screenBackground` or `bubbleBackground`", "same", "worst") and
-deciding which pin a row *ought* to carry is a judgment (#1496). So a row
-carrying another row's value still passes.
+§5 is the one face that moved from that list into the gate, and it is checked
+**row by row**: each row's `light/dark` figures must equal the pin its own
+`Ground` cell names (#1496). A row carrying *another* row's value goes red —
+which membership alone could not see, since every such figure is still a pin.
+
+The mapping is derived, not hand-kept. §3.1 supplies the light↔dark pairing and
+§3.2's `Wash over ground` column the wash join, so perturbing either reddens
+rows here. Dispatch reads the `light/dark` cell first and the `Ground` cell only
+after: `screenBackground` and `bubbleBackground` each carry both a figure pair
+and a `—`, so reading the ground first would redden the three `#Preview` rows
+that name a real ground and measure nothing. The forms that cell may take are
+enumerated in the checker (`LEDGER_5_UNCOMPARED` and its siblings); a new one
+**raises** rather than being skipped.
+
+Membership is still run alongside it, but **on today's ledger it is subsumed** —
+measured, after two drafts here claimed otherwise. A figure matching no pin
+cannot equal its own ground's pin either, so both checks redden on one; and a
+drifted sub-table header raises from both. What keeps it wired in is that the
+subsumption belongs to the *form set*: membership reads every decimal in the
+cell, the row check only cells matching a declared compared form, so a future
+unmeasured form that still carries a figure would leave one and stay in the
+other. That set is empty today.
