@@ -36,10 +36,14 @@ Usage:
 Hard-fails (each with a distinct, greppable message):
   - the scenario YAML declares the `secret:` mechanism (ADR-029 Decision 2 —
     the spoiler rules are unvalidated for it);
-  - the scenario uses a `conditional` phase, whose `phase_index` cannot be
-    derived (#1473) — raised by the shared `_check_position`, so the gate
-    refuses the same class;
-  - a `phase_started` line carrying no usable `phase_path`;
+  - a scenario whose `phases:` tree cannot be flattened — a `conditional`
+    with neither branch, or one nested inside a branch (both refused by
+    `ScenarioValidator` too);
+  - a `phase_started` line carrying no usable `phase_path`, one deeper than
+    the engine's depth-1 rule allows, or one naming a phase / branch position
+    the pinned YAML does not have;
+  - a branch `phase_path` with no preceding `conditional_evaluated` to say
+    which branch was taken (`then[j]` and `else[j]` share the path);
   - a transcript phase name outside the `PhaseType` catalog (a new phase type
     landed; classify it in ADR-029 Decision 3 first);
   - a pick that is not an `agent_output` line, or whose phase / source_field /
@@ -55,6 +59,7 @@ convenience and share their implementation with the gate
 (`scripts/gallery_highlight_validate.py`).
 """
 import argparse
+import collections
 import datetime
 import json
 import os
@@ -102,18 +107,42 @@ def read_transcript(path):
     return lines, run_start
 
 
-def annotate(lines):
+def annotate(lines, nodes):
     """Carry `round` and `phase_index` forward onto every event line.
 
     `agent_output` lines carry no `round` (ADR-029 Decision 2's mechanical
-    note) — it comes from the preceding `round_started`. `phase_index` comes
-    from the enclosing `phase_started.phase_path[0]`, which indexes the
-    scenario's TOP-LEVEL phase list — equal to the index into the entry's
-    `phases` only while the scenario has no `conditional`. What keeps the first
-    path element meaningful here is that `_check_position` refuses that whole
-    scenario class (#1473); its comment has the skew.
+    note) — it comes from the preceding `round_started`.
+
+    `phase_index` indexes the entry's flattened `phases`, while a transcript's
+    `phase_path` is a TREE path (`[i]`, or `[i, j]` inside a branch). Those
+    coincide only for a scenario with no `conditional`, so the path is resolved
+    against `nodes` — `flatten_phase_tree`'s node list, in the same order
+    `gallery.json` stores.
+
+    `[i, j]` alone does not say WHICH branch: `then[j]` and `else[j]` carry the
+    identical path. The branch comes from the `conditional_evaluated` the
+    harness emits between the conditional's own `phase_started` and its
+    branch's (`ConditionalHandler.execute` evaluates, then runs the branch).
+    That event carries no `phase_path` of its own, so it is attributed to the
+    most recent `phase_started` whose type is `conditional` — sound because the
+    engine's depth-1 rule means at most one conditional is ever in flight.
+
+    Every failure here is fatal rather than a fallback: an invented coordinate
+    reads as measured fact to every downstream check.
     """
+    by_top = {}
+    by_branch = {}
+    for flat_idx, node in enumerate(nodes):
+        if node.branch is None:
+            by_top[node.top] = flat_idx
+        else:
+            by_branch[(node.top, node.branch, node.inner)] = flat_idx
+    branch_len = collections.Counter(
+        (n.top, n.branch) for n in nodes if n.branch is not None)
+
     context, round_no, phase_idx = {}, None, None
+    pending_branch = None   # (top, "then"/"else") from the last conditional_evaluated
+    open_conditional = None  # top-level index of the conditional currently in flight
     for lineno in sorted(lines):
         obj = lines[lineno]
         if obj.get("type") != "event":
@@ -121,6 +150,17 @@ def annotate(lines):
         event = obj.get("event")
         if event == "round_started":
             round_no = obj.get("round")
+        elif event == "conditional_evaluated":
+            if open_conditional is None:
+                die(f"line {lineno} — `conditional_evaluated` with no preceding "
+                    "`phase_started` of type `conditional`, so the branch it "
+                    "decides cannot be attributed to a phase")
+            result = obj.get("result")
+            if not isinstance(result, bool):
+                die(f"line {lineno} — `conditional_evaluated.result` is "
+                    f"{result!r}, not a boolean; the taken branch cannot be "
+                    "derived from it")
+            pending_branch = (open_conditional, "then" if result else "else")
         elif event == "phase_started":
             path = obj.get("phase_path")
             # Refuse rather than default to 0. The harness always writes this
@@ -131,7 +171,44 @@ def annotate(lines):
                 die(f"line {lineno} — `phase_started` carries no usable "
                     "`phase_path`, so phase_index cannot be derived for any pick "
                     "in this phase")
-            phase_idx = path[0]
+            if len(path) > 2:
+                die(f"line {lineno} — `phase_path` {path} is {len(path)} deep, but "
+                    "the engine's depth-1 rule bounds it to 2 (ScenarioValidator "
+                    "blocks a nested `conditional` at load; ConditionalHandler "
+                    "registers no sub-handler for one at run time). A deeper path "
+                    "means the transcript and that rule disagree — resolving it "
+                    "would need a branch decision this tool cannot make.")
+            if len(path) == 1:
+                if path[0] not in by_top:
+                    die(f"line {lineno} — `phase_path` {path} names top-level phase "
+                        f"{path[0]}, which the scenario's `phases:` does not have "
+                        f"(it has {len(by_top)}). The transcript and the pinned "
+                        "YAML disagree — check that the run used this exact "
+                        "scenario file.")
+                phase_idx = by_top[path[0]]
+                open_conditional = (
+                    path[0] if nodes[phase_idx].type == "conditional" else None)
+                # Cleared on EVERY top-level phase, conditional included: the
+                # engine re-evaluates the condition once per round, so carrying
+                # the previous round's verdict forward would resolve round N's
+                # branch phases against round N-1's branch instead of failing.
+                pending_branch = None
+            else:
+                top, inner = path[0], path[1]
+                if pending_branch is None or pending_branch[0] != top:
+                    die(f"line {lineno} — `phase_path` {path} is inside a branch, but "
+                        "no `conditional_evaluated` for that conditional precedes "
+                        "it. `then[j]` and `else[j]` share the path, so the branch "
+                        "is what disambiguates them and it cannot be guessed.")
+                branch = pending_branch[1]
+                key = (top, branch, inner)
+                if key not in by_branch:
+                    die(f"line {lineno} — `phase_path` {path} names position {inner} "
+                        f"of the `{branch}` branch at top-level phase {top}, which "
+                        f"has {branch_len[(top, branch)]} phase(s). The transcript "
+                        "and the pinned YAML disagree — check that the run used "
+                        "this exact scenario file.")
+                phase_idx = by_branch[key]
         context[lineno] = (round_no, phase_idx)
     return context
 
@@ -344,9 +421,15 @@ def main():
             "the speaker's index into that list (ADR-029 Decision 1), so it "
             "cannot be derived.")
 
+    nodes, tree_reason = ghv.flatten_phase_tree(scenario)
+    if nodes is None:
+        die(f"unreadable phases — {tree_reason}. Every excerpt entry pins a "
+            "`phase_index` into the flattened phase list, so it cannot be "
+            "derived.")
+
     lines, run_start = read_transcript(args.run)
     check_phase_catalog(lines, args.run)
-    context = annotate(lines)
+    context = annotate(lines, nodes)
     selection = load_selection(args)
     excerpt = build_excerpt(
         selection["picks"], lines, context, args.run, persona_names)

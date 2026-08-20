@@ -1178,17 +1178,88 @@ mk_scenario "$R" cond_v1 '["speak_each","summarize"]'
 mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
 gate "$R"; expect_ok 'C2 a flat scenario still passes'
 
-# C3 — the extractor's own derivation is NOT branch-aware yet: annotate() still
-# reads phase_path[0], so a branch utterance reports the conditional's top-level
-# index and the shared phase check catches the disagreement. Asserted rather
-# than left silent — this is precisely what the next commit replaces, and an
-# unasserted gap here would let a half-finished resolver look finished.
+# C3 — the acceptance criterion end-to-end: the extractor resolves a round-1
+# else-branch utterance to flattened index 5 and the gate accepts what it wrote,
+# with no --window-override. `expect_eq 5` rather than expect_out: a substring
+# match would also pass on 15, or on an error string containing a 5.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
 mk_run_cond "$R" "$R/run.jsonl"; mk_selection_cond "$R" "$R/sel.json"
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 \
+  --selection sel.json --generated-at 2026-08-05
+expect_ok "C3 the extractor accepts a conditional scenario"
+runc "$R" jq -r '.excerpt[0].phase_index' docs/gallery/highlights/cond_v1.json
+expect_eq "5" "C3 resolves the else branch to its flattened index, not the conditional's 0"
+runc "$R" jq -r '.window_override' docs/gallery/highlights/cond_v1.json
+expect_eq "false" "C3 needs no window override"
+link_highlight "$R" cond_v1
+gate "$R"; expect_ok "C3 the extractor's own output passes the gate"
+
+# C3b — control on the SAME transcript: flip the condition to true and the
+# identical `phase_path` [0,0] must resolve to the THEN branch's index 1. This
+# is what shows C3 read the branch rather than a constant.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_run_cond "$R" "$R/run.jsonl"; mk_selection_cond "$R" "$R/sel.json"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+text = io.open(p, encoding="utf-8").read()
+old = '"event":"conditional_evaluated","condition":"current_round == total_rounds","result":false'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+io.open(p, "w", encoding="utf-8").write(text.replace(old, old[:-5] + "true"))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 \
+  --selection sel.json --generated-at 2026-08-05
+expect_ok "C3b the extractor accepts the then-branch run"
+runc "$R" jq -r '.excerpt[0].phase_index' docs/gallery/highlights/cond_v1.json
+expect_eq "1" "C3b the same phase_path resolves to the then branch"
+
+# C3c — the branch is what disambiguates `[i, j]`, so its absence is fatal
+# rather than guessed. Also the depth guard, and a path the pinned YAML cannot
+# place. One repo, three mutations of its transcript.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_selection_cond "$R" "$R/sel.json"
+mk_run_cond "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+text = io.open(p, encoding="utf-8").read()
+keep = [l for l in text.splitlines() if '"conditional_evaluated"' not in l]
+assert len(keep) == len(text.splitlines()) - 1, "probe removed the wrong number of lines"
+io.open(p, "w", encoding="utf-8").write("\n".join(keep) + "\n")
+PY
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
-expect_fail "C3 the extractor cannot yet derive a branch index"
-expect_out "phase_index mismatch" "C3 the shared phase check catches the top-level index"
+expect_fail "C3c a branch path with no conditional_evaluated is refused"
+expect_out "no \`conditional_evaluated\` for that conditional precedes" \
+  "C3c names the missing branch decision"
+
+mk_run_cond "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+text = io.open(p, encoding="utf-8").read()
+old = '"phase_path":[0,0]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+io.open(p, "w", encoding="utf-8").write(text.replace(old, '"phase_path":[0,0,0]'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3c a phase_path deeper than the depth-1 rule is refused"
+expect_out "depth-1 rule bounds it to 2" "C3c cites the upstream invariant"
+
+mk_run_cond "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+text = io.open(p, encoding="utf-8").read()
+old = '"phase_path":[0,0]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+io.open(p, "w", encoding="utf-8").write(text.replace(old, '"phase_path":[0,9]'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3c a branch position the YAML does not have is refused"
+expect_out "which has 4 phase(s)" "C3c names the branch's real length"
 
 # C4 — a `phase_started` with no `phase_path` is refused rather than defaulted
 # to top-level index 0. The earlier `or [0]` fallback asserted a position the
@@ -1290,6 +1361,15 @@ mk_highlight "$R" cond_v1 \
 link_highlight "$R" cond_v1
 gate "$R"; expect_fail "C8 a late-round pick on a conditional entry hits the round window"
 expect_out "round window" "C8 names the round window"
+
+# C9 — regression: the shipped highlights still validate. The gate rewrites
+# nothing, so the assertion is "zero failures AND the files are untouched" —
+# a `git status` check, because a gate that passed after silently normalising a
+# file would look identical here.
+runc "$REAL_ROOT" bash scripts/check-gallery-entry.sh --all
+expect_ok "C9 the repo's own gallery still passes the gate"
+runc "$REAL_ROOT" git status --porcelain -- docs/gallery/highlights
+expect_eq "" "C9 the gate left every shipped highlight byte-identical"
 
 # --- phase tree: flattening + gallery.json cross-check (#1473) -------------
 #
