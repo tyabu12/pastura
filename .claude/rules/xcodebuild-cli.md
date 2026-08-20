@@ -45,32 +45,20 @@ entries and hook commands is intentional.
 
 ### Re-passing wrapper-supplied flags
 
-The wrapper auto-supplies `-scheme`, `-project`, `-destination`, and
-`-derivedDataPath`. Their override semantics differ:
+The wrapper supplies `-scheme`, `-project`, `-destination` and
+`-derivedDataPath`, and **rejects a re-pass with a one-line error** before
+xcodebuild can bury its own between the xtrace and a 64-line usage page.
+Forward only what the wrapper does not supply — typically `-only-testing` /
+`-skip-testing`, plus the wrapper-only `--tail N`.
 
-| Flag | Re-pass via `[args]`? |
-|------|------------------------|
-| `-scheme` | **Rejected** — `error: option '-scheme' may only be provided once` |
-| `-project` | **Rejected** — same |
-| `-derivedDataPath` | **Rejected** — same |
-| `-destination` | **Accepted but ADDITIVE, not last-wins** — see below |
-
-xcodebuild prints the rejection error followed by its full usage page
-(exit 64). The error line lands between the wrapper's xtrace and the
-usage page, so it is easy to miss — the failure looks like a wrapper
-bug. Forward only what the wrapper does not supply: typically just
-`-only-testing` / `-skip-testing` / `--tail N` (the last is wrapper-only,
-consumed before xcodebuild is invoked).
-
-**`-destination` is additive for `test`, NOT last-wins.** xcodebuild runs
-the suite on **every** `-destination` given. The wrapper already supplies its
-own `-destination` (from `sim-dest.sh`, default iPhone 17 Pro), so appending a
-second one runs the tests on **both** devices — and a failure on the extra
-device aborts the whole run (exit 65). Do **not** re-pass `-destination` to
-"override" the wrapper's simulator. To pin a **single** simulator, set the
-`PASTURA_SIM_NAME` env var (honored by `sim-dest.sh`), which replaces the
-priority list with that one device so the wrapper emits the right lone
-`-destination`. `export` it on its own line — the leading-assignment form
+Two of those rejections encode something you would not guess, and the guard in
+`scripts/xcodebuild.sh` carries the reason per flag: the `=`-joined form
+(`-derivedDataPath=…`) is **silently ignored** by Xcode 15.4+ rather than
+rejected, and `-destination` is **additive, not last-wins** — a second one runs
+`test` on both devices and a failure on either aborts the run. `build` still
+accepts `-destination`, which is what makes the device compile-check recipe
+below work. To pin a **single** simulator for `test`, export `PASTURA_SIM_NAME`
+(honored by `sim-dest.sh`) on its own line — the leading-assignment form
 (`PASTURA_SIM_NAME=… scripts/xcodebuild.sh …`) trips the allowlist approval
 prompt, per § "Canonical invocation":
 
@@ -96,12 +84,10 @@ Skip UI tests with `-skip-testing:PasturaUITests` when the change
 does not touch UI (UI tests are not required for MVP). Integration
 tests (Ollama / Llama) require their `*_INTEGRATION` env var enabled
 **in the scheme** (`LaunchAction > EnvironmentVariables` inherited by
-`TestAction` via `shouldUseLaunchSchemeArgsEnv="YES"`). CLI env vars
-passed to `scripts/xcodebuild.sh test` (or bare `xcodebuild test`) are
-NOT forwarded to the test runner subprocess — that path silently
-skips the suite while xcodebuild still prints `TEST SUCCEEDED`.
-Toggle in Xcode UI, or temporarily flip `isEnabled="YES"` in the XML
-before running — revert before commit.
+`TestAction` via `shouldUseLaunchSchemeArgsEnv="YES"`) — a CLI-passed
+one reaches no test runner, and the wrapper warns when it sees one
+exported. Toggle in Xcode UI, or temporarily flip `isEnabled="YES"`
+in the XML before running — revert before commit.
 
 ## --tail (built-in, pipefail-safe)
 
@@ -159,16 +145,19 @@ another test run, the busy PID is likely a stale
 `xcodebuild`/`testmanagerd`/`XCTRunner` from a prior timeout-killed
 run — see Recovery below.
 
-### Sourcing it in a script clears your `set -e`
+### Sourcing it no longer clears your `set -e`
 
-`sim-dest.sh` saves the caller's shell options on entry and restores that
-saved snapshot on every exit path. In practice this leaves errexit **off**
-after the `source` even if you ran `set -e` before it, so later failures
-keep running instead of aborting. **Re-assert `set -euo pipefail`
-immediately after sourcing.** Only scripts that source `sim-dest.sh`
-directly are at risk — child-process invokers (`ui-tour.sh` →
-`xcodebuild.sh`) are unaffected. Reference re-assert:
-`scripts/motion-capture.sh`.
+`sim-dest.sh` snapshotted the caller's options with `$(set +o)` — a command
+substitution, where bash has already cleared errexit — so restoring that
+snapshot dropped a caller's `set -e` (pipefail survived — it is no `$-` letter
+flag). Fixed in #1503 by capturing errexit from `$-`; a failing `source` now
+aborts an errexit-on caller by itself, and `scripts/tests/simdest-errexit-test.sh`
+pins that with a negative control reproducing the old capture.
+
+**Apply**: any new save/restore of shell options needs the `$-` capture, not
+`$(set +o)` alone. The `||` handlers and `set -euo pipefail` re-asserts still in
+the sourcing scripts are defence in depth now — not the abort mechanism, and not
+a reason a new call site needs one.
 
 ## Agent session guardrails
 
@@ -221,21 +210,30 @@ internal/persistence events). See ADR-013.
 ## Compile-checking device-only (`#if !targetEnvironment(simulator)`) code
 
 `#if !targetEnvironment(simulator)` blocks (e.g. `SettingsView` model-management UI,
-`ModelSettingsRow`) are excluded from the simulator build — which is what
-`scripts/xcodebuild.sh build`, `scripts/ui-tour.sh`, and CI all use, so a compile error OR
-layout regression there ships unseen. Compile-check without provisioning:
+`ModelSettingsRow`) are excluded from the simulator build, which is what
+`scripts/xcodebuild.sh build` and `scripts/ui-tour.sh` use. **CI is not blind to them**:
+`ci.yml`'s `release-build` job builds `-sdk iphoneos`, so a compile error there fails every
+iOS-touching PR — in **Release configuration only**. A block behind `#if DEBUG` *and*
+`!targetEnvironment(simulator)` would therefore be compiled by no CI job; none exists today.
+Compile-check locally without provisioning:
 `scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO`
-(wrapper forwards both trailing args; signing is skipped, and Swift compiles before signing
-so `** BUILD SUCCEEDED **` confirms the block compiles). **Layout/visual** still needs a
-real device — flag device-QA explicitly in PRs touching these blocks.
+(signing is skipped, and Swift compiles before signing, so `** BUILD SUCCEEDED **` confirms
+the block compiles). That one is a **Debug** device build — the wrapper passes no
+`-configuration` — so it does reach a `#if DEBUG` device-only block that CI cannot.
+**Layout/visual** still needs a real device — flag device-QA explicitly in PRs touching
+these blocks.
 
-## Fresh worktree's first build can fail SPM resolution (misleading message)
+## Fresh worktree's first build (SPM resolution)
 
-A fresh `/orchestrate` worktree has its own empty `Pastura/DerivedData/`. The first build the
-pre-commit hook triggers (any build-relevant path — `scripts/**` counts per
-`precommit-gate-classify.sh`) can fail at SPM resolution with a trailing
-`Build failed. Fix compile errors before committing.` — **misleading**: the real cause is
-unresolved SPM working copies, not a compile error. Fix once, then re-commit:
+The wrapper resolves SPM packages itself when this DerivedData holds none, so the
+fresh-worktree failure repairs itself — a first build that would otherwise die at package
+resolution and be reported by the pre-commit hook as
+`Build failed. Fix compile errors before committing.`, sending you after a compile error
+that does not exist.
+
+It does **not** cover a resolution that is *stale* rather than absent (a `Package.resolved`
+bump, a moved revision): identities are present then, the pre-flight stays quiet, and the
+misleading message is back. Recover by hand, then re-commit:
 `xcodebuild -resolvePackageDependencies -project Pastura/Pastura.xcodeproj -scheme Pastura -derivedDataPath Pastura/DerivedData`.
 Distinct from the harness `swift build` entry above (that's the SwiftPM *harness*).
 
