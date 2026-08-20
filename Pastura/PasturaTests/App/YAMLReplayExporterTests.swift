@@ -307,6 +307,114 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
     #expect(voteIndexLines == 2)
   }
 
+  // MARK: - phase_index derivation (persisted path vs cursor fallback)
+
+  /// Two ADJACENT phases of the same type — the shape the cursor cannot
+  /// tell apart, since it only advances when the observed `phaseType`
+  /// changes. Used as a control pair by the two tests below.
+  private static let adjacentSameTypeScenarioYAML = """
+    id: test_scn
+    language: ja
+    name: Test Scenario
+    description: test
+    agents: 2
+    rounds: 2
+    context: ctx
+    personas:
+      - name: Alice
+        description: ''
+      - name: Bob
+        description: ''
+    phases:
+      - type: speak_all
+        prompt: first
+        output:
+          statement: string
+      - type: speak_all
+        prompt: second
+        output:
+          statement: string
+      - type: vote
+        prompt: vote
+        candidates: agents
+    """
+
+  private func phaseIndexLines(_ text: String) -> [String] {
+    text.components(separatedBy: "\n")
+      .map { $0.trimmingCharacters(in: .whitespaces) }
+      .filter { $0.hasPrefix("phase_index:") }
+  }
+
+  @Test func persistedPhasePathOverridesCursorDerivation() throws {
+    // Both turns are `speak_all`, so the cursor holds at 0 for both. The
+    // persisted paths say 0 and 1 — a value the cursor could not have
+    // produced, which is what makes this discriminating rather than
+    // agreeing-by-luck.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(
+        round: 1, seq: 1, phase: "speak_all", agent: "Alice",
+        fields: ["statement": "s"], phasePathJSON: "[0]"),
+      makeTurn(
+        round: 1, seq: 2, phase: "speak_all", agent: "Bob",
+        fields: ["statement": "s"], phasePathJSON: "[1]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(),
+        scenario: makeScenario(yaml: Self.adjacentSameTypeScenarioYAML),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(phaseIndexLines(result.text) == ["phase_index: 0", "phase_index: 1"])
+  }
+
+  @Test func preV6RowsStillCollapseViaCursorDerivation() throws {
+    // The control for the test above: identical fixture, `phasePathJSON`
+    // nil. Migration v6 added that column with no backfill, so these rows
+    // must export exactly as they did before schema v2 — collapsed to the
+    // first matching index, limitation and all. A failure here means the
+    // fallback changed, not that the cursor is wrong.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(round: 1, seq: 1, phase: "speak_all", agent: "Alice", fields: ["statement": "s"]),
+      makeTurn(round: 1, seq: 2, phase: "speak_all", agent: "Bob", fields: ["statement": "s"])
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(),
+        scenario: makeScenario(yaml: Self.adjacentSameTypeScenarioYAML),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(phaseIndexLines(result.text) == ["phase_index: 0", "phase_index: 0"])
+  }
+
+  @Test func branchSubPhaseEventResolvesToItsPathNotTheConditional() throws {
+    // `resolveEventPhaseIndices` has its own fallback, so it needs its own
+    // pair. `summarize` is not a top-level phase of the base scenario, so
+    // the pre-v6 lookup would land on `conditionalFallbackIndex` — which,
+    // with no conditional present, is 0.
+    let exporter = makeExporter()
+    let withPath = makeCodePhaseEvent(
+      round: 1, seq: 1, phase: "summarize",
+      payload: .summary(text: "s"), phasePathJSON: "[1, 0]")
+    let withoutPath = makeCodePhaseEvent(
+      round: 1, seq: 1, phase: "summarize", payload: .summary(text: "s"))
+
+    let resolved = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: [withPath]))
+    let fallback = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: [withoutPath]))
+
+    #expect(phaseIndexLines(resolved.text) == ["phase_index: 1"])
+    #expect(phaseIndexLines(fallback.text) == ["phase_index: 0"])
+  }
+
   // MARK: - phase_path emission (schema v2)
 
   @Test func turnWithPhasePathJSONEmitsPhasePathLine() throws {

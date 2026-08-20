@@ -350,27 +350,25 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
 
   // MARK: - Phase index resolution
 
-  /// Linear walk through `scenario.phases` to resolve each turn's
-  /// `phase_index`. Advances a per-round cursor each time the observed
-  /// `phaseType` changes.
+  /// Resolves each turn's `phase_index`, preferring the lineage persisted
+  /// in `phasePathJSON` (#143) and falling back to a per-round cursor walk
+  /// over `scenario.phases` for rows that predate it.
   ///
-  /// **Limitations (documented, E1 scope):**
-  /// - Two adjacent phases of the same type within one round collapse to
-  ///   the first matching index — the cursor can't tell them apart.
-  /// - Turns produced by sub-phases inside a `conditional` resolve to
-  ///   the outer conditional's index; the denormalised `phase_type` in
-  ///   the emitted YAML will then mismatch `phases[phase_index].type`
-  ///   and fail a strict consistency check.
+  /// `phase_path[0]` IS `phase_index` by definition (spec §3.2, schema v2),
+  /// so where the column is populated there is nothing to infer. That
+  /// retires both limitations the cursor carried:
   ///
-  /// The `phasePathJSON` column landed in #143 so `TurnRecord.phasePath`
-  /// now carries exact lineage (e.g. `[1, 0]` for a sub-phase). This
-  /// resolver still ignores it because the YAML replay schema's
-  /// `phase_index: Int` is a flat top-level index, not a path — teaching
-  /// the schema to represent nested addresses is a separate piece of
-  /// work. For now, the cursor keeps the Phase 2 presets (Word Wolf,
-  /// Prisoner's Dilemma) round-tripping correctly; conditional-heavy
-  /// scenarios hit the documented limitations. Upgrading the schema and
-  /// switching to `phasePath`-aware resolution is tracked as a follow-up.
+  /// - a sub-phase inside a `conditional` no longer resolves to the outer
+  ///   conditional's index, which used to make the denormalised
+  ///   `phase_type` disagree with `phases[phase_index].type`;
+  /// - two adjacent phases of the same type in one round no longer collapse
+  ///   to the first matching index, because nothing is being matched.
+  ///
+  /// **The cursor is still reachable and still carries both limitations.**
+  /// Migration v6 added `phasePathJSON` as nullable with no backfill, so a
+  /// simulation recorded before it exports through the fallback exactly as
+  /// it did before. Deleting the cursor would not simplify this — it would
+  /// change what those rows export to.
   private static func resolvePhaseIndices(
     scenario: Scenario, turns: [TurnRecord]
   ) -> [Int] {
@@ -378,6 +376,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     var cursorByRound: [Int: Int] = [:]
     var lastTypeByRound: [Int: String] = [:]
     for turn in turns {
+      if let top = turn.phasePath?.first {
+        result.append(top)
+        continue
+      }
       let round = turn.roundNumber
       var cursor = cursorByRound[round] ?? -1
       let lastType = lastTypeByRound[round]
@@ -392,21 +394,25 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     return result
   }
 
+  /// Same preference order as ``resolvePhaseIndices(scenario:turns:)``, for
+  /// code-phase events. Kept a separate function because the fallback
+  /// differs: events have no per-round ordering to walk, so the pre-v6 path
+  /// is a first-matching-type lookup rather than a cursor.
   private static func resolveEventPhaseIndices(
     scenario: Scenario, events: [CodePhaseEventRecord]
   ) -> [Int] {
     events.map { event in
+      if let top = event.phasePath?.first { return top }
       if let idx = scenario.phases.firstIndex(where: {
         $0.type.rawValue == event.phaseType
       }) {
         return idx
       }
-      // Not a top-level phase — the event originated inside a
-      // `conditional`'s branch (e.g. `summarize` used in then/else).
-      // `event.phasePath` (persisted since #143) has the exact inner
-      // location, but the YAML replay schema's `phase_index` is flat,
-      // so we still fall back to the conditional's index here and let
-      // the schema upgrade lift this when it lands.
+      // Pre-v6 row whose type is not a top-level phase — the event came
+      // from inside a `conditional`'s branch (e.g. `summarize` in then /
+      // else) and nothing persisted where. The enclosing conditional is the
+      // closest true statement available; a populated `phasePath` takes the
+      // early return above and never reaches this.
       return conditionalFallbackIndex(in: scenario.phases)
     }
   }
