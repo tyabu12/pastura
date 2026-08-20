@@ -482,6 +482,11 @@ def _preceding_in_round(nodes, idx):
 
     What this does NOT do is defend against a `phase_index` that names the
     wrong branch — see `_check_position`'s note on what the gate can verify.
+    Nor does it look at the condition itself: a `conditional` whose expression
+    reads outcome state (a score threshold, a vote winner) makes *branch
+    membership* a weak outcome signal for an utterance inside it. Decision 3's
+    rule is stated over phase types, so that is out of scope by construction —
+    recorded here so the next curator does not re-derive it as a gap.
     """
     node = nodes[idx]
     out = [n.type for n in nodes if n.top < node.top]
@@ -699,10 +704,13 @@ def flatten_phase_tree(scenario):
       `validateConditionalPhase`: at least one of `then:` / `else:` must be
       non-empty);
     - a `conditional` nested inside a branch (the depth-1 rule, enforced twice
-      upstream — `ScenarioValidator` blocks `depth > 0`, and
-      `ConditionalHandler.subHandlers` deliberately omits `.conditional`).
-      That upstream guarantee is what bounds a transcript `phase_path` to
-      length 2, which the extractor's resolver relies on.
+      upstream — `ScenarioValidator.validateBranch` throws
+      `.branchNestedConditional` at load, and `ConditionalHandler.subHandlers`
+      deliberately omits `.conditional` at run time). Cite those two and not
+      `validateConditionalPhase`'s `depth > 0`: that arm is unreachable, since
+      the function has a single callsite passing `depth: 0` and `validateBranch`
+      never recurses into it. The upstream guarantee is what bounds a transcript
+      `phase_path` to length 2, which the extractor's resolver relies on.
     """
     if not isinstance(scenario, dict):
         return None, "the sibling scenario YAML is not a mapping"
@@ -735,9 +743,10 @@ def flatten_phase_tree(scenario):
                 if child["type"] == "conditional":
                     return None, (f"the sibling scenario YAML nests a `conditional` at "
                                   f"`phases:`[{top}].{branch}[{inner}], which the "
-                                  "engine's depth-1 rule refuses (ScenarioValidator "
-                                  "blocks depth > 0; ConditionalHandler registers no "
-                                  "sub-handler for it)")
+                                  "engine's depth-1 rule refuses "
+                                  "(ScenarioValidator.validateBranch throws "
+                                  "`.branchNestedConditional`; ConditionalHandler "
+                                  "registers no sub-handler for it)")
                 nodes.append(PhaseNode(child["type"], top, branch, inner))
         if populated == 0:
             return None, (f"the sibling scenario YAML's `conditional` at "
@@ -870,20 +879,26 @@ def _entry_index(gallery_json):
 
 
 def _read_scenario(yaml_path):
-    """-> the parsed sibling scenario YAML, or None if it cannot be read.
+    """-> (parsed sibling scenario YAML, None), or (None, reason).
 
     Separate from `_read_persona_names`, which parses the same file again: that
     one returns names, while ``flatten_phase_tree`` wants the document itself
     and derives the whole phase tree from it. Same catch set, so the two agree
-    on what "unreadable" means.
+    on what "unreadable" means — and the same `(value, reason)` shape, so a
+    caller cannot report "the YAML is not a mapping" for what was really a
+    missing PyYAML. `flatten_phase_tree` can only see a `None` document, so the
+    true cause has to travel separately or it is lost here.
     """
     if yaml is None:
-        return None
+        return None, ("PyYAML is not installed, so the sibling scenario YAML "
+                      "cannot be parsed (python3 -m pip install 'pyyaml>=6,<7')")
     try:
         with open(yaml_path, encoding="utf-8") as f:
-            return yaml.safe_load(f)
-    except (OSError, UnicodeDecodeError, yaml.YAMLError, RecursionError):
-        return None
+            return yaml.safe_load(f), None
+    except (OSError, UnicodeDecodeError) as exc:
+        return None, f"the sibling scenario YAML could not be read ({exc})"
+    except (yaml.YAMLError, RecursionError) as exc:
+        return None, f"the sibling scenario YAML does not parse ({type(exc).__name__})"
 
 
 def _read_persona_names(yaml_path):
@@ -1024,7 +1039,12 @@ def validate_repo(gallery_json, gallery_dir, blocklist_path, registry_swift):
                     f"YAML bytes hash to {yaml_sha}. Regenerate or delete the highlight "
                     "(ADR-029 Decision 1: highlights are pinned snapshots)")
             personas = _read_persona_names(yaml_path)
-            phase_tree = flatten_phase_tree(_read_scenario(yaml_path))
+            scenario, scenario_reason = _read_scenario(yaml_path)
+            # `_read_scenario`'s reason wins when there is one: it names the
+            # real cause (no PyYAML, unreadable file, malformed YAML), which
+            # `flatten_phase_tree` cannot recover from a bare `None`.
+            phase_tree = ((None, scenario_reason) if scenario_reason
+                          else flatten_phase_tree(scenario))
 
         failures += check_content(
             doc, entry, blocklist, where,

@@ -37,8 +37,8 @@ Hard-fails (each with a distinct, greppable message):
   - the scenario YAML declares the `secret:` mechanism (ADR-029 Decision 2 —
     the spoiler rules are unvalidated for it);
   - a scenario whose `phases:` tree cannot be flattened — a `conditional`
-    with neither branch, or one nested inside a branch (both refused by
-    `ScenarioValidator` too);
+    with neither branch, one nested inside a branch (both refused by
+    `ScenarioValidator` too), or any other malformed `phases:` shape;
   - a `phase_started` line carrying no usable `phase_path`, one deeper than
     the engine's depth-1 rule allows, or one naming a phase / branch position
     the pinned YAML does not have;
@@ -129,6 +129,15 @@ def annotate(lines, nodes):
 
     Every failure here is fatal rather than a fallback: an invented coordinate
     reads as measured fact to every downstream check.
+
+    A retried run appends a second attempt to the same file and this walks both,
+    including the discarded one that `build_excerpt` rejects wholesale — so a
+    truncated early attempt can abort extraction even though no pick touches it.
+    That is the safe direction. The branch state carried across an attempt
+    boundary is fail-closed for the same reason: attempt 2 opens with a
+    top-level `phase_started`, which clears it, and if that ever stopped holding
+    a branch path would die on the missing `conditional_evaluated` rather than
+    resolve against the previous attempt's verdict.
     """
     by_top = {}
     by_branch = {}
@@ -152,12 +161,12 @@ def annotate(lines, nodes):
             round_no = obj.get("round")
         elif event == "conditional_evaluated":
             if open_conditional is None:
-                die(f"line {lineno} — `conditional_evaluated` with no preceding "
+                die(f"conditional_evaluated — line {lineno} has no preceding "
                     "`phase_started` of type `conditional`, so the branch it "
                     "decides cannot be attributed to a phase")
             result = obj.get("result")
             if not isinstance(result, bool):
-                die(f"line {lineno} — `conditional_evaluated.result` is "
+                die(f"conditional_evaluated — line {lineno} carries result "
                     f"{result!r}, not a boolean; the taken branch cannot be "
                     "derived from it")
             pending_branch = (open_conditional, "then" if result else "else")
@@ -168,11 +177,16 @@ def annotate(lines, nodes):
             # a fallback would assert "top-level phase 0" on the excerpt's
             # behalf, which every downstream check then reads as measured fact.
             if not isinstance(path, list) or not path:
-                die(f"line {lineno} — `phase_started` carries no usable "
-                    "`phase_path`, so phase_index cannot be derived for any pick "
-                    "in this phase")
+                die(f"phase_path missing — line {lineno} `phase_started` carries "
+                    "no usable `phase_path`, so phase_index cannot be derived for "
+                    "any pick in this phase")
+            if any(not isinstance(x, int) or isinstance(x, bool) for x in path):
+                die(f"phase_path element — line {lineno} `phase_path` {path} has a "
+                    "non-integer element; a bool would resolve as 0/1 and name a "
+                    "phase the run never entered")
             if len(path) > 2:
-                die(f"line {lineno} — `phase_path` {path} is {len(path)} deep, but "
+                die(f"phase_path depth — line {lineno} `phase_path` {path} is "
+                    f"{len(path)} deep, but "
                     "the engine's depth-1 rule bounds it to 2 (ScenarioValidator "
                     "blocks a nested `conditional` at load; ConditionalHandler "
                     "registers no sub-handler for one at run time). A deeper path "
@@ -180,7 +194,8 @@ def annotate(lines, nodes):
                     "would need a branch decision this tool cannot make.")
             if len(path) == 1:
                 if path[0] not in by_top:
-                    die(f"line {lineno} — `phase_path` {path} names top-level phase "
+                    die(f"phase_path unknown — line {lineno} `phase_path` {path} "
+                        f"names top-level phase "
                         f"{path[0]}, which the scenario's `phases:` does not have "
                         f"(it has {len(by_top)}). The transcript and the pinned "
                         "YAML disagree — check that the run used this exact "
@@ -196,14 +211,16 @@ def annotate(lines, nodes):
             else:
                 top, inner = path[0], path[1]
                 if pending_branch is None or pending_branch[0] != top:
-                    die(f"line {lineno} — `phase_path` {path} is inside a branch, but "
+                    die(f"branch unattributed — line {lineno} `phase_path` {path} is "
+                        "inside a branch, but "
                         "no `conditional_evaluated` for that conditional precedes "
                         "it. `then[j]` and `else[j]` share the path, so the branch "
                         "is what disambiguates them and it cannot be guessed.")
                 branch = pending_branch[1]
                 key = (top, branch, inner)
                 if key not in by_branch:
-                    die(f"line {lineno} — `phase_path` {path} names position {inner} "
+                    die(f"phase_path unknown — line {lineno} `phase_path` {path} "
+                        f"names position {inner} "
                         f"of the `{branch}` branch at top-level phase {top}, which "
                         f"has {branch_len[(top, branch)]} phase(s). The transcript "
                         "and the pinned YAML disagree — check that the run used "
@@ -471,7 +488,7 @@ def main():
     failures = ghv.check_content(
         doc, entry, blocklist, f"[{args.id}]",
         personas=(persona_names, None), allowed_model_ids=allowed_model_ids,
-        phase_tree=ghv.flatten_phase_tree(scenario))
+        phase_tree=(nodes, tree_reason))
     if failures:
         for line in failures:
             print(line, file=sys.stderr)

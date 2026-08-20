@@ -10,7 +10,9 @@
 # <tmp>/scripts/, a minimal docs/gallery/ + a fixture ContentBlocklist.json,
 # `git init`) and runs the tools from inside it. check-gallery-entry.sh
 # resolves its root via `git rev-parse --show-toplevel`, so the real
-# docs/gallery/ is never touched and cases are parallel-safe.
+# docs/gallery/ is never touched and cases are parallel-safe. Two arms are
+# deliberate exceptions and run against $REAL_ROOT, both read-only: C9 (the
+# shipped-highlight regression) and T4 (a pure-function probe).
 #
 # CI-wired via the `scripts/tests/*-test.sh` naming convention (the
 # `shell-tests` job, ubuntu / bash 5+). The scripts under test also ship to
@@ -909,6 +911,23 @@ mk_run_cond() {
 JSONL
 }
 
+mk_run_cond2() {
+  cat > "$2" <<'JSONL'
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"cond_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":4}
+{"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[0]}
+{"type":"event","t":0.3,"attempt":1,"event":"conditional_evaluated","condition":"current_round == total_rounds","result":false}
+{"type":"event","t":0.4,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[0,0]}
+{"type":"event","t":0.5,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"一周目の発言。"}}
+{"type":"event","t":0.6,"attempt":1,"event":"round_started","round":2,"total_rounds":4}
+{"type":"event","t":0.7,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[0]}
+{"type":"event","t":0.8,"attempt":1,"event":"conditional_evaluated","condition":"current_round == total_rounds","result":true}
+{"type":"event","t":0.9,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[0,0]}
+{"type":"event","t":1.0,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"二周目の発言。"}}
+{"type":"event","t":1.1,"attempt":1,"event":"run_end","run_id":"run-1","status":"ok","attempts":1,"duration_sec":9.0}
+JSONL
+}
+
 mk_selection_cond() {  # repo path
   cat > "$2" <<'JSON'
 {
@@ -1146,7 +1165,10 @@ expect_out "Pass --model with the registry id" "E15 names the escape hatch"
 #
 # The rule lives in `_check_position`, which `check_content` dispatches for BOTH
 # the gate and the extractor — so it is asserted on both, not on whichever one
-# happens to be convenient.
+# happens to be convenient. Read that precisely: post-lift the extractor side is
+# asserted in the ACCEPT direction (C3) plus its transcript-level refusals
+# (C3c), while the branch-aware REJECTIONS are gate-side. E3 is what keeps the
+# shared dispatch pinned on the extractor.
 #
 # Every arm here needs a REAL `then:`/`else:` tree, so they use mk_scenario_tree.
 # mk_scenario cannot nest: it writes `- type: X` lines only, which is why the
@@ -1171,8 +1193,10 @@ mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
 mk_highlight "$R" cond_v1 "$EX_ELSE_BRANCH"; link_highlight "$R" cond_v1
 gate "$R"; expect_ok "C1 an else-branch pick passes on a conditional-only scenario"
 
-# C2 — control: the same fixture without any conditional still passes. Without
-# it, C1 would also pass if the position rule had stopped rejecting anything.
+# C2 — control: a scenario with no conditional at all still passes, so C1's
+# green means "this branch is sound", not "the rule now rejects every scenario".
+# (It is NOT the fail-open control — C1 and C2 are both expect_ok. What guards
+# against a rule that stopped rejecting anything is C6/C7/C8.)
 R="$(new_repo)"; init_index "$R"
 mk_scenario "$R" cond_v1 '["speak_each","summarize"]'
 mk_highlight "$R" cond_v1 "$EX_OK"; link_highlight "$R" cond_v1
@@ -1261,6 +1285,68 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond
 expect_fail "C3c a branch position the YAML does not have is refused"
 expect_out "which has 4 phase(s)" "C3c names the branch's real length"
 
+# C3d — the branch verdict does not survive a round boundary. Round 1 takes
+# ELSE and round 2 takes THEN through the IDENTICAL `phase_path` [0,0], so a
+# resolver that kept the previous round's verdict would silently place round 2's
+# utterance in the else branch (index 5) instead of the then branch (index 1).
+# Nothing else in this suite has two rounds, so without this arm the per-round
+# reset is unasserted.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 4
+mk_run_cond2 "$R" "$R/run.jsonl"
+cat > "$R/sel.json" <<'JSON'
+{
+  "picks": [6, 11],
+  "yaml_hook": { "kind": "raw", "fragment": "phases:\n  - type: conditional", "caption": "この一行が分岐を生む" },
+  "teaser": "最後の一言は、まだ言われていない。"
+}
+JSON
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 \
+  --selection sel.json --generated-at 2026-08-05
+expect_ok "C3d the extractor accepts a two-round conditional run"
+runc "$R" jq -r '[.excerpt[].phase_index] | @tsv' docs/gallery/highlights/cond_v1.json
+expect_eq "5	1" "C3d round 1 resolves to else and round 2 to then, same phase_path"
+
+# C3e — and when round 2's `conditional_evaluated` is missing, the run dies
+# rather than reusing round 1's verdict. Distinct from C3c: there a conditional
+# was NEVER evaluated, so a resolver with no reset would fail anyway. Here one
+# was, which is what makes this the discriminating case.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 4
+mk_run_cond2 "$R" "$R/run.jsonl"
+mk_selection_cond "$R" "$R/sel.json"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+lines = io.open(p, encoding="utf-8").read().splitlines()
+hits = [i for i, l in enumerate(lines) if '"result":true' in l]
+assert len(hits) == 1, f"anchor matched {len(hits)} lines — probe invalid"
+del lines[hits[0]]
+io.open(p, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3e a round whose conditional_evaluated is missing is refused"
+expect_out "branch unattributed" "C3e refuses rather than reusing the previous round's branch"
+
+# C3f — a non-integer `phase_path` element is refused. Python treats `True` as
+# 1, so without the guard a bool silently names a phase the run never entered.
+# Unreachable from the Swift harness ([Int]), asserted because nothing else in
+# this resolver invents a coordinate either.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_run_cond "$R" "$R/run.jsonl"; mk_selection_cond "$R" "$R/sel.json"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+text = io.open(p, encoding="utf-8").read()
+old = '"phase_path":[0,0]'
+assert text.count(old) == 1, f"anchor matched {text.count(old)} times — probe invalid"
+io.open(p, "w", encoding="utf-8").write(text.replace(old, '"phase_path":[0,true]'))
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3f a non-integer phase_path element is refused"
+expect_out "non-integer element" "C3f names the element type, not a downstream mismatch"
+
 # C4 — a `phase_started` with no `phase_path` is refused rather than defaulted
 # to top-level index 0. The earlier `or [0]` fallback asserted a position the
 # transcript never stated, and every downstream check read it as measured.
@@ -1306,6 +1392,11 @@ repin_yaml "$R" cond_v1
 mk_highlight "$R" cond_v1 "$EX_ELSE_BRANCH"; link_highlight "$R" cond_v1
 gate "$R"; expect_fail "C5 an underivable tree refuses a conditional entry"
 expect_out "branch structure is unavailable" "C5 names the residue, not the lifted class refusal"
+# The residue fires for a None tree AND for a tree that disagrees with `phases`
+# (the `reason or ...` fallback). Pin which one, or a regression that made
+# flatten_phase_tree ACCEPT the nested conditional would keep this arm green:
+# the derived tree would then merely disagree with the untouched `phases`.
+expect_out "nests a \`conditional\` at" "C5 fired on the underivable tree, not on drift"
 
 # C6 — negative control: a pick genuinely preceded by an outcome phase INSIDE
 # its own branch is still rejected. Without this, C1 would be satisfied by a
@@ -1319,7 +1410,7 @@ mk_highlight "$R" cond_v1 \
   '[{"agent":"アヤ","round":1,"phase":"speak_all","phase_index":3,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" cond_v1
 gate "$R"; expect_fail "C6 an in-branch pick after an outcome phase is rejected"
-expect_out "within-round bound" "C6 names the position rule"
+expect_out "highlight: within-round bound" "C6 names the position rule"
 # C6b — control on the SAME tree: the sibling branch's pick, whose own preceding
 # set is empty, passes. This is what shows C6 measured the branch and not the
 # scenario.
@@ -1341,7 +1432,7 @@ mk_highlight "$R" cond_v1 \
   '[{"agent":"アヤ","round":1,"phase":"speak_each","phase_index":3,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" cond_v1
 gate "$R"; expect_fail "C7 a pick after a conditional sees the non-taken branch's outcome phase"
-expect_out "within-round bound" "C7 names the position rule"
+expect_out "highlight: within-round bound" "C7 names the position rule"
 # C7b — control: the same shape with no outcome phase in either branch passes,
 # so C7 reddens on the `vote` rather than on "sits after a conditional".
 TREE_AFTER_COND_CLEAN='[{"type":"conditional","then":[{"type":"speak_all"}],"else":[{"type":"speak_all"}]},{"type":"speak_each"}]'
@@ -1360,16 +1451,27 @@ mk_highlight "$R" cond_v1 \
   '[{"agent":"アヤ","round":2,"phase":"speak_all","phase_index":5,"source_field":"statement","text":"私はBだと思う。"}]'
 link_highlight "$R" cond_v1
 gate "$R"; expect_fail "C8 a late-round pick on a conditional entry hits the round window"
-expect_out "round window" "C8 names the round window"
+expect_out "highlight: round window" "C8 names the round window"
 
-# C9 — regression: the shipped highlights still validate. The gate rewrites
-# nothing, so the assertion is "zero failures AND the files are untouched" —
-# a `git status` check, because a gate that passed after silently normalising a
-# file would look identical here.
+# C9 — regression: the shipped highlights still validate and the gate rewrites
+# none of them. Two things this arm has to get right:
+#   - "byte-identical" is a BEFORE/AFTER comparison, not `== ""`. Asserting
+#     emptiness reddens whenever a developer runs the suite mid-work on a
+#     highlight-ADDING PR (staged entries under that path) — the very PR shape
+#     that most needs this arm.
+#   - `check_highlights` is a documented no-op when the repo carries no
+#     highlights (check-gallery-entry.sh, and H0 above covers that path), so a
+#     glob regression that stopped finding them would leave the gate arm green.
+#     Count them first, or this measures nothing.
+HL_COUNT="$(find "$REAL_ROOT/docs/gallery/highlights" -name '*.json' | wc -l | tr -d ' ')"
+if [ "$HL_COUNT" -gt 0 ]; then PASS=$((PASS + 1)); else
+  bad "C9 the repo carries no shipped highlights, so the gate arm below is vacuous"
+fi
+HL_STATUS_BEFORE="$(git -C "$REAL_ROOT" status --porcelain -- docs/gallery/highlights)"
 runc "$REAL_ROOT" bash scripts/check-gallery-entry.sh --all
-expect_ok "C9 the repo's own gallery still passes the gate"
+expect_ok "C9 the repo's own gallery still passes the gate ($HL_COUNT highlights)"
 runc "$REAL_ROOT" git status --porcelain -- docs/gallery/highlights
-expect_eq "" "C9 the gate left every shipped highlight byte-identical"
+expect_eq "$HL_STATUS_BEFORE" "C9 the gate rewrote no shipped highlight"
 
 # --- phase tree: flattening + gallery.json cross-check (#1473) -------------
 #
@@ -1404,7 +1506,9 @@ runc "$R" python3 -c '
 import json, sys
 sys.path.insert(0, "scripts")
 import gallery_highlight_validate as ghv
-nodes, reason = ghv.flatten_phase_tree(ghv._read_scenario("docs/gallery/tree_v1.yaml"))
+doc, read_reason = ghv._read_scenario("docs/gallery/tree_v1.yaml")
+assert doc is not None, read_reason
+nodes, reason = ghv.flatten_phase_tree(doc)
 assert nodes is not None, reason
 written = json.load(open("docs/gallery/gallery.json"))["scenarios"][0]["phases"]
 print("agree" if [n.type for n in nodes] == written else
@@ -1437,28 +1541,39 @@ expect_no_out "highlight: phase tree" "T3 an undrifted phases list clears the tr
 # would reject can reach the position rule. One probe, with its own positive
 # control: a well-formed tree must still resolve, or a flattener broken outright
 # would "pass" both rejection arms.
+# One `expect_eq` over a tag per case rather than three `expect_out`s: the two
+# branchless shapes emit a BYTE-IDENTICAL message, so a substring assertion
+# cannot tell which of them produced it and a regression in one would hide
+# behind the other. An unrecognised message tags as `other`, which fails too.
 runc "$REAL_ROOT" python3 -c '
 import sys
 sys.path.insert(0, "scripts")
 import gallery_highlight_validate as ghv
 
-def reason(doc):
+def tag(doc):
     nodes, why = ghv.flatten_phase_tree(doc)
-    return "OK/%d" % len(nodes) if nodes is not None else why
+    if nodes is not None:
+        return "OK/%d" % len(nodes)
+    if "populates neither" in why:
+        return "neither"
+    if "depth-1 rule" in why:
+        return "depth1"
+    return "other"
 
-# positive control — a legal one-branch conditional resolves (3 nodes)
-print(reason({"phases": [{"type": "conditional", "else": [{"type": "speak_all"}]},
-                         {"type": "summarize"}]}))
-# neither branch populated (ScenarioValidator requires at least one)
-print(reason({"phases": [{"type": "conditional"}]}))
-print(reason({"phases": [{"type": "conditional", "then": [], "else": []}]}))
-# nested conditional (the depth-1 rule)
-print(reason({"phases": [{"type": "conditional",
-                          "then": [{"type": "conditional",
-                                    "then": [{"type": "speak_all"}]}]}]}))'
-expect_out "OK/3" "T4 control: a legal one-branch conditional flattens"
-expect_out "populates neither" "T4 a branchless conditional is refused"
-expect_out "depth-1 rule" "T4 a nested conditional is refused"
+print("|".join([
+    # positive control — a legal one-branch conditional resolves (3 nodes)
+    tag({"phases": [{"type": "conditional", "else": [{"type": "speak_all"}]},
+                    {"type": "summarize"}]}),
+    # neither branch populated, two ways (ScenarioValidator requires one)
+    tag({"phases": [{"type": "conditional"}]}),
+    tag({"phases": [{"type": "conditional", "then": [], "else": []}]}),
+    # nested conditional (the depth-1 rule)
+    tag({"phases": [{"type": "conditional",
+                     "then": [{"type": "conditional",
+                               "then": [{"type": "speak_all"}]}]}]}),
+]))'
+expect_eq "OK/3|neither|neither|depth1" \
+  "T4 control flattens; both branchless shapes and the nested one are refused"
 
 echo "gallery-highlight-test: $PASS passed, $FAIL failed"
 [ "$FAIL" -eq 0 ] || exit 1
