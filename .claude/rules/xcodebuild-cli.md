@@ -152,12 +152,11 @@ run — see Recovery below.
 `sim-dest.sh` snapshotted the caller's options with `$(set +o)` — a command
 substitution, where bash has already cleared errexit — so restoring that
 snapshot dropped a caller's `set -e`. **errexit is the only option this hits**,
-and not because of letter-flag-ness: measured on bash 3.2.57, `nounset` and
-`xtrace` are `$-` letter flags and round-trip correctly, as does everything
-else. `shopt inherit_errexit` (bash 4.4+) is the knob that reverses it. Fixed in
-#1503 by capturing errexit from `$-`, pinned by
-`scripts/tests/simdest-errexit-test.sh` with a negative control reproducing the
-old capture.
+and *not* because it is a `$-` letter flag. `shopt inherit_errexit` (bash 4.4+)
+reverses the whole effect. Fixed in #1503 by capturing errexit from `$-`;
+`scripts/tests/simdest-errexit-test.sh` pins the fix, and its A7 pins the
+letter-flag half (`nounset` round-trips, errexit does not). The "only option"
+scope itself is asserted, not measured — widen it only from a new measurement.
 
 **Apply**: any new save/restore of shell options needs the `$-` capture, not
 `$(set +o)` alone. **A failing `source` aborts an errexit-on caller only in the

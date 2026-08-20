@@ -139,17 +139,17 @@ set -- ${forwarded[@]+"${forwarded[@]}"}
 # this point `test` sources sim-dest.sh, whose gate polls up to 900 s, so a
 # rejection placed later costs a quarter-hour before printing one line.
 #
-# Per flag, because xcodebuild's own handling differs. `-scheme` / `-project` /
-# `-derivedDataPath`: it rejects these too, but between the xtrace and a full
-# usage page, which reads like a wrapper bug.
+# Arms are per-flag because xcodebuild's own handling differs. It rejects a
+# repeated `-scheme` / `-project` / `-derivedDataPath` itself, but between the
+# xtrace and a full usage page, which reads like a wrapper bug.
 #
 # The `=`-joined form is the one worth a guard: xcodebuild takes it, exits 0, and
-# DROPS the flag. Measured on Xcode 26.6 — `-showBuildSettings … -derivedDataPath=/tmp/x`
-# reports `BUILD_DIR = ~/Library/Developer/Xcode/DerivedData/…` while the
-# space-separated control reports `/tmp/x/Build/Products`. Here the wrapper
-# supplies its own value anyway, so a caller's `=` copy is merely inert — the
-# relocation hazard is the one the wrapper's own space-separated flag already
-# avoids. `-destination=` is where inert turns dangerous; see its arm below.
+# DROPS the flag. Measured on Xcode 26.6 for `-derivedDataPath=` alone and pinned
+# by no test here, so re-run the pair on a new Xcode rather than trusting this:
+# `-showBuildSettings … -derivedDataPath=/tmp/x` reports BUILD_DIR under
+# ~/Library/…/DerivedData, the space-separated control /tmp/x/Build/Products.
+# For the three above the drop is merely inert — the wrapper supplies its own
+# value anyway; `-destination=` is where inert turns dangerous, see its arm below.
 #
 # A second bare `-destination` is ADDITIVE, so `test` would run on both devices
 # with either failure aborting; `build` keeps accepting the space form for the
@@ -236,22 +236,21 @@ fi
 
 # Resolve SPM dependencies up front when this DerivedData has none. A fresh
 # worktree gets an empty Pastura/DerivedData/, and the first xcodebuild there
-# dies at package resolution ("Could not resolve package dependencies: Couldn't
-# check out revision …") — which the pre-commit hook then reports as
+# dies at package resolution — which the pre-commit hook then reports as
 # `Build failed. Fix compile errors before committing.`, sending the reader
 # after a compile error that does not exist.
 #
 # The predicate is "nothing was ever resolved into this DerivedData", not "the
-# state file is missing": a FAILED resolve still writes workspace-state.json,
-# with empty `artifacts`/`dependencies` and no `"identity"` anywhere, so keying
-# on existence would skip the retry of the very case this exists for (measured
-# in #1503 — that failure happened here, with the file already present). It does
-# NOT cover a resolution that is stale or PARTIAL rather than absent (a
-# `Package.resolved` bump, a moved revision, or 2 of this tree's 3 dependencies
-# resolving): an identity is present in all of those, the pre-flight stays quiet,
-# and the build fails as it does today — widen it only with a case that
-# reproduces. Cost: a grep over one small file on a warm tree; ~23 s once on a
-# cold one, which the build was going to spend on resolution anyway.
+# state file is missing": a FAILED resolve still writes workspace-state.json with
+# no `"identity"` anywhere, so keying on existence would skip the retry of the
+# very case this exists for (measured in #1503 — that failure happened here, with
+# the file already present). It does NOT cover a resolution that is stale or
+# PARTIAL rather than absent (a `Package.resolved` bump, a moved revision, some
+# but not all of this tree's dependencies resolving): an identity is present in
+# all of those, the pre-flight stays quiet, and the build fails as it does today
+# — widen it only with a case that reproduces. Cost: a grep over one small file
+# on a warm tree; ~23 s once on a cold one, which the build was going to spend on
+# resolution anyway.
 #
 # Rot direction, should Apple stop emitting `"identity"`: every invocation
 # resolves. That is the loud failure (~23 s per TDD cycle, and the stderr line

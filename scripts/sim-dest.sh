@@ -28,14 +28,17 @@
 # so the snapshot records `set +o errexit` whatever the caller's real state was.
 # Restoring it therefore *dropped* a caller's `set -e` — the defect #1503 fixed.
 #
-# errexit is the ONLY option affected — that is the whole rule, and it is not
-# about letter-flags: measured on bash 3.2.57, `nounset` and `xtrace` are `$-`
-# letter flags and both round-trip through the snapshot correctly, as does every
-# other option including pipefail (`$-` itself goes `ehuBc` outside a
-# substitution, `huBc` inside). `shopt inherit_errexit` (bash 4.4+) is the knob
-# that reverses this; the capture below is the 3.2-compatible equivalent, and it
-# only ever re-adds errexit that was genuinely on, so it stays a no-op wherever
-# bash already inherits it.
+# errexit is the ONLY option affected, and NOT because it is a `$-` letter flag —
+# `nounset` is one too and round-trips fine, as does pipefail. That last one is
+# load-bearing, not trivia: the `set -euo pipefail` below turns pipefail ON for
+# this file, so if it did NOT round-trip, every caller would come back silently
+# promoted to pipefail. A7 in `scripts/tests/simdest-errexit-test.sh` executes the
+# errexit/`nounset` pair; pipefail is covered only by A5, which needs `xcrun` and
+# so never runs in CI's ubuntu `shell-tests` job. Redden those before rewriting.
+#
+# `shopt inherit_errexit` (bash 4.4+) reverses the whole effect; the capture below
+# is the 3.2-compatible equivalent, and it only re-adds errexit that was genuinely
+# on, so it no-ops wherever bash already inherits it.
 case $- in
   *e*) _simdest_had_errexit=1 ;;
   *) _simdest_had_errexit=0 ;;
