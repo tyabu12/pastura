@@ -95,8 +95,10 @@ nonisolated public protocol ReplaySource: Sendable {
   /// this array, so two calls must produce equal indexing).
   ///
   /// Events are merged from YAML `turns` and `code_phase_events` sections
-  /// into a single chronological order keyed by `(round, phase_index)`
-  /// with stable secondary ordering by source position. Inside each
+  /// into a single chronological order keyed by `(round, phase_path)` with
+  /// stable secondary ordering by source position. A v1 source has no
+  /// `phase_path`; those entries key on `[phase_index]`, for which the
+  /// lexicographic order is the integer order this contract used to name. Inside each
   /// scenario, the first event of a new round carries a preceding
   /// synthesised `.roundStarted`; the first event of a new phase
   /// (within a round) carries a preceding synthesised `.phaseStarted`.

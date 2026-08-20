@@ -326,6 +326,13 @@ extension YAMLReplaySource {
   /// names `BundledDemoReplaySourceTests.assertPhaseAlignment` as that
   /// invariant's sole owner. Adding a second check here would make this a
   /// mirror of it with no stated reconcile direction.
+  ///
+  /// The cast is lenient on purpose, and `BundledDemoReplaySourceTests`
+  /// keying on the KEY'S PRESENCE rather than on cast success is what keeps
+  /// that from being a hole — a `phase_path: ["1", "0"]` would otherwise be
+  /// invisible on both sides at once. That gate is a test, so it covers
+  /// bundle-resident demos only: a future non-bundled consumer (spec §4.5's
+  /// user replay) would reach this fallback with nothing in front of it.
   private static func resolvePhasePath(_ raw: [String: Any]) -> [Int] {
     guard let path = raw["phase_path"] as? [Int], !path.isEmpty else {
       return [(raw["phase_index"] as? Int) ?? 0]

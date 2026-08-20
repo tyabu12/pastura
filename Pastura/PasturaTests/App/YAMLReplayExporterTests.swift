@@ -512,6 +512,26 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
     #expect(!result.text.contains("phase_path"))
   }
 
+  @Test func emptyPersistedPathOnCodeEventEmitsNoPhasePathLine() throws {
+    // The same fix landed at two emit sites; without this arm, deleting
+    // `!path.isEmpty` from `renderCodePhaseEvents` alone leaves the suite
+    // green — an unarmed half of the guard this branch added.
+    let exporter = makeExporter()
+    let events = [
+      makeCodePhaseEvent(
+        round: 1, seq: 1, phase: "score_calc",
+        payload: .scoreUpdate(scores: ["Alice": 3]), phasePathJSON: "[]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: events))
+
+    #expect(result.text.contains("phase_index:"))
+    #expect(!result.text.contains("phase_path"))
+  }
+
   // MARK: - YAML emitter edge cases (Japanese / multi-line / control chars)
 
   @Test func japaneseStatementUsesSingleQuoted() throws {

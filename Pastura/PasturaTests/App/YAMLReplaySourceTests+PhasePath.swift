@@ -240,10 +240,11 @@ extension YAMLReplaySourceTests {
 
   // MARK: - Schema version acceptance
   //
-  // Here rather than in the parent file, which sits within a couple of
-  // lines of SwiftLint's 400-line `file_length` cap that `--strict`
-  // promotes to an error. Every other fixture there stays at v1, which is
-  // this branch's v1-back-compat coverage — do not sweep them to v2.
+  // Here rather than in the parent file: both run near SwiftLint's 400-line
+  // `file_length` cap, which `--strict` promotes to an error. No line count —
+  // this file's own header drops one for the reason that applies here too.
+  // Every other fixture in the parent stays at v1, which is this branch's
+  // v1-back-compat coverage — do not sweep them to v2.
 
   @Test func acceptsSchemaVersion2() throws {
     let yaml = """

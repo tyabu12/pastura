@@ -301,6 +301,9 @@ else
       echo "FAIL: (i) refused, but not with the intended message: $out_i" >&2; fail=1 ;;
   esac
 fi
+if [ -e "$TMP/out_i.yaml" ]; then
+  echo "FAIL: (i) wrote an output despite refusing" >&2; fail=1
+fi
 
 # (j) Negative — a bool element in `phase_path`. `isinstance(True, int)` is True
 # in Python, so this guard is the only thing between `[true, 0]` and a demo
@@ -328,6 +331,9 @@ else
       echo "FAIL: (j) refused, but not with the intended message: $out_j" >&2; fail=1 ;;
   esac
 fi
+if [ -e "$TMP/out_j.yaml" ]; then
+  echo "FAIL: (j) wrote an output despite refusing" >&2; fail=1
+fi
 
 # (k) Negative — a path deeper than the engine's depth-1 rule allows.
 python3 - "$TMP" <<'PY'
@@ -352,6 +358,9 @@ else
     *)
       echo "FAIL: (k) refused, but not with the intended message: $out_k" >&2; fail=1 ;;
   esac
+fi
+if [ -e "$TMP/out_k.yaml" ]; then
+  echo "FAIL: (k) wrote an output despite refusing" >&2; fail=1
 fi
 
 # (l) The hazard arm (h)'s comment actually names is MULTI-round: round 2's
@@ -378,12 +387,44 @@ set -e
 if [ "$rc_l" -eq 0 ]; then
   echo "FAIL: (l) round 2 inherited round 1's verdict instead of refusing" >&2; fail=1
 else
+  # Same matcher string as (f) — the converter raises one message for both
+  # shapes, so what discriminates this arm is the FIXTURE (round 2's branch
+  # phase with round 1's verdict available), not the `case` pattern. If that
+  # message ever splits in two, re-point this one rather than leaving it
+  # matching (f)'s.
   case "$out_l" in
     *"is inside a branch, but no"*)
       echo "ok   (l) a later round does not inherit an earlier verdict" ;;
     *)
       echo "FAIL: (l) refused, but not with the intended message: $out_l" >&2; fail=1 ;;
   esac
+fi
+if [ -e "$TMP/out_l.yaml" ]; then
+  echo "FAIL: (l) wrote an output despite refusing" >&2; fail=1
+fi
+
+# (m) On-disk RENDERING, not the parsed value. Every arm above reads the YAML
+# back through `yaml.safe_load`, which is blind to flow-vs-block style — so
+# `FlowList` would have no arm at all. It exists so `phase_path` matches the
+# spec §3.2 example and `YAMLReplayExporter.yamlIntArray`; the paired negative
+# assertion is that the switch stayed scoped, since the obvious spelling
+# (`default_flow_style=None` on the dump) also folds `metadata` and each turn's
+# `fields` into one-line mappings — and `fields.*` is what the §3.4 content
+# audit is read against by hand.
+if python3 "$CONVERTER" "$TMP/then.jsonl" "$TMP/preset.yaml" "$TMP/out_m.yaml" >/dev/null 2>&1; then
+  if grep -q '^  phase_path: \[1, 0\]$' "$TMP/out_m.yaml"; then
+    if grep -q '^  fields:$' "$TMP/out_m.yaml"; then
+      echo "ok   (m) phase_path renders inline while fields stays block"
+    else
+      echo "FAIL: (m) fields was folded to flow style — the switch is too broad" >&2
+      grep -n 'fields' "$TMP/out_m.yaml" >&2; fail=1
+    fi
+  else
+    echo "FAIL: (m) phase_path did not render inline as '[1, 0]'" >&2
+    grep -n 'phase_path' "$TMP/out_m.yaml" >&2; fail=1
+  fi
+else
+  echo "FAIL: (m) converter rejected a well-formed conditional transcript" >&2; fail=1
 fi
 
 if [ "$fail" -eq 0 ]; then

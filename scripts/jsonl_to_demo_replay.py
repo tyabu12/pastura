@@ -37,11 +37,16 @@ or `else[j]` ran — they carry the identical path — so the branch comes from 
 `phase_started` and its branch's. `YAMLReplayExporter` cannot supply it (no
 column persists the branch), which is why the field is optional rather than
 required. The resolver mirrors `gallery_highlight_extract.annotate`, whose
-prose has the fuller derivation; the one deliberate difference is that this
-script reads the open conditional from the transcript's own `phase_type`
-rather than from the scenario's phase tree, because a curator's job here is to
-record what the transcript says and the minimal preset it is handed need not
-carry `phases:` at all.
+prose has the fuller derivation. It diverges where that tool's target
+coordinate system does: `annotate` resolves each path against the scenario's
+phase tree, so it reads the open conditional from `nodes[...].type` AND range-
+checks the branch index. This script emits the path verbatim, so it reads the
+open conditional from the transcript's own `phase_type` — a curator's job is to
+record what the transcript says, and the minimal preset it is handed need not
+carry `phases:` at all — and it range-checks nothing. The range case is not
+unowned: a depth-2 path always carries a `branch` here (the else arm below dies
+without a `pending_branch`), so `conditionalDiagnostic`'s
+`taken.indices.contains(inner)` catches it at the gate.
 
 Recapture workflow (full demo-set swap):
   1. Run each scenario N times through the harness:
@@ -126,6 +131,28 @@ IGNORED_EVENTS = {
 # statement before inner_thought, vote before reason). Unknown keys keep
 # their source order after these.
 FIELD_ORDER = ["statement", "inner_thought", "action", "vote", "reason"]
+
+
+class FlowList(list):
+    """A list rendered inline (`[1, 0]`) rather than as a block sequence.
+
+    Only `phase_path` uses it, so it matches the spec §3.2 example and
+    `YAMLReplayExporter.yamlIntArray` — the shipped demos are curator-produced,
+    so without this the example would describe only the writer whose output
+    never ships. Both renderings parse identically; this is legibility.
+
+    Deliberately NOT `default_flow_style=None` on the dump: that switch reaches
+    every leaf collection, which folds `metadata` and each turn's `fields` into
+    one-line mappings too. `fields.*` is what the spec §3.4 content audit is
+    read against by hand, so that is a real cost for an unrelated gain.
+    """
+
+
+yaml.add_representer(
+    FlowList,
+    lambda dumper, data: dumper.represent_sequence(
+        "tag:yaml.org,2002:seq", data, flow_style=True),
+    Dumper=yaml.SafeDumper)
 
 
 def sha256_hex(path):
@@ -217,7 +244,8 @@ def main():
         # `phase_index` is `phase_path[0]` BY DEFINITION (spec §3.2) — it is
         # emitted rather than dropped because it stays required in v2, so a
         # reader that predates `phase_path` still orders correctly.
-        coords = {"phase_index": phase_path_cur[0], "phase_path": list(phase_path_cur)}
+        coords = {"phase_index": phase_path_cur[0],
+                  "phase_path": FlowList(phase_path_cur)}
         if branch_cur is not None:
             coords["branch"] = branch_cur
         return coords

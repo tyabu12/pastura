@@ -198,6 +198,9 @@ turns:
 code_phase_events:               # optional; present if the preset has score_calc / scenario-gen phases
   - round: 2
     phase_index: 3
+    phase_path: [3]              # same coordinate fields as `turns` — both
+                                 # writers emit them here identically, and the
+                                 # §3.3 gate checks these entries too
     phase_type: score_calc
     summary: "Scores updated: Alice +1, Bob +1"
     payload:                     # optional; discriminated-union — §3.2 note 5
@@ -211,12 +214,12 @@ Notes on field choices:
 
 - **`phase_index`, `phase_path`, `branch` and `phase_type` — a split of
   duties, not four spellings of one thing.**
-  - `phase_index` owns **ordering**: it is the merge key that sorts
-    `turns` against `code_phase_events`, and a change in it is what marks
-    a phase boundary, so it also decides how many `.phaseStarted` events
-    a replay emits — and therefore `ReplayViewModel.phaseProgress`'s
-    numerator and `totalPhaseCount`'s denominator. It never reaches a
-    renderer directly.
+  - `phase_index` is the required **top-level ancestor**, and the v1
+    spelling of the ordering key. Ordering, phase-boundary detection and
+    hence how many `.phaseStarted` events a replay emits — which is
+    `ReplayViewModel.phaseProgress`'s numerator and `totalPhaseCount`'s
+    denominator — are keyed on `phase_path`, falling back to
+    `[phase_index]` when absent. Neither reaches a renderer directly.
   - `phase_path` (v2, optional) is the **full lineage**, byte-identical
     in meaning to `SimulationEvent.phaseStarted(phasePath:)` — `[i]` at
     top level, `[i, j]` for phase `j` of the branch taken by the
@@ -355,6 +358,18 @@ Future changes:
 - **Breaking** (e.g. change `turns` from array-of-entries to per-phase
   grouping): version bump and loader fork; drop an older version from the
   accepted set only after all bundled demos are re-recorded.
+
+**A new writer's output is not required to load in an older build.** The
+exporter emits the current version unconditionally, so a simulation recorded
+before migration v6 exports as v2 with no v2-only field in it — byte-identical
+to its v1 form apart from the version line, and refused by any already-shipped
+build, whose loader compared for equality against a single constant. That is
+accepted rather than worked around: demo YAMLs ship inside the app binary, so
+the rotation never sees a version it was not built with, and the exporter's
+Share-Sheet output has no import path in the app at all. Making the emitted
+version data-dependent (v1 when no row carries a `phase_path`) would preserve
+old-reader compatibility, and is the change to make if an importer ever lands —
+not before, since a branch nothing exercises is a branch nothing checks.
 
 Unknown `schema_version` is treated as drift and results in a silent
 skip at the demo surface (matching §3.3's posture) rather than a fatal

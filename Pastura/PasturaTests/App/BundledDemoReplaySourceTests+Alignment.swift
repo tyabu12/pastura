@@ -175,8 +175,25 @@ extension BundledDemoReplaySourceTests {
   // in both places at once — these pin the presence-keyed form instead.
 
   @Test func phasePathOfWrongElementTypeIsCaught() throws {
+    // `[true, 0]` is the mirror of the curator's arm (j): there the guard is
+    // load-bearing because `isinstance(True, int)` is True in Python. Swift's
+    // `as?` does not bridge `Bool` to `Int`, so this should already reject —
+    // measured rather than reasoned from bridging behaviour, matching what
+    // `throwsOnBooleanSchemaVersion` does for the version field.
+    for badPath in [["1", "0"] as [Any], [true, 0] as [Any]] {
+      let found = try diagnostic([
+        "phase_index": 1, "phase_path": badPath, "phase_type": "vote"
+      ])
+      #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
+    }
+  }
+
+  @Test func explicitlyNullPhasePathIsCaught() throws {
+    // Yams renders a bare `phase_path:` as `NSNull`, which is PRESENT — so the
+    // presence-keyed check rejects it where the loader would benignly fall
+    // back. Deliberate: a writer that emitted the key meant to say something.
     let found = try diagnostic([
-      "phase_index": 1, "phase_path": ["1", "0"], "phase_type": "vote"
+      "phase_index": 1, "phase_path": NSNull(), "phase_type": "vote"
     ])
     #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
   }
