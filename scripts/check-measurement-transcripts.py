@@ -63,16 +63,20 @@ Usage:
     python3 scripts/check-measurement-transcripts.py --self-test
     python3 scripts/check-measurement-transcripts.py --check
     python3 scripts/check-measurement-transcripts.py --residue   # report-only
+    python3 scripts/check-measurement-transcripts.py --census    # CI only
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import hashlib
+import io
 import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import NoReturn
+from typing import NamedTuple, NoReturn
 
 # Repo-relative for display; `_read` resolves against the repo root so a run from
 # a subdirectory reads the right files instead of raising.
@@ -158,6 +162,25 @@ LEDGER_5_TABLE = re.compile(r"^\|\s*Site \(file · symbol\)\s*\|")
 LEDGER_5_GROUND_CELL = 1
 LEDGER_5_RATIO_CELL = 2
 LEDGER_5_CELLS = 5
+
+# The six anchored sections the gate reads, as `(path, start, terminator)`. The
+# tree scan needs them twice — once for the block-level read index it subtracts,
+# once for the section spans the census classifies against — so they are named
+# here rather than spelled twice at the two call sites.
+#
+# **Every entry is markdown.** That is what makes the census's two mechanical
+# classes disjoint by construction: a `.swift` line can never fall inside a read
+# section, so `code-comment` and `in-read-section` cannot both apply. A
+# self-test arm asserts it, because adding a Swift face here would silently make
+# the classification order load-bearing.
+READ_FACES: tuple[tuple[Path, "re.Pattern[str]", "re.Pattern[str]"], ...] = (
+    (LEDGER_PATH, LEDGER_31, NEXT_SUBSECTION),
+    (LEDGER_PATH, LEDGER_32, NEXT_SUBSECTION),
+    (LEDGER_PATH, LEDGER_5, NEXT_SECTION),
+    (ADR_PATH, ADR_WASHES, NEXT_SECTION),
+    (ADR_PATH, ADR_SPAN, NEXT_SECTION),
+    (DESIGN_SYSTEM_PATH, DESIGN_SYSTEM_8, NEXT_SECTION),
+)
 
 # §5's `light/dark` vocabulary — **eight** forms over the shipped 94 rows,
 # enumerated from the ledger rather than assumed. Dispatch reads THIS cell and
@@ -1201,7 +1224,53 @@ def gate_read_index(
     return index
 
 
-def _residue() -> int:
+class TreeScan(NamedTuple):
+    """One enumeration of the tracked tree, shared by `--residue` and `--census`.
+
+    `read_index` is block-granular (what the gate actually compares);
+    `section_index` is every line of the six anchored sections, which is coarser
+    and is what the census classifies against. Keeping both is what separates
+    #1496's judgment 4 (prose a few lines from a compared block) from its
+    judgment 2 (prose nowhere near one).
+    """
+
+    pool: set[str]
+    read_index: set[tuple[str, int]]
+    section_index: set[tuple[str, int]]
+    files: list[tuple[str, str]]
+    skipped: dict[str, int]
+
+
+def _faces_with_text() -> list[tuple[str, str, re.Pattern[str], re.Pattern[str]]]:
+    """`READ_FACES` with each face's file text attached, read once per path."""
+    texts: dict[str, str] = {}
+    faces: list[tuple[str, str, re.Pattern[str], re.Pattern[str]]] = []
+    for path, start, nxt in READ_FACES:
+        key = str(path)
+        if key not in texts:
+            texts[key] = _read(path)
+        faces.append((key, texts[key], start, nxt))
+    return faces
+
+
+def section_index_of(
+    faces: list[tuple[str, str, re.Pattern[str], re.Pattern[str]]],
+) -> set[tuple[str, int]]:
+    """`(path, 1-based line)` for every line inside an anchored read section.
+
+    Deliberately NOT `gate_read_index`: that one subtracts only what is
+    compared. The census needs the wider "inside a section the gate reads"
+    predicate, because that is the distinction judgment 4 turns on.
+    """
+    index: set[tuple[str, int]] = set()
+    for path, text, start, nxt in faces:
+        for i in _section_lines(text, start, nxt, path):
+            index.add((path, i + 1))
+    return index
+
+
+def scan_tree() -> TreeScan:
+    """Enumerate the tracked tree once. Raises `AnchorError`, never degrades."""
     fixture = _read(FIXTURE_PATH)
     pool = set(fixture_ratio_pins(fixture).values())
     for light, dark in fixture_wash_pins(fixture).values():
@@ -1209,19 +1278,9 @@ def _residue() -> int:
     brackets = _decl_block(fixture, BRACKET_DECL, str(FIXTURE_PATH))
     pool |= {canonical(m.group(2)) for m in SWIFT_RATIO_PIN.finditer(brackets)}
 
-    ledger, adr, design_system = _read(LEDGER_PATH), _read(ADR_PATH), _read(DESIGN_SYSTEM_PATH)
-    read_index = gate_read_index(
-        [
-            (str(LEDGER_PATH), ledger, LEDGER_31, NEXT_SUBSECTION),
-            (str(LEDGER_PATH), ledger, LEDGER_32, NEXT_SUBSECTION),
-            (str(LEDGER_PATH), ledger, LEDGER_5, NEXT_SECTION),
-            (str(ADR_PATH), adr, ADR_WASHES, NEXT_SECTION),
-            (str(ADR_PATH), adr, ADR_SPAN, NEXT_SECTION),
-            (str(DESIGN_SYSTEM_PATH), design_system, DESIGN_SYSTEM_8, NEXT_SECTION),
-        ],
-        str(FIXTURE_PATH),
-        fixture,
-    )
+    faces = _faces_with_text()
+    read_index = gate_read_index(faces, str(FIXTURE_PATH), fixture)
+    section_index = section_index_of(faces)
 
     try:
         listed = subprocess.run(
@@ -1229,10 +1288,10 @@ def _residue() -> int:
             capture_output=True, check=True,
         ).stdout.decode("utf-8").split("\0")
     except FileNotFoundError as exc:
-        raise AnchorError("residue: `git` is not on PATH — this mode enumerates tracked files.") from exc
+        raise AnchorError("tree scan: `git` is not on PATH — this mode enumerates tracked files.") from exc
     except subprocess.CalledProcessError as exc:
         raise AnchorError(
-            "residue: `git ls-files` failed — not a repository, or the index is unreadable. "
+            "tree scan: `git ls-files` failed — not a repository, or the index is unreadable. "
             f"git said: {exc.stderr.decode('utf-8', 'replace').strip()}"
         ) from exc
     files: list[tuple[str, str]] = []
@@ -1248,8 +1307,13 @@ def _residue() -> int:
             files.append((name, (REPO_ROOT / name).read_text(encoding="utf-8")))
         except (OSError, UnicodeDecodeError):
             skipped[suffix] = skipped.get(suffix, 0) + 1
+    return TreeScan(pool, read_index, section_index, files, skipped)
 
-    prose, executed = residue_rows(pool, read_index, files)
+
+def _residue() -> int:
+    scan = scan_tree()
+    pool, files, skipped = scan.pool, scan.files, scan.skipped
+    prose, executed = residue_rows(pool, scan.read_index, files)
     by_file: dict[str, list[tuple[int, list[str]]]] = {}
     for path, line, values in prose:
         by_file.setdefault(path, []).append((line, values))
@@ -1281,6 +1345,233 @@ def _residue() -> int:
         for path, line, values in sorted(executed):
             print(f"  {path}:{line}  {' '.join(values)}")
     return 0
+
+
+# --- the census (#1496 judgments 2-4) ---------------------------------------
+#
+# `--residue` reports; `--census` FAILS when the report moves away from the
+# declaration below. Wired to CI's unconditional `shell-tests` step only, NOT to
+# the local pre-commit gate — see that gate's header for why (the gate decides
+# from the index, this reads the working tree, and `--check` stays git-free).
+#
+# What the classes mean, and why only one of the three is a judgment:
+#
+# - `code-comment` — a figure inside a Swift comment. Derived mechanically.
+#   NOT brought under the doc gate: doing so would put a `Views/` production
+#   file and three test files into the gate's TRIGGER, so an unrelated edit to
+#   a view would re-run this. #1496 judgment 3.
+# - `in-read-section` — inside one of the six sections the gate reads, outside
+#   the blocks it compares. Derived mechanically. NOT closed by widening those
+#   blocks: an ADR amendment is *where* derivations and measurements belong
+#   (ADR-028 § "Where new amendment content goes"), so machine-comparing that
+#   prose would put this gate at odds with the ADR's own placement rule.
+#   #1496 judgment 4.
+# - `argued` — everything else: prose where the figure carries the sentence.
+#   The residual, and the only class that is a judgment. #1496 judgment 2 is
+#   that this cannot be driven to zero; a pointer makes the sentence unreadable.
+CLASS_CODE_COMMENT = "code-comment"
+CLASS_IN_READ_SECTION = "in-read-section"
+CLASS_ARGUED = "argued"
+RESIDUE_CLASSES = frozenset({CLASS_CODE_COMMENT, CLASS_IN_READ_SECTION, CLASS_ARGUED})
+
+
+def residue_class(path: str, line: int, section_index: set[tuple[str, int]]) -> str:
+    """Which class a residue line falls in.
+
+    The first two tests are disjoint by construction — `READ_FACES` is all
+    markdown — so this order is documentation, not precedence. A self-test arm
+    asserts the disjointness; without it, adding a Swift face would make the
+    order load-bearing with nothing saying so.
+    """
+    if path.endswith(".swift"):
+        return CLASS_CODE_COMMENT
+    if (path, line) in section_index:
+        return CLASS_IN_READ_SECTION
+    return CLASS_ARGUED
+
+
+def _digest(multiset: list[str]) -> str:
+    """12 hex chars over the sorted value multiset.
+
+    Hex on purpose: the declaration must carry no three-decimal literal, or this
+    module becomes one more face its own report lists (the matching-contract
+    comment in `_residue` states that constraint). Counts alone would let a
+    delete-one/add-one inside a single file pass unseen; this does not.
+    """
+    return hashlib.sha256("\n".join(multiset).encode("utf-8")).hexdigest()[:12]
+
+
+def residue_inventory(
+    prose: list[tuple[str, int, list[str]]], section_index: set[tuple[str, int]]
+) -> dict[tuple[str, str], tuple[int, int, str]]:
+    """`(path, class)` -> `(line count, distinct-value count, digest)`."""
+    grouped: dict[tuple[str, str], list[list[str]]] = {}
+    for path, line, values in prose:
+        grouped.setdefault((path, residue_class(path, line, section_index)), []).append(values)
+    inventory: dict[tuple[str, str], tuple[int, int, str]] = {}
+    for key, rows in sorted(grouped.items()):
+        multiset = sorted((v for values in rows for v in values), key=float)
+        inventory[key] = (len(rows), len(set(multiset)), _digest(multiset))
+    return inventory
+
+
+def census_problems(
+    scan: TreeScan,
+    declaration: dict[tuple[str, str], tuple[int, int, str]],
+    declared_suffixes: frozenset[str],
+) -> tuple[list[str], dict[tuple[str, str], tuple[int, int, str]], frozenset[str]]:
+    """`(problems, observed inventory, observed skipped suffixes)`.
+
+    Every direction fails, including a count that DROPPED: a declaration nobody
+    lowers stops describing the tree, and then the digest it carries is checking
+    a set that no longer exists.
+    """
+    for path, cls in declaration:
+        if cls not in RESIDUE_CLASSES:
+            raise AnchorError(
+                f"census: the declaration names class {cls!r} for {path} — not one of "
+                f"{sorted(RESIDUE_CLASSES)}. A typo here would read as a face that vanished."
+            )
+    prose, _ = residue_rows(scan.pool, scan.read_index, scan.files)
+    observed = residue_inventory(prose, scan.section_index)
+    problems: list[str] = []
+    for key in sorted(set(observed) | set(declaration)):
+        path, cls = key
+        got, want = observed.get(key), declaration.get(key)
+        if want is None:
+            problems.append(
+                f"{path} [{cls}]: {got[0]} line(s), nothing declared — a copy APPEARED "
+                "in a face that held none."
+            )
+        elif got is None:
+            problems.append(
+                f"{path} [{cls}]: {want[0]} line(s) declared, none found — the copies were "
+                "REMOVED. Drop the entry."
+            )
+        elif got[0] != want[0]:
+            verb = "ADDED" if got[0] > want[0] else "REMOVED"
+            problems.append(
+                f"{path} [{cls}]: {want[0]} line(s) declared, {got[0]} found — a copy was {verb}."
+            )
+        elif got != want:
+            problems.append(
+                f"{path} [{cls}]: same line count, different figures — a copy ROTTED, or the "
+                "pins MOVED. Run --check first; if it is clean the pins did not move."
+            )
+    observed_suffixes = frozenset(scan.skipped)
+    for suffix in sorted(observed_suffixes - declared_suffixes):
+        problems.append(
+            f"skipped suffix {suffix}: a new file type appeared — widen RESIDUE_SUFFIXES to "
+            "scan it, or accept the skip by declaring it."
+        )
+    for suffix in sorted(declared_suffixes - observed_suffixes):
+        problems.append(f"skipped suffix {suffix}: no longer in the tree — drop it.")
+    return problems, observed, observed_suffixes
+
+
+def census_block(
+    inventory: dict[tuple[str, str], tuple[int, int, str]], suffixes: frozenset[str]
+) -> str:
+    """The two declaration constants, rendered so the fix is a paste."""
+    lines = ["RESIDUE_DECLARATION: dict[tuple[str, str], tuple[int, int, str]] = {"]
+    for (path, cls), (rows, distinct, digest) in sorted(inventory.items()):
+        lines.append(f'    ("{path}", "{cls}"): ({rows}, {distinct}, "{digest}"),')
+    lines.append("}")
+    lines.append("")
+    lines.append("RESIDUE_SKIPPED_SUFFIXES = frozenset(")
+    lines.append("    {")
+    for suffix in sorted(suffixes):
+        lines.append(f'        "{suffix}",')
+    lines.append("    }")
+    lines.append(")")
+    return "\n".join(lines)
+
+
+# Declared by `--census` itself: run it, paste the block it prints. Never
+# hand-edited to make a failure go away — the numbers are integers and a hex
+# digest precisely so that bumping one is not the same act as reading a figure.
+RESIDUE_DECLARATION: dict[tuple[str, str], tuple[int, int, str]] = {
+    ("Pastura/PasturaTests/Views/DesignTokensTests+MossSoftGround.swift", "code-comment"): (1, 2, "5c7f42d2a20b"),
+    ("Pastura/PasturaTests/Views/DesignTokensTests+MutedAsContent.swift", "code-comment"): (6, 6, "b31a637443fa"),
+    ("Pastura/PasturaTests/Views/PredictionOutcomeBadgeTokenTests.swift", "code-comment"): (2, 4, "0a1b0ab549e0"),
+    ("docs/decisions/ADR-028.md", "argued"): (2, 2, "a056d04e6d95"),
+    ("docs/decisions/ADR-028.md", "in-read-section"): (4, 5, "cba33b1fdd00"),
+    ("docs/design/design-system.md", "in-read-section"): (1, 1, "cdef395c33c3"),
+    ("docs/design/muted-application-audit.md", "argued"): (3, 6, "5785fb2a1a70"),
+    ("docs/design/muted-application-audit.md", "in-read-section"): (5, 5, "9cb7a0e4fe45"),
+}
+
+RESIDUE_SKIPPED_SUFFIXES: frozenset[str] = frozenset(
+    {
+        "(no suffix)",
+        ".astro",
+        ".bat",
+        ".css",
+        ".entitlements",
+        ".example",
+        ".h",
+        ".jar",
+        ".js",
+        ".json",
+        ".jsonl",
+        ".kts",
+        ".lock",
+        ".mjs",
+        ".mm",
+        ".pbxproj",
+        ".plist",
+        ".png",
+        ".properties",
+        ".resolved",
+        ".svg",
+        ".toml",
+        ".ts",
+        ".tsv",
+        ".xcprivacy",
+        ".xcscheme",
+        ".xcsettings",
+        ".xcstrings",
+        ".xcworkspacedata",
+    }
+)
+
+
+def census(scan: TreeScan | None = None) -> int:
+    """Compare the tree against the declaration. `scan` is the self-test seam."""
+    try:
+        if scan is None:
+            scan = scan_tree()
+        problems, inventory, suffixes = census_problems(
+            scan, RESIDUE_DECLARATION, RESIDUE_SKIPPED_SUFFIXES
+        )
+    except AnchorError as exc:
+        print(f"measurement-transcript census: {exc}", file=sys.stderr)
+        print(
+            "The census cannot judge with a broken anchor. Fix it (or this mode) — the gate "
+            "itself is unaffected; run --check for its verdict.",
+            file=sys.stderr,
+        )
+        return 1
+    if not problems:
+        declared = sum(rows for rows, _, _ in RESIDUE_DECLARATION.values())
+        print(
+            f"measurement-transcript census: inventory unchanged — {declared} unguarded prose "
+            f"line(s) across {len(RESIDUE_DECLARATION)} declared face(s)."
+        )
+        return 0
+    print("measurement-transcript census: the unguarded inventory MOVED.", file=sys.stderr)
+    print(
+        "\nThis is an inventory addition, not a defect. The census does not read your figures — "
+        "it only refuses to let the set of hand-kept copies change without a decision. Classify "
+        "the new line (or remove the copy), then paste the block below.\n",
+        file=sys.stderr,
+    )
+    for problem in problems:
+        print(f"  - {problem}", file=sys.stderr)
+    print("\nPaste-ready replacement for the two declarations:\n", file=sys.stderr)
+    print(census_block(inventory, suffixes), file=sys.stderr)
+    print("\nThe per-line detail is `--residue`.", file=sys.stderr)
+    return 1
 
 
 def check() -> int:
@@ -2440,6 +2731,149 @@ def self_test() -> int:
         logical_blocks(wrapped),
     )
 
+    # --- census (#1496 judgments 2-4) ------------------------------------
+    #
+    # The declaration is integers plus a digest, so these arms cannot be written
+    # against figures; they are written against MOVEMENT. Every direction the
+    # census can fail in gets its own arm, and the last one drives the mode
+    # itself rather than the helper — the `gate_read_index` docstring above
+    # records what happens when only the helper is armed.
+    census_scan = TreeScan(
+        pool={"9.111", "9.777"},
+        read_index={("docs/face.md", 1)},
+        section_index={("docs/face.md", 1), ("docs/face.md", 2)},
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n\nfar off, 9.111 there\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ],
+        skipped={".png": 3},
+    )
+    census_suffixes = frozenset({".png"})
+
+    def census_inventory(scan: TreeScan = census_scan):
+        rows, _ = residue_rows(scan.pool, scan.read_index, scan.files)
+        return residue_inventory(rows, scan.section_index)
+
+    # All three classes come out of one scan, so an arm below cannot pass by a
+    # classifier that collapses two of them.
+    expect(
+        "census: one scan yields all three classes",
+        lambda: sorted(census_inventory()),
+        [
+            ("Some/Test.swift", CLASS_CODE_COMMENT),
+            ("docs/face.md", CLASS_ARGUED),
+            ("docs/face.md", CLASS_IN_READ_SECTION),
+        ],
+    )
+    # Disjointness, asserted rather than argued: `residue_class` tests `.swift`
+    # before the section index, and that order is only safe while no face is
+    # Swift. Adding one here reddens this instead of silently making the order
+    # load-bearing.
+    expect(
+        "census: no read face is a Swift file, so the two mechanical classes cannot overlap",
+        lambda: [str(path) for path, _, _ in READ_FACES if str(path).endswith(".swift")],
+        [],
+    )
+    expect(
+        "census: a tree matching its declaration is silent",
+        lambda: census_problems(census_scan, census_inventory(), census_suffixes)[0],
+        [],
+    )
+
+    def census_says(
+        scan: TreeScan = census_scan,
+        declaration=None,
+        suffixes: frozenset[str] = census_suffixes,
+    ) -> list[str]:
+        return census_problems(
+            scan,
+            census_inventory() if declaration is None else declaration,
+            suffixes,
+        )[0]
+
+    grown = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n\nfar off, 9.111 there\n9.777 too\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    expect(
+        "census: an added copy is reported as ADDED",
+        lambda: [pr for pr in census_says(grown) if "ADDED" in pr],
+        ["docs/face.md [argued]: 1 line(s) declared, 2 found — a copy was ADDED."],
+    )
+    shrunk = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.777 here\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    # A DROP fails too: a declaration nobody lowers stops describing the tree,
+    # and its digest then guards a set that no longer exists.
+    expect(
+        "census: a removed copy is reported, not quietly accepted",
+        lambda: [pr for pr in census_says(shrunk) if "REMOVED" in pr],
+        ["docs/face.md [argued]: 1 line(s) declared, none found — the copies were REMOVED. Drop the entry."],
+    )
+    rotted = census_scan._replace(
+        files=[
+            ("docs/face.md", "| 9.111 |\nnear the block, 9.111 here\n\nfar off, 9.111 there\n"),
+            ("Some/Test.swift", "  /// 9.777 in a doc comment\n"),
+        ]
+    )
+    # The digest's whole reason: line counts are unchanged here.
+    expect(
+        "census: a figure that changed with the line count unchanged is reported as ROTTED",
+        lambda: [pr.split(" — ")[0] for pr in census_says(rotted)],
+        ["docs/face.md [in-read-section]: same line count, different figures"],
+    )
+    expect(
+        "census: an undeclared face is reported as an appearance",
+        lambda: [
+            pr.split(" — ")[0]
+            for pr in census_says(
+                declaration={
+                    k: v for k, v in census_inventory().items() if k[0] != "Some/Test.swift"
+                }
+            )
+        ],
+        ["Some/Test.swift [code-comment]: 1 line(s), nothing declared"],
+    )
+    expect(
+        "census: a file type the tree gained is reported",
+        lambda: [pr.split(" — ")[0] for pr in census_says(suffixes=frozenset())],
+        ["skipped suffix .png: a new file type appeared"],
+    )
+    expect(
+        "census: a declared file type the tree no longer has is reported",
+        lambda: [pr for pr in census_says(suffixes=frozenset({".png", ".zzz"}))],
+        ["skipped suffix .zzz: no longer in the tree — drop it."],
+    )
+    expect_raises(
+        "census: a mistyped class in the declaration raises rather than reading as a vanished face",
+        "not one of",
+        lambda: census_problems(
+            census_scan, {("docs/face.md", "argued-ish"): (1, 1, "0")}, census_suffixes
+        ),
+    )
+
+    # WIRING, not the helper: drives `census()` itself against the REAL
+    # declaration with an injected empty scan. A `census()` that stopped
+    # consulting `RESIDUE_DECLARATION` — or stopped classifying — returns 0 here.
+    def census_mode_on_empty_tree() -> tuple[int, bool]:
+        empty = TreeScan(set(), set(), set(), [], dict.fromkeys(RESIDUE_SKIPPED_SUFFIXES, 1))
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            rc = census(empty)
+        text = buf.getvalue()
+        return rc, all(f"{path} [{cls}]" in text for path, cls in RESIDUE_DECLARATION)
+
+    expect(
+        "census: the mode itself reads the real declaration and names every face it loses",
+        census_mode_on_empty_tree,
+        (1, True),
+    )
+
     # --- Trigger coverage (#1488) ---------------------------------------
     #
     # The only arms reading the REAL tree, deliberately: the invariant is this
@@ -2494,17 +2928,23 @@ def main() -> int:
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--residue", action="store_true")
+    parser.add_argument("--census", action="store_true")
     args = parser.parse_args()
+    later = (args.check, args.residue, args.census)
     if args.self_test:
         rc = self_test()
-        if rc or not (args.check or args.residue):
+        if rc or not any(later):
             return rc
     if args.check:
         rc = check()
-        if rc or not args.residue:
+        if rc or not (args.residue or args.census):
             return rc
     if args.residue:
-        return residue()
+        rc = residue()
+        if rc or not args.census:
+            return rc
+    if args.census:
+        return census()
     parser.print_help()
     return 2
 
