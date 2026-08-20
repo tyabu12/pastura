@@ -928,6 +928,26 @@ mk_run_cond2() {
 JSONL
 }
 
+# A RETRIED run: attempt 1 takes ELSE, attempt 2 restarts round numbering and
+# takes THEN. Only the final attempt is pickable (`build_excerpt`'s max_attempt
+# rule), so the pick at line 11 belongs to attempt 2.
+mk_run_cond_retry() {
+  cat > "$2" <<'JSONL'
+{"type":"run_start","run_id":"run-1","date":"2026-08-05","scenario_id":"cond_v1","scenario_name":"T","language":"ja","model":"Gemma 4 E2B (Q4_K_M)","timeout_sec":900,"estimated_inferences":12}
+{"type":"event","t":0.1,"attempt":1,"event":"round_started","round":1,"total_rounds":2}
+{"type":"event","t":0.2,"attempt":1,"event":"phase_started","phase_type":"conditional","phase_path":[0]}
+{"type":"event","t":0.3,"attempt":1,"event":"conditional_evaluated","condition":"current_round == total_rounds","result":false}
+{"type":"event","t":0.4,"attempt":1,"event":"phase_started","phase_type":"speak_all","phase_path":[0,0]}
+{"type":"event","t":0.5,"attempt":1,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"一回目の試行。"}}
+{"type":"event","t":0.6,"attempt":2,"event":"round_started","round":1,"total_rounds":2}
+{"type":"event","t":0.7,"attempt":2,"event":"phase_started","phase_type":"conditional","phase_path":[0]}
+{"type":"event","t":0.8,"attempt":2,"event":"conditional_evaluated","condition":"current_round == total_rounds","result":true}
+{"type":"event","t":0.9,"attempt":2,"event":"phase_started","phase_type":"speak_all","phase_path":[0,0]}
+{"type":"event","t":1.0,"attempt":2,"event":"agent_output","agent":"アヤ","phase_type":"speak_all","fields":{"statement":"二回目の試行。"}}
+{"type":"event","t":1.1,"attempt":2,"event":"run_end","run_id":"run-1","status":"ok","attempts":2,"duration_sec":9.0}
+JSONL
+}
+
 mk_selection_cond() {  # repo path
   cat > "$2" <<'JSON'
 {
@@ -1285,12 +1305,12 @@ runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond
 expect_fail "C3c a branch position the YAML does not have is refused"
 expect_out "which has 4 phase(s)" "C3c names the branch's real length"
 
-# C3d — the branch verdict does not survive a round boundary. Round 1 takes
-# ELSE and round 2 takes THEN through the IDENTICAL `phase_path` [0,0], so a
-# resolver that kept the previous round's verdict would silently place round 2's
-# utterance in the else branch (index 5) instead of the then branch (index 1).
-# Nothing else in this suite has two rounds, so without this arm the per-round
-# reset is unasserted.
+# C3d — accept direction across a round boundary: round 1 takes ELSE and round 2
+# takes THEN through the IDENTICAL `phase_path` [0,0], and both resolve to their
+# own branch's index. It is NOT the arm for the per-round reset — measured: with
+# `pending_branch = None` removed, this fixture still yields "5\t1", because
+# round 2's own `conditional_evaluated` overwrites the stale verdict before the
+# branch `phase_started` is read. C3e below is the discriminator.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 4
 mk_run_cond2 "$R" "$R/run.jsonl"
@@ -1307,10 +1327,11 @@ expect_ok "C3d the extractor accepts a two-round conditional run"
 runc "$R" jq -r '[.excerpt[].phase_index] | @tsv' docs/gallery/highlights/cond_v1.json
 expect_eq "5	1" "C3d round 1 resolves to else and round 2 to then, same phase_path"
 
-# C3e — and when round 2's `conditional_evaluated` is missing, the run dies
-# rather than reusing round 1's verdict. Distinct from C3c: there a conditional
-# was NEVER evaluated, so a resolver with no reset would fail anyway. Here one
-# was, which is what makes this the discriminating case.
+# C3e — the per-round reset's only asserter. When round 2's
+# `conditional_evaluated` is missing, the run dies rather than reusing round 1's
+# verdict. Distinct from C3c: there a conditional was NEVER evaluated, so a
+# resolver with no reset would fail anyway. Here one was — which is what makes
+# this the case that reddens when the reset is removed.
 R="$(new_repo)"; init_index "$R"
 mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 4
 mk_run_cond2 "$R" "$R/run.jsonl"
@@ -1327,6 +1348,44 @@ PY
 runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
 expect_fail "C3e a round whose conditional_evaluated is missing is refused"
 expect_out "branch unattributed" "C3e refuses rather than reusing the previous round's branch"
+
+# C3g — the same reset across an ATTEMPT boundary, which the resolver's
+# docstring asserts and nothing else exercises. A retried run appends attempt 2
+# to the same file and restarts round numbering; only the final attempt is
+# pickable. Attempt 1 took ELSE, attempt 2 takes THEN, and the pick resolves to
+# the then branch — then, with attempt 2's `conditional_evaluated` deleted, dies
+# rather than inheriting attempt 1's verdict. As with C3d/C3e, only the second
+# sub-arm discriminates: attempt 2's own verdict overwrites the stale one, so
+# the accept direction passes with or without the reset.
+R="$(new_repo)"; init_index "$R"
+mk_scenario_tree "$R" cond_v1 "$TREE_HISSATSU" 2
+mk_run_cond_retry "$R" "$R/run.jsonl"
+cat > "$R/sel.json" <<'JSON'
+{
+  "picks": [11],
+  "yaml_hook": { "kind": "raw", "fragment": "phases:\n  - type: conditional", "caption": "この一行が分岐を生む" },
+  "teaser": "最後の一言は、まだ言われていない。"
+}
+JSON
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 \
+  --selection sel.json --generated-at 2026-08-05
+expect_ok "C3g the extractor accepts a retried conditional run"
+runc "$R" jq -r '.excerpt[0].phase_index' docs/gallery/highlights/cond_v1.json
+expect_eq "1" "C3g the final attempt resolves to its own branch"
+
+mk_run_cond_retry "$R" "$R/run.jsonl"
+python3 - "$R" <<'PY'
+import io, sys
+p = sys.argv[1] + "/run.jsonl"
+lines = io.open(p, encoding="utf-8").read().splitlines()
+hits = [i for i, l in enumerate(lines) if '"result":true' in l]
+assert len(hits) == 1, f"anchor matched {len(hits)} lines — probe invalid"
+del lines[hits[0]]
+io.open(p, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+PY
+runc "$R" python3 scripts/gallery_highlight_extract.py --run run.jsonl --id cond_v1 --selection sel.json
+expect_fail "C3g an attempt whose conditional_evaluated is missing is refused"
+expect_out "branch unattributed" "C3g refuses rather than inheriting attempt 1's branch"
 
 # C3f — a non-integer `phase_path` element is refused. Python treats `True` as
 # 1, so without the guard a bool silently names a phase the run never entered.
@@ -1459,11 +1518,18 @@ expect_out "highlight: round window" "C8 names the round window"
 #     emptiness reddens whenever a developer runs the suite mid-work on a
 #     highlight-ADDING PR (staged entries under that path) — the very PR shape
 #     that most needs this arm.
-#   - `check_highlights` is a documented no-op when the repo carries no
-#     highlights (check-gallery-entry.sh, and H0 above covers that path), so a
-#     glob regression that stopped finding them would leave the gate arm green.
-#     Count them first, or this measures nothing.
-HL_COUNT="$(find "$REAL_ROOT/docs/gallery/highlights" -name '*.json' | wc -l | tr -d ' ')"
+#   - `check_highlights` is a documented no-op when the repo has neither a
+#     highlights/ directory nor a paired index field (check-gallery-entry.sh;
+#     H0 above covers that path deliberately), so if the directory ever went
+#     missing the gate arm below would pass having checked nothing. Count first.
+#     The `-d` test is not decoration: under this file's `set -euo pipefail` a
+#     `find` on a missing directory exits non-zero and would abort the suite
+#     before reaching the `bad` branch written for exactly that case.
+if [ -d "$REAL_ROOT/docs/gallery/highlights" ]; then
+  HL_COUNT="$(find "$REAL_ROOT/docs/gallery/highlights" -name '*.json' | wc -l | tr -d ' ')"
+else
+  HL_COUNT=0
+fi
 if [ "$HL_COUNT" -gt 0 ]; then PASS=$((PASS + 1)); else
   bad "C9 the repo carries no shipped highlights, so the gate arm below is vacuous"
 fi

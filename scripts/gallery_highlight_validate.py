@@ -703,13 +703,17 @@ def flatten_phase_tree(scenario):
     - a `conditional` with neither branch populated (`ScenarioValidator`'s
       `validateConditionalPhase`: at least one of `then:` / `else:` must be
       non-empty);
-    - a `conditional` nested inside a branch (the depth-1 rule, enforced twice
-      upstream — `ScenarioValidator.validateBranch` throws
-      `.branchNestedConditional` at load, and `ConditionalHandler.subHandlers`
-      deliberately omits `.conditional` at run time). Cite those two and not
-      `validateConditionalPhase`'s `depth > 0`: that arm is unreachable, since
-      the function has a single callsite passing `depth: 0` and `validateBranch`
-      never recurses into it. The upstream guarantee is what bounds a transcript
+    - a `conditional` nested inside a branch (the depth-1 rule). Three guards
+      enforce it upstream, and only one of them is on this input's path:
+      `ScenarioLoader.parsePhaseType` rejects at PARSE time, which is what a
+      curator's YAML actually hits — `ScenarioValidator` is constructed only
+      after loading, so a nested conditional never becomes a `Scenario` for it
+      to see. `ScenarioValidator.validateBranch`'s `.branchNestedConditional`
+      covers a programmatically-built `Scenario`, and
+      `ConditionalHandler.subHandlers` omits `.conditional` as a run-time
+      backstop. Do NOT cite `validateConditionalPhase`'s `depth > 0`: that arm
+      is unreachable, its function having a single callsite passing `depth: 0`
+      with no recursion back into it. Together they bound a transcript
       `phase_path` to length 2, which the extractor's resolver relies on.
     """
     if not isinstance(scenario, dict):
@@ -743,10 +747,10 @@ def flatten_phase_tree(scenario):
                 if child["type"] == "conditional":
                     return None, (f"the sibling scenario YAML nests a `conditional` at "
                                   f"`phases:`[{top}].{branch}[{inner}], which the "
-                                  "engine's depth-1 rule refuses "
-                                  "(ScenarioValidator.validateBranch throws "
-                                  "`.branchNestedConditional`; ConditionalHandler "
-                                  "registers no sub-handler for it)")
+                                  "engine's depth-1 rule refuses — this file would "
+                                  "not load at all (ScenarioLoader.parsePhaseType "
+                                  "throws `.nestedConditionalNotAllowed` at parse "
+                                  "time)")
                 nodes.append(PhaseNode(child["type"], top, branch, inner))
         if populated == 0:
             return None, (f"the sibling scenario YAML's `conditional` at "
