@@ -20,7 +20,7 @@ import Yams
 nonisolated public enum YAMLReplaySourceError: Error, Equatable {
   /// The YAML could not be parsed as a mapping.
   case malformedYAML(description: String)
-  /// Present but not equal to ``YAMLReplayExporter/schemaVersion``.
+  /// Present but not a member of ``YAMLReplaySource/supportedSchemaVersions``.
   /// `nil` means the `schema_version` key was missing entirely.
   case unsupportedSchemaVersion(Int?)
   /// A required top-level or per-turn key was missing.
@@ -57,6 +57,13 @@ nonisolated public enum YAMLReplaySourceError: Error, Equatable {
 /// (strict preset-only resolution) and future user-replay (arbitrary
 /// saved scenarios).
 nonisolated public final class YAMLReplaySource: ReplaySource {
+
+  /// `schema_version` values this loader accepts (spec §3.5). A v1 entry
+  /// is read as if `phase_path` were `[phase_index]`, which is exact for
+  /// any preset with no `conditional` phase. Dropping a version from this
+  /// set is a breaking change — it requires re-recording every bundled
+  /// demo still at that version first (spec §3.5 "Breaking").
+  public static let supportedSchemaVersions: Set<Int> = [1, 2]
 
   // MARK: - Compiled plan
 
@@ -125,7 +132,7 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
         description: "Top-level is not a mapping.")
     }
     let schemaValue = root["schema_version"] as? Int
-    guard schemaValue == YAMLReplayExporter.schemaVersion else {
+    guard let schemaValue, Self.supportedSchemaVersions.contains(schemaValue) else {
       throw YAMLReplaySourceError.unsupportedSchemaVersion(schemaValue)
     }
 
