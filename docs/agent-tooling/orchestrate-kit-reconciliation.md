@@ -60,7 +60,7 @@ below are the ones a plausible-sounding back-port *would* undo.
    upstream fix retires it; if the template ever adopts a tier/locus split, reconcile against it
    rather than deleting. The template carries no `(tb)` marker at all, so a back-port adopting its
    Step 1 wording drops `(tb)` and silently disarms the two gates that consume it — Step 1.4's
-   strictly-simple reviewer test and Step 0's all-🎵 resumption re-check.
+   strictly-simple reviewer test and Step 0's all-Sonnet-tier resumption re-check.
 
    Motivating baseline: of 250 plan items across the 52 `<!-- pastura-plan -->` comments in the
    then-last 70 issues, 221 (88%) were `🎭`, 37 of 52 plans were 100% `🎭`, and `Session: Opus`
