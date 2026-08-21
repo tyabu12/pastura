@@ -1,6 +1,6 @@
 # Claim verification — which source settles which claim
 
-Paired with the always-loaded rule `.claude/rules/knowledge-layering.md` § "Verify before you lock
+Paired with `docs/agent-tooling/knowledge-layering.md` § "Verify before you lock
 it", which carries the discipline and the three moments it fires at. This file carries the per-shape
 checks, the worked failures, and the promotion mechanics.
 
@@ -12,7 +12,7 @@ re-measurement trigger — it accretes as new failure shapes appear.
 **Why this is a doc and not a `paths:`-scoped rule.** A path-scoped rule would also leave the
 always-loaded budget, but it injects only on a `Read` matching its globs — and the Authoring moment
 fires in *any* file: Swift, a script, an ADR, a rule. No glob covers "any". So the trigger stays in
-the always-loaded rule and the evidence lives here; the cost is that this file loads only when
+the companion doc and the evidence lives here; the cost is that this file loads only when
 something reads it, which is why the rule's pointers to it are imperative rather than "see also".
 
 ## Why the author is the only checker

@@ -1,6 +1,6 @@
 # Subagent output caps — the depth behind `subagent-usage.md`
 
-Paired with the always-loaded rule `.claude/rules/subagent-usage.md`, which carries the firing
+Paired with `docs/agent-tooling/subagent-usage.md`, which carries the firing
 conditions — the numbers, the budgets, and the decision each one drives. This file carries the
 *why* and the *evidence*: how the numbers were obtained, what they do and do not establish, and
 which of them move on what trigger.

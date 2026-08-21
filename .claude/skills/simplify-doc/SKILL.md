@@ -11,7 +11,7 @@ One prune pass over **what this branch added**: enumerate → classify → verif
 apply → review → report.
 
 It exists because the generation-side lever does not work: prose volume "tracks
-the model rather than recency" (`.claude/rules/knowledge-layering.md`
+the model rather than recency" (`docs/agent-tooling/knowledge-layering.md`
 § "Anti-pattern: a comment written for the reviewer"), so thickening the
 always-loaded rules that ask for restraint has no durable effect. Let generation
 be verbose and make pruning an explicit pass instead. What this adds over an
@@ -123,8 +123,8 @@ bar than to a genuinely always-loaded file.
 
 ## Step 2 — Classify each candidate block
 
-`.claude/rules/context-budget.md` (Keep / Drop / relocate) and
-`.claude/rules/knowledge-layering.md` (§ "Anti-pattern: a comment written for the
+`docs/agent-tooling/context-budget.md` (Keep / Drop / relocate) and
+`docs/agent-tooling/knowledge-layering.md` (§ "Anti-pattern: a comment written for the
 reviewer", § "Where knowledge belongs") own the criteria, and both are
 always-loaded — they are already in your context, so read them there rather than
 re-deriving them. Weight three of theirs highest, because they are the ones a
@@ -207,7 +207,7 @@ this claim is usually false.** Unproven ⇒ Keep.
 
 If a file you compressed quotes its own size, line count, or a count of
 something this pass changed, **re-measure on the final commit**
-(`.claude/rules/knowledge-layering.md` § "Verify before you lock it"). The figure
+(`docs/agent-tooling/knowledge-layering.md` § "Verify before you lock it"). The figure
 you measured mid-pass is stale by construction — and a sentence that documents a
 grep can itself satisfy that grep, so pin such a count with a self-excluding
 pathspec or omit the number entirely.

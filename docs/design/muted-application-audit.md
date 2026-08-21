@@ -30,7 +30,7 @@ files, so that the subtraction below works.
 
 The narrowed root above keeps `DerivedData` out, which is the failure a bare
 `grep -rn` over `Pastura/` hits. It does **not** achieve what
-`.claude/rules/knowledge-layering.md` § Detection is actually about — repo
+`docs/agent-tooling/knowledge-layering.md` § Detection is actually about — repo
 *trackedness* — so an untracked scratch `.swift` under `Views/` would enter the
 census and redden `MutedSweepLedgerTests`, which walks the filesystem rather
 than the index. Reach for `git ls-files -z | xargs -0 grep -nH` when that

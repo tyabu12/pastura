@@ -305,7 +305,7 @@ if [ "$AL_ADD" -ge "$AL_TRIM_THRESHOLD" ] || [ "$PS_ADD" -ge "$PS_TRIM_THRESHOLD
   # honest-looking fix is to loosen those assertions, retiring the only tests
   # that prove a file was classified into the right tier.
   # The `/simplify-doc` tail is asserted by case (s).
-  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply .claude/rules/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale'). /simplify-doc runs that pass over the lines this branch added and emits the line for you — run it before review rather than after this PR opens."
+  TRIM_MSG="This branch adds +${AL_ADD} always-loaded / +${PS_ADD} path-scoped lines to agent-instruction files (nudge thresholds: ${AL_TRIM_THRESHOLD} always-loaded / ${PS_TRIM_THRESHOLD} path-scoped). Size is a trigger, not a verdict: apply docs/agent-tooling/context-budget.md's Keep/Drop classifier to each added paragraph, compress what fails it, and record the outcome in the PR body as a 'Context-economy:' line (e.g. 'Context-economy: kept N paragraphs, compressed/dropped M — one-line rationale'). /simplify-doc runs that pass over the lines this branch added and emits the line for you — run it before review rather than after this PR opens."
 fi
 
 # --- 4. always-loaded footprint nudge (#1361 proposal B) --------------------

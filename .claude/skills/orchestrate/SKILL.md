@@ -291,7 +291,7 @@ For each unit of work (let `K` = the current plan item number), check the item's
    ```
    If `gh` fails, **warn and continue** — never block implementation on a sync failure.
 
-**Delegate the legwork, keep the judgment.** In-session does not mean every tool call happens here. The enumerate-every-instance and grep-the-OLD-shape sweeps (CLAUDE.md § "Scope & Completeness Discipline") and the claim executions of `.claude/rules/knowledge-layering.md` § "Verify before you lock it" are what fill the main context, not the deciding. Hand them to a read-only subagent (`Explore`, or a `general-purpose` one) and have it return **the command it ran, its exit status, and the hits — a zero-hit run reported explicitly**, so a broken pattern cannot come back wearing a verified face. One limit: **delegation finds sites; it never certifies counts.** Any number destined for a commit message, PR body, rule, comment, or gap list is re-run **here**, by you, before it is committed — a returned list is not the population. The saving is search traffic, not the final count.
+**Delegate the legwork, keep the judgment.** In-session does not mean every tool call happens here. The enumerate-every-instance and grep-the-OLD-shape sweeps (CLAUDE.md § "Scope & Completeness Discipline") and the claim executions of `docs/agent-tooling/knowledge-layering.md` § "Verify before you lock it" are what fill the main context, not the deciding. Hand them to a read-only subagent (`Explore`, or a `general-purpose` one) and have it return **the command it ran, its exit status, and the hits — a zero-hit run reported explicitly**, so a broken pattern cannot come back wearing a verified face. One limit: **delegation finds sites; it never certifies counts.** Any number destined for a commit message, PR body, rule, comment, or gap list is re-run **here**, by you, before it is committed — a returned list is not the population. The saving is search traffic, not the final count.
 
 ### 🎭 Opus-tier, delegated — dispatch an Opus subagent
 
@@ -320,7 +320,7 @@ Two properties of `claude-kit:implementer` shape the prompt below, and neither i
 
 Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares the orchestrator's worktree). Subagents execute **sequentially, one at a time** — never in parallel. The subagent should have access to: `Read, Grep, Glob, Bash, Write, Edit` — do NOT include `EnterWorktree` or `ExitWorktree`.
 
-Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — bound delegated items per its soft-budget heuristics.
+Subagent invocation budget is governed by `docs/agent-tooling/subagent-usage.md` — bound delegated items per its soft-budget heuristics.
 
 > **Agent prompt template:**
 >
@@ -417,7 +417,7 @@ Agent(subagent_type: "code-reviewer", model: "$REVIEWER_MODEL", description: "..
 
 `$REVIEWER_MODEL` is the lowercase form (`opus` / `sonnet`) bound at Step 0 / Step 1 — the surrounding quotes match the Step 3 Sonnet-delegation convention (`Agent(model: "sonnet")`).
 
-Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — large PR diffs may need splitting (per axis or per area) to avoid `SCOPE_TOO_LARGE` early returns from the reviewer. **Splitting is the only remedy** — a cheaper model buys no headroom (§3 there), so never downgrade `REVIEWER_MODEL` to fit a diff.
+Subagent invocation budget is governed by `docs/agent-tooling/subagent-usage.md` — large PR diffs may need splitting (per axis or per area) to avoid `SCOPE_TOO_LARGE` early returns from the reviewer. **Splitting is the only remedy** — a cheaper model buys no headroom (§3 there), so never downgrade `REVIEWER_MODEL` to fit a diff.
 
 > **Agent prompt:** "Review all code changes on this feature branch. Run **`git -C {WORKTREE_ROOT} diff {DEFAULT_BRANCH}...HEAD`** for the full diff (all commits since branching, not just uncommitted changes) — use the `-C` path, not cwd; a bare `git` can resolve to the original checkout and show an empty phantom diff. Read every changed file in full for context. Evaluate against your complete checklist (Hard Rules, Dependency Rules, Access Modifiers, Swift 6 Concurrency, Code Quality). Output your review in your standard format."
 

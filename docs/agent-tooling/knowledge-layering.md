@@ -8,7 +8,7 @@
 > one gets no Pastura counterpart on purpose, #1312 holds this repo's. Pastura-specific content
 > lives only in this copy.
 
-Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
+On-demand reference — moved out of the always-loaded rules (#1519). Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
 ## Where knowledge belongs
 

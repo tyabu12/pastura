@@ -3,7 +3,7 @@
 Manual QA walkthroughs for the navigation surface. Extracted from
 `.claude/rules/navigation.md` (the operative navigation rules live
 there); relocated because rare-event walkthroughs do not belong in
-always-loaded rule context (`.claude/rules/context-budget.md`).
+always-loaded rule context (`docs/agent-tooling/context-budget.md`).
 
 **Scenario numbering 1–17 is preserved from the original location** —
 code comments, tests, and ADRs cite these scenarios by integer

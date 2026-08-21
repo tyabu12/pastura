@@ -8,7 +8,7 @@ Discipline (this header is the contract):
 
 - **Soft cap ~150 lines.** Read every night — it exists to SHRINK generation
   context: entries stay concept-level (invariant + why + evidence pointer, per
-  `.claude/rules/context-budget.md`); compress or merge before adding.
+  `docs/agent-tooling/context-budget.md`); compress or merge before adding.
 - **Status per rule**: `[validated]` (reproduced or fix-confirmed on the
   harness), `[hypothesis]` (proposed / one weak datapoint), `[refuted]`
   (tried, did not work — prune to a one-line tombstone so it isn't retried).

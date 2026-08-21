@@ -9,8 +9,8 @@
 > (§5) — the latter gets no Pastura counterpart on purpose, #1312 holds this repo's probes.
 > Pastura-specific content lives only in this copy.
 
-Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
-loading-mode rationale. Subagent calls can originate from any layer
+On-demand reference — moved out of the always-loaded rules (#1519).
+Subagent calls can originate from any layer
 (slash commands, `/orchestrate`, manual `Agent` tool invocations), so
 this rule must stay visible regardless of which file is being edited.
 

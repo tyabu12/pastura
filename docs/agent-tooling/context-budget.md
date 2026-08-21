@@ -5,8 +5,8 @@
 > this one is concept level with no volatile facts and no paired kit `docs/` file. Pastura-specific
 > content lives only in this copy.
 
-Always-loaded — see `CLAUDE.md` `## Context-Specific Rules` for the
-loading-mode rationale. This rule applies to itself. Pairs with `knowledge-layering.md` (location choice across memory / rules / `CLAUDE.md` / `docs/**`); this rule covers content discipline within always-loaded files.
+On-demand reference — moved out of the always-loaded rules (#1519). This rule applies to itself.
+Pairs with `knowledge-layering.md` (location choice across memory / rules / `CLAUDE.md` / `docs/**`); this rule covers content discipline within always-loaded files.
 
 ## Scope
 
