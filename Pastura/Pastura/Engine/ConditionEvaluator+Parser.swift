@@ -13,8 +13,8 @@ import Foundation
 // `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, an unmarked extension on a
 // `nonisolated public struct` would still infer MainActor for its
 // members, breaking the call from the main file's nonisolated public
-// `evaluate(_:state:scenario:)` / `parse(_:)` API. See `.claude/rules/llm.md`
-// and the memory note on `nonisolated` for the same trap.
+// `evaluate(_:state:scenario:)` / `parse(_:)` API. See
+// `docs/swift-isolation-compile-time-patterns.md` (Pattern 3).
 nonisolated extension ConditionEvaluator {
 
   // MARK: - Tokenizer

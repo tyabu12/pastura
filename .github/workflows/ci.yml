@@ -845,9 +845,9 @@ jobs:
       # runs JVM tests + single-target klib compile-only (full-native on main is
       # owned by the nightly workflow, #501 PR-3).
       #
-      # Decided HERE at STEP level, never via `on.<event>.paths`: a job-level
+      # Decided HERE at STEP level, never via `on.<event>.paths`: a trigger-level
       # path filter leaves a required status check stuck "Pending" forever when
-      # the paths do not match (ci-workflows.md "Long-lived branch gating").
+      # the paths do not match (ci-workflows.md "Required-check-safe path gating").
       # Conservative-by-inversion (ci-workflows.md invariant 1): an unresolved /
       # errored PR file list PROMOTES rather than under-builds.
       - name: Classify KMP build-config touch

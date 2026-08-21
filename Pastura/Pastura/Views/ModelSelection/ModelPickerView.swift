@@ -329,7 +329,11 @@ struct ModelPickerView: View {
 /// `UserDefaults` so previews don't pollute the simulator's domain.
 @MainActor
 private func previewManager(catalog: [ModelDescriptor] = ModelRegistry.catalog) -> ModelManager {
-  let defaults = UserDefaults(suiteName: "ModelPickerPreview-\(UUID().uuidString)")!
+  // `init(suiteName:)` returns nil only for the bundle identifier or the
+  // global domain — never for a UUID suite — so the fallback is unreachable.
+  // Were it ever reached, previews would write to the standard domain this
+  // helper exists to avoid; keep the suite name UUID-based.
+  let defaults = UserDefaults(suiteName: "ModelPickerPreview-\(UUID().uuidString)") ?? .standard
   return ModelManager(
     physicalMemory: 8 * 1024 * 1024 * 1024,
     userDefaults: defaults,

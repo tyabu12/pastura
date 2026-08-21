@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
 # scripts/scenario-editor-funnel-gate.sh — Pre-commit + CI tripwire for
-# the ScenarioEditor funnel invariant (#338, formerly a manual PR-review
-# grep documented in .claude/rules/scenario-editor.md).
+# the ScenarioEditor funnel invariant (#338; replaces the manual PR-review
+# grep it started as — the invariant itself is in
+# .claude/rules/scenario-editor.md).
 #
 # `ScenarioEditorViewModel` holds a dual buffer (visual fields + yamlText);
 # both reconcile only via the private `currentScenario()` funnel. A new

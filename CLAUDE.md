@@ -23,7 +23,7 @@ README.md and CONTRIBUTING.md mirror Architecture, Hard Rules, Dependency Rules,
 
 ## Hard Rules
 
-1. **No force unwrap (`!`)** — `guard let`, `if let`, or `?`. Test code is exempt.
+1. **No force unwrap (`!`)** — `guard let`, `if let`, or `?`. Test code is exempt (SwiftLint `force_unwrapping`; nested configs exempt the test trees).
 2. **No Engine → Data import** — Engine communicates via emitter closures; the App layer bridges.
 3. **Doc comments on public protocols and types.**
 
