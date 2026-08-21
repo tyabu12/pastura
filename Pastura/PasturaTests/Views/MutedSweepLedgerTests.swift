@@ -65,7 +65,6 @@ struct MutedSweepLedgerTests {
     "Views/Home/HomeCompactScenarioRow.swift": 2,
     "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift": 1,
     "Views/ModelSelection/ModelPickerView.swift": 2,
-    "Views/ModelSelection/ModelRow.swift": 1,
     "Views/Report/ReportSheet.swift": 1,
     "Views/Results/ResultDetailView+CodePhaseRows.swift": 1,
     "Views/Results/ResultDetailView+RowLayout.swift": 1,
