@@ -74,7 +74,6 @@ struct MutedSweepLedgerTests {
     "Views/Results/ResultsView.swift": 5,
     "Views/ScenarioDetail/ScenarioDetailView+Sections.swift": 1,
     "Views/Settings/ModelSettingsRow.swift": 1,
-    "Views/Settings/SettingsView+PastResults.swift": 1,
     "Views/Settings/SettingsView.swift": 2,
     "Views/Simulation/HighlightCandidatesSection.swift": 2,
     "Views/Simulation/ScoreboardSheet.swift": 1,
