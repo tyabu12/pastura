@@ -173,7 +173,7 @@ you have Claude Code installed.
 Some of that tooling is not in this repo. `.claude/settings.json`
 declares a marketplace and enables the
 [`claude-kit`](https://github.com/tyabu12/claude-kit) plugin, which
-supplies the `critic` and `implementer` agents and the
+supplies the `claude-kit:critic` and `claude-kit:implementer` agents and the
 `/claude-kit:write-adr` skill. Manage it with `/plugin` — that is also
 how you update an already-installed copy.
 

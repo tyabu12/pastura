@@ -253,17 +253,24 @@ Handle the critic's output:
 5. Verify: `git branch --show-current`.
 6. **Worktree path hygiene** (holds for the rest of the session): the main checkout at `/Users/tyabu12/Work/pastura` stays on another branch, so a tool that resolves to it instead of this worktree acts on the wrong tree silently.
    - Every absolute Edit/Write path must contain `/worktrees/<name>/` — invalidate any carried over from a *pre-worktree* tool result before reusing it.
-   - Non-isolation subagents (Step 3 `implementer`, Step 4 reviewer) inherit this worktree's cwd — but cwd inheritance for a non-isolation subagent is **not documented as guaranteed**, and it has resolved to the *original* checkout in practice, yielding an empty phantom diff that reads as a false FAIL. So don't rely on it: capture the root once with `WORKTREE_ROOT=$(git rev-parse --show-toplevel)` and **embed `git -C {WORKTREE_ROOT}`** into every subagent prompt that runs git — never a bare `git` the subagent resolves against its own cwd, never a `$(…)` it re-runs, and never a reused pre-worktree path.
+   - Non-isolation subagents (Step 3 `claude-kit:implementer`, Step 4 reviewer) inherit this worktree's cwd — but cwd inheritance for a non-isolation subagent is **not documented as guaranteed**, and it has resolved to the *original* checkout in practice, yielding an empty phantom diff that reads as a false FAIL. So don't rely on it: capture the root once with `WORKTREE_ROOT=$(git rev-parse --show-toplevel)` and **embed `git -C {WORKTREE_ROOT}`** into every subagent prompt that runs git — never a bare `git` the subagent resolves against its own cwd, never a `$(…)` it re-runs, and never a reused pre-worktree path.
 
 ## Step 3: Implementation (TDD)
 
 Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING=true`**, start from item `NEXT_ITEM` — skip already-checked items.
 
-For each unit of work (let `K` = the current plan item number), check the item's routing label:
+For each unit of work (let `K` = the current plan item number), check the item's routing label and take the matching branch:
+
+| Label | Branch |
+|---|---|
+| `🧠` | **🧠 Opus-tier, in the main session** — the orchestrator implements it |
+| `🎭` | **🎭 Opus-tier, delegated** — dispatch `claude-kit:implementer` at Opus |
+| `🎵` / `🎵 (tb)` | **🎵 Sonnet-tier, delegated** — dispatch a Sonnet subagent |
+| `🎵 (main)` | the **🧠** branch, run at the session model — it is in-session because delegation overhead exceeded the work, not because it needs Opus |
 
 > **Per-item commit hazard:** the pre-commit `swiftlint --strict` lints the **whole worktree**, not just the staged set — so an unstaged edit to a *later* item's file (e.g. one that trips a length cap) fails the *current* item's commit. Don't pre-edit a later item while committing the current one; if unavoidable, `git stash push -- <later-item-files>` before the focused commit, then pop.
 
-### 🎭 Complex items — Orchestrator implements directly
+### 🧠 Opus-tier, in the main session — orchestrator implements directly
 
 1. Write test first (TDD mandatory per CLAUDE.md). Skip for documentation-only or test-only items (mirrors the 🎵 branch's escape at the Sonnet prompt below).
 2. Run targeted tests — confirm failure:
@@ -282,7 +289,31 @@ For each unit of work (let `K` = the current plan item number), check the item's
    ```
    If `gh` fails, **warn and continue** — never block implementation on a sync failure.
 
-### 🎵 Simple items — Delegate to Sonnet subagent
+### 🎭 Opus-tier, delegated — dispatch an Opus subagent
+
+Launch `Agent(subagent_type: "claude-kit:implementer", model: "opus")` **without `isolation`** (shares the orchestrator's worktree), sequentially like the 🎵 branch. If the agent type does not resolve — plugin not installed or not trusted on this machine — **stop and surface that**, as Step 1b does for `claude-kit:critic`. Do not quietly implement the item in-session instead: a silent fallback degrades every 🎭 item back to pre-split behaviour with no signal that routing stopped working.
+
+Two properties of `claude-kit:implementer` shape the prompt below, and neither is fixable at the call site:
+
+- It declares **no `tools:` key**, so it inherits the full tool set — including `EnterWorktree` / `ExitWorktree`, which the 🎵 branch excludes by construction. A `subagent_type` dispatch takes its tools from the agent's frontmatter, so that exclusion can only be restated as a soft instruction. Write it as one, and know it is not a guarantee.
+- It pins **`effort: medium`** in frontmatter, and `Agent` has no `effort` parameter — so a 🎭 item runs at Opus/medium where an in-session one would run at the session's Opus/high. That is the accepted trade for moving the work off the main context: Q2 already required the item to be fully specifiable, which is the condition this agent is built for. Escalation is the ladder at the 🎵 fallback below — a general Opus subagent at session effort.
+
+> **Agent prompt template:** the 🎵 template below, with these changes.
+>
+> **Keep verbatim** — the `{WORKTREE_ROOT}` rooting sentence, `Read CLAUDE.md first`, the Key-rules block, the TDD procedure, and **"Do NOT commit — leave changes unstaged."** `claude-kit:implementer` carries no commit prohibition of its own; if it commits, the Conventional-Commit message, the per-item commit hazard above, and the checkpoint sync are all bypassed at once.
+>
+> **Add** — "Run `pwd` first and confirm it is `{WORKTREE_ROOT}`." Step 2b's residual risk bites hardest on the branch that writes files: `scripts/xcodebuild.sh` resolves `REPO_ROOT` from cwd, so a run that landed in the main checkout returns a green that reads as success.
+>
+> **Add** — "Do not call `EnterWorktree`, `ExitWorktree`, or `Agent`."
+
+**Four return outcomes.** Read the report; do not infer success from the absence of an error.
+
+1. **Done** → the 🎵 post-return flow below: verify `git status`, read the full diff, spot-check, commit, checkpoint.
+2. **Stopped on a design decision the plan did not cover** — its standing rule is to report rather than decide. Settle the decision yourself, then finish the item on the 🧠 branch. **Do not `git stash -u`**: the partial work is wanted, and it stopped precisely so as not to guess. If this outcome fires often, Q2's specifiability test is mis-calibrated rather than the agent — say so in the PR body.
+3. **Refused to start on scope** — its rules decline a change likely to exceed ~800 lines, or one whose report would be very long. **No partial work exists, so there is nothing to stash.** The remedy is to re-split the plan item and dispatch the pieces, not to take it over whole.
+4. **Failed** — tried and could not finish. Take over via the 🎵 fallback path below, `git stash -u` included.
+
+### 🎵 Sonnet-tier, delegated — dispatch a Sonnet subagent
 
 Launch a subagent via `Agent(model: "sonnet")` **without `isolation`** (shares the orchestrator's worktree). Subagents execute **sequentially, one at a time** — never in parallel. The subagent should have access to: `Read, Grep, Glob, Bash, Write, Edit` — do NOT include `EnterWorktree` or `ExitWorktree`.
 
@@ -336,7 +367,7 @@ Subagent invocation budget is governed by `.claude/rules/subagent-usage.md` — 
 1. Run `git stash -u` to save all of Sonnet's partial work including untracked new files (recoverable via `git stash pop` if needed later), giving the recovery a clean start.
 2. **Escalate by session model:**
    - `SESSION_MODEL=opus` → the orchestrator completes the item directly using the 🎭 complex-item flow.
-   - `SESSION_MODEL=sonnet` → the orchestrator is itself Sonnet, so it must **not** implement judgment-heavy recovery. Delegate to `Agent(subagent_type: "implementer", model: "opus")` **without `isolation`** (shares the worktree), passing the item spec, the Sonnet subagent's error output, **and the same `{WORKTREE_ROOT}` rooting the 🎵 prompt carries** — this is the subagent that writes files, so an inherited cwd landing in the main checkout is the worst case, not the mildest. On return, the orchestrator reviews the diff and commits (same as the 🎵 post-return flow above). If the Opus implementer also fails, report to the user and offer to switch the session to Opus (`/model opus`) and retry directly. (`implementer` pins `effort: medium`; if recovery underperforms, note it and escalate to a high-effort general Opus subagent.)
+   - `SESSION_MODEL=sonnet` → the orchestrator is itself Sonnet, so it must **not** implement judgment-heavy recovery. Delegate to `Agent(subagent_type: "claude-kit:implementer", model: "opus")` **without `isolation`** (shares the worktree), passing the item spec, the Sonnet subagent's error output, **and the same `{WORKTREE_ROOT}` rooting the 🎵 prompt carries** — this is the subagent that writes files, so an inherited cwd landing in the main checkout is the worst case, not the mildest. On return, the orchestrator reviews the diff and commits (same as the 🎵 post-return flow above). If the Opus implementer also fails, report to the user and offer to switch the session to Opus (`/model opus`) and retry directly. (`implementer` pins `effort: medium`; if recovery underperforms, note it and escalate to a high-effort general Opus subagent.)
 
 Note: `git commit` is allowlisted (since #411); the commit-time gate is the git pre-commit hook (`swiftlint --strict` + build + blocklist/gallery gates per CLAUDE.md), which runs on every commit — not a per-commit approval prompt.
 
