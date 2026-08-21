@@ -3,19 +3,22 @@ import Testing
 
 // Batch 2's applied-site pin, split out of `MutedSweepLedgerTests.swift` at
 // SwiftLint's 400-line ceiling (`testing.md` § "Splitting a Suite Across
-// Files") — an extension of that suite, never a second `@Suite`.
+// Files") — an extension of that suite, never a second `@Suite`. It also
+// hosts the shared ``AppliedSite`` / ``appliedSiteFailures(_:)`` checker that
+// later batches' pin files reuse.
 
 extension MutedSweepLedgerTests {
 
-  /// One batch-2 (#1448) repointed site, anchored by a literal that is unique
-  /// among its file's **non-comment** lines. The repointed `.foregroundStyle`
-  /// sits within `window` non-comment lines after that anchor.
+  /// One repointed site of an applied batch (#1448 batch 2 onward), anchored
+  /// by a literal that is unique among its file's **non-comment** lines. The
+  /// repointed `.foregroundStyle` sits within `window` non-comment lines
+  /// after that anchor.
   ///
   /// Comment lines are dropped before the window is measured, so inserting or
   /// growing a why-comment cannot slide a site out of its own window — which
   /// batch 2 did to all eight files. A line-anchored table could not have
   /// survived its own commit.
-  private struct BatchTwoSite {
+  struct AppliedSite {
     let path: String
     let anchor: String
     let window: Int
@@ -37,7 +40,7 @@ extension MutedSweepLedgerTests {
   /// site reverted. The three `.monospacedDigit()` anchors are the same spelling
   /// in three different files, each unique within its own; that is fine, since
   /// uniqueness is what the control arm checks and it checks it per file.
-  private static let batchTwoSites: [BatchTwoSite] = [
+  private static let batchTwoSites: [AppliedSite] = [
     .init(
       "Views/Components/AgentOutputRow.swift",
       ".textStyle(Typography.thinkingBody)", window: 1),
@@ -98,21 +101,14 @@ extension MutedSweepLedgerTests {
       "Text(value)", window: 1)
   ]
 
-  /// Batch 2's counterpart, anchored per site rather than per file — see
-  /// ``expectedAppliedInkSecondary`` for why the shapes differ.
-  ///
-  /// Three assertions per site, and the **first is the control**: the anchor
-  /// must match exactly one non-comment line. A rename, a deletion, or a second
-  /// copy of the anchored line all land there and name the site, so the two
-  /// content checks below can never pass by scanning nothing. The window then
-  /// has to contain `Color.inkSecondary` and must not contain `Color.muted`;
-  /// the second is what catches a revert, and the first what catches a slide to
-  /// `Color.ink` or a raw hex that the census would wave through.
-  @Test func batchTwoSitesStillReadInkSecondary() throws {
-    #expect(Self.batchTwoSites.count == 19, "the ledger § 5 marks nineteen rows `B2`")
-
+  /// Runs the three per-site assertions of an applied-batch pin — see
+  /// ``batchTwoSitesStillReadInkSecondary`` for what each one catches — and
+  /// returns one line per failure, empty when every site still reads
+  /// `Color.inkSecondary`. Shared by every batch's pin arm so the checker has
+  /// one definition; a batch contributes only its table.
+  static func appliedSiteFailures(_ sites: [AppliedSite]) throws -> [String] {
     var failures: [String] = []
-    for site in Self.batchTwoSites {
+    for site in sites {
       let url = SourceTreeProbe.appSourceRoot.appending(path: site.path)
       let code = try String(contentsOf: url, encoding: .utf8)
         .split(separator: "\n", omittingEmptySubsequences: false)
@@ -135,6 +131,24 @@ extension MutedSweepLedgerTests {
         failures.append("  \(site.path): `Color.muted` came back at \(site.anchor)")
       }
     }
+    return failures
+  }
+
+  /// Batch 2's counterpart, anchored per site rather than per file — see
+  /// ``expectedAppliedInkSecondary`` for why the shapes differ.
+  ///
+  /// Three assertions per site, and the **first is the control**: the anchor
+  /// must match exactly one non-comment line. A rename, a deletion, or a second
+  /// copy of the anchored line all land there and name the site, so the two
+  /// content checks below can never pass by scanning nothing. The window then
+  /// has to contain `Color.inkSecondary` and must not contain `Color.muted`;
+  /// the second is what catches a revert, and the first what catches a slide to
+  /// `Color.ink` or a raw hex that the census would wave through. The loop
+  /// itself is ``appliedSiteFailures(_:)``, shared with later batches.
+  @Test func batchTwoSitesStillReadInkSecondary() throws {
+    #expect(Self.batchTwoSites.count == 19, "the ledger § 5 marks nineteen rows `B2`")
+
+    let failures = try Self.appliedSiteFailures(Self.batchTwoSites)
 
     #expect(
       failures.isEmpty,
