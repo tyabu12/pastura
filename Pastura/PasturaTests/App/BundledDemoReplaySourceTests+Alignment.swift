@@ -18,13 +18,20 @@ extension BundledDemoReplaySourceTests {
 
   // MARK: - Fixture
 
-  /// `[0]=speak_all, [1]=conditional{then:[vote], else:[summarize]}, [2]=vote`.
+  /// `[0]=speak_all, [1]=conditional{then:[vote, speak_all], else:[summarize]},
+  /// [2]=vote`.
   ///
-  /// The branches hold DIFFERENT types on purpose: with identical types every
-  /// branch-resolution assertion below would hold for the wrong reason, and the
-  /// `branch:`-aware path would be indistinguishable from the union check it
-  /// replaces. `[2]` repeats `then[0]`'s type so a wrong-level resolution has
-  /// somewhere plausible to land.
+  /// Three properties are load-bearing, each because a simpler fixture makes
+  /// some assertion below hold for the wrong reason:
+  ///
+  /// - the branches hold DIFFERENT types at index 0, or `branch:`-aware
+  ///   resolution would agree with the branch-blind union check everywhere;
+  /// - `then` holds TWO phases, so `speak_all` is in the union of both
+  ///   branches while NOT being what index 0 names — the only shape that can
+  ///   tell an indexed check from a union check (measured: with one phase per
+  ///   branch, reverting the indexed check to a union broke no test);
+  /// - `[2]` repeats `then[0]`'s type, so a wrong-level resolution has
+  ///   somewhere plausible to land.
   fileprivate static let conditionalScenarioYAML = """
     id: cond_align
     language: ja
@@ -49,6 +56,10 @@ extension BundledDemoReplaySourceTests {
           - type: vote
             prompt: vote
             candidates: agents
+          - type: speak_all
+            prompt: say
+            output:
+              statement: string
         else:
           - type: summarize
             template: "closing"
@@ -127,26 +138,91 @@ extension BundledDemoReplaySourceTests {
       ]) == nil)
   }
 
-  @Test func typeAbsentFromBothBranchesIsCaught() throws {
+  @Test func typeAbsentFromTheIndexedSubPhaseIsCaught() throws {
+    // Nested path, no `branch` — the exporter's shape. `[1, 0]` is `vote` in
+    // then and `summarize` in else, so `speak_all` matches neither — even
+    // though it IS in the union of both branches, as `then[1]`. That gap is
+    // the whole difference between this check and the v1 one below.
     let found = try diagnostic([
       "phase_index": 1, "phase_path": [1, 0], "phase_type": "speak_all"
     ])
+    #expect(
+      found?.contains("across the branches") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func typeAbsentFromBothBranchesIsCaughtInTheV1Shape() throws {
+    // No nested path at all: the entry says only "somewhere inside this
+    // conditional", so membership in the union is all the data supports.
+    // `score_calc` rather than `speak_all` — the latter is now in the union
+    // (it is `then[1]`), which is exactly what makes the indexed check above
+    // stronger than this one.
+    let found = try diagnostic(["phase_index": 1, "phase_type": "score_calc"])
     #expect(found?.contains("is not present") == true, "got: \(found ?? "nil")")
   }
 
-  @Test func conditionalNamedAsItsOwnPhaseTypeIsCaught() throws {
+  @Test func subPhaseIndexBeyondEveryBranchIsCaughtWithoutBranchField() throws {
+    // Without `branch` the range check used to be skipped entirely — the union
+    // of both branches' TYPES accepts any index. `YAMLReplayExporter` emits a
+    // nested `phase_path` and can never emit `branch`, so that writer's output
+    // was the unowned case.
     let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1], "phase_type": "conditional"
+      "phase_index": 1, "phase_path": [1, 7], "phase_type": "summarize"
     ])
-    #expect(found?.contains("must name a non-conditional") == true, "got: \(found ?? "nil")")
+    #expect(
+      found?.contains("no branch holds that many phases") == true,
+      "got: \(found ?? "nil")")
+  }
+
+  @Test func conditionalAsItsOwnLeafTypeIsAccepted() throws {
+    // Correct by spec §3.2: `phase_type` is the type of the phase AT
+    // `phase_path`, and `[1]` is the conditional. `ConditionalHandler.execute`
+    // emits `evaluation.warnings` as `.summary` before `.conditionalEvaluated`
+    // — i.e. at exactly this coordinate — so a demo of a condition naming a
+    // runtime-absent variable produces this entry. The gate used to reject it,
+    // contradicting the spec it enforces.
+    #expect(
+      try diagnostic([
+        "phase_index": 1, "phase_path": [1], "phase_type": "conditional"
+      ]) == nil)
+  }
+
+  @Test func conditionalNestedInsideABranchIsCaught() throws {
+    // The depth-1 rule: a branch sub-phase can never be a conditional, so at a
+    // NESTED path the type is wrong however the outer phase resolves.
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": [1, 0], "phase_type": "conditional"
+    ])
+    #expect(
+      found?.contains("depth-1 rule forbids") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func unknownPhaseTypeUnderAConditionalIsCaught() throws {
+    // Split out of the conditional check above; `PhaseType(rawValue:)` failing
+    // is a different fault from naming the conditional itself.
+    let found = try diagnostic([
+      "phase_index": 1, "phase_path": [1, 0], "phase_type": "not_a_phase"
+    ])
+    #expect(
+      found?.contains("must name a non-conditional") == true, "got: \(found ?? "nil")")
+  }
+
+  @Test func nestedPathUnderANonConditionalPhaseIsCaught() throws {
+    // Only a conditional has sub-phases. `[0, 1]` names one under `speak_all`,
+    // which cannot exist — and the reader would still split it into its own
+    // `.phaseStarted`, inflating the progress denominator.
+    let found = try diagnostic([
+      "phase_index": 0, "phase_path": [0, 1], "phase_type": "speak_all"
+    ])
+    #expect(
+      found?.contains("which has no sub-phases") == true, "got: \(found ?? "nil")")
   }
 
   @Test func branchIndexOutOfRangeIsCaught() throws {
-    // `then` holds one phase, so `then[3]` names nothing.
+    // `then` holds two phases, so `then[3]` names nothing.
     let found = try diagnostic([
       "phase_index": 1, "phase_path": [1, 3], "branch": "then", "phase_type": "vote"
     ])
-    #expect(found?.contains("that branch holds 1 phase(s)") == true, "got: \(found ?? "nil")")
+    #expect(found?.contains("that branch holds 2 phase(s)") == true, "got: \(found ?? "nil")")
   }
 
   @Test func overDeepPhasePathIsCaught() throws {

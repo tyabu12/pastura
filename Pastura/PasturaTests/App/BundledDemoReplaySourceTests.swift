@@ -386,6 +386,40 @@ struct BundledDemoReplaySourceTests {
     Issue.record(Comment(rawValue: "\(label): \(diagnostic)"))
   }
 
+  /// Checks `phase_path` against `phase_index` alone — no scenario needed.
+  ///
+  /// `phase_index` IS `phase_path[0]` by definition (spec §3.2), so a demo
+  /// carrying both and disagreeing is self-inconsistent before any preset is
+  /// consulted; that is why this runs first.
+  ///
+  /// Keyed on the key's PRESENCE, not on cast success. `as? [Int]` inside an
+  /// `if let` would skip the whole block for `phase_path: ["1", "0"]` — and
+  /// `YAMLReplaySource.resolvePhasePath` fails on the identical cast, falling
+  /// back to `[phase_index]`. Two checks that fail on the same predicate detect
+  /// nothing between them, and spec §3.3 makes this the only owner, so nothing
+  /// downstream would catch it either.
+  private static func phasePathSelfConsistency(
+    entry: [String: Any], phaseIndex: Int
+  ) -> String? {
+    guard entry["phase_path"] != nil else { return nil }
+    guard let path = entry["phase_path"] as? [Int] else {
+      return "phase_path is present but is not a list of Int"
+    }
+    guard let top = path.first else {
+      return "phase_path is empty; it must name at least the top-level phase"
+    }
+    guard top == phaseIndex else {
+      return "phase_path \(path) starts at \(top) but phase_index is \(phaseIndex)"
+    }
+    guard path.count <= 2 else {
+      return """
+        phase_path \(path) is \(path.count) deep, but the engine's depth-1 rule \
+        bounds it to 2 (ScenarioLoader.parsePhaseType refuses a nested conditional)
+        """
+    }
+    return nil
+  }
+
   /// Returns nil when `entry`'s phase coordinates are consistent with
   /// `phases`, or a diagnostic naming the first inconsistency found.
   ///
@@ -405,37 +439,25 @@ struct BundledDemoReplaySourceTests {
     guard let phaseTypeRaw = entry["phase_type"] as? String else {
       return "missing or non-String phase_type"
     }
-    // `phase_index` IS `phase_path[0]` by definition (spec §3.2), so a
-    // demo carrying both and disagreeing is self-inconsistent before any
-    // scenario is consulted — checked first for that reason.
-    //
-    // Keyed on PRESENCE, not on cast success. `as? [Int]` inside an `if let`
-    // would skip this whole block for `phase_path: ["1", "0"]` — and
-    // `YAMLReplaySource.resolvePhasePath` fails on the identical cast, falling
-    // back to `[phase_index]`. Two checks that fail on the same predicate
-    // detect nothing between them, and spec §3.3 makes this function the only
-    // owner, so nothing downstream would catch it either.
-    if entry["phase_path"] != nil {
-      guard let path = entry["phase_path"] as? [Int] else {
-        return "phase_path is present but is not a list of Int"
-      }
-      guard let top = path.first else {
-        return "phase_path is empty; it must name at least the top-level phase"
-      }
-      guard top == phaseIndex else {
-        return "phase_path \(path) starts at \(top) but phase_index is \(phaseIndex)"
-      }
-      guard path.count <= 2 else {
-        return """
-          phase_path \(path) is \(path.count) deep, but the engine's depth-1 rule \
-          bounds it to 2 (ScenarioLoader.parsePhaseType refuses a nested conditional)
-          """
-      }
+    if let selfConsistency = phasePathSelfConsistency(entry: entry, phaseIndex: phaseIndex) {
+      return selfConsistency
     }
     guard phases.indices.contains(phaseIndex) else {
       return "phase_index \(phaseIndex) is out of range (scenario has \(phases.count) phases)"
     }
     let resolved = phases[phaseIndex].type
+    // Only a `conditional` has sub-phases, so a nested path anywhere else names
+    // something that cannot exist. Checked here rather than in the `phase_path`
+    // block above because it needs the resolved phase; without it the second
+    // component was simply dropped and `phases[i].type == phase_type` decided
+    // the entry — while the reader still splits it from an adjacent `[i]` into
+    // its own `.phaseStarted`, inflating `phaseProgress`.
+    if resolved != .conditional, let path = entry["phase_path"] as? [Int], path.count > 1 {
+      return """
+        phase_path \(path) is nested, but phase_index \(phaseIndex) is \
+        \(resolved.rawValue), which has no sub-phases
+        """
+    }
     if resolved == .conditional {
       return conditionalDiagnostic(
         entry: entry, phaseTypeRaw: phaseTypeRaw, phase: phases[phaseIndex],
@@ -457,12 +479,28 @@ struct BundledDemoReplaySourceTests {
   /// With `branch:` present (curator-written; `YAMLReplayExporter` cannot
   /// supply it) the exact sub-phase is resolved and a type mismatch is
   /// caught. Without it the check stays as loose as the data allows —
-  /// `then[j]` and `else[j]` share a `phase_path`, so only membership in
-  /// the union of both branches can be asserted.
+  /// `then[j]` and `else[j]` share a `phase_path`, so the assertion is that
+  /// SOME branch holds a phase of that type at index `j`.
   private static func conditionalDiagnostic(
     entry: [String: Any], phaseTypeRaw: String, phase: Phase, phaseIndex: Int
   ) -> String? {
-    if PhaseType(rawValue: phaseTypeRaw).map({ $0 == .conditional }) ?? true {
+    let nested = (entry["phase_path"] as? [Int])?.dropFirst().first
+    if phaseTypeRaw == PhaseType.conditional.rawValue {
+      // Correct-by-spec when the coordinate names the CONDITIONAL ITSELF:
+      // §3.2 defines `phase_type` as the type of the phase at `phase_path`,
+      // and for `[i]` that is the conditional. Reachable, not hypothetical —
+      // `ConditionalHandler.execute` emits each `evaluation.warnings` entry as
+      // a `.summary` BEFORE `.conditionalEvaluated`, i.e. while the current
+      // phase is still the conditional at `[i]`, so a demo of a condition
+      // referencing a runtime-absent variable carries exactly this shape.
+      guard nested != nil else { return nil }
+      return """
+        phase_path names a sub-phase of the conditional at \(phaseIndex), so \
+        phase_type 'conditional' cannot be right — the depth-1 rule forbids a \
+        conditional inside a branch
+        """
+    }
+    guard PhaseType(rawValue: phaseTypeRaw) != nil else {
       return """
         phase_index \(phaseIndex) is a conditional in the preset; demo phase_type \
         '\(phaseTypeRaw)' must name a non-conditional sub-phase type
@@ -471,42 +509,83 @@ struct BundledDemoReplaySourceTests {
     let thenPhases = phase.thenPhases ?? []
     let elsePhases = phase.elsePhases ?? []
     if entry["branch"] != nil {
-      // Same presence-not-cast rule as `phase_path` above: `branch: 0` would
-      // otherwise fall through to the loose union check with no diagnostic.
-      guard let branch = entry["branch"] as? String else {
-        return "branch is present but is not a String"
+      return branchResolvedDiagnostic(
+        entry: entry, phaseTypeRaw: phaseTypeRaw,
+        thenPhases: thenPhases, elsePhases: elsePhases, inner: nested)
+    }
+    // No `branch:` — `YAMLReplayExporter`'s shape, since nothing persists the
+    // branch. When the path IS nested, index each branch at `j` rather than
+    // taking the union of every sub-phase type: the union accepts `[1, 7]`
+    // against a one-phase branch, so the range case would be unowned for that
+    // writer. A type-equivalent pair at the same `j` still passes — both
+    // branches carry that type, so nothing here can tell them apart. That
+    // residue is what `branch:` is for.
+    if let inner = nested {
+      let candidates = [thenPhases, elsePhases].compactMap { branchPhases in
+        branchPhases.indices.contains(inner) ? branchPhases[inner] : nil
       }
-      guard branch == "then" || branch == "else" else {
-        return "branch '\(branch)' is neither 'then' nor 'else'"
-      }
-      let taken = branch == "then" ? thenPhases : elsePhases
-      guard let inner = (entry["phase_path"] as? [Int])?.dropFirst().first else {
-        return "branch '\(branch)' given without a nested phase_path to index into it"
-      }
-      guard taken.indices.contains(inner) else {
+      guard !candidates.isEmpty else {
         return """
-          phase_path names \(branch)[\(inner)], but that branch holds \
-          \(taken.count) phase(s)
+          phase_path names sub-phase \(inner) of the conditional at \(phaseIndex), \
+          but no branch holds that many phases (then: \(thenPhases.count), \
+          else: \(elsePhases.count))
           """
       }
-      guard taken[inner].type.rawValue == phaseTypeRaw else {
+      guard candidates.contains(where: { $0.type.rawValue == phaseTypeRaw }) else {
         return """
-          phase_path names \(branch)[\(inner)], which is \(taken[inner].type.rawValue), \
-          but demo declares phase_type: \(phaseTypeRaw)
+          phase_path names sub-phase \(inner), which is \
+          \(candidates.map { $0.type.rawValue }) across the branches; demo \
+          declares phase_type: \(phaseTypeRaw)
           """
       }
       return nil
     }
-    // No `branch:` — the pre-v2 shape. Catches literal-swap drift (a
-    // curator reorders outer slots so `phase_type` now points at a
-    // conditional whose branches lack that type), but a type-equivalent
-    // reorder within the branches still passes: both carry the same type,
-    // so nothing here can tell them apart. That is what `branch:` is for.
+    // No nested path either — the v1 shape, where the entry says only "somewhere
+    // inside this conditional". Membership in the union is all the data supports.
     let subPhaseTypes = (thenPhases + elsePhases).map { $0.type.rawValue }
     guard subPhaseTypes.contains(phaseTypeRaw) else {
       return """
         phase_index \(phaseIndex) is a conditional whose branches contain \
         \(subPhaseTypes); demo phase_type '\(phaseTypeRaw)' is not present
+        """
+    }
+    return nil
+  }
+
+  /// The `branch:`-present arm of ``conditionalDiagnostic``. Extracted so that
+  /// function stays under SwiftLint's `cyclomatic_complexity` and
+  /// `function_body_length` caps — per `.claude/rules/build-traps.md`, the fix
+  /// for those is a helper, not a `swiftlint:disable` directive.
+  ///
+  /// Only the curator writes `branch:` (nothing persists it, so
+  /// `YAMLReplayExporter` cannot), and it is what makes the leaf-type check
+  /// exact rather than branch-blind.
+  private static func branchResolvedDiagnostic(
+    entry: [String: Any], phaseTypeRaw: String,
+    thenPhases: [Phase], elsePhases: [Phase], inner: Int?
+  ) -> String? {
+    // Same presence-not-cast rule as `phase_path`: `branch: 0` would otherwise
+    // fall through to the branch-blind arm with no diagnostic.
+    guard let branch = entry["branch"] as? String else {
+      return "branch is present but is not a String"
+    }
+    guard branch == "then" || branch == "else" else {
+      return "branch '\(branch)' is neither 'then' nor 'else'"
+    }
+    let taken = branch == "then" ? thenPhases : elsePhases
+    guard let inner else {
+      return "branch '\(branch)' given without a nested phase_path to index into it"
+    }
+    guard taken.indices.contains(inner) else {
+      return """
+        phase_path names \(branch)[\(inner)], but that branch holds \
+        \(taken.count) phase(s)
+        """
+    }
+    guard taken[inner].type.rawValue == phaseTypeRaw else {
+      return """
+        phase_path names \(branch)[\(inner)], which is \(taken[inner].type.rawValue), \
+        but demo declares phase_type: \(phaseTypeRaw)
         """
     }
     return nil

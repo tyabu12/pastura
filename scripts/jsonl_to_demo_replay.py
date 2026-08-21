@@ -43,10 +43,13 @@ phase tree, so it reads the open conditional from `nodes[...].type` AND range-
 checks the branch index. This script emits the path verbatim, so it reads the
 open conditional from the transcript's own `phase_type` — a curator's job is to
 record what the transcript says, and the minimal preset it is handed need not
-carry `phases:` at all — and it range-checks nothing. The range case is not
-unowned: a depth-2 path always carries a `branch` here (the else arm below dies
-without a `pending_branch`), so `conditionalDiagnostic`'s
-`taken.indices.contains(inner)` catches it at the gate.
+carry `phases:` at all — and it range-checks nothing. The gate owns that:
+`conditionalDiagnostic` indexes the branch at the path's second component and
+refuses an index no branch holds. Note the ownership is the GATE's, not this
+script's `branch` field — an earlier revision of this paragraph reasoned that a
+depth-2 path always carries a `branch` here and stopped there, which left the
+range case unowned for `YAMLReplayExporter`, the writer that emits a nested
+path and can never emit a branch.
 
 Recapture workflow (full demo-set swap):
   1. Run each scenario N times through the harness:
