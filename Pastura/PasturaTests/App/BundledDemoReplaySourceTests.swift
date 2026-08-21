@@ -452,11 +452,22 @@ struct BundledDemoReplaySourceTests {
     // component was simply dropped and `phases[i].type == phase_type` decided
     // the entry — while the reader still splits it from an adjacent `[i]` into
     // its own `.phaseStarted`, inflating `phaseProgress`.
-    if resolved != .conditional, let path = entry["phase_path"] as? [Int], path.count > 1 {
-      return """
-        phase_path \(path) is nested, but phase_index \(phaseIndex) is \
-        \(resolved.rawValue), which has no sub-phases
-        """
+    if resolved != .conditional {
+      if let path = entry["phase_path"] as? [Int], path.count > 1 {
+        return """
+          phase_path \(path) is nested, but phase_index \(phaseIndex) is \
+          \(resolved.rawValue), which has no sub-phases
+          """
+      }
+      // Only a conditional HAS branches, so `branch:` here describes nothing.
+      // Checked at this level rather than inside `conditionalDiagnostic`,
+      // which a non-conditional entry never reaches.
+      if entry["branch"] != nil {
+        return """
+          branch is set, but phase_index \(phaseIndex) is \(resolved.rawValue), \
+          which has no branches
+          """
+      }
     }
     if resolved == .conditional {
       return conditionalDiagnostic(
@@ -486,19 +497,8 @@ struct BundledDemoReplaySourceTests {
   ) -> String? {
     let nested = (entry["phase_path"] as? [Int])?.dropFirst().first
     if phaseTypeRaw == PhaseType.conditional.rawValue {
-      // Correct-by-spec when the coordinate names the CONDITIONAL ITSELF:
-      // §3.2 defines `phase_type` as the type of the phase at `phase_path`,
-      // and for `[i]` that is the conditional. Reachable, not hypothetical —
-      // `ConditionalHandler.execute` emits each `evaluation.warnings` entry as
-      // a `.summary` BEFORE `.conditionalEvaluated`, i.e. while the current
-      // phase is still the conditional at `[i]`, so a demo of a condition
-      // referencing a runtime-absent variable carries exactly this shape.
-      guard nested != nil else { return nil }
-      return """
-        phase_path names a sub-phase of the conditional at \(phaseIndex), so \
-        phase_type 'conditional' cannot be right — the depth-1 rule forbids a \
-        conditional inside a branch
-        """
+      return conditionalAsLeafDiagnostic(
+        entry: entry, phaseIndex: phaseIndex, nested: nested)
     }
     guard PhaseType(rawValue: phaseTypeRaw) != nil else {
       return """
@@ -550,6 +550,46 @@ struct BundledDemoReplaySourceTests {
         """
     }
     return nil
+  }
+
+  /// The `phase_type == "conditional"` arm of ``conditionalDiagnostic`` —
+  /// the coordinate naming the conditional rather than a phase inside it.
+  ///
+  /// Extracted for the same cap reason as ``branchResolvedDiagnostic``.
+  private static func conditionalAsLeafDiagnostic(
+    entry: [String: Any], phaseIndex: Int, nested: Int?
+  ) -> String? {
+    // `branch:` FIRST. This arm returns for every input, so anything after it
+    // in the caller — including the whole `branch:` arm — is skipped for a
+    // `conditional` phase_type; an earlier revision relied on that ordering
+    // and so accepted `branch: "maybe"` and `branch: 0` outright. Which is the
+    // very fault this function had just been fixed for: a check living inside
+    // one arm leaves another shape unowned.
+    //
+    // Presence alone decides, whatever the value's type: naming the
+    // conditional itself AND claiming a branch ran is contradictory, so there
+    // is nothing a well-formed `branch:` could say here. (The curator never
+    // writes this pair — `branch_cur` is cleared on every top-level
+    // `phase_started` — so it is hand-edit territory.)
+    guard entry["branch"] == nil else {
+      return """
+        phase_type 'conditional' names the conditional at \(phaseIndex) itself, \
+        but `branch:` claims one of its branches ran
+        """
+    }
+    // Correct-by-spec when the coordinate names the CONDITIONAL ITSELF: §3.2
+    // defines `phase_type` as the type of the phase at `phase_path`, and for
+    // `[i]` that is the conditional. Reachable, not hypothetical —
+    // `ConditionalHandler.execute` emits each `evaluation.warnings` entry as a
+    // `.summary` BEFORE `.conditionalEvaluated`, i.e. while the current phase
+    // is still the conditional at `[i]`, so a demo of a condition referencing
+    // a runtime-absent variable carries exactly this shape.
+    guard nested != nil else { return nil }
+    return """
+      phase_path names a sub-phase of the conditional at \(phaseIndex), so \
+      phase_type 'conditional' cannot be right — the depth-1 rule forbids a \
+      conditional inside a branch
+      """
   }
 
   /// The `branch:`-present arm of ``conditionalDiagnostic``. Extracted so that

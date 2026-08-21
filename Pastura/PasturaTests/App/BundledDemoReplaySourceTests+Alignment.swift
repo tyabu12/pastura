@@ -25,14 +25,25 @@ extension BundledDemoReplaySourceTests {
   /// some assertion below hold for the wrong reason:
   ///
   /// - the branches hold DIFFERENT types at index 0, or `branch:`-aware
-  ///   resolution would agree with the branch-blind union check everywhere;
+  ///   resolution would agree with the branch-blind INDEXED check everywhere;
   /// - `then` holds TWO phases, so `speak_all` is in the union of both
-  ///   branches while NOT being what index 0 names — the only shape that can
-  ///   tell an indexed check from a union check (measured: with one phase per
-  ///   branch, reverting the indexed check to a union broke no test);
+  ///   branches while NOT being what index 0 names. That separates the indexed
+  ///   check from a union check on TYPE, which one phase per branch cannot do:
+  ///   there the candidates at index j always ARE the whole union. It is not
+  ///   the only such shape — `subPhaseIndexBeyondEveryBranchIsCaught…`
+  ///   separates them on RANGE with one phase per branch — but range and type
+  ///   are separate exits and both need a control;
   /// - `[2]` repeats `then[0]`'s type, so a wrong-level resolution has
   ///   somewhere plausible to land.
-  fileprivate static let conditionalScenarioYAML = """
+  ///
+  /// Internal rather than file-scoped: the sibling `+Branch.swift` extension
+  /// reads this and ``diagnostic(_:)``, and file scope does not reach an
+  /// extension in another file (`.claude/rules/testing.md` § "Splitting a
+  /// Suite Across Files" records the same trap for `private`). Folded into
+  /// this `///` block rather than sitting under it as `//` — a plain comment
+  /// between a doc comment and its declaration detaches the doc and trips
+  /// `orphaned_doc_comment` (`.claude/rules/build-traps.md`).
+  static let conditionalScenarioYAML = """
     id: cond_align
     language: ja
     name: Alignment fixture
@@ -68,11 +79,11 @@ extension BundledDemoReplaySourceTests {
         candidates: agents
     """
 
-  fileprivate func conditionalPhases() throws -> [Phase] {
+  func conditionalPhases() throws -> [Phase] {
     try ScenarioLoader().load(yaml: Self.conditionalScenarioYAML).phases
   }
 
-  fileprivate func diagnostic(_ entry: [String: Any]) throws -> String? {
+  func diagnostic(_ entry: [String: Any]) throws -> String? {
     Self.alignmentDiagnostic(entry: entry, phases: try conditionalPhases())
   }
 
@@ -82,20 +93,6 @@ extension BundledDemoReplaySourceTests {
     #expect(
       try diagnostic([
         "phase_index": 0, "phase_path": [0], "phase_type": "speak_all"
-      ]) == nil)
-  }
-
-  @Test func alignedThenBranchEntryProducesNoDiagnostic() throws {
-    #expect(
-      try diagnostic([
-        "phase_index": 1, "phase_path": [1, 0], "branch": "then", "phase_type": "vote"
-      ]) == nil)
-  }
-
-  @Test func alignedElseBranchEntryProducesNoDiagnostic() throws {
-    #expect(
-      try diagnostic([
-        "phase_index": 1, "phase_path": [1, 0], "branch": "else", "phase_type": "summarize"
       ]) == nil)
   }
 
@@ -115,41 +112,6 @@ extension BundledDemoReplaySourceTests {
     #expect(found?.contains("but phase_index is 0") == true, "got: \(found ?? "nil")")
   }
 
-  @Test func wrongBranchIsCaught() throws {
-    // The discriminating case for `branch:`. `[1, 0]` is `vote` in the then
-    // branch and `summarize` in the else branch — identical path, so ONLY the
-    // branch tells them apart. Without `branch:` this exact entry passes (the
-    // test below pins that), which is what makes this a real control rather
-    // than a restatement of the union check.
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1, 0], "branch": "else", "phase_type": "vote"
-    ])
-    #expect(found?.contains("which is summarize") == true, "got: \(found ?? "nil")")
-  }
-
-  @Test func wrongBranchIsNotCaughtWithoutTheBranchField() throws {
-    // Negative control for the control above: the same misalignment is INVISIBLE
-    // when `branch:` is absent, because `vote` is in the union of both branches.
-    // Pinning the gap stops a later reader from believing the union check ever
-    // constrained which branch ran.
-    #expect(
-      try diagnostic([
-        "phase_index": 1, "phase_path": [1, 0], "phase_type": "vote"
-      ]) == nil)
-  }
-
-  @Test func typeAbsentFromTheIndexedSubPhaseIsCaught() throws {
-    // Nested path, no `branch` — the exporter's shape. `[1, 0]` is `vote` in
-    // then and `summarize` in else, so `speak_all` matches neither — even
-    // though it IS in the union of both branches, as `then[1]`. That gap is
-    // the whole difference between this check and the v1 one below.
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1, 0], "phase_type": "speak_all"
-    ])
-    #expect(
-      found?.contains("across the branches") == true, "got: \(found ?? "nil")")
-  }
-
   @Test func typeAbsentFromBothBranchesIsCaughtInTheV1Shape() throws {
     // No nested path at all: the entry says only "somewhere inside this
     // conditional", so membership in the union is all the data supports.
@@ -158,19 +120,6 @@ extension BundledDemoReplaySourceTests {
     // stronger than this one.
     let found = try diagnostic(["phase_index": 1, "phase_type": "score_calc"])
     #expect(found?.contains("is not present") == true, "got: \(found ?? "nil")")
-  }
-
-  @Test func subPhaseIndexBeyondEveryBranchIsCaughtWithoutBranchField() throws {
-    // Without `branch` the range check used to be skipped entirely — the union
-    // of both branches' TYPES accepts any index. `YAMLReplayExporter` emits a
-    // nested `phase_path` and can never emit `branch`, so that writer's output
-    // was the unowned case.
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1, 7], "phase_type": "summarize"
-    ])
-    #expect(
-      found?.contains("no branch holds that many phases") == true,
-      "got: \(found ?? "nil")")
   }
 
   @Test func conditionalAsItsOwnLeafTypeIsAccepted() throws {
@@ -206,6 +155,12 @@ extension BundledDemoReplaySourceTests {
       found?.contains("must name a non-conditional") == true, "got: \(found ?? "nil")")
   }
 
+  @Test func conditionalAsLeafIsAcceptedInTheV1Shape() throws {
+    // The pre-v6 exporter row omits `phase_path` entirely, so this — not the
+    // `[1]` form — is the shipped-data shape of the accept above.
+    #expect(try diagnostic(["phase_index": 1, "phase_type": "conditional"]) == nil)
+  }
+
   @Test func nestedPathUnderANonConditionalPhaseIsCaught() throws {
     // Only a conditional has sub-phases. `[0, 1]` names one under `speak_all`,
     // which cannot exist — and the reader would still split it into its own
@@ -215,14 +170,6 @@ extension BundledDemoReplaySourceTests {
     ])
     #expect(
       found?.contains("which has no sub-phases") == true, "got: \(found ?? "nil")")
-  }
-
-  @Test func branchIndexOutOfRangeIsCaught() throws {
-    // `then` holds two phases, so `then[3]` names nothing.
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1, 3], "branch": "then", "phase_type": "vote"
-    ])
-    #expect(found?.contains("that branch holds 2 phase(s)") == true, "got: \(found ?? "nil")")
   }
 
   @Test func overDeepPhasePathIsCaught() throws {
@@ -300,13 +247,6 @@ extension BundledDemoReplaySourceTests {
     #expect(found?.contains("not a list of Int") == true, "got: \(found ?? "nil")")
   }
 
-  @Test func branchOfWrongTypeIsCaught() throws {
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1, 0], "branch": 0, "phase_type": "vote"
-    ])
-    #expect(found?.contains("not a String") == true, "got: \(found ?? "nil")")
-  }
-
   // MARK: - Remaining diagnostics
   //
   // Every `return` in `alignmentDiagnostic` / `conditionalDiagnostic` needs a
@@ -318,23 +258,6 @@ extension BundledDemoReplaySourceTests {
       "phase_index": 1, "phase_path": [Int](), "phase_type": "vote"
     ])
     #expect(found?.contains("phase_path is empty") == true, "got: \(found ?? "nil")")
-  }
-
-  @Test func branchNamingNeitherThenNorElseIsCaught() throws {
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1, 0], "branch": "maybe", "phase_type": "vote"
-    ])
-    #expect(found?.contains("neither 'then' nor 'else'") == true, "got: \(found ?? "nil")")
-  }
-
-  @Test func branchWithoutANestedPathIsCaught() throws {
-    // Reachable from writer drift, not just from a hand-edit: a curator that
-    // emitted `branch:` while the path stayed top-level lands here.
-    let found = try diagnostic([
-      "phase_index": 1, "phase_path": [1], "branch": "then", "phase_type": "vote"
-    ])
-    #expect(
-      found?.contains("without a nested phase_path") == true, "got: \(found ?? "nil")")
   }
 
   @Test func missingPhaseIndexIsCaught() throws {
