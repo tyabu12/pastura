@@ -18,15 +18,25 @@ extension MutedSweepLedgerTests {
   /// growing a why-comment cannot slide a site out of its own window — which
   /// batch 2 did to all eight files. A line-anchored table could not have
   /// survived its own commit.
+  ///
+  /// ``token`` is the spelling the window must contain. It defaults to
+  /// `Color.inkSecondary` because batches 1 through 3 all landed there — §8's
+  /// neutral-ground answer — and batch 4 is the first to route by ground
+  /// family instead, so its three sites carry three different tokens. The
+  /// default keeps the earlier tables byte-identical; do not read it as "the
+  /// answer is usually `inkSecondary`", which is the ground's property, not
+  /// the batch's.
   struct AppliedSite {
     let path: String
     let anchor: String
     let window: Int
+    let token: String
 
-    init(_ path: String, _ anchor: String, window: Int) {
+    init(_ path: String, _ anchor: String, window: Int, token: String = "Color.inkSecondary") {
       self.path = path
       self.anchor = anchor
       self.window = window
+      self.token = token
     }
   }
 
@@ -103,9 +113,9 @@ extension MutedSweepLedgerTests {
 
   /// Runs the three per-site assertions of an applied-batch pin — see
   /// ``batchTwoSitesStillReadInkSecondary`` for what each one catches — and
-  /// returns one line per failure, empty when every site still reads
-  /// `Color.inkSecondary`. Shared by every batch's pin arm so the checker has
-  /// one definition; a batch contributes only its table.
+  /// returns one line per failure, empty when every site still reads the token
+  /// its row declares. Shared by every batch's pin arm so the checker has one
+  /// definition; a batch contributes only its table.
   static func appliedSiteFailures(_ sites: [AppliedSite]) throws -> [String] {
     var failures: [String] = []
     for site in sites {
@@ -122,9 +132,9 @@ extension MutedSweepLedgerTests {
         continue
       }
       let window = code[start...min(start + site.window, code.count - 1)]
-      if !window.contains(where: { $0.contains("Color.inkSecondary") }) {
+      if !window.contains(where: { $0.contains(site.token) }) {
         failures.append(
-          "  \(site.path): no `Color.inkSecondary` within \(site.window) lines of "
+          "  \(site.path): no `\(site.token)` within \(site.window) lines of "
             + "\(site.anchor)")
       }
       if window.contains(where: { $0.contains("Color.muted") }) {
@@ -141,10 +151,11 @@ extension MutedSweepLedgerTests {
   /// must match exactly one non-comment line. A rename, a deletion, or a second
   /// copy of the anchored line all land there and name the site, so the two
   /// content checks below can never pass by scanning nothing. The window then
-  /// has to contain `Color.inkSecondary` and must not contain `Color.muted`;
-  /// the second is what catches a revert, and the first what catches a slide to
-  /// `Color.ink` or a raw hex that the census would wave through. The loop
-  /// itself is ``appliedSiteFailures(_:)``, shared with later batches.
+  /// has to contain the row's declared token — `Color.inkSecondary` for every
+  /// batch-2 row — and must not contain `Color.muted`; the second is what
+  /// catches a revert, and the first what catches a slide to `Color.ink` or a
+  /// raw hex that the census would wave through. The loop itself is
+  /// ``appliedSiteFailures(_:)``, shared with later batches.
   @Test func batchTwoSitesStillReadInkSecondary() throws {
     #expect(Self.batchTwoSites.count == 19, "the ledger § 5 marks nineteen rows `B2`")
 
