@@ -484,8 +484,9 @@ other composited grounds, as one question rather than five.
 
 design-system §2.2 assigned section labels to `--ink-2` and recorded that
 `PasturaSection` drew them with `--muted` instead, deferring the choice to «掃引時»
-— this sweep. (§2.2 no longer records either, having been rewritten to the
-resolved state; this paragraph is the account of why.) **Decision: align the
+— this sweep. (§2.2 no longer records the divergence or the deferral, having
+been rewritten to the resolved state; its `--ink-2` assignment stands, and this
+paragraph is the account of why.) **Decision: align the
 code to the table.** §2.2 is the normative statement of the role, #1298 already
 moved `ScenarioEditorView`'s two headers that way, and no argument for the table
 being wrong surfaced in the audit.
@@ -509,8 +510,9 @@ rg -l 'PasturaSection\s*[({]' Pastura/Pastura/Views/   # 11 = 10 consumers + the
   `PasturaSectionStyle`.
 - **7 of those 10 draw a header.** An untitled call renders none, and three
   files pass no title anywhere: `SettingsView+Models`, `SharedScenariosListView`,
-  and `GalleryScenarioDetailView+RecommendedModel` — whose calls are all of the
-  trailing-closure form the bullet above is about. The drawing set is
+  and `GalleryScenarioDetailView+RecommendedModel` — the last of which reaches
+  `PasturaSection` only by the trailing-closure form the bullet above is about;
+  the other two use the paren form with `style:` alone. The drawing set is
   `SettingsView`, `SettingsView+Feedback`, `SettingsView+PastResults`,
   `ScenarioDetailView+Sections`, `ResultsView`, `GalleryScenarioDetailView`,
   `GalleryScenarioDetailView+Highlight`.
@@ -526,6 +528,14 @@ Two hand-rolled headers sit outside `PasturaSection` and take the same decision:
 
 Decided here, **applied in batch 5 (#1485)** — those three call sites now draw
 `--ink-2`, repainting the five screens above under ADR-028 gate 4/5 QA.
+
+One QA item comes from the repoint rather than from any token rule, and is
+recorded here rather than in a PR body so it outlives the merge:
+`SettingsView+Models.modelsHeader` now draws its `Models` label and its
+switch-blocked reason in the **same** `--ink-2`, where the label used to be the
+quieter `--muted`. Both are individually correct — §2.2 for the label, class A1
+for the reason — so the two are now separated by size alone (`.subheadline` vs
+`.caption`). Worth a look during gate 4/5; not a defect to pre-empt.
 
 **§2.2's third treatment is not folded in, and what it raises is left open.**
 Headers still on the system `secondaryLabel` are not a residue of this one:
@@ -572,8 +582,8 @@ straightforward applications of §2 once B1 establishes the shape; B4 needs §8 
 say what a *material or otherwise unmeasurable* ground routes to before any
 site moves — the routing for a merely-composited one is already in §8's
 `*-on-wash` bullet, so stating the gate that way would leave it already
-satisfied; B5 edits three call sites but repaints five screens, because one of
-the three is a shared component — §6.3 separates that figure from the three the
+satisfied; B5 repoints three call sites but repaints five screens, because one
+of the three is a shared component — §6.3 separates that figure from the three the
 blast radius actually has.
 
 ## 8. Regenerating this ledger
