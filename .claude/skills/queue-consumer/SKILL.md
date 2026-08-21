@@ -2,6 +2,7 @@
 name: queue-consumer
 description: Consume agent-ready GitHub issues into Draft PRs — one overnight queue run. Fetches open agent-ready issues oldest-first, implements each on an agent/issue-<N> branch, tests, passes a mandatory code review, opens a Draft PR, and appends the run digest. Use when the user asks to run the issue queue, consume agent-ready issues, process the overnight queue, work through queued agent tasks, or run the queue consumer.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash, Agent
+disable-model-invocation: true
 ---
 
 # /queue-consumer

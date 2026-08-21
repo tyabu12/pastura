@@ -14,7 +14,10 @@ Always-loaded files (loaded into every agent session / invocation) — every lin
 
 - `~/.claude/CLAUDE.md` and `~/.claude/rules/*.md` **without** `paths:` frontmatter (global — per-user, yet charged to *this* project's every session)
 - `CLAUDE.md` (project top-level) and `.claude/rules/*.md` **without** `paths:`
-- `~/.claude/agents/*.md` and project `.claude/agents/*.md`
+- `agents/*.md` (personal or project) — the `description:` only; the body is paid per spawn, not
+  per turn
+- `skills/*/SKILL.md` (personal or project) — likewise `description:` only, and `disable-model-invocation: true` drops
+  even that from the model's listing (giving up auto-invocation)
 
 The global tier is easy to forget because it is not in this repo — and a global file duplicating a
 project file of the same name is paid **twice**.
