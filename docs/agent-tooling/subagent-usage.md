@@ -58,9 +58,12 @@ Docs: [sub-agents](https://code.claude.com/docs/en/sub-agents.md),
 When invoking a subagent, bound the work so the reviewer's **attention** holds
 — not so the report fits the cap; at these sizes it fits comfortably:
 
-- **Soft budget** (split if over): ~800 changed lines OR ~8 changed
-  files OR ~5 review axes per invocation, whichever is tighter.
-- **Hard split** (always split): >1500 changed lines, >12 files, or
+- **Soft budget** (split if over): ~800 **added** lines OR ~8 changed
+  files OR ~5 review axes per invocation, whichever is tighter. The count
+  bounds what the reviewer must newly comprehend; deleted lines are still
+  read in full but do not count — counting them made reduction PRs shard
+  (#1520).
+- **Hard split** (always split): >1500 added lines, >12 files, or
   >7 axes — at this size review quality degrades whatever the token
   budget permits.
 
@@ -131,7 +134,7 @@ A cost-driven downgrade is still bounded by the same sensitivity rules
 ## 4. Agent self-defense
 
 The two defend asymmetrically: `code-reviewer.md` bails with `SCOPE_TOO_LARGE`
-right after its one mandatory `git diff --stat`; `claude-kit:critic` triages
+right after its one mandatory `git diff --numstat`; `claude-kit:critic` triages
 axes *during* the run. **Keep `code-reviewer.md`'s copy of §2's numbers in
 sync** — critic's is kit-owned and one-way. Do not delete either as redundant:
 the doc's § "Why the agents duplicate the budget" has the reason.
