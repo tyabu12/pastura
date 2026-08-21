@@ -31,6 +31,9 @@ opt_in_rules:
   - contains_over_filter_count
   - fatal_error_message
   - first_where
+  # CLAUDE.md Hard Rule 1 ("No force unwrap"). Test targets are exempt via
+  # the nested Pastura/PasturaTests/.swiftlint.yml and PasturaUITests/.swiftlint.yml.
+  - force_unwrapping
   - modifier_order
   - overridden_super_call
   - private_action
