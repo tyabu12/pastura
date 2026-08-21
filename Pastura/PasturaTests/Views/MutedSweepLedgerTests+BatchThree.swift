@@ -3,7 +3,6 @@
 // (#1448). An extension of `MutedSweepLedgerTests`, never a second
 // `@Suite`; the site type and the checker live in `+BatchTwo`.
 
-import Foundation
 import Testing
 
 extension MutedSweepLedgerTests {

@@ -629,7 +629,7 @@ titles, not subordinate labels.
 | **B1** | Blocked-state reasons, the tap-to-proceed instruction, and act-on numbers, in Settings / model management / gallery | 8 | **applied (#1448)** |
 | **B2** | A3 + A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, and the gallery detail values (the one A3 here) | 19 | **applied (#1448)** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown — all A3; the two `ScoreboardSheet` rows are the first **U** rows to move, by §3.3's direction argument | 6 | **applied (#1448)** |
-| **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
+| **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus`, the sites whose target token is undecided (a direction-argued repoint is outside this gate, §3.3) — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
 | **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
 
@@ -668,8 +668,10 @@ say what a *material or otherwise unmeasurable* ground routes to before any
 of **its** sites moves — the routing for a merely-composited one is already in
 §8's `*-on-wash` bullet, so stating the gate that way would leave it already
 satisfied. A direction-argued repoint on a §3.3 ground is **outside** that
-gate, and two batches have made one: B1's `DLCompleteOverlay` and B3's two
-`ScoreboardSheet` rows. Neither claims a ratio, and both land on the token
+gate, and two batches have made one: B1's `DLCompleteOverlay` (which carries no
+**U** — its ground is a material, not merely unmeasured, so B3's rows are still
+the first **U** rows to move) and B3's two `ScoreboardSheet` rows. Neither
+claims a ratio, and both land on the token
 §8's neutral-ground bullet already names; what B4 owes §8 is the answer for the
 sites where the token might *not* be `--ink-2` — the self-wash pills and the
 moss-washed chips, whose role is ambient and whose ground is tinted; B5
