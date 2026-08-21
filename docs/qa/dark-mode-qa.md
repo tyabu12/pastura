@@ -140,11 +140,12 @@ If it reads wrong, the fix is one change to `PasturaSection`'s header treatment
 the token table, not from any one screen. Derivation: `muted-application-audit`
 §6.3.
 
-### Transcript rows on `--ink-2` — one question, asked on six screens (#1448 batch 2)
+### Transcript rows on `--ink-2` — three questions (#1448 batch 2)
 
 Batch 2 moved nineteen transcript and past-run rows off `--muted` onto
 `--ink-2` — assignments, vote tallies, score summaries, degraded-turn
-narration, the scenario description, the gallery detail values. §2.2 assigns
+narration, the agent's revealed thought body, the scenario description, the
+gallery detail values. §2.2 assigns
 `--ink-2` to subtext, and the vote header already read it, so a code-phase row
 now shares its colour with the line above it and differs from the agent
 utterances only by `--ink` vs `--ink-2`. **Does a code-phase row still read
@@ -167,9 +168,21 @@ unmeasurable is the hierarchy.
 - [ ] **ScenarioDetail** — the scenario description, now `--ink-2`, above phase
       ordinals that stay `--muted`.
 - [ ] **Gallery detail** — the detail-row values (`Est. inferences`) against
-      their `--ink` labels, with the read-only disclaimer still `--muted`.
+      their `--ink` labels, with the read-only disclaimer still `--muted`. The
+      `A glimpse of a real run` figure mounts `AgentOutputRow`, so the thought
+      question below is asked here too.
 
-**The second question is the ⚠️ glyph.** The degraded-turn warning symbol stays
+**The second question is the thought body**, and it is not a code-phase row —
+so the question above does not reach it. `AgentOutputRow`'s revealed inner
+monologue moved to `--ink-2` while the `INNER VOICE` tag above it stays
+`--muted`, and the same batch's comment in that file records that the body has
+**left** the moss-prefix / muted-body pairing the `ThoughtLeftRule` was drawn
+around. **Does the disclosed thought still read as an aside rather than as
+speech?** Ask it on all four surfaces that mount the row: Simulation live, Demo
+replay, Results detail, and the Gallery-detail highlight figure. The tag-vs-body
+split is the thing to look at — they no longer share a colour.
+
+**The third question is the ⚠️ glyph.** The degraded-turn warning symbol stays
 on `--muted` while its label moved, on the two screens that draw it — Simulation
 live and Results detail. (The Results-list caption carries no glyph, which is
 why its row above asks a different question.) §8 is a text bar and glyphs answer
@@ -179,6 +192,8 @@ kept its `Label` and moved to the title/icon closure form, the only way to tint
 the two slots apart; confirm its icon gap still matches what shipped.
 
 Derivation: `muted-application-audit` §2 (classes A3/A4/A5) and §5.
+
+### The walk
 
 - [ ] **Home** — cards, `ActiveModelChip` (including its warning / danger states
       if reachable), scenario rows. Avatars invert through

@@ -31,9 +31,12 @@ extension MutedSweepLedgerTests {
   ///
   /// Anchors are the nearest preceding unique line, so each window is one to
   /// four lines and holds exactly one `Color.` styling line: the site itself.
-  /// That is what makes a failure name the site rather than a file. Keep it
-  /// that way when re-anchoring — a window wide enough to catch a *neighbouring*
-  /// `inkSecondary` passes with the site reverted.
+  /// That is what makes a failure name the site rather than a file. Keep both
+  /// properties when re-anchoring, and the second is the load-bearing one — a
+  /// window wide enough to reach a *neighbouring* `inkSecondary` passes with the
+  /// site reverted. The three `.monospacedDigit()` anchors are the same spelling
+  /// in three different files, each unique within its own; that is fine, since
+  /// uniqueness is what the control arm checks and it checks it per file.
   private static let batchTwoSites: [BatchTwoSite] = [
     .init(
       "Views/Components/AgentOutputRow.swift",
@@ -54,8 +57,7 @@ extension MutedSweepLedgerTests {
       "Views/Simulation/SimulationView+LogEntries.swift",
       #"format: String(localized: "%@'s choice \"%@\" wasn't an option"),"#, window: 4),
     .init(
-      "Views/Simulation/SimulationView+LogEntries.swift",
-      "func scoresSummary(_ scores: [String: Int]) -> some View {", window: 8),
+      "Views/Simulation/SimulationView+LogEntries.swift", ".monospacedDigit()", window: 3),
     .init(
       "Views/Results/ResultDetailView.swift",
       #"Text(String(format: String(localized: "Turns skipped ×%lld"), skipped))"#, window: 1),
@@ -87,7 +89,7 @@ extension MutedSweepLedgerTests {
       #"Text(String(format: String(localized: "  %@: %lld votes"), name, count))"#, window: 4),
     .init(
       "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift",
-      "private func scoresContent(_ scores: [String: Int]) -> some View {", window: 8),
+      ".monospacedDigit()", window: 3),
     .init(
       "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift",
       #"Text(String(localized: "No event this round"))"#, window: 2),

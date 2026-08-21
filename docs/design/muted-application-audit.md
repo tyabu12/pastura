@@ -463,9 +463,10 @@ both `ScoreboardSheet` rows), five otherwise sanctioned or non-text
 separately: they need no repoint, but §8 cannot currently be *cited* for them
 either.
 
-These counts are re-derivable from the tables — count `| \`` lines, expand the
-two `×N` rows, and drop the row marked **added by B2** — rather than maintained
-by hand.
+These counts are re-derivable from the tables — count `| \`` lines **above this
+`### Tally` heading**, expand the two `×N` rows, and drop the row marked **added
+by B2** — rather than maintained by hand. The bound matters: the table just
+above opens two of its own rows with `` | ` ``.
 
 **They do not move when a batch applies**, and the gap that opens is not drift.
 §5 keeps an applied row, so the row set — and this tally with it — stays the
@@ -640,9 +641,9 @@ somewhere to be checked against.
 
 **`MutedSweepLedgerTests+BatchTwo` pins B2's applied sites by symbol**, not by
 per-file `Color.inkSecondary` count the way B5's arm does. B2's files hold one
-to thirteen of that token each; in the three densest (13 / 11 / 10) almost all
-of them predate the batch, so a per-file total there cannot attribute a revert
-to a site. Its doc comment carries the derivation.
+to thirteen of that token each; in the three densest (13 / 11 / 10) roughly half
+predate the batch (7 / 7 / 6), so a per-file total there cannot attribute a
+revert to a site — one reverted site hides in a total that size either way. Its doc comment carries the derivation.
 
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape — with the
