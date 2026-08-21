@@ -116,8 +116,10 @@ extension BundledDemoReplaySourceTests {
     // No nested path at all: the entry says only "somewhere inside this
     // conditional", so membership in the union is all the data supports.
     // `score_calc` rather than `speak_all` — the latter is now in the union
-    // (it is `then[1]`), which is exactly what makes the indexed check above
-    // stronger than this one.
+    // (it is `then[1]`), which is exactly what makes
+    // `typeAbsentFromTheIndexedSubPhaseIsCaught` in `+Branch.swift` stronger
+    // than this one. Named rather than pointed at: a "below"/"above" reference
+    // survives neither a reorder nor the file split that stranded this pair.
     let found = try diagnostic(["phase_index": 1, "phase_type": "score_calc"])
     #expect(found?.contains("is not present") == true, "got: \(found ?? "nil")")
   }
@@ -249,9 +251,13 @@ extension BundledDemoReplaySourceTests {
 
   // MARK: - Remaining diagnostics
   //
-  // Every `return` in `alignmentDiagnostic` / `conditionalDiagnostic` needs a
-  // control, or the ones without are the same unverified-guard defect the
-  // negative controls above exist to prevent.
+  // Every `return` in `alignmentDiagnostic`, `phasePathSelfConsistency`,
+  // `conditionalDiagnostic`, `conditionalAsLeafDiagnostic` and
+  // `branchResolvedDiagnostic` needs a control, or the ones without are the
+  // same unverified-guard defect these exist to prevent. All five, not the two
+  // that existed when this was written — the extractions since then moved
+  // exits out of the named pair, and the branch-arm controls now live in
+  // `+Branch.swift`.
 
   @Test func emptyPhasePathIsCaught() throws {
     let found = try diagnostic([

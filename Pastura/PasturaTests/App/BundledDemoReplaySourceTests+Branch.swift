@@ -9,10 +9,15 @@ import Testing
 //
 // Split from `+Alignment.swift`, which holds the fixture and the
 // coordinate-shape controls, because that file reached SwiftLint's 400-line
-// `file_length` cap — measured: a 502-line file inside `included:` reddens
-// `--strict`. (`swiftlint --path <file>` does not reproduce it, reporting no
-// violation even at 1001 lines; do not conclude the cap is inert from that
-// form.) The fixture and the `diagnostic(_:)` helper stay in `+Alignment.swift`
+// `file_length` cap — measured: a 502-line file under `Pastura/` reddens
+// `swiftlint lint --strict`, both whole-tree and with the file as a positional
+// argument. Two things DO suppress it, and both misled a measurement of this
+// during review: a probe file placed outside `.swiftlint.yml`'s `included:`
+// scope (path-independent rules still fire there, so the run looks live), and
+// the parent file's own blanket `file_length` disable directive on its first
+// line. (Named, not quoted: SwiftLint parses the directive's literal text
+// wherever it appears, so writing it out here would switch the rule off for
+// THIS file — a comment about a directive must not spell the directive.) The fixture and the `diagnostic(_:)` helper stay in `+Alignment.swift`
 // and are reachable here only because this split widened them to internal —
 // file scope does not reach an extension in another file, the same trap
 // `.claude/rules/testing.md` § "Splitting a Suite Across Files" records for
@@ -41,7 +46,7 @@ extension BundledDemoReplaySourceTests {
     // branch and `summarize` in the else branch — identical path, so ONLY the
     // branch tells them apart. Without `branch:` this exact entry passes (the
     // test below pins that), which is what makes this a real control rather
-    // than a restatement of the union check.
+    // than a restatement of the branch-blind indexed check.
     let found = try diagnostic([
       "phase_index": 1, "phase_path": [1, 0], "branch": "else", "phase_type": "vote"
     ])
@@ -109,7 +114,9 @@ extension BundledDemoReplaySourceTests {
     // Nested path, no `branch` — the exporter's shape. `[1, 0]` is `vote` in
     // then and `summarize` in else, so `speak_all` matches neither — even
     // though it IS in the union of both branches, as `then[1]`. That gap is
-    // the whole difference between this check and the v1 one below.
+    // the whole difference between this check and
+    // `typeAbsentFromBothBranchesIsCaughtInTheV1Shape` in `+Alignment.swift`,
+    // which is where the union check still runs.
     let found = try diagnostic([
       "phase_index": 1, "phase_path": [1, 0], "phase_type": "speak_all"
     ])

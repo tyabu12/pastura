@@ -468,8 +468,7 @@ struct BundledDemoReplaySourceTests {
           which has no branches
           """
       }
-    }
-    if resolved == .conditional {
+    } else {
       return conditionalDiagnostic(
         entry: entry, phaseTypeRaw: phaseTypeRaw, phase: phases[phaseIndex],
         phaseIndex: phaseIndex)
