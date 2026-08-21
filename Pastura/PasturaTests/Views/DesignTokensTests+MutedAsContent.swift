@@ -34,7 +34,7 @@ extension DesignTokensTests {
   /// **floor** speak for named labels and could carry the fields — it is that
   /// the streak sub-label is `.caption.weight(.medium)`, a weight with no WCAG
   /// half assigned yet.
-  private static let contentTextBar = 4.5
+  static let contentTextBar = 4.5
 
   /// Every opaque ground the app ships that `muted` is or could be drawn on, per
   /// appearance. Hand-written rather than derived from

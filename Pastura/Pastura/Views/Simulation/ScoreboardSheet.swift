@@ -18,17 +18,23 @@ struct ScoreboardSheet: View {
               .monospacedDigit()
               .frame(width: 30, alignment: .trailing)
 
+            // Eliminated name + score read `inkSecondary` (#1448 batch 3, class
+            // A3): the strikethrough and the xmark already carry the state, and
+            // the number is what the user opened the sheet to compare. The ground
+            // is the system sheet surface — outside the twelve-ground fixture —
+            // so the repoint is argued by direction, not by a measured ratio:
+            // `docs/design/muted-application-audit.md` §3.3.
             Text(entry.name)
               .textStyle(Typography.bodyBubble)
               .strikethrough(entry.isEliminated)
-              .foregroundStyle(entry.isEliminated ? Color.muted : Color.ink)
+              .foregroundStyle(entry.isEliminated ? Color.inkSecondary : Color.ink)
 
             Spacer()
 
             Text(String(format: String(localized: "%lld pts"), entry.score))
               .textStyle(Typography.bodyBubble)
               .monospacedDigit()
-              .foregroundStyle(entry.isEliminated ? Color.muted : Color.ink)
+              .foregroundStyle(entry.isEliminated ? Color.inkSecondary : Color.ink)
 
             if entry.isEliminated {
               Image(systemName: "xmark.circle.fill")
