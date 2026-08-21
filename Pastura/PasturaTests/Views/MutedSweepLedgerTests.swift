@@ -52,7 +52,7 @@ struct MutedSweepLedgerTests {
     "Views/Components/ActiveModelChip.swift": 2,
     "Views/Components/AgentOutputRow.swift": 2,
     "Views/Components/DogMark.swift": 2,
-    "Views/Components/GameHeaderStatus.swift": 2,
+    "Views/Components/GameHeaderStatus.swift": 1,
     "Views/Components/IdleFriendlyProgressView.swift": 1,
     "Views/Components/PasturaCard.swift": 1,
     "Views/Components/PasturaRowLabel.swift": 1,

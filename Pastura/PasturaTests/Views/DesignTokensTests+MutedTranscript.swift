@@ -311,4 +311,40 @@ extension DesignTokensTests {
     let dark = contrastRatio(PasturaPalette.nightInkSecondary, PasturaPalette.nightPage)
     #expect(dark >= Self.contentTextBar, "dark nightPage: \(dark)")
   }
+
+  // MARK: - Direction-argument negative control (#1448 batch 4)
+
+  /// design-system §8's direction-argument side condition cites this arm
+  /// **by name**. The direction argument — "the replacement is darker in
+  /// light, so contrast rises" — holds only while the ground is lighter than
+  /// `muted` itself. This arm is the constructed counterexample §8 points
+  /// at: a synthetic mid-dark grey, darker than `muted`, on which routing a
+  /// `muted` site to `inkSecondary` would LOWER the ratio rather than raise
+  /// it — exactly what the side condition exists to forbid. The figures
+  /// live only here, as comparisons, and are not transcribed into the docs.
+  ///
+  /// No shipped site reaches this ground today — the nearest is
+  /// `SimulationScrimStyle.fill`, a retained row that is not moving.
+  @Test func directionArgumentInvertsOnAGroundDarkerThanMuted() {
+    let midDarkGround = PasturaColorValue(hex: 0x666666)
+
+    // Negative case: on a ground darker than `muted`, the direction argument
+    // inverts — `muted` contrasts MORE than the replacement `inkSecondary`
+    // would, since `muted` sits farther from a dark ground than the darker
+    // `inkSecondary` does.
+    let mutedOnMidDark = contrastRatio(PasturaPalette.muted, midDarkGround)
+    let inkSecondaryOnMidDark = contrastRatio(PasturaPalette.inkSecondary, midDarkGround)
+    #expect(
+      mutedOnMidDark > inkSecondaryOnMidDark,
+      "expected the direction argument to invert on a ground darker than muted")
+
+    // Companion positive case: on `screenBackground` — lighter than `muted`,
+    // like every ground §3.1 measures — the ordering is the other way round.
+    let mutedOnScreen = contrastRatio(PasturaPalette.muted, PasturaPalette.screenBackground)
+    let inkSecondaryOnScreen = contrastRatio(
+      PasturaPalette.inkSecondary, PasturaPalette.screenBackground)
+    #expect(
+      inkSecondaryOnScreen > mutedOnScreen,
+      "expected the direction argument to hold on screenBackground")
+  }
 }

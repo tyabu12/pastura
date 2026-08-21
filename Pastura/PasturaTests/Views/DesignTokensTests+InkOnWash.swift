@@ -272,6 +272,36 @@ extension DesignTokensTests {
     #expect(PasturaPalette.inkOnWash == PasturaPalette.inkSecondary)
     #expect(PasturaPalette.nightInkOnWash != PasturaPalette.nightInkSecondary)
   }
+
+  /// The repointed terminal-exception arms (`GameHeaderStatus.paused` /
+  /// `.cancelled` / `.error`, #1448 batch 4), measured on the **nominal**
+  /// header ground — the same convention `+MossOnWash`'s
+  /// `GameHeaderStatus.active` row uses (see that file's doc comment on
+  /// `mossWashSites`). `GameHeader` composites
+  /// `screenBackground.opacity(0.78)` over `.ultraThinMaterial` with the
+  /// screen's content scrolling beneath, so the ground pinned below is
+  /// nominal rather than a bound — dark enough content under the bar puts
+  /// the real ratio below what this test asserts. Light-appearance device QA
+  /// covers the gap, the same as the moss sibling.
+  ///
+  /// **Not added to `inkWashSites`.** That fixture's rows are shipped
+  /// self-washes — one token painted as both the label and the opaque-
+  /// ground-composited capsule beneath it. This site is neither: the wash
+  /// stays `muted`, not `inkOnWash`, and its true ground is not opaque. So
+  /// `inkWashSites.count == 4` deliberately does not move for this arm.
+  @Test func headerPillArmsClearTheBarOnTheNominalHeaderGround() {
+    let lightGround = composite(
+      PasturaPalette.muted, over: PasturaPalette.screenBackground,
+      alpha: GameHeaderStatus.washAlpha)
+    let light = contrastRatio(PasturaPalette.inkOnWash, lightGround)
+    #expect(light >= Self.inkTextBar, "light header pill: \(light)")
+
+    let darkGround = composite(
+      PasturaPalette.nightMuted, over: PasturaPalette.nightBubble,
+      alpha: GameHeaderStatus.washAlpha)
+    let dark = contrastRatio(PasturaPalette.nightInkOnWash, darkGround)
+    #expect(dark >= Self.inkTextBar, "dark header pill: \(dark)")
+  }
 }
 
 // MARK: - Helpers

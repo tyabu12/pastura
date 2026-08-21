@@ -73,9 +73,9 @@ struct GameHeaderStatusTests {
     StatusRouting(.demoing, label: Color.mossOnWash, wash: Color.moss),
     StatusRouting(.replaying, label: Color.mossOnWash, wash: Color.moss),
     StatusRouting(.completed, label: Color.mossInk, wash: Color.mossDark),
-    StatusRouting(.paused, label: Color.muted, wash: Color.muted),
-    StatusRouting(.cancelled, label: Color.muted, wash: Color.muted),
-    StatusRouting(.error, label: Color.muted, wash: Color.muted)
+    StatusRouting(.paused, label: Color.inkOnWash, wash: Color.muted),
+    StatusRouting(.cancelled, label: Color.inkOnWash, wash: Color.muted),
+    StatusRouting(.error, label: Color.inkOnWash, wash: Color.muted)
   ]
 
   /// Change-detector for the pill's colour routing, in the shape of
@@ -95,11 +95,16 @@ struct GameHeaderStatusTests {
   /// no tokens at all and never did, so nothing pinned them anywhere.
   ///
   /// Token *values* stay `DesignTokensTests`' contract and the contrast
-  /// claims are `DesignTokensTests+MossOnWash`'s / `+MossInkAsWashLabel`'s. This
-  /// suite guards only the routing. There is deliberately no "label differs
-  /// from wash" assertion — that is one of the vacuous `!=` shapes above, the
-  /// muted arms legitimately route both to the same token, and the table is
-  /// what records which arms split.
+  /// claims are `DesignTokensTests+MossOnWash`'s / `+MossInkAsWashLabel`'s /
+  /// `+InkOnWash`'s. This suite guards only the routing. There is
+  /// deliberately no "label differs from wash" assertion — that is one of
+  /// the vacuous `!=` shapes above, the three terminal-exception arms
+  /// legitimately route to one label token and one wash token, and the
+  /// table is what records which arms split. Since #1448 batch 4 all seven
+  /// rows differ label from wash, which makes a blanket "label != wash"
+  /// assertion look available — but every side of every row here is a
+  /// `PasturaDynamicColor`-backed alias, so it would compare by provider
+  /// instance and pass vacuously whatever the tokens are; do not add it.
   @Test func everyCaseRoutesToItsDeclaredLabelAndWashTokens() {
     #expect(Self.routing.count == GameHeaderStatus.allCases.count)
     #expect(Set(Self.routing.map(\.status)) == Set(GameHeaderStatus.allCases))
