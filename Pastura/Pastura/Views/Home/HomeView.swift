@@ -177,13 +177,13 @@ struct HomeView: View {
 
   /// Header for the unified scenario list — the "Scenarios" label plus the
   /// trailing "+" that opens the editor, styled like a ``PasturaSection``
-  /// header (muted subheadline, 6pt inset). Its `home.newScenarioButton`
+  /// header (`inkSecondary` subheadline, 6pt inset). Its `home.newScenarioButton`
   /// identifier is preserved so EditorReloadTests / ScreenshotTourTests find it.
   private func scenariosSectionHeader() -> some View {
     HStack {
       Text(String(localized: "Scenarios"))
         .font(.subheadline)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
       Spacer()
       NavigationLink(value: newScenarioRoute()) {
         Image(systemName: "plus")

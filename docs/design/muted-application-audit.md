@@ -8,8 +8,8 @@ examples in `PredictionOutcomeBadge`.
 
 **This file is the sweep's ledger, not its rule.** §8 remains normative; what is
 recorded here is the per-site *application* of §8 across the population, plus the
-adjudications that were judgement calls. The sweep runs in batches — batch 1 is
-the only one applied so far, and every remaining row still ships as written.
+adjudications that were judgement calls. The sweep runs in batches — batches 1
+and 5 are applied; every other row still ships as written.
 
 ## 1. Population
 
@@ -39,9 +39,10 @@ sibling `+Feature.swift` split: cross-check against
 `find Pastura/Pastura/Views -name '*.swift'` (CLAUDE.md § Scope & Completeness
 Discipline).
 
-Batch 1 removed eight occurrences and emptied three files, so the population as
-it ships today is **90 lines · 3 doc-comment mentions · 87 code sites across 40
-files**. `MutedSweepLedgerTests` pins the per-file breakdown — §8.
+Batch 1 removed eight occurrences and emptied three files; batch 5 (#1485)
+removed three more and emptied three more, so the population as it ships today
+is **87 lines · 3 doc-comment mentions · 84 code sites across 37 files**.
+`MutedSweepLedgerTests` pins the per-file breakdown — §8.
 
 ### 1.1 One rendering site outside the `Color.muted` spelling
 
@@ -291,7 +292,9 @@ Verdicts: **S** sanctioned · **M** misapplication (class in brackets) ·
 **U** unmeasured ground, exemption cannot be cited · **N** non-text (1.4.11,
 out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 
-`B` names the batch. `B1` is applied; everything else still ships as written.
+`B` names the batch. `B1` and `B5` are applied; everything else still ships as
+written. An applied row is **kept**, not deleted — the adjudication is what §5
+records, and the bolded batch marker is what says the repoint landed.
 
 ### Components
 
@@ -310,7 +313,7 @@ out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 | `IdleFriendlyProgressView` · ellipsis stand-in | 3 caller grounds, 2 material | mixed | N — `isUITestMode` only | — |
 | `PasturaCard` · `Text("2")` | `bubbleBackground` | — | P | — |
 | `PasturaRowLabel` · disclosure chevron | `bubbleBackground` | 3.475 / 3.021 | N | — |
-| `PasturaSection` · header `Text(title)` | `screenBackground` | 3.329 / 3.779 | S on contrast — **§2.2 routing question**, see §6 | B5 |
+| `PasturaSection` · header `Text(title)` | `screenBackground` | 3.329 / 3.779 | S on contrast — routing → `--ink-2`, see §6.3 | **B5** |
 | `PersonaDetailSheet` · `PEEK AT THEIR SECRET` | sheet default | unmeasured | S — toggle affordance; the secret renders at `ink` | — |
 | `SheepAvatar` · size captions ×4 | `screenBackground` | — | P | — |
 | `SimulationResultCard` · rank ordinal | `bubbleBackground` | 3.475 / 3.021 | S — derivable from row order | — |
@@ -368,7 +371,7 @@ what the reader came to compare.
 | `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | 2.895 / 3.239 | S on role + **U** — see §6.2 | B4 |
 | `ResultsView` · `pillBackground(.pending)` | row ground | — | N | — |
 | `ResultsView+Timeline` · `N records` | `screenBackground` | 3.329 / 3.779 | S — count of the list below it | — |
-| `HomeView` · `Scenarios` header | `screenBackground` | 3.329 / 3.779 | S on contrast — §2.2 routing, see §6 | B5 |
+| `HomeView` · `Scenarios` header | `screenBackground` | 3.329 / 3.779 | S on contrast — routing → `--ink-2`, see §6.3 | **B5** |
 | `HomeCompactScenarioRow` · chevron | `screenBackground` | 3.329 / 3.779 | N | — |
 | `HomeCompactScenarioRow` · `caption` | `screenBackground` | 3.329 / 3.779 | **S — permissive control** | — |
 | `ScenarioDetailView+Sections` · description | `screenBackground` | 3.329 / 3.779 | **M (A5)** — the scenario's own description | B2 |
@@ -380,7 +383,7 @@ what the reader came to compare.
 |---|---|---|---|---|
 | `SettingsView` · BG-continuation caption | `bubbleBackground` | 3.475 / 3.021 | S — expands the toggle title | — |
 | `SettingsView` · prediction caption | `bubbleBackground` | 3.475 / 3.021 | S — expands the toggle title | — |
-| `SettingsView+Models` · `Models` header | `screenBackground` | 3.329 / 3.779 | S on contrast — §2.2 routing, see §6 | B5 |
+| `SettingsView+Models` · `Models` header | `screenBackground` | 3.329 / 3.779 | S on contrast — routing → `--ink-2`, see §6.3 | **B5** |
 | `SettingsView+Models` · switch-blocked reason | `screenBackground` | 3.329 / 3.779 | **M (A1)** | **B1** |
 | `SettingsView+PastResults` · `Clear all results` (blocked) | `bubbleBackground` | 3.475 / 3.021 | routing → `disabledText`, see §6.1 | B4 |
 | `SettingsView+PastResults` · `Storage used: %@` | `screenBackground` | 3.329 / 3.779 | **M (A3)** | **B1** |
@@ -445,6 +448,11 @@ either.
 These counts are re-derivable from the tables — count `| \`` lines and expand the
 two `×N` rows — rather than maintained by hand.
 
+**They do not move when a batch applies**, and the gap that opens is not drift.
+§5 keeps an applied row, so the row set — and this tally with it — stays the
+`9a40565a` census of adjudications; §1 carries the population as it *ships*.
+The difference between the two is exactly the applied batches.
+
 ## 6. Decisions this sweep was chartered to make
 
 ### 6.1 The disabled `Clear all results` label
@@ -472,31 +480,114 @@ its ground is a `muted`-on-`muted` **self-wash** at 2.895 / 3.239, which §8's
 exemption never measured. Recorded as **U** and revisited in batch 4 with the
 other composited grounds, as one question rather than five.
 
-### 6.3 §2.2's section labels — `--ink-2` or `--muted`
+### 6.3 §2.2's section labels — decided `--ink-2`, applied in B5
 
-design-system §2.2 assigns section labels to `--ink-2` and records that
-`PasturaSection` draws them with `--muted` instead, deferring the choice to «掃引時»
-— this sweep. **Decision: align the code to the table.** §2.2 is the normative
-statement of the role, #1298 already moved `ScenarioEditorView`'s two headers that
-way, and no argument for the table being wrong surfaced in the audit.
+design-system §2.2 assigned section labels to `--ink-2` and recorded that
+`PasturaSection` drew them with `--muted` instead, deferring the choice to «掃引時»
+— this sweep. (§2.2 no longer records the divergence or the deferral, having
+been rewritten to the resolved state; its `--ink-2` assignment stands, and this
+paragraph is the account of why.) **Decision: align the
+code to the table.** §2.2 is the normative statement of the role, #1298 already
+moved `ScenarioEditorView`'s two headers that way, and no argument for the table
+being wrong surfaced in the audit.
 
-Measured blast radius, larger than the three drawing sites suggest:
+**The edit is three `.foregroundStyle` call sites. The blast radius is not
+three of anything** — `PasturaSection` draws for many screens from one line, so
+that figure is the one that reads smallest and it is not any of the three below.
+Those three are what sizes review and QA, one enumeration feeds all of them, and
+conflating them mis-sizes the work in opposite directions. Read which one a
+figure is before reusing it:
 
 ```sh
-rg -l 'PasturaSection\(' Pastura/Pastura/Views/   # 9 consumers + the definition's own #Preview
+rg -l 'PasturaSection\s*[({]' Pastura/Pastura/Views/   # 11 = 10 consumers + the definition
 ```
 
-Nine consumer files across five screens:
-`GalleryScenarioDetailView`, `GalleryScenarioDetailView+Highlight`,
-`SharedScenariosListView`, `ResultsView`, `ScenarioDetailView+Sections`,
-`SettingsView`, `SettingsView+Feedback`, `SettingsView+Models`,
-`SettingsView+PastResults` — plus the two hand-rolled headers
-(`HomeView.scenariosSectionHeader`, `SettingsView+Models.modelsHeader`) and a
-third variant §2.2 names as still on the system `secondaryLabel`. Use the
-**call-shape** grep above; a type-name grep also matches `PasturaSectionStyle`.
+- **10 consumer files.** The character class, not a bare `\(`: the
+  trailing-closure form `PasturaSection { … }` is an untitled card, and
+  `GalleryScenarioDetailView+RecommendedModel` reaches `PasturaSection` by no
+  other spelling — a `\(`-only grep drops it silently. Both shapes are still
+  **call-shape** greps; a type-name one additionally matches
+  `PasturaSectionStyle`.
+- **7 of those 10 draw a header.** An untitled call renders none, and three
+  files pass no title anywhere: `SettingsView+Models`, `SharedScenariosListView`,
+  and `GalleryScenarioDetailView+RecommendedModel` — the last of which reaches
+  `PasturaSection` only by the trailing-closure form the bullet above is about;
+  the other two use the paren form with `style:` alone. The drawing set is
+  `SettingsView`, `SettingsView+Feedback`, `SettingsView+PastResults`,
+  `ScenarioDetailView+Sections`, `ResultsView`, `GalleryScenarioDetailView`,
+  `GalleryScenarioDetailView+Highlight`.
+- **5 screens change visually** — the figure that sizes the QA. Settings,
+  ScenarioDetail, Results and GalleryScenarioDetail from the seven above, plus
+  Home for `HomeView.scenariosSectionHeader`. `SettingsView+Models.modelsHeader`
+  is hand-rolled but sits on Settings, already counted; さがす
+  (`SharedScenariosListView`) is a consumer that renders **no** header, so it is
+  not a QA screen.
 
-Decided here, applied in batch 5 under #1485 — the change is visual,
-app-wide, and needs ADR-028 gate 4/5 QA of its own.
+Two hand-rolled headers sit outside `PasturaSection` and take the same decision:
+`HomeView.scenariosSectionHeader` and `SettingsView+Models.modelsHeader`.
+
+Decided here, **applied in batch 5 (#1485)** — those three call sites now draw
+`--ink-2`, repainting the five screens above under ADR-028 gate 4/5 QA.
+
+**One QA question comes from the repoint rather than from any token rule, and
+it is structural — ask it once on each of the five screens, not five times.**
+§2.2 assigns `--ink-2` to *both* section labels **and** subtext, so a header
+that moves onto it now shares its colour with the quietest body text beneath
+it, separated by size alone. Recorded here rather than in a PR body so it
+outlives the merge. Every pairing below is individually correct; what is
+unmeasurable is whether the header still reads subordinate to what it heads:
+
+| Screen | Header vs. the `--ink-2` beneath it |
+|---|---|
+| Results | section title vs. a row's scenario description — **same colour *and* same `.subheadline`**; the priority screen |
+| Home | `Scenarios` vs. the first row's `.footnote` description |
+| ScenarioDetail | `Personas (N)` / `Phases (N)` vs. persona `.caption` descriptions and the non-LLM `PhaseTypeLabel` |
+| GalleryScenarioDetail | `A glimpse of a real run` vs. the `.callout.italic()` teaser |
+| Settings | `Models` vs. the switch-blocked reason (class A1, already on `--ink-2` since B1) |
+
+If it reads badly the fix is one change to `PasturaSection`'s header treatment
+(tracking, caps, weight), not five per-site patches — the collision comes from
+the token table, not from any one screen. **Both appearances move the same way
+and by close to the same factor** — this pair does not invert the way §2.3's
+and §2.4's ladders do — so neither appearance is the safe side to skim. Figures
+deliberately omitted: the `--ink-2` grounds are not among the pins, and §8's
+"Regenerating the ratio tables" forbids computing one by hand to fill the gap.
+Not a defect to pre-empt.
+
+**§2.2's third treatment is not folded in, and what it raises is left open.**
+Headers still on the system `secondaryLabel` are not a residue of this one:
+they are every system `Form` / `List` section header in the app — **21 sites
+across 9 files**, `LicensesSheet` ×2 plus 19 across the Editor sheet family — on
+a substrate Pastura has never claimed. Moving them would answer *does Pastura
+tokenize system `Form` / `List` section chrome?*, which nothing has decided, and
+would roughly triple the QA. #1298 is evidence for narrowing rather than
+against it: it moved `ScenarioEditorView`'s two headers because a `--muted`
+count sat beside each inside one `HStack`, and its inline comment says so —
+"only the count-bearing headers qualify". Tracked as **B6** in §7.
+
+No single grep reproduces that 21, so the recipe is the record — two greps
+over `Pastura/Pastura`, then three named subtractions:
+
+```sh
+grep -rn 'Section(String(localized' --include='*.swift' | grep -v PasturaSection   # 7
+grep -rn '} header: {' --include='*.swift'                                          # 18
+```
+
+25 literals, minus the two hosted in a `Menu` (`ActiveModelChip` · `Active
+model`, and `ResultDetailView` · `Developer`, itself `#if DEBUG`) and the two
+`ScenarioEditorView` headers #1298 already tokenized = **21, over 9 files**.
+`.headerProminence` and the legacy `Section(header:)` form are both zero
+app-wide, and no `Section` literal exists outside `Views/`.
+
+**21 is a floor on rendered headers, not a measurement of them.** Two of the
+literals sit in helpers invoked twice — `PhaseEditorSheet+ConditionalSection`'s
+`branchSection` (then / else) and `VariablePickerSheet`'s `group` — and both
+render a runtime `Text(title)`, so ≥23 headers reach the screen and a future
+grep keyed on a localized literal *inside* a header would miss them. The error
+runs toward more work than stated, so it does not threaten the exclusion. Two further headers were
+read and excluded as **not** §2.2 section labels: `ResultsView+Timeline`'s day
+header and `HighlightCandidatesSection`'s `Share a highlight` are bold `ink`
+titles, not subordinate labels.
 
 ## 7. Batches
 
@@ -506,7 +597,8 @@ app-wide, and needs ADR-028 gate 4/5 QA of its own.
 | **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open — **ADR-028 gate 4/5 device QA required** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
-| **B5** | §6.3's §2.2 alignment across 9 `PasturaSection` consumer files (5 screens) + 2 hand-rolled headers + the `secondaryLabel` variant | — | open — #1485 |
+| **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
+| **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
 
 B2 is the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast
@@ -522,8 +614,9 @@ straightforward applications of §2 once B1 establishes the shape; B4 needs §8 
 say what a *material or otherwise unmeasurable* ground routes to before any
 site moves — the routing for a merely-composited one is already in §8's
 `*-on-wash` bullet, so stating the gate that way would leave it already
-satisfied; B5 is a visual
-change to five screens — six with the hand-rolled headers — across nine files.
+satisfied; B5 repoints three call sites but repaints five screens, because one
+of the three is a shared component — §6.3 separates that figure from the three the
+blast radius actually has.
 
 ## 8. Regenerating this ledger
 

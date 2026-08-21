@@ -83,7 +83,7 @@ import SwiftUI
       VStack(alignment: .leading, spacing: 4) {
         Text(String(localized: "Models"))
           .font(.subheadline)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
         if let downloadedTotalText {
           Text(downloadedTotalText)
             .font(.caption)
