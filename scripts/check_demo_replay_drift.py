@@ -45,7 +45,7 @@ MIN_DEMOS = 3
 MAX_TOTAL_BYTES = 3 * 1024 * 1024
 MAX_PER_FILE_BYTES = 1 * 1024 * 1024
 MIN_TURNS = 6
-REQUIRED_SCHEMA_VERSION = 1
+SUPPORTED_SCHEMA_VERSIONS = {1, 2}
 ALLOWED_LANGUAGES = {"ja", "en"}
 # Mirror BundledDemoReplaySource.demoFilenameSuffix — demos on disk use
 # `<slug>_demo.yaml` so Xcode's synchronized-group flat-bundle copy does
@@ -160,10 +160,17 @@ def validate_demo(
     return errors
 
   schema_version = doc.get("schema_version")
-  if schema_version != REQUIRED_SCHEMA_VERSION:
+  # `isinstance` before the set membership, and `bool` excluded, for two
+  # reasons the previous `!= 1` comparison masked: an unhashable YAML value
+  # (`schema_version: [1]`) raises TypeError inside `in`, turning a named
+  # error into a traceback; and `True == 1` in Python, so `schema_version:
+  # true` used to pass. Yams gives Swift a `Bool` there, which fails
+  # `as? Int` — so this is also what keeps the two loaders agreeing.
+  if not isinstance(schema_version, int) or isinstance(schema_version, bool) \
+      or schema_version not in SUPPORTED_SCHEMA_VERSIONS:
     errors.append(
-      f"{path.name}: schema_version {schema_version!r} != "
-      f"{REQUIRED_SCHEMA_VERSION} (spec §3.2)"
+      f"{path.name}: schema_version {schema_version!r} not in "
+      f"{sorted(SUPPORTED_SCHEMA_VERSIONS)} (spec §3.2)"
     )
 
   preset_ref = doc.get("preset_ref")

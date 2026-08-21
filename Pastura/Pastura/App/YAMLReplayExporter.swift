@@ -58,10 +58,11 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
 /// shared schema constants. File writing is thread-safe through
 /// `FileManager`.
 nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_length
-  /// Current on-disk schema version. Must match ``YAMLReplaySource``'s
-  /// `supportedSchemaVersion` so round-trip works without a version
-  /// negotiation step.
-  static let schemaVersion = 1
+  /// Current on-disk schema version. Must be a MEMBER of
+  /// ``YAMLReplaySource/supportedSchemaVersions`` so round-trip works
+  /// without a version negotiation step — membership, not equality, since
+  /// that set also carries the older versions still readable (spec §3.5).
+  static let schemaVersion = 2
 
   /// Output bundle returned to the caller. Mirrors
   /// ``ResultMarkdownExporter/ExportedResult`` so the Share Sheet
@@ -208,6 +209,20 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       let phaseIndex = phaseIndices[safe: idx] ?? 0
       lines.append("  - round: \(turn.roundNumber)")
       lines.append("    phase_index: \(phaseIndex)")
+      // `phase_path` (schema v2) is omitted for pre-v6 rows — `turn.phasePath`
+      // reads `nil` when `phasePathJSON` was never captured, and the reader
+      // falls back to `[phase_index]` for those, which is what v1 always meant.
+      //
+      // `!path.isEmpty` keeps this gated on the SAME value `phaseIndices` was
+      // derived from. `phasePathJSON == "[]"` decodes to a non-nil EMPTY array
+      // (`TurnRecord.phasePath` nils out only on a nil / empty *string*), so
+      // `phasePath?.first` in `resolvePhaseIndices` is nil and the index comes
+      // from the cursor — emitting the empty array here anyway would write
+      // `phase_index` and `phase_path` from two different sources and break
+      // spec §3.2's `phase_index == phase_path[0]`.
+      if let path = turn.phasePath, !path.isEmpty {
+        lines.append("    phase_path: \(Self.yamlIntArray(path))")
+      }
       lines.append("    phase_type: \(Self.yamlValue(turn.phaseType))")
       lines.append("    agent: \(Self.yamlValue(agent))")
       let fields = Self.decodeTurnFields(turn, filter: contentFilter)
@@ -239,6 +254,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
       let phaseIndex = phaseIndices[safe: idx] ?? 0
       lines.append("  - round: \(event.roundNumber)")
       lines.append("    phase_index: \(phaseIndex)")
+      // Same pre-v6 omission and same-source rationale as `renderTurns`.
+      if let path = event.phasePath, !path.isEmpty {
+        lines.append("    phase_path: \(Self.yamlIntArray(path))")
+      }
       lines.append("    phase_type: \(Self.yamlValue(event.phaseType))")
       lines.append("    summary: \(Self.yamlValue(summary, indent: 4))")
       lines.append(contentsOf: renderPayloadStanza(payload, filter: contentFilter))
@@ -339,27 +358,25 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
 
   // MARK: - Phase index resolution
 
-  /// Linear walk through `scenario.phases` to resolve each turn's
-  /// `phase_index`. Advances a per-round cursor each time the observed
-  /// `phaseType` changes.
+  /// Resolves each turn's `phase_index`, preferring the lineage persisted
+  /// in `phasePathJSON` (#143) and falling back to a per-round cursor walk
+  /// over `scenario.phases` for rows that predate it.
   ///
-  /// **Limitations (documented, E1 scope):**
-  /// - Two adjacent phases of the same type within one round collapse to
-  ///   the first matching index — the cursor can't tell them apart.
-  /// - Turns produced by sub-phases inside a `conditional` resolve to
-  ///   the outer conditional's index; the denormalised `phase_type` in
-  ///   the emitted YAML will then mismatch `phases[phase_index].type`
-  ///   and fail a strict consistency check.
+  /// `phase_path[0]` IS `phase_index` by definition (spec §3.2, schema v2),
+  /// so where the column is populated there is nothing to infer. That
+  /// retires both limitations the cursor carried:
   ///
-  /// The `phasePathJSON` column landed in #143 so `TurnRecord.phasePath`
-  /// now carries exact lineage (e.g. `[1, 0]` for a sub-phase). This
-  /// resolver still ignores it because the YAML replay schema's
-  /// `phase_index: Int` is a flat top-level index, not a path — teaching
-  /// the schema to represent nested addresses is a separate piece of
-  /// work. For now, the cursor keeps the Phase 2 presets (Word Wolf,
-  /// Prisoner's Dilemma) round-tripping correctly; conditional-heavy
-  /// scenarios hit the documented limitations. Upgrading the schema and
-  /// switching to `phasePath`-aware resolution is tracked as a follow-up.
+  /// - a sub-phase inside a `conditional` no longer resolves to the outer
+  ///   conditional's index, which used to make the denormalised
+  ///   `phase_type` disagree with `phases[phase_index].type`;
+  /// - two adjacent phases of the same type in one round no longer collapse
+  ///   to the first matching index, because nothing is being matched.
+  ///
+  /// **The cursor is still reachable and still carries both limitations.**
+  /// Migration v6 added `phasePathJSON` as nullable with no backfill, so a
+  /// simulation recorded before it exports through the fallback exactly as
+  /// it did before. Deleting the cursor would not simplify this — it would
+  /// change what those rows export to.
   private static func resolvePhaseIndices(
     scenario: Scenario, turns: [TurnRecord]
   ) -> [Int] {
@@ -367,6 +384,10 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     var cursorByRound: [Int: Int] = [:]
     var lastTypeByRound: [Int: String] = [:]
     for turn in turns {
+      if let top = turn.phasePath?.first {
+        result.append(top)
+        continue
+      }
       let round = turn.roundNumber
       var cursor = cursorByRound[round] ?? -1
       let lastType = lastTypeByRound[round]
@@ -381,21 +402,25 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     return result
   }
 
+  /// Same preference order as ``resolvePhaseIndices(scenario:turns:)``, for
+  /// code-phase events. Kept a separate function because the fallback
+  /// differs: events have no per-round ordering to walk, so the pre-v6 path
+  /// is a first-matching-type lookup rather than a cursor.
   private static func resolveEventPhaseIndices(
     scenario: Scenario, events: [CodePhaseEventRecord]
   ) -> [Int] {
     events.map { event in
+      if let top = event.phasePath?.first { return top }
       if let idx = scenario.phases.firstIndex(where: {
         $0.type.rawValue == event.phaseType
       }) {
         return idx
       }
-      // Not a top-level phase — the event originated inside a
-      // `conditional`'s branch (e.g. `summarize` used in then/else).
-      // `event.phasePath` (persisted since #143) has the exact inner
-      // location, but the YAML replay schema's `phase_index` is flat,
-      // so we still fall back to the conditional's index here and let
-      // the schema upgrade lift this when it lands.
+      // Pre-v6 row whose type is not a top-level phase — the event came
+      // from inside a `conditional`'s branch (e.g. `summarize` in then /
+      // else) and nothing persisted where. The enclosing conditional is the
+      // closest true statement available; a populated `phasePath` takes the
+      // early return above and never reaches this.
       return conditionalFallbackIndex(in: scenario.phases)
     }
   }
@@ -547,6 +572,14 @@ nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_len
     if text.contains("\n") { return blockScalar(text, baseIndent: indent) }
     if containsControlChars(text) { return doubleQuoted(text) }
     return singleQuoted(text)
+  }
+
+  /// Renders `[Int]` in YAML flow style on one line (e.g. `[1, 0]`), matching
+  /// the spec §3.2 example. A tiny local join rather than routing through
+  /// `yamlValue` — that helper picks scalar quoting strategies for `String`,
+  /// which an `[Int]` flow sequence has no use for.
+  private static func yamlIntArray(_ values: [Int]) -> String {
+    "[\(values.map(String.init).joined(separator: ", "))]"
   }
 
   private static func singleQuoted(_ text: String) -> String {

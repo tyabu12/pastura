@@ -307,12 +307,21 @@ struct BundledDemoReplaySourceTests {
   /// UI as wrong phase labels, not as a crash. This test catches that
   /// regression at CI time.
   ///
-  /// **Conditional sub-phase exemption:** `YAMLReplayExporter` flattens
-  /// nested-sub-phase lineage into the outer conditional's index (see
-  /// the comment at `YAMLReplayExporter.swift` ~line 313). When
-  /// `scenario.phases[idx].type == .conditional`, the demo's
-  /// `phase_type` legitimately names a sub-phase type; the alignment
-  /// check accepts any non-`conditional` PhaseType in that slot.
+  /// **Conditional sub-phases (schema v2, #1505).** A branch sub-phase's
+  /// `phase_index` names the enclosing `conditional`, so its `phase_type`
+  /// legitimately does not equal `phases[phase_index].type` — see spec
+  /// §3.2, which makes this asymmetry the definition rather than a
+  /// tolerated flattening. How tightly that is checked depends on what the
+  /// demo carries: with `branch:` the exact sub-phase is resolved; without
+  /// it, `then[j]` and `else[j]` are indistinguishable and any
+  /// non-`conditional` type present in either branch is accepted.
+  ///
+  /// **This test's conditional population is empty and stays that way** —
+  /// no `Resources/DemoPresets/` preset uses a `conditional`, so the arm
+  /// below never fires on a shipped demo. Coverage comes from
+  /// ``alignmentDiagnostic(entry:phases:)``'s own tests, which hand it
+  /// fixtures directly. Nothing this issue could add changes that; only
+  /// promoting a conditional-bearing preset to a demo preset would.
   @Test func bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes() throws {
     // Step D (#388): exercise both shipped languages explicitly so the
     // alignment guard catches phase-index drift on either side.
@@ -348,88 +357,283 @@ struct BundledDemoReplaySourceTests {
         let codeEvents = raw["code_phase_events"] as? [[String: Any]] ?? []
 
         for (i, turn) in turns.enumerated() {
-          try Self.assertPhaseAlignment(
+          Self.assertPhaseAlignment(
             entry: turn, label: "\(scenarioId)_demo turns[\(i)]", phases: phases)
         }
         for (i, event) in codeEvents.enumerated() {
-          try Self.assertPhaseAlignment(
+          Self.assertPhaseAlignment(
             entry: event, label: "\(scenarioId)_demo code_phase_events[\(i)]", phases: phases)
         }
       }
     }
   }
 
-  /// Helper for `bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes`.
-  /// Static so the suite struct (a value type) can hand itself to the
-  /// closure-bound iteration without capturing self semantics.
+  /// Records any alignment failure `entry` has against `phases`.
+  ///
+  /// Thin wrapper over ``alignmentDiagnostic(entry:phases:)`` so the
+  /// enumeration above keeps reading as an assertion. The split exists
+  /// because this function's every failure path used to be an
+  /// `Issue.record`, which left no way to write a NEGATIVE control: a
+  /// deliberately-misaligned fixture would simply redden the suite rather
+  /// than let a test assert *which* misalignment was detected.
   static func assertPhaseAlignment(
     entry: [String: Any], label: String, phases: [Phase]
-  ) throws {
-    guard let phaseIndex = entry["phase_index"] as? Int else {
-      Issue.record("\(label): missing or non-Int phase_index")
-      return
-    }
-    guard let phaseTypeRaw = entry["phase_type"] as? String else {
-      Issue.record("\(label): missing or non-String phase_type")
-      return
-    }
-    guard phases.indices.contains(phaseIndex) else {
-      Issue.record(
-        "\(label): phase_index \(phaseIndex) is out of range (scenario has \(phases.count) phases)")
-      return
-    }
-    let resolved = phases[phaseIndex].type
-    let demoType = PhaseType(rawValue: phaseTypeRaw)
-
-    if resolved == .conditional {
-      // Sub-phase under conditional — exporter legitimately denormalises
-      // to the outer conditional's index. Accept any non-conditional
-      // sub-phase type (depth-1 rule). Use `Issue.record` instead of
-      // `#expect` with a message because Swift Testing only accepts a
-      // `Comment` (string literal) as the second argument; runtime-built
-      // strings can't be passed via `#expect`'s message slot. The string
-      // is built via interpolation rather than `+` so the closure's
-      // expected literal-conversion path stays in scope.
-      if demoType == nil || demoType == .conditional {
-        let message = """
-          \(label): phase_index \(phaseIndex) is a conditional in the preset; \
-          demo phase_type '\(phaseTypeRaw)' must name a non-conditional sub-phase type
-          """
-        Issue.record(Comment(rawValue: message))
-        return
-      }
-      // Verify the named sub-phase actually exists in the conditional's
-      // branches. Catches the literal-swap drift (e.g., curator swaps
-      // outer slots so a demo's phase_type now points at a conditional
-      // whose branches don't contain that type). v1 limitation: a
-      // type-equivalent reorder where both branches happen to contain
-      // the named sub-phase type still passes silently — acceptable
-      // because depth-1 word_wolf-shape branches each hold one
-      // sub-phase, but if branch-attribution becomes load-bearing this
-      // assertion needs to grow a branch_index cross-check.
-      let subPhases =
-        (phases[phaseIndex].thenPhases ?? []) + (phases[phaseIndex].elsePhases ?? [])
-      let subPhaseTypes = subPhases.map { $0.type.rawValue }
-      if !subPhaseTypes.contains(phaseTypeRaw) {
-        let message = """
-          \(label): phase_index \(phaseIndex) is a conditional whose branches \
-          contain \(subPhaseTypes); demo phase_type '\(phaseTypeRaw)' is not present
-          """
-        Issue.record(Comment(rawValue: message))
-      }
-      return
-    }
-
-    if resolved.rawValue != phaseTypeRaw {
-      let message = """
-        \(label): phase_index \(phaseIndex) resolves to \(resolved.rawValue) \
-        in the preset, but demo declares phase_type: \(phaseTypeRaw)
-        """
-      Issue.record(Comment(rawValue: message))
-    }
+  ) {
+    guard let diagnostic = alignmentDiagnostic(entry: entry, phases: phases) else { return }
+    // `Issue.record` rather than `#expect(_:_:)` because Swift Testing's
+    // message slot takes a `Comment` (string literal) — a runtime-built
+    // string cannot be passed there.
+    Issue.record(Comment(rawValue: "\(label): \(diagnostic)"))
   }
 
-  private static func parseYAMLAsDictionary(_ text: String) throws -> [String: Any] {
+  /// Checks `phase_path` against `phase_index` alone — no scenario needed.
+  ///
+  /// `phase_index` IS `phase_path[0]` by definition (spec §3.2), so a demo
+  /// carrying both and disagreeing is self-inconsistent before any preset is
+  /// consulted; that is why this runs first.
+  ///
+  /// Keyed on the key's PRESENCE, not on cast success. `as? [Int]` inside an
+  /// `if let` would skip the whole block for `phase_path: ["1", "0"]` — and
+  /// `YAMLReplaySource.resolvePhasePath` fails on the identical cast, falling
+  /// back to `[phase_index]`. Two checks that fail on the same predicate detect
+  /// nothing between them, and spec §3.3 makes this the only owner, so nothing
+  /// downstream would catch it either.
+  private static func phasePathSelfConsistency(
+    entry: [String: Any], phaseIndex: Int
+  ) -> String? {
+    guard entry["phase_path"] != nil else { return nil }
+    guard let path = entry["phase_path"] as? [Int] else {
+      return "phase_path is present but is not a list of Int"
+    }
+    guard let top = path.first else {
+      return "phase_path is empty; it must name at least the top-level phase"
+    }
+    guard top == phaseIndex else {
+      return "phase_path \(path) starts at \(top) but phase_index is \(phaseIndex)"
+    }
+    guard path.count <= 2 else {
+      return """
+        phase_path \(path) is \(path.count) deep, but the engine's depth-1 rule \
+        bounds it to 2 (ScenarioLoader.parsePhaseType refuses a nested conditional)
+        """
+    }
+    return nil
+  }
+
+  /// Returns nil when `entry`'s phase coordinates are consistent with
+  /// `phases`, or a diagnostic naming the first inconsistency found.
+  ///
+  /// Static so the suite struct (a value type) can hand itself to the
+  /// closure-bound iteration without capturing self semantics.
+  ///
+  /// Spec §3.3 names this the SOLE owner of the coordinate invariant —
+  /// neither the runtime loader nor `check_demo_replay_drift.py` checks
+  /// it. Adding a second copy elsewhere would need a stated reconcile
+  /// direction; moving it is fine, duplicating it is not.
+  static func alignmentDiagnostic(
+    entry: [String: Any], phases: [Phase]
+  ) -> String? {
+    guard let phaseIndex = entry["phase_index"] as? Int else {
+      return "missing or non-Int phase_index"
+    }
+    guard let phaseTypeRaw = entry["phase_type"] as? String else {
+      return "missing or non-String phase_type"
+    }
+    if let selfConsistency = phasePathSelfConsistency(entry: entry, phaseIndex: phaseIndex) {
+      return selfConsistency
+    }
+    guard phases.indices.contains(phaseIndex) else {
+      return "phase_index \(phaseIndex) is out of range (scenario has \(phases.count) phases)"
+    }
+    let resolved = phases[phaseIndex].type
+    // Only a `conditional` has sub-phases, so a nested path anywhere else names
+    // something that cannot exist. Checked here rather than in the `phase_path`
+    // block above because it needs the resolved phase; without it the second
+    // component was simply dropped and `phases[i].type == phase_type` decided
+    // the entry — while the reader still splits it from an adjacent `[i]` into
+    // its own `.phaseStarted`, inflating `phaseProgress`.
+    if resolved != .conditional {
+      if let path = entry["phase_path"] as? [Int], path.count > 1 {
+        return """
+          phase_path \(path) is nested, but phase_index \(phaseIndex) is \
+          \(resolved.rawValue), which has no sub-phases
+          """
+      }
+      // Only a conditional HAS branches, so `branch:` here describes nothing.
+      // Checked at this level rather than inside `conditionalDiagnostic`,
+      // which a non-conditional entry never reaches.
+      if entry["branch"] != nil {
+        return """
+          branch is set, but phase_index \(phaseIndex) is \(resolved.rawValue), \
+          which has no branches
+          """
+      }
+    } else {
+      return conditionalDiagnostic(
+        entry: entry, phaseTypeRaw: phaseTypeRaw, phase: phases[phaseIndex],
+        phaseIndex: phaseIndex)
+    }
+    guard resolved.rawValue == phaseTypeRaw else {
+      return """
+        phase_index \(phaseIndex) resolves to \(resolved.rawValue) in the preset, \
+        but demo declares phase_type: \(phaseTypeRaw)
+        """
+    }
+    return nil
+  }
+
+  /// Alignment check for an entry whose `phase_index` names a
+  /// `conditional`. Extracted so ``alignmentDiagnostic(entry:phases:)``
+  /// stays under SwiftLint's `function_body_length` cap.
+  ///
+  /// With `branch:` present (curator-written; `YAMLReplayExporter` cannot
+  /// supply it) the exact sub-phase is resolved and a type mismatch is
+  /// caught. Without it the check stays as loose as the data allows —
+  /// `then[j]` and `else[j]` share a `phase_path`, so the assertion is that
+  /// SOME branch holds a phase of that type at index `j`.
+  private static func conditionalDiagnostic(
+    entry: [String: Any], phaseTypeRaw: String, phase: Phase, phaseIndex: Int
+  ) -> String? {
+    let nested = (entry["phase_path"] as? [Int])?.dropFirst().first
+    if phaseTypeRaw == PhaseType.conditional.rawValue {
+      return conditionalAsLeafDiagnostic(
+        entry: entry, phaseIndex: phaseIndex, nested: nested)
+    }
+    guard PhaseType(rawValue: phaseTypeRaw) != nil else {
+      return """
+        phase_index \(phaseIndex) is a conditional in the preset; demo phase_type \
+        '\(phaseTypeRaw)' must name a non-conditional sub-phase type
+        """
+    }
+    let thenPhases = phase.thenPhases ?? []
+    let elsePhases = phase.elsePhases ?? []
+    if entry["branch"] != nil {
+      return branchResolvedDiagnostic(
+        entry: entry, phaseTypeRaw: phaseTypeRaw,
+        thenPhases: thenPhases, elsePhases: elsePhases, inner: nested)
+    }
+    // No `branch:` — `YAMLReplayExporter`'s shape, since nothing persists the
+    // branch. When the path IS nested, index each branch at `j` rather than
+    // taking the union of every sub-phase type: the union accepts `[1, 7]`
+    // against a one-phase branch, so the range case would be unowned for that
+    // writer. A type-equivalent pair at the same `j` still passes — both
+    // branches carry that type, so nothing here can tell them apart. That
+    // residue is what `branch:` is for.
+    if let inner = nested {
+      let candidates = [thenPhases, elsePhases].compactMap { branchPhases in
+        branchPhases.indices.contains(inner) ? branchPhases[inner] : nil
+      }
+      guard !candidates.isEmpty else {
+        return """
+          phase_path names sub-phase \(inner) of the conditional at \(phaseIndex), \
+          but no branch holds that many phases (then: \(thenPhases.count), \
+          else: \(elsePhases.count))
+          """
+      }
+      guard candidates.contains(where: { $0.type.rawValue == phaseTypeRaw }) else {
+        return """
+          phase_path names sub-phase \(inner), which is \
+          \(candidates.map { $0.type.rawValue }) across the branches; demo \
+          declares phase_type: \(phaseTypeRaw)
+          """
+      }
+      return nil
+    }
+    // No nested path either — the v1 shape, where the entry says only "somewhere
+    // inside this conditional". Membership in the union is all the data supports.
+    let subPhaseTypes = (thenPhases + elsePhases).map { $0.type.rawValue }
+    guard subPhaseTypes.contains(phaseTypeRaw) else {
+      return """
+        phase_index \(phaseIndex) is a conditional whose branches contain \
+        \(subPhaseTypes); demo phase_type '\(phaseTypeRaw)' is not present
+        """
+    }
+    return nil
+  }
+
+  /// The `phase_type == "conditional"` arm of ``conditionalDiagnostic`` —
+  /// the coordinate naming the conditional rather than a phase inside it.
+  ///
+  /// Extracted for the same cap reason as ``branchResolvedDiagnostic``.
+  private static func conditionalAsLeafDiagnostic(
+    entry: [String: Any], phaseIndex: Int, nested: Int?
+  ) -> String? {
+    // `branch:` FIRST. This arm returns for every input, so anything after it
+    // in the caller — including the whole `branch:` arm — is skipped for a
+    // `conditional` phase_type; an earlier revision relied on that ordering
+    // and so accepted `branch: "maybe"` and `branch: 0` outright. Which is the
+    // very fault this function had just been fixed for: a check living inside
+    // one arm leaves another shape unowned.
+    //
+    // Presence alone decides, whatever the value's type: naming the
+    // conditional itself AND claiming a branch ran is contradictory, so there
+    // is nothing a well-formed `branch:` could say here. (The curator never
+    // writes this pair — `branch_cur` is cleared on every top-level
+    // `phase_started` — so it is hand-edit territory.)
+    guard entry["branch"] == nil else {
+      return """
+        phase_type 'conditional' names the conditional at \(phaseIndex) itself, \
+        but `branch:` claims one of its branches ran
+        """
+    }
+    // Correct-by-spec when the coordinate names the CONDITIONAL ITSELF: §3.2
+    // defines `phase_type` as the type of the phase at `phase_path`, and for
+    // `[i]` that is the conditional. Reachable, not hypothetical —
+    // `ConditionalHandler.execute` emits each `evaluation.warnings` entry as a
+    // `.summary` BEFORE `.conditionalEvaluated`, i.e. while the current phase
+    // is still the conditional at `[i]`, so a demo of a condition referencing
+    // a runtime-absent variable carries exactly this shape.
+    guard nested != nil else { return nil }
+    return """
+      phase_path names a sub-phase of the conditional at \(phaseIndex), so \
+      phase_type 'conditional' cannot be right — the depth-1 rule forbids a \
+      conditional inside a branch
+      """
+  }
+
+  /// The `branch:`-present arm of ``conditionalDiagnostic``. Extracted so that
+  /// function stays under SwiftLint's `cyclomatic_complexity` and
+  /// `function_body_length` caps — per `.claude/rules/build-traps.md`, the fix
+  /// for those is a helper, not a `swiftlint:disable` directive.
+  ///
+  /// Only the curator writes `branch:` (nothing persists it, so
+  /// `YAMLReplayExporter` cannot), and it is what makes the leaf-type check
+  /// exact rather than branch-blind.
+  private static func branchResolvedDiagnostic(
+    entry: [String: Any], phaseTypeRaw: String,
+    thenPhases: [Phase], elsePhases: [Phase], inner: Int?
+  ) -> String? {
+    // Same presence-not-cast rule as `phase_path`: `branch: 0` would otherwise
+    // fall through to the branch-blind arm with no diagnostic.
+    guard let branch = entry["branch"] as? String else {
+      return "branch is present but is not a String"
+    }
+    guard branch == "then" || branch == "else" else {
+      return "branch '\(branch)' is neither 'then' nor 'else'"
+    }
+    let taken = branch == "then" ? thenPhases : elsePhases
+    guard let inner else {
+      return "branch '\(branch)' given without a nested phase_path to index into it"
+    }
+    guard taken.indices.contains(inner) else {
+      return """
+        phase_path names \(branch)[\(inner)], but that branch holds \
+        \(taken.count) phase(s)
+        """
+    }
+    guard taken[inner].type.rawValue == phaseTypeRaw else {
+      return """
+        phase_path names \(branch)[\(inner)], which is \(taken[inner].type.rawValue), \
+        but demo declares phase_type: \(phaseTypeRaw)
+        """
+    }
+    return nil
+  }
+
+  // Internal, not `private`: the sibling `+Alignment.swift` extension calls it
+  // to drive one fixture through the real parser, and `private` is file-scoped
+  // even for an extension of the same type.
+  static func parseYAMLAsDictionary(_ text: String) throws -> [String: Any] {
     // Reuse Yams indirectly via ScenarioLoader's parse path is overkill
     // — but BundledDemoReplaySource already forwards to YAMLReplaySource
     // for the same parse, and Yams is the project's only YAML lib.

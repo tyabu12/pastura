@@ -20,8 +20,11 @@ import Yams
 nonisolated public enum YAMLReplaySourceError: Error, Equatable {
   /// The YAML could not be parsed as a mapping.
   case malformedYAML(description: String)
-  /// Present but not equal to ``YAMLReplayExporter/schemaVersion``.
-  /// `nil` means the `schema_version` key was missing entirely.
+  /// Present but not a member of ``YAMLReplaySource/supportedSchemaVersions``.
+  /// `nil` covers two shapes, not one: the key was missing, OR its value is
+  /// not an `Int` (`'2'`, `[1]`, `true`) and so did not survive the cast. The
+  /// offending value is not carried — a reader diagnosing a rejected demo
+  /// needs the YAML, not this payload.
   case unsupportedSchemaVersion(Int?)
   /// A required top-level or per-turn key was missing.
   case missingRequiredField(String)
@@ -58,6 +61,13 @@ nonisolated public enum YAMLReplaySourceError: Error, Equatable {
 /// saved scenarios).
 nonisolated public final class YAMLReplaySource: ReplaySource {
 
+  /// `schema_version` values this loader accepts (spec §3.5). A v1 entry
+  /// is read as if `phase_path` were `[phase_index]`, which is exact for
+  /// any preset with no `conditional` phase. Dropping a version from this
+  /// set is a breaking change — it requires re-recording every bundled
+  /// demo still at that version first (spec §3.5 "Breaking").
+  public static let supportedSchemaVersions: Set<Int> = [1, 2]
+
   // MARK: - Compiled plan
 
   /// Classifies a planned event so the emitter can pick the right
@@ -71,13 +81,13 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
   }
 
   /// Chronological-merge entry used only during init to build
-  /// ``pacedPlan``. Carries the `(round, phase_index, phase_type)`
+  /// ``pacedPlan``. Carries the `(round, phase_path, phase_type)`
   /// coordinates plus a stable secondary sort key so `turns` /
   /// `code_phase_events` can be merged while preserving within-section
   /// source order.
   private struct ChronologicalEntry: Sendable {
     let round: Int
-    let phaseIndex: Int
+    let phasePath: [Int]
     let phaseType: PhaseType
     let sourceOrder: Int
     let paceKind: PacedEvent.Kind
@@ -125,7 +135,7 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
         description: "Top-level is not a mapping.")
     }
     let schemaValue = root["schema_version"] as? Int
-    guard schemaValue == YAMLReplayExporter.schemaVersion else {
+    guard let schemaValue, Self.supportedSchemaVersions.contains(schemaValue) else {
       throw YAMLReplaySourceError.unsupportedSchemaVersion(schemaValue)
     }
 
@@ -139,7 +149,7 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
       plan.append(PlannedEvent(kind: .turn, event: parsed.event))
       chronological.append(
         ChronologicalEntry(
-          round: parsed.round, phaseIndex: parsed.phaseIndex,
+          round: parsed.round, phasePath: parsed.phasePath,
           phaseType: parsed.phaseType, sourceOrder: idx,
           paceKind: .turn, event: parsed.event))
     }
@@ -150,11 +160,11 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
       plan.append(PlannedEvent(kind: .codePhase, event: parsed.event))
       chronological.append(
         ChronologicalEntry(
-          round: parsed.round, phaseIndex: parsed.phaseIndex,
+          round: parsed.round, phasePath: parsed.phasePath,
           phaseType: parsed.phaseType,
           // `+ turns.count` keeps turn source-order strictly below
           // code-event source-order for a stable tie-break when two
-          // entries land at the same (round, phase_index).
+          // entries land at the same (round, phase_path).
           sourceOrder: idx + turns.count,
           paceKind: .codePhase, event: parsed.event))
     }
@@ -205,7 +215,7 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
   // MARK: - Paced plan construction
 
   /// Merges turn + code-phase entries chronologically by
-  /// `(round, phase_index, sourceOrder)` and inserts synthesised
+  /// `(round, phase_path, sourceOrder)` and inserts synthesised
   /// `.roundStarted` / `.phaseStarted` lifecycle markers ahead of the
   /// first event of each new round / phase boundary.
   ///
@@ -216,12 +226,19 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
   ) -> [PacedEvent] {
     let sorted = entries.sorted { lhs, rhs in
       if lhs.round != rhs.round { return lhs.round < rhs.round }
-      if lhs.phaseIndex != rhs.phaseIndex { return lhs.phaseIndex < rhs.phaseIndex }
+      // `[Int]` is not `Comparable`, so the lexicographic order is
+      // explicit. It generalises the old integer compare rather than
+      // replacing it: every v1 entry resolves to a length-1 path, for
+      // which this is pointwise identical — which is why no already-shipped
+      // demo changes order.
+      if lhs.phasePath != rhs.phasePath {
+        return lhs.phasePath.lexicographicallyPrecedes(rhs.phasePath)
+      }
       return lhs.sourceOrder < rhs.sourceOrder
     }
     var result: [PacedEvent] = []
     var lastRound: Int?
-    var lastPhaseIndex: Int?
+    var lastPhasePath: [Int]?
     var lastPhaseType: PhaseType?
     for entry in sorted {
       if lastRound != entry.round {
@@ -233,18 +250,19 @@ nonisolated public final class YAMLReplaySource: ReplaySource {
         // Force a phaseStarted synthesis on round transition even if the
         // phase coordinates happen to match the previous round's last
         // phase — semantically a new round's first phase starts fresh.
-        lastPhaseIndex = nil
+        lastPhasePath = nil
         lastPhaseType = nil
       }
-      if lastPhaseIndex != entry.phaseIndex || lastPhaseType != entry.phaseType {
+      if lastPhasePath != entry.phasePath || lastPhaseType != entry.phaseType {
         result.append(
           PacedEvent(
             kind: .lifecycle,
-            // `phasePath: [phaseIndex]` is flattened per the known
-            // fidelity gap documented in ``ReplaySource/plannedEvents()``
-            // (matches ``YAMLReplayExporter.resolvePhaseIndices`` scope).
-            event: .phaseStarted(phaseType: entry.phaseType, phasePath: [entry.phaseIndex])))
-        lastPhaseIndex = entry.phaseIndex
+            // Emitted verbatim: `phase_path` (spec §3.2, v2) is defined to
+            // mean exactly what this payload means, so a branch sub-phase
+            // now reaches the consumer as `[i, j]` rather than collapsing
+            // to the enclosing conditional's index.
+            event: .phaseStarted(phaseType: entry.phaseType, phasePath: entry.phasePath)))
+        lastPhasePath = entry.phasePath
         lastPhaseType = entry.phaseType
       }
       result.append(PacedEvent(kind: entry.paceKind, event: entry.event))
@@ -282,7 +300,7 @@ extension YAMLReplaySource {
   /// build ``pacedPlan`` alongside the existing ``PlannedEvent``.
   private struct ParsedTurn: Sendable {
     let round: Int
-    let phaseIndex: Int
+    let phasePath: [Int]
     let phaseType: PhaseType
     let event: SimulationEvent
   }
@@ -291,9 +309,35 @@ extension YAMLReplaySource {
   /// ``ParsedTurn``.
   private struct ParsedCodeEvent: Sendable {
     let round: Int
-    let phaseIndex: Int
+    let phasePath: [Int]
     let phaseType: PhaseType
     let event: SimulationEvent
+  }
+
+  /// Resolves an entry's phase lineage. `phase_path` (spec §3.2, added in
+  /// v2) is the full path; a v1 entry — or one whose `phase_path` is
+  /// unusable — falls back to `[phase_index]`, exact for any preset with
+  /// no `conditional`.
+  ///
+  /// Deliberately does NOT check `phase_index == phase_path[0]`, nor that
+  /// either resolves to a phase of the declared `phase_type`. Load-time
+  /// leniency is the standing posture here (spec §3.3 / §7.6: the runtime
+  /// loader validates integrity only and silent-skips), and spec §3.3
+  /// names `BundledDemoReplaySourceTests.assertPhaseAlignment` as that
+  /// invariant's sole owner. Adding a second check here would make this a
+  /// mirror of it with no stated reconcile direction.
+  ///
+  /// The cast is lenient on purpose, and `BundledDemoReplaySourceTests`
+  /// keying on the KEY'S PRESENCE rather than on cast success is what keeps
+  /// that from being a hole — a `phase_path: ["1", "0"]` would otherwise be
+  /// invisible on both sides at once. That gate is a test, so it covers
+  /// bundle-resident demos only: a future non-bundled consumer (spec §4.5's
+  /// user replay) would reach this fallback with nothing in front of it.
+  private static func resolvePhasePath(_ raw: [String: Any]) -> [Int] {
+    guard let path = raw["phase_path"] as? [Int], !path.isEmpty else {
+      return [(raw["phase_index"] as? Int) ?? 0]
+    }
+    return path
   }
 
   private static func parseTurn(
@@ -316,10 +360,9 @@ extension YAMLReplaySource {
     // older-schema YAML still parses — the drift guard and consistency
     // check live at the CI level (spec §3.3), not at load time.
     let round = (raw["round"] as? Int) ?? 0
-    let phaseIndex = (raw["phase_index"] as? Int) ?? 0
     return ParsedTurn(
       round: round,
-      phaseIndex: phaseIndex,
+      phasePath: Self.resolvePhasePath(raw),
       phaseType: phaseType,
       event: .agentOutput(
         agent: agent, output: TurnOutput(fields: fields),
@@ -366,7 +409,6 @@ extension YAMLReplaySource {
   ) throws -> ParsedCodeEvent {
     let summary = (raw["summary"] as? String) ?? ""
     let round = (raw["round"] as? Int) ?? 0
-    let phaseIndex = (raw["phase_index"] as? Int) ?? 0
     // `phase_type` is denormalised on code-phase entries in the YAML
     // (spec §3.2). Unknown values are treated as planning-level drift
     // and rejected via ``unknownPhaseType`` — symmetric with turns.
@@ -393,7 +435,8 @@ extension YAMLReplaySource {
       event = .summary(text: summary)
     }
     return ParsedCodeEvent(
-      round: round, phaseIndex: phaseIndex, phaseType: phaseType, event: event)
+      round: round, phasePath: Self.resolvePhasePath(raw),
+      phaseType: phaseType, event: event)
   }
 
   /// Decodes a `payload:` stanza as emitted by ``YAMLReplayExporter``.

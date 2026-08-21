@@ -144,10 +144,10 @@ Scenario definition (personas, phases, score rules) is *not* inlined.
 At load time the replay locates its `preset_ref.id` in the already-
 bundled presets and uses that scenario as the render context.
 
-### 3.2 Full schema (v1)
+### 3.2 Full schema (v2)
 
 ```yaml
-schema_version: 1
+schema_version: 2
 
 preset_ref:
   id: word_wolf              # must match a shipped preset id (Resources/Presets/*.yaml, Resources/DemoPresets/*.yaml, or DB isPreset=true)
@@ -170,8 +170,10 @@ metadata:
 
 turns:
   - round: 1
-    phase_index: 0               # indexes into preset.phases at load time
-    phase_type: speak_all        # denormalised for cheap consistency check
+    phase_index: 0               # top-level ancestor; == phase_path[0]
+    phase_path: [0]              # optional (v2); full lineage, mirrors
+                                 # SimulationEvent.phaseStarted(phasePath:)
+    phase_type: speak_all        # the LEAF phase's type
     agent: Alice                 # must exist in preset.personas
     fields:                      # matches TurnOutput.fields shape
       statement: "I think the word might be 'cat'."
@@ -182,11 +184,23 @@ turns:
     agent: Bob
     fields:
       statement: "…"
+  - round: 2                     # a sub-phase inside a `conditional`
+    phase_index: 1               # the conditional, not the phase that spoke
+    phase_path: [1, 0]           # conditional at 1; phase 0 of its branch
+    branch: then                 # optional (v2); `[1, 0]` alone cannot say
+                                 # which — then[0] and else[0] share it
+    phase_type: vote             # type of then[0], NOT of phases[1]
+    agent: Alice
+    fields:
+      vote: Bob
   # …
 
 code_phase_events:               # optional; present if the preset has score_calc / scenario-gen phases
   - round: 2
     phase_index: 3
+    phase_path: [3]              # same coordinate fields as `turns` — both
+                                 # writers emit them here identically, and the
+                                 # §3.3 gate checks these entries too
     phase_type: score_calc
     summary: "Scores updated: Alice +1, Bob +1"
     payload:                     # optional; discriminated-union — §3.2 note 5
@@ -198,10 +212,32 @@ code_phase_events:               # optional; present if the preset has score_cal
 
 Notes on field choices:
 
-- **`phase_index` + `phase_type` together.** Index is the source of truth
-  for rendering; `phase_type` is a denormalised safety check caught by
-  the CI guard (§3.3) to detect preset drift that reorders phases without
-  changing sha.
+- **`phase_index`, `phase_path`, `branch` and `phase_type` — a split of
+  duties, not four spellings of one thing.**
+  - `phase_index` is the required **top-level ancestor**, and the v1
+    spelling of the ordering key. Ordering, phase-boundary detection and
+    hence how many `.phaseStarted` events a replay emits — which is
+    `ReplayViewModel.phaseProgress`'s numerator and `totalPhaseCount`'s
+    denominator — are keyed on `phase_path`, falling back to
+    `[phase_index]` when absent. Neither reaches a renderer directly.
+  - `phase_path` (v2, optional) is the **full lineage**, byte-identical
+    in meaning to `SimulationEvent.phaseStarted(phasePath:)` — `[i]` at
+    top level, `[i, j]` for phase `j` of the branch taken by the
+    `conditional` at `i`. Depth is bounded at 2 (`ScenarioLoader.parsePhaseType`
+    rejects a nested `conditional` at parse time). When present it
+    supersedes `phase_index` for ordering and boundary detection;
+    `phase_index` is then required to equal `phase_path[0]`.
+  - `branch` (v2, optional) is `then` or `else`. `[i, j]` alone cannot
+    say which — `then[j]` and `else[j]` carry the identical path — so
+    without it a sub-phase's leaf type can only be checked against the
+    union of both branches. Only the curator can supply it (from the
+    `conditional_evaluated` event); `YAMLReplayExporter` cannot, because
+    no persisted column records the branch.
+  - `phase_type` owns the **rendered label** and is the type of the phase
+    at `phase_path` — the LEAF. For a branch sub-phase it therefore does
+    NOT equal `phases[phase_index].type`, which names the enclosing
+    `conditional`. That asymmetry is the whole reason `phase_path`
+    exists; see §3.3 for which gate enforces the pair.
 - **`fields` dict, not typed accessors.** Mirrors `TurnOutput.fields:
   [String: String]` so the replay can construct a `TurnOutput` without
   a separate schema layer.
@@ -251,6 +287,29 @@ hashes before the PR containing the preset change merges. §5 sets a
 minimum playable count so drift during a preset change cannot leave
 zero playable demos.
 
+**The phase-coordinate invariant has exactly one owner.** Distinct from
+the SHA check above, and easy to assume lives beside it: the assertion
+that a demo's `phase_index` / `phase_path` / `branch` actually resolve to
+a phase of type `phase_type` in the shipped preset is enforced by the
+Swift test `BundledDemoReplaySourceTests.bundledDemoPhaseIndicesMatchResolvedScenarioPhaseTypes`,
+whose `assertPhaseAlignment` defers the whole decision to
+`alignmentDiagnostic` — **not** by
+`scripts/check_demo_replay_drift.py`, and **not** by the runtime loader
+(`BundledDemoReplaySource` is integrity-only per the posture above).
+The drift script deliberately does not mirror it: duplicating the check
+in Python would require re-implementing preset branch navigation with no
+stated reconcile direction between the two copies. If that ownership
+ever moves, move it — do not add a second copy.
+
+One consequence, restated here because it bounds what that assertion is
+evidence for: among **shipped** demos its conditional arm has an empty
+population, since no `Resources/DemoPresets/` preset uses a `conditional`.
+Its coverage comes from fixtures handed to the helper directly. Promoting a
+conditional-bearing preset (`word_wolf{,_en}`, `target_score_race{,_en}`)
+to a demo preset is what first gives it live artifacts — and is also when
+`phaseProgress` starts to differ between runs, because the two branches
+need not contain the same number of phases.
+
 ### 3.4 Filter policy: at-record AND at-render
 
 `ContentFilter` is applied on **both sides** of the recording boundary:
@@ -283,14 +342,35 @@ owns the policy-implementation side.
 
 ### 3.5 Schema evolution
 
-`schema_version: 1` is the current shape. Future changes:
+`schema_version: 2` is the current shape (v2 landed with #1505:
+`phase_path` + `branch`, both optional). The loader accepts `{1, 2}`;
+v1 demos keep loading, and a v1 entry is read as if `phase_path` were
+`[phase_index]`, which is exact for any preset with no `conditional`.
+Future changes:
 
-- **v2 additive** (e.g. inline `scenario_def` fallback for self-
-  contained demos, or audio annotation tracks): bump to `2`, loader
-  supports both, older demos keep working.
-- **v2 breaking** (e.g. change `turns` from array-of-entries to
-  per-phase grouping): version bump and loader fork; deprecate v1 only
-  after all bundled demos re-recorded.
+- **Additive** (e.g. inline `scenario_def` fallback for self-contained
+  demos, or audio annotation tracks): bump the version, widen the
+  loader's accepted set to include it, older demos keep working. This is
+  the path v2 took — note that widening the set is half the change, not
+  an implied consequence of the bump: before #1505 the loader compared
+  for equality against a single constant, so a bump alone would have
+  dropped every already-shipped demo from the rotation.
+- **Breaking** (e.g. change `turns` from array-of-entries to per-phase
+  grouping): version bump and loader fork; drop an older version from the
+  accepted set only after all bundled demos are re-recorded.
+
+**A new writer's output is not required to load in an older build.** The
+exporter emits the current version unconditionally, so a simulation recorded
+before migration v6 exports as v2 with no v2-only field in it — byte-identical
+to its v1 form apart from the version line, and refused by any already-shipped
+build, whose loader compared for equality against a single constant. That is
+accepted rather than worked around: demo YAMLs ship inside the app binary, so
+the rotation never sees a version it was not built with, and the exporter's
+Share-Sheet output has no REPLAY-import path in the app at all (the one
+`fileImporter` that exists ingests scenario YAML into the editor). Making the emitted
+version data-dependent (v1 when no row carries a `phase_path`) would preserve
+old-reader compatibility, and is the change to make if an importer ever lands —
+not before, since a branch nothing exercises is a branch nothing checks.
 
 Unknown `schema_version` is treated as drift and results in a silent
 skip at the demo surface (matching §3.3's posture) rather than a fatal

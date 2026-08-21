@@ -64,7 +64,8 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
 
   private func makeTurn(
     round: Int, seq: Int, phase: String,
-    agent: String?, fields: [String: String]
+    agent: String?, fields: [String: String],
+    phasePathJSON: String? = nil
   ) -> TurnRecord {
     let json =
       (try? JSONEncoder().encode(TurnOutput(fields: fields))).flatMap {
@@ -75,12 +76,14 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
       roundNumber: round, phaseType: phase,
       agentName: agent, rawOutput: json,
       parsedOutputJSON: json, sequenceNumber: seq,
+      phasePathJSON: phasePathJSON,
       createdAt: Date())
   }
 
   private func makeCodePhaseEvent(
     round: Int, seq: Int, phase: String,
-    payload: CodePhaseEventPayload
+    payload: CodePhaseEventPayload,
+    phasePathJSON: String? = nil
   ) -> CodePhaseEventRecord {
     let json =
       (try? JSONEncoder().encode(payload)).flatMap {
@@ -90,6 +93,7 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
       id: UUID().uuidString, simulationId: "sim1",
       roundNumber: round, phaseType: phase,
       sequenceNumber: seq, payloadJSON: json,
+      phasePathJSON: phasePathJSON,
       createdAt: Date())
   }
 
@@ -108,7 +112,7 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
         simulation: makeSimulation(), scenario: makeScenario(),
         turns: [], codePhaseEvents: []))
 
-    #expect(result.text.contains("schema_version: 1"))
+    #expect(result.text.contains("schema_version: 2"))
     #expect(result.text.contains("preset_ref:"))
     #expect(result.text.contains("metadata:"))
     #expect(result.text.contains("turns:"))
@@ -301,6 +305,231 @@ struct YAMLReplayExporterTests {  // swiftlint:disable:this type_body_length
       .filter { $0.contains("phase_index: 1") }.count
     #expect(speakAllIndexLines == 2)
     #expect(voteIndexLines == 2)
+  }
+
+  // MARK: - phase_index derivation (persisted path vs cursor fallback)
+
+  /// Two ADJACENT phases of the same type — the shape the cursor cannot
+  /// tell apart, since it only advances when the observed `phaseType`
+  /// changes. Used as a control pair by the two tests below.
+  private static let adjacentSameTypeScenarioYAML = """
+    id: test_scn
+    language: ja
+    name: Test Scenario
+    description: test
+    agents: 2
+    rounds: 2
+    context: ctx
+    personas:
+      - name: Alice
+        description: ''
+      - name: Bob
+        description: ''
+    phases:
+      - type: speak_all
+        prompt: first
+        output:
+          statement: string
+      - type: speak_all
+        prompt: second
+        output:
+          statement: string
+      - type: vote
+        prompt: vote
+        candidates: agents
+    """
+
+  private func phaseIndexLines(_ text: String) -> [String] {
+    text.components(separatedBy: "\n")
+      .map { $0.trimmingCharacters(in: .whitespaces) }
+      .filter { $0.hasPrefix("phase_index:") }
+  }
+
+  @Test func persistedPhasePathOverridesCursorDerivation() throws {
+    // Both turns are `speak_all`, so the cursor holds at 0 for both. The
+    // persisted paths say 0 and 1 — a value the cursor could not have
+    // produced, which is what makes this discriminating rather than
+    // agreeing-by-luck.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(
+        round: 1, seq: 1, phase: "speak_all", agent: "Alice",
+        fields: ["statement": "s"], phasePathJSON: "[0]"),
+      makeTurn(
+        round: 1, seq: 2, phase: "speak_all", agent: "Bob",
+        fields: ["statement": "s"], phasePathJSON: "[1]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(),
+        scenario: makeScenario(yaml: Self.adjacentSameTypeScenarioYAML),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(phaseIndexLines(result.text) == ["phase_index: 0", "phase_index: 1"])
+  }
+
+  @Test func preV6RowsStillCollapseViaCursorDerivation() throws {
+    // The control for the test above: identical fixture, `phasePathJSON`
+    // nil. Migration v6 added that column with no backfill, so these rows
+    // must export exactly as they did before schema v2 — collapsed to the
+    // first matching index, limitation and all. A failure here means the
+    // fallback changed, not that the cursor is wrong.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(round: 1, seq: 1, phase: "speak_all", agent: "Alice", fields: ["statement": "s"]),
+      makeTurn(round: 1, seq: 2, phase: "speak_all", agent: "Bob", fields: ["statement": "s"])
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(),
+        scenario: makeScenario(yaml: Self.adjacentSameTypeScenarioYAML),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(phaseIndexLines(result.text) == ["phase_index: 0", "phase_index: 0"])
+  }
+
+  @Test func branchSubPhaseEventResolvesToItsPathNotTheConditional() throws {
+    // `resolveEventPhaseIndices` has its own fallback, so it needs its own
+    // pair. `summarize` is not a top-level phase of the base scenario, so
+    // the pre-v6 lookup would land on `conditionalFallbackIndex` — which,
+    // with no conditional present, is 0.
+    let exporter = makeExporter()
+    let withPath = makeCodePhaseEvent(
+      round: 1, seq: 1, phase: "summarize",
+      payload: .summary(text: "s"), phasePathJSON: "[1, 0]")
+    let withoutPath = makeCodePhaseEvent(
+      round: 1, seq: 1, phase: "summarize", payload: .summary(text: "s"))
+
+    let resolved = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: [withPath]))
+    let fallback = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: [withoutPath]))
+
+    #expect(phaseIndexLines(resolved.text) == ["phase_index: 1"])
+    #expect(phaseIndexLines(fallback.text) == ["phase_index: 0"])
+  }
+
+  // MARK: - phase_path emission (schema v2)
+
+  @Test func turnWithPhasePathJSONEmitsPhasePathLine() throws {
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(
+        round: 1, seq: 1, phase: "speak_all", agent: "Alice",
+        fields: ["statement": "s"], phasePathJSON: "[1, 0]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(result.text.contains("phase_path: [1, 0]"))
+  }
+
+  @Test func turnWithoutPhasePathJSONOmitsPhasePathLine() throws {
+    // Pre-v6 rows have `phasePathJSON == nil` — the load-bearing case, since
+    // the reader falls back to `[phase_index]` only when the line is absent.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(
+        round: 1, seq: 1, phase: "speak_all", agent: "Alice",
+        fields: ["statement": "s"])
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: turns, codePhaseEvents: []))
+
+    // Paired with a positive assertion on `phase_index:`, which every
+    // rendered entry emits unquoted: a bare `!contains` also passes when the
+    // entry was never rendered, so absence alone is not evidence. (String
+    // fields are single-quoted by `yamlValue`, so `agent: Alice` would not
+    // have matched — measured, not assumed.)
+    #expect(result.text.contains("phase_index:"))
+    #expect(!result.text.contains("phase_path"))
+  }
+
+  @Test func codePhaseEventWithPhasePathJSONEmitsPhasePathLine() throws {
+    let exporter = makeExporter()
+    let events = [
+      makeCodePhaseEvent(
+        round: 1, seq: 1, phase: "score_calc",
+        payload: .scoreUpdate(scores: ["Alice": 3]), phasePathJSON: "[2]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: events))
+
+    #expect(result.text.contains("phase_path: [2]"))
+  }
+
+  @Test func codePhaseEventWithoutPhasePathJSONOmitsPhasePathLine() throws {
+    let exporter = makeExporter()
+    let events = [
+      makeCodePhaseEvent(
+        round: 1, seq: 1, phase: "score_calc",
+        payload: .scoreUpdate(scores: ["Alice": 3]))
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: events))
+
+    #expect(result.text.contains("phase_index:"))
+    #expect(!result.text.contains("phase_path"))
+  }
+
+  @Test func emptyPersistedPathEmitsNoPhasePathLine() throws {
+    // `phasePathJSON: "[]"` decodes to a non-nil EMPTY array — `phasePath`
+    // nils out only on a nil / empty *string*. So `phasePath?.first` is nil and
+    // `phase_index` comes from the cursor; emitting `phase_path: []` alongside
+    // it would write the two fields from different sources and produce a
+    // document violating spec §3.2's `phase_index == phase_path[0]`.
+    let exporter = makeExporter()
+    let turns = [
+      makeTurn(
+        round: 1, seq: 1, phase: "speak_all", agent: "Alice",
+        fields: ["statement": "s"], phasePathJSON: "[]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: turns, codePhaseEvents: []))
+
+    #expect(result.text.contains("phase_index:"))
+    #expect(!result.text.contains("phase_path"))
+  }
+
+  @Test func emptyPersistedPathOnCodeEventEmitsNoPhasePathLine() throws {
+    // The same fix landed at two emit sites; without this arm, deleting
+    // `!path.isEmpty` from `renderCodePhaseEvents` alone leaves the suite
+    // green — an unarmed half of the guard this branch added.
+    let exporter = makeExporter()
+    let events = [
+      makeCodePhaseEvent(
+        round: 1, seq: 1, phase: "score_calc",
+        payload: .scoreUpdate(scores: ["Alice": 3]), phasePathJSON: "[]")
+    ]
+
+    let result = try exporter.export(
+      .init(
+        simulation: makeSimulation(), scenario: makeScenario(),
+        turns: [], codePhaseEvents: events))
+
+    #expect(result.text.contains("phase_index:"))
+    #expect(!result.text.contains("phase_path"))
   }
 
   // MARK: - YAML emitter edge cases (Japanese / multi-line / control chars)

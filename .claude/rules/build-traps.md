@@ -50,3 +50,33 @@ declaration that also carries a `///` doc comment — **both** placements fail:
 - `identifier_name` (short domain identifiers like `ja` / `en`) → add a
   **`.swiftlint.yml` `identifier_name.excluded`** entry (ref: the `ja` / `en`
   exclusions consumed by `pickLanguage(_:ja:en:)`), or rename to 3+ chars.
+
+## Prose ABOUT a directive is parsed AS one
+
+The comment-command parser scans every `//` comment, so quoting a directive's
+literal text while explaining it applies it. Writing `// swiftlint:disable X`
+inside a paragraph about that trap is enough. Loud rather than silent — the
+quote lands as a real command and draws `blanket_disable_command`, plus
+`superfluous_disable_command` if adjacent backticks get swept into the rule
+name — but the diagnostics name the rule you were describing, so they read as a
+problem with the code rather than with the sentence.
+
+**Apply**: in a **Swift** comment, name a directive rather than spelling it —
+"a blanket `file_length` disable directive on line 6", not the text itself. The
+example above is spelled out because this file is Markdown, which SwiftLint does
+not scan; that asymmetry is the whole trap, so do not read the example as
+licence to quote it in a `.swift` file.
+
+## `swiftlint --path <file>` is not an option, and its error reads as "clean"
+
+`swiftlint lint --path X` exits with `Error: Unknown option '--path'` (the
+positional form `swiftlint lint [options] [paths...]` is the real one). A probe
+that greps that output for a rule name finds nothing and concludes the rule did
+not fire. Measured 2026-08-21 (0.65.0, #1505).
+
+**Apply**: to test whether a rule fires, put the fixture **inside**
+`.swiftlint.yml`'s `included:` tree and run the form the gates run
+(`scripts/git-hooks/pre-commit`, `ci.yml`): `swiftlint lint --strict`. Two
+things genuinely suppress a rule and are easy to mistake for "not enabled" — a
+fixture outside `included:` (path-independent rules still fire there, so the run
+looks live), and a file-level disable directive already in the target file.
