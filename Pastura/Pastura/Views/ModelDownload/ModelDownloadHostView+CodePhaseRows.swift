@@ -36,7 +36,13 @@ extension ModelDownloadHostView {
       // Mirrors `SimulationView.assignmentEntry`.
       Text(String(format: String(localized: "%@ assigned: %@"), agent, value))
         .textStyle(Typography.metaValue)
-        .foregroundStyle(Color.muted)
+        // Applied together with `SimulationView+LogEntries`: the DL-time demo
+        // mirrors the live log deliberately, so repointing one and not the other
+        // diverges them visually while every count still reconciles. A5 carries
+        // to the component wherever it is mounted — the rows are primary output
+        // even though this screen exists to download a model.
+        // `docs/design/muted-application-audit.md` § 2.
+        .foregroundStyle(Color.inkSecondary)
     case .sharedAssignment(let value):
       // Mirrors `SimulationView.sharedAssignmentEntry` (#939): the round's
       // premise gets a moss accent rule + clipboard icon + body-weight ink text,
@@ -96,7 +102,7 @@ extension ModelDownloadHostView {
           .textStyle(Typography.metaValue)
       }
     }
-    .foregroundStyle(Color.muted)
+    .foregroundStyle(Color.inkSecondary)
   }
 
   /// Mirrors `SimulationView.scoresSummary`.
@@ -108,7 +114,7 @@ extension ModelDownloadHostView {
           .monospacedDigit()
       }
     }
-    .foregroundStyle(Color.muted)
+    .foregroundStyle(Color.inkSecondary)
   }
 
   /// Mirrors `SimulationView.pairingResultEntry`.
@@ -139,7 +145,7 @@ extension ModelDownloadHostView {
     } else {
       Text(String(localized: "No event this round"))
         .textStyle(Typography.metaValue)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
     }
   }
 

@@ -22,10 +22,17 @@ extension SimulationView {
     }
   }
 
+  // The six repoints in this file read `inkSecondary`, not §8's quietude tier:
+  // a transcript row is either the simulation's primary output (A5) or the
+  // narration of a turn that degraded (A4 — ADR-021 D5 requires the transcript
+  // to stay self-explanatory *at the gap*, and a gap narrated illegibly is not
+  // narrated). The `vs` separator and the two `exclamationmark.triangle` glyphs
+  // stay `muted`: a separator is sanctioned, and a glyph is outside §8's text
+  // bar. `docs/design/muted-application-audit.md` § 5.
   func assignmentEntry(agent: String, value: String) -> some View {
     Text(String(format: String(localized: "%@ assigned: %@"), agent, value))
       .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
+      .foregroundStyle(Color.inkSecondary)
   }
 
   // Shared お題 assigned to every agent (`assign` target: all, #939). Styled as
@@ -85,7 +92,7 @@ extension SimulationView {
           .textStyle(Typography.metaValue)
       }
     }
-    .foregroundStyle(Color.muted)
+    .foregroundStyle(Color.inkSecondary)
   }
 
   func pairingResultEntry(
@@ -117,7 +124,7 @@ extension SimulationView {
     } else {
       Text(String(localized: "No event this round"))
         .textStyle(Typography.metaValue)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
     }
   }
 
@@ -144,7 +151,7 @@ extension SimulationView {
           agent, PhaseDisplayName.label(for: phaseType))
       )
       .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
+      .foregroundStyle(Color.inkSecondary)
     }
   }
 
@@ -165,7 +172,7 @@ extension SimulationView {
           agent, raw)
       )
       .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
+      .foregroundStyle(Color.inkSecondary)
     }
   }
 
@@ -205,6 +212,6 @@ extension SimulationView {
           .monospacedDigit()
       }
     }
-    .foregroundStyle(Color.muted)
+    .foregroundStyle(Color.inkSecondary)
   }
 }

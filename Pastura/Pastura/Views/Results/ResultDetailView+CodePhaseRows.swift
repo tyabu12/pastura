@@ -66,7 +66,11 @@ extension ResultDetailView {
     return Text(String(format: String(localized: "Scores — %@"), pairs))
       .textStyle(Typography.metaValue)
       .monospacedDigit()
-      .foregroundStyle(Color.muted)
+      // Same call as the live transcript in `SimulationView+LogEntries`, on the
+      // past-run mirror: primary output (A5) and degraded-turn narration (A4)
+      // read `inkSecondary`; the `vs` separator stays `muted`.
+      // `docs/design/muted-application-audit.md` § 5.
+      .foregroundStyle(Color.inkSecondary)
   }
 
   private func summaryRow(text: String) -> some View {
@@ -113,7 +117,7 @@ extension ResultDetailView {
           .textStyle(Typography.metaValue)
       }
     }
-    .foregroundStyle(Color.muted)
+    .foregroundStyle(Color.inkSecondary)
   }
 
   private func pairingRow(
@@ -130,7 +134,7 @@ extension ResultDetailView {
   private func assignmentRow(agent: String, value: String) -> some View {
     Text(String(format: String(localized: "%@ assigned: %@"), filtered(agent), filtered(value)))
       .textStyle(Typography.metaValue)
-      .foregroundStyle(Color.muted)
+      .foregroundStyle(Color.inkSecondary)
   }
 
   // Shared お題 assigned to every agent (#939). Mirrors
@@ -167,7 +171,7 @@ extension ResultDetailView {
     } else {
       Text(String(localized: "No event this round"))
         .textStyle(Typography.metaValue)
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
     }
   }
 

@@ -256,7 +256,11 @@ struct GalleryScenarioDetailView: View {
       Text(label).foregroundStyle(Color.ink)
       Spacer(minLength: 12)
       Text(value)
-        .foregroundStyle(Color.muted)
+        // `inkSecondary`, not §8's quietude tier: `Est. inferences` is what a
+        // user checks a device against before running (audit class A3). The
+        // read-only disclaimer and the step numerals stay `muted`.
+        // `docs/design/muted-application-audit.md`.
+        .foregroundStyle(Color.inkSecondary)
         .multilineTextAlignment(.trailing)
     }
     .padding(.horizontal, 17)
