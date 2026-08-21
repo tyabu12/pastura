@@ -80,9 +80,11 @@ tools/kmp-gate-spike/Tests/KMPGateSpikeTests'
 
 # TEST HOOK, not a production knob. --self-test needs to perturb the SCAN and
 # not just the detector, but an override honoured unconditionally would also
-# reach the pre-commit path, where an exported value in someone's shell profile
-# could subdivide a row (see ONE ROW PER TARGET above) and silently narrow the
-# gate. So it applies only when the self-test asks for it.
+# reach the pre-commit path, where one exported value in a shell profile could
+# subdivide a row (see ONE ROW PER TARGET above) and silently narrow the gate.
+# Requiring the marker makes that take TWO deliberately-named variables rather
+# than one — it raises the bar, it does not close the surface. Passing the roots
+# as an argument would; it is not worth the plumbing at one caller.
 TARGET_ROOTS="$DEFAULT_TARGET_ROOTS"
 if [ "${PASTURA_DUP_GATE_SELFTEST:-}" = "1" ] && [ -n "${PASTURA_DUP_GATE_ROOTS:-}" ]; then
   TARGET_ROOTS="$PASTURA_DUP_GATE_ROOTS"
@@ -283,11 +285,14 @@ self_test() {
 
   # A9 the override must NOT reach the production path — otherwise an exported
   # value narrows the pre-commit gate. Same narrowing as A7, minus the marker.
-  if out="$(PASTURA_DUP_GATE_ROOTS='Pastura/PasturaUITests' bash "$SELF" --check 2>&1)"; then
-    ok "A9 override ignored without the self-test marker"
-  else
-    bad "A9 the override reached the production path: $out"
-  fi
+  # Asserted on A7's marker rather than on the exit code: a genuine duplicate in
+  # the tree would also make this `--check` fail, and blaming that on a bypass
+  # regression would send the next reader hunting the wrong thing.
+  out="$(PASTURA_DUP_GATE_ROOTS='Pastura/PasturaUITests' bash "$SELF" --check 2>&1 || true)"
+  case "$out" in
+    *"belong to no scanned target"*) bad "A9 the override reached the production path: $out" ;;
+    *) ok "A9 override ignored without the self-test marker" ;;
+  esac
 
   if [ "$fail" -ne 0 ]; then
     echo "duplicate-basename self-test FAILED" >&2
@@ -311,7 +316,10 @@ case "${1-}" in
       | { grep -E '(\.swift$)|(^scripts/duplicate-basename-gate\.sh$)' || [ $? -eq 1 ]; })"
     [ -n "$MATCHED" ] || exit 0
     # Editing the gate stages the gate: run its own arms too, or a broken arm
-    # is gated by CI alone. `case`, not another grep — Rule 3 again.
+    # is gated by CI alone. `case`, not another grep — Rule 3 again. Note this
+    # puts A8's untracked fixture in the working tree for the duration of the
+    # commit, so a concurrent session running `git add -A` in that window would
+    # sweep it in — the hazard is brief and only on this one path.
     case "$MATCHED" in
       *scripts/duplicate-basename-gate.sh*) self_test ;;
     esac
