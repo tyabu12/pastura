@@ -56,8 +56,8 @@ nonisolated public struct PacedEvent: Sendable, Equatable {
 /// project's `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` would otherwise
 /// infer MainActor for the ``events()`` closure body — which builds an
 /// `AsyncStream` + `Task` + `onTermination` and therefore breaks
-/// `Sendable` conformance. See `.claude/rules/llm.md` for the diagnostic
-/// and the same pattern at ``LLMService/generateStream(system:user:)``.
+/// `Sendable` conformance. See `docs/swift-isolation-compile-time-patterns.md`
+/// (Pattern 1) and the same pattern at ``LLMService/generateStream(system:user:)``.
 nonisolated public protocol ReplaySource: Sendable {
   /// Scenario this replay renders against. Supplies persona names, phase
   /// structure, and score-display context to the view layer.

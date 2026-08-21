@@ -53,8 +53,9 @@ nonisolated enum YAMLReplayExporterError: Error, LocalizedError, Equatable {
 /// reserves the `true` value for curators to set after **manual audit**.
 /// Automated ContentFilter application is not sufficient to flip it.
 ///
-/// Marked `nonisolated` so ``YAMLReplaySource`` (also nonisolated, for
-/// actor-isolation reasons in `.claude/rules/llm.md`) can reference the
+/// Marked `nonisolated` so ``YAMLReplaySource`` (also nonisolated, for the
+/// actor-isolation reasons in `docs/swift-isolation-compile-time-patterns.md`,
+/// Pattern 1) can reference the
 /// shared schema constants. File writing is thread-safe through
 /// `FileManager`.
 nonisolated struct YAMLReplayExporter {  // swiftlint:disable:this type_body_length

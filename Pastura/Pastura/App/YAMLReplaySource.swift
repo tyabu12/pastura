@@ -49,8 +49,8 @@ nonisolated public enum YAMLReplaySourceError: Error, Equatable {
 /// project uses `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`, which would
 /// otherwise infer MainActor for the `AsyncStream` closure body in
 /// ``events()`` and break `Sendable` conformance on ``ReplaySource``.
-/// See `.claude/rules/llm.md` and the same pattern at
-/// ``LLMService/generateStream(system:user:)``.
+/// See `docs/swift-isolation-compile-time-patterns.md` (Pattern 1) and the
+/// same pattern at ``LLMService/generateStream(system:user:)``.
 ///
 /// **Scenario resolution is caller's concern.** This type accepts a
 /// pre-resolved ``Scenario`` in its initialiser. Resolving a
