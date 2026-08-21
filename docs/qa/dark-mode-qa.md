@@ -193,6 +193,48 @@ the two slots apart; confirm its icon gap still matches what shipped.
 
 Derivation: `muted-application-audit` §2 (classes A3/A4/A5) and §5.
 
+### Eliminated rows and the countdown on `--ink-2` — two questions (#1448 batch 3)
+
+Batch 3 moved the six rows the ledger marks A3 in this area: an eliminated
+player's name and tally in `SimulationResultCard` and `ScoreboardSheet`, and the
+prediction sheet's `N s left`. The elimination cue did **not** move — the
+strikethrough and the `xmark.circle.fill` dot stay — so an eliminated row now
+differs from a survivor by one ink step (`--ink-2` against `--ink`) where it used
+to differ by two. Legibility rose on every one and is not the question; the
+after-figures for the opaque grounds live in `DesignTokensTests+MutedAsContent`
+/ `+MutedTranscript`, and the `ScoreboardSheet` ground has none — it is the
+system sheet surface, argued by direction only (ledger §3.3), which makes it the
+one surface here where a device is the *only* measurement.
+
+**Does an eliminated row still read as *out*?** Strikethrough + dot + one ink
+step, beside a survivor on `--ink`, in both appearances — and in dark, where the
+step between `--ink` and `--ink-2` is the narrower of the two.
+
+- [ ] **Simulation** — priority. Finish a run with at least one elimination
+      (any vote + eliminate preset): the result card's `Eliminated` group under
+      `Survived`, then tap the card for the **Scoreboard sheet**, where the same
+      row sits on the system sheet ground with its rank numeral still `--muted`.
+- [ ] **Demo replay** (model-download host) — the same result card, mounted by
+      `ModelDownloadHostView+ChatStream`; it is the first place a new install
+      sees an eliminated row.
+- [ ] **Results detail** — the past-run mirror of both: the card, and the
+      Scoreboard sheet it opens.
+
+**Does the countdown read as a deadline rather than a caption?** `N s left` is
+now `--ink-2` beneath a `Make your prediction` eyebrow that stays `--muted`, so
+the hierarchy inside the header flipped: the deadline outranks the label above
+it. Getting the sheet on screen has four preconditions and a 15-second window —
+follow § 7 and judge from the screenshot.
+
+- [ ] **Prediction sheet** — the header's three lines, top to bottom:
+      eyebrow (`--muted`), question (`--ink`), countdown (`--ink-2`).
+
+The store-screenshot capture (`StoreScreenshotTests`, anchored on
+`scoreboard.list`) draws an eliminated row in both locales, so the shipped
+`04-scoreboard` image is one repoint behind the build until the next recapture.
+
+Derivation: `muted-application-audit` §2 (class A3), §3.3 and §5.
+
 ### The walk
 
 - [ ] **Home** — cards, `ActiveModelChip` (including its warning / danger states

@@ -9,7 +9,7 @@ examples in `PredictionOutcomeBadge`.
 **This file is the sweep's ledger, not its rule.** §8 remains normative; what is
 recorded here is the per-site *application* of §8 across the population, plus the
 adjudications that were judgement calls. The sweep runs in batches — batches 1,
-2 and 5 are applied; every other row still ships as written.
+2, 3 and 5 are applied; every other row still ships as written.
 
 ## 1. Population
 
@@ -41,8 +41,10 @@ Discipline).
 
 Batch 1 removed eight occurrences and emptied three files; batch 5 (#1485)
 removed three more and emptied three more; batch 2 repointed nineteen sites for
-a net eighteen occurrences and emptied none. So the population as it ships today
-is **70 lines · 4 doc-comment mentions · 66 code sites across 37 files**.
+a net eighteen occurrences and emptied none; batch 3 repointed six — the
+eliminated rows in `SimulationResultCard` / `ScoreboardSheet` and the prediction
+countdown — and emptied none either. So the population as it ships today is
+**64 lines · 4 doc-comment mentions · 60 code sites across 37 files**.
 `MutedSweepLedgerTests` pins the per-file breakdown — §8.
 
 The mentions went 3 → 4 because batch 2's why-comment in `ResultDetailView`
@@ -282,6 +284,10 @@ weaker than a measurement and is labelled as such wherever it is used.
 Two further grounds are **sheet defaults** — `ScoreboardSheet`, `ReportSheet`,
 `PersonaDetailSheet`, and `PhaseEditorSheet` set no Pastura background token at
 all, so they render on the system sheet surface. Also outside the fixture.
+Batch 3 moved `ScoreboardSheet`'s two eliminated rows on this ground by the
+direction argument above — the first sheet-default rows to move, labelled as
+direction-argued in the file's own why-comment, and pinned by symbol in
+`MutedSweepLedgerTests+BatchThree` rather than by any ratio.
 
 ## 4. Recorded refusal — retuning `muted` itself
 
@@ -305,8 +311,8 @@ Verdicts: **S** sanctioned · **M** misapplication (class in brackets) ·
 **U** unmeasured ground, exemption cannot be cited · **N** non-text (1.4.11,
 out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 
-`B` names the batch. `B1`, `B2` and `B5` are applied; everything else still ships as
-written. An applied row is **kept**, not deleted — the adjudication is what §5
+`B` names the batch. `B1`, `B2`, `B3` and `B5` are applied; everything else still
+ships as written. An applied row is **kept**, not deleted — the adjudication is what §5
 records, and the bolded batch marker is what says the repoint landed.
 
 ### Components
@@ -330,10 +336,10 @@ records, and the bolded batch marker is what says the repoint landed.
 | `PersonaDetailSheet` · `PEEK AT THEIR SECRET` | sheet default | unmeasured | S — toggle affordance; the secret renders at `ink` | — |
 | `SheepAvatar` · size captions ×4 | `screenBackground` | — | P | — |
 | `SimulationResultCard` · rank ordinal | `bubbleBackground` | 3.475 / 3.021 | S — derivable from row order | — |
-| `SimulationResultCard` · `survivalRow` name (eliminated) | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — restrictive control | B3 |
+| `SimulationResultCard` · `survivalRow` name (eliminated) | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — restrictive control | **B3** |
 | `SimulationResultCard` · `groupHeader` | `bubbleBackground` | 3.475 / 3.021 | S — redundant with per-row strikethrough + dot | — |
-| `SimulationResultCard` · `valueText` (eliminated) | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — the card's final tally | B3 |
-| `SimulationResultCard` · `nameColor` (eliminated) | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — `.ranking`/`.pairing` sibling of the row above | B3 |
+| `SimulationResultCard` · `valueText` (eliminated) | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — the card's final tally | **B3** |
+| `SimulationResultCard` · `nameColor` (eliminated) | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — `.ranking`/`.pairing` sibling of the row above | **B3** |
 
 The eliminated-row verdicts split from the state cue deliberately: **the
 elimination is redundantly encoded** (strikethrough + `xmark.circle.fill`), so
@@ -347,8 +353,8 @@ what the reader came to compare.
 | `HighlightCandidatesSection` · section caption | `bubbleBackground` | 3.475 / 3.021 | S — explains the section above it | — |
 | `HighlightCandidatesSection` · share glyph | `bubbleBackground` | 3.475 / 3.021 | N | — |
 | `ScoreboardSheet` · rank numeral | sheet default | unmeasured | S — derivable from order | — |
-| `ScoreboardSheet` · name (eliminated) | sheet default | unmeasured | **M (A3)** + U — restrictive control | B3 |
-| `ScoreboardSheet` · score (eliminated) | sheet default | unmeasured | **M (A3)** + U — restrictive control | B3 |
+| `ScoreboardSheet` · name (eliminated) | sheet default | unmeasured | **M (A3)** + U — restrictive control | **B3** |
+| `ScoreboardSheet` · score (eliminated) | sheet default | unmeasured | **M (A3)** + U — restrictive control | **B3** |
 | `SimulationView` · `%@ is thinking…` | `screenBackground` | 3.329 / 3.779 | S — transient, superseded when the agent speaks | — |
 | `SimulationView` · scrim-label comment | — | — | C | — |
 | `SimulationView` · loading-scrim subtitle | `.regularMaterial` | unmeasurable | S + U — elaborates a title already at `ink` | B4 |
@@ -363,7 +369,7 @@ what the reader came to compare.
 | `SimulationView+LogEntries` · `actionRejectedEntry` text | `screenBackground` | 3.329 / 3.779 | **M (A4)** — ADR-021 D5 | **B2** |
 | `SimulationView+LogEntries` · `scoresSummary` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ViewerPredictionSheet` · eyebrow | `page` | 3.030 / 4.152 | S — category label | — |
-| `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A3)** — a deadline the user acts against; the sheet auto-skips at zero | B3 |
+| `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A3)** — a deadline the user acts against; the sheet auto-skips at zero | **B3** |
 | `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.300–3.018 / 2.520–3.503 | S + U — the ID is embedded in the report URL anyway | B4 |
 
 ### Results · Home · ScenarioDetail
@@ -622,7 +628,7 @@ titles, not subordinate labels.
 |---|---|---|---|
 | **B1** | Blocked-state reasons, the tap-to-proceed instruction, and act-on numbers, in Settings / model management / gallery | 8 | **applied (#1448)** |
 | **B2** | A3 + A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, and the gallery detail values (the one A3 here) | 19 | **applied (#1448)** |
-| **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
+| **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown — all A3; the two `ScoreboardSheet` rows are the first **U** rows to move, by §3.3's direction argument | 6 | **applied (#1448)** |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
 | **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
@@ -645,15 +651,29 @@ roughly half of that token predates the batch, so a per-file total there cannot
 attribute a revert to a site. The figures are in the doc comment on
 `MutedSweepLedgerTests.expectedAppliedInkSecondary`, the one place they are kept.
 
+B3 is pinned the same way (`MutedSweepLedgerTests+BatchThree`, sharing B2's
+checker), and it is the batch where the *state cue* rather than a count is what
+QA has to look at: an eliminated row kept its strikethrough and its xmark while
+its name and tally rose one tier, so the row now differs from a survivor by one
+ink step instead of two. Whether it still reads as *out* is the question
+`docs/qa/dark-mode-qa.md` § 2 records, together with the countdown's — a
+deadline that now outranks the eyebrow above it.
+
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape — with the
 caveat B2 turned up: a site whose token sits on a `Label` or any other
 multi-slot call cannot be repointed without changing the call's shape, and that
 is a decision, not a swap (§5's added glyph row); B4 needs §8 to
 say what a *material or otherwise unmeasurable* ground routes to before any
-site moves — the routing for a merely-composited one is already in §8's
-`*-on-wash` bullet, so stating the gate that way would leave it already
-satisfied; B5 repoints three call sites but repaints five screens, because one
+of **its** sites moves — the routing for a merely-composited one is already in
+§8's `*-on-wash` bullet, so stating the gate that way would leave it already
+satisfied. A direction-argued repoint on a §3.3 ground is **outside** that
+gate, and two batches have made one: B1's `DLCompleteOverlay` and B3's two
+`ScoreboardSheet` rows. Neither claims a ratio, and both land on the token
+§8's neutral-ground bullet already names; what B4 owes §8 is the answer for the
+sites where the token might *not* be `--ink-2` — the self-wash pills and the
+moss-washed chips, whose role is ambient and whose ground is tinted; B5
+repoints three call sites but repaints five screens, because one
 of the three is a shared component — §6.3 separates that figure from the three the
 blast radius actually has.
 
