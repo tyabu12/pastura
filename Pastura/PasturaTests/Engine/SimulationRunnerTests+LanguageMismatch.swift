@@ -11,7 +11,8 @@ import os
 /// without bypassing any layer.
 ///
 /// Sibling extension per testing.md's 400-line-cap pattern (the parent
-/// `SimulationRunnerTests` already carries `// swiftlint:disable file_length`).
+/// `SimulationRunnerTests` already carries a file-level `file_length` disable
+/// directive).
 extension SimulationRunnerTests {
   /// Stubbed detector that always returns the canned ISO code, regardless
   /// of input. Mirrors the test fixture in `LLMCallerLanguageAdherenceTests`

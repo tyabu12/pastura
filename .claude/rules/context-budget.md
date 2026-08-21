@@ -22,7 +22,7 @@ Always-loaded files (loaded into every agent session / invocation) — every lin
 The global tier is easy to forget because it is not in this repo — and a global file duplicating a
 project file of the same name is paid **twice**.
 
-Path-scoped files (`paths:` frontmatter) load only when a matching path is read — budget looser there.
+Path-scoped files (`paths:` frontmatter) load on a matching read — **budget them the same**. A glob over the layers you work in is paid most sessions, and widening one is growth.
 
 ## Principle
 

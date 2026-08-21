@@ -266,7 +266,7 @@ Update with `/plugin`. Install steps: CONTRIBUTING.md § "If you use Claude Code
 
 - `adr-writing.md` — ADR drafting concepts; the once-per-draft grep checklist lives in `docs/decisions/adr-writing-guide.md` — read it before drafting (docs/decisions/)
 - `automation-output-contract.md` — Output Contract binding every unattended generator (Draft-only / never actuate, judgment→issue with counter-evidence, backpressure). Mirrored from claude-kit, one-way. **`paths:` fires when a skill file is read, not on a generator run** — each governed skill carries an imperative read-before-Step-0 pointer instead (`.claude/skills/**`)
-- `build-traps.md` — filename `.stringsdata` collisions + SwiftLint directive placement around a `///` doc comment. Fires in every Swift target — the § header carries the reach (app, unit tests, UI tests, `tools/harness/`)
+- `build-traps.md` — gate roster for the filename-collision and SwiftLint-directive traps: which gate fires, and what each still leaves you to decide (every Swift target)
 - `ci-workflows.md` — CI workflow / script editing traps: bash 3.2 on macOS runners, required-check-safe path gating, long-lived integration-branch gating (.github/workflows/, scripts/)
 - `engine.md` — Engine + LLM source
 - `i18n.md` — Swift-side localization **callsite** conventions, layer-independent: Form B `String(format: String(localized:))`, the Form A runtime-fallback hazard, partial-conversion orphans, Tier 2 audit planning (any app Swift file, plus the catalog)

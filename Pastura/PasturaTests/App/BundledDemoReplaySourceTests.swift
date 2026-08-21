@@ -594,7 +594,7 @@ struct BundledDemoReplaySourceTests {
   /// The `branch:`-present arm of ``conditionalDiagnostic``. Extracted so that
   /// function stays under SwiftLint's `cyclomatic_complexity` and
   /// `function_body_length` caps — per `.claude/rules/build-traps.md`, the fix
-  /// for those is a helper, not a `swiftlint:disable` directive.
+  /// for those is a helper, not a disable directive.
   ///
   /// Only the curator writes `branch:` (nothing persists it, so
   /// `YAMLReplayExporter` cannot), and it is what makes the leaf-type check

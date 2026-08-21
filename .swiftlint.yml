@@ -209,3 +209,77 @@ custom_rules:
       - 'Pastura/Pastura/.*\.swift'
     severity: error
     message: "`.borderedProminent` fills from the moss tint with a white system label — ≈3.03:1 light, ≈2.13:1 dark. Use PasturaPrimaryButtonStyle. A destructive-role button is the one exemption — see the rationale at PasturaApp.swift's .databaseRecovery case."
+
+  # Directive inside a `///` doc comment (#1513) — a SILENT failure, and the one
+  # in `.claude/rules/build-traps.md` a regex can separate from legitimate prose.
+  # It is not the only silent one there: § "Prose ABOUT a directive is parsed AS
+  # one" has silent shapes too and stays ungated precisely because telling an
+  # effective mention from an inert one would need a valid-rule-name test.
+  # Measured on 0.65.0 against a bare-violation positive control: the
+  # comment-command parser honours a directive ANYWHERE in a `//` comment,
+  # mid-sentence included, and sees nothing at all in a `///` one — no
+  # suppression, no diagnostic. So a `///` directive looks load-bearing and does
+  # nothing until the body it guards later crosses the threshold.
+  #
+  # DELIBERATELY BROAD — any directive literal on a `///` line, not just a leading
+  # one. `/// - Note: swiftlint:disable:next X` is the same silent no-op (its `//`
+  # form does suppress), so a leading-only regex would miss it. Telling a
+  # would-be-effective mention from a would-be-inert one needs a valid-rule-name
+  # test, which can only enumerate the shapes already seen — the argument
+  # `shadow_color_occluder_family` above makes for preferring an allowlist.
+  # `///` only, though, and that IS a gap: a `/** … */` block doc comment is the
+  # same silent no-op — measured with identifier_name (an enabled rule; a probe
+  # keyed on line_length cannot arm, it is in disabled_rules), where the `//`
+  # control suppressed and both the `///` and `/** */` forms did not. The tree
+  # holds zero Swift block doc comments today
+  # (`git grep -nE '^[[:space:]]*/\*\*' -- '*.swift'`), so the missed set is
+  # empty; widen the regex if that stops being true.
+  #
+  # NO LIVE INSTANCE, AND NO AUTOMATED ARM. The three sites this was written for
+  # were reworded when it landed, so nothing in the tree matches it. Simplify
+  # `[^\n]*` to `.*`, add `doccomment` to the exclusions, or take an upgrade that
+  # renames the syntax kind, and the rule goes quietly dead with every gate still
+  # green. The shell-tests runner is ubuntu with no SwiftLint, so there is
+  # nowhere cheap to host a real arm — re-run this pair by hand instead, from the
+  # repo root (positional path; `--path` is not an option and its error reads as
+  # "clean" — build-traps.md § "`swiftlint --path <file>`"):
+  #
+  #   d=$(mktemp -d)
+  #   printf 'import Foundation\n/// swiftlint:disable:next line_length\nfunc f() {}\n' > "$d/F.swift"
+  #   printf 'import Foundation\n/// plain doc comment\nfunc g() {}\n'                   > "$d/G.swift"
+  #   swiftlint lint --no-cache --config .swiftlint.yml "$d/F.swift"   # must FIRE
+  #   swiftlint lint --no-cache --config .swiftlint.yml "$d/G.swift"   # must be SILENT
+  #
+  # The fixture may sit outside `included:` because this rule is path-independent
+  # — verified both arms 2026-08-21 before this block was written.
+  #
+  # THE REMEDY IS TO REWORD, NOT SUPPRESS: name the directive instead of spelling
+  # it ("a `file_length` disable directive"). A disable/enable pair around an
+  # offending line inside a doc block splits the block and draws
+  # `orphaned_doc_comment` — the sibling placement failure build-traps.md
+  # documents. Three sites were reworded when this rule landed.
+  #
+  # `[^\n]*`, never `.*`: SwiftLint compiles custom-rule regexes with
+  # `dotMatchesLineSeparators`, so `.*` reaches a directive lines below an
+  # unrelated `///` (measured — fired on line 1 for a directive on line 4). The
+  # same token means the OPPOSITE to `git grep -E`, which reads `[^\n]` as "not
+  # backslash, not the letter n" and silently under-counts; enumerate this rule's
+  # hits with `git grep -P`.
+  #
+  # `excluded_match_kinds`, not `match_kinds`, for the reason spelled out above
+  # `shadow_color_occluder_family`: an allowlist drops a match spanning an
+  # unlisted kind silently. Excluding `string` keeps the rule off a `///`-shaped
+  # line inside a multi-line string literal; `doccomment` must stay OUT, since a
+  # doc comment is the target.
+  #
+  # No `included:`, unlike the five rules above — the trap fires wherever
+  # SwiftLint looks (app, unit tests, UI tests, tools/harness). This file may hold
+  # the directive's literal text because SwiftLint parses `.swift` sources only;
+  # `included:` has nothing to do with that.
+  swiftlint_directive_in_doc_comment:
+    name: "SwiftLint directive inside a doc comment"
+    regex: '^[ \t]*///[^\n]*swiftlint:(disable|enable)'
+    excluded_match_kinds:
+      - string
+    severity: error
+    message: "A swiftlint disable/enable directive in a `///` doc comment is a silent no-op — the comment-command parser reads `//` comments only. Reword to NAME the directive rather than spell it (\"a `file_length` disable directive\"); do not try to suppress this rule from inside the doc block, which draws orphaned_doc_comment. To remove the need for a directive at all, see .claude/rules/build-traps.md § 'SwiftLint directive placement around a `///` doc comment'."

@@ -101,8 +101,6 @@ nonisolated public final class BundledDemoReplaySource: ReplaySource {
 
   /// Loads a single demo YAML. Returns nil on any validation failure,
   /// logging the reason.
-  ///
-  /// swiftlint:disable:next function_body_length
   private static func loadOne(
     name: String, contents: String,
     presetResolver: any PresetResolver,
