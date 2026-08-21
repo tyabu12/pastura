@@ -14,10 +14,17 @@ import Testing
 // argument. Two things DO suppress it, and both misled a measurement of this
 // during review: a probe file placed outside `.swiftlint.yml`'s `included:`
 // scope (path-independent rules still fire there, so the run looks live), and
-// the parent file's own blanket `file_length` disable directive on its first
-// line. (Named, not quoted: SwiftLint parses the directive's literal text
-// wherever it appears, so writing it out here would switch the rule off for
-// THIS file — a comment about a directive must not spell the directive.) The fixture and the `diagnostic(_:)` helper stay in `+Alignment.swift`
+// the blanket `file_length` disable directive near the top of the parent file
+// (line 6).
+//
+// Named, not quoted, because SwiftLint parses a directive's literal text
+// wherever it appears — including inside prose about it. Quoting it here
+// reddened this file with `blanket_disable_command` plus
+// `superfluous_disable_command`, the latter reporting the rule name as invalid
+// because the surrounding backtick was swept into it. So the hazard is LOUD,
+// not a silently-disabled rule: someone who spells it out is told at once.
+//
+// The fixture and the `diagnostic(_:)` helper stay in `+Alignment.swift`
 // and are reachable here only because this split widened them to internal —
 // file scope does not reach an extension in another file, the same trap
 // `.claude/rules/testing.md` § "Splitting a Suite Across Files" records for
