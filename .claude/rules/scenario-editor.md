@@ -7,54 +7,12 @@ paths:
 
 # ScenarioEditor — Funnel Invariant
 
-`ScenarioEditorViewModel` holds a **dual buffer**: visual fields and
-`yamlText` are independent, each the source of truth for whichever mode
-the user last touched. Visual edits do not normalize the user's YAML
-(preserving comments, key order); YAML edits do not parse on every
-keystroke. The two sides reconcile at materialization via the private
-`currentScenario()` funnel. PR #336 introduced it after `save()` silently
-materialized from empty visual fields when the user had only ever touched
-YAML mode (`"Agent count (0)"` error).
-
-At the visual→YAML boundary the funnel emits through `ScenarioYAMLPatcher`
-([ADR-018](../../docs/decisions/ADR-018.md)): a scalar-only visual edit
-splices just the changed values into the existing `yamlText` so comments /
-key order survive, falling back to canonical `ScenarioSerializer` output for
-structural changes, block-scalar edits (`context`/`prompt`/`template`), or a
-blank/unparseable base. The patcher is a pure `(Scenario, base)` function fed
-by `buildScenario()`, so it does not add a visual-state read — the funnel and
-its count gate below stay intact.
+`ScenarioEditorViewModel` holds a **dual buffer**: visual fields and `yamlText` are independent, each authoritative for whichever mode the user last touched. They reconcile only at materialization, in the private `currentScenario()` funnel ([ADR-018](../../docs/decisions/ADR-018.md)).
 
 ## Invariant
 
-Every new callsite that needs a `(Scenario, yaml)` pair from the editor —
-save, export, preview, share — MUST route through `currentScenario()`.
-Reading `buildScenario()` or `serializer.serialize(...)` directly bypasses
-the mode dispatch and silently re-introduces the #336 drift class.
+Every callsite needing a `(Scenario, yaml)` pair from the editor — save, export, preview, share — MUST route through `currentScenario()`. Reading `buildScenario()` or `serializer.serialize(...)` directly bypasses the mode dispatch and silently re-introduces the drift class: materializing from empty visual fields when the user only ever touched YAML mode.
 
-## Automated gate
+## What the funnel gate does not cover
 
-`scripts/scenario-editor-funnel-gate.sh` counts `buildScenario()`
-occurrences across `Pastura/Pastura/App/ScenarioEditorViewModel*.swift` and
-fails when the count `!= 3` (1 private declaration + 2 sanctioned callsites
-in `switchToYAMLMode()` and `currentScenario()`). It runs in the git
-pre-commit hook (self-gates on the VM glob) and the CI
-`scenario-editor-funnel-drift` job. Manual check:
-
-```
-grep -oF 'buildScenario()' Pastura/Pastura/App/ScenarioEditorViewModel.swift | wc -l
-```
-
-The count is a **re-evaluation trigger, not a correctness proof**:
-
-- **> 3** — a new consumer reads visual state directly. Route it through
-  `currentScenario()`, or treat it as the trigger to revisit the editor
-  source-of-truth design ([ADR-018](../../docs/decisions/ADR-018.md), the
-  format-preserving boundary that resolved #725).
-- **< 3** — a sanctioned callsite was dropped; same re-evaluation gate.
-- **A count of 3 with a NEW direct visual-state read** still violates the
-  funnel. The Swift behavioral tripwire (`visualModeSavePreservesExtraData`
-  in `ScenarioEditorViewModelTests`) is the backstop.
-
-If the VM is ever split into `ScenarioEditorViewModel+*.swift`, revisit the
-expected count in the gate.
+`scripts/scenario-editor-funnel-gate.sh` counts `buildScenario()` occurrences, so a count of exactly 3 with a sanctioned callsite swapped for a **new** direct visual-state read still passes; `ScenarioEditorViewModelTests.visualModeSavePreservesExtraData` is the behavioural backstop. If the VM is split into `ScenarioEditorViewModel+*.swift`, revisit the expected count.

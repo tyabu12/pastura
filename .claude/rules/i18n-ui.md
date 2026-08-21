@@ -9,192 +9,95 @@ paths:
 
 # i18n Rules — UI layer
 
-The UI half of the i18n rules. `i18n.md` carries the layer-independent callsite core (Form A vs Form B) and loads on **every** app-target Swift read, so its `§` references resolve from here — but not the reverse, which is why the core only ever *points* at this file and never depends on it.
-
-**Before adding or moving a section**, read `docs/i18n/leak-detection.md` § "Rule-file layering" — it carries the two-arm placement criterion, the measured gaps where each arm is time-indexed rather than structural, and why the `paths:` arms beyond `Views/` are there.
+`i18n.md` carries the layer-independent callsite core.
 
 ## Plurals — the sanctioned exception to Form B
 
-Form B (`i18n.md` § "Format-string pattern") does **not** pluralize: `String(format:)`
-substitutes the count *after* the catalog lookup, so the same form renders for every
-count ("1 records"). A count-aware plural needs the count to reach the localization
-layer — **interpolation** is correct here and nowhere else.
+Form B substitutes the count *after* the lookup, so one form renders for every count ("1 records").
+A plural needs the count to reach the localization layer, so **interpolation is correct here and
+nowhere else**.
 
-Three rules, all load-bearing (first plural: `"%lld records"`, UR-003):
+1. **The callsite is the SwiftUI `Text("\(count) records")` form** — the `Int` interpolation drives
+   variant selection. Not `String(localized: "…\(x)…")`, which SwiftLint blocks; nothing outside
+   `Text` is sanctioned.
 
-1. **Callsite must be the SwiftUI `Text("\(count) records")` form.** The Int
-   interpolation drives String-Catalog variant selection. **Not**
-   `String(localized: "...\(x)...")` — the `form_a_localized_interpolation`
-   SwiftLint rule (severity error) blocks it; its regex can't tell an
-   Int-plural count from the Form A String-substitution hazard. **Not** Form B
-   (no variant selection, see above). For non-`Text` contexts, no plural form
-   is currently sanctioned — add one here when first needed.
-
-2. **Catalog shape** (en gets `variations.plural`, ja stays single-form):
+2. **Catalog shape** — `en` gets `variations.plural`, `ja` stays single-form. Japanese CLDR has
+   only `other`: never invent a `ja` plural bucket; its `stringUnit` resolves for every count,
+   n=0 included.
    ```json
-   "%lld records" : {
-     "extractionState" : "manual",
-     "localizations" : {
-       "en" : { "variations" : { "plural" : {
-         "one"   : { "stringUnit" : { "state" : "translated", "value" : "%lld record" } },
-         "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld records" } }
-       } } },
-       "ja" : { "stringUnit" : { "state" : "translated", "value" : "%lld 回の記録" } }
-     }
-   }
+   "%lld records" : { "extractionState" : "manual", "localizations" : {
+     "en" : { "variations" : { "plural" : {
+       "one" : { "stringUnit" : { "state" : "translated", "value" : "%lld record" } },
+       "other" : { "stringUnit" : { "state" : "translated", "value" : "%lld records" } } } } },
+     "ja" : { "stringUnit" : { "state" : "translated", "value" : "%lld 回の記録" } } } }
    ```
-   Japanese CLDR has only `other` — do **not** invent a `ja` plural bucket; its
-   plain `stringUnit` resolves for every count. n=0 falls to en `other`.
 
-3. **`extractionState: "manual"` is mandatory on the key.** The COMPILER
-   extracts `"%lld records"` from `Text("\(count) records")` (it knows
-   `count: Int` → `%lld`), so the runtime works — but the wrapper's
-   source-based `xcstringstool extract` (no type info) cannot resolve the
-   interpolation, so its sync marks the key `stale` on **every**
-   `scripts/xcodebuild.sh build`. `manual` opts the key out of auto-sync
-   staling/pruning. Without it: perpetual stale churn (and a misleading
-   "drift" signal). Verify post-build with `git diff` — the key must stay
-   `manual`, not flip to `stale`.
+3. **`extractionState: "manual"` is mandatory.** The compiler extracts `"%lld records"` knowing
+   `count: Int`, so the runtime works — but the source-based extract has no type info and marks the
+   key `stale` on **every** `scripts/xcodebuild.sh build`; `manual` opts it out — verify post-build
+   with `git diff` that the key stayed `manual`.
 
-**Coverage is blind to the en plural.** `check_localization_coverage.py`'s
-`_validate_source_locale` reads `localizations.en.stringUnit` directly; a plural
-en block has no direct `stringUnit` (it lives under `variations.plural.*`), so it
-early-returns and never checks the `one`/`other` states. Confirm both are
-`"translated"` by hand / via the runtime test below.
-
-Test it two ways (canonical:
-`Pastura/PasturaTests/Localization/RecordsCountPluralTests.swift`):
-
-- **Structure** — a catalog-JSON change-detector (read the xcstrings via
-  `#filePath`) guards the `variations.plural` blocks + the `manual` flag from a
-  future sync flattening them.
-- **Runtime firing** — the actual regression (n=1 → "1 records"). Resolve the key
-  against the COMPILED catalog and assert literals:
-  `String(localized: "\(1) records", bundle: Bundle(for: <AppClass>.self), locale: Locale(identifier: "en")) == "1 record"`.
-  Naming the **app** bundle explicitly (`Bundle(for:)`) keeps it
-  non-tautological — the target is app-hosted, so `Bundle.main` resolves to the
-  same bundle, but relying on that is implicit. Pure
-  Foundation resolution is ADR-009-compatible (no ViewInspector). `String(localized:
-  "…\(x)…")` is fine in **test** code — the `form_a_localized_interpolation`
-  SwiftLint rule scopes to app source only. **The `en` pin works because the
-  runner's process localization resolves to `en`** (`Bundle.preferredLocalizations`),
-  not because `en` is the source language — `locale:` picks the plural rule, not
-  the `.lproj` table. Read `view-testing.md` § "Non-base-locale expectations"
-  before asserting a `ja` value at runtime.
-
-Device / ja-locale QA is still worth a glance, but the runtime test — not manual
-QA — is the load-bearing firing signal.
+**Coverage is blind to the en plural**: `check_localization_coverage.py` reads
+`localizations.en.stringUnit`, which a plural block has not, so it early-returns without checking
+`one` / `other`. Confirm both by hand; pin them in `Localization/RecordsCountPluralTests.swift`. That runtime test
+is the only firing signal: assert the rendered string for n=1 (structure alone is a change
+detector), resolve through `Bundle(for:)` so the assertion is not a tautology, and read
+`view-testing.md` § "Non-base-locale expectations" before pinning a `ja` value.
 
 ## SwiftUI convenience-init label trap
 
-SwiftUI convenience-init labels (`Stepper`, `Toggle`, `Picker`, `Slider`,
-`Section`, etc.) accept `LocalizedStringKey`, not `String`. When the Swift
-literal contains `\(...)` interpolation, the **entire runtime-interpolated
-string** becomes the catalog lookup key. xcstringstool extracts the format
-template (`"Chance: %@"`) at compile time, but at runtime the lookup key
-is the literal value (`"Chance: 0.5"`) — catalog miss → English fallback,
-even when locale is `ja`.
+Convenience-init labels (`Stepper`, `Toggle`, `Picker`, `Slider`, `Section`) take
+`LocalizedStringKey`, so a literal containing `\(...)` makes the **runtime-interpolated string** the
+lookup key: extract writes `"Chance: %@"`, the runtime looks up `"Chance: 0.5"` — catalog miss,
+English fallback, even on `ja`.
 
 ```swift
-// ✗ Silent fallback on ja locale — runtime "Chance: 0.5" misses catalog
+// ✗ runtime "Chance: 0.5" misses the catalog
 Stepper("Chance: \(formattedProb)", value: $prob, in: 0...1)
-
-// ✓ Label-closure form + canonical String(format:) call
+// ✓ label closure + String(format:)
 Stepper(value: $prob, in: 0...1) {
   Text(String(format: String(localized: "Chance: %@"), formattedProb))
 }
 ```
 
-Same pattern for `Toggle("...\(x)...", isOn:)`, `Picker("...\(x)...",
-selection:)`, etc. Switch to the explicit label-closure overload and
-format the string through the canonical `String(format: String(localized:))`
-path documented in `i18n.md` § "Format-string pattern". That file's § "Form A is a
-runtime hazard at user-facing callsites" is this trap's `String(localized:)` sibling —
-same silent English fallback from a `\(…)`-interpolated literal.
-
 ### Why Tier 1 / Tier 2 don't catch this
 
-- **Tier 1 SwiftLint tripwire**: the literal is technically already inside
-  a "localization-aware" callsite (`Stepper`'s `LocalizedStringKey` overload),
-  so the heuristic-based unwrapped-string detector treats it as covered.
-- **Tier 2 audit (`scripts/check_i18n_potential_keys.py`)**: may or may
-  not surface depending on how Swift extracts the format string from the
-  `LocalizedStringKey` initializer. Tier 2 empirically missed multiple
-  instances — see PR #423 for the case-study triage.
-
-### Detection grep
+Tier 1 treats the literal as covered (it is inside a `LocalizedStringKey` callsite); Tier 2 sees
+the format template, not the runtime key. Grep:
 
 ```
 rg '(Stepper|Toggle|Picker|Slider|Section)\("[^"]*\\\(' --type swift
 ```
 
-Run before any i18n slice that touches Editor / Settings / Form-heavy
-surfaces.
-
 ## A custom func's `LocalizedStringKey` parameter is not extracted
 
-Factoring a repeated row/label into a helper raises the question of how to type
-its text parameter. There is no free answer — each shape trades one silent
-failure for another:
+Each shape for a helper's text parameter trades one silent failure for another:
 
-| Helper signature | Caller | Extraction | Residual risk |
-|---|---|---|---|
-| `title: String` + `Text(title)` | `String(localized: "Rate Pastura")` | ✅ auto-tracked | a future caller passing a **raw literal** leaks silently — Tier 1 + Tier 2 are both blind (§ "Why Tier 1 / Tier 2 don't catch this") |
-| `title: LocalizedStringKey` | `"Rate Pastura"` | ❌ key flips to `stale` on **every** `scripts/xcodebuild.sh build` | — |
-| `title: LocalizedStringKey` **+ `extractionState: "manual"`** | `"Rate Pastura"` | ✅ survives (opted out of auto-sync) | a later **rename** of the literal leaves the old key orphaned and the new one absent — and coverage cannot fail on a key that isn't there (same blind spot as § "`#if DEBUG` strings are not auto-extracted to the catalog") |
+- `title: LocalizedStringKey` with a bare literal at the callsite — the source-based extract cannot
+  tell that literal is a key, and flips it `stale` every build.
+- the same plus `extractionState: "manual"` survives, but a later **rename** orphans the old key and
+  leaves the new one absent — coverage cannot fail on a key that isn't there.
 
-Why row 2 fails: `scripts/xcodebuild.sh build` runs a **source-based**
-`xcstringstool extract` with no type information, so it cannot tell that a bare
-literal at a *custom* function's callsite is a localizable key. It sees the
-literals disappear and marks them `stale`. (Distinct from § "SwiftUI
-convenience-init label trap", which is about SwiftUI's *own* `LocalizedStringKey`
-initializers and interpolation — this one has no interpolation and still fails.)
-
-Row 3 is the § "Plurals — the sanctioned exception to Form B" rule-3 escape hatch applied here, and it works. Both
-rows measured 2026-07-27 on `SettingsView.externalLinkRow`: switching the
-parameter flipped `"Privacy Policy"` and `"Rate Pastura"` to
-`"extractionState" : "stale"`; adding `manual` held them across two consecutive
-builds with `check_localization_coverage.py` green.
-
-**Apply**: prefer row 1 — keep `String`, keep `String(localized:)` at every
-callsite, and put the contract in the helper's doc comment. Row 1's failure
-needs a future contributor to add a caller *and* ignore that contract; row 3's
-fires on an ordinary copy rename, silently, on keys that already ship. Reach for
-row 3 once a helper has enough callers that a doc comment stops being a credible
-gate. Canonical: `SettingsView+Feedback.swift` `externalLinkRow`.
+**Apply**: prefer `title: String` with `String(localized:)` at every callsite, contract in the doc
+comment. See `SettingsView+Feedback.swift`.
 
 ## `#if DEBUG` strings are not auto-extracted to the catalog
 
-**Distinct root cause from `i18n.md` § "Form A is a runtime hazard at user-facing callsites"**: there the key
-exists in the catalog but the runtime-substitution form misses it; here the key
-**never enters the catalog at all**. A new `String(localized: "…")` inside a
-`#if DEBUG` block is NOT added to `Localizable.xcstrings` by
-`scripts/xcodebuild.sh build`'s auto-sync — even on a second build. The wrapper
-runs `xcstringstool extract` + `sync` *before* the xcodebuild that emits the
-`.stringsdata`, and extract does not traverse the `#if DEBUG` branch reliably, so
-the key stays absent. `check_localization_coverage.py` then **passes** — the key
-simply isn't present to fail on — yet on a ja device the string falls back to the
-English literal.
-
-**Fix:** add the key to the catalog **manually** (Apple-canonical alphabetical
-position, ` : ` separators), build once, and confirm sync **keeps** it (a used key
-in the Debug `.stringsdata` is retained). Don't rely on auto-sync for `#if DEBUG`
-user-facing strings.
+A `String(localized: "…")` inside `#if DEBUG` never reaches the catalog: the wrapper extracts and
+syncs before the build emits the `.stringsdata`, and extract does not traverse the branch.
+Coverage then **passes** — no key to fail on — yet a `ja` device falls back to English. Add it
+**manually** (canonical alphabetical position, ` : ` separators), build once, and confirm sync
+keeps it.
 
 ## Audit triage — `.accessibilityLabel` candidates
 
-For i18n Tier 2 audit candidates whose target is `.accessibilityLabel(...)`, run two checks before deciding wrap-vs-skip:
+Two checks at plan time, before wrap-vs-skip:
 
-1. **Grep callsites first.** Extension-property getters (`var accessibilityLabel: String { ... }`) sit far from their application site — easy to misclassify as Preview-only when the getter is in a sibling extension and the application is in a `body` 100+ lines away.
+1. **Grep the callsites first** — extension-property getters sit far from their application site
+   and read as Preview-only. `rg '<propertyName>' --type swift`, looking for
+   `.accessibilityLabel(<propertyName>)`.
 
-   ```
-   rg '<propertyName>' --type swift
-   ```
-
-   Look for `.accessibilityLabel(<propertyName>)` form.
-
-2. **Evaluate semantic before wrapping.** When the candidate string is an **identifier** (color slot, role, layout slot) rather than a translatable label, the right fix is `.accessibilityHidden(true)` (decorative) or a different a11y descriptor — NOT wrap with `String(localized:)`. Wrapping commits wrong semantics to translators and may amplify a pre-existing VoiceOver dissonance (en label already misleading; ja makes it worse).
-
-Apply during initial plan drafting, not at critic time — saves a Critical-verdict re-revision cycle.
-
-Canonical case study: `Pastura/Pastura/Views/Components/SheepAvatar.swift` `Character.accessibilityLabel` returned color-slot canonical names ("Alice"/"Bob"/"Carol"/"Dave"), not agent display names. Wrapping with ja would have committed those as translatable personal names and amplified the VoiceOver dissonance for ja-locale users. Fix: `.accessibilityHidden(true)` (avatar is decorative; adjacent `Text(agent)` carries identity).
+2. **Evaluate the semantic.** When the string is an **identifier** (color slot, role, layout slot)
+   rather than a translatable label, the fix is `.accessibilityHidden(true)` or another a11y
+   descriptor — a wrap commits wrong semantics to translators and worsens VoiceOver dissonance.
+   See `SheepAvatar.swift`.

@@ -10,12 +10,7 @@ paths:
 
 # Build & Lint Traps
 
-Traps that fire when **adding or naming a Swift file**, or when writing about
-SwiftLint in a Swift comment — hence the globs above, the union of their reach.
-
-Each gate below names what failed and why. What no gate can do is pick your new
-filename, remove the *need* for a directive, or read a sentence. That residue is
-all the sections carry.
+No gate can pick your filename, remove the *need* for a directive, or read a sentence. That residue is all the sections carry.
 
 | Trap | Gate |
 |---|---|
@@ -27,59 +22,16 @@ all the sections carry.
 
 ## Duplicate base filename → `.stringsdata` collision
 
-Pastura's `PBXFileSystemSynchronizedRootGroup` auto-includes every new file under
-`Pastura/`, so the name you pick can collide **cross-layer**, with a file three
-directories away that you never opened.
-
-**Apply**: rename to something distinct — and rename the type too if it also
-clashes. Case study: #759 renamed a new `ScenarioSummary.swift` (Views) that
-collided with the Data-layer `ScenarioSummary` → `ScenarioSummaryStrip`.
+`PBXFileSystemSynchronizedRootGroup` auto-includes every file under `Pastura/`, so a name can collide **cross-layer** with a file you never opened. Rename to something distinct — and rename the type too if it also clashes.
 
 ## SwiftLint directive placement around a `///` doc comment
 
-Both placements fail (see the roster), so don't relocate the directive — remove
-the need for it:
-
-- `function_body_length` → **extract a helper** so each body stays under the
-  threshold. Ref: `BundledDemoReplaySource.loadOne` → `buildSourceOrSkip`.
-- `identifier_name` (short domain identifiers like `ja` / `en`) → add a
-  **`.swiftlint.yml` `identifier_name.excluded`** entry (ref: the `ja` / `en`
-  exclusions consumed by `pickLanguage(_:ja:en:)`), or rename to 3+ chars.
-
-Suppressing the doc-comment rule is not an option either: a `disable`/`enable`
-pair inside a block splits it into an `orphaned_doc_comment`. Reword — name the
-directive, don't spell it.
+Both placements fail, so remove the *need* for the directive: `function_body_length` → extract a helper (`BundledDemoReplaySource.loadOne` → `buildSourceOrSkip`); `identifier_name` on a short domain identifier → an `.swiftlint.yml` `identifier_name.excluded` entry. A `disable`/`enable` pair inside a block only splits it into an `orphaned_doc_comment`.
 
 ## Prose ABOUT a directive is parsed AS one
 
-The comment-command parser scans every `//` comment **and honours a directive
-mid-sentence**, so one sentence quoting a directive's literal text applies it —
-the rule really is disabled.
-
-**Do not count on a diagnostic.** Two unrelated rules happen to catch some
-shapes and neither is about prose (measured on 0.65.0, each variant against a
-bare-violation control): a non-rule word after the rule name draws
-`superfluous_disable_command`; a blanket `disable` never re-enabled draws
-`blanket_disable_command`. Miss both — a `:next` form, or a blanket pair that
-*is* re-enabled — and the suppression is silent.
-
-**Apply**: in a **Swift** comment, name a directive rather than spelling it — "a
-blanket `file_length` disable directive on line 6", not the text itself. The
-examples here are spelled out because this file is Markdown, which SwiftLint does
-not scan; that asymmetry is the whole trap, so do not read them as licence to
-quote a directive in a `.swift` file.
+The parser honours a directive **mid-sentence**, so a `//` comment quoting a directive's literal text applies it — the rule really is disabled, build and lint green. Name the directive rather than spelling it. The examples here are spelled out only because Markdown is not scanned; that asymmetry is the trap, not licence to quote one in a `.swift` file.
 
 ## `swiftlint --path <file>` is not an option, and its error reads as "clean"
 
-`swiftlint lint --path X` exits with `Error: Unknown option '--path'` (the
-positional form `swiftlint lint [options] [paths...]` is the real one). A probe
-that greps that output for a rule name finds nothing and concludes the rule did
-not fire. Measured 2026-08-21 (0.65.0, #1505); a wrapper would only protect
-whoever used it, hence the roster's "deliberately".
-
-**Apply**: to test whether a rule fires, put the fixture **inside**
-`.swiftlint.yml`'s `included:` tree and run the form the gates run
-(`scripts/git-hooks/pre-commit`, `ci.yml`): `swiftlint lint --strict`. Two things
-genuinely suppress a rule and are easy to mistake for "not enabled" — a fixture
-outside `included:` (path-independent rules still fire there, so the run looks
-live), and a file-level disable directive already in the target file.
+`swiftlint lint --path X` exits `Error: Unknown option '--path'`, so a probe grepping that output for a rule name concludes the rule did not fire. Put the fixture **inside** `.swiftlint.yml`'s `included:` tree and run `swiftlint lint --strict`. Two things suppress a rule while reading as "not enabled": a fixture outside `included:` (path-independent rules still fire there, so the run looks live), and a file-level disable directive already in the file.

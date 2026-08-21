@@ -8,91 +8,28 @@ paths:
 
 # View Testing Strategy
 
-Decision record: [ADR-009](../../docs/decisions/ADR-009.md). Operational
-rule below.
+Decision record: [ADR-009](../../docs/decisions/ADR-009.md). Operational rule below.
 
 ## Rule
 
-1. **Extract View logic to unit-tests.** When adding a new View,
-   identify its logic surface (validation rules, formatting, computed
-   display state) and put that into a unit test in
-   `Pastura/PasturaTests/Views/` following the existing patterns
-   (`AgentOutputRowContractTests`, `PersonaEditorSheetValidationTests`,
-   `DesignTokensTests`, etc.). Assert against pure-logic properties,
-   never rendered output.
-
-2. **UI tests for the navigation-integration boundary only.** Add to
-   `Pastura/PasturaUITests/` only when the regression target cannot be
-   reached from pure logic. The existing 3 model the bar:
-   `NavigationRegressionTests`, `BackGestureTests`, `EditorReloadTests`.
-   (`ScreenshotTourTests` is a review-only capture tour — ADR-009
-   decision 5, CI-skipped — and does not count against this bar.)
-
-3. **Do NOT introduce ViewInspector or swift-snapshot-testing.** Both
-   add third-party-library risk (Xcode-major refresh cadence) and CI
-   flakiness without catching the timing-class bugs that dominate
-   Phase 2 fix history. Full rationale in ADR-009.
-
-4. **Frame / animation-timing bugs are not in scope** for automated
-   tests. Defer to manual QA + code-review gatekeeping. PRs #252, #249,
-   #150 are case-study patterns.
+1. **Extract View logic to unit tests** in `Pastura/PasturaTests/Views/`, asserting pure-logic properties, never rendered output.
+2. **UI tests for the navigation-integration boundary only**, when the target cannot be reached from pure logic. The CI-skipped `ScreenshotTourTests` capture tour does not count against this bar.
+3. **Do NOT introduce ViewInspector or swift-snapshot-testing.**
+4. **Frame / animation-timing bugs are out of scope**; defer to manual QA and code review.
 
 ## Change-detector tripwire for code-review-gated tokens
 
-When a visual / timing surface is code-review-gated only (rule 4) and has
-no manual trigger to *see* it, extract its load-bearing layout / timing
-constants into a named enum and add a **change-detector** unit test that
-asserts each value. A failure is NOT a bug — it means a code-review-gated
-token drifted (typically in an unrelated refactor) and the editor must
-confirm the change passed review, then update the expected value. This
-narrows the silent-drift regression window without rendering the View, so
-rule 3 (no ViewInspector / snapshot) still holds. Frame the intent in the
-test's doc-comment, or the next contributor will (fairly) delete it as
-tautological.
+Extract a code-review-gated surface's load-bearing constants into a named enum and pin each value in a unit test. A failure is not a bug — the token drifted, usually in an unrelated refactor — so confirm the change passed review, then update the expectation; say so in the test's doc comment.
 
-`Equatable` is necessary but **not sufficient**. `SwiftUI.Font` /
-`AnyTransition` aren't `Equatable` at all — leave those inline and
-code-review-gate them. `Color` *is*, yet a `PasturaDynamicColor`-backed alias
-compares by provider instance, so asserting that two tokens **differ** passes
-and can never fire whenever either side is paired (two *fixed* aliases do
-compare by value). Pin *which token* a consumer reads
-(`style.fillToken == Color.moss` — one `static let` against itself); leave *what
-value* it carries to `DesignTokensTests`. Probe + the fixed-appearance exception:
-`ScenarioBadgeStyleTokenTests` (#1296) and `swiftui-traps.md` § "`ImageRenderer`
-does not inherit the ambient environment".
+`Equatable` is necessary but **not sufficient**. `SwiftUI.Font` / `AnyTransition` are not `Equatable` at all — leave those inline and code-review-gate them. `Color` is, yet a `PasturaDynamicColor`-backed alias compares by **provider instance**, so an assertion that two tokens *differ* passes vacuously and can never fire whenever either side is paired (two *fixed* aliases do compare by value). Pin *which token* a consumer reads (`style.fillToken == Color.moss`); leave *what value* to `DesignTokensTests`. Fixed-appearance exception: `swiftui-traps.md` § "`ImageRenderer` does not inherit the ambient environment".
 
-**Extracting a View's inline colours into accessors so a pin can read them leaves
-the pin blind to `body`**: two places now decide the colour, and a `body` that
-re-inlines a token diverges while the accessor pin stays green. ADR-009 rules out
-the snapshot that would close it mechanically, so keep `body` free of `Color.`
-references — the divergence is then a grep — and say so where the extraction
-lives. `PredictionOutcomeBadge` + `PredictionOutcomeBadgeTokenTests` (#1427);
-`ContradictionBadge` is the same shape, still inline and code-review-gated.
-
-Canonical example: `LanguageDriftToastLayout` + `LanguageDriftToastLayoutTests`
-(the `.languageMismatch` drift toast; #456 / ADR-009 § Amendment 2026-06-23).
-
-Full Why + alternatives + revisit triggers:
-[ADR-009](../../docs/decisions/ADR-009.md).
+**Extracting inline colours into accessors so a pin can read them leaves the pin blind to `body`** — two places now decide the colour, and a `body` that re-inlines a token diverges while the accessor pin stays green. Snapshots are ruled out, so keep `body` free of `Color.` references and the divergence is a grep. Reference: `PredictionOutcomeBadgeTokenTests`.
 
 ## Non-base-locale expectations
 
-`locale:` in `String(localized:bundle:locale:)` selects the plural / format
-**rule** only — the `.lproj` table follows the *process's* localization
-(`Bundle.preferredLocalizations`). So a `ja` pin against the app bundle
-silently returns the `en` value, and a guard built on one asserts nothing
-about ja. Probed 2026-07-27 on the simulator test runner: `locale: ja` on
-`"%lld records"` → `1 records`, i.e. ja's `other`-only rule applied to the
-**en** table (`ja.lproj` ships; it is simply not selected).
+`locale:` in `String(localized:bundle:locale:)` selects the plural / format **rule** only — the `.lproj` table follows the process's localization, so a `ja` pin against the app bundle silently returns the `en` value and asserts nothing about ja.
 
-Three working shapes: pin the locale the **runner already resolves to**
-(`RecordsCountPluralTests` pins `en` on an en simulator); assert other
-locales against the catalog JSON — the change-detector shape above
-(`StoreCaptureTabLabelTests`); or, for a real runtime resolution, scope the
-bundle to the table itself. **Both** layers of that last one are optional
-(`path(forResource:)` is `String?` *and* `Bundle(path:)` is failable), so
-unwrap twice — `#require` over `!` for a located failure, not because Hard
-Rule 1 applies (test code is exempt from it):
+Three working shapes: pin the locale the **runner already resolves to** (`RecordsCountPluralTests`); assert other locales against the catalog JSON as a change detector (`StoreCaptureTabLabelTests`); or scope the bundle to the table itself. **Both** layers of that last one are optional (`path(forResource:)` is `String?` *and* `Bundle(path:)` is failable), so unwrap twice — `#require` over `!` for a located failure, not because Hard Rule 1 applies (test code is exempt):
 
 ```swift
 let jaPath = try #require(appBundle.path(forResource: "ja", ofType: "lproj"))

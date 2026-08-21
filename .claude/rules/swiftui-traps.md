@@ -7,12 +7,6 @@ paths:
 
 # SwiftUI / Swift 6 Traps
 
-Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface during Pastura UI development. Loaded when a file in the UI layers is read (an edit reads it first).
-
-**Scope** — globs **identical to `navigation.md`'s**, deliberately: every trap here is *entered from* a UI-layer file, and `PasturaApp.swift` is the only file outside `Views/` / `App/` that imports SwiftUI (`grep -rl "import SwiftUI" Pastura/Pastura --include='*.swift'`). Not every one is a *SwiftUI* trap — the `Color`-token workflow trap stays here because its entry point is `DesignTokens+*.swift`. Traps with no UI entry point live in `build-traps.md`; `navigation.md` carries the navigation pattern, this file is the trap catalog.
-
-**Do not relocate the occlusion / `ImageRenderer` / `Color`-token sections to `docs/`** on a byte-count audit — ADR-028 names this file their *operational form* (`:380`, `:391`) and records the promotion (`:1946`), and `docs/qa/dark-mode-qa.md:8` points back here, so the move is circular (#1429 comment 1).
-
 ## Toolbar-hide API matrix (iOS 17 → 26)
 
 | API | Bar removed | Chevron preserved | Swipe-back preserved |
@@ -22,447 +16,112 @@ Aggregation point for SwiftUI footguns and Swift 6 isolation quirks that surface
 | `.navigationBarBackButtonHidden(true)` | No (bar stays) | No (button hidden) | iOS 17–18: yes / **iOS 26: NO** |
 | `.toolbarBackground(.hidden, for: .navigationBar)` | No (bar stays) | Yes | Yes |
 
-Root cause for the iOS 26 regression on `.navigationBarBackButtonHidden(true)`: SwiftUI sees "no back affordance" and disables `interactivePopGestureRecognizer` system-wide.
-
-**Apply**:
-
-- "Reclaim nav bar space" → **fill-the-bar**: `.toolbarBackground(.hidden, for: .navigationBar)` + `ToolbarItem(.principal)` (Apple HIG; Messages / Slack / Telegram all do this). Do NOT use `.toolbar(.hidden)` even with UIKit-Introspect escape hatches.
-- "Replace system back chevron" → `PasturaBackButton` (see `.claude/rules/navigation.md` § Custom back button). The reference impl `Pastura/Pastura/Views/Components/PasturaBackButton.swift` mounts a UIKit-bridge probe that reinstalls the gesture recognizer.
-- **Simulator-only QA is not load-bearing for these.** Real-device verification required on iOS 26 visual changes specifically.
-
-Architectural rationale: [ADR-008 §Amendment 2026-05-10](../../docs/decisions/ADR-008.md).
+iOS 26 root cause: with the back button hidden SwiftUI sees "no back affordance" and disables `interactivePopGestureRecognizer` system-wide. **Simulator-only QA is not load-bearing for these** — verify on a real device. To reclaim nav-bar space, **fill the bar** — `.toolbarBackground(.hidden, for: .navigationBar)` + `ToolbarItem(.principal)` — never `.toolbar(.hidden)`.
 
 ## TabView tab-bar SF Symbol auto-fill (iOS 15+)
 
-A native `TabView` tab bar auto-applies the `.fill` SF Symbol variant to
-**every** tab icon (iOS 15+). If you drive the active/inactive
-outline↔fill distinction yourself (e.g. `house` ↔ `house.fill`), the
-auto-fill overrides it — every tab renders filled in both states and the
-distinction is erased.
-
-**Apply**: add `.environment(\.symbolVariants, .none)` to each tab
-`Image` to disable the auto-variant, then let your own `isActive`-driven
-symbol name carry the fill toggle. The modifier is LOAD-BEARING —
-removing it silently re-fills every tab.
-
-Reference impl + full rationale: the LOAD-BEARING comment in
-`Pastura/Pastura/App/RootTabView.swift` (`symbolName(for:isActive:)`).
-
-The a11y modifiers on that same `tabIcon` `Image` are separately unreliable
-— structural `Tab` drops them from the XCUITest tree on some launches, so
-adding another identifier there fixes nothing. See `uitest-traps.md`
-§ "structural `Tab`'s a11y overlay is a per-launch coin toss".
+A native `TabView` bar auto-applies the `.fill` variant to **every** tab icon, silently erasing an outline↔fill distinction you drive yourself. **Apply** `.environment(\.symbolVariants, .none)` on each tab `Image`; removing it re-fills every tab. Reference: `App/RootTabView.swift` (`symbolName(for:isActive:)`).
 
 ## NavigationStack in-place top-route replace (`AppRouter.replaceTop`)
 
-Replacing the **top route in place** in a `NavigationStack` path
-(`AppRouter.replaceTop`, used by the ScenarioDetail cross-language toggle)
-is NOT a push, and trips two **device-only** traps (neither reproduces in
-simulator reasoning). Why replace rather than push: ja/en variants are
-distinct `Route`s, so pushing grows the stack unboundedly on repeated
-toggling and `pushIfOnTop` cannot dedupe them.
+Replacing the top route **in place** is not a push, and trips two **device-only** traps.
 
-1. **Leaf identity is reused by stack position, not by `Route` value.** A
-   load-once view (`.task { guard viewModel == nil }`) keeps showing the
-   PRIOR data after a swap — `.task` never re-fires. **Fix:** key the load
-   on the changing field — `.task(id: scenarioId)` (drop the guard; build
-   the new VM fully before assigning to avoid a ProgressView flash).
-2. **Scroll offset is restored by nav position.** Even `.id(scenarioId)` on
-   the leaf (full subtree rebuild) does NOT reset it. **Fix:**
-   `ScrollPosition.scrollTo(edge: .top)` (iOS 18+, bound via
-   `.scrollPosition(_:)`) — lands at true offset 0 so a `.large` nav title
-   re-expands. `ScrollViewReader.scrollTo(_:anchor:.top)` is NOT equivalent:
-   it aligns the first item one title-height below 0 and collapses the large
-   title to inline (#830).
+1. **Leaf identity is reused by stack position, not `Route` value**: a load-once view (`.task { guard viewModel == nil }`) keeps showing the PRIOR data, since `.task` never re-fires. **Fix**: `.task(id: scenarioId)` without the guard, building the new VM fully before assigning to avoid a `ProgressView` flash.
+2. **Scroll offset is restored by nav position**, and `.id(scenarioId)` does not reset it. **Fix**: `ScrollPosition.scrollTo(edge: .top)` (iOS 18+, via `.scrollPosition(_:)`) lands at true offset 0 so a `.large` title re-expands; `ScrollViewReader.scrollTo(_:anchor:.top)` instead aligns one title-height below 0 and collapses the title.
 
-Reference impls: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
-`replaceTop` is a navigation-path mutator alongside `push`/`pop` — see
-`navigation.md` § AppRouter scope.
+Reference: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
 
 ## Production-side-effecting service: inject at View boundary
 
-When introducing a **production-only side-effecting service** (LLM-output detector, telemetry analyzer, content-rewriting filter, on-the-fly classifier, A/B-flag injector), inject it at the **View boundary**, NOT as a default value on the VM's `init()` signature.
+VM `init()` defaults run **in tests too**, so a production-only side-effecting service defaulted there is silently live in fixture tests: `SimulationRunner(detector: NLLanguageDetector())` fires on every output, drains the `MockLLMService` queue, and cascades into "Mock exhausted".
 
-**Why**: VM `init()` default arguments run **in tests too**. A fixture-driven test constructing the VM via the no-arg overload silently gets the production service — a default `SimulationRunner(detector: NLLanguageDetector())` fires on every output, consuming the pre-loaded `MockLLMService` queue → cascading "Mock exhausted" errors.
-
-### Apply
-
-- VM `init()` default for production-only services: **leave nil-equivalent** (`SimulationRunner()`, `ContentFilter.passthrough`, etc.). Tests get back-compat behavior.
-- Add production injection at the **consuming View** in App layer (e.g., `SimulationView` constructs `SimulationViewModel(runner: SimulationRunner(detector: …))`).
-- Add a one-line comment at the View injection site noting *why* the default isn't on the VM — saves the next refactor from "helpfully" moving it back.
-
-### Detection rule
-
-If adding `Foo` to `VMInit` would cause `VMInit(repo: …)` (no `foo:` arg) to behave differently in tests, push the default down to the View. Pure-data services (config readers, immutable repositories) don't have this problem.
+**Apply**: keep the VM default nil-equivalent (`SimulationRunner()`, `ContentFilter.passthrough`) and construct the real service at the consuming View. If adding `foo:` would change how `VMInit(repo: …)` behaves in tests, push the default down; pure-data services are exempt. Reference: `Views/Simulation/SimulationView.swift` (`SimulationRunner(detector:)` built at the View).
 
 ## SwiftUI drag & drop inside List / Form
 
-`.dropDestination(for:action:isTargeted:)`'s **`isTargeted` closure never
-fires** inside `List` / `Form` rows on iOS 17–26 (FB12980427 / FB21980712,
-unfixed by Apple as of 2026-04). The drop action fires on release, but
-hover feedback is silent. macOS works correctly. `DropDelegate.dropEntered`
-/ `dropExited` are reported to work in `List` but empirically also failed
-in `Form` rows on iOS 26 simulator.
+`.dropDestination`'s **`isTargeted` closure never fires** inside `List` / `Form` rows on iOS 17–26 (FB12980427 / FB21980712): the action fires on release, so the feature looks wired up while hover feedback is dead. `DropDelegate.dropEntered` / `dropExited` also failed in `Form` rows.
 
-Apple's `.onMove(perform:)` is **deliberately single-`ForEach` only** — moving items
-between two `ForEach` instances is unsupported by design, HIG has no cross-collection
-drag pattern, and Apple's documented alternative is the **context-menu "Move to X"
-action**.
-
-### Apply
-
-Answer first, before designing:
-
-- Same-collection reorder? → `.onMove` works.
-- Cross-collection move? → **prefer context menu**. Drag will fight the platform.
-- Hover indicator on `List` / `Form`? → cannot be delivered natively on current
-  iOS. Switch to `ScrollView` + `LazyVStack` (loses List chrome) or drop the
-  indicator requirement.
-
-FB numbers, Apple sources (HIG + forum thread), and the "research platform support
-BEFORE plan / critic" workflow lesson: #144 and its comments.
+Decide before designing: same-collection reorder → `.onMove` (deliberately single-`ForEach` only); cross-collection move → context menu; hover indicator → `ScrollView` + `LazyVStack`, or drop the requirement.
 
 ## `.accessibilityIdentifier` ordering around `.safeAreaInset`
 
-`.accessibilityIdentifier("X")` applied to a container **after**
-`.safeAreaInset(edge:)` scopes "X" into the inset's child subtree,
-**overriding** a child button's own `.accessibilityIdentifier("Y")`. In
-XCUITest the button then surfaces with identifier "X", so `app.buttons["Y"]`
-never resolves — a silent break (the element exists, just under the wrong id).
-Scoped to the **container the inset is attached to** (outer position), not a
-blanket "id always leaks."
-
-**Apply**: put the container's `.accessibilityIdentifier` **before**
-`.safeAreaInset`, so the inset content stays out of that id's scope.
+An identifier applied **after** `.safeAreaInset(edge:)` scopes into the inset's subtree and **overrides** a child button's own identifier, so `app.buttons["Y"]` never resolves — the element exists, under the wrong id. It is scoped to the container the inset is attached to, not a blanket leak; put the identifier **before** the inset.
 
 ```swift
 ScrollView { … }
-  .accessibilityIdentifier("scenarioDetail.list")   // BEFORE — scopes scroll content only
-  .safeAreaInset(edge: .bottom) { actionBar }         // inset keeps its own button id
+  .accessibilityIdentifier("scenarioDetail.list")   // BEFORE — scroll content only
+  .safeAreaInset(edge: .bottom) { actionBar }       // keeps its own button id
 ```
 
-Reference + inline rationale: `ScenarioDetailView.swift` (`scenarioDetail.list`
-just above its `.safeAreaInset` hosting `ScenarioDetailActionBar`, whose Run
-button carries `scenarioDetail.runSimulationButton`).
-
-**Diagnose** which id an element actually carries — instead of guessing —
-by exporting the a11y snapshot from the failing `.xcresult`:
-`xcrun xcresulttool export attachments --path <xcresult> --output-path <dir>`,
-then read the "App UI hierarchy" `.txt`.
+Reference: `ScenarioDetailView.swift`. To see which id an element carries, export the a11y snapshot per `uitest-traps.md`.
 
 ## iOS 26 `.confirmationDialog` renders as a mis-anchored popover
 
-On iOS 26 a SwiftUI `.confirmationDialog` **anchored to a specific control** — a
-`⋯`-`Menu` item or a row button in a list/menu — renders on iPhone as a **popover
-whose arrow anchors to the body centre**, pointing at empty space, not the control
-that opened it. `.confirmationDialog` exposes no source-anchor API, so the anchor
-cannot be fixed. **Carve-out**: scene-level `isPresented`-driven *choice* dialogs
-(cellular-consent `CellularConsentDialogModifier` in `PasturaApp.swift`,
-`ModelDownloadHostView.swift`) are NOT control-anchored and render acceptably —
-keep those as `.confirmationDialog`.
-
-**Use `.alert` for the control-anchored confirmations** — a centred modal, no arrow,
-presents correctly regardless of trigger. Two caveats:
-- `.alert` does NOT auto-add a Cancel button (confirmationDialog does) — add
-  `Button(role: .cancel) {}` explicitly.
-- `.alert` supports `presenting:` for item-scoped dialogs, same as confirmationDialog.
-
-In-code rationale lives at the delete-confirmation callsites (`ResultDetailView+Delete.swift`,
-`HomeView.swift`, `ScenarioDetailView.swift`, `SettingsView+PastResults.swift`).
+A `.confirmationDialog` **anchored to a control** (a `⋯`-`Menu` item, a row button) renders on iPhone as a popover whose arrow anchors to the **body centre**, pointing at empty space; no source-anchor API exists to fix it. **Use `.alert`** instead; it needs an explicit `Button(role: .cancel) {}` and supports `presenting:`. **Carve-out**: scene-level `isPresented`-driven *choice* dialogs are not control-anchored and render acceptably (`CellularConsentDialogModifier` in `PasturaApp.swift`, `ModelDownloadHostView.swift`). Reference: `Views/Results/ResultDetailView+Delete.swift`.
 
 ## iOS 26 Liquid Glass toolbar capsule — `.buttonStyle(.plain)` does NOT remove it
 
-On iOS 26 every `ToolbarItem` is wrapped in a translucent Liquid Glass capsule by the
-**toolbar itself**, independently of the inner `Button`'s style. `.buttonStyle(.plain)`
-only changes how content renders *inside* the capsule — it does **not** remove the
-capsule. The documented opt-out is `sharedBackgroundVisibility(.hidden)` on
-`ToolbarContent` (iOS 26+).
-
-Pastura wraps it for its sub-iOS-26 deployment target (iOS 18, ADR-019) as
-`ToolbarContent.hidingPasturaSharedBackground()` (`PasturaBackButton.swift`) — apply to
-every `ToolbarItem` that wraps a custom Pastura control. Caveats:
-- **Real-device verification required**: the iOS 26 simulator suppresses the capsule even
-  without the opt-out, so the simulator visual is misleading.
-- `UIDesignRequiresCompatibility = YES` (Info.plist) is the global escape hatch; Pastura
-  uses per-item opt-out instead, so that key is NOT set.
-
-Canonical source for this fact: `docs/design/design-system.md` § 5.8.1 (the
-`PasturaBackButton` spec) — `navigation.md` and the `PasturaBackButton.swift`
-doc-comment also reference the capsule opt-out; keep this entry pointing there so the
-loci don't drift.
-
-## Swift 6 makes accessibility env keypaths read-only
-
-Under the project's Swift 6 mode a system accessibility env keypath resolves as
-`any KeyPath<EnvironmentValues, Bool> & Sendable`, NOT `WritableKeyPath`, so the
-`#Preview` override `.environment(\.accessibilityReduceMotion, true)` no longer compiles
-(`cannot convert ... to expected argument type 'WritableKeyPath<...>'`). Affects
-`accessibilityReduceMotion`, `accessibilityReduceTransparency`, and the other system-set
-(app-read) accessibility env values.
-
-**Pattern**: extract animation timing into a `nonisolated enum` of pure functions taking
-`reduceMotion: Bool` (see `ModelSelectionAnimations`); the View reads
-`@Environment(\.accessibilityReduceMotion)` and forwards per call site; unit-test the pure
-helper across the phase × reduceMotion matrix. Do NOT write the Preview override; cover
-visual parity with manual QA (Settings → Accessibility → Reduce Motion → relaunch).
+The **toolbar itself** wraps every `ToolbarItem` in a translucent capsule; `.buttonStyle(.plain)` only changes rendering *inside* it. Apply `ToolbarContent.hidingPasturaSharedBackground()` (`PasturaBackButton.swift`) to every `ToolbarItem` wrapping a custom Pastura control. **Verify on a real device**: the iOS 26 simulator suppresses the capsule even without the opt-out, so the simulator visual is misleading. Spec: `docs/design/design-system.md` § 5.8.1.
 
 ## Custom `Color` tokens don't work with `.foregroundStyle` dot-syntax
 
-`.foregroundStyle(.muted)` (and any `PasturaPalette`-derived token: `.ink`, `.inkSecondary`,
-`.moss`, `.mossDark`, …) does **not** compile — the leading-dot in `foregroundStyle(_:)`
-resolves against `HierarchicalShapeStyle`/`ShapeStyle`, not `Color`. Our tokens live only on
-`Color` (`DesignTokens+SwiftUI.swift`), so write the type explicitly:
-`.foregroundStyle(Color.muted)`.
-
-System hierarchy styles (`.secondary`, `.tertiary`, `.quaternary`, `.clear`) *do* work with
-dot-syntax because they're `ShapeStyle` conformances — which is why pre-token code compiled.
-When token-izing `.foregroundStyle(.secondary)`, always switch to `Color.tokenName`.
+`.foregroundStyle(.muted)` and other `PasturaPalette`-derived tokens do not compile — the leading dot resolves against `ShapeStyle`. Write `Color.muted`.
 
 ## Adding a `Color` design token = 5 files; the 5th fails silently (workflow trap, not SwiftUI)
 
-A new color token needs five edits — miss the **5th** (the CSS mirror) and *at best only* the standalone
-`Design tokens drift guard` CI job reddens; build / unit / lint stay green, so it's invisible
-locally:
+Miss the **5th** edit and at best only the standalone `Design tokens drift guard` CI job reddens; build, unit and lint stay green, so it is invisible locally:
 
 1. `DesignTokens+ExtendedPalette.swift` — raw `PasturaColorValue(hex:)` token
 2. `DesignTokens+SwiftUI.swift` — SwiftUI `Color` alias
 3. `PasturaTests/Views/DesignTokensTests.swift` — assert it
 4. `docs/design/design-system.md` § "2. カラートークン" — document it
-5. `docs/design/ds/tokens.css` — CSS mirror; the token's CSS form must appear here
+5. `docs/design/ds/tokens.css` — CSS mirror
 
-`scripts/check_design_tokens_css.py` is the source of truth for the mirror check (hex vs `rgba`
-form, `EXCEPTIONS` exemptions) — but it is a **substring match on the hex** over the raw file, so a
-token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `--bubble-bg`) has
-**no automated detector for its step-5 row**: delete that row and the job still exits 0. Steps 1–3,
-*when done*, still assert the token's value — but nothing enforces that they were. Verify by diff
-(#1299).
+`scripts/check_design_tokens_css.py` owns the mirror check, but it is a **substring match on the hex**: a token whose value already appears under another name (`inkOnAccent` #FFFFFF vs `--bubble-bg`) has **no detector for its step-5 row**. Steps 1–3 assert the value *when done*, but nothing enforces that they were — verify by diff. Keep every `DesignTokens+*` filename inside that script's glob; renaming one out blinds the gate silently.
 
-**Adding a dark *counterpart* to an existing token is a different, 6th-file shape** — the five
-steps above assume a brand-new value. A dark pair adds the `night*` raw token in
-`DesignTokens+NightPalette.swift` (not step 1's file), its `Color` alias, a
-`PasturaDynamicColor` entry in `DesignTokens+DynamicPalette.swift`'s `PasturaDynamicPalette`
-including its `all` registry, and the light alias repointed from `PasturaPalette.x.color` to
-`PasturaDynamicPalette.x.color` — plus steps 3–5. Two silent gaps here: the `all` registry's
-count assertion guards that list's documented size, **not** completeness, so an unregistered
-pair still passes; and the CSS gate keys off `PasturaColorValue(hex:)` literals, so **both**
-pairing files (`+DynamicColor.swift`, the mechanism; `+DynamicPalette.swift`, the table) are
-inert to it — only the new `night*` hex needs a `tokens.css` row. Keep every
-`DesignTokens+*` filename inside `check_design_tokens_css.py`'s glob; renaming one out blinds
-the gate silently (each file's own header says so). See ADR-028.
-
-**Choosing the value: a token-pair ratio is not a prediction about a *presented* surface.** For a
-sheet / overlay fill the comparand is the **composited** backdrop, which presentation dimming moves
-independently of the palette — and can move it far enough to flip the sign. Judge such a value
-against a device screenshot, not the pair. Derivation: ADR-028 § Amendment 2026-08-05 (#1336). Sibling of
-§ "An occlusion layer ... must be darker than every ground it covers" below — same question asked of
-a surface rather than an occluder; keep the two pointing at each other.
-
-**Measure a contrast ratio with the guard's own helpers** (`composite` /
-`contrastRatio`, `DesignTokensTests+NightPalette.swift`) — an ad-hoc script that
-quantizes the composited ground back to 0–255 lands off by enough to make a doc
-comment disagree with the test asserting the same value. And **state which ground
-each figure uses**: mixing per-site and worst-case grounds lets an aggregate
-"before → after" range draw its two ends from different sites, which cannot be true
-(ADR-028 § Amendment 2026-08-08).
+**A dark counterpart is a different, 6th-file shape**: the `night*` raw token in `DesignTokens+NightPalette.swift`, its `Color` alias, a `PasturaDynamicColor` entry in `DesignTokens+DynamicPalette.swift`'s `PasturaDynamicPalette` including its `all` registry, the light alias repointed to `PasturaDynamicPalette.x.color`, plus steps 3–5. Two silent gaps: the `all` registry's count assertion guards that list's documented size, **not** completeness, so an unregistered pair passes; and the CSS gate keys off `PasturaColorValue(hex:)` literals, so both pairing files are inert to it and only the new `night*` hex needs a `tokens.css` row. See ADR-028.
 
 ## `.sheet(item:)` — pass `Optional<Model>`, never `Int: Identifiable`
 
-For `.sheet(item: $binding)`, pass the **model itself** as `Optional<Model>`. Never wrap an
-array index in a project-wide `extension Int: Identifiable` — it applies to every `Int` in
-the project, conflicts with future Swift evolution, and silently affects any code passing
-`Int` where `Identifiable` is expected. Capturing an array index in the sheet closure also
-risks out-of-bounds if the array mutates between trigger and body evaluation; do a
-`firstIndex(where: { $0.id == item.id })` lookup inside the closure instead.
+Pass the **model itself**. A project-wide `extension Int: Identifiable` applies to every `Int` and silently affects any code passing one where `Identifiable` is expected. Capturing an array index in the closure also risks out-of-bounds if the array mutates between trigger and body evaluation — look up `firstIndex(where:)` inside it.
 
 ## Never instantiate a ViewModel in a factory func / computed property
 
-A ViewModel created inside a View function or computed property (`let vm = MyViewModel()`
-then `return EditorView(viewModel: vm)`) gets a **fresh instance on every `body`
-re-evaluation**, silently wiping user state — because `@Bindable`/`@Observable` references
-observe but do not own. Retain it with `@State` in a host view that creates the VM once
-(`.task { guard viewModel == nil ... }`), rendering a `ProgressView` until it exists.
+A VM created inside a View function or computed property gets a **fresh instance on every `body` re-evaluation**, silently wiping user state — `@Bindable` / `@Observable` references observe but do not own. Retain it with `@State` in a host view that creates it once (`.task { guard viewModel == nil … }`), showing a `ProgressView` until it exists.
 
 ## iOS 26 AttributeGraph crash — ForEach + glyph in a plain-ScrollView card
 
-Adding an **unconditional** subview (an `Image`/glyph, a `.background(_, in: Capsule())`
-badge like `PhaseTypeLabel`) to a `ForEach` that renders inside a plain **`ScrollView` →
-eager `VStack`** (custom card, NOT `List`/`Form`/`LazyVStack`) under a `NavigationStack`
-with a `.large` title + `.safeAreaInset` + a `.background(...ignoresSafeArea())` can crash
-on iOS 26 with `EXC_BAD_ACCESS` the instant the screen appears — a pure-SwiftUI
-AttributeGraph fault stack with no app frame. A row with a *conditional* extra subview
-survives; the same badge renders fine in a `LazyVStack` or `List`/`Form`.
+An unconditional subview (a glyph, a `.background(_, in: Capsule())` badge) added to a `ForEach` inside a plain `ScrollView` → eager `VStack` can crash with `EXC_BAD_ACCESS` as the screen appears — a pure-SwiftUI fault stack with no app frame.
 
-**Two load-bearing lessons — the crash itself is now secondary:**
-
-1. **Render crashes are invisible to `xcodebuild build` + the full unit suite** (both stay
-   green). Only a UI test that navigates in and renders catches them. For a View-tree change
-   on a screen the UI tests exercise, run at least one navigating UI test (cheapest that
-   lands on ScenarioDetail: `PasturaUITests/BackGestureTests/testBackGestureFromScenarioDetailReturnsToHome`).
-   Diagnose from `~/Library/Logs/DiagnosticReports/Pastura-*.ips` frames, not the XCUITest
-   assertion message.
-2. **These AttributeGraph crashes can be OS-build-specific and self-resolve** — this one
-   stopped reproducing within a day and shipped with no code workaround. Before investing in
-   one, confirm the repro on the **exact OS build AND a real device** (the sim misleads both
-   ways). Candidate workarounds in order, if it resurfaces: extract the row into a
-   concrete `View` struct → `.compositingGroup()` on the row → `LazyVStack` → drop the
-   enumerated-`\.offset` `ForEach` shape → bisect the container
-   `.background(...ignoresSafeArea())` half the fault stack names → `.geometryGroup()`.
-   Full diagnostic write-up: #901.
+1. **Render crashes are invisible to `xcodebuild build` and the whole unit suite**; only a UI test that navigates in and renders catches them. Cheapest onto ScenarioDetail: `BackGestureTests/testBackGestureFromScenarioDetailReturnsToHome`. Diagnose from `~/Library/Logs/DiagnosticReports/Pastura-*.ips`.
+2. These faults can be OS-build-specific and self-resolve; confirm the repro on the **exact OS build and a real device** first.
 
 ## Re-projection resets `@State` — put run-scoped display state on the VM
 
-Re-projecting an **already-running** `@Observable` VM into a **fresh** `View`
-instance (ADR-017 Phase B "keep running": `SimulationSession.adoptIfMatching`
-re-mounts `SimulationView` onto the parked run, source unchanged) resets
-**every** `@State` in that view and its rows. Adopt rescues the *VM*; the fresh
-view instance is what clears the `@State`. Any "already shown / revealed /
-animated" latch that lives only in per-View or per-row `@State` therefore
-**replays** on return — the user re-watches content they already saw.
+Re-projecting an **already-running** `@Observable` VM into a **fresh** `View` (`SimulationSession.adoptIfMatching` re-mounts `SimulationView` onto a parked run, ADR-017) resets **every** `@State` in that view and its rows. Adopt rescues the *VM*; the fresh view clears the `@State`, so an "already revealed" latch living only in per-View or per-row `@State` **replays** and the user re-watches what they saw.
 
-**Apply**: run-scoped display state that must survive a return-to-run belongs on
-the **surviving VM**, not View/row `@State`; read it back through a VM property /
-method so re-projection restores it. Distinct from the fresh-VM `.resume` path
-(guarded separately via `isResumeEntry` / `effectiveCharsPerSecond`) — the trap
-is specific to re-projecting an already-running VM.
-
-Reference: #934 — the premise card + latest conversation row re-typed from View
-`introHasTyped` / row `visibleChars` `@State`; moved to
-`SimulationViewModel.introRevealHasBegun` / `latestRowRevealCompleted` (see the
-adopt early-return comment in `SimulationView`).
+**Apply**: run-scoped display state that must survive a return-to-run belongs on the **surviving VM**, read back through a VM property — `SimulationViewModel.introRevealHasBegun`, `latestRowRevealCompleted`. Distinct from the fresh-VM `.resume` path (`isResumeEntry` / `effectiveCharsPerSecond`).
 
 ## `ImageRenderer` does not inherit the ambient environment
 
-`ImageRenderer` rasterizes its content in a **default** environment — it does
-NOT pick up the caller's ambient `@Environment` (notably `\.colorScheme`). No
-diagnostic; the bug is appearance-only and surfaces just on a dark-mode device.
-A paired alias inside the content resolves against the *render* environment's
-`colorScheme`: the value you inject, or **light** when you inject nothing, even
-on an ambient-dark device.
+`ImageRenderer` rasterizes in a **default** environment — no ambient `@Environment`, notably `\.colorScheme`. No diagnostic; the bug is appearance-only and surfaces on a dark-mode device. `scripts/check_imagerenderer_injection.py` (pre-commit and CI) fails any app-target file constructing one without injecting, so capture `@Environment(\.colorScheme)` at the call site and pass it in as an explicit parameter.
 
-**So the hazard is a consumer that omits the injection, not one that reads an
-alias.** An export with no `.environment(\.colorScheme, …)` silently rasterizes
-light — a dark-mode user's card comes out light (#1070). The question to ask of a
-new fixed-appearance consumer is therefore **does it inject the appearance and
-take it as a parameter?**, not "does it read a view that reads an alias".
+**Inside the rendered content read `PasturaPalette.<token>.color`, never the `Color.*` alias.** An alias resolves correctly under an injection *today*, but the raw read keeps the export off a behaviour an SDK change can alter — and a palette building **both** families from aliases collapses them into one, since both resolve against the same injected scheme. Check `PasturaDynamicPalette`'s doc comment for membership before treating an alias as fixed.
 
-**Apply**: capture `@Environment(\.colorScheme)` at the call site and drive the
-view's palette from that value (an explicit `colorScheme` parameter), and set
-`.environment(\.colorScheme, …)` on the rendered content for system-colored
-subviews (SF Symbols, asset images). **The injection is the load-bearing half**,
-and it is gated — `scripts/check_imagerenderer_injection.py`, in the pre-commit
-hook and CI, fails any **app-target** file constructing an `ImageRenderer`
-without injecting. Real-device dark-mode QA is still required; the simulator
-misleads.
-
-**Read `PasturaPalette.<token>.color`, never the `Color.*` alias, and treat that
-as unconditional** — not belt-and-braces. Under an injection an alias resolves to
-the requested appearance *today*, but the raw read is what keeps the export off a
-behaviour an SDK change can alter. It also costs the choice you just threaded: a
-palette building **both** its families from aliases collapses them into one, since
-both resolve against the same injected scheme. Check `PasturaDynamicPalette`'s doc
-comment for current membership before treating an alias as fixed.
-
-**What the gate does not cover.** It guards the injection half only. The token tests
-assert `PasturaPalette` components *and* the aliases' own resolution, but ADR-009
-rules out snapshots, so any *new* fixed-appearance consumer needs its own pin **on
-the alias half** — and nothing detects that pin's absence (three mechanical guards
-were designed and refused, ADR-028 § "Revisit trigger" bullet 1). Today's pins are
-`HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`, whose *invariance*
-arm derives its slots by **reflection**, so a stored property added later reading a
-paired alias reddens. Two pins keep the reflection honest: an expected slot count
-(a computed-property refactor would otherwise make it vacuous) and
-`colors.count == childCount` (a slot typed `AnyShapeStyle` / `LinearGradient` /
-`UIColor` is invisible to `as? Color`).
-
-Measurement, arms and controls: ADR-028 § Amendment 2026-08-06 (#1337).
-Reference: `HighlightCardImageRenderer.render`, `HighlightShareCard`,
-`HighlightCardPalette`, and `SheepAvatarPalette` for the avatar that card draws.
+**The gate covers the injection half only**: a new fixed-appearance consumer needs its own pin on the **alias** half, and nothing detects that pin's absence. Today's are `HighlightShareCardPaletteTests` and `SheepAvatarPaletteTests`; reference `HighlightCardImageRenderer.render`.
 
 ## An occlusion layer — shadow or scrim — must be darker than every ground it covers
 
-A shadow or scrim is an occlusion cue, not a surface, so it needs a colour that
-stays dark in **both** appearances. A paired alias inverts instead — `Color.ink`
-resolves `nightInk` in dark — and the drop shadow becomes a pale **halo** under
-the element it should sit beneath. Silent: no diagnostic, and the light build
-looks correct.
+An occlusion cue is not a surface: it needs a colour that stays dark in **both** appearances. A paired alias inverts — `Color.ink` resolves `nightInk` in dark — and the shadow becomes a pale **halo**. Silent: no diagnostic, and the light build looks correct.
 
-The requirement is **not** "fixed in both appearances" — it is **darker than
-every ground it covers**. Fixed is merely how you satisfy it when one value sits
-below all of them; a fixed value still *lighter* than a night ground washes the
-screen instead of dimming it, which is why the occluder family and
-`PasturaPalette.scrim` are a warm near-black rather than `ink` or a moss tint.
+The requirement is **darker than every ground it covers**, not "fixed in both appearances": a fixed value still *lighter* than a night ground washes the screen instead of dimming it, which is why the occluder family and `PasturaPalette.scrim` are a warm near-black rather than `ink`.
 
-**Apply**: inside `shadow(color:)` read `PasturaShadows` (design-system §4.3) or
-`PasturaOccluderShadows` (§4.3.1) — both carry the same near-black and differ
-only in geometry, so pick on that. Never `Color.<token>`, and **a raw
-`PasturaPalette.<token>.color` is not sufficient either** (flagged at
-`severity: error`): dropping the alias fixes the inversion but not the direction.
-Reach for the raw palette only where an export needs a *chosen* appearance (the
-`ImageRenderer` trap above) — the opposite reason, since an occlusion cue needs
-*none*. A `.stroke` / `.overlay` hairline is the mirror case: it reads *against*
-the surface, so it follows the appearance and keeps the alias.
+**Apply**: in `shadow(color:)` read `PasturaShadows` (design-system §4.3) or `PasturaOccluderShadows` (§4.3.1) — same near-black, differing only in geometry. Never `Color.<token>`, and **a raw `PasturaPalette.<token>.color` is not sufficient either**: dropping the alias fixes the inversion but not the direction. Ask what the element can actually sit on, not what the palette contains — a scrim occludes, while the card it fronts is a **surface** and stays paired, as does `Color.<paired>.opacity(n)` used as a wash under a surface (`GameHeader`, `SimulationView`, `ResultsView` status tints).
 
-**Ask what the element can actually sit on, not what the palette contains** — a
-"floats over everything" component still only covers the grounds its visibility
-predicate lets it reach. And hold the occluder/surface distinction: a scrim is
-the occluder, while the card it fronts is a **surface** and stays paired — as
-does `Color.<paired>.opacity(n)` used as a **wash under a surface**
-(`screenBackground.opacity(0.78)` in `GameHeader` / `SimulationView`,
-`ResultsView`'s status tints). Do not sweep those. Same test for any new
-full-bleed fill: does it occlude, or is it a surface?
-
-Enforced by the `shadow_color_occluder_family` custom SwiftLint rule — an
-allowlist (a shadow tint must name `PasturaOccluderShadows` or `PasturaShadows`),
-and **for the shadow half only**. **A green run still does not mean "this shadow
-is dark enough"**: the rule matches a family **name**, so a member added to either
-family with a too-light tint passes it, and the scrim shape has no lint guard at
-all. `SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and
-`PasturaShadowsTests` carry what lint cannot, asserting the requirement against
-**hand-maintained** ground lists — the residual weakness: a night ground added
-later and darker than #0B0C0A is not covered automatically, so add it by hand.
-
-Values, arithmetic, and the residual-weakness derivation: design-system §4.3
-and ADR-028 § Amendment (#1284, #1373, #1378). Reference: `ModelPickerView`,
-`InFlightSimulationIndicator`, `SimulationScrimStyle`, `PasturaOccluderShadows`,
-`PasturaShadows`.
-
-Sibling of § "Adding a `Color` design token"'s closing note — that one asks the same
-"what does it composite over" question of a *presented surface* rather than an occluder.
+`shadow_color_occluder_family` allowlists the family **name**, for the **shadow half only**: **a green run does not mean "this shadow is dark enough"** — a too-light family member passes, and the scrim has no lint guard at all. `SimulationScrimStyleTests`, `PasturaOccluderShadowsTests` and `PasturaShadowsTests` assert the requirement against **hand-maintained** ground lists, so a night ground darker than #0B0C0A added later must be added to them by hand.
 
 ## Compile-checking `#if !targetEnvironment(simulator)` code
 
-Here rather than in `build-traps.md` by this file's § Scope rule: every current
-site is entered from a UI-layer file (`git grep -n '#if !targetEnvironment(simulator)'`
-→ `Views/Settings/SettingsView.swift`, `Views/Settings/SettingsView+Models.swift`,
-`App/AppDependencies.swift`). Move the section if one ever appears outside them —
-and when weighing that, do not assume `build-traps.md`'s globs are the wider set:
-its `Pastura/Pastura/**/*.swift` does not match top-level `PasturaApp.swift`
-(git pathspec, measured), which this file lists separately.
+These blocks are excluded from every simulator build — what `scripts/xcodebuild.sh build` and `scripts/ui-tour.sh` produce — so a compile error in one survives a green local build. **CI is not blind to them**: `ci.yml`'s `release-build` job builds `-sdk iphoneos` on every iOS-touching PR, but in **Release configuration only**, so a block behind `#if DEBUG` *and* `!targetEnvironment(simulator)` is compiled by no CI job. The device build in `xcodebuild-cli.md` § Invocation is Debug and does reach it; layout still needs a real device.
 
-Such blocks are excluded from the simulator build, which is what
-`scripts/xcodebuild.sh build` and `scripts/ui-tour.sh` use — so a compile error in
-one survives a green local build. **CI is not blind to them**: `ci.yml`'s
-`release-build` job builds `-sdk iphoneos`, failing every iOS-touching PR — but in
-**Release configuration only**, so a block behind `#if DEBUG` *and*
-`!targetEnvironment(simulator)` would be compiled by no CI job (none exists today).
-
-Compile-check locally without provisioning — signing is skipped and Swift compiles
-before signing, so `** BUILD SUCCEEDED **` confirms the block compiles:
-
-```bash
-scripts/xcodebuild.sh build -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO
-```
-
-The wrapper passes no `-configuration`, so that is a **Debug** device build and it
-does reach a `#if DEBUG` device-only block CI cannot. `-destination` is additive
-rather than last-wins, so this refreshes the simulator slice alongside the device
-one (measured: one invocation rebuilt both `Debug-iphoneos` and
-`Debug-iphonesimulator`). **Layout / visual** still needs a real device — flag
-device-QA explicitly in PRs touching these blocks.
-
-**Don't pattern-match the directive.** `#if DEBUG || targetEnvironment(simulator)`
-(`LLM/OllamaService.swift`, three arms of `AppDependencies`) is a *different*
-condition, not the complement — it is true in the Debug device build the recipe
-above produces. The actual complement is the bare `#if targetEnvironment(simulator)`
-(`PasturaApp.swift`, `GalleryScenarioDetailView+RecommendedModel.swift`). A file
-merely *referenced* from inside a device-only block is not a site either.
+**Don't pattern-match the directive**: `#if DEBUG || targetEnvironment(simulator)` is a *different* condition, not the complement — it is true in that Debug device build. The actual complement is the bare `#if targetEnvironment(simulator)`.

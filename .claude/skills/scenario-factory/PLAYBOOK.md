@@ -20,9 +20,27 @@ Discipline (this header is the contract):
   `/orchestrate` PR (SKILL.md § Lessons promotion) — the nightly cycle never
   edits this file.
 
-**Subtract by default (#919):** smaller shape wins (fewer fields / agents /
-rounds; scoring optional) unless the axis needs it — full guidelines in
-`.claude/rules/presets.md` § "Scenario design defaults".
+**Subtract by default (#919)** — canonical; the numbers live here. Default a NEW
+scenario to the SMALLER shape; each addition trades against 2B breakdown rate,
+tokens, and on-device latency, so additions need a stated reason. Guides with a
+reason-for-deviation, not hard rules — shipped presets predate the guideline and
+are not violations of it.
+
+- **Output fields: 2 (`statement` + `inner_thought`).** Each extra output field
+  is another grammar-constrained value per turn — more JSON-parse-failure
+  exposure, tokens, and wait. Add a third only with a reason (canonical field
+  names: `ScenarioConventions.swift`).
+- **Agents: 3–4.** Five agents × several rounds is a long on-device wait
+  (inference target ≤50 — SKILL.md Step 2); a triangle also reads clearer than a
+  pentagon. An axis that genuinely needs more (elimination bracket) is a reasoned
+  exception.
+- **Log growth: design for 2B long-context decay.** Long transcripts degrade the
+  model — cap rounds, or scope prompt visibility with `log_window: N`; don't
+  assume a clean full log in a long run.
+- **Scoring is optional.** Not every scenario must end as a game-show tally. Drop
+  the `vote → score_calc → summarize` spine when the payoff is the phenomenon
+  itself — `scoring_free` observation and a `narrate` score-free ending are
+  first-class.
 
 ## Language & breakdown (Gemma 4 E2B)
 

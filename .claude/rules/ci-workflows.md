@@ -6,352 +6,113 @@ paths:
 
 # CI Workflows (GHA, macOS runners)
 
-Ten concern families when editing CI workflow YAML or supporting scripts on this repo: the CI wall-clock budget per PR, shell-language gotchas on the macOS runner, long-lived integration-branch gating shape, required-check-safe path gating, step-level `if:` semantics, the script unit-test suite that runs in CI only, rename/namespace-sweep completion gates, grep's line-boundedness in call-shape guards, gate scripts' annotation paths and tracked-only scope, and sub-action pin consistency within one action repository.
+Traps when editing CI workflow YAML or supporting scripts.
 
 ## CI wall-clock budget per PR
 
-Target **≤10 min**, up to ~12 min acceptable, **20 min is a blocker** — at 20 min the feedback loop on UI-test-affected PRs is unusable. When adding CI steps (new test targets, matrix builds, coverage passes), estimate wall-clock impact **before** proposing; if a change pushes above ~12 min, surface the trade-off explicitly (drop a redundant test, build-sharing, move to a nightly schedule) rather than shipping a slow suite and fixing later. UI tests especially run several times slower on CI simulators than locally — budget them aggressively.
+Target **≤10 min**, ~12 min acceptable, **20 min is a blocker** — the feedback loop on UI-test-affected PRs is unusable there. UI tests run several times slower on CI simulators than locally, so estimate a new step's impact before proposing it.
 
 ## Shell scripting gotchas (macOS GHA runners and repo scripts)
 
 ### Rule 1 — bash 3.2 on macOS runners: no `mapfile` / `readarray`
 
-GHA `macos-*` runners default `/bin/bash` to 3.2 (Apple ships 3.2 to avoid GPLv3). bash 4+ builtins fail with `command not found`.
-
-**Incompatible on bash 3.2**: `mapfile` / `readarray`, `declare -A` (associative arrays), `${var^^}` (case conversion), `<<<` (here-string).
-
-**Portable array-from-find idiom**:
-
-```bash
-RESULTS=()
-while IFS= read -r -d '' f; do
-  RESULTS+=("$f")
-done < <(find … -print0)
-```
-
-Alternative: `shell: /opt/homebrew/bin/bash` on the step (pre-installed on runner images). Document *why* — mixing homebrew bash and system bash across steps is a consistency landmine.
-
-Linux runners (`ubuntu-*`) have bash 5+ — the gotcha is macOS-specific.
+`macos-*` runners default `/bin/bash` to 3.2. **Incompatible**: `mapfile` / `readarray`, `declare -A`, `${var^^}`, `<<<`. `ubuntu-*` has bash 5+, so a construct can pass one job and die in another.
 
 ### Rule 2 — a `run:` step has NO pipefail, so `cmd | tee file` masks failure
 
-A `run:` step without an explicit `shell:` key executes as **`bash -e {0}`** — `-e` only. The `-eo pipefail` form is what `shell: bash` *selects*; it is not the default. Per [GitHub's workflow-syntax reference](https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsshell), verbatim: default → `bash -e {0}`; `shell: bash` → `bash --noprofile --norc -eo pipefail {0}`.
-
-So this **silently passes** a failed build — the pipeline's exit code is `tee`'s 0:
+A `run:` step with no `shell:` key executes as **`bash -e {0}`** — `-e` only; `-eo pipefail` is what `shell: bash` *selects*. So `xcodebuild … 2>&1 | tee /tmp/log` reports a `** BUILD FAILED **` step green, on `tee`'s exit 0.
 
 ```bash
-xcodebuild … 2>&1 | tee /tmp/log     # ✗ `** BUILD FAILED **` reports the step GREEN
-```
-
-Pick one, by whether the step must survive the failure:
-
-```bash
-# (a) Die on failure — the common case. `set -o pipefail` above the pipe.
+# (a) Die on failure — the common case.
 set -o pipefail
 xcodebuild … 2>&1 | tee /tmp/log
 
-# (b) Continue past failure (e.g. to parse the log for a PR comment), then
-#     decide explicitly. Correct ONLY without pipefail — see the trap below.
+# (b) Survive the failure (e.g. parse the log for a PR comment), then decide.
+#     Correct ONLY without pipefail.
 xcodebuild … 2>&1 | tee /tmp/log || true
 TEST_EXIT=${PIPESTATUS[0]}
 ```
 
-**The trap: (a) and (b) don't compose.** Adding `set -o pipefail` (or `shell: bash`) to a step shaped like (b) **breaks it silently**. Without pipefail the pipeline exits 0 (tee's status), so `|| true` never fires and `PIPESTATUS[0]` holds xcodebuild's real status. Turn pipefail on and the pipeline exits non-zero, `|| true` fires, and `PIPESTATUS` is reset to that of `true` → `PIPESTATUS[0]` reads 0 and **every failing test run reports green**. Verified on bash 3.2 (the macOS-runner version):
-
-```
-$ bash -e -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'            # → 1  (correct)
-$ bash -eo pipefail -c 'false | tee /dev/null || true; echo ${PIPESTATUS[0]}'  # → 0  (broken)
-```
-
-**Apply:** when adding a pipe to an existing step, check which shape it is before touching its exit handling — and never add pipefail to a `|| true` + PIPESTATUS step without also removing the `|| true`. Motivating incident: the Release-build step followed this rule's *earlier* advice ("just write `cmd | tee log`, GHA defaults to pipefail") and masked a `** BUILD FAILED **` as green; the failure surfaced one step later as a misleading "Expected exactly 1 Release binary, found 0" (#1141).
+**(a) and (b) don't compose.** Adding pipefail (or `shell: bash`) to a (b)-shaped step makes the pipeline exit non-zero, so `|| true` fires and resets `PIPESTATUS` to that of `true` — `PIPESTATUS[0]` reads 0 and **every failing run reports green**. Check which shape a step is before touching its exit handling, and never add pipefail without also removing the `|| true`.
 
 ### Rule 3 — an early-exiting reader under `pipefail` reports a MATCH as a failure
 
-**`pipefail` is not the variable — Rule 2 is right to add it. The variable is
-whether the pipeline's reader can exit before the producer finishes. Fix the
-shape, never the option.**
-
-`grep -q` exits at its **first** match; the producer, still writing, takes
-SIGPIPE and returns 141; `pipefail` promotes that to the pipeline's status. So
-`if ! producer | grep -q PAT` skips **because** the pattern matched. Any
-early-exiting reader does this — `head`, `sed …q`, `awk …exit`, `grep -m N` —
-and both fail directions occur in this tree: `grep -q` fails **open** (a gate
-skips), while `| head` fails **loud** (a bare 141 abort, no message — see
-`scripts/analyze-streaming-diag.sh`).
-
-**Never certify a site safe by comparing an input size to a number.** Pipe
-capacity is a kernel property differing between the macOS pre-commit hook and
-the ubuntu CI runner, so a threshold measured on one is not a fact about the
-other. Ask whether the producer can outrun the buffer *at all*.
-
-**Apply** — capture, then test the captured text:
+`grep -q` exits at its first match; the still-writing producer takes SIGPIPE and returns 141, which `pipefail` promotes to the pipeline's status — so `if ! producer | grep -q PAT` skips **because** the pattern matched. Fix the shape, never the option — capture, then test the captured text, with `|| [ $? -eq 1 ]` (grep's exit ≥2 is an error, which `|| true` would fold into "no match" and reopen the fail-open):
 
 ```bash
-STAGED="$(git -c core.quotepath=false diff --cached --name-only)"
-MATCHED="$(printf '%s\n' "$STAGED" | { grep -E "$TRIGGER" || [ $? -eq 1 ]; })"
-if [ -z "$MATCHED" ]; then exit 0; fi
+hits=$(producer | { grep -E "$PAT" || [ $? -eq 1 ]; })
+[ -n "$hits" ] && …
 ```
 
-`core.quotepath=false` is part of the shape, not tidiness: by default git
-octal-escapes a non-ASCII path **and** double-quotes it, so the quotes defeat a
-`^`- or `$`-anchored `TRIGGER` and the file walks past the gate.
+Assigning the producer's output to a variable first does **not** fix it — SIGPIPE just moves from the producer to the `printf`; dropping `-q` is what fixes it. On the producer side set `core.quotepath=false`: git octal-escapes *and* double-quotes a non-ASCII path by default, and the quotes defeat a `^`/`$`-anchored pattern. Never certify a site safe by comparing an input size to a number — pipe capacity is a kernel property that differs between the macOS pre-commit hook and the ubuntu runner. `scripts/tests/staged-trigger-pipefail-test.sh` scans tracked shell scripts for the `| grep -q` shape and names the direction of the fix (the idiom above is its A8 arm); two things sit deliberately outside its scope:
 
-Four variants that look interchangeable and are not:
-
-- **Assigning to a variable first does NOT fix it.** SIGPIPE just moves from
-  `git` to `printf`. Dropping `-q` is what fixes it.
-- **`|| [ $? -eq 1 ]`, not `|| true`.** `|| true` maps grep's exit ≥2 (broken
-  pattern, read error) onto the same empty string as a real no-match, which
-  reopens the fail-open through a different door. As a bare assignment the
-  group's status reaches `set -e` — **wherever `-e` is actually in effect**;
-  two swept files here run without it (`set -uo pipefail`, and one helper under
-  an explicit `set +e`), where the group is uniformity, not an abort.
-- **Do not fold it into `if [ -z "$(… )" ]`.** A command substitution used as an
-  argument to `[` has its status discarded, and the exit-code discrimination is
-  silently lost.
-- **`; [ "${PIPESTATUS[1]}" -eq 0 ]` is also correct** and keeps the reader's
-  early exit, which matters when draining the producer is expensive. It is not
-  used in this tree, so the residual guard flags it — teach the guard first.
-
-Scope: gate scripts, the `/release` archive check, two Claude Code hooks and one
-CI step — most, but not all, under the local pre-commit hook. A bare `run:` step
-has no pipefail (Rule 2), which leaves `ci.yml`'s `printf … | grep -q` gating
-steps latent rather than live — **adding `shell: bash` to one arms it**.
-Guarded by `scripts/tests/staged-trigger-pipefail-test.sh`, which scans shell
-scripts for the `grep -q` **shape** only: no workflow YAML, no other
-early-exiting readers. Per-site fail directions: #1498.
+- **Other early-exiting readers** — `head`, `sed …q`, `awk …exit`, `grep -m N`. `grep -q` fails **open** (a gate skips); `| head` fails **loud** (a bare 141, no message — `scripts/analyze-streaming-diag.sh`).
+- **Workflow YAML.** A bare `run:` has no pipefail (Rule 2), so `ci.yml`'s `printf … | grep -q` steps are latent — **adding `shell: bash` arms one**.
 
 ### Rule 4 — `$(set +o)` cannot round-trip errexit
 
-A script that snapshots the caller's shell options with `_old=$(set +o)` and
-restores them with `eval "$_old"` **drops a caller's `set -e`**: bash has already
-cleared errexit inside the command substitution, so the snapshot records
-`set +o errexit` whatever the caller's real state was. errexit is the only option
-this hits, and *not* because it is a `$-` letter flag — `nounset` is one too and
-round-trips fine, as does pipefail. That last one is load-bearing rather than
-trivia: `sim-dest.sh` turns pipefail on for itself, so a failure to round-trip it
-would silently promote every caller.
+`_old=$(set +o)` … `eval "$_old"` **drops a caller's `set -e`**: bash has already cleared errexit inside the command substitution, so the snapshot records `set +o errexit` regardless. errexit is the only option this hits — `nounset` and `pipefail` round-trip. Capture it separately (`case $- in *e*) had=1 ;; esac`) and re-apply on every restore path. Worked example: `scripts/sim-dest.sh`.
 
-**Apply**: capture errexit separately from `$-` (`case $- in *e*) had=1 ;; esac`)
-and re-apply it on every restore path. `shopt inherit_errexit` (bash 4.4+)
-reverses the whole effect, but macOS ships bash 3.2.
-`scripts/sim-dest.sh` is the worked example and
-`scripts/tests/simdest-errexit-test.sh` pins it, its A7 pinning the letter-flag
-half. The "only option" scope is asserted, not measured — widen it only from a
-new measurement.
-
-**A failing `source` aborts an errexit-on caller only in the bare form.** Bash
-suppresses errexit for the left operand of `||`, so the call sites written
-`source … || { …; exit 1; }` still depend on that `exit`: deleting the handler
-hands the job back to the restore fix, reducing it to a bare message does not.
-Bare-form callers do gain the abort — among them `ci.yml`'s two `run:` steps (a
-`run:` is `bash -e {0}`), which previously swallowed a failed source and wrote an
-empty `DEST=` into `$GITHUB_ENV`. Enumerate the callers before claiming a set:
-`grep -rn 'sim-dest\.sh' --include='*.sh' --include='*.yml' .`
-
-## Long-lived branch gating — two layers × two directions
-
-For CI on long-lived integration / release-train / spike-staging branches, the gate is **two layers**, each at **two directions**:
-
-**Layer A — trigger filter** (`on.pull_request.branches`)
-Controls whether the workflow fires at all. Default project shape `branches: [main]` means PRs targeting any other branch fire ZERO jobs — including a job carefully gated below.
-
-**Layer B — job-level `if:`**
-Within a fired workflow, three event shapes to cover for a long-lived branch `feature/X`:
-
-1. `push` to `feature/X` → `github.ref == 'refs/heads/feature/X'`
-2. `pull_request` INTO `feature/X` (e.g. weekly feature PRs) → `github.base_ref == 'feature/X'`
-3. `pull_request` FROM `feature/X` (e.g. final merge to main) → `github.head_ref == 'feature/X'`
-
-For `pull_request` events, `github.ref` is `refs/pull/<N>/merge`, NOT the source or target branch. Single-ref guard `github.ref == 'refs/heads/...'` misfires on every PR.
-
-### The bias trap
-
-Critic prompts asking "is this `if:` correct?" tend to anchor on whichever direction the human implementer was thinking about. Force enumeration of every event shape (push to branch / PR INTO branch / PR FROM branch / PR to main / push to main) before answering.
-
-### Procedure
-
-1. **Check trigger filter first.** Job-level `if:` only matters if the workflow actually fires. `on.pull_request.branches` is the gate above the gate.
-2. **For inverse-gated jobs** (e.g. ui-test SKIPPED on the spike branch), the same enumeration applies — every case the affirmative job covers, the inverse must un-cover.
-3. **Verify by opening a dummy PR.** First exercise of `if:` blocks should be a draft PR, not the GO merge, so misconfiguration is cheap to spot.
-
-Workflow trigger layering produces zero-cost gaps — broken `if:` on a job that never fires looks identical to "correctly skipped". Both layers must be reasoned about explicitly.
+**A failing `source` aborts an errexit-on caller only in the bare form** — bash suppresses errexit for the left operand of `||`, so a `source … || { …; exit 1; }` call site depends on that `exit` being there.
 
 ## Required-check-safe path gating
 
-To skip an expensive job on irrelevant changes (e.g. the heavy macOS jobs on a web/docs-only PR), the **skip mechanism** decides whether the PR can still merge. `main` requires its status checks via a **ruleset**, and the two skip mechanisms diverge:
+`main` requires its status checks via a ruleset, and the two skip mechanisms diverge. A **job-level `if:` skip** reports "Success" and satisfies the check. A **workflow/trigger-level skip** (`on.<event>.paths` / `paths-ignore`, or the workflow not firing) leaves the check **"Pending"** and the ruleset blocks the merge forever — never path-filter at the `on:` trigger of a workflow that owns a required check. Gate at the **job** level: a cheap classifier job emits an output, each expensive job carries `needs:` plus an `if:` that runs unless the classifier cleared it (derivation in `ci.yml`'s `changes` job comments). Invariants:
 
-- **Job-level `if:` skip → reports "Success" → satisfies a required check.** Safe.
-- **Workflow/trigger-level skip** (`on.<event>.paths` / `paths-ignore`, or the whole workflow not firing) → the check stays **"Pending"** → a required-check ruleset blocks the merge forever. This is the footgun; do NOT path-filter at the `on:` trigger for any workflow that owns a required check.
-
-So gate at the **job** level: a cheap detection job classifies the diff and emits an output; each expensive job carries `needs: <classifier>` + an `if:` that runs unless the classifier explicitly cleared it (exact conservative form in invariant 1 below). When skipped, the required check is still satisfied. (Confirmed by GitHub docs "Troubleshooting required status checks"; impl in `.github/workflows/ci.yml` `changes` job, #642.)
-
-Load-bearing invariants when adding/changing such gating:
-
-1. **Conservative by inversion.** Default to running the full suite on any ambiguity — empty / unresolvable / API-errored file list ⇒ run. A *false skip* (a broken build merged because the gate wrongly skipped) is the worst case. Reuse `scripts/precommit-gate-classify.sh` so CI and the pre-commit hook classify identically (#625); note it emits `""` (not a token) on empty input, so the fail-safe lives in the job's bash, not the script. Extend the same posture to the *gated* jobs: write the gate as `if: ${{ !cancelled() && needs.<classifier>.outputs.<flag> != 'false' }}` (run UNLESS explicitly classified out), not `== 'true'`. `!cancelled()` drops the implicit needs-success gate, so a *failed* classifier job (empty output) runs the suite instead of failed-dependency-skipping the required check — a `== 'true'` gate would false-skip there.
-2. **Gate PRs only; `main`/push runs unconditionally.** The classifier short-circuits every non-`pull_request` event to `ios=true`, so a merge to `main` always runs the full suite — stability on the integration branch outweighs the marginal saving, and it sidesteps any push-event diffing edge cases. The optimization spares redundant *PR* runs, not `main`. That non-PR set is `push` **plus** the daily `schedule` + `workflow_dispatch` canary, so `ci.yml` fires on four event shapes — enumerate all four when adding a job `if:` (a push/PR-only guard silently mis-handles the daily); the schedule/dispatch/concurrency mechanics live in ci.yml's `on:`/`concurrency` comments.
-3. **Don't gate the cheap ubuntu drift guards.** They cost little and gating them risks the same required-check trap for no benefit — gate only the macOS jobs.
-4. **`pr-comment` runs even when its deps skip — deliberately.** It carries `if: !cancelled() && …`, a status function, so it does **not** inherit a skipped dependency: on a web/docs-only PR (macOS jobs skipped) it still runs and posts a "did not run / skipped" comment (cosmetically noisy, functionally fine). Don't "fix" it to a plain boolean or the comment vanishes. (Contrast: a *plain-boolean* `if:` WOULD inherit the skip — that's the lever when you want a consumer to skip alongside its dependency.)
-5. **Verify BOTH branches on dummy PRs** (the "Long-lived branch gating — two layers × two directions" § `### Procedure` step 3 applies here too): one docs/web-only PR must skip the macOS jobs *and* still show the required checks green/mergeable; one trivial `.swift` PR must run them. A gating PR that touches only `.github/`/`.claude/` skips the macOS jobs on itself, so its *run* path is never exercised pre-merge — test it separately.
-6. **A new guard job is advisory until the `main` ruleset lists it as required**, and the ruleset is not a tracked file (`gh api repos/tyabu12/pastura/rulesets/<id>`), so nothing in-repo prompts you. Register it **after** the guard's PR merges — doing it while another PR is open strands that PR on a check its branch cannot produce (invariant 1's pending-forever trap).
+1. **Conservative by inversion.** Any ambiguity — empty, unresolvable or API-errored file list — runs the full suite: `if: ${{ !cancelled() && needs.<classifier>.outputs.<flag> != 'false' }}`, never `== 'true'`. Reuse `scripts/precommit-gate-classify.sh` so CI and the pre-commit hook classify identically.
+2. **Gate PRs only.** The non-PR set is `push` **plus** the daily `schedule` and `workflow_dispatch` canary — four event shapes; enumerate all four when adding a job `if:`, since a push/PR-only guard mis-handles the daily.
+3. **Don't gate the cheap ubuntu drift guards** — same required-check risk, no benefit. Gate only the macOS jobs.
+4. **`pr-comment` runs even when its deps skip — deliberately.** Its `if: !cancelled() && …` is a status function, so it does not inherit a skipped dependency; "fixing" it to a plain boolean makes the comment vanish. A plain boolean is the lever when you *do* want a consumer to skip with its dependency.
+5. **Verify BOTH branches on dummy PRs**: a docs/web-only PR must skip the macOS jobs *and* still show required checks green; a trivial `.swift` PR must run them. The first exercise of an `if:` gate should be a draft PR, not the GO merge. A gating PR touching only `.github/` / `.claude/` skips those jobs on itself, so its *run* path is never exercised pre-merge. Long-lived-branch shapes: `docs/ci/gha-branch-gating.md`.
+6. **A new guard job is advisory until the `main` ruleset lists it as required**, and the ruleset is untracked, so nothing in-repo prompts you. Register it **after** the guard's PR merges — doing it while another PR is open strands that PR on a check its branch cannot produce.
 
 ## Step-level `if:` — the implicit `success()` can be load-bearing
 
-A **step** `if:` with no status-check function carries an implicit `success()`; adding `always()` / `failure()` / `!cancelled()` **removes** it, letting the step run after an earlier one failed. (Job-level contrast: § "Required-check-safe path gating" invariants 1 and 4 drop the implicit gate *deliberately*. Same mechanism, opposite valence — don't conflate the two scopes.)
+A **step** `if:` with no status-check function carries an implicit `success()`; adding `always()` / `failure()` / `!cancelled()` removes it, letting the step run after an earlier failure. Live case: `kmp-nightly.yml`'s "Measure warm-cache assembly (Stage-5 sizing)" step, whose implicit `success()` is all that stops its `clean` wiping the reports the `if: failure()` upload below collects.
 
-**Apply** — before adding a status function to a step `if:`, check what the implicit gate was doing. Live case: `kmp-nightly.yml`'s **"Measure warm-cache assembly (Stage-5 sizing)"** step — its implicit `success()` is the only thing stopping its `clean` from wiping the reports that the `if: failure()` upload below it collects. Full rationale is inline above that step.
-
-Related, on the same step: a `continue-on-error: true` step's failure sets `outcome`=failure but `conclusion`=success, and status functions read `conclusion` — so a later `failure()` stays false. `continue-on-error` does not cover a **job** timeout, which is why that step also carries its own `timeout-minutes`.
+A `continue-on-error: true` step's failure sets `outcome`=failure but `conclusion`=success, and status functions read `conclusion`, so a later `failure()` stays false. It does not cover a **job** timeout — hence that step's own `timeout-minutes`.
 
 ## Script unit tests (`scripts/tests/`) run in CI only — not the pre-commit hook
 
-`scripts/tests/*-test.sh` unit-test the **scripts themselves** (e.g.
-`gallery-scripts-test.sh` exercises `add-gallery-entry.sh` /
-`promote-factory-to-gallery.sh` against fixtures). They run **only** in the CI
-**"Shell gate tests"** job. The git pre-commit hook runs the *gate* scripts
-(`gallery-precommit-gate.sh` → `check-gallery-entry.sh`, blocklist, nav-map,
-scenario-editor-funnel), which validate inputs/outputs (SHA, schema, drift) but
-**never exercise a curation script's own field-extraction logic**. So a
-`scripts/` change can pass the local commit and every pre-commit gate yet still
-fail CI.
-
-**Apply:** when editing any `scripts/*.sh`, run the suite locally before pushing:
+`scripts/tests/*-test.sh` unit-test the **scripts themselves** and run only in the CI "Shell gate tests" job; the pre-commit hook runs the *gate* scripts, which never exercise a curation script's own field-extraction logic. So a `scripts/` change can pass every local gate and still fail CI — watch for fixtures lagging a newly required field. Run the suite before pushing:
 
 ```bash
 for t in scripts/tests/*-test.sh; do bash "$t" || echo "FAIL: $t"; done
 ```
 
-Watch especially for test fixtures that lag a new required field: #788 (the
-art-tile PR that also added `phases:` extraction to `add-gallery-entry.sh`) made
-that extraction required, aborting every `gallery-scripts-test.sh` case whose
-fixture builder (`mk_factory` / `mk_gallery_yaml`) predated it. `check-gallery-entry.sh`
-never runs the extraction, so it was green locally, red in CI.
-
 ### Synthetic git fixtures: anchor every directory an ignored entry sits under
 
-git collapses a wholly-ignored **untracked** directory up to its topmost untracked
-parent — `status --ignored` reports `!! Pastura/`, not `!! Pastura/DerivedData/`,
-unless something under `Pastura/` is tracked. A fixture repo tracks almost nothing,
-so it silently produces path shapes this repo cannot.
-
-**Apply**: track a file under every directory an ignored entry will sit in, and
-assert per case that the exact entry string reached the code under test. Skip it
-and the positive case still fails loudly while every negative control passes for
-the wrong reason — the same false-green shape § "Gate scripts" flags for
-`mktemp -d` fixtures, from a different cause. Worked example (recurred #1340,
-#1352): `scripts/tests/prune-stale-worktrees-test.sh` § `assert_ignored_entry`.
+git collapses a wholly-ignored **untracked** directory to its topmost untracked parent — `status --ignored` reports `!! Pastura/`, not `!! Pastura/DerivedData/`, unless something under `Pastura/` is tracked. A fixture repo tracks almost nothing, so it produces path shapes this repo cannot and every negative control passes for the wrong reason. Track a file under every directory an ignored entry will sit in, and assert per case that the exact entry string reached the code under test. Worked example: `prune-stale-worktrees-test.sh` § `assert_ignored_entry`.
 
 ### Skill-local harnesses are NOT auto-wired — each needs a `scripts/tests/` shim
 
-The Shell-gate glob is `scripts/tests/*-test.sh` **only**, so a skill's own
-self-test at `.claude/skills/<skill>/tests/run_tests.sh` runs **nowhere** in CI
-by default — silent zero coverage (the #888 / #891 gap). Wire each one with a
-thin shim `scripts/tests/<skill>-test.sh` that delegates:
-
-```bash
-set -euo pipefail
-REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-bash "$REPO_ROOT/.claude/skills/<skill>/tests/run_tests.sh"
-```
-
-`scripts/tests/skill-harness-wiring-test.sh` enforces this — it fails the
-Shell-gate job when any harness lacks a shim, and the shim's delegation must be
-a **live** `bash …/run_tests.sh` line (a path named only in a header comment
-does not count). Keep the harness ubuntu-runnable (python3 + jq + git, no Swift,
-no network) since the Shell-gate runner has no Xcode.
+`scripts/tests/skill-harness-wiring-test.sh` enforces the shim and names the missing path. What it cannot check: keep the harness ubuntu-runnable (python3 + jq + git; no Swift, no network), since the Shell-gate runner has no Xcode.
 
 ## Rename / namespace-sweep completion gate — `git grep`, both forms
 
-For a rename or namespace-sweep "0 remaining" completion gate, use
-`git grep -nF '<literal>'` over tracked files — **not** a plain `rg` over the
-worktree — and run it for **both** the bare and the backslash-escaped form.
-
-Two failure modes a plain `rg '<pattern>'` gate hit on a bundle-id rebrand sweep:
-
-1. **Escaped-form blind spot.** A shell script (`scripts/analyze-streaming-diag.sh`)
-   contained `sed 's/.*\[com\.tyabu12\.Pastura...\]//'` — on disk that's
-   `com\.tyabu12` (backslash + dot = two chars), so the regex `com\.tyabu12`
-   (`com` + dot + `tyabu12`) did **not** match. The gate returned 0 while live
-   occurrences remained; caught only by code review. For regex-y patterns use a
-   backslash-tolerant form (`com[\\]?\.tyabu12`), or `-F` both literals.
-2. **`rg` traverses the worktree and can hang** (~tens of minutes) on a huge
-   `DerivedData/*.xcresult` or a symlink loop even with `--glob '!**/DerivedData/**'`.
-
-**Apply** — at sweep gates, run both forms tracked-only and repo-wide (no
-hand-picking dirs — a hand-picked `docs/ + scripts/` once missed
-`.claude/rules/xcodebuild-cli.md`):
+Run a "0 remaining" sweep gate with `git grep -nF` over tracked files — never a plain `rg` over the worktree, which descends into `DerivedData` — in **both** the bare and the backslash-escaped form, repo-wide, never hand-picking directories. A `sed` expression inside a shell script stores `com\.tyabu12` on disk (backslash + dot, two chars), which the regex `com\.tyabu12` does **not** match, so the gate returns 0 while live occurrences remain.
 
 ```bash
 git grep -nF 'com.tyabu12.Pastura'   # bare
 git grep -nF 'com\.tyabu12'          # backslash-escaped on-disk literal
 ```
 
-`git grep` is tracked-only (fast, never descends into ignored/huge files) and
-repo-wide by default. Pairs with the "grep ALL instances before scoping"
-discipline.
-
 ## `grep` is line-bound — call-shape CI guards miss multi-line calls
 
-A CI guard matching a Swift call *shape* (`grep -E 'foo\([^)]*\bbar\b'`) silently
-passes when SwiftFormatter splits the call across lines — the two tokens land on
-different lines, so the pattern never matches and a regression sails through.
-`rg -U` multiline mode works but ripgrep is **not** pre-installed on
-`ubuntu-latest` (adds an `apt-get install ripgrep` step). Portable fix: match the
-bare token anywhere, then post-filter comment lines (`grep -vE ':[[:space:]]*//'`),
-plus a per-file allow-list (`--exclude=`) for legitimate authoring sites.
-**Self-test before commit**: inject a regression in the *multi-line* shape
-SwiftFormatter would produce and confirm the script exits 1 — a single-line
-self-test passes a guard that misses the real wrapped form. Reference:
-`scripts/check_engine_language_axis.sh`. The same line-bound blindness hits prose
-sweeps (a markdown link wrapped across two lines is invisible to a one-line
-pattern) — grep the shortest stable token (a bare filename), not a phrase. Sibling
-grep-completeness trap: § "Rename / namespace-sweep completion gate".
+A guard matching a Swift call *shape* (`grep -E 'foo\([^)]*\bbar\b'`) silently passes once SwiftFormatter splits the call across lines — the tokens land on different lines and a regression sails through. Match the bare token anywhere, then post-filter comment lines (`grep -vE ':[[:space:]]*//'`) with a per-file `--exclude=` allow-list. **Self-test in the multi-line shape** SwiftFormatter would produce and confirm the script exits 1; a single-line self-test passes a guard that misses the real wrapped form. Reference: `scripts/check_engine_language_axis.sh`. The same blindness hits prose sweeps — grep the shortest stable token, not a phrase.
 
 ## Gate scripts: `::error file=` is repo-relative, and scope must be tracked-only
 
-Two traps that hit a gate script's *reporting* and *scope* rather than its logic,
-so tests of the verdict pass while both are broken.
+Two traps hitting a gate script's *reporting* and *scope*, not its logic — so tests of the verdict pass while both are broken.
 
-**Annotation paths.** GitHub resolves an annotation's `file=` **relative to the
-repository root**. A script that builds paths from a `REPO_ROOT="$(cd … && pwd)"`
-emits absolute ones, which match no tracked file — the annotation degrades to a
-job-level message with no line linkage in the Files-changed view, *while still
-rendering as a normal annotation in the log*. That is why it ships unnoticed.
-Strip the prefix at emission, and pass `line=` whenever a `grep -n` already has
-the number. Reference: `tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh`
-(`annotate_path`).
+**Annotation paths.** GitHub resolves `file=` relative to the repository root, so a script building paths from `REPO_ROOT="$(cd … && pwd)"` emits absolute ones that match no tracked file: the annotation loses all line linkage in the Files-changed view *while still rendering normally in the log*. Strip the prefix at emission and pass `line=` when a `grep -n` already has the number. Test the relativizing branch with a fixture **inside** the repo — a `mktemp -d` fixture never takes it, so the assertion silently exempts every case it sees. Reference: `check-b-prime-isolation.sh` (`annotate_path`).
 
-**Scope.** A gate asserting a **repository** invariant must read tracked files
-(`git ls-files` / `git grep`), never walk the worktree. Build output is the
-counterexample that bites: `Pastura/DerivedData/` and `.build/artifacts/` both
-hold a vendored `llama.xcframework` after any local build, so a `find`-based
-check is **green on a fresh CI checkout and red on every developer machine** —
-the split least likely to be noticed, since CI never shows it. (§ "Rename /
-namespace-sweep completion gate" reaches the same tracked-only call from the
-other direction: escaped-form blind spots and `rg` hanging on DerivedData.)
-
-**Testing both.** Neither is observable from a passing run, so a perturbation
-test must force each: an annotation assertion needs a fixture **inside** the repo
-(under a gitignored path, e.g. `Pastura/DerivedData/`, removed immediately) —
-one built in `mktemp -d` never takes the relativizing branch and the assertion
-silently exempts every case it sees. See #1171 for both incidents.
+**Scope.** A gate asserting a **repository** invariant must read tracked files, never walk the worktree: `Pastura/DerivedData/` and `.build/artifacts/` both hold a vendored `llama.xcframework` after any local build, so a `find`-based check is **green on a fresh CI checkout and red on every developer machine** — the split CI structurally cannot show.
 
 ## One repo, many sub-actions — Dependabot splits them, the runtime does not
 
-A multi-action repo referenced by sub-path (`github/codeql-action/init` and
-`.../analyze`) is **one runtime but several Dependabot dependencies** — a PR per
-sub-action, so the halves can merge at different versions and the action then
-refuses to run. `.github/dependabot.yml` groups the family to prevent that; the
-invariant is *also* asserted executably, because a `groups:` glob that stops
-matching looks exactly like "no updates available".
-`scripts/check-action-pin-consistency.py` (CI `action-pin-consistency` +
-pre-commit sub-gate 13) requires every `uses:` to pin a 40-hex SHA and every
-`owner/repo` to resolve to one SHA.
-
-**Apply** — referencing a *new* multi-action repo means adding a `groups:` entry
-for it; the gate catches the drift either way, but only after it happens. See
-#1359 for why a schedule-only workflow makes this class invisible.
+A multi-action repo referenced by sub-path (`github/codeql-action/init` and `.../analyze`) is one runtime but several Dependabot dependencies — a PR per sub-action, so the halves can merge at different versions and the action refuses to run. `scripts/check-action-pin-consistency.py` catches the resulting drift, but only after it happens. Referencing a *new* multi-action repo means adding a `groups:` entry for it in `.github/dependabot.yml`.
 
 ## Related
 
-`.claude/rules/xcodebuild-cli.md` covers the agent-session analogue (`xcodebuild | tail` exit-code masking when invoked from Claude Code). Same root family — a pipe hides the head's exit status — but note the two contexts differ in their default: `scripts/xcodebuild.sh` sets its own `pipefail`, whereas a GHA `run:` step has none (Rule 2).
+`.claude/rules/xcodebuild-cli.md` covers the agent-session analogue, with the opposite default: `scripts/xcodebuild.sh` sets its own `pipefail`, a GHA `run:` step has none (Rule 2).
