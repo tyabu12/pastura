@@ -13,7 +13,7 @@ Decision record: [ADR-009](../../docs/decisions/ADR-009.md). Operational rule be
 ## Rule
 
 1. **Extract View logic to unit tests** in `Pastura/PasturaTests/Views/`, asserting pure-logic properties, never rendered output.
-2. **UI tests for the navigation-integration boundary only**, when the target cannot be reached from pure logic.
+2. **UI tests for the navigation-integration boundary only**, when the target cannot be reached from pure logic. The CI-skipped `ScreenshotTourTests` capture tour does not count against this bar.
 3. **Do NOT introduce ViewInspector or swift-snapshot-testing.**
 4. **Frame / animation-timing bugs are out of scope**; defer to manual QA and code review.
 

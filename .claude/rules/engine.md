@@ -9,7 +9,7 @@ paths:
 ## Adding a new `PhaseType`
 
 Most touch points are no-default exhaustive `switch`es and the build catches an
-omission. Three do not.
+omission. Four do not.
 
 - **Kotlin enum mirror.** `InferenceEstimator.kt`'s `when` is `else`-free but
   breaks only once `shared/models/.../PhaseType.kt` gains the case, and no gate
@@ -28,8 +28,11 @@ omission. Three do not.
   `ScenarioConventions.primaryField(for:)` — otherwise `retriesExhausted` reaches
   a call site the gate does not own, aborting the run if that site does not catch
   and silently swallowing the turn if it does.
+- **`mood` capture.** Every LLM handler calls `promptBuilder.captureMood` by hand;
+  a new handler that omits it compiles and the agent's `mood` silently stops
+  carrying into its next prompt (`Engine/PromptBuilder+Injection.swift`).
 
-Reference: `Engine/ConditionalHandler.swift`.
+Reference: `Engine/Phases/ConditionalHandler.swift`.
 
 ## Parse vs validate boundary
 
@@ -52,7 +55,7 @@ Both run and produce output; the lint layer only warns.
   rule reads, so keep N ≥ agentCount for accumulating scenarios or same-round
   earlier speakers vanish from the addressee pool.
 
-Reference: `Engine/ScenarioSemanticLinter+Ordering.swift`.
+Reference: `Engine/ScenarioSemanticLinter+Ordering.swift` (R4), `+Config.swift` (R17).
 
 ## Read the event's own `phaseType`, not `currentPhaseType`
 
@@ -66,7 +69,7 @@ Reference: `App/SimulationViewModel.swift`.
 When a `Scenario` value is resolved differently per consumer, name the resolver
 after **its consumer** — `engineLanguage`, not a generic `effectiveLanguage`,
 which invites a later "consolidation" routing other consumers through it and
-silently bypassing their priority. Reference: `Models/Scenario.swift`.
+silently bypassing their priority. Reference: `Models/Scenario.swift` (the consumer table in `engineLanguage`'s doc comment — extend it when adding a consumer).
 
 ## Prompt literals are paired with the Kotlin port
 
@@ -111,7 +114,7 @@ by default — if so it needs a closed-form `assistantPrefix` or no grammar. Ref
 unsloth's Gemma 3 GGUF exports flag `<start_of_turn>` / `<end_of_turn>` as NORMAL
 instead of CONTROL, so llama.cpp BPE-splits the chat markers and the model's
 garbage first token trips the grammar. **Same crash signature as above, different
-fix**: switch GGUF source (`ggml-org/*-GGUF` or bartowski for Gemma 3);
+fix**: switch GGUF source (`ggml-org/*-GGUF` or bartowski for Gemma 3 — the shipped Gemma 4 E2B unsloth export is unaffected, so do not swap its descriptor);
 `assistantPrefix` does not help. It is also the systematic route by which a turn
 marker reaches decoded text, so `JSONResponseParser+Truncate.swift` is live, not
 dead code — its shipped-model zero measures the files, not the models.
@@ -136,8 +139,10 @@ and prompt tokens (`<bos>`, chat markers, plain text) do not match the GBNF
 `llama_sampler_sample` hits `GGML_ASSERT(!stacks.empty())` → SIGABRT
 mid-generation. **A C++ catcher does NOT save you**: the catches succeed during
 prefill, the assertion fires later in `apply_impl`, and POSIX signals do not
-cross try/catch.
-Reference: `LLM/LlamaCppService+Sampler.swift`.
+cross try/catch. So the grammar stays **outside** the chain and is accepted on
+non-EOG tokens only — moving it back into the chain silently reopens both the
+empty-output and the SIGABRT failure.
+Reference: `LLM/LlamaCppService+GrammarSample.swift`.
 
 ### Grammar must not enumerate values — structure only
 

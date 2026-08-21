@@ -16,7 +16,7 @@ paths:
 | `.navigationBarBackButtonHidden(true)` | No (bar stays) | No (button hidden) | iOS 17–18: yes / **iOS 26: NO** |
 | `.toolbarBackground(.hidden, for: .navigationBar)` | No (bar stays) | Yes | Yes |
 
-iOS 26 root cause: with the back button hidden SwiftUI sees "no back affordance" and disables `interactivePopGestureRecognizer` system-wide. **Simulator-only QA is not load-bearing for these** — verify on a real device.
+iOS 26 root cause: with the back button hidden SwiftUI sees "no back affordance" and disables `interactivePopGestureRecognizer` system-wide. **Simulator-only QA is not load-bearing for these** — verify on a real device. To reclaim nav-bar space, **fill the bar** — `.toolbarBackground(.hidden, for: .navigationBar)` + `ToolbarItem(.principal)` — never `.toolbar(.hidden)`.
 
 ## TabView tab-bar SF Symbol auto-fill (iOS 15+)
 
@@ -35,7 +35,7 @@ Reference: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
 
 VM `init()` defaults run **in tests too**, so a production-only side-effecting service defaulted there is silently live in fixture tests: `SimulationRunner(detector: NLLanguageDetector())` fires on every output, drains the `MockLLMService` queue, and cascades into "Mock exhausted".
 
-**Apply**: keep the VM default nil-equivalent (`SimulationRunner()`, `ContentFilter.passthrough`) and construct the real service at the consuming View. If adding `foo:` would change how `VMInit(repo: …)` behaves in tests, push the default down; pure-data services are exempt. Reference: `App/HomeViewModel.swift`.
+**Apply**: keep the VM default nil-equivalent (`SimulationRunner()`, `ContentFilter.passthrough`) and construct the real service at the consuming View. If adding `foo:` would change how `VMInit(repo: …)` behaves in tests, push the default down; pure-data services are exempt. Reference: `Views/Simulation/SimulationView.swift` (`SimulationRunner(detector:)` built at the View).
 
 ## SwiftUI drag & drop inside List / Form
 
@@ -57,7 +57,7 @@ Reference: `ScenarioDetailView.swift`. To see which id an element carries, expor
 
 ## iOS 26 `.confirmationDialog` renders as a mis-anchored popover
 
-A `.confirmationDialog` **anchored to a control** (a `⋯`-`Menu` item, a row button) renders on iPhone as a popover whose arrow anchors to the **body centre**, pointing at empty space; no source-anchor API exists to fix it. **Use `.alert`** instead; it needs an explicit `Button(role: .cancel) {}` and supports `presenting:`. **Carve-out**: scene-level `isPresented`-driven *choice* dialogs are not control-anchored and render acceptably. Reference: `Views/Simulation/SimulationLeaveSheet.swift`.
+A `.confirmationDialog` **anchored to a control** (a `⋯`-`Menu` item, a row button) renders on iPhone as a popover whose arrow anchors to the **body centre**, pointing at empty space; no source-anchor API exists to fix it. **Use `.alert`** instead; it needs an explicit `Button(role: .cancel) {}` and supports `presenting:`. **Carve-out**: scene-level `isPresented`-driven *choice* dialogs are not control-anchored and render acceptably (`CellularConsentDialogModifier` in `PasturaApp.swift`, `ModelDownloadHostView.swift`). Reference: `Views/Results/ResultDetailView+Delete.swift`.
 
 ## iOS 26 Liquid Glass toolbar capsule — `.buttonStyle(.plain)` does NOT remove it
 

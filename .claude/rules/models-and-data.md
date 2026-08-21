@@ -32,6 +32,12 @@ plain `registerMigration("vN") { … }` is safe. The migration test must assert
 passes while children were cascade-deleted. Reference:
 `Data/DatabaseManager+Migrations.swift`.
 
+## Data Layer Implementation
+
+Records and repositories live under `Data/`; the schema's only source of truth is
+`Data/DatabaseManager+Migrations.swift`. `TurnRecord.payloadJSON` rows are written by
+Swift's `JSONEncoder` outer-wrap form, which the Kotlin canonicalizer mirrors.
+
 ## `Data(contentsOf:)` loads the whole file into RAM
 
 `Data(contentsOf: url)` without options reads the **entire file into memory** —

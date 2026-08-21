@@ -9,9 +9,9 @@ paths:
 
 ## The model
 
-Each of the four bottom tabs owns its own `NavigationStack`, whose `path` is owned by a per-tab `AppRouter` held by `TabCoordinator`; the router is injected **inside** the tab's stack subtree, so an ambient `@Environment(AppRouter.self)` read resolves to the router of the tab the view lives in. All deep navigation goes through `Route` cases resolved by the shared `RouteResolver`.
+Each of the four bottom tabs owns its own `NavigationStack`, whose `path` is owned by a per-tab `AppRouter` held by `TabCoordinator`; the router is injected **inside** the tab's stack subtree, so an ambient `@Environment(AppRouter.self)` read resolves to the router of the tab the view lives in. All deep navigation goes through `Route` cases resolved by the shared `RouteResolver`. The bar is a native `TabView`, never hand-rolled — injecting one router **above** the `TabView` collapses all four tabs onto one stack — and the deep-link drain pushes with plain `push`, not `pushIfOnTop`, by design. Decisions: ADR-016 (bottom-tab IA), ADR-017 (focus mode), ADR-008 (route identity).
 
-Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map.md) — generated, never hand-edited. Regenerate it in the **same commit** as any `Route` add/remove/rename, `NavigationLink(value:)` / `router.push` edge change, or callsite file move, and stage both.
+Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map.md) — generated, never hand-edited. Regenerate it in the **same commit** as any `Route` add/remove/rename, `NavigationLink(value:)` / `router.push` edge change, or callsite file move, and stage both. The pre-commit gate fires only when the staged diff touches a nav-map input, so drift staged without one reaches CI alone.
 
 ## When to use what
 
@@ -26,7 +26,7 @@ Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map
 
 ## Forbidden inside a tab's stack
 
-`navigationDestination(item:)` and `navigationDestination(isPresented:)` MUST NOT be added to any view pushed onto a tab's stack (any destination resolved by the shared `RouteResolver`). Mixing them with the Route-based registry makes the two destination scopes fight, and pushed views silently re-render or fail to advance instead of pushing the next screen. Use `router.push` / `router.pushIfOnTop` instead. Reference: `Views/Settings/SettingsView.swift`.
+`navigationDestination(item:)` and `navigationDestination(isPresented:)` MUST NOT be added to any view pushed onto a tab's stack (any destination resolved by the shared `RouteResolver`). Mixing them with the Route-based registry makes the two destination scopes fight, and pushed views silently re-render or fail to advance instead of pushing the next screen. Use `router.push` / `router.pushIfOnTop` instead. Reference: `Views/Community/SharedScenarios/GalleryScenarioDetailView.swift`.
 
 ## Custom back button — `PasturaBackButton`
 
