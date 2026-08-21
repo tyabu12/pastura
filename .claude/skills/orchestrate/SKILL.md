@@ -289,6 +289,13 @@ For each unit of work (let `K` = the current plan item number), check the item's
    ```
    If `gh` fails, **warn and continue** — never block implementation on a sync failure.
 
+**Delegate the legwork, keep the judgment.** In-session does not mean every tool call happens here. This project's own conventions generate a lot of judgment-free output — CLAUDE.md § "Scope & Completeness Discipline" wants every instance enumerated before a cross-cutting change is scoped and the OLD shape grepped after any bulk substitution, and `.claude/rules/knowledge-layering.md` § "Verify before you lock it" wants load-bearing claims executed. Those sweeps are what fills the main context, not the deciding. Hand them to a read-only subagent (`Explore`, or a `general-purpose` one) and have it return **the command it ran, that command's exit status, and the hits — reporting a zero-hit run explicitly rather than silently**, so a broken pattern cannot come back wearing a verified face.
+
+Two limits, both load-bearing:
+
+- **Delegation finds sites; it never certifies counts.** Any number that will be written into a commit message, PR body, rule, comment, or gap list is re-run **here**, by you, before it is committed — that is what § "Verify before you lock it" means by the author being the only one positioned to run it. A returned list is not the population.
+- So the saving is **search traffic, not the counts themselves**. Most enumerations in this repo are destined for exactly those durable places, so the re-run puts their output back in this context. Delegate the wide sweep that narrows the field; expect to pay for the final one.
+
 ### 🎭 Opus-tier, delegated — dispatch an Opus subagent
 
 Launch `Agent(subagent_type: "claude-kit:implementer", model: "opus")` **without `isolation`** (shares the orchestrator's worktree), sequentially like the 🎵 branch. If the agent type does not resolve — plugin not installed or not trusted on this machine — **stop and surface that**, as Step 1b does for `claude-kit:critic`. Do not quietly implement the item in-session instead: a silent fallback degrades every 🎭 item back to pre-split behaviour with no signal that routing stopped working.
