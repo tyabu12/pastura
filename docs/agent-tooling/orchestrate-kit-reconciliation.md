@@ -80,9 +80,14 @@ below are the ones a plausible-sounding back-port *would* undo.
    fully specifiable, the condition that agent is built for; if fix rounds rise, escalate to a
    general Opus subagent at session effort (the ladder the `🎵` fallback documents) or bump the
    pin. And `🎵 (main)` — Sonnet-tier work not worth a delegation prompt — **keeps its Sonnet
-   tier**, where the template promotes it to `🎭` and so forces an Opus reviewer and session. The
-   template's reason for that promotion is that "the orchestrator implements the item directly": a
-   locus-based justification for a tier decision, the same conflation in miniature.
+   tier**, where the template promotes it to `🎭` and so forces an Opus reviewer and session.
+   Pastura's own pre-split Step 1.3 — reconciled from that wording — spelled the promotion's reason
+   out as "intended since the orchestrator implements the item directly": a locus-based
+   justification for a tier decision, the same conflation in miniature. The template states the
+   promotion without that clause, so the reason is Pastura's, not upstream's; do not re-attribute
+   it. Template claims here were checked against `skills/orchestrate-creator/` at kit 0.4.7 — the
+   promotion is at `orchestrate-template.md` "Also promote a 🎵 to 🎭 when subagent + verify
+   overhead exceeds the work itself", and `(tb)` appears zero times in that directory.
 
 ### Corrections — delete the entry once upstream lands
 

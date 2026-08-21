@@ -249,7 +249,7 @@ tools/                           # Dev tooling, outside the iOS app build
 
 ## Agent Tooling Dependency
 
-`.claude/settings.json` enables the `claude-kit@claude-kit` plugin, which supplies `claude-kit:critic` (mandatory `/orchestrate` Step 1b gate — it **stops** without it), `claude-kit:implementer` (dispatched by `/orchestrate` Step 3 for every 🎭 item), and `/claude-kit:write-adr` (the only ADR path). The installed plugin can lag the kit repo, so confirm the **namespaced** name resolves before depending on one — a bare name may resolve via a maintainer-local symlink and proves nothing. Ask which version is **active**, not what is cached: the cache keeps every version ever installed, so globbing it returns a mix in which an older version missing the skill sits beside a newer one that has it.
+`.claude/settings.json` enables the `claude-kit@claude-kit` plugin, which supplies `claude-kit:critic` (mandatory `/orchestrate` Step 1b gate — it **stops** without it), `claude-kit:implementer` (dispatched by `/orchestrate` Step 3), and `/claude-kit:write-adr` (the only ADR path). The installed plugin can lag the kit repo, so confirm the **namespaced** name resolves before depending on one — a bare name may resolve via a maintainer-local symlink and proves nothing. Ask which version is **active**, not what is cached: the cache keeps every version ever installed, so globbing it returns a mix in which an older version missing the skill sits beside a newer one that has it.
 
 ```bash
 jq -r '.plugins["claude-kit@claude-kit"][] | "\(.version) \(.scope) \(.installPath)"' \
