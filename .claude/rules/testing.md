@@ -7,288 +7,81 @@ paths:
 
 ## Swift Testing Parallelism
 
-Moved to `swift-testing-parallelism.md` — same rule plus the cross-suite limit
-(`.serialized` does not isolate a suite from its neighbours), scoped so `tools/**`
-loads it too.
+In `swift-testing-parallelism.md`, scoped so `tools/**` loads it too.
 
 ## Splitting a Suite Across Files (file_length 400-line cap)
 
-When a `*Tests.swift` file exceeds swiftlint's 400-line `file_length` limit,
-split by adding an `extension` of the suite struct in a sibling file named
-`<Name>Tests+<Feature>.swift` (Apple's `Type+Feature.swift` convention).
-
-**DO NOT** create a new `@Suite` for the split. Swift Testing runs `@Suite`s
-in parallel by default — `.serialized` only orders tests *within* a suite,
-not across them. A new suite that touches shared state (filesystem paths
-under `Application Support` / `Caches`, in-process singletons, etc.) will
-race against the original. Local runs may squeak through on faster machines;
-CI's slower runner is where the race surfaces.
-
-**Pattern:**
-
-```swift
-// ModelManagerTests.swift — original suite, slimmed under 400 lines
-@Suite("ModelManager", .serialized, .timeLimit(.minutes(1)))
-@MainActor
-struct ModelManagerTests {
-  func makeSUT(...) -> ModelManager { ... }   // NOT `private` — see below
-  @Test func ...
-}
-
-// ModelManagerTests+ProgressRegression.swift — sibling
-extension ModelManagerTests {
-  @Test func downloadCompletesWhenDownloaderSkipsTerminalProgress() async {
-    let sut = makeSUT(...)   // Calls into the original file's helper
-  }
-}
-```
-
-**Access modifier:** Helpers the extension calls (`makeSUT`, etc.) must be
-at **internal** access (default — drop `private`). `private` members are
-only visible to extensions in the *same file*; sibling-file extensions
-cannot see them. Widening to module-internal is contained because the test
-target is its own module.
-
-**Helpers** (mocks, observation collectors) live at file scope in the new
-sibling file — they don't need to be members of the suite struct.
-
-**History:** PR #157 (Issue #72) introduced this rule after the throttle
-regression test was originally split into a standalone `@Suite`. The new
-suite raced against `ModelManagerTests/modelNotDownloaded()` on the shared
-model file path; it passed locally but failed on CI.
+Past SwiftLint's 400-line `file_length` limit, split a `*Tests.swift` with an `extension` of the
+suite struct in a sibling `<Name>Tests+<Feature>.swift`, helpers at file scope. **Do not** create a
+second `@Suite`: suites run in parallel and `.serialized` orders tests only *within* one, so a new
+suite touching shared state (`Application Support` / `Caches` paths, singletons) races the original
+— green locally, red on CI. Only the line count is linted; the remedy is not. Reference:
+`ModelManagerTests+ProgressRegression.swift`.
 
 ## `.timeLimit` Trait on Every Suite (CI-Hang Diagnostic)
 
-Every Swift Testing suite under `Pastura/PasturaTests/` **must** carry
-`.timeLimit(.minutes(1))` (Swift Testing's minimum; `.seconds` is not supported).
-A hung test then fails individually at the 1-minute boundary with a
-`failed (timed out)` line naming the specific test, instead of silently
-eating the CI job's 15-minute wall-clock and corrupting the xcresult bundle.
-This is a load-bearing diagnostic — do not remove it from existing suites,
-and do not skip it when adding new ones.
+Every suite under `Pastura/PasturaTests/` **must** carry `.timeLimit(.minutes(1))` (Swift Testing's
+minimum; `.seconds` is unsupported). Without it a hung test eats the CI job's whole wall clock,
+corrupts the xcresult bundle, and names no test; nothing checks for its presence. An implicit suite
+(no `@Suite`) has nowhere to hang the trait — promote it to explicit.
 
-Apply to both suite forms:
+**Exception**: the env-gated integration suites (`OLLAMA_INTEGRATION`, `LLAMACPP_INTEGRATION`) skip
+the suite cap — it resolves as the tighter bound and breaks local runs against real LLMs — and give
+**every** `@Test` its own `.timeLimit(.minutes(2-5))` instead, or a hang is unbounded by both
+(`OllamaIntegrationTests.swift`). Helper-only files need no trait.
 
-- **Explicit `@Suite(...)`**: include the trait alongside any existing traits.
-  ```swift
-  @Suite(.timeLimit(.minutes(1)))                              struct FooTests { ... }
-  @Suite(.serialized, .timeLimit(.minutes(1)))                 struct BarTests { ... }
-  @Suite(.serialized, .timeLimit(.minutes(1))) @MainActor      struct BazTests { ... }
-  @Suite("Display Name", .serialized, .timeLimit(.minutes(1))) struct QuxTests { ... }
-  ```
-- **Implicit suite** (`struct XxxTests` with `@Test` methods and no `@Suite`):
-  Swift Testing treats it as an implicit suite; without the attribute there
-  is no place to hang the trait. Promote to explicit `@Suite`:
-  ```swift
-  @Suite(.timeLimit(.minutes(1)))
-  struct XxxTests { @Test ... }
-  ```
+## `-only-testing` false greens
 
-**Exceptions (document inline when skipping):**
+A filtered run can execute fewer tests than you think while `xcodebuild` prints
+`** TEST SUCCEEDED **` (`xcodebuild-cli.md` has the marker rule):
 
-- Integration suites gated out of CI by env var (`OLLAMA_INTEGRATION`,
-  `LLAMACPP_INTEGRATION`) are exempt from the suite-level 1-minute cap
-  because it would be resolved as the tighter bound and silently break
-  local integration runs against real LLMs. Each `@Test` in these suites
-  **must** carry its own `.timeLimit(.minutes(2-5))` sized for real-LLM
-  inference — without a per-test bound, a hung integration test would be
-  unbounded by *both* rules. (See `OllamaIntegrationTests.swift` and
-  `LlamaCppIntegrationTests.swift` for the current shape.)
-- Helper-only files (no `@Test` / `@Suite` declarations, e.g.
-  `EngineTestHelpers.swift`) don't need the trait.
-
-**If a unit test legitimately needs more than 1 minute:** override at the
-`@Test` level (`@Test(.timeLimit(.minutes(N))) func ...`). Swift Testing
-resolves the tightest-bound among suite + test traits, so a per-test widen
-is unusual — consider first whether the test is doing too much (split it,
-mock heavier work, etc.).
-
-**History:** PR #134 (Issue #131) introduced this rule after a
-cancel-before-store race in `SuspendController.awaitResume()` silently
-hung one test for 15 minutes on CI. See `memory/project_ci_timeout_investigation.md`.
-
-## Version-gated tests: `@available` on `@Test`, never the `@Suite` type
-
-A suite whose tests exercise a version-gated API (an iOS 26 `FoundationModels`
-type, etc.) must put `@available(iOS 26, macOS 26, *)` on **each `@Test`
-func**, NOT on the `@Suite struct`. The `@Suite` macro rejects an
-`@available`-annotated structure:
-
-```
-error: Attribute 'Suite' cannot be applied to this structure because it has
-been marked '@available(iOS 26, macOS 26, *)' (from macro 'Suite')
-```
-
-Swift Testing skips an `@available` `@Test` below the runtime version, so
-per-`@Test` annotation both compiles and runtime-gates correctly. Canonical:
-`FoundationModelsServiceTests` (#1072).
-
-This is **separate** from `#if canImport(<Framework>)`: `canImport` is an
-**SDK** check (compile the file out on a toolchain that lacks the framework),
-while `@available` is a **runtime** check. A test file for an SDK-gated
-framework needs BOTH — wrap the file in `#if canImport(...)` and annotate each
-`@Test` with `@available(...)`. (Same dual gating as the production type — see
-`FoundationModelsService`.)
-
-## `-only-testing` and Swift Testing
-
-When using `-only-testing` with `xcodebuild`, prefer **suite-level** targeting
-(e.g., `PasturaTests/SimulationRunnerTests`) over individual test names
-(e.g., `PasturaTests/SimulationRunnerTests/myTest`). Individual Swift Testing
-(`@Test`) functions may not match reliably, causing tests to silently not run
-while `xcodebuild` still reports `TEST SUCCEEDED`.
-
-**Why:** Swift Testing uses a different identifier scheme than XCTest. `xcodebuild`
-resolves zero matching tests and reports success (0 failures = `TEST SUCCEEDED`).
-This does NOT affect XCTest (`func testXxx()` in `XCTestCase`), which individual
-targeting works correctly for.
-
-**Suite-level still means the TYPE name, not a `@Suite("Display Name")`.**
-`@Suite("SimulationViewCompletionChrome") struct SimulationViewCompletionChromeTests`
-matches only the latter; the display name silently resolves to zero tests and
-still prints `TEST SUCCEEDED`. Confirm the `✔ Test` / `Test run with N tests`
-markers — see § "`Executed 0 tests` in the XCTest stanza is cosmetic" below.
-
-**Verify:** Always check the test count in the output to confirm tests actually ran.
-
-## `Executed 0 tests` in the XCTest stanza is cosmetic
-
-The XCTest output stanza (`Executed N tests`) counts only `XCTestCase` subclasses,
-so a Swift-Testing-only run always prints `Executed 0 tests` — **cosmetic, not a
-"file not in target" signal**. The real count is in the Swift Testing stanza below
-it (`✔ Test … passed`, `Test run with N tests …`). Most Pastura tests are Swift
-Testing.
-
-**Disambiguate a true zero**: `✔` markers / `Test run with N tests` present →
-normal; absent → real bug (file at the wrong path, not compiled, or the
-`-only-testing` zero-match trap above). When filtering xcodebuild output, keep the
-markers:
-
-```bash
-grep -E "(error:|Test Suite|Executed|passed|failed|✔ Test|Test run)"
-```
-
-## Duplicate Suite Names Silently Halve `-only-testing`
-
-Two `struct XxxTests` declarations across files in the same target make
-`-only-testing PasturaTests/XxxTests` resolve to **only one** of them —
-the other suite silently doesn't run, and xcodebuild still prints
-`** TEST SUCCEEDED **`. Distinct from the individual-`@Test` trap above:
-suite-level targeting is the mitigation there, but doesn't help when the
-suite *name itself* is duplicated.
-
-**Diagnostic:** if `Test run with N tests` reports fewer tests than the
-file you're looking at contains, locate the twin with
-`rg -l 'struct XxxTests\b' Pastura/PasturaTests` and merge into one suite
-(preferred — readers assume "DataError tests live in DataErrorTests.swift")
-or rename one (PR #448).
-
-## Test-Target `FRAMEWORK_SEARCH_PATHS` for Framework Imports
-
-When a test file `import`s a framework from `Pastura/Frameworks/`, the
-PasturaTests target needs its **own** `FRAMEWORK_SEARCH_PATHS` build
-setting (Debug + Release blocks in the pbxproj) — compile-time
-swiftmodule discovery does not inherit from the app target's settings,
-even though `TEST_HOST` already covers *runtime* symbol resolution via
-the host app. Do NOT also link the framework into the test target's
-Frameworks build phase — redundant, and it complicates Embed & Sign
-reasoning.
-
-No framework consumer exists on main today; the first arrives with the
-KMP integration (#501). The spike-branch wiring that surfaced this is
-PR #474 (#220 W3 PR-B).
-
-## MockLLMService Usage
-
-- Always call `try await mock.loadModel()` before running any code that calls
-  `LLMService.generate()`.
-- Provide exactly the number of responses expected. `MockLLMService` throws when
-  exhausted — this is intentional to catch over/under-provisioning.
-- Use `mock.capturedPrompts` to verify prompt content in tests.
+- **Individual `@Test` names may not match** Swift Testing's identifier scheme, and a zero-match
+  resolves to success. Target the suite. XCTest is unaffected.
+- **Suite-level means the TYPE name** — `@Suite("Display Name") struct FooTests` matches only
+  `FooTests`; the display name resolves to zero tests.
+- **`Executed 0 tests` in the XCTest stanza is cosmetic** (it counts `XCTestCase` subclasses only).
+  The real count is the `✔ Test` / `Test run with N tests` markers; their absence is the real-bug
+  signal — wrong path, not compiled, or a zero-match above.
+- **Two `struct XxxTests` in one target silently halve the run**: the filter resolves to one, and
+  the basename gate is per-target and blind to it. Find the twin
+  (`rg -l 'struct XxxTests\b'`) and merge or rename.
 
 ## Parking a run mid-flight (teardown / cancel tests)
 
-To hold a `SimulationViewModel.run()` / `resume()` genuinely parked mid-flight
-(e.g. to test a raw `Task.cancel()` teardown), arm the controller at attach
-time: call `mock.suspendOnControllerAttach()` **before** starting the run. That
-puts the live `SuspendController` in `.suspended` the instant the run attaches
-it — before the first generate — so the run parks deterministically, with no
-scheduling window.
-
-Do **not**:
-
-- Use `mock.throwSuspendedOnNextGenerate()` as a park. It only schedules a
-  `.suspended` throw; the controller stays `.idle`, `awaitResume()` returns
-  immediately, and the run keeps running (that helper is for unit-testing the
-  suspend-retry loop, not parking).
-- Arm `sut.suspendController?.requestSuspend()` from the test **after** the run
-  starts on the **resume** path. `run()` has an awaited `createSimulationRecord`
-  hop before its first generate that yields a window, but `resume()` does not —
-  its `.instant` Engine burst (unbuffered `AsyncStream`, no backpressure) races
-  the arm and the run completes → `.completed` flake (#707).
-- Route through `pauseSimulation()` when the test pins the `!isCompleted`
-  teardown branch (#673) — it sets `didPersistPaused` and shifts the ladder.
-
-Full mechanism + the wait helper live in `parkRunMidFlight`
-(`SimulationViewModelStatusTests+ResumeContinuation.swift`) and the
-`suspendOnControllerAttach()` doc-comment — point there, don't re-derive.
-
-## Shared Test Helpers (`EngineTestHelpers.swift`)
-
-- **`EventCollector`**: Thread-safe event collector for `@Sendable` emitter closures.
-  Do not capture mutable local variables (e.g., `var events: [...]`) in `@Sendable`
-  closures — Swift 6 strict concurrency rejects this as a potential data race.
-- **`makeTestScenario(agentNames:rounds:phases:context:extraData:)`**: Convenience
-  factory for test scenarios. Defaults: 3 agents (`["Alice", "Bob", "Charlie"]`),
-  1 round, empty phases. Use this instead of constructing `Scenario` manually.
-- **`makePhaseContext(scenario:phaseIndex:llm:collector:)`**: Convenience factory
-  for `PhaseContext`. Bundles scenario, phase, LLM, and emitter for handler tests.
-  Use this instead of constructing `PhaseContext` manually.
+To hold `SimulationViewModel.run()` / `resume()` genuinely parked, call
+`mock.suspendOnControllerAttach()` **before** starting the run: the `SuspendController` is
+`.suspended` the instant the run attaches it, leaving no scheduling window. Do **not** park via
+`throwSuspendedOnNextGenerate()` (the controller stays `.idle`) or arm `requestSuspend()` after
+starting the **resume** path (its `.instant` Engine burst races the arm). Mechanism:
+`parkRunMidFlight` in `SimulationViewModelStatusTests+ResumeContinuation.swift`.
 
 ## Wall-clock test bounds need CI headroom (20–30×)
 
-Wall-clock assertions (`elapsed >= X && elapsed < Y`) that pass locally can fail on CI
-even with generous bounds: the `lint-and-test` job runs `-enableCodeCoverage YES` on a
-shared runner, and coverage bookkeeping is non-trivial for concurrency-heavy code
-(AsyncStream, `Task.sleep`). A body measured at ~120 ms locally was observed at ~3.3 s on
-CI (20×+).
-
-- **Lower bound** (the load-bearing check): keep tight to local — if it trips, something is
-  genuinely broken (pacing bypassed, sleep not applied).
-- **Upper bound** (runaway guard only): set generously, e.g. `< 30.0 s` for a sub-second
-  test; rely on the suite `.timeLimit(.minutes(1))` as the real backstop.
-- **Avoid** absolute windows like `elapsed < 1.0` for a 100 ms test — coverage + scheduler
-  jitter alone consumes that.
-- **Better**: inject an observable (callback counter, Clock stub) so the test is
-  deterministic regardless of runner load.
+Wall-clock assertions that pass locally fail on CI: the test job runs `-enableCodeCoverage YES` on a
+shared runner and coverage bookkeeping is heavy for concurrency-heavy code — ~120 ms locally has been
+seen at ~3.3 s. Keep the **lower** bound tight to local (it is the load-bearing check) and the
+**upper** bound generous (`< 30.0` for a sub-second test), with the suite `.timeLimit` as the real
+backstop. Better: inject an observable (counter, Clock stub).
 
 ## Expanding bundled data breaks count-pinning tests far away
 
-Expanding a bundled data file (e.g. ContentBlocklist 9→90) silently breaks `count == N`
-canaries that live in tests far from the data file (`ContentBlocklistTests`, registry /
-preset suites). Narrow `-only-testing` runs — the delegation default — never execute them,
-so the breakage stays invisible until a full run. Before (or in the same commit as) any
-bundled-data expansion, run `rg 'count == |\.count\b' Pastura/PasturaTests --type swift`
-scoped to the data's consumers and update the canaries; instruct delegated subagents to run
-the data's EXISTING suites, not only their new one.
+Expanding a bundled data file silently breaks `count == N` canaries living far from it (blocklist,
+registry, preset suites). Narrow `-only-testing` runs — the delegation default — never execute them,
+so it stays invisible until a full run. In the same commit run
+`rg 'count == |\.count\b' Pastura/PasturaTests --type swift` over the data's consumers, update the
+canaries, and tell subagents to run the data's EXISTING suites too.
 
 ## Use exactly-representable IEEE-754 inputs in float-formatter tests
 
-When pinning `String(format: "%.Nf", x)` (or any platform float formatter), use
-**exactly-representable** Double inputs — halves (`1.5`, `12.5`, `0.25`, `0.125`). `1.85` is
-NOT exactly representable; the stored value sits just above/below, and `%.1f` rounds
-platform-dependently to `"1.8"` or `"1.9"` — passing on one machine, failing on CI. Avoid
-`1.1`, `1.85`, `2.4`, `0.1`, `0.3`, `0.7` (infinite binary expansions). To test a specific
-rounding boundary, use `Decimal` or assert against the platform's actual output, not a
-literal expected string.
+When pinning `String(format: "%.Nf", x)` or any platform float formatter, use exactly-representable
+Doubles — halves (`1.5`, `12.5`, `0.25`, `0.125`). `1.85` is not: the stored value sits just off, so
+`%.1f` rounds platform-dependently to `"1.8"` or `"1.9"` — green locally, red on CI. Avoid `1.1`,
+`2.4`, `0.1`, `0.3`, `0.7`; for a boundary use `Decimal` or assert the real output.
 
 ## A regression test must drive the exact unguarded-path input
 
-A regression test for a fix that adds a guard (`if case`, `guard let`, branch check) MUST
-construct the input shape that would hit the **unguarded** path. If it only exercises inputs
-that succeed even without the guard, it's coverage theater — it passes both pre- and
-post-fix, and a future refactor dropping the guard still passes. Shape: (1) plant the input
-that would hit the unguarded mutation, (2) run the method, (3) probe via **behavior** (e.g.
-`registerReattachedIfAbsent(...) == false` as a "slot still occupied" probe), not private
-state. Mental check before writing: *"If I revert the fix line, does this test FAIL?"* If not
-a confident yes, it isn't a regression test for the fix.
+A regression test for a fix that adds a guard (`if case`, `guard let`, branch check) MUST construct
+the input that would hit the **unguarded** path. Otherwise it is coverage theater: it passes both
+pre- and post-fix, and a later refactor dropping the guard still passes. Plant that input, run the
+method, then probe via **behavior**, never private state. Check first: *"If I revert the fix line,
+does this test FAIL?"*
