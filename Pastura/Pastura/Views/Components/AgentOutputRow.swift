@@ -633,10 +633,12 @@ struct AgentOutputRow: View {
       // used `.frame(minHeight: 44)`, which inflated visible
       // whitespace to ~17pt above and below the glyph and was rolled
       // back in #171. The chevron tint stays `Color.moss` (lighter
-      // accent) — paired with `Color.muted` for the THINKING text,
-      // it mirrors the `BubbleBackground` / `ThoughtLeftRule` palette
-      // (moss for prefixes, muted for body). `mossDark` would read
-      // as a stronger accent than the design intends here.
+      // accent) — paired with `Color.muted` for the THINKING tag, it
+      // mirrors the `BubbleBackground` / `ThoughtLeftRule` palette
+      // (moss for prefixes, muted for the tag). The thought *body* left
+      // that pairing in #1448 batch 2 and reads `inkSecondary`.
+      // `mossDark` would read as a stronger accent than the design
+      // intends here.
       //
       // Sibling overlap: the +16/-16 hit-test region overlaps the
       // primary bubble above by ~10pt and the revealed thought below
@@ -682,7 +684,12 @@ struct AgentOutputRow: View {
     let tail = shouldReserveHiddenTail ? Text(hidden).foregroundStyle(.clear) : Text("")
     return (Text(visible) + tail)
       .textStyle(Typography.thinkingBody)
-      .foregroundStyle(Color.muted)
+      // `inkSecondary`, not §8's quietude tier: the inner monologue is the
+      // product this row exists to show, not metadata about it. The `INNER
+      // VOICE` tag above stays `muted` — a disclosure label is sanctioned even
+      // when what it discloses is not. Audit class A5:
+      // `docs/design/muted-application-audit.md`.
+      .foregroundStyle(Color.inkSecondary)
       .thoughtLeftRule()
       .transition(.opacity.combined(with: .move(edge: .top)))
   }

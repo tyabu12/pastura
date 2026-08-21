@@ -56,7 +56,11 @@ extension ScenarioDetailView {
       if !scenario.description.isEmpty {
         Text(scenario.description)
           .font(.subheadline)
-          .foregroundStyle(Color.muted)
+          // `inkSecondary`, not §8's quietude tier: the description is what this
+          // screen exists to show before a run (audit class A5), not metadata
+          // about it. The phase ordinals below stay `muted` — derivable from row
+          // order. `docs/design/muted-application-audit.md`.
+          .foregroundStyle(Color.inkSecondary)
       }
     }
     .frame(maxWidth: .infinity, alignment: .leading)

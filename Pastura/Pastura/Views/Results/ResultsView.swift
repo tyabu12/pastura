@@ -277,7 +277,11 @@ struct ResultsView: View {
       status: item.simulationStatus, degradedTurnCount: item.degradedTurnCount) {
       Text(String(format: String(localized: "Turns skipped ×%lld"), skipped))
         .font(.caption)
-        .foregroundStyle(Color.muted)
+        // `inkSecondary`, not §8's quietude tier: this is the row's only notice
+        // that the run omitted turns (audit class A4, ADR-021 D5). The category
+        // caption below it and the timestamp stay `muted` — §8's own sanctioned
+        // list-caption shape. `docs/design/muted-application-audit.md`.
+        .foregroundStyle(Color.inkSecondary)
     }
   }
 

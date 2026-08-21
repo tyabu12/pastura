@@ -13,7 +13,7 @@ import Testing
 /// they take opposite remedies**: a rename or a deletion means re-anchor the
 /// row by symbol rather than dropping it; an **applied batch** means the row
 /// stays put with its `B` marker bolded and the entry here is dropped, which is
-/// what batches 1 and 5 did. Read the file's § 5 rows before choosing.
+/// what batches 1, 5 and 2 did. Read the file's § 5 rows before choosing.
 ///
 /// **It fires on an addition too**, which is the half prose cannot do. The
 /// expectation is a whole-map comparison, so a new file reaching for
@@ -30,18 +30,24 @@ struct MutedSweepLedgerTests {
 
   /// Non-comment `Color.muted` occurrences per file, keyed relative to
   /// `Pastura/Pastura`. Reproduce with the ledger § 8 command; every entry is
-  /// a row (or group of rows) in § 5.
+  /// a row (or group of rows) in § 5 — with **one exception, created by batch
+  /// 2**: `ResultDetailView`'s degraded banner was a single `Label` tint at the
+  /// baseline census, and splitting it left a glyph occurrence that no
+  /// `9a40565a` row could have anticipated. The ledger records it as an added
+  /// row; § 5's tally deliberately does not move.
   ///
-  /// Batch 1 (#1448) removed eight occurrences and emptied three files, and
-  /// batch 5 (#1485) removed three more and emptied three more, so this table
-  /// is the post-batch-5 population, not § 1's `9a40565a` baseline.
+  /// Batch 1 (#1486) removed eight occurrences and emptied three files, batch 5
+  /// (#1510) removed three more and emptied three more, and batch 2 repointed
+  /// nineteen sites for a net **eighteen** occurrences — the nineteenth kept
+  /// the spelling on the glyph above — and emptied none. So this table is the
+  /// post-batch-2 population, not § 1's `9a40565a` baseline.
   private static let expectedMutedOccurrences: [String: Int] = [
     "Views/Community/SharedScenarios/GalleryCatalogRow.swift": 1,
     "Views/Community/SharedScenarios/GalleryScenarioDetailView+Highlight.swift": 2,
-    "Views/Community/SharedScenarios/GalleryScenarioDetailView.swift": 4,
+    "Views/Community/SharedScenarios/GalleryScenarioDetailView.swift": 3,
     "Views/Community/SharedScenarios/SharedScenariosListView.swift": 1,
     "Views/Components/ActiveModelChip.swift": 2,
-    "Views/Components/AgentOutputRow.swift": 3,
+    "Views/Components/AgentOutputRow.swift": 2,
     "Views/Components/DogMark.swift": 2,
     "Views/Components/GameHeaderStatus.swift": 2,
     "Views/Components/IdleFriendlyProgressView.swift": 1,
@@ -54,23 +60,23 @@ struct MutedSweepLedgerTests {
     "Views/Editor/PhaseEditorSheet+ConditionalSection.swift": 1,
     "Views/Editor/ScenarioEditorView.swift": 2,
     "Views/Home/HomeCompactScenarioRow.swift": 2,
-    "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift": 5,
+    "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift": 1,
     "Views/ModelSelection/ModelPickerView.swift": 2,
     "Views/ModelSelection/ModelRow.swift": 1,
     "Views/Report/ReportSheet.swift": 1,
-    "Views/Results/ResultDetailView+CodePhaseRows.swift": 5,
+    "Views/Results/ResultDetailView+CodePhaseRows.swift": 1,
     "Views/Results/ResultDetailView+RowLayout.swift": 1,
     "Views/Results/ResultDetailView.swift": 1,
     "Views/Results/ResultsView+Timeline.swift": 1,
-    "Views/Results/ResultsView.swift": 6,
-    "Views/ScenarioDetail/ScenarioDetailView+Sections.swift": 2,
+    "Views/Results/ResultsView.swift": 5,
+    "Views/ScenarioDetail/ScenarioDetailView+Sections.swift": 1,
     "Views/Settings/ModelSettingsRow.swift": 1,
     "Views/Settings/SettingsView+PastResults.swift": 1,
     "Views/Settings/SettingsView.swift": 2,
     "Views/Simulation/HighlightCandidatesSection.swift": 2,
     "Views/Simulation/ScoreboardSheet.swift": 3,
     "Views/Simulation/SimulationView+Background.swift": 1,
-    "Views/Simulation/SimulationView+LogEntries.swift": 9,
+    "Views/Simulation/SimulationView+LogEntries.swift": 3,
     "Views/Simulation/SimulationView.swift": 2,
     "Views/Simulation/ViewerPredictionSheet.swift": 2
   ]
@@ -110,6 +116,16 @@ struct MutedSweepLedgerTests {
   /// `> 0` check there would pass with the header reverted. Scoped to these
   /// three files on purpose — this is a pin on B5's applied rows, not a second
   /// app-wide census.
+  ///
+  /// **A per-file count is the right shape here and the wrong one for batch 2**,
+  /// which is why the two applied batches are pinned differently. It works
+  /// because these three files hold 1 / 1 / 2 `Color.inkSecondary` in total: a
+  /// reverted header shows up as an off-by-one. Batch 2's files hold 1 to 13,
+  /// and in the three densest (13 / 11 / 10) roughly half predate the batch
+  /// (7 / 7 / 6), so a revert there hides inside the total unless an unrelated
+  /// edit happens to move it the other way — the same dilution this comment's
+  /// `> 0` argument warns about, one step further along.
+  /// ``batchTwoSitesStillReadInkSecondary`` anchors by symbol for that reason.
   private static let expectedAppliedInkSecondary: [String: Int] = [
     "Views/Components/PasturaSection.swift": 1,
     "Views/Home/HomeView.swift": 1,
@@ -162,24 +178,24 @@ struct MutedSweepLedgerTests {
   ///
   /// **The negative arm is the one carrying discriminating power.** The
   /// positive arm cannot fail alone — `expectedMutedOccurrences` already pins
-  /// that file at 9, so an always-zero predicate reddens the census first. It
+  /// that file at 3, so an always-zero predicate reddens the census first. It
   /// is kept because it fails *locally*, naming the predicate rather than
   /// printing a forty-row diff; the census map is the real positive control.
   @Test func theProbeIsStillMeasuringSomething() throws {
     let swiftFiles = SourceTreeProbe.swiftFiles(under: SourceTreeProbe.appSourceRoot)
     #expect(!swiftFiles.isEmpty, "scanned no app sources — the source root did not resolve")
 
-    // Positive: a file this sweep has NOT touched still matches, so the
-    // counting predicate has not been narrowed into always-zero. It survives
-    // its own batch too — three of its nine § 5 rows carry no batch marker
-    // (`vs`, and the turn-skipped / action-rejected icons), so B2 takes it
-    // 9 -> 3, not to zero. Pick a replacement on that property, not on
-    // "not swept yet", if this file ever does empty.
-    let unswept = "Views/Simulation/SimulationView+LogEntries.swift"
+    // Positive: a file the sweep does not empty still matches, so the
+    // counting predicate has not been narrowed into always-zero. Batch 2
+    // took this file 9 -> 3; the three survivors are the § 5 rows that carry
+    // no batch marker (`vs`, and the turn-skipped / action-rejected icons),
+    // so no later batch empties it either. Pick a replacement on that
+    // property, not on "not swept yet", if it ever does.
+    let partiallySwept = "Views/Simulation/SimulationView+LogEntries.swift"
     let observed = Self.census(of: ["Color.muted"], excludingDesignTokens: false)
     #expect(
-      (observed[unswept] ?? 0) > 0,
-      "\(unswept) stopped matching — the predicate, not the file, is the likely cause")
+      (observed[partiallySwept] ?? 0) > 0,
+      "\(partiallySwept) stopped matching — the predicate, not the file, is the likely cause")
 
     // Negative: a file whose only occurrence is a doc comment must count zero
     // while still containing the raw needle. A comment filter that did nothing

@@ -253,18 +253,25 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         // valid round checkpoint offers "resume from round N+1". Mutually
         // exclusive with the DegradedRunBadge below (`.failed` vs `.completed`).
         resumeBanner
-        // Degraded-run annotation (ADR-021 D6) — a muted summary banner when
-        // this completed run omitted one or more LLM turns. Gated to
-        // completed + count > 0 by `DegradedRunBadge`.
+        // Degraded-run annotation (ADR-021 D6) — a summary banner when this
+        // completed run omitted one or more LLM turns. Gated to completed +
+        // count > 0 by `DegradedRunBadge`.
         if let skipped = DegradedRunBadge.skippedTurnCount(
           status: simulation?.simulationStatus,
           degradedTurnCount: simulation?.degradedTurnCount ?? 0) {
-          Label(
-            String(format: String(localized: "Turns skipped ×%lld"), skipped),
-            systemImage: "exclamationmark.triangle"
-          )
+          // Tinted per slot, not on the `Label` — one `.foregroundStyle` cannot
+          // split them: the text narrates a degraded run (class A4, ADR-021 D5)
+          // → `inkSecondary`; the glyph is non-text and stays `muted`, as the two
+          // triangles in `SimulationView+LogEntries` do. The glyph's
+          // `Color.muted` is the row the audit § 5 marks *added by B2*: the
+          // `9a40565a` baseline census never adjudicated it.
+          Label {
+            Text(String(format: String(localized: "Turns skipped ×%lld"), skipped))
+              .foregroundStyle(Color.inkSecondary)
+          } icon: {
+            Image(systemName: "exclamationmark.triangle").foregroundStyle(Color.muted)
+          }
           .font(.caption)
-          .foregroundStyle(Color.muted)
           .accessibilityIdentifier("resultDetail.degradedBadge")
         }
         ForEach(items) { item in
