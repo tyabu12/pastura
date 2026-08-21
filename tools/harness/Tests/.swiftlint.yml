@@ -1,0 +1,4 @@
+# Nested config — merged into the root .swiftlint.yml for files under this
+# directory. CLAUDE.md Hard Rule 1 ("No force unwrap") exempts test code.
+disabled_rules:
+  - force_unwrapping
