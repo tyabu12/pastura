@@ -37,7 +37,7 @@ set -euo pipefail
 jq -n '{
   hookSpecificOutput: {
     hookEventName: "PostToolUse",
-    additionalContext: "PR created. Before moving on: (1) Device QA — restate the on-device QA steps this change needs (or state 実機QA不要 with the reason), matching the ## Device QA section in the PR body. (2) Observations — share any concerns, surprises, or suggestions you noticed during this session. (3) Memory — note any memory files worth creating or updating from this session, and whether this change now lets you retire one: trim or delete a SHIPPED project_* tracker, or a memory whose lesson you just promoted to rules (per .claude/rules/knowledge-layering.md § Promotion & retirement)."
+    additionalContext: "PR created. Before moving on: (1) Device QA — restate the on-device QA steps this change needs (or state 実機QA不要 with the reason), matching the ## Device QA section in the PR body. (2) Observations — share any concerns, surprises, or suggestions you noticed during this session. (3) Memory — note any memory files worth creating or updating from this session, and whether this change now lets you retire one: trim or delete a SHIPPED project_* tracker, or a memory whose lesson you just promoted to rules (per docs/agent-tooling/knowledge-layering.md § Promotion & retirement)."
   }
 }'
 

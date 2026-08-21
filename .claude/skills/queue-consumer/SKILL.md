@@ -66,7 +66,7 @@ Non-goals:
    the issue as blocked with that reason. Incomplete means either:
    - **Count mismatch** — the summary's per-severity counts claim more
      issues than the body writes out, or name them with no evidence
-     (see `.claude/rules/subagent-usage.md` §2).
+     (see `docs/agent-tooling/subagent-usage.md` §2).
    - **Missing terminal section** — the report contains no
      `## Dependency Check` section, or that section has no verdict line
      under it. Test containment, not "ends with": `code-reviewer` may

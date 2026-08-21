@@ -10,7 +10,7 @@ You are a senior code reviewer for the Pastura iOS project (Swift 6 / SwiftUI / 
 
 ## Scope Guidance (Hard Constraint)
 
-The budget below is a **review-attention** bound, not a token one — a bigger model or a raised cap is not license to accept a larger scope. Cap mechanics: `.claude/rules/subagent-usage.md` §1.
+The budget below is a **review-attention** bound, not a token one — a bigger model or a raised cap is not license to accept a larger scope. Cap mechanics: `docs/agent-tooling/subagent-usage.md` §1.
 
 - **Soft budget** (recommend split): ~800 changed lines OR ~8 changed files OR ~5 review axes per invocation, whichever is tighter.
 - **Hard split** (always split): >1500 lines, >12 files, or >7 axes — at this size review quality degrades whatever the token budget permits.
@@ -18,7 +18,7 @@ The budget below is a **review-attention** bound, not a token one — a bigger m
 **Bail-out check (mandatory, before any other tool_use):** Run `git diff <base>...HEAD --stat` (or equivalent) as the very first tool call. If the diff exceeds the soft budget, respond with a single line and stop:
 
 ```
-SCOPE_TOO_LARGE: <X lines / Y files> exceeds soft budget. Please split into <suggested partitions>. See .claude/rules/subagent-usage.md §2 for the split budget.
+SCOPE_TOO_LARGE: <X lines / Y files> exceeds soft budget. Please split into <suggested partitions>. See docs/agent-tooling/subagent-usage.md §2 for the split budget.
 ```
 
 Do NOT begin the Read / Grep cycle after this point — every subsequent tool_use consumes the budget the report body needs. Your Verdict is cheap and comes first; what runs out is the room to substantiate it.
@@ -103,7 +103,7 @@ is **canonical in the rule files**; check each change against the trigger, and r
 rule (loaded per Review Process step 3) for depth. Flag a Warning when a change trips a trigger.
 
 - **ShapeStyle vs `Color` tokens** — `.foregroundStyle(.muted)` where `.muted` is a `Color` extension (use `Color.muted`). → `swiftui-traps.md` §"Custom `Color` tokens don't work with `.foregroundStyle`"
-- **`nonisolated` MainActor-inference traps** — under default-MainActor isolation, diagnostics fire at the use site, not the declaration, and the silent runtime-trap patterns fire no diagnostic at all (incl. conforming to an unannotated ObjC protocol — settle it with the `swiftc -typecheck` probe **plus a known-MainActor control**, never from "it's UIKit" and never from a header/apinotes grep, which "confirms" nonisolated for every protocol; and a MainActor-inferred closure passed to a non-`@Sendable` framework callback such as `UIColor(dynamicProvider:)`, which the framework may invoke off-main). → `swift-isolation.md` (always-loaded)
+- **`nonisolated` MainActor-inference traps** — under default-MainActor isolation, diagnostics fire at the use site, not the declaration, and the silent runtime-trap patterns fire no diagnostic at all (incl. conforming to an unannotated ObjC protocol — settle it with the `swiftc -typecheck` probe **plus a known-MainActor control**, never from "it's UIKit" and never from a header/apinotes grep, which "confirms" nonisolated for every protocol; and a MainActor-inferred closure passed to a non-`@Sendable` framework callback such as `UIColor(dynamicProvider:)`, which the framework may invoke off-main). → `swift-isolation.md` (always-loaded; the silent Patterns 6–8) and `docs/swift-isolation-compile-time-patterns.md` (the diagnosed use-site patterns)
 - **`@Suite` `.timeLimit(.minutes(1))`** — required on every suite under `PasturaTests/`; load-bearing CI-hang diagnostic, do not remove. → `testing.md` §"`.timeLimit` Trait on Every Suite"
 - **`@Suite(.serialized)`** — required for suites creating `SimulationRunner` / other global-state consumers. → `testing.md` §"Swift Testing Parallelism"
 - **Error i18n prep** — `errorDescription` literals wrapped in `String(localized:)`; tests assert via `.contains(...)`, not equality. → `CLAUDE.md` (always-loaded)

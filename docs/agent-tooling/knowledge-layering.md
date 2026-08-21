@@ -8,7 +8,7 @@
 > one gets no Pastura counterpart on purpose, #1312 holds this repo's. Pastura-specific content
 > lives only in this copy.
 
-Always-loaded — see `CLAUDE.md` `## Context-Specific Rules`. Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
+On-demand reference — moved out of the always-loaded rules (#1519). Pairs with `context-budget.md` (content discipline within always-loaded files); this rule covers location choice across all storage tiers.
 
 ## Where knowledge belongs
 
@@ -140,3 +140,10 @@ A why-comment, guard, count or gap list asserts behaviour as the reason a mechan
 However correct its `paths:`, a working glob and a broken one look identical in the authoring session — both simply absent. The *effect* is measured; the mechanism is not, and an **edit** to an existing rule was never probed, so don't extend it there.
 
 **Apply**: verify a new or re-scoped rule from fresh subagent probes, one `Read` each, with a **positive** control. Probes, mechanism caveat and scope limits: #1312.
+
+## Scope & Completeness Discipline
+
+Moved here from CLAUDE.md in #1519 — a working discipline, not a product rule.
+
+- **Enumerate every instance before scoping a cross-cutting change** (a bug *class* — a mechanism, not one site; or a strip / rename / add across files). List all sites (`grep` / `jq` / `find`) and scope against that list, not the one file you opened — silent siblings resurface later with misleading framing. Watch the sibling `+Feature.swift` extension: cross-check `grep` against `find <dir> -name '*.swift'`.
+- **Grep the OLD shape after any bulk substitution.** A byte-exact multi-site substitution (`Edit(replace_all)`, `sed`, editor find-replace) silently skips occurrences that differ only in leading whitespace or nesting depth, and typically still reports success — grep for the old shape afterward to confirm zero residuals.

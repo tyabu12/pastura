@@ -132,7 +132,7 @@ RC=0
 run_hook() {
   local out
   set +e
-  out="$( cd "$1" && PASTURA_FOOTPRINT_CEILING="${2:-92600}" bash "$HOOK" )"
+  out="$( cd "$1" && PASTURA_FOOTPRINT_CEILING="${2:-30900}" bash "$HOOK" )"
   RC=$?
   set -e
   printf '%s' "$out"
@@ -173,7 +173,7 @@ assert_single_json() {
 }
 
 CONV="No agent-instruction file"
-MIRROR="Reference Documents"
+MIRROR="section mirrored to"
 TRIM="Context-economy"
 FOOT="Always-loaded instruction footprint"
 

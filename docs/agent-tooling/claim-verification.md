@@ -1,6 +1,6 @@
 # Claim verification — which source settles which claim
 
-Paired with the always-loaded rule `.claude/rules/knowledge-layering.md` § "Verify before you lock
+Paired with `docs/agent-tooling/knowledge-layering.md` § "Verify before you lock
 it", which carries the discipline and the three moments it fires at. This file carries the per-shape
 checks, the worked failures, and the promotion mechanics.
 
@@ -11,9 +11,9 @@ re-measurement trigger — it accretes as new failure shapes appear.
 
 **Why this is a doc and not a `paths:`-scoped rule.** A path-scoped rule would also leave the
 always-loaded budget, but it injects only on a `Read` matching its globs — and the Authoring moment
-fires in *any* file: Swift, a script, an ADR, a rule. No glob covers "any". So the trigger stays in
-the always-loaded rule and the evidence lives here; the cost is that this file loads only when
-something reads it, which is why the rule's pointers to it are imperative rather than "see also".
+fires in *any* file: Swift, a script, an ADR, a rule. No glob covers "any". So the trigger lived in
+the always-loaded rule while one existed; since #1519 both halves are on-demand under
+`docs/agent-tooling/`, which is why every pointer to them is imperative rather than "see also".
 
 ## Why the author is the only checker
 
@@ -40,7 +40,7 @@ Verify each against its authoritative source *before* the plan locks.
 | An external standard (SEO, RFC, sitemap/robots, OAuth, HTTP semantics) | WebSearch + WebFetch the authority (Google Search Central, the RFC, MDN); verbatim-cite before critic |
 | Vendor feature availability (free/paid/plan tier) | WebFetch the canonical docs; verbatim-quote the "Who can use this feature" box — never infer from search snippets |
 | A subagent's verdict on an external platform fact (SDK annotation, threading contract, API availability) | Re-derive it yourself — a verdict that *dismisses* a risk ends inquiry and is the expensive one to get wrong. Then run the prescribed check against a **known-positive control**; `.claude/rules/swift-isolation.md` § Pattern 7 is the worked instance |
-| A claim **inherited from existing text** — carried into a new file, summary, or INDEX entry from a doc/rule/ADR that already states it | grep the always-loaded `.claude/rules/**` for a **retraction**, not only the source you copied from. Checking the source agrees *by construction*, so that check cannot see that another document has since withdrawn the claim — and it returns a confident "verified". #1439 is the worked instance: a probe-methodology cause was carried out of ADR-028 while Pattern 8 had already retracted it |
+| A claim **inherited from existing text** — carried into a new file, summary, or INDEX entry from a doc/rule/ADR that already states it | grep `.claude/rules/**` and `docs/agent-tooling/**` for a **retraction**, not only the source you copied from. Checking the source agrees *by construction*, so that check cannot see that another document has since withdrawn the claim — and it returns a confident "verified". #1439 is the worked instance: a probe-methodology cause was carried out of ADR-028 while Pattern 8 had already retracted it |
 
 This applies to **non-grep claims** too: cited file paths (`find` to confirm existence), `(PR #N)`
 claims about PR body content (`gh pr view N` to verify), heading anchors in cross-doc refs (`grep`

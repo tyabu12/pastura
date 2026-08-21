@@ -103,7 +103,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 
 ### Phase 2 increments (detail)
 
-> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `.claude/rules/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Statuses track the Planned Features table above.
+> Implementation detail relocated from CLAUDE.md "Phase 2 progress" (context-budget — see `docs/agent-tooling/context-budget.md`). CLAUDE.md keeps only a compressed pointer line; this is the detailed mirror. Statuses track the Planned Features table above.
 
 - **Visual Scenario Editor** — dual-mode form + YAML (#83)
 - **Background execution** — iOS 26 BGContinuedProcessingTask + CPU inference (#84)

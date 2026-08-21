@@ -71,8 +71,8 @@ sibling declaration is never added.
 
 **Long-term fix** (Phase 3.0 production integration): upstream the conformance to `commonMain`
 (`expect`/`actual`, or a Swift-side bridge type) rather than keeping the retroactive extension. The
-diagnostic fires at the **Swift use site**, not the Kotlin declaration — cf. `swift-isolation.md`,
-which is always-loaded for the same "fires at use site" reason.
+diagnostic fires at the **Swift use site**, not the Kotlin declaration — cf. `docs/swift-isolation-compile-time-patterns.md`,
+whose five patterns share that "fires at use site" shape.
 
 Source: W3 spike, PR #478 (`KNStateActor.read()` returning `Pairing` to a MainActor VM hit this on
 first compile; three pre-impl critic rounds missed it because verifying it requires reading

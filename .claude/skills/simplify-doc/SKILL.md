@@ -11,7 +11,7 @@ One prune pass over **what this branch added**: enumerate → classify → verif
 apply → review → report.
 
 It exists because the generation-side lever does not work: prose volume "tracks
-the model rather than recency" (`.claude/rules/knowledge-layering.md`
+the model rather than recency" (`docs/agent-tooling/knowledge-layering.md`
 § "Anti-pattern: a comment written for the reviewer"), so thickening the
 always-loaded rules that ask for restraint has no durable effect. Let generation
 be verbose and make pruning an explicit pass instead. What this adds over an
@@ -42,7 +42,7 @@ against that trade.
 ## Where it runs
 
 On a feature branch, normally just before `/orchestrate` Step 4 so the reviewer
-sees the pruned diff. CLAUDE.md § "Implementation Entry Point" carves this skill
+sees the pruned diff. CLAUDE.md § "Development Workflow" carves this skill
 out of the `/orchestrate`-only rule and states the grounds. The three revocable
 guards the carve-out names — Step 0's two refusals, and Step 4's explicit-path
 staging — are the rest of the grant, so do not weaken them.
@@ -123,11 +123,10 @@ bar than to a genuinely always-loaded file.
 
 ## Step 2 — Classify each candidate block
 
-`.claude/rules/context-budget.md` (Keep / Drop / relocate) and
-`.claude/rules/knowledge-layering.md` (§ "Anti-pattern: a comment written for the
-reviewer", § "Where knowledge belongs") own the criteria, and both are
-always-loaded — they are already in your context, so read them there rather than
-re-deriving them. Weight three of theirs highest, because they are the ones a
+`docs/agent-tooling/context-budget.md` (Keep / Drop / relocate) and
+`docs/agent-tooling/knowledge-layering.md` (§ "Anti-pattern: a comment written for the
+reviewer", § "Where knowledge belongs") own the criteria; both are on-demand docs, **not** in your context — read them
+before classifying rather than re-deriving them. Weight three of theirs highest, because they are the ones a
 prune gets wrong: count-before-length, the half-length rewrite past ~10 lines,
 and the "no durable claim" test. Read those three at the source, not off this
 sentence — each carries an exception that licenses a **Keep**, and an abbreviated
@@ -199,7 +198,7 @@ this claim is usually false.** Unproven ⇒ Keep.
   `docs/agent-tooling/subagent-output-cap.md`, `knowledge-layering.md` ↔
   `docs/agent-tooling/claim-verification.md`. Each pair says to reconcile the
   two together; compressing one side alone makes them disagree.
-- **CLAUDE.md ↔ README / CONTRIBUTING**, per CLAUDE.md § "Reference Documents".
+- **CLAUDE.md ↔ README / CONTRIBUTING**, per the mirror note under CLAUDE.md § "Architecture".
   Note that § Development Workflow is **not** in the hook's mirrored-section
   list, so no nudge fires for it — check by hand.
 
@@ -207,7 +206,7 @@ this claim is usually false.** Unproven ⇒ Keep.
 
 If a file you compressed quotes its own size, line count, or a count of
 something this pass changed, **re-measure on the final commit**
-(`.claude/rules/knowledge-layering.md` § "Verify before you lock it"). The figure
+(`docs/agent-tooling/knowledge-layering.md` § "Verify before you lock it"). The figure
 you measured mid-pass is stale by construction — and a sentence that documents a
 grep can itself satisfy that grep, so pin such a count with a self-excluding
 pathspec or omit the number entirely.
@@ -241,8 +240,8 @@ generator, not a gate.
 - **Compression is rewriting, so the old ledger stops applying.** After
   rewriting a block, re-check its own claims — an assertion that survived the
   rewrite in shortened form is a new assertion.
-- **Grep the old shape after any bulk substitution** (CLAUDE.md § "Scope &
-  Completeness Discipline"). A byte-exact multi-site replace silently skips
+- **Grep the old shape after any bulk substitution** (`docs/agent-tooling/knowledge-layering.md`
+  § "Scope & Completeness Discipline"). A byte-exact multi-site replace silently skips
   occurrences differing only in indentation, and still reports success.
 - **Stage explicit paths. Never `git add -A` or `git add -u`** — a concurrent
   Xcode session re-serializes `*.xcstrings`, and a broad add commits phantom keys
@@ -261,7 +260,7 @@ Round 1: `code-reviewer` on the branch diff.
 higher convention to judge against when the artifact under review *is* the
 conventions — a structural blind spot, not a quality one. Add
 `/claude-kit:risk-review` (preferred; confirm the namespaced name resolves), or
-fall back to `claude-kit:critic` — which CLAUDE.md § "Agent Tooling Dependency"
+fall back to `claude-kit:critic` — which CLAUDE.md § "Agent Tooling"
 already declares as a hard dependency — with these axes stated explicitly:
 
 1. Did a deletion remove the **only** statement of a norm, or its only worked
