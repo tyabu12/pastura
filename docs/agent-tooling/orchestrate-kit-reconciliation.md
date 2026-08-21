@@ -51,12 +51,44 @@ below are the ones a plausible-sounding back-port *would* undo.
    parameters (baked at generation)" table has no counterpart.** `.claude/rules/subagent-usage.md`
    is always-loaded here, so inlining pays twice per turn (`.claude/rules/context-budget.md`); and
    this file's parameters are inline at each step and richer than the table's cells.
+5. **Step 1.3 routes on two independent axes — *tier* (`🎵` Sonnet / `🎭` `🧠` Opus) and *locus*
+   (`🎵` `🎵 (tb)` `🎭` delegated / `🎵 (main)` `🧠` in the main session) — where the template keeps
+   one two-icon label whose `🎭` decides both at once.** Step 3 gains a `🎭` branch dispatching
+   `claude-kit:implementer` at Opus, and Step 2a emits `Routing: v2` so Step 0 reads a pre-split
+   plan comment under its original semantics. This diverges from a **deliberate** upstream design
+   (kit#19/#23, live in the template today), not a defect — so it stays out of Corrections and no
+   upstream fix retires it; if the template ever adopts a tier/locus split, reconcile against it
+   rather than deleting. The template carries no `(tb)` marker at all, so a back-port adopting its
+   Step 1 wording drops `(tb)` and silently disarms the two gates that consume it — Step 1.4's
+   strictly-simple reviewer test and Step 0's all-🎵 resumption re-check.
+
+   Motivating baseline: of 250 plan items across the 52 `<!-- pastura-plan -->` comments in the
+   then-last 70 issues, 221 (88%) were `🎭`, 37 of 52 plans were 100% `🎭`, and `Session: Opus`
+   held 57 of 57 — the all-🎵 cost lever had never fired. Re-derive rather than trust it: for each
+   recent issue, `gh api repos/tyabu12/pastura/issues/<N>/comments --jq '.[].body'`, keep the
+   bodies containing the plan marker, then count `- [ ]` / `- [x]` item lines per icon (count each
+   icon with its own `grep -o -F` — an alternation over these emoji miscounts).
+
+   **That 88% is retired, not a comparand**: `🎭` now means *delegated*, so an unchanged 88% would
+   mean everything is delegated — complete success. What tracks the defect is the `🧠` share (work
+   still pinned to the main session), the delegated share (`🎭` + `🎵` + `🎵 (tb)`), and the
+   `claude-kit:implementer` invocation count, which was ~0 before.
+
+   Two accepted consequences. `claude-kit:implementer` pins `effort: medium` and `Agent` has no
+   `effort` parameter, so a `🎭` item runs at Opus/medium where the template's in-session `🎭` ran
+   at the session's Opus/high — accepted because Step 1.3's Q2 already requires the item to be
+   fully specifiable, the condition that agent is built for; if fix rounds rise, escalate to a
+   general Opus subagent at session effort (the ladder the `🎵` fallback documents) or bump the
+   pin. And `🎵 (main)` — Sonnet-tier work not worth a delegation prompt — **keeps its Sonnet
+   tier**, where the template promotes it to `🎭` and so forces an Opus reviewer and session. The
+   template's reason for that promotion is that "the orchestrator implements the item directly": a
+   locus-based justification for a tier decision, the same conflation in miniature.
 
 ### Corrections — delete the entry once upstream lands
 
 A template *defect* is reported upstream; its entry names the tracking issue and dies with it.
 
-5. **Pre-flight check 3's degraded-mode `DEFAULT_BRANCH` fallback deliberately differs from the
+6. **Pre-flight check 3's degraded-mode `DEFAULT_BRANCH` fallback deliberately differs from the
    template's.** The template's `git symbolic-ref refs/remotes/origin/HEAD` yields a full ref, not a
    branch name, which breaks the `git fetch`, `git rev-list`, `git pull`, and `git switch` that
    consume it (the shapes are spelled out inline at that check). Do not adopt the template's shorter
