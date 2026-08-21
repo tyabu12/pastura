@@ -46,10 +46,10 @@ is **70 lines · 4 doc-comment mentions · 66 code sites across 37 files**.
 `MutedSweepLedgerTests` pins the per-file breakdown — §8.
 
 The mentions went 3 → 4 because batch 2's why-comment in `ResultDetailView`
-names the token it left behind. **A comment mention is not a site** — the §8
-command subtracts them, and the guard's own predicate skips comment lines — but
-the raw line count moves, so a reader diffing the first figure alone would read
-a repoint that removed eighteen occurrences as having removed seventeen.
+names the token it left behind. **A comment mention is not a site** — §8's
+command and the guard both skip comment lines, but the raw line count above
+counts them, so it moved by seventeen while the occurrence count moved by
+eighteen.
 
 **Nineteen sites, eighteen occurrences: the gap is `ResultDetailView`.** Its
 degraded banner was one `Label` carrying a single `.foregroundStyle`, so moving
@@ -473,12 +473,12 @@ above opens two of its own rows with `` | ` ``.
 `9a40565a` census of adjudications; §1 carries the population as it *ships*.
 The difference between the two is exactly the applied batches.
 
-**A batch can still add a row, and batch 2 did** — that is a different event from
-a batch *applying*, and it is why the glyph row above is marked rather than
-folded in. A repoint that changes a call's **shape** can mint an occurrence the
-baseline census never adjudicated, so §5 has to be able to carry a row that its
-own tally does not count. Expect this whenever a batch splits one styling call
-into two; a plain token swap cannot cause it.
+**A batch can also add a row** — a different event from *applying*, which is why
+the glyph row above is marked rather than folded in. A repoint that changes a
+call's **shape** mints an occurrence the baseline census never adjudicated, so
+§5 must be able to carry a row its own tally does not count. Expect it whenever
+a batch splits one styling call into two or makes any other multi-slot move; a
+plain token swap cannot cause it.
 
 ## 6. Decisions this sweep was chartered to make
 
@@ -640,10 +640,10 @@ is written into `docs/qa/dark-mode-qa.md` § 2 so a later edit to one of them ha
 somewhere to be checked against.
 
 **`MutedSweepLedgerTests+BatchTwo` pins B2's applied sites by symbol**, not by
-per-file `Color.inkSecondary` count the way B5's arm does. B2's files hold one
-to thirteen of that token each; in the three densest (13 / 11 / 10) roughly half
-predate the batch (7 / 7 / 6), so a per-file total there cannot attribute a
-revert to a site — one reverted site hides in a total that size either way. Its doc comment carries the derivation.
+per-file `Color.inkSecondary` count the way B5's arm does: in B2's densest files
+roughly half of that token predates the batch, so a per-file total there cannot
+attribute a revert to a site. The figures are in the doc comment on
+`MutedSweepLedgerTests.expectedAppliedInkSecondary`, the one place they are kept.
 
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape — with the

@@ -22,7 +22,7 @@ extension SimulationView {
     }
   }
 
-  // The six repoints in this file read `inkSecondary`, not §8's quietude tier:
+  // The rows #1448 batch 2 repointed to `inkSecondary` are not on §8's tier:
   // a transcript row is either the simulation's primary output (A5) or the
   // narration of a turn that degraded (A4 — ADR-021 D5 requires the transcript
   // to stay self-explanatory *at the gap*, and a gap narrated illegibly is not

@@ -259,13 +259,12 @@ struct ResultDetailView: View {  // swiftlint:disable:this type_body_length
         if let skipped = DegradedRunBadge.skippedTurnCount(
           status: simulation?.simulationStatus,
           degradedTurnCount: simulation?.degradedTurnCount ?? 0) {
-          // Tinted per slot in #1448 batch 2, not on the `Label`: the text
-          // narrates a degraded run (class A4, ADR-021 D5) → `inkSecondary`;
-          // the glyph is non-text and stays on §8's quietude tier, as the two
-          // triangles in `SimulationView+LogEntries` do. A single
-          // `.foregroundStyle` could not have split them. That leaves a
-          // `Color.muted` here with no `9a40565a` ledger row — the batch
-          // created it; see audit § 5.
+          // Tinted per slot, not on the `Label` — one `.foregroundStyle` cannot
+          // split them: the text narrates a degraded run (class A4, ADR-021 D5)
+          // → `inkSecondary`; the glyph is non-text and stays `muted`, as the two
+          // triangles in `SimulationView+LogEntries` do. The glyph's
+          // `Color.muted` is the row the audit § 5 marks *added by B2*: the
+          // `9a40565a` baseline census never adjudicated it.
           Label {
             Text(String(format: String(localized: "Turns skipped ×%lld"), skipped))
               .foregroundStyle(Color.inkSecondary)

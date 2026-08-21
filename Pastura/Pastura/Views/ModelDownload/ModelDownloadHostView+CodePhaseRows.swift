@@ -36,7 +36,7 @@ extension ModelDownloadHostView {
       // Mirrors `SimulationView.assignmentEntry`.
       Text(String(format: String(localized: "%@ assigned: %@"), agent, value))
         .textStyle(Typography.metaValue)
-        // Applied together with `SimulationView+LogEntries`: the DL-time demo
+        // Keep in step with `SimulationView+LogEntries`: the DL-time demo
         // mirrors the live log deliberately, so repointing one and not the other
         // diverges them visually while every count still reconciles. A5 carries
         // to the component wherever it is mounted — the rows are primary output
