@@ -21,8 +21,8 @@ import Testing
 //
 // This half is the tighter of the two against `file_length` (400, SwiftLint's
 // default; `--strict` promotes the warning), and the split is what keeps it
-// under without a lint directive. So a new arm belongs in the sibling unless it
-// is genuinely about computing a ground.
+// under without a lint directive. So a new arm belongs in the sibling — even
+// one that computes a ground, while this file sits within a few lines of the cap.
 extension DesignTokensTests {
 
   /// WCAG 1.4.3 normal-text bar. Both #1427 labels are `caption`-class (~12pt),
@@ -34,7 +34,7 @@ extension DesignTokensTests {
   /// **floor** speak for named labels and could carry the fields — it is that
   /// the streak sub-label is `.caption.weight(.medium)`, a weight with no WCAG
   /// half assigned yet.
-  private static let contentTextBar = 4.5
+  static let contentTextBar = 4.5  // internal: `+MutedTranscript`'s `page` arm reads it
 
   /// Every opaque ground the app ships that `muted` is or could be drawn on, per
   /// appearance. Hand-written rather than derived from

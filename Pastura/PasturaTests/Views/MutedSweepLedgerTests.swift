@@ -13,7 +13,7 @@ import Testing
 /// they take opposite remedies**: a rename or a deletion means re-anchor the
 /// row by symbol rather than dropping it; an **applied batch** means the row
 /// stays put with its `B` marker bolded and the entry here is dropped, which is
-/// what batches 1, 5 and 2 did. Read the file's § 5 rows before choosing.
+/// what batches 1, 5, 2 and 3 did. Read the file's § 5 rows before choosing.
 ///
 /// **It fires on an addition too**, which is the half prose cannot do. The
 /// expectation is a whole-map comparison, so a new file reaching for
@@ -39,8 +39,11 @@ struct MutedSweepLedgerTests {
   /// Batch 1 (#1486) removed eight occurrences and emptied three files, batch 5
   /// (#1510) removed three more and emptied three more, and batch 2 repointed
   /// nineteen sites for a net **eighteen** occurrences — the nineteenth kept
-  /// the spelling on the glyph above — and emptied none. So this table is the
-  /// post-batch-2 population, not § 1's `9a40565a` baseline.
+  /// the spelling on the glyph above — and emptied none. Batch 3 repointed six
+  /// sites in three files — the eliminated rows in `SimulationResultCard` /
+  /// `ScoreboardSheet` and the prediction countdown — and emptied none either.
+  /// So this table is the post-batch-3 population, not § 1's `9a40565a`
+  /// baseline.
   private static let expectedMutedOccurrences: [String: Int] = [
     "Views/Community/SharedScenarios/GalleryCatalogRow.swift": 1,
     "Views/Community/SharedScenarios/GalleryScenarioDetailView+Highlight.swift": 2,
@@ -55,7 +58,7 @@ struct MutedSweepLedgerTests {
     "Views/Components/PasturaRowLabel.swift": 1,
     "Views/Components/PersonaDetailSheet.swift": 1,
     "Views/Components/SheepAvatar.swift": 4,
-    "Views/Components/SimulationResultCard.swift": 5,
+    "Views/Components/SimulationResultCard.swift": 2,
     "Views/Editor/PhaseBlockRow.swift": 1,
     "Views/Editor/PhaseEditorSheet+ConditionalSection.swift": 1,
     "Views/Editor/ScenarioEditorView.swift": 2,
@@ -74,11 +77,11 @@ struct MutedSweepLedgerTests {
     "Views/Settings/SettingsView+PastResults.swift": 1,
     "Views/Settings/SettingsView.swift": 2,
     "Views/Simulation/HighlightCandidatesSection.swift": 2,
-    "Views/Simulation/ScoreboardSheet.swift": 3,
+    "Views/Simulation/ScoreboardSheet.swift": 1,
     "Views/Simulation/SimulationView+Background.swift": 1,
     "Views/Simulation/SimulationView+LogEntries.swift": 3,
     "Views/Simulation/SimulationView.swift": 2,
-    "Views/Simulation/ViewerPredictionSheet.swift": 2
+    "Views/Simulation/ViewerPredictionSheet.swift": 1
   ]
 
   /// Reads of the raw `muted` / `nightMuted` palette values that do **not** go

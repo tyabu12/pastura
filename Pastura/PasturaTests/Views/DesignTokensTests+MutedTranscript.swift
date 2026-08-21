@@ -172,9 +172,11 @@ extension DesignTokensTests {
     computed: [(name: String, ratio: Double)], pins: [(name: String, ratio: Double)]
   ) -> [String] {
     computed.compactMap { entry in
-      guard let pin = pins.first(where: { $0.name == entry.name }), rounded3(entry.ratio) < pin.ratio
+      guard let pin = pins.first(where: { $0.name == entry.name }),
+        rounded3(entry.ratio) < pin.ratio
       else { return nil }
-      return "    \(entry.name): \(printed3(entry.ratio)) — was \(String(format: "%.3f", pin.ratio))"
+      return
+        "    \(entry.name): \(printed3(entry.ratio)) — was \(String(format: "%.3f", pin.ratio))"
     }
   }
 
@@ -291,5 +293,22 @@ extension DesignTokensTests {
     let ratios = Self.opaqueGroundPins.map(\.ratio)
     #expect(ratios.min() == 2.136)
     #expect(ratios.max() == 4.152)
+  }
+
+  // MARK: - Batch 3 after-figure (#1448)
+
+  /// `ViewerPredictionSheet`'s countdown is the one batch-3 repoint whose
+  /// ground (`page`) no other arm pins `inkSecondary` on — `bubbleBackground`
+  /// is covered by ``bothPredictionBadgeRepointsClearTheBar``, and the
+  /// `ScoreboardSheet` rows sit on the system sheet surface, which has no
+  /// fixture ground at all (ledger §3.3: argued by direction). An inequality,
+  /// not a pinned figure, so it leaves no transcript for `--census` to track.
+  /// Lives here rather than in the sibling because that file is at SwiftLint's
+  /// `file_length` ceiling — its header nominates this one.
+  @Test func inkSecondaryClearsTheBarOnPage() {
+    let light = contrastRatio(PasturaPalette.inkSecondary, PasturaPalette.page)
+    #expect(light >= Self.contentTextBar, "light page: \(light)")
+    let dark = contrastRatio(PasturaPalette.nightInkSecondary, PasturaPalette.nightPage)
+    #expect(dark >= Self.contentTextBar, "dark nightPage: \(dark)")
   }
 }

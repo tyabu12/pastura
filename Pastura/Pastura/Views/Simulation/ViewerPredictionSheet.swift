@@ -56,9 +56,13 @@ struct ViewerPredictionSheet: View {
         .font(.title3.weight(.semibold))
         .foregroundStyle(Color.ink)
         .multilineTextAlignment(.center)
+      // The countdown is a deadline the user acts against (class A3) — the
+      // sheet auto-skips at zero — so it reads `inkSecondary` since #1448
+      // batch 3; the eyebrow above stays on the quietude tier as a category
+      // label. `docs/design/muted-application-audit.md` §5.
       Text(String(format: String(localized: "%lld s left"), remaining))
         .font(.caption.monospacedDigit())
-        .foregroundStyle(Color.muted)
+        .foregroundStyle(Color.inkSecondary)
         .accessibilityIdentifier("prediction.countdown")
     }
   }

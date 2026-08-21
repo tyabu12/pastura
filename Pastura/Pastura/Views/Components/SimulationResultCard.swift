@@ -149,7 +149,10 @@ struct SimulationResultCard: View {
       Text(entry.name)
         .textStyle(Typography.bodyBubble)
         .strikethrough(entry.isEliminated)
-        .foregroundStyle(entry.isEliminated ? Color.muted : Color.ink)
+        // Eliminated rows keep the strikethrough + xmark dot as the state cue;
+        // the name itself is act-on content (class A3) and reads `inkSecondary`
+        // since #1448 batch 3 — `docs/design/muted-application-audit.md` §5.
+        .foregroundStyle(entry.isEliminated ? Color.inkSecondary : Color.ink)
       Spacer(minLength: Spacing.xs)
       valueText(entry)
       statusDot(entry)
@@ -169,7 +172,10 @@ struct SimulationResultCard: View {
       Text(formattedValue(value, kind: entry.valueKind))
         .textStyle(Typography.bodyBubble)
         .monospacedDigit()
-        .foregroundStyle(entry.isEliminated ? Color.muted : Color.inkSecondary)
+        // Both arms converged in #1448 batch 3: the eliminated tally is act-on
+        // content (class A3) like the live one, so the ternary that once dimmed
+        // it to the quietude tier is gone — `muted-application-audit.md` §5.
+        .foregroundStyle(Color.inkSecondary)
     }
   }
 
@@ -181,7 +187,9 @@ struct SimulationResultCard: View {
   }
 
   private func nameColor(_ entry: Entry, isWinner: Bool) -> Color {
-    if entry.isEliminated { return Color.muted }
+    // Eliminated names are act-on content (class A3), not ambience — the
+    // strikethrough carries the state. #1448 batch 3; `muted-application-audit.md` §5.
+    if entry.isEliminated { return Color.inkSecondary }
     return isWinner ? Color.mossInk : Color.ink
   }
 
