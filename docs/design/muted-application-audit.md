@@ -529,13 +529,30 @@ Two hand-rolled headers sit outside `PasturaSection` and take the same decision:
 Decided here, **applied in batch 5 (#1485)** — those three call sites now draw
 `--ink-2`, repainting the five screens above under ADR-028 gate 4/5 QA.
 
-One QA item comes from the repoint rather than from any token rule, and is
-recorded here rather than in a PR body so it outlives the merge:
-`SettingsView+Models.modelsHeader` now draws its `Models` label and its
-switch-blocked reason in the **same** `--ink-2`, where the label used to be the
-quieter `--muted`. Both are individually correct — §2.2 for the label, class A1
-for the reason — so the two are now separated by size alone (`.subheadline` vs
-`.caption`). Worth a look during gate 4/5; not a defect to pre-empt.
+**One QA question comes from the repoint rather than from any token rule, and
+it is structural — ask it once on each of the five screens, not five times.**
+§2.2 assigns `--ink-2` to *both* section labels **and** subtext, so a header
+that moves onto it now shares its colour with the quietest body text beneath
+it, separated by size alone. Recorded here rather than in a PR body so it
+outlives the merge. Every pairing below is individually correct; what is
+unmeasurable is whether the header still reads subordinate to what it heads:
+
+| Screen | Header vs. the `--ink-2` beneath it |
+|---|---|
+| Results | section title vs. a row's scenario description — **same colour *and* same `.subheadline`**; the priority screen |
+| Home | `Scenarios` vs. the first row's `.footnote` description |
+| ScenarioDetail | `Personas (N)` / `Phases (N)` vs. persona `.caption` descriptions and the non-LLM `PhaseTypeLabel` |
+| GalleryScenarioDetail | `A glimpse of a real run` vs. the `.callout.italic()` teaser |
+| Settings | `Models` vs. the switch-blocked reason (class A1, already on `--ink-2` since B1) |
+
+If it reads badly the fix is one change to `PasturaSection`'s header treatment
+(tracking, caps, weight), not five per-site patches — the collision comes from
+the token table, not from any one screen. **Both appearances move the same way
+and by close to the same factor** — this pair does not invert the way §2.3's
+and §2.4's ladders do — so neither appearance is the safe side to skim. Figures
+deliberately omitted: the `--ink-2` grounds are not among the pins, and §8's
+"Regenerating the ratio tables" forbids computing one by hand to fill the gap.
+Not a defect to pre-empt.
 
 **§2.2's third treatment is not folded in, and what it raises is left open.**
 Headers still on the system `secondaryLabel` are not a residue of this one:
@@ -548,11 +565,26 @@ against it: it moved `ScenarioEditorView`'s two headers because a `--muted`
 count sat beside each inside one `HStack`, and its inline comment says so —
 "only the count-bearing headers qualify". Tracked as **B6** in §7.
 
-That 21 is not reproducible from any single grep, so the **shape** is the
-record: the `Section { … } header: { … }` closure form plus the `Section("…")`
-shorthand, minus headers hosted in a `Menu` (`ActiveModelChip` · `Active model`,
-and `ResultDetailView` · `Developer`, itself `#if DEBUG`), minus the two
-`ScenarioEditorView` headers #1298 already tokenized. Two further headers were
+No single grep reproduces that 21, so the recipe is the record — two greps
+over `Pastura/Pastura`, then three named subtractions:
+
+```sh
+grep -rn 'Section(String(localized' --include='*.swift' | grep -v PasturaSection   # 7
+grep -rn '} header: {' --include='*.swift'                                          # 18
+```
+
+25 literals, minus the two hosted in a `Menu` (`ActiveModelChip` · `Active
+model`, and `ResultDetailView` · `Developer`, itself `#if DEBUG`) and the two
+`ScenarioEditorView` headers #1298 already tokenized = **21, over 9 files**.
+`.headerProminence` and the legacy `Section(header:)` form are both zero
+app-wide, and no `Section` literal exists outside `Views/`.
+
+**21 is a floor on rendered headers, not a measurement of them.** Two of the
+literals sit in helpers invoked twice — `PhaseEditorSheet+ConditionalSection`'s
+`branchSection` (then / else) and `VariablePickerSheet`'s `group` — and both
+render a runtime `Text(title)`, so ≥23 headers reach the screen and a future
+grep keyed on a localized literal *inside* a header would miss them. The error
+runs toward more work than stated, so it does not threaten the exclusion. Two further headers were
 read and excluded as **not** §2.2 section labels: `ResultsView+Timeline`'s day
 header and `HighlightCandidatesSection`'s `Share a highlight` are bold `ink`
 titles, not subordinate labels.
@@ -566,7 +598,7 @@ titles, not subordinate labels.
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
-| **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them. Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
+| **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
 
 B2 is the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast

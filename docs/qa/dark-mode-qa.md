@@ -118,6 +118,28 @@ washed-out control — as opposed to merely *different*? The heading carried a
 count until 2026-08-05 and was wrong by two before anyone added anything — the
 list grows whenever a screen gains exposure, so it no longer states one.
 
+### Section headers on `--ink-2` — one question, asked on five screens (#1485)
+
+Batch 5 moved every Pastura-drawn section header off `--muted` onto `--ink-2`,
+which §2.2 also assigns to **subtext**. So on these screens a header now shares
+its colour with the quietest body text beneath it, separated by size alone. Same
+shape as the badge question above, and the same falsifiable form: **does the
+header still read *subordinate* to the content it heads?** Both appearances move
+the same way here, so neither is the safe side to skim.
+
+- [ ] **Results** — priority. The section title and a row's scenario description
+      are the same colour *and* the same `.subheadline`.
+- [ ] **Home** — `Scenarios` vs. the first row's `.footnote` description.
+- [ ] **ScenarioDetail** — `Personas (N)` / `Phases (N)` vs. persona `.caption`
+      descriptions and the non-LLM `PhaseTypeLabel`.
+- [ ] **GalleryScenarioDetail** — `A glimpse of a real run` vs. the italic teaser.
+- [ ] **Settings** — `Models` vs. the switch-blocked reason beneath it.
+
+If it reads wrong, the fix is one change to `PasturaSection`'s header treatment
+(tracking, caps, weight), not five per-site patches — the collision comes from
+the token table, not from any one screen. Derivation: `muted-application-audit`
+§6.3.
+
 - [ ] **Home** — cards, `ActiveModelChip` (including its warning / danger states
       if reachable), scenario rows. Avatars invert through
       `SheepAvatarPalette.resolved(colorScheme:)`, not through a token alias.

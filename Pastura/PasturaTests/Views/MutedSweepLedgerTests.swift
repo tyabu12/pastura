@@ -9,8 +9,11 @@ import Testing
 /// batches and most of §5 still ships as written, so a count change is a
 /// question, not a regression: re-adjudicate the site against § 2's five
 /// misapplication classes, update the ledger row, then update the expectation
-/// here. A row whose file no longer appears was renamed or deleted — re-anchor
-/// it by symbol rather than dropping it.
+/// here. **Three causes produce the same observation of a vanished file, and
+/// they take opposite remedies**: a rename or a deletion means re-anchor the
+/// row by symbol rather than dropping it; an **applied batch** means the row
+/// stays put with its `B` marker bolded and the entry here is dropped, which is
+/// what batches 1 and 5 did. Read the file's § 5 rows before choosing.
 ///
 /// **It fires on an addition too**, which is the half prose cannot do. The
 /// expectation is a whole-map comparison, so a new file reaching for
@@ -90,6 +93,29 @@ struct MutedSweepLedgerTests {
     "Views/Components/HighlightShareCard.swift": 3
   ]
 
+  /// The `Color.inkSecondary` count of the three files batch 5 (#1485) emptied
+  /// of `Color.muted`, and the reason this arm exists at all.
+  ///
+  /// **An applied batch leaves the census permanently.** The map above pins the
+  /// *absence* of `Color.muted`, so once a site is repointed the only drift it
+  /// still catches is a re-add of the old token. A later slide to `Color.ink`,
+  /// `.secondary` or a raw hex would leave every gate green while
+  /// design-system § 2.2's claim — that the hand-rolled headers now follow the
+  /// table — went quietly false. The two arms are complementary and neither
+  /// subsumes the other: revert-to-`muted` reddens the map above, drift-to-
+  /// anything-else reddens this one.
+  ///
+  /// Counts, not presence: `SettingsView+Models` already read `inkSecondary`
+  /// for its switch-blocked reason before batch 5 (class A1, batch 1), so a
+  /// `> 0` check there would pass with the header reverted. Scoped to these
+  /// three files on purpose — this is a pin on B5's applied rows, not a second
+  /// app-wide census.
+  private static let expectedAppliedInkSecondary: [String: Int] = [
+    "Views/Components/PasturaSection.swift": 1,
+    "Views/Home/HomeView.swift": 1,
+    "Views/Settings/SettingsView+Models.swift": 2
+  ]
+
   private static let rawPaletteNeedles = [
     "PasturaPalette.muted", "PasturaPalette.nightMuted",
     "PasturaDynamicPalette.muted", "palette.muted"
@@ -115,6 +141,18 @@ struct MutedSweepLedgerTests {
       """)
   }
 
+  @Test func batchFiveSitesStillReadInkSecondary() throws {
+    let observed = Self.census(of: ["Color.inkSecondary"], excludingDesignTokens: true)
+      .filter { Self.expectedAppliedInkSecondary.keys.contains($0.key) }
+    #expect(
+      observed == Self.expectedAppliedInkSecondary,
+      """
+      \(Self.diff(
+        observed: observed, expected: Self.expectedAppliedInkSecondary,
+        what: "batch 5 `Color.inkSecondary`"))
+      """)
+  }
+
   // MARK: - Controls
 
   /// Both arms above are set comparisons, so a probe that scans nothing — or a
@@ -131,8 +169,12 @@ struct MutedSweepLedgerTests {
     let swiftFiles = SourceTreeProbe.swiftFiles(under: SourceTreeProbe.appSourceRoot)
     #expect(!swiftFiles.isEmpty, "scanned no app sources — the source root did not resolve")
 
-    // Positive: a file this sweep has NOT touched (batch 2) still matches, so
-    // the counting predicate has not been narrowed into always-zero.
+    // Positive: a file this sweep has NOT touched still matches, so the
+    // counting predicate has not been narrowed into always-zero. It survives
+    // its own batch too — three of its nine § 5 rows carry no batch marker
+    // (`vs`, and the turn-skipped / action-rejected icons), so B2 takes it
+    // 9 -> 3, not to zero. Pick a replacement on that property, not on
+    // "not swept yet", if this file ever does empty.
     let unswept = "Views/Simulation/SimulationView+LogEntries.swift"
     let observed = Self.census(of: ["Color.muted"], excludingDesignTokens: false)
     #expect(
@@ -206,9 +248,10 @@ struct MutedSweepLedgerTests {
         "  \(key): expected \(was.map(String.init) ?? "absent") → found \(now.map(String.init) ?? "absent")"
     }
     return """
-      The \(what) population moved. Re-adjudicate each site against \
-      docs/design/muted-application-audit.md § 2, update its § 5 row, then update \
-      this expectation:
+      The \(what) population moved. Decide which happened first — an applied \
+      batch (§ 5 row stays, bold its `B`, drop the entry here) or an unreviewed \
+      change (re-adjudicate against § 2, update the § 5 row, then this \
+      expectation). Do not reach for the second remedy without checking § 7:
       \(changes.joined(separator: "\n"))
       """
   }
