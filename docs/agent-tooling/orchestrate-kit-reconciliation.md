@@ -48,8 +48,9 @@ below are the ones a plausible-sounding back-port *would* undo.
    stronger-sounding wording would reintroduce that stall. Reasoning is inline in the skill next to
    the 🎵 prompt.
 4. **The template's inlined subagent output-cap / split-budget note is omitted, and its "Project
-   parameters (baked at generation)" table has no counterpart.** `docs/agent-tooling/subagent-usage.md`
-   is always-loaded here, so inlining pays twice per turn (`docs/agent-tooling/context-budget.md`); and
+   parameters (baked at generation)" table has no counterpart.** the split budget already lives in
+   `.claude/agents/code-reviewer.md` (kept in sync with `docs/agent-tooling/subagent-usage.md` §2),
+   so inlining it here would be a third copy to keep in sync; and
    this file's parameters are inline at each step and richer than the table's cells.
 5. **Step 1.3 routes on two independent axes — *tier* (`🎵` Sonnet / `🎭` `🧠` Opus) and *locus*
    (`🎵` `🎵 (tb)` `🎭` delegated / `🎵 (main)` `🧠` in the main session) — where the template keeps

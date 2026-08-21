@@ -19,7 +19,7 @@ iOS app that runs AI multi-agent simulations on-device. Users define scenarios i
 
 Layers, top → bottom: **Views → App/ViewModel → Engine + Data → LLM → Models** (`docs/decisions/ADR-001.md`). Engine emits `SimulationEvent` via `AsyncStream`; the App layer applies `ContentFilter` and persists. LLM backends sit behind the `LLMService` protocol (`LLM/LLMService.swift`).
 
-README.md and CONTRIBUTING.md mirror Architecture, Hard Rules, Dependency Rules, Tech Stack, and Git Conventions — change both.
+README.md and CONTRIBUTING.md mirror Architecture, Hard Rules, Dependency Rules, Tech Stack, and Git Conventions — change both. Two mirrors are source-driven rather than section-driven: `App/ModelRegistry.swift` → README "Supported LLM models", and the i18n / `ContentBlocklist.json` procedures → CONTRIBUTING "Before your first PR".
 
 ## Hard Rules
 
@@ -46,11 +46,11 @@ Protocol definitions and every type in `Models/` are `public`; everything else s
 
 - **Default actor isolation is MainActor** (`SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`). Every type in `Models/`, `LLM/`, `Engine/`, `Data/` is `nonisolated` at the type level. The traps that raise no diagnostic — a `nonisolated async` body running on the caller's executor, an unannotated ObjC protocol, a MainActor-inferred framework closure — are in `.claude/rules/swift-isolation.md`.
 - **Observable bridge**: an `@Observable` class exposing state owned by a `nonisolated` class or actor must call `access(keyPath:)` in the getter and `withMutation(keyPath:)` around **every** write, or SwiftUI never invalidates. Example: `SimulationViewModel.isPaused`.
-- **Logger privacy**: OSLog redacts `String` / `Error` interpolations as `<private>` in Release. Annotate non-`.debug` interpolations with `privacy: .public`; never interpolate user content (scenario text, agent output) — persist it via `TurnRecord` instead.
+- **Logger privacy**: OSLog redacts `String` / `Substring` / `Error` interpolations as `<private>` in Release. Annotate non-`.debug` interpolations with `privacy: .public`; never interpolate user content (scenario text, agent output) — persist it via `TurnRecord` instead.
 - **Bundle-ID suffix**: Debug builds ship as `app.pastura.Pastura.dev`. An identifier declared in `Info.plist` (e.g. `BGTaskScheduler`) must be `$(PRODUCT_BUNDLE_IDENTIFIER)` on both sides — a mismatch only logs and ships silently dead. A per-container identifier (a background `URLSession`) must **not** track the suffix, or renaming orphans in-flight downloads.
-- **Fixed-appearance export** (`ImageRenderer`) must inject `.environment(\.colorScheme, …)` explicitly, or it renders light on a dark device (ADR-028).
+- **ADR-022-governed enums**: the no-default gate does not cover `== .<case>` predicates — grep `== .<case>` when adding a case (ADR-027).
 - **Error types are per layer**: `SimulationError` (Models), `LLMError` (LLM), `DataError` (Data); the App layer maps them to UI. `errorDescription` literals go through `String(localized:)`; tests match with `.contains`, not equality.
-- **User-facing strings** go through `String(localized:)` so they land in `Localizable.xcstrings` with a `ja` translation. Callsite conventions: `.claude/rules/i18n.md`, `i18n-ui.md`, `i18n-catalog.md`.
+- **User-facing strings** go through `String(localized:)` so they land in `Localizable.xcstrings` with a `ja` translation. Callsite conventions: `.claude/rules/i18n.md`, `i18n-ui.md`, `i18n-catalog.md` — the last loads only on a `Read` of the catalog, so read it explicitly before a scripted mutation.
 - **"Why" comments** on non-obvious choices, addressed to the next editor — never a restatement of what the diff did.
 - `Sendable` for cross-actor types, `@MainActor` for UI state, `AsyncStream` over callbacks.
 
@@ -81,13 +81,14 @@ Engine and LLM: test-first. Data and UI: implement first, then test non-trivial 
 
 Implementation order: Models → LLM → Engine → Data → Views → App → integration test.
 
-Local builds and tests go through `scripts/xcodebuild.sh` (`.claude/rules/xcodebuild-cli.md`). The git pre-commit hook (`./scripts/setup.sh` once per clone) runs SwiftLint, the build, and the `scripts/*-gate.sh` sub-gates; CI mirrors every check.
+Local builds and tests go through `scripts/xcodebuild.sh` (`.claude/rules/xcodebuild-cli.md`). The git pre-commit hook (`./scripts/setup.sh` once per clone) runs the `scripts/*-gate.sh` sub-gates, plus SwiftLint and the build when the changeset touches iOS sources (`scripts/precommit-gate-classify.sh` decides); CI mirrors every check.
 
 ### Git Conventions
 
 - Branches: `feature/<desc>`, `fix/<desc>`, `docs/<desc>`. Prefer `git switch`; never `--discard-changes`, `--force`, `-f`, or `-C`.
 - Commits: Conventional Commits with an emoji prefix, under 72 chars — `✨ feat:`, `🐛 fix:`, `♻️ refactor:`. One logical change per commit; add a body when the why isn't obvious.
 - After a pre-commit rejection, run `git status` and re-stage before retrying — staged files can silently drop to unstaged.
+- A rename plus an edit can stage as a rename-only entry (`similarity index 100%`); check `git diff --cached <path>` for real `+` / `-` lines before committing.
 - Compose multi-line PR / issue / commit bodies in a file and pass `--body-file` / `-F`; an inline heredoc trips the push-protection hook's body scan.
 - In a multi-PR split only the final PR says `Closes #N`; the others `Part of #N`.
 

@@ -34,7 +34,7 @@
 #      likely considered it" trade-off.) Emits and exits immediately.
 #
 #   2. Mirror-sync nudge — if CLAUDE.md changed inside one of the sections
-#      the "Reference Documents" table mirrors to README / CONTRIBUTING, but
+#      its § Architecture mirror note maps to README / CONTRIBUTING, but
 #      README.md / CONTRIBUTING.md was NOT changed on the branch, remind the
 #      operator to check whether the mirror needs the same edit. This closes
 #      the gap where the hook went silent EXACTLY when CLAUDE.md changed —
@@ -61,18 +61,18 @@
 #      document per the EMIT CONTRACT above.
 #
 # Mirror detection is SECTION-RANGE overlap, not "any CLAUDE.md change": a
-# change confined to a non-mirrored section (Current Phase, the ADR index,
-# Test Execution, …) must not nudge, or the reminder becomes noise. Section
+# change confined to a non-mirrored section (Current Phase, Decision Records,
+# File Naming, …) must not nudge, or the reminder becomes noise. Section
 # ranges are computed from `HEAD:CLAUDE.md` so their line numbers match the
 # diff's new-side (`+c,d`) hunk numbers; a range ends at the next heading of
-# level <= its own (so the `### Git Conventions` range stops at its sibling
-# `### Test Execution`, not at the next `##`).
+# level <= its own (so a `###` range stops at the next `###` sibling or the
+# next `##`, whichever comes first — the test fixture pins the sibling case).
 #
-# Mirrored sections (heading -> mirror file, per the Reference Documents
-# table):
+# Mirrored sections (heading -> mirror file, per the mirror note under
+# CLAUDE.md § Architecture):
 #   ## Architecture / ## Hard Rules / ## Dependency Rules (STRICT)
 #                                          -> README.md + CONTRIBUTING.md
-#   ## Tech Stack / ## Directory Structure -> README.md
+#   ## Tech Stack                          -> README.md
 #   ### Git Conventions                    -> CONTRIBUTING.md
 # Deliberately NOT covered (documented so a future reader doesn't file a
 # "missing nudge" bug): the "Bundled models" mirror is source-driven
@@ -193,7 +193,7 @@ mirror_targets() {
       }
       function target(h) {
         if (h=="## Architecture" || h=="## Hard Rules" || h=="## Dependency Rules (STRICT)") return "README CONTRIBUTING"
-        if (h=="## Tech Stack" || h=="## Directory Structure") return "README"
+        if (h=="## Tech Stack") return "README"
         if (h=="### Git Conventions") return "CONTRIBUTING"
         return ""
       }
@@ -219,7 +219,7 @@ if [ -n "$claude_md_changed" ]; then
   done
   if [ -n "$REMAIN" ]; then
     FILES=$(printf '%s' "$REMAIN" | sed 's/ / and /')
-    MIRROR_MSG="CLAUDE.md changed in a section the \"Reference Documents\" table mirrors to ${FILES}, but ${FILES} was not updated on this branch. Before opening the PR, verify whether the mirror needs the same change."
+    MIRROR_MSG="CLAUDE.md changed in a section mirrored to ${FILES} (the mirror note under CLAUDE.md § Architecture), but ${FILES} was not updated on this branch. Before opening the PR, verify whether the mirror needs the same change."
   fi
 fi
 
@@ -316,13 +316,13 @@ fi
 # on 2026-08-20, landing at 91,068. #1519 then rebuilt the corpus from zero on
 # 2026-08-21 — CLAUDE.md 32,803 -> 10,181, the three meta rules moved to
 # docs/agent-tooling/, swift-isolation.md 15,808 -> 5,755, xcodebuild-cli.md
-# 9,088 -> 2,898 — landing at 28,043.
+# 9,088 -> 2,898 — landing at 29,362 after review fixes.
 #
 # A slim campaign (#1310 / #1315 style) that lands below the ceiling should
 # re-baseline this default in its own PR — otherwise the nudge decays into
 # permanent wallpaper that everyone scrolls past. #1442 discharged that duty by
 # ratcheting 96,000 -> 95,500; #1503 by 95,500 -> 92,600 (91,068 + 1,532); #1519
-# by 92,600 -> 29,500 (28,043 + 1,457, the bar below). The bar, recorded so the next campaign
+# by 92,600 -> 30,900 (29,362 + 1,538, the bar below). The bar, recorded so the next campaign
 # does not re-derive one: leave about one rule section (~1.5 KB) of headroom, no
 # less. Tighter and the nudge trips on roughly one added rule paragraph —
 # wallpaper from over-firing instead of under-firing. That is why -3,211 bytes
@@ -342,7 +342,7 @@ fi
 # inert (fixtures are kilobytes, and the firing cases pass an explicit ceiling),
 # which is exactly why a re-baseline would forget it — update it anyway so the
 # two never read as disagreeing about the production value.
-FOOTPRINT_CEILING_DEFAULT=29500
+FOOTPRINT_CEILING_DEFAULT=30900
 FOOTPRINT_CEILING="${PASTURA_FOOTPRINT_CEILING:-$FOOTPRINT_CEILING_DEFAULT}"
 # The one external input; a non-numeric value would make the -gt test below
 # spray `[: illegal number` on stderr, so guard it like $added and $n.

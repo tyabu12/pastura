@@ -11,8 +11,8 @@
 
 On-demand reference — moved out of the always-loaded rules (#1519).
 Subagent calls can originate from any layer
-(slash commands, `/orchestrate`, manual `Agent` tool invocations), so
-this rule must stay visible regardless of which file is being edited.
+(slash commands, `/orchestrate`, manual `Agent` tool invocations), which
+is why callers cite this file by path rather than relying on injection.
 
 ## 1. Background
 

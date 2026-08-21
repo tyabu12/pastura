@@ -4,7 +4,7 @@ On-demand reference extracted from `.claude/rules/xcodebuild-cli.md`
 (context-budget — rare-event walkthroughs and the flake-signature
 catalog are human-debugging reference, not next-decision material, so
 they live here rather than in the always-loaded rule). The rule keeps
-the lead claims + the key inline commands + a pointer to this file.
+the invocation shapes, the timeout guideline, and a pointer to this file.
 § Local full-suite flake was recorded directly here rather than
 extracted — it is the one local-only class in a doc otherwise about CI.
 

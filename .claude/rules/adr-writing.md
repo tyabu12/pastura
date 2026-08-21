@@ -54,8 +54,8 @@ header — the drift surface `subagent-usage.md` et al. exist to prevent. Only
 what the skill cannot derive belongs here.
 
 - **A new ADR must be hand-appended to two indexes**, neither of which the
-  skill writes: `docs/decisions/INDEX.md` and `CLAUDE.md` § "Reference
-  Documents" → ADR roster (title only, kept **byte-identical** to the INDEX
+  skill writes: `docs/decisions/INDEX.md` and `CLAUDE.md` § "Decision
+  Records" → ADR roster (title only, kept **byte-identical** to the INDEX
   `## ADR-NNN — <title>` heading). Nothing at
   commit or merge time catches a skip. `consistency-audit`'s `adr_roster_drift`
   compares the roster, the INDEX headings and the **tracked** `ADR-*.md` files
@@ -83,7 +83,7 @@ what the skill cannot derive belongs here.
   you **write next**; existing entries are not audited against it, and no list
   of the non-complying ones is kept, because it would inherit their blind spot.
 - **`ADR-006` is reserved but unwritten** — Cloud API implementation details,
-  recorded in `CLAUDE.md` § "Reference Documents" and `docs/decisions/INDEX.md`
+  recorded in `CLAUDE.md` § "Decision Records" and `docs/decisions/INDEX.md`
   with no file on disk. It is a gap in the listing, not a free slot. Its
   `CLAUDE.md` entry must stay a **table row with the path in cell 1** —
   `consistency-audit`'s `load_reserved_adrs` parses that shape to suppress

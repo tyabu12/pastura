@@ -36,7 +36,7 @@ census and redden `MutedSweepLedgerTests`, which walks the filesystem rather
 than the index. Reach for `git ls-files -z | xargs -0 grep -nH` when that
 matters. Watch the
 sibling `+Feature.swift` split: cross-check against
-`find Pastura/Pastura/Views -name '*.swift'` (CLAUDE.md § Scope & Completeness
+`find Pastura/Pastura/Views -name '*.swift'` (`docs/agent-tooling/knowledge-layering.md` § Scope & Completeness
 Discipline).
 
 Batch 1 removed eight occurrences and emptied three files; batch 5 (#1485)

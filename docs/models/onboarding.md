@@ -181,8 +181,8 @@ Then, in the same `/orchestrate` run:
   `ModelProfile`; the pin test enforces the harness side.
 - **`LicenseCatalog` entry** — add the model's license block
   (`Pastura/Pastura/Views/Settings/LicenseCatalog.swift`).
-- **README mirror** — update "Supported LLM models" per CLAUDE.md § Reference
-  Documents (Bundled models (`ModelRegistry.swift`) → README "Supported LLM
+- **README mirror** — update "Supported LLM models" per the mirror note under
+  CLAUDE.md § Architecture (`ModelRegistry.swift` → README "Supported LLM
   models").
 - **Real-device QA** — confirm inference on a real device (Metal and
   memory-pressure behavior is not reproduced by the Mac harness or the
