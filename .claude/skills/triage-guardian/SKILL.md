@@ -2,6 +2,7 @@
 name: triage-guardian
 description: Triage automation-origin open Draft PRs into a conservative merge / discard / judgment report, and surface aggregate WIP backpressure — read-only, never merges or closes. Use when the user asks to triage the Draft PR queue, run the triage guardian, prep a review session, check the brush-up automation backlog, or see whether the generators should throttle.
 allowed-tools: Read, Grep, Glob, Bash
+disable-model-invocation: true
 ---
 
 # /triage-guardian

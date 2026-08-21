@@ -2,6 +2,7 @@
 name: scenario-refine
 description: Run one scenario-refine cycle — evaluate a rotating slice of the EXISTING shipped scenario inventory (bundled presets + gallery) on pastura-harness with real local-LLM inference, judge each against a category-aware rubric with regression detection, auto-generate and A/B-test v2 improvement candidates for low scorers, and append the local audit journal. Use when the user asks to run scenario-refine, evaluate or polish existing scenarios, audit the scenario inventory, or check for scenario quality regressions.
 allowed-tools: Read, Write, Grep, Glob, Bash
+disable-model-invocation: true
 ---
 
 # /scenario-refine
@@ -371,7 +372,10 @@ can never auto-ship.
     auto-accepts the in-session writes (v2 candidate YAMLs under
     `data/factory/improvements/`); least-privilege. The safety boundary (only
     `data/factory/` is written) is what makes `acceptEdits` safe here.
-  - **Instructions**: `Run the /scenario-refine skill for tonight's cycle.`
+  - **Instructions**: `/scenario-refine` — the slash must be **leading**, so
+    the harness expands it as a slash command. Prose around it ("Run the
+    /scenario-refine skill…") needs model invocation, which this skill's
+    `disable-model-invocation: true` frontmatter blocks.
 - **No settings.json change.** The skill writes only gitignored local files
   and makes no `git push` / `gh` calls, so no allowlist additions are needed.
 - **Environment prerequisites**: AC power, machine awake (non-sleep), idle at

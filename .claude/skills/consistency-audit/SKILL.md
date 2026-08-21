@@ -2,6 +2,7 @@
 name: consistency-audit
 description: Detect mechanically-verifiable documentation/ADR drift and act on it — open a docs-fix Draft PR for fixes whose value is uniquely determined by an authoritative source, or file an issue (with confidence + counter-evidence) for drift that needs human judgment. Use when the user asks to run the consistency audit, audit the docs, check for doc/ADR drift, or run the nightly brush-up consistency pass.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
+disable-model-invocation: true
 ---
 
 # /consistency-audit

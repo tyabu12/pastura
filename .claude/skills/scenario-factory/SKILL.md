@@ -2,6 +2,7 @@
 name: scenario-factory
 description: Run one scenario-factory cycle — generate 3 fresh scenario YAMLs, execute each on pastura-harness with real local-LLM inference, judge the transcripts in-session, and append the local digest. Use when the user asks to run the scenario factory, run a factory cycle, generate and field-test new scenarios, or dogfood scenarios overnight.
 allowed-tools: Read, Write, Edit, Grep, Glob, Bash
+disable-model-invocation: true
 ---
 
 # /scenario-factory
@@ -398,7 +399,10 @@ human-driven `/orchestrate` PR — same pattern as scenario promotion. The PR:
     section (date-idempotent append).
   - **Permission mode**: **`acceptEdits`** (not `bypassPermissions`) —
     auto-accepts in-session file writes (generated YAMLs); least-privilege.
-  - **Instructions**: `Run the /scenario-factory skill for tonight's cycle.`
+  - **Instructions**: `/scenario-factory` — the slash must be **leading**, so
+    the harness expands it as a slash command. Prose around it ("Run the
+    /scenario-factory skill…") needs model invocation, which this skill's
+    `disable-model-invocation: true` frontmatter blocks.
 - **No settings.json change.** The skill writes only gitignored local files
   (digest, scenarios, runs) and makes no `git push` / `gh` calls, so no
   allowlist additions are needed.
