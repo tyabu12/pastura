@@ -9,7 +9,7 @@ paths:
 > the generic core is canonical there; reconcile one-way (kit → Pastura). A consumer copy must never
 > become the source.
 
-A **generator** is any skill that runs unattended and produces artifacts a human must review — a docs-fix PR, an issue, a digest. The scarce resource it spends is the reviewer's attention. A generator joins the family by carrying the imperative "read this file before Step 0" pointer in its own body, not by being listed here; a skill whose only output is a gitignored local digest is not bound.
+A **generator** is any skill that runs unattended and produces artifacts a human must review — a docs-fix PR, an issue, a digest. The scarce resource it spends is the reviewer's attention. A generator joins the family by carrying the imperative "read this file before Step 0" pointer in its own body (`paths:` fires on a read, and a generator run never reads its own skill file), not by being listed here; a skill whose only output is a gitignored local digest is not bound.
 
 ## The contract
 
@@ -33,7 +33,7 @@ The **aggregate** ceiling is advisory — the per-generator hard caps remain the
 
 **A per-generator cap is not.** "At most one open Draft" assumes a single writer; two overlapping runs can each observe zero and both open one. Either serialize runs (never schedule a generator so it can overlap itself) or re-check after acting: push the branch, re-query for a sibling, and abandon without opening a PR if one won the race.
 
-**The judgment lane is bounded by nothing here.** Both caps count open Draft PRs; rule 2's issues sit outside that accounting, and rule 6's exhaustive detection lands its increment precisely there. Cap issues per run as well — a cap on the *flow*, leaving the stock deliberately unbounded. The number is retuned per repo and canonical in the skill of the only generator filing issues unattended.
+**The judgment lane is bounded by nothing here.** Both caps count open Draft PRs; rule 2's issues sit outside that accounting, and rule 6's exhaustive detection lands its increment precisely there. Cap issues per run as well — a cap on the *flow*, leaving the stock deliberately unbounded. The number (`JUDGMENT_ISSUE_CAP`) is canonical in `consistency-audit/SKILL.md` § Constants, the ceiling (`AUTOMATION_WIP_CEILING`) in `triage-guardian/SKILL.md`; every file mirroring either changes together with that section.
 
 ## `gh` read-surface traps (Draft-triage automation)
 

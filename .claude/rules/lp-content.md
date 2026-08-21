@@ -31,4 +31,4 @@ Three silent divergences between source and rendered output — the build succee
 
 The hero figure inlines `<svg class="sheep">` in both locale pages; `web/src/components/SheepAvatar.astro` carries one more for the share landing pages. They are byte-identical apart from `data-tone`, and no page renders both — no build or diff check can catch a divergence.
 
-Geometry source of truth is `Pastura/Pastura/Views/Components/SheepAvatar.swift`; per-tone fills are shared in `web/public/css/base.css` `.sheep[data-tone]`. **Editing the geometry means editing both places.**
+Geometry source of truth is `Pastura/Pastura/Views/Components/SheepAvatar.swift`; per-tone fills are shared in `web/public/css/base.css` `.sheep[data-tone]`. **Editing the geometry means editing both places.** The LP keeps its inline copies deliberately; a swap to the component must be verified byte-identical.

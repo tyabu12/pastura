@@ -13,7 +13,9 @@ Editing the catalog and surviving `xcstringstool sync`. Authoring: `i18n.md`, `i
 positional-form `en` block, Apple's translator reference: **add `ja` beside it under
 `localizations`, never replacing `en`**. The dominant freshly-extracted shape, though, is an empty
 body (`"Key" : { }`) — multi-arg keys land empty too, until a later sync settles them. So **don't
-grep `state : "new"` for new keys**; `git diff`, and treat every new key as needing `ja`.
+grep `state : "new"` for new keys**; `git diff`, and treat every new key as needing `ja`. Sync
+auto-prunes empty `"…" : { }` orphans, but an `extractionState: "stale"` entry with populated
+localizations survives it and needs `scripts/xcstrings-prune-stale.py`.
 
 ## Xcode IDE re-serialization — the CLI form is canonical, discard Xcode's
 

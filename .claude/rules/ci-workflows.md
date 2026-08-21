@@ -37,11 +37,17 @@ TEST_EXIT=${PIPESTATUS[0]}
 
 ### Rule 3 — an early-exiting reader under `pipefail` reports a MATCH as a failure
 
-`grep -q` exits at its first match; the still-writing producer takes SIGPIPE and returns 141, which `pipefail` promotes to the pipeline's status — so `if ! producer | grep -q PAT` skips **because** the pattern matched. Fix the shape (capture, then test the captured text), never the option. `scripts/tests/staged-trigger-pipefail-test.sh` scans tracked shell scripts for that shape and prints the fix; three things sit deliberately outside its scope:
+`grep -q` exits at its first match; the still-writing producer takes SIGPIPE and returns 141, which `pipefail` promotes to the pipeline's status — so `if ! producer | grep -q PAT` skips **because** the pattern matched. Fix the shape, never the option — capture, then test the captured text, with `|| [ $? -eq 1 ]` (grep's exit ≥2 is an error, which `|| true` would fold into "no match" and reopen the fail-open):
+
+```bash
+hits=$(producer | { grep -E "$PAT" || [ $? -eq 1 ]; })
+[ -n "$hits" ] && …
+```
+
+Assigning the producer's output to a variable first does **not** fix it — SIGPIPE just moves from the producer to the `printf`; dropping `-q` is what fixes it. On the producer side set `core.quotepath=false`: git octal-escapes *and* double-quotes a non-ASCII path by default, and the quotes defeat a `^`/`$`-anchored pattern. Never certify a site safe by comparing an input size to a number — pipe capacity is a kernel property that differs between the macOS pre-commit hook and the ubuntu runner. `scripts/tests/staged-trigger-pipefail-test.sh` scans tracked shell scripts for the `| grep -q` shape and names the direction of the fix (the idiom above is its A8 arm); two things sit deliberately outside its scope:
 
 - **Other early-exiting readers** — `head`, `sed …q`, `awk …exit`, `grep -m N`. `grep -q` fails **open** (a gate skips); `| head` fails **loud** (a bare 141, no message — `scripts/analyze-streaming-diag.sh`).
 - **Workflow YAML.** A bare `run:` has no pipefail (Rule 2), so `ci.yml`'s `printf … | grep -q` steps are latent — **adding `shell: bash` arms one**.
-- **`core.quotepath=false` on the producer.** git octal-escapes *and* double-quotes a non-ASCII path by default, and the quotes defeat a `^`/`$`-anchored trigger pattern.
 
 ### Rule 4 — `$(set +o)` cannot round-trip errexit
 
@@ -99,7 +105,7 @@ A guard matching a Swift call *shape* (`grep -E 'foo\([^)]*\bbar\b'`) silently p
 
 Two traps hitting a gate script's *reporting* and *scope*, not its logic — so tests of the verdict pass while both are broken.
 
-**Annotation paths.** GitHub resolves `file=` relative to the repository root, so a script building paths from `REPO_ROOT="$(cd … && pwd)"` emits absolute ones that match no tracked file: the annotation loses all line linkage in the Files-changed view *while still rendering normally in the log*. Strip the prefix at emission and pass `line=` when a `grep -n` already has the number. Reference: `check-b-prime-isolation.sh` (`annotate_path`).
+**Annotation paths.** GitHub resolves `file=` relative to the repository root, so a script building paths from `REPO_ROOT="$(cd … && pwd)"` emits absolute ones that match no tracked file: the annotation loses all line linkage in the Files-changed view *while still rendering normally in the log*. Strip the prefix at emission and pass `line=` when a `grep -n` already has the number. Test the relativizing branch with a fixture **inside** the repo — a `mktemp -d` fixture never takes it, so the assertion silently exempts every case it sees. Reference: `check-b-prime-isolation.sh` (`annotate_path`).
 
 **Scope.** A gate asserting a **repository** invariant must read tracked files, never walk the worktree: `Pastura/DerivedData/` and `.build/artifacts/` both hold a vendored `llama.xcframework` after any local build, so a `find`-based check is **green on a fresh CI checkout and red on every developer machine** — the split CI structurally cannot show.
 

@@ -34,11 +34,15 @@ nowhere else**.
 
 3. **`extractionState: "manual"` is mandatory.** The compiler extracts `"%lld records"` knowing
    `count: Int`, so the runtime works — but the source-based extract has no type info and marks the
-   key `stale` on **every** `scripts/xcodebuild.sh build`; `manual` opts it out.
+   key `stale` on **every** `scripts/xcodebuild.sh build`; `manual` opts it out — verify post-build
+   with `git diff` that the key stayed `manual`.
 
 **Coverage is blind to the en plural**: `check_localization_coverage.py` reads
 `localizations.en.stringUnit`, which a plural block has not, so it early-returns without checking
-`one` / `other`. Confirm both by hand; pin them in `Localization/RecordsCountPluralTests.swift`.
+`one` / `other`. Confirm both by hand; pin them in `Localization/RecordsCountPluralTests.swift`. That runtime test
+is the only firing signal: assert the rendered string for n=1 (structure alone is a change
+detector), resolve through `Bundle(for:)` so the assertion is not a tautology, and read
+`view-testing.md` § "Non-base-locale expectations" before pinning a `ja` value.
 
 ## SwiftUI convenience-init label trap
 

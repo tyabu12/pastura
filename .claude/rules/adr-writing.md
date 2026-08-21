@@ -7,7 +7,7 @@ paths:
 
 ADRs are dense with fact-claims that downstream PRs and future ADRs inherit. For new ADRs prefer the `/claude-kit:write-adr` skill (`claude-kit@claude-kit`); the concepts below apply inside it and when amending an ADR, which is outside its scope.
 
-This file is that skill's `ADR_RULES_PATH`: it reaches both reviewer prompts, and takes precedence over anything the skill infers from a template ADR. §1 and §2 are cited by section number from nine ADRs and are the payload those reviewers receive — do not renumber them, and do not move either behind a pointer.
+This file is that skill's `ADR_RULES_PATH`: it reaches both reviewer prompts, and takes precedence over anything the skill infers from a template ADR. §1 and §2 are cited by section number from multiple ADRs and are the payload those reviewers receive — do not renumber them, and do not move either behind a pointer.
 
 ## 1. Verify fact-claims at write time, not at review time
 
@@ -33,7 +33,7 @@ Only what `/claude-kit:write-adr` cannot derive belongs here.
 - **A new ADR must be hand-appended to two indexes** the skill does not write: `docs/decisions/INDEX.md` and the `CLAUDE.md` ADR roster (title only, **byte-identical** to the INDEX `## ADR-NNN — <title>` heading). Nothing at commit or merge time catches a skip.
 - **Do not mirror a mutable inventory count into an INDEX entry** — tokens paired, sites swept. A count-keyed sweep cannot find such a mirror: grepping the current number matches every *up-to-date* copy and misses exactly the stale ones. **The test: can the number change without the decision changing?** If yes it is an inventory; a cardinality *of the design* ("two Models enums") is not. A *relative* claim ("the quietest of the five") goes stale the same way.
 - **`ADR-006` is reserved but unwritten**, so its `CLAUDE.md` entry must stay a **table row with the path in cell 1**: `consistency-audit`'s `load_reserved_adrs` parses that shape to suppress `dangling_adr` false positives and fails open if it changes.
-- **Amending a large ADR: read its own placement rule first.** ADR-028 § "Where new amendment content goes" is the house pattern: values and standing invariants in the **body** where the next reader looks, derivation and retracted drafts in the amendment — which is why amendments are not trimmed away later. Nothing enforces it.
+- **Amending a large ADR: read its own placement rule first.** ADR-028 § "Where new amendment content goes" is the house pattern: values and standing invariants in the **body** where the next reader looks, derivation and retracted drafts in the amendment — which is why amendments are not trimmed away later; superseding an earlier amendment marks it in place (block quote + `†` in the index row). Nothing enforces it.
 - **Findability is enforced; placement is not.** `consistency-audit`'s `adr_navigation_missing` fires on a tracked ADR past 600 lines that is at least half amendment and has no navigation section. Both discharge routes are literal-matched: a heading starting `## How to read` (`## Navigation` fails), or `<!-- nav-exempt: <reason> -->` **on its own line at column 0** — indented or inside a list item or code block it does not count.
 - **A file listing can also *over*-report.** An **untracked** ADR draft is visible to `ls` but absent for every other checkout and for CI. Confirm with `git ls-files` before treating a high-numbered file as evidence about the sequence.
 

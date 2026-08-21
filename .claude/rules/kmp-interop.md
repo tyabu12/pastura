@@ -9,7 +9,8 @@ paths:
 Traps of the ADR-023 KMP Engine migration at the Kotlin/Native (K/N) ↔ Swift boundary and inside
 the Kotlin port. The iOS app does not consume the generated XCFramework yet; the only Swift
 consumer, `tools/kmp-gate-spike/**`, builds nightly rather than per-PR, so a Swift-side break's
-first signal is a red nightly.
+first signal is a red nightly. The Wave B checklist in `docs/kmp-migration-status.md` is gated by
+`check-kmp-status.py`; its stage table and pointers are hand-maintained and are not.
 
 ## Pattern 1 — K/N exports carry no Swift `Sendable` conformance
 
@@ -19,10 +20,14 @@ The fix is Kotlin-side (upstream the conformance to `commonMain`). A retroactive
 
 ## Pattern 2 — `swift_name("Parent.Child")` does not reach Swift nested-type lookup
 
-Constructing or casting a Kotlin sealed-class subtype from Swift fails on the dot syntax. Swift
-cannot work around it — add a parent-typed `object …Factory` in `commonMain` and call that.
+Constructing a Kotlin sealed-class subtype from Swift fails on the dot syntax; Swift cannot work
+around it — add a parent-typed `object …Factory` in `commonMain` and call that. Casting (`as?` /
+`is`) does compile under the engine umbrella; construction was measured under the models one.
 
 ## Pattern 3 — grep the K/N type shape at plan time
+
+Re-verify case count, init-arg cardinality / nullability, and `val` vs `var` against the Kotlin
+source before planning coverage — the enums churn, and nothing else checks the plan against them.
 
 K/N emits **no `@optional` section**: every member of an exported `interface` lands under
 `@required`, defaulted or not. Adding a defaulted interface member therefore stays source-compatible
@@ -69,7 +74,9 @@ an omission compiles and fails as a mid-run throw. With no `ScenarioValidator` h
 is the sole enforcement, not a backstop.
 
 **A Models change can break `shared/engine`**, and `:shared:models:jvmTest` alone is blind to it —
-run the CI pair `:shared:models:jvmTest :shared:engine:jvmTest` before pushing.
+run the CI pair `:shared:models:jvmTest :shared:engine:jvmTest` before pushing. Likewise every
+per-target compile and `jvmTest` passes while only `compileCommonMainKotlinMetadata` fails, so a
+green local run is not evidence.
 
 **Test authoring: `copy()` replaces a seeded map.** `SimulationState.initial` seeds `eliminated`
 all-`false` for every agent, so `copy(eliminated = mapOf("Bob" to true))` leaves the others

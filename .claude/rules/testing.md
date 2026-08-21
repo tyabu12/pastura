@@ -28,7 +28,7 @@ corrupts the xcresult bundle, and names no test; nothing checks for its presence
 **Exception**: the env-gated integration suites (`OLLAMA_INTEGRATION`, `LLAMACPP_INTEGRATION`) skip
 the suite cap — it resolves as the tighter bound and breaks local runs against real LLMs — and give
 **every** `@Test` its own `.timeLimit(.minutes(2-5))` instead, or a hang is unbounded by both
-(`OllamaIntegrationTests.swift`). Helper-only files need no trait.
+(`OllamaIntegrationTests.swift`, `LlamaCppIntegrationTests.swift`). Helper-only files need no trait.
 
 ## `-only-testing` false greens
 
@@ -43,7 +43,7 @@ A filtered run can execute fewer tests than you think while `xcodebuild` prints
   The real count is the `✔ Test` / `Test run with N tests` markers; their absence is the real-bug
   signal — wrong path, not compiled, or a zero-match above.
 - **Two `struct XxxTests` in one target silently halve the run**: the filter resolves to one, and
-  the basename gate is per-target and blind to it. Find the twin
+  the duplicate-basename gate compares filenames, not type names, so it never sees it. Find the twin
   (`rg -l 'struct XxxTests\b'`) and merge or rename.
 
 ## Parking a run mid-flight (teardown / cancel tests)
