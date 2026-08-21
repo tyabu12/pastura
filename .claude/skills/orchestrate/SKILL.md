@@ -72,17 +72,31 @@ After fetching the issue, check for an existing plan comment:
 1. Read `CLAUDE.md` for current phase and conventions.
 2. If phase-related, read ONLY the relevant Phase section from `docs/ROADMAP.md`.
 3. Format the plan as a numbered checkbox list (each item = one planned commit).
-   Assign a **complexity label** to each item — the icon matches the model tier that implements it (🎵 Sonnet subagent, 🎭 Opus session):
-   - 🎵 **simple** — Delegated to a Sonnet subagent. Criteria: existing pattern reuse (e.g., new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes.
-   - 🎭 **complex** — Implemented by the orchestrator (session model) directly. Criteria: new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment.
-   - **The 🎭 criteria win outright.** They name the *nature* of the work, not its difficulty, so an item matching one stays 🎭 however settled its spec is. The tie-breaker resolves only items matching neither list.
-   - **Tie-breaker — is it fully specifiable?** Not "too hard for Sonnet?": difficulty or size alone does not promote an item. A 🎵 subagent inherits none of this conversation, so ask: can you fill the Step 3 🎵 prompt slots *now* without a new design decision — target file(s), plus an existing pattern to mirror or an acceptance condition? **Yes, even if hard → 🎵.** No, or you can't tell whether the slots are fillable → 🎭 (that specific uncertainty — not general unease). Also promote a 🎵 to 🎭 when subagent prompt + verify overhead exceeds the implementation itself — single-line edits, short doc tweaks; that promotion forces an Opus reviewer via the Coupling rule below, which is intended since the orchestrator implements the item directly. When the tie-breaker — not the 🎵 criteria list — is what routes an item to 🎵, record that by marking it `🎵 (tb)` in the plan checkbox: without it nothing downstream can tell criteria-🎵 apart from merely-hard-🎵, and both the Sonnet-reviewer-acceptable test (Step 1.4) and the Step 0 resumption re-check depend on that distinction.
-   - **Do not add a blanket "when in doubt, go up a tier."** It was removed deliberately: Claude 5 applies such a booster literally, so it fires far harder than it was tuned for (claude-kit#19; landed here as #1453) and cancels Step 1.5's cost lever. Promotion must name its trigger — a 🎭 criterion, an unfillable prompt slot, or the overhead clause — never a bare feeling of unease.
+   Assign a **routing label** to each item. The label is the *outcome* of two independent questions — **tier** (which model) and **locus** (main session or subagent) — never one judgement. Icons: 🎵 Sonnet subagent, 🎭 Opus subagent, 🧠 Opus in the main session.
+   - **Q1 — tier, by the nature of the work.** Matches a **🎭 criterion** — new design patterns, actor isolation / Sendable design decisions, changes spanning multiple layers, work near dependency rule boundaries (Engine ↔ Data), or any item requiring non-obvious architectural judgment → **Opus tier**. Else matches a **🎵 criterion** — existing pattern reuse (e.g., a new Handler mirroring an existing one), test-only changes following an existing test pattern, type/error case additions, doc comments, minor fixes → **Sonnet tier**. Neither → **deferred**, resolved by Q3.
+   - **The 🎭 criteria win outright.** They name the *nature* of the work, not its difficulty, so an item matching one stays Opus-tier however settled its spec is. **That is a claim about the tier, not about the locus** — nature picks the model; it never forces the work into the main session. Conflating the two is the defect this procedure exists to prevent (see #1515 for the measured baseline).
+   - **Q2 — locus, by specifiability.** Not "too hard for Sonnet?": difficulty or size alone does not pull an item into the main session. A subagent inherits none of this conversation, so ask: can you fill the Step 3 delegation prompt slots *now* without a new design decision — target file(s), plus an existing pattern to mirror or an acceptance condition? **Yes, even if hard → subagent.** No, or you can't tell whether the slots are fillable → **main session** (that specific uncertainty — not general unease). Also route to the main session when delegation prompt + verify overhead exceeds the implementation itself — single-line edits, short doc tweaks.
+   - **Q3 — resolve.** Read the pair off this table. Nothing here overrides Q1's tier.
+
+     | Q1 tier | Q2 locus | Label |
+     |---|---|---|
+     | Opus (🎭 criterion) | subagent | `🎭` |
+     | Opus (🎭 criterion) | main session | `🧠` |
+     | Sonnet (🎵 criterion) | subagent | `🎵` |
+     | Sonnet (🎵 criterion) | main session | `🎵 (main)` |
+     | deferred (neither) | subagent | `🎵 (tb)` |
+     | deferred (neither) | main session | `🧠` |
+
+     Two rows carry a decision rather than a derivation, so neither is safe to "simplify". **A deferred item routed to the main session is Opus-tier** — it landed there because its spec is not fillable, which is unresolved judgment by definition, and no subagent will verify it. **`🎵 (main)` keeps its Sonnet tier**, so it does *not* force an Opus reviewer or an Opus session through the Coupling rules below. This row used to be promoted to 🎭 on the grounds that "the orchestrator implements the item directly" — a locus-based reason for a tier decision, i.e. the same conflation in miniature. A one-line doc tweak is strictly within the 🎵 criteria whoever types it.
+   - **`(tb)` marks the deferred-to-subagent row, and only that row.** Without it nothing downstream can tell criteria-🎵 apart from merely-hard-🎵, and both the Sonnet-reviewer-acceptable test (Step 1.4) and the Step 0 resumption re-check depend on that distinction. Its population is unchanged by the tier/locus split — the tie-breaker it replaces also fired only on items matching neither criteria list.
+   - **Do not add a blanket "when in doubt, go up a tier."** It was removed deliberately: Claude 5 applies such a booster literally, so it fires far harder than it was tuned for (claude-kit#19; landed here as #1453) and cancels Step 1.5's cost lever. Promotion must name its trigger — a 🎭 criterion, an unfillable prompt slot, or the overhead clause — never a bare feeling of unease. **The same bar applies to the locus**: routing an item to the main session names an unfillable slot or the overhead clause, never unease.
 
    ```
    - [ ] 1. 🎵 <description> (`<primary-file-path>`)
    - [ ] 2. 🎵 (tb) <description> (`<primary-file-path>`)
-   - [ ] 3. 🎭 <description> (`<primary-file-path>`)
+   - [ ] 3. 🎵 (main) <description> (`<primary-file-path>`)
+   - [ ] 4. 🎭 <description> (`<primary-file-path>`)
+   - [ ] 5. 🧠 <description> (`<primary-file-path>`)
    ...
    ```
    Present this plan to the user. Store internally as `PLAN_BODY` for Issue attachment in Step 2.
@@ -147,7 +161,7 @@ Agent(subagent_type: "claude-kit:critic", model: "opus", description: "...", pro
 
 The literal block (mirroring Step 4) makes the Opus pin mechanical rather than prose-recalled — an omitted `model` would silently inherit a Sonnet session (the all-🎵 lever, Step 1) and downgrade this mandatory gate.
 
-> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths — and within that same axis, evaluate each item's 🎵/🎭 label and the `Session` choice against the work the item actually describes: you are the only reviewer in this loop running at Opus with no cost incentive to route work to 🎵, so this is the structural check the routing rules otherwise lack.
+> **Agent prompt:** "Review the following implementation plan for the Pastura project. Focus on: scope creep beyond current phase, dependency rule violations in the planned file locations, missing edge cases, integration risks with existing modules, and assumptions not validated against the codebase. If the plan declares a reviewer-model choice, include an axis evaluating whether that choice matches the actual sensitivity of the touched paths — and within that same axis, evaluate each item's routing label — 🎵 / `🎵 (tb)` / `🎵 (main)` / 🎭 / 🧠, which encode a **tier** and a **locus** separately — and the `Session` choice against the work the item actually describes. Check both axes: a label that names the right model can still pin the work in the main session for no stated reason. You are the only reviewer in this loop running at Opus with no cost incentive to route work to a subagent, so this is the structural check the routing rules otherwise lack.
 >
 > Task: {TASK_DESCRIPTION}
 >
@@ -243,7 +257,7 @@ Handle the critic's output:
 
 Follow the plan from Step 1 (or the resumed plan from the Issue). **If `RESUMING=true`**, start from item `NEXT_ITEM` — skip already-checked items.
 
-For each unit of work (let `K` = the current plan item number), check the item's complexity label:
+For each unit of work (let `K` = the current plan item number), check the item's routing label:
 
 > **Per-item commit hazard:** the pre-commit `swiftlint --strict` lints the **whole worktree**, not just the staged set — so an unstaged edit to a *later* item's file (e.g. one that trips a length cap) fails the *current* item's commit. Don't pre-edit a later item while committing the current one; if unavoidable, `git stash push -- <later-item-files>` before the focused commit, then pop.
 
