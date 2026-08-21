@@ -55,12 +55,12 @@ that file to a per-user path; this doc deliberately cites the repository instead
 repo-tracked files" of `knowledge-layering.md` forbids.)
 
 Second, and this is the consequence for future edits: revise them on evidence about *review
-quality* — a reviewer that misses things at 800 changed lines, or does fine at 1,500 — and never by
+quality* — a reviewer that misses things at 800 added lines, or does fine at 1,500 — and never by
 recomputing when a cap moves. A cap-table update leaves the thresholds untouched.
 
 That is also why they stay **kit-canonical** rather than becoming a per-project knob: the attention
 being bounded is a *subagent's* at a given scope, identical for every installation of the kit. The
-one lever a caller genuinely controls is report density per changed line — 800 lines of generated
+one lever a caller genuinely controls is report density per added line — 800 lines of generated
 fixtures report far shorter than 800 lines of dense source — and it licenses bounding a call
 **tighter at the call site, never looser**. Split smaller instead of editing the numbers, in the
 rule or in any agent copy of them (today `.claude/agents/code-reviewer.md`).

@@ -43,7 +43,7 @@ changes, a diff spot-check suffices before committing; the hook is the gate.
 
 Interpret `$ARGUMENTS`:
 - **`#N`**: Fetch issue via `gh issue view N`, use title/body as task spec. Check for an existing
-  plan (Resumption Detection below).
+  plan (Resumption Detection below). Unauthenticated ⇒ ask the user for the spec inline.
 - **`phase N`**: Read ONLY that Phase section of `docs/ROADMAP.md`.
 - **(empty)**: Ask what to implement.
 - **Other text**: Use as inline task description.
@@ -64,9 +64,9 @@ sanitize or ask if it doesn't match).
    `opus`/`sonnet`; default `opus` if a field is absent). Derive `SLUG` from the branch.
    - **Coupling re-check:** if the resumed plan has any Opus-tier item (`🎭` or `🧠`) but
      `REVIEWER_MODEL=sonnet` or `SESSION_MODEL=sonnet`, warn and offer to upgrade to Opus before
-     continuing. If it is all Sonnet-tier with `REVIEWER_MODEL=sonnet`, re-confirm each item is
-     strictly within the 🎵 simple criteria — a `🎵 (tb)` item is not, and the label alone does not
-     establish it (Step 1.3) — and offer the same upgrade.
+     continuing. If it is all Sonnet-tier with `REVIEWER_MODEL=sonnet`, grep the comment for
+     `🎵 (tb)` — a deferred item is not strictly simple (Step 1.3) — and on any hit offer the Opus
+     reviewer upgrade. Do not re-derive the classification: a resumed session lacks the context.
    - If **all items checked**: do **not** silently proceed to review. A fully-checked *last* plan
      usually means its PR already merged — and on an **umbrella issue** that accumulates several
      historical plan comments, `tail -1` lands on that finished plan, so auto-proceeding re-reviews
@@ -197,7 +197,7 @@ rather than skipping silently.
   ```
   Title-case model names in Metadata; Step 0 normalizes on read.
 - **Otherwise (new task):** create an issue (`gh issue create --title "{EMOJI} {TASK_TYPE}: {TITLE}"
-  --assignee "@me" [--label "$LABEL"] --body …`), extract `ISSUE_NUMBER`, then post the plan as the
+  --assignee "@me" [--label "$LABEL"] --body …`; label mapping in Step 5), extract `ISSUE_NUMBER`, then post the plan as the
   first comment (capture `COMMENT_ID`). **Label fallback:** if `--label` fails (label absent in the
   repo), retry without it (or offer to create the label) — never block on a missing label.
 
@@ -212,7 +212,8 @@ rather than skipping silently.
      "Create worktree and start?"**
   3. `EnterWorktree` with `name: "{TASK_TYPE}/{SLUG}"` (on collision, check `git ls-remote --heads
      origin <branch>`, append `-2`).
-  4. Rename to conventional format: `git branch -m "$(git branch --show-current)" "{TASK_TYPE}/{SLUG}"`.
+  4. Rename to conventional format — `EnterWorktree` sanitizes `/` to `+` and prepends `worktree-`:
+     `git branch -m "$(git branch --show-current)" "{TASK_TYPE}/{SLUG}"`.
   5. Verify: `git branch --show-current`.
 
 **Worktree path hygiene** (holds for the rest of the session): the original checkout stays on another

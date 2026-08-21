@@ -59,9 +59,10 @@ When invoking a subagent, bound the work so the reviewer's **attention** holds
 — not so the report fits the cap; at these sizes it fits comfortably:
 
 - **Soft budget** (split if over): ~800 **added** lines OR ~8 changed
-  files OR ~5 review axes per invocation, whichever is tighter. Deleted
-  lines do not count — a deletion-heavy PR needs no more attention than
-  its additions, and counting them made reduction PRs shard (#1520).
+  files OR ~5 review axes per invocation, whichever is tighter. The count
+  bounds what the reviewer must newly comprehend; deleted lines are still
+  read in full but do not count — counting them made reduction PRs shard
+  (#1520).
 - **Hard split** (always split): >1500 added lines, >12 files, or
   >7 axes — at this size review quality degrades whatever the token
   budget permits.

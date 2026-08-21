@@ -46,7 +46,9 @@ undo. The entries below are the ones a plausible-sounding back-port *would* undo
    Opus. This diverges from a deliberate upstream design (kit#19/#23), not a defect; if the
    template ever adopts a split, reconcile against it rather than deleting. The template has no
    `(tb)` marker, so adopting its Step 1 wording disarms the two gates that consume it (Step 1.3's
-   strictly-simple reviewer test and Step 0's all-Sonnet-tier re-check).
+   strictly-simple reviewer test and Step 0's all-Sonnet-tier re-check). Reject any back-port that
+   adds a blanket "when in doubt, go up a tier": Claude 5 applies it literally and it cancels the
+   `Session: Sonnet` lever (kit#19).
 
    Two accepted consequences: `claude-kit:implementer` pins `effort: medium`, so a `🎭` item runs
    at Opus/medium (escalate to a general Opus subagent if fix rounds rise); and `🎵 (main)` keeps
@@ -59,13 +61,14 @@ undo. The entries below are the ones a plausible-sounding back-port *would* undo
    the `🧠` share is still ≥ 80% and implementer calls ≈ 0, revert Step 1.2 to the template's
    two-icon label by deleting the table — add no prose.
 
-   **Break-even.** A delegation's fixed cost is ≈ 52k tokens (2026-08-21: one-turn, zero-tool Haiku
-   subagent, harness included; measured before #1520 cut always-loaded 91 → 29 KB, so re-measure).
-   An in-session item instead leaves its tool output `X` in the main context, re-read from cache on
-   every later turn. At ~10% cache-read pricing and ~20 remaining turns, in-session costs ≈ 3X and
-   delegation ≈ 52k + X, so delegation is cheaper in tokens only when X ≳ 25k — about three or four
-   mid-size Swift files read plus a test run. Below that, `🎵 (main)` / `🧠` is cheaper; what
-   delegation buys there is peak-context headroom, not dollars.
+   **Break-even.** A delegation's fixed cost was ≈ 52k tokens on 2026-08-21 (one-turn, zero-tool
+   Haiku subagent, harness included), measured before #1520 cut always-loaded 91 → 29 KB — about
+   16k tokens less, so ≈ 36k until re-measured. An in-session item instead leaves its tool output
+   `X` in the main context, re-read from cache on every later turn. At ~10% cache-read pricing and
+   ~20 remaining turns, in-session costs ≈ 3X and delegation ≈ fixed + X, so delegation is cheaper
+   in tokens only when X ≳ 18–26k — roughly ten mid-size Swift files read (p75 ≈ 9 KB each), or an
+   untailed full test log. Below that, `🎵 (main)` / `🧠` is cheaper; what delegation buys there is
+   peak-context headroom, not dollars.
 
 ### Corrections — delete the entry once upstream lands
 
