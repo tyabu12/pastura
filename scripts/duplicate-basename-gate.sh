@@ -22,13 +22,25 @@
 # `find | sort | uniq -d` reddens on that pair and on the two `Package.swift`
 # manifests. --self-test pins both directions against those real paths.
 #
+# ONE ROW PER TARGET, NEVER PER DIRECTORY. Subdividing a row keeps coverage
+# complete and every population floor satisfied, so nothing below notices —
+# while a pair straddling the two halves stops being compared at all.
+#
 # `.swift` ONLY: Pastura/Pastura/LLM/SafeSampler.swift coexists with
 # LLM/SafeSampler/SafeSampler.{h,mm} in the same target and builds fine.
+# Comparison is byte-exact, so a `Foo.swift` / `foo.swift` pair is out of scope
+# — it cannot exist in a macOS checkout, though it would collide if one landed
+# from a case-sensitive filesystem.
 #
-# `git ls-files`, never `find`: a worktree walk sweeps Pastura/DerivedData/'s
-# SPM checkouts, so it is green on a fresh CI checkout and red on every
-# developer machine — `.claude/rules/ci-workflows.md` § "Gate scripts:
-# `::error file=` is repo-relative, and scope must be tracked-only".
+# `git ls-files`, never `find`: the index is what is about to be committed,
+# while a worktree walk also flags an untracked scratch file that will never
+# reach a build — red on one machine, green everywhere else. Arm A8 is the
+# control, and its fixture has to sit INSIDE a target root or it controls
+# nothing (measured: an earlier version planted it under Pastura/DerivedData/
+# and stayed green under a `find` mutation). Note the DerivedData hazard in
+# `.claude/rules/ci-workflows.md` § "Gate scripts" does not reach this gate at
+# all — Pastura/DerivedData is a sibling of every target root, not a
+# descendant — so do not re-import that reason.
 #
 # Modes:
 #   (default)    self-gate — check only when the staged diff touches a .swift
@@ -50,10 +62,12 @@ cd "$ROOT"
 
 # One entry per BUILD TARGET. The app and test rows are the Xcode project's
 # synchronized root groups; the rest are the `path:` values of the SwiftPM
-# targets in Package.swift and tools/kmp-gate-spike/Package.swift. PasturaCore
-# is deliberately absent — its sources are a strict subset of Pastura/Pastura,
-# so the app row already covers it. A target added LATER is caught by
-# unlisted_swift_files, not by anyone remembering this list.
+# targets in Package.swift and tools/kmp-gate-spike/Package.swift. Two SwiftPM
+# targets are deliberately absent because the app row is a strict superset of
+# each: PasturaCore (`Pastura/Pastura`, sources Models/LLM/Engine) and
+# PasturaSafeSampler (`Pastura/Pastura/LLM/SafeSampler`, which holds no .swift
+# at all). A target added LATER is caught by unlisted_swift_files, not by
+# anyone remembering this list.
 DEFAULT_TARGET_ROOTS='Pastura/Pastura
 Pastura/PasturaTests
 Pastura/PasturaUITests
@@ -64,23 +78,32 @@ tools/kmp-gate-spike/Sources/KMPGateSpike
 tools/kmp-gate-spike/Sources/kmp-gate-bench
 tools/kmp-gate-spike/Tests/KMPGateSpikeTests'
 
-# Overridable so --self-test can perturb the SCAN, not only the detector. Not a
-# bypass: narrowing or emptying it makes unlisted_swift_files report everything
-# it stopped covering, so the two halves fail each other closed.
-TARGET_ROOTS="${PASTURA_DUP_GATE_ROOTS:-$DEFAULT_TARGET_ROOTS}"
+# TEST HOOK, not a production knob. --self-test needs to perturb the SCAN and
+# not just the detector, but an override honoured unconditionally would also
+# reach the pre-commit path, where an exported value in someone's shell profile
+# could subdivide a row (see ONE ROW PER TARGET above) and silently narrow the
+# gate. So it applies only when the self-test asks for it.
+TARGET_ROOTS="$DEFAULT_TARGET_ROOTS"
+if [ "${PASTURA_DUP_GATE_SELFTEST:-}" = "1" ] && [ -n "${PASTURA_DUP_GATE_ROOTS:-}" ]; then
+  TARGET_ROOTS="$PASTURA_DUP_GATE_ROOTS"
+fi
 
 # Tracked .swift belonging to no build target: SwiftPM reads the manifests
 # itself, and the skill fixtures are inert text a drift test diffs.
 NON_TARGET_SWIFT='^Package\.swift$|^tools/kmp-gate-spike/Package\.swift$|^\.claude/skills/scenario-factory/tests/fixtures/[^/]+\.swift$'
 
 TMP="$(mktemp -d)"
-trap 'rm -rf "$TMP"' EXIT
+# A8 plants a fixture inside the working tree, so it needs removing even if the
+# run dies between planting and asserting.
+SCOPE_PROBE=""
+cleanup() { rm -rf "$TMP"; [ -z "$SCOPE_PROBE" ] || rm -rf "$SCOPE_PROBE"; }
+trap cleanup EXIT
 
 # --- primitives -------------------------------------------------------------
 
 # Tracked .swift under one target root. `core.quotepath=false` so a non-ASCII
 # path arrives literally instead of octal-escaped and double-quoted, which
-# would defeat the `/<name>` match in check_tree below.
+# would defeat the basename match in check_tree below.
 list_target_files() {
   git -c core.quotepath=false ls-files -- "$1/*.swift"
 }
@@ -112,7 +135,7 @@ TARGETS_EOF
 # --- check ------------------------------------------------------------------
 
 check_tree() {
-  local rc=0 root files dups name unlisted
+  local rc=0 root files dups name p unlisted
   files="$TMP/files"
   while IFS= read -r root; do
     [ -n "$root" ] || continue
@@ -131,7 +154,14 @@ check_tree() {
     while IFS= read -r name; do
       [ -n "$name" ] || continue
       echo "duplicate-basename gate: '$name' appears more than once in target '$root':" >&2
-      grep -F "/$name" "$files" | sed 's/^/    /' >&2
+      # `case`, not `grep`: a leading-slash pattern would drop a repo-root file
+      # (root `Package.swift` vs `tools/…/Package.swift`), and a `-E` pattern
+      # would misread a `+` in a filename — `SimulationRunnerTests+…` is real.
+      while IFS= read -r p; do
+        case "$p" in
+          */"$name"|"$name") printf '    %s\n' "$p" >&2 ;;
+        esac
+      done < "$files"
       rc=1
     done <<DUPS_EOF
 $dups
@@ -164,9 +194,9 @@ ROOTS_EOF
 # --- self-test --------------------------------------------------------------
 
 self_test() {
-  local fail=0 out
-  bad() { printf 'FAIL: %s\n' "$*" >&2; fail=1; }
-  ok()  { printf '  ok: %s\n' "$*"; }
+  local fail=0 total=0 out
+  bad() { printf 'FAIL: %s\n' "$*" >&2; fail=1; total=$((total + 1)); }
+  ok()  { printf '  ok: %s\n' "$*"; total=$((total + 1)); }
 
   # A1 detector positive control.
   out="$(printf 'a/Foo.swift\nb/Foo.swift\n' | dup_basenames)"
@@ -192,20 +222,25 @@ self_test() {
   # A5 END-TO-END POSITIVE on real tracked paths: scanning the whole repo as one
   # pseudo-target must flag the two cross-target pairs that legitimately
   # coexist. This is the arm that reddens if the per-target split is ever
-  # "simplified" into a repo-wide scan.
-  if out="$(PASTURA_DUP_GATE_ROOTS='.' bash "$SELF" --check 2>&1)"; then
+  # "simplified" into a repo-wide scan. It also asserts BOTH members of the
+  # root-level pair are listed — a report that names a duplicate and prints one
+  # path is how a broken path matcher looks.
+  if out="$(PASTURA_DUP_GATE_SELFTEST=1 PASTURA_DUP_GATE_ROOTS='.' bash "$SELF" --check 2>&1)"; then
     bad "A5 a repo-wide scan passed — the duplicate path never fires"
   else
     case "$out" in
-      *SuspendController.swift*Package.swift*|*Package.swift*SuspendController.swift*)
-        ok "A5 repo-wide scan flags both real cross-target pairs" ;;
+      *SuspendController.swift*Package.swift*|*Package.swift*SuspendController.swift*) ;;
       *) bad "A5 fired but named neither pair: $out" ;;
+    esac
+    case "$out" in
+      *"    Package.swift"*) ok "A5 repo-wide scan flags both pairs, root-level path included" ;;
+      *) bad "A5 omitted the repo-root Package.swift from its own evidence: $out" ;;
     esac
   fi
 
   # A6 SCAN CONTROL — a root matching nothing must trip the population floor
   # rather than read as "0 duplicates".
-  if out="$(PASTURA_DUP_GATE_ROOTS='no/such/target' bash "$SELF" --check 2>&1)"; then
+  if out="$(PASTURA_DUP_GATE_SELFTEST=1 PASTURA_DUP_GATE_ROOTS='no/such/target' bash "$SELF" --check 2>&1)"; then
     bad "A6 a target root matching no file passed"
   else
     case "$out" in
@@ -217,7 +252,7 @@ self_test() {
   # A7 COVERAGE CONTROL — a healthy but PARTIAL root list must be caught by the
   # unlisted sweep. Without it, dropping a row from DEFAULT_TARGET_ROOTS would
   # silently stop scanning that target while every other arm stayed green.
-  if out="$(PASTURA_DUP_GATE_ROOTS='Pastura/PasturaUITests' bash "$SELF" --check 2>&1)"; then
+  if out="$(PASTURA_DUP_GATE_SELFTEST=1 PASTURA_DUP_GATE_ROOTS='Pastura/PasturaUITests' bash "$SELF" --check 2>&1)"; then
     bad "A7 a partial root list passed"
   else
     case "$out" in
@@ -226,11 +261,39 @@ self_test() {
     esac
   fi
 
+  # A8 SCOPE CONTROL — the scan reads the INDEX, not the worktree, so two
+  # same-named UNTRACKED files must not make the gate red on a name nothing is
+  # committing. The fixture must live inside a target root or the arm controls
+  # nothing: an earlier version planted it under Pastura/DerivedData/, which no
+  # root contains, and stayed green under the `find` mutation it claimed to
+  # catch. kmp-gate-spike is the root chosen because it is SwiftPM-only — a
+  # fixture under Pastura/Pastura/ would join the Xcode target the moment a
+  # concurrent build looked.
+  SCOPE_PROBE="tools/kmp-gate-spike/Sources/KMPGateSpike/scope-probe"
+  mkdir -p "$SCOPE_PROBE/a" "$SCOPE_PROBE/b"
+  : > "$SCOPE_PROBE/a/ScopeProbe.swift"
+  : > "$SCOPE_PROBE/b/ScopeProbe.swift"
+  if out="$(bash "$SELF" --check 2>&1)"; then
+    ok "A8 untracked files are out of scope"
+  else
+    bad "A8 the scan reached untracked files: $out"
+  fi
+  rm -rf "$SCOPE_PROBE"
+  SCOPE_PROBE=""
+
+  # A9 the override must NOT reach the production path — otherwise an exported
+  # value narrows the pre-commit gate. Same narrowing as A7, minus the marker.
+  if out="$(PASTURA_DUP_GATE_ROOTS='Pastura/PasturaUITests' bash "$SELF" --check 2>&1)"; then
+    ok "A9 override ignored without the self-test marker"
+  else
+    bad "A9 the override reached the production path: $out"
+  fi
+
   if [ "$fail" -ne 0 ]; then
     echo "duplicate-basename self-test FAILED" >&2
     return 1
   fi
-  echo "duplicate-basename self-test: 7/7 passed"
+  echo "duplicate-basename self-test: $total/$total passed"
 }
 
 # --- modes ------------------------------------------------------------------
@@ -247,6 +310,11 @@ case "${1-}" in
     MATCHED="$(printf '%s\n' "$STAGED" \
       | { grep -E '(\.swift$)|(^scripts/duplicate-basename-gate\.sh$)' || [ $? -eq 1 ]; })"
     [ -n "$MATCHED" ] || exit 0
+    # Editing the gate stages the gate: run its own arms too, or a broken arm
+    # is gated by CI alone. `case`, not another grep — Rule 3 again.
+    case "$MATCHED" in
+      *scripts/duplicate-basename-gate.sh*) self_test ;;
+    esac
     check_tree
     ;;
   *)
