@@ -8,8 +8,8 @@ examples in `PredictionOutcomeBadge`.
 
 **This file is the sweep's ledger, not its rule.** §8 remains normative; what is
 recorded here is the per-site *application* of §8 across the population, plus the
-adjudications that were judgement calls. The sweep runs in batches — batches 1
-and 5 are applied; every other row still ships as written.
+adjudications that were judgement calls. The sweep runs in batches — batches 1,
+2 and 5 are applied; every other row still ships as written.
 
 ## 1. Population
 
@@ -40,9 +40,22 @@ sibling `+Feature.swift` split: cross-check against
 Discipline).
 
 Batch 1 removed eight occurrences and emptied three files; batch 5 (#1485)
-removed three more and emptied three more, so the population as it ships today
-is **87 lines · 3 doc-comment mentions · 84 code sites across 37 files**.
+removed three more and emptied three more; batch 2 repointed nineteen sites for
+a net eighteen occurrences and emptied none. So the population as it ships today
+is **70 lines · 4 doc-comment mentions · 66 code sites across 37 files**.
 `MutedSweepLedgerTests` pins the per-file breakdown — §8.
+
+The mentions went 3 → 4 because batch 2's why-comment in `ResultDetailView`
+names the token it left behind. **A comment mention is not a site** — the §8
+command subtracts them, and the guard's own predicate skips comment lines — but
+the raw line count moves, so a reader diffing the first figure alone would read
+a repoint that removed eighteen occurrences as having removed seventeen.
+
+**Nineteen sites, eighteen occurrences: the gap is `ResultDetailView`.** Its
+degraded banner was one `Label` carrying a single `.foregroundStyle`, so moving
+the text off `muted` meant tinting the two slots separately, and the glyph kept
+the spelling. That occurrence is an **addition this sweep made**, not a survivor
+— see the second `ResultDetailView` row in §5.
 
 ### 1.1 One rendering site outside the `Color.muted` spelling
 
@@ -292,7 +305,7 @@ Verdicts: **S** sanctioned · **M** misapplication (class in brackets) ·
 **U** unmeasured ground, exemption cannot be cited · **N** non-text (1.4.11,
 out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 
-`B` names the batch. `B1` and `B5` are applied; everything else still ships as
+`B` names the batch. `B1`, `B2` and `B5` are applied; everything else still ships as
 written. An applied row is **kept**, not deleted — the adjudication is what §5
 records, and the bolded batch marker is what says the repoint landed.
 
@@ -306,7 +319,7 @@ records, and the bolded batch marker is what says the repoint landed.
 | `AgentOutputRow` · share glyph | `screenBackground` | 3.329 / 3.779 | N | — |
 | `AgentOutputRow` · `INNER VOICE` tag | `screenBackground` | 3.329 / 3.779 | S — discloser label, not the disclosed | — |
 | `AgentOutputRow` · rationale comment | — | — | C | — |
-| `AgentOutputRow` · `thoughtBody` | `screenBackground` | 3.329 / 3.779 | **M (A5)** — the model's inner monologue is product, not metadata | B2 |
+| `AgentOutputRow` · `thoughtBody` | `screenBackground` | 3.329 / 3.779 | **M (A5)** — the model's inner monologue is product, not metadata | **B2** |
 | `DogMark` · `26 pt` / `44 pt` captions ×2 | `screenBackground` | — | P | — |
 | `GameHeaderStatus` · `foreground` (paused/cancelled/error) | `muted@0.14` self-wash over `screenBackground@0.78` | unmeasurable | **M (A1)** + U — the run-state pill is the header's reason to exist | B4 |
 | `GameHeaderStatus` · `washToken` | same | unmeasurable | N | — |
@@ -340,15 +353,15 @@ what the reader came to compare.
 | `SimulationView` · scrim-label comment | — | — | C | — |
 | `SimulationView` · loading-scrim subtitle | `.regularMaterial` | unmeasurable | S + U — elaborates a title already at `ink` | B4 |
 | `SimulationView+Background` · BG-continuation glyph | `screenBackground` | 3.329 / 3.779 | N | — |
-| `SimulationView+LogEntries` · `assignmentEntry` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `SimulationView+LogEntries` · `voteResultsEntry` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `SimulationView+LogEntries` · `assignmentEntry` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
+| `SimulationView+LogEntries` · `voteResultsEntry` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `SimulationView+LogEntries` · `pairingResultEntry` `vs` | `screenBackground` | 3.329 / 3.779 | S — separator | — |
-| `SimulationView+LogEntries` · `eventInjectedEntry` miss | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
+| `SimulationView+LogEntries` · `eventInjectedEntry` miss | `screenBackground` | 3.329 / 3.779 | **M (A4)** | **B2** |
 | `SimulationView+LogEntries` · `turnSkippedEntry` icon | `screenBackground` | 3.329 / 3.779 | N | — |
-| `SimulationView+LogEntries` · `turnSkippedEntry` text | `screenBackground` | 3.329 / 3.779 | **M (A4)** — ADR-021 D5 | B2 |
+| `SimulationView+LogEntries` · `turnSkippedEntry` text | `screenBackground` | 3.329 / 3.779 | **M (A4)** — ADR-021 D5 | **B2** |
 | `SimulationView+LogEntries` · `actionRejectedEntry` icon | `screenBackground` | 3.329 / 3.779 | N | — |
-| `SimulationView+LogEntries` · `actionRejectedEntry` text | `screenBackground` | 3.329 / 3.779 | **M (A4)** — ADR-021 D5 | B2 |
-| `SimulationView+LogEntries` · `scoresSummary` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `SimulationView+LogEntries` · `actionRejectedEntry` text | `screenBackground` | 3.329 / 3.779 | **M (A4)** — ADR-021 D5 | **B2** |
+| `SimulationView+LogEntries` · `scoresSummary` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ViewerPredictionSheet` · eyebrow | `page` | 3.030 / 4.152 | S — category label | — |
 | `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A3)** — a deadline the user acts against; the sheet auto-skips at zero | B3 |
 | `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.300–3.018 / 2.520–3.503 | S + U — the ID is embedded in the report URL anyway | B4 |
@@ -357,24 +370,25 @@ what the reader came to compare.
 
 | Site (file · symbol) | Ground | light/dark | Verdict | B |
 |---|---|---|---|---|
-| `ResultDetailView` · turns-skipped banner | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
-| `ResultDetailView+CodePhaseRows` · `scoreUpdateRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ResultDetailView+CodePhaseRows` · `voteResultsRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ResultDetailView` · turns-skipped banner text | `screenBackground` | 3.329 / 3.779 | **M (A4)** | **B2** |
+| `ResultDetailView` · turns-skipped banner glyph | `screenBackground` | 3.329 / 3.779 | N — **added by B2**, see below | — |
+| `ResultDetailView+CodePhaseRows` · `scoreUpdateRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
+| `ResultDetailView+CodePhaseRows` · `voteResultsRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ResultDetailView+CodePhaseRows` · `vs` | `screenBackground` | 3.329 / 3.779 | S — separator | — |
-| `ResultDetailView+CodePhaseRows` · `assignmentRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ResultDetailView+CodePhaseRows` · `eventInjectedRow` | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
+| `ResultDetailView+CodePhaseRows` · `assignmentRow` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
+| `ResultDetailView+CodePhaseRows` · `eventInjectedRow` | `screenBackground` | 3.329 / 3.779 | **M (A4)** | **B2** |
 | `ResultDetailView+RowLayout` · `↳ sub-phase` | `screenBackground` | 3.329 / 3.779 | S — nesting marker | — |
 | `ResultsView` · row chevron | `screenBackground` | 3.329 / 3.779 | N | — |
 | `ResultsView` · `categoryCaption` | `screenBackground` or `bubbleBackground` | 3.329 / 3.021 worst | S — list caption, §8's named shape | — |
 | `ResultsView` · timestamp | same | same | S — list caption | — |
-| `ResultsView` · `degradedRunCaption` | same | same | **M (A4)** | B2 |
+| `ResultsView` · `degradedRunCaption` | same | same | **M (A4)** | **B2** |
 | `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | 2.895 / 3.239 | S on role + **U** — see §6.2 | B4 |
 | `ResultsView` · `pillBackground(.pending)` | row ground | — | N | — |
 | `ResultsView+Timeline` · `N records` | `screenBackground` | 3.329 / 3.779 | S — count of the list below it | — |
 | `HomeView` · `Scenarios` header | `screenBackground` | 3.329 / 3.779 | S on contrast — routing → `--ink-2`, see §6.3 | **B5** |
 | `HomeCompactScenarioRow` · chevron | `screenBackground` | 3.329 / 3.779 | N | — |
 | `HomeCompactScenarioRow` · `caption` | `screenBackground` | 3.329 / 3.779 | **S — permissive control** | — |
-| `ScenarioDetailView+Sections` · description | `screenBackground` | 3.329 / 3.779 | **M (A5)** — the scenario's own description | B2 |
+| `ScenarioDetailView+Sections` · description | `screenBackground` | 3.329 / 3.779 | **M (A5)** — the scenario's own description | **B2** |
 | `ScenarioDetailView+Sections` · phase ordinal | `bubbleBackground` | 3.475 / 3.021 | S — derivable from order | — |
 
 ### Settings · ModelSelection · ModelDownload
@@ -395,11 +409,11 @@ what the reader came to compare.
 | `ModelPickerView` · `PASTURA · SETUP` | `screenBackground` | 3.329 / 3.779 | S — branding eyebrow | — |
 | `ModelPickerView` · add-later reassurance | `screenBackground` | 3.329 / 3.779 | S — footnote | — |
 | `ModelRow` · vendor · size meta | `moss@0.06` when selected, else `bubbleBackground` | 3.287 / 2.693 | **M (A3)** + U — bundles the file size | B4 |
-| `ModelDownloadHostView+CodePhaseRows` · `codePhaseContent` `.assignment` arm | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ModelDownloadHostView+CodePhaseRows` · `voteResultsContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
-| `ModelDownloadHostView+CodePhaseRows` · `scoresContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | B2 |
+| `ModelDownloadHostView+CodePhaseRows` · `codePhaseContent` `.assignment` arm | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
+| `ModelDownloadHostView+CodePhaseRows` · `voteResultsContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
+| `ModelDownloadHostView+CodePhaseRows` · `scoresContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ModelDownloadHostView+CodePhaseRows` · `vs` | `screenBackground` | 3.329 / 3.779 | S — separator | — |
-| `ModelDownloadHostView+CodePhaseRows` · `eventInjectedContent` | `screenBackground` | 3.329 / 3.779 | **M (A4)** | B2 |
+| `ModelDownloadHostView+CodePhaseRows` · `eventInjectedContent` | `screenBackground` | 3.329 / 3.779 | **M (A4)** | **B2** |
 | `DLCompleteOverlay` · `Tap anywhere to begin` | `.ultraThinMaterial` | unmeasurable | **M (A2)** — the overlay is tap-gated | **B1** |
 
 ### Community · Editor
@@ -410,7 +424,7 @@ what the reader came to compare.
 | `GalleryScenarioDetailView` · external-link glyph | `screenBackground` | 3.329 / 3.779 | N | — |
 | `GalleryScenarioDetailView` · step numeral | `bubbleBackground` | 3.475 / 3.021 | S — derivable from order | — |
 | `GalleryScenarioDetailView` · read-only disclaimer | `screenBackground` | 3.329 / 3.779 | S — footnote | — |
-| `GalleryScenarioDetailView` · detail-row values | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — `Est. inferences` is what a user checks a device against before running | B2 |
+| `GalleryScenarioDetailView` · detail-row values | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — `Est. inferences` is what a user checks a device against before running | **B2** |
 | `GalleryScenarioDetailView+Highlight` · `hook.caption` | `bubbleBackground` | 3.475 / 3.021 | S — footnote on the excerpt | — |
 | `GalleryScenarioDetailView+Highlight` · edit invitation | `bubbleBackground` | 3.475 / 3.021 | S — the CTA is the button | — |
 | `GalleryScenarioDetailView+RecommendedModel` · switch-blocked reason | `bubbleBackground` | 3.475 / 3.021 | **M (A1)** | **B1** |
@@ -422,8 +436,12 @@ what the reader came to compare.
 
 ### Tally
 
-The tables above print **94** lines for **98** sites — two rows collapse repeats
-(`DogMark` ×2, `SheepAvatar` ×4), both `#Preview`. Expanded:
+The tables above print **95** lines for **98** sites. Two collapse repeats
+(`DogMark` ×2, `SheepAvatar` ×4), both `#Preview`, and **one is not a baseline
+row at all** — `ResultDetailView`'s banner glyph, which batch 2 created by
+splitting a single `Label` tint into two. It is marked in place and excluded
+from every figure below; the arithmetic is over the 94 rows the `9a40565a`
+census had. Expanded:
 
 | | count |
 |---|---|
@@ -445,13 +463,21 @@ both `ScoreboardSheet` rows), five otherwise sanctioned or non-text
 separately: they need no repoint, but §8 cannot currently be *cited* for them
 either.
 
-These counts are re-derivable from the tables — count `| \`` lines and expand the
-two `×N` rows — rather than maintained by hand.
+These counts are re-derivable from the tables — count `| \`` lines, expand the
+two `×N` rows, and drop the row marked **added by B2** — rather than maintained
+by hand.
 
 **They do not move when a batch applies**, and the gap that opens is not drift.
 §5 keeps an applied row, so the row set — and this tally with it — stays the
 `9a40565a` census of adjudications; §1 carries the population as it *ships*.
 The difference between the two is exactly the applied batches.
+
+**A batch can still add a row, and batch 2 did** — that is a different event from
+a batch *applying*, and it is why the glyph row above is marked rather than
+folded in. A repoint that changes a call's **shape** can mint an occurrence the
+baseline census never adjudicated, so §5 has to be able to carry a row that its
+own tally does not count. Expect this whenever a batch splits one styling call
+into two; a plain token swap cannot cause it.
 
 ## 6. Decisions this sweep was chartered to make
 
@@ -594,23 +620,35 @@ titles, not subordinate labels.
 | | Scope | Sites | State |
 |---|---|---|---|
 | **B1** | Blocked-state reasons, the tap-to-proceed instruction, and act-on numbers, in Settings / model management / gallery | 8 | **applied (#1448)** |
-| **B2** | A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, the gallery detail rows | 19 | open — **ADR-028 gate 4/5 device QA required** |
+| **B2** | A3 + A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, and the gallery detail values (the one A3 here) | 19 | **applied (#1448)** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown | 6 | open |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
 | **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
 
-B2 is the larger visual change of the two batches carrying a QA note — nineteen
+B2 was the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast
 direction on the app's core reading surfaces. It is also the batch where a test
-cannot see the risk: `SimulationView+LogEntries` and
+could not see the risk: `SimulationView+LogEntries` and
 `ModelDownloadHostView+CodePhaseRows` are a **byte-for-byte duplicated pair**
 (the DL-time demo mirrors the live log deliberately), so applying one and not
 the other diverges the two visually while every count in `MutedSweepLedgerTests`
-still reconciles.
+still reconciles. They were applied in one commit, and comparing the two screens
+row-for-row is a **device-QA** step rather than something the diff settles — it
+is written into `docs/qa/dark-mode-qa.md` § 2 so a later edit to one of them has
+somewhere to be checked against.
+
+**`MutedSweepLedgerTests+BatchTwo` pins B2's applied sites by symbol**, not by
+per-file `Color.inkSecondary` count the way B5's arm does. B2's files hold one
+to thirteen of that token each; in the three densest (13 / 11 / 10) almost all
+of them predate the batch, so a per-file total there cannot attribute a revert
+to a site. Its doc comment carries the derivation.
 
 Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
-straightforward applications of §2 once B1 establishes the shape; B4 needs §8 to
+straightforward applications of §2 once B1 establishes the shape — with the
+caveat B2 turned up: a site whose token sits on a `Label` or any other
+multi-slot call cannot be repointed without changing the call's shape, and that
+is a decision, not a swap (§5's added glyph row); B4 needs §8 to
 say what a *material or otherwise unmeasurable* ground routes to before any
 site moves — the routing for a merely-composited one is already in §8's
 `*-on-wash` bullet, so stating the gate that way would leave it already

@@ -140,6 +140,46 @@ If it reads wrong, the fix is one change to `PasturaSection`'s header treatment
 the token table, not from any one screen. Derivation: `muted-application-audit`
 §6.3.
 
+### Transcript rows on `--ink-2` — one question, asked on six screens (#1448 batch 2)
+
+Batch 2 moved nineteen transcript and past-run rows off `--muted` onto
+`--ink-2` — assignments, vote tallies, score summaries, degraded-turn
+narration, the scenario description, the gallery detail values. §2.2 assigns
+`--ink-2` to subtext, and the vote header already read it, so a code-phase row
+now shares its colour with the line above it and differs from the agent
+utterances only by `--ink` vs `--ink-2`. **Does a code-phase row still read
+*subordinate* to the utterances it sits between?** Not "is it legible" — the
+ratio rose on every one of these, and the after-figures live in
+`DesignTokensTests+MutedAsContent` rather than being copied here. What is
+unmeasurable is the hierarchy.
+
+- [ ] **Simulation (live)** — priority. Run a scenario that produces an
+      assignment, a vote tally, a score summary, an event miss, and at least one
+      skipped or rejected turn. All five kinds sit between chat bubbles.
+- [ ] **Demo replay** (model-download host) — the same five rows, byte-for-byte
+      mirrored from the live log by design. **Compare the two screens
+      row-for-row**: this is the pairing no count can see, since applying one
+      file and not the other leaves every census green.
+- [ ] **Results detail** — the same rows again on the past-run mirror, plus the
+      degraded-run banner.
+- [ ] **Results list** — the degraded-run caption under a row whose category
+      caption and timestamp are still `--muted`. Three tiers in one row.
+- [ ] **ScenarioDetail** — the scenario description, now `--ink-2`, above phase
+      ordinals that stay `--muted`.
+- [ ] **Gallery detail** — the detail-row values (`Est. inferences`) against
+      their `--ink` labels, with the read-only disclaimer still `--muted`.
+
+**The second question is the ⚠️ glyph.** The degraded-turn warning symbol stays
+on `--muted` while its label moved, on the two screens that draw it — Simulation
+live and Results detail. (The Results-list caption carries no glyph, which is
+why its row above asks a different question.) §8 is a text bar and glyphs answer
+to WCAG 1.4.11 instead, so the split is deliberate — but the pair has to read as
+**one annotation**, not as a faded icon beside live text. The Results-detail one
+kept its `Label` and moved to the title/icon closure form, the only way to tint
+the two slots apart; confirm its icon gap still matches what shipped.
+
+Derivation: `muted-application-audit` §2 (classes A3/A4/A5) and §5.
+
 - [ ] **Home** — cards, `ActiveModelChip` (including its warning / danger states
       if reachable), scenario rows. Avatars invert through
       `SheepAvatarPalette.resolved(colorScheme:)`, not through a token alias.

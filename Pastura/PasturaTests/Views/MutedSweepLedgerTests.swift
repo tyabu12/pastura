@@ -120,10 +120,11 @@ struct MutedSweepLedgerTests {
   /// **A per-file count is the right shape here and the wrong one for batch 2**,
   /// which is why the two applied batches are pinned differently. It works
   /// because these three files hold 1 / 1 / 2 `Color.inkSecondary` in total: a
-  /// reverted header shows up as an off-by-one. Batch 2's files carry 4 to 13
-  /// each, most of them predating the batch, so a revert there hides inside the
-  /// total unless an unrelated edit happens to move it the other way — the same
-  /// dilution this comment's `> 0` argument warns about, one step further along.
+  /// reverted header shows up as an off-by-one. Batch 2's files hold 1 to 13,
+  /// and in the three densest (13 / 11 / 10) almost all of them predate the
+  /// batch, so a revert there hides inside the total unless an unrelated edit
+  /// happens to move it the other way — the same dilution this comment's `> 0`
+  /// argument warns about, one step further along.
   /// ``batchTwoSitesStillReadInkSecondary`` anchors by symbol for that reason.
   private static let expectedAppliedInkSecondary: [String: Int] = [
     "Views/Components/PasturaSection.swift": 1,
