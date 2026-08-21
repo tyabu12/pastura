@@ -150,8 +150,8 @@ unless the assigned axis needs more. Concretely: **2 output fields**
 (a `narrate` score-free ending or `scoring_free` observation is fine — drop
 `vote → score_calc → summarize` when the payoff is the phenomenon). Each
 addition trades against 2B breakdown rate, tokens, and latency — justify it.
-Canonical guidelines (the numbers live here): `.claude/rules/presets.md`
-§ "Scenario design defaults".
+Canonical guidelines (the numbers live here): `PLAYBOOK.md`
+§ "Subtract by default".
 
 Schema requirements (ScenarioLoader — all required):
 
