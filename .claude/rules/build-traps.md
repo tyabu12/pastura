@@ -72,8 +72,7 @@ licence to quote it in a `.swift` file.
 `swiftlint lint --path X` exits with `Error: Unknown option '--path'` (the
 positional form `swiftlint lint [options] [paths...]` is the real one). A probe
 that greps that output for a rule name finds nothing and concludes the rule did
-not fire. Measured 2026-08-21 (0.65.0, #1505): it fooled two independent
-attempts to settle whether `file_length` was live, in the same session.
+not fire. Measured 2026-08-21 (0.65.0, #1505).
 
 **Apply**: to test whether a rule fires, put the fixture **inside**
 `.swiftlint.yml`'s `included:` tree and run the form the gates run

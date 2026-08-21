@@ -301,10 +301,10 @@ in Python would require re-implementing preset branch navigation with no
 stated reconcile direction between the two copies. If that ownership
 ever moves, move it — do not add a second copy.
 
-One consequence worth stating because nothing else does: among **shipped**
-demos that assertion's conditional arm has an empty population, since no
-`Resources/DemoPresets/` preset uses a `conditional`. Its coverage comes
-from fixtures handed to the helper directly. Promoting a
+One consequence, restated here because it bounds what that assertion is
+evidence for: among **shipped** demos its conditional arm has an empty
+population, since no `Resources/DemoPresets/` preset uses a `conditional`.
+Its coverage comes from fixtures handed to the helper directly. Promoting a
 conditional-bearing preset (`word_wolf{,_en}`, `target_score_race{,_en}`)
 to a demo preset is what first gives it live artifacts — and is also when
 `phaseProgress` starts to differ between runs, because the two branches

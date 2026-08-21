@@ -241,8 +241,8 @@ extension YAMLReplaySourceTests {
   // MARK: - Schema version acceptance
   //
   // Here rather than in the parent file, which runs nearer SwiftLint's
-  // 400-line `file_length` cap. No sizes: two revisions of this comment
-  // carried one and both were wrong by the time they were committed.
+  // 400-line `file_length` cap. No line count here either, per this file's
+  // header.
   // Every other fixture in the parent stays at v1, which is this branch's
   // v1-back-compat coverage — do not sweep them to v2.
 

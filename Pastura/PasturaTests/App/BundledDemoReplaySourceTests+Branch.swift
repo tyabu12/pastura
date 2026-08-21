@@ -11,25 +11,16 @@ import Testing
 // coordinate-shape controls, because that file reached SwiftLint's 400-line
 // `file_length` cap — measured: a 502-line file under `Pastura/` reddens
 // `swiftlint lint --strict`, both whole-tree and with the file as a positional
-// argument. Two things DO suppress it, and both misled a measurement of this
-// during review: a probe file placed outside `.swiftlint.yml`'s `included:`
-// scope (path-independent rules still fire there, so the run looks live), and
-// the blanket `file_length` disable directive near the top of the parent file
-// (line 6).
-//
-// Named, not quoted, because SwiftLint parses a directive's literal text
-// wherever it appears — including inside prose about it. Quoting it here
-// reddened this file with `blanket_disable_command` plus
-// `superfluous_disable_command`, the latter reporting the rule name as invalid
-// because the surrounding backtick was swept into it. So the hazard is LOUD,
-// not a silently-disabled rule: someone who spells it out is told at once.
+// argument. Two things suppress that rule and made it look unenabled during
+// review; both are in `.claude/rules/build-traps.md`, along with why prose in
+// a `.swift` file must never spell out a disable directive's literal text —
+// SwiftLint parses one wherever it appears, a paragraph about it included.
 //
 // The fixture and the `diagnostic(_:)` helper stay in `+Alignment.swift`
 // and are reachable here only because this split widened them to internal —
 // file scope does not reach an extension in another file, the same trap
 // `.claude/rules/testing.md` § "Splitting a Suite Across Files" records for
-// `private`. (An earlier draft of this header asserted they were already
-// unscoped; they were not, and the build said so.)
+// `private`.
 //
 // Extension + sibling file, NOT a new `@Suite`.
 extension BundledDemoReplaySourceTests {
