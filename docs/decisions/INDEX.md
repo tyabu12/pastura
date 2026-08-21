@@ -189,11 +189,14 @@ extends to **composited** grounds — a translucent wash is a ground §8 never
 measured either (§ Amendment 2026-08-15 (#1448), which also retires "unique on
 this screen" as the must-read test and adds the per-file census that fires on
 additions) — and to grounds with **no static ratio at all**, where the family
-still decides the replacement and the repoint is argued by **direction** rather
-than measured, pinned by symbol instead of by a fixture arm; a §2.7
-interactive-state overlay is **not** a §2.3 wash and so does not route to a
-`*-on-wash` token (§ Amendment 2026-08-22 (#1448 batch 4), which also resolves
-#1455's deferral of the header pill's quietude-tier labels)
+still decides the replacement and the *evidence* is ordered: measure against a
+**nominal** ground wherever an opaque floor can be written, and fall back to a
+**direction** argument only where none can, which holds only while the ground
+stays lighter than `--muted`; a §2.7 interactive-state overlay that comes and
+goes with a state is **not** a §2.3 wash and so does not route to a `*-on-wash`
+token, though the same token painted permanently is (§ Amendment 2026-08-22
+(#1448 batch 4), which also resolves #1455's deferral of the header pill's
+quietude-tier labels)
 (Status: Accepted; #1274)
 
 ## ADR-029 — Shared-scenario highlights (static curated excerpts)

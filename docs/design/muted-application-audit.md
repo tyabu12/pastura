@@ -275,11 +275,23 @@ ratio column reading *unmeasurable*, which is what pointed at the gap: §3.2
 enumerated the measurable washes and §3.3 the materials, and this site is
 neither.
 
-A repoint on such a ground cannot be pinned by a ratio and must be argued by
+A repoint on such a ground cannot be pinned by a ratio. **Reach for a nominal
+ground first** — where an opaque floor exists under the translucency, measure
+against it and label the row *nominal* rather than a bound (design-system §8,
+routing priority 1). Only where no floor can be written is the repoint argued by
 **direction** instead: `inkSecondary` (#5A5A55) is darker than `muted` (#8A8A83)
-and `nightInkSecondary` (#B0AC9C) is lighter than `nightMuted` (#7A7768), so
-contrast rises in both appearances over any ground either token shares. That is
-weaker than a measurement and is labelled as such wherever it is used.
+and `nightInkSecondary` (#B0AC9C) is lighter than `nightMuted` (#7A7768).
+
+⚠️ **That does not by itself mean contrast rises**, and an earlier revision of
+this paragraph said it did — «over any ground either token shares», which is
+false. Moving a foreground darker raises the ratio only while the ground is
+*lighter than `muted` itself*; over a ground darker than both tokens the
+comparison inverts and the repoint **lowers** it, because `muted` is then the
+token further from the ground. So the direction argument carries a side
+condition: it is available only when the ground can be shown to stay lighter
+than `muted` in light, and darker than `nightMuted` in dark. Where that cannot
+be shown, go back to a nominal measurement or leave the site alone. Weaker than
+a measurement either way, and labelled as such wherever it is used.
 
 Two further grounds are **sheet defaults** — `ScoreboardSheet`, `ReportSheet`,
 `PersonaDetailSheet`, and `PhaseEditorSheet` set no Pastura background token at
@@ -314,6 +326,16 @@ out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 `B` names the batch. `B1`, `B2`, `B3` and `B5` are applied; everything else still
 ships as written. An applied row is **kept**, not deleted — the adjudication is what §5
 records, and the bolded batch marker is what says the repoint landed.
+
+**A third state exists, and the batch marker alone cannot express it.** A row can
+be *looked at* by a batch and deliberately **not moved** — the sweep adjudicated
+it and the answer was "stay". That is not the same as a row nothing has reached
+yet, and it reads identically here: an unbolded `B` marker. So such a row says
+**retained** in its verdict column, and §6.4 carries the per-site reasoning.
+Reserve the word: **kept** is about the *row* surviving in this table, **retained**
+is about the *site* keeping `muted`. B4 is where this first mattered, because it
+is the batch that ends the sweep — after it, an unbolded marker with no
+"retained" would wrongly read as unfinished work.
 
 ### Components
 
@@ -621,6 +643,42 @@ runs toward more work than stated, so it does not threaten the exclusion. Two fu
 read and excluded as **not** §2.2 section labels: `ResultsView+Timeline`'s day
 header and `HighlightCandidatesSection`'s `Share a highlight` are bold `ink`
 titles, not subordinate labels.
+
+### 6.4 The rows the sweep looked at and left alone
+
+Five `muted` sites carry **U** — a ground §8's exemption was never measured on —
+and were nonetheless **retained**. They are recorded together because "unmeasured"
+is the thing they share and it is *not* what decided them: each one was decided on
+**role**, exactly as §8's own bullet says a U row should be. Two different rules
+supply the answer, which is why the group does not reduce to a count.
+
+**Retained under §8's tier** — ambient roles, so the quietude tier is correct and
+the unmeasured ground changes nothing:
+
+| Site | Ground | Why the role is ambient |
+|---|---|---|
+| `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | A run that has not started yet. The pill states a *pending* state whose content is elsewhere on the row; §6.2 records the verdict and `ResultsPillTokenTests.pendingStaysOnTheQuietudeTier` pins it so the sweep could not take it silently |
+| `SimulationView` · loading-scrim subtitle | `.regularMaterial` | Elaborates a title already drawn at `ink`. Nothing here is the sole statement of anything — the scrim's title carries the state |
+| `ReportSheet` · `ID: %@` chip | `rule@0.45` | The identifier is embedded in the report URL the sheet submits, so the user never has to read it off the screen to act |
+
+**Retained under WCAG 1.4.11, not §8** — non-text, so §8's text bar never applied
+in the first place:
+
+| Site | Ground | Note |
+|---|---|---|
+| `ActiveModelChip` · chevron glyph | `mossDark@0.10` | A disclosure affordance's arrow, at 1.4.11's 3:1 bar |
+| `ActiveModelChip` · `dotColor(.inactive)` | `mossDark@0.10` | A status dot; the state it encodes is also in the chip's label |
+
+**Do not fold the two tables into one figure.** They agree on the outcome and
+differ on the rule, and a later reader deriving "what §8's tier retains" from a
+single number would inherit two non-text sites that §8 never governed. §5 marks
+all five `retained` in the verdict column with an unbolded `B4`, per §5's intro.
+
+**What this section is not.** It is not a licence to retain by default. Each row
+above names the role that decided it, and the sweep moved every site whose role
+was one of §2's five classes even where the ground was equally unmeasured — B1's
+`DLCompleteOverlay`, B3's two `ScoreboardSheet` rows, B4's `GameHeaderStatus`
+arms. The asymmetry between those and these is **role**, never measurability.
 
 ## 7. Batches
 
