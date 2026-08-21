@@ -43,7 +43,7 @@ Trigger a triage pass on memory **count** or **total content size** (`cat memory
 
 ## Procedure
 
-**Any** rules addition — promoted from memory or not — is drafted at **concept level**: WHY + the invariant + a durable pointer, not the exhaustive HOW (grep blocks, enumerations, step lists). This holds for **path-scoped** targets too, where `context-budget.md`'s always-loaded discipline stops and its "budget looser there" does *not* license a dump; expand a section only when a reviewer shows the omitted detail is load-bearing for the rule to fire.
+**Any** rules addition — promoted from memory or not — is drafted at **concept level**: WHY + the invariant + a durable pointer, not the exhaustive HOW (grep blocks, enumerations, step lists). This holds for **path-scoped** targets too — `context-budget.md` budgets them the same; expand a section only when a reviewer shows the omitted detail is load-bearing for the rule to fire.
 
 Promotion specifically is PROMOTE-only — retirement is memory-direct and needs no PR. Two steps nothing else enforces, so they belong on the rolling issue's checklist: **update every mirror** of the promoted fact in the same PR (the `code-reviewer` trap cheat sheet, a `CLAUDE.md` parenthetical — mirrors drift silently otherwise), and **delete the source memory only after the rule lands**, since a repo PR cannot enforce a per-machine `command rm`. **Read [`docs/agent-tooling/claim-verification.md`](../../docs/agent-tooling/claim-verification.md) § "Promotion mechanics" before starting one** — it has the full sequence, including the provenance-line strip.
 
