@@ -71,6 +71,16 @@ after **its consumer** — `engineLanguage`, not a generic `effectiveLanguage`,
 which invites a later "consolidation" routing other consumers through it and
 silently bypassing their priority. Reference: `Models/Scenario.swift` (the consumer table in `engineLanguage`'s doc comment — extend it when adding a consumer).
 
+## A change here may owe a Kotlin twin — read the ledger row first
+
+`shared/adr-023-port-ledger.tsv` carries one row per file in these two
+directories. A `REPLACED`, `FOLDED`, or `SPLIT` row names the Kotlin file(s)
+or design the same change must also land in (ADR-023 §4, §13); a `PORT` row
+whose same-named `.kt` already exists under `shared/engine` is paired by name.
+Only `SPLIT` targets are machine-verified, and only for existence — no gate
+checks that your edit reached them. `.claude/rules/kmp-interop.md` is `shared/**`-scoped and does not load
+for an edit here — this section is the reminder on this side.
+
 ## Prompt literals are paired with the Kotlin port
 
 `scripts/check-prompt-literal-parity.py` owns the mechanics and prints its own

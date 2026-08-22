@@ -84,9 +84,11 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   /// **Dual-landed with
   /// `shared/engine/src/commonMain/kotlin/com/pastura/engine/InferenceEstimator.kt`**
   /// (spelled out so a move leaves a greppable string behind) — change both
-  /// (ADR-023). Nothing enforces this: the port ledger's `PORT` disposition
-  /// forbids a `kotlin_target`, and `.claude/rules/kmp-interop.md` is scoped to
-  /// `shared/**`, so it never loads for an edit here.
+  /// (ADR-023). This file's row in `shared/adr-023-port-ledger.tsv` is `SPLIT`
+  /// naming that path (ADR-023 §13), and the coverage gate verifies the path is
+  /// tracked — it cannot verify that an edit here was mirrored, so the pairing is
+  /// still yours to honour. `.claude/rules/kmp-interop.md` is scoped to
+  /// `shared/**` and never loads for an edit here; `engine.md` does.
   public static func estimateInferenceCount(_ scenario: Scenario) -> Int {
     let agents = scenario.agentCount
     let perRound = scenario.phases.reduce(0) { $0 + estimatePhase($1, agents: agents) }

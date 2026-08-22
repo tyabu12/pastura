@@ -14,8 +14,11 @@
 # moves the failure local; CI keeps its own copy (defense in depth).
 #
 # Trigger paths mirror the check's real inputs: every Swift file under the two
-# scope directories (an add/delete/rename shifts coverage), the ledger, and the
-# checker script itself. The check reads the *index* (`git ls-files`), so a
+# scope directories (an add/delete/rename shifts coverage), the ledger, the
+# checker script itself, and every `.kt` under shared/ — a SPLIT row's targets
+# must be tracked there (ADR-023 §13), so a Kotlin rename/delete can dangle one.
+# The `shared/` restriction on SPLIT targets is what keeps this glob equal to
+# the target path space. The check reads the *index* (`git ls-files`), so a
 # staged add/delete is already reflected when this runs.
 #
 # bash 3.2 portable — ships to dev macOS via the pre-commit hook. NO
@@ -26,7 +29,7 @@ set -euo pipefail
 ROOT="$(git rev-parse --show-toplevel)"
 cd "$ROOT"
 
-TRIGGER='(^Pastura/Pastura/(Engine|LLM)/.*\.swift$)|(^shared/adr-023-port-ledger\.tsv$)|(^scripts/check-adr023-port-coverage\.py$)'
+TRIGGER='(^Pastura/Pastura/(Engine|LLM)/.*\.swift$)|(^shared/adr-023-port-ledger\.tsv$)|(^shared/.*\.kt$)|(^scripts/check-adr023-port-coverage\.py$)'
 
 # Capture, don't `| grep -q` — `-q` exits early, the still-writing producer
 # SIGPIPEs, and `pipefail` turns a MATCH into a skip (#1498).
