@@ -66,9 +66,9 @@ struct ResultsPillTokenTests {
 
   @Test func pendingStaysOnTheQuietudeTier() {
     // `muted` is design-system §8's deliberately sub-AA quietude tier and is NOT
-    // in scope for the self-wash work — its own `muted`-on-`muted` pill is swept
-    // app-wide by #1448. Pinned here so that sweep cannot silently take this arm
-    // with it.
+    // in scope for the self-wash work — its own `muted`-on-`muted` pill was swept
+    // app-wide by #1448 and adjudicated **retained** (ledger §6.4). This pin is
+    // why that sweep could not take the arm silently, and why a later one cannot.
     #expect(sut.pillForeground(.pending) == Color.muted)
   }
 }
