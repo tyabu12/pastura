@@ -43,5 +43,8 @@ seed value and echoes it mechanically rather than tracking events.
 **Apply:** to change agent *behavior*, change **structure** — phase design,
 forced events, hard-binary choices, non-mappable persona values — not goal prose
 or "be dynamic" nudges. A wording-only lever ships, moves flavor, and changes no
-action, with nothing to show that it did nothing. Reference:
-`docs/models/eval-log.md`.
+action, with nothing to show that it did nothing. The remedy has a floor: a
+quantitative form constraint the model cannot evaluate (5-7-5 mora allocation)
+does not load through structure either — a `reflect`-then-`speak` counting
+phase scored 2/16 against a 0/16 control — so relax the promise rather than add a
+lever. Reference: `docs/models/eval-log.md` (§ Corpus observations).
