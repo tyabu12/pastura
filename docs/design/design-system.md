@@ -437,11 +437,11 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
 | `nightPromoBorder` | `#35392F` | `promoBorder`（倍率保持・**向き反転**。`rule`→`nightRule` と同じ） |
 | `nightInkOnAccent` | `#2C2F28` | `inkOnAccent`（白ではない。`nightBubble` と同値だがそれは AAA 配置の**結果**） |
-| `nightInkOnWash` | `#BAB7A9` | `inkOnWash`（アーム3。4 種の self-wash 上で 4.991〜5.397。`nightInkSecondary` では 4.413〜4.773 で、うち 2 つは 4.501 と「バーちょうど」だった）。**#1327 とは向きが逆** — 壊れていたのは dark。`nightInk` なら 7.955〜8.602 で通るので不可能性の証明は無く、退けた根拠は**役割**（§8） |
+| `nightInkOnWash` | `#BAB7A9` | `inkOnWash`（アーム3。`inkWashSites` の全 self-wash 上で 4.991〜5.397 — サイト数はその size pin が正、ここには書かない。`nightInkSecondary` では 4.413〜4.773 で、うち 2 つは 4.501 と「バーちょうど」だった）。**#1327 とは向きが逆** — 壊れていたのは dark。`nightInk` なら 7.955〜8.602 で通るので不可能性の証明は無く、退けた根拠は**役割**（§8） |
 | `nightMossDark` | `#B3C197` | `mossDark`（**`nightMoss` より明るい** — 強調段の向きが反転） |
 | `nightMossInk` | `#C6CBB1` | `mossInk`（アーム3、地に対し 10.19 保持） |
 | `nightMossSoft` | `#384029` | `mossSoft`（向き反転。色相は moss 族へ寄せた） |
-| `nightMossOnWash` | `#BDC6A4` | `mossOnWash`（アーム3。7 種のウォッシュ上で 4.70〜6.03、最薄はカテゴリチップ） |
+| `nightMossOnWash` | `#BDC6A4` | `mossOnWash`（アーム3。`mossWashSites` の全ウォッシュ上で 4.70〜6.03、最薄はカテゴリチップ — ウォッシュの種類数はその fixture が正、ここには書かない） |
 | `nightLink` | `#699054` | `link` |
 | `nightLinkVisited` | `#9B9075` | `linkVisited` |
 | `nightLinkHover` | `#7FAA62` | `linkHover` |
