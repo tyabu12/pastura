@@ -2,6 +2,10 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+// The body still clears `type_body_length`'s warn threshold after the
+// `+BasicInfoSection` split; moving Personas / Phases out too would drag
+// their `@State` across the file boundary, which the split avoids.
+
 /// The main dual-mode scenario editor view.
 ///
 /// Supports two modes toggled via a segmented picker:
@@ -222,72 +226,6 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
     .scrollContentBackground(.hidden)
   }
 
-  private var basicInfoSection: some View {
-    Section(String(localized: "Basic Info")) {
-      TextField(String(localized: "Scenario ID"), text: $viewModel.scenarioId)
-        .textInputAutocapitalization(.never)
-        .autocorrectionDisabled()
-        .font(.body.monospaced())
-      TextField(String(localized: "Name"), text: $viewModel.scenarioName)
-        .accessibilityIdentifier("editor.titleField")
-      TextField(
-        String(localized: "Description"), text: $viewModel.scenarioDescription, axis: .vertical
-      )
-      .lineLimit(2...5)
-      roundsControl
-    }
-  }
-
-  /// Slider + stepper hybrid for discrete integer values (1...30).
-  /// Matches iOS HIG for discrete tunable values where both precise
-  /// increments (±) and quick scrubbing (drag) are desirable.
-  private var roundsControl: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      HStack {
-        Text(String(localized: "Rounds"))
-        Spacer()
-        Text(verbatim: "\(viewModel.rounds)")
-          .monospacedDigit()
-          .foregroundStyle(Color.inkSecondary)
-      }
-      HStack {
-        Button {
-          viewModel.rounds = max(1, viewModel.rounds - 1)
-        } label: {
-          Image(systemName: "minus.circle.fill")
-            .font(.title3)
-        }
-        .buttonStyle(.plain)
-        .disabled(viewModel.rounds <= 1)
-
-        Slider(value: roundsSliderBinding, in: 1...30, step: 1)
-
-        Button {
-          viewModel.rounds = min(30, viewModel.rounds + 1)
-        } label: {
-          Image(systemName: "plus.circle.fill")
-            .font(.title3)
-        }
-        .buttonStyle(.plain)
-        .disabled(viewModel.rounds >= 30)
-      }
-    }
-  }
-
-  private var roundsSliderBinding: Binding<Double> {
-    Binding(
-      get: { Double(viewModel.rounds) },
-      set: { viewModel.rounds = Int($0) }
-    )
-  }
-
-  private var contextSection: some View {
-    Section(String(localized: "Context")) {
-      TextEditor(text: $viewModel.context)
-        .frame(minHeight: 88)
-    }
-  }
-
   private var personasSection: some View {
     Section {
       ForEach(viewModel.personas) { persona in
@@ -320,9 +258,9 @@ struct ScenarioEditorView: View {  // swiftlint:disable:this type_body_length
       }
     } header: {
       HStack {
-        // §2.2: `--ink-2` label / `--muted` meta. Only the count-bearing
-        // headers qualify — this sheet's other system `Form` headers stay on
-        // the system default (ledger §6.3's open question). Rationale in §2.2.
+        // §2.2: `--ink-2` label / `--muted` meta. The label follows the ground
+        // rule stated in `basicInfoSection` (#1527); the `--muted` count beside
+        // it was what first exposed the mismatch (#1298), not the criterion.
         Text(String(localized: "Personas"))
           .foregroundStyle(Color.inkSecondary)
         Spacer()

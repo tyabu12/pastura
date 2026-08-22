@@ -140,6 +140,28 @@ If it reads wrong, the fix is one change to `PasturaSection`'s header treatment
 the token table, not from any one screen. Derivation: `muted-application-audit`
 §6.3.
 
+### The Editor `Form`'s system headers on `--ink-2` — one screen (#1527)
+
+#1527 decided that a system `Form` / `List` section header follows §2.2 where
+Pastura paints the `Form`'s ground, and stays system where the ground is the
+system's. One host qualifies — **ScenarioEditor** in visual mode, a pushed
+route whose `Form` sits on `screenBackground` — so `Basic Info` / `Context`
+join `Personas` / `Phases` on `--ink-2`. The editor sheets (`PhaseEditorSheet`
+family, `PersonaEditorSheet`, `VariablePickerSheet`) and `LicensesSheet` are
+deliberately untouched: a warm header on one of *those* is a regression, not
+this change.
+
+- [ ] **ScenarioEditor** — open any scenario in the visual editor. The four
+      headers read as one family (no cool-grey pair beside a warm pair), and
+      each still reads *subordinate* to what it heads — `Basic Info` vs. the
+      text fields' `ink`, `Context` vs. the editor body. Both appearances; the
+      pair moves the same way in each, so neither is the safe side to skim.
+- [ ] **PhaseEditorSheet** (open any phase) — the control: every header still
+      the system grey, on the system ground.
+
+If the family reads wrong, the fix is the §2.2 header treatment, not a per-site
+patch. Derivation: `muted-application-audit` §6.3.
+
 ### Transcript rows on `--ink-2` — three questions (#1448 batch 2)
 
 Batch 2 moved nineteen transcript and past-run rows off `--muted` onto
