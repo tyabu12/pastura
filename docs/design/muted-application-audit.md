@@ -10,9 +10,10 @@ examples in `PredictionOutcomeBadge`.
 recorded here is the per-site *application* of §8 across the population, plus the
 adjudications that were judgement calls. The sweep runs in batches — batches 1
 through 5 are all applied, so **no misapplication remains open**, and #1448 is
-closed. What is left is the rows §6.4 records as adjudicated and **retained**,
-and B6 — which is not a `Color.muted` batch at all and was spun out as its own
-issue, #1527, at #1448-close time (§7).
+closed. What is left is the rows §6.4 records as adjudicated and **retained**.
+B6 — not a `Color.muted` batch at all — was spun out as its own issue, #1527,
+at #1448-close time, and decided there by the ground the header sits on (§6.3,
+§7).
 
 ## 1. Population
 
@@ -652,41 +653,65 @@ deliberately omitted: the `--ink-2` grounds are not among the pins, and §8's
 "Regenerating the ratio tables" forbids computing one by hand to fill the gap.
 Not a defect to pre-empt.
 
-**§2.2's third treatment is not folded in, and what it raises is left open.**
-Headers still on the system `secondaryLabel` are not a residue of this one:
-they are every system `Form` / `List` section header in the app — **21 sites
-across 9 files**, `LicensesSheet` ×2 plus 19 across the Editor sheet family — on
-a substrate Pastura has never claimed. Moving them would answer *does Pastura
-tokenize system `Form` / `List` section chrome?*, which nothing has decided, and
-would roughly triple the QA. #1298 is evidence for narrowing rather than
-against it: it moved `ScenarioEditorView`'s two headers because a `--muted`
-count sat beside each inside one `HStack`, and its inline comment says so —
-"only the count-bearing headers qualify". Tracked as **B6** in §7, and spun out
-as #1527 when #1448 closed.
+**§2.2's third treatment was left open here, and decided in #1527 — by the
+ground, not the host.** Headers still on the system `secondaryLabel` are not a
+residue of this one: they are every system `Form` / `List` section header in
+the app, `LicensesSheet` ×2 plus the Editor sheet family, on a substrate Pastura
+had never claimed — so moving them asked *does Pastura tokenize system `Form` /
+`List` section chrome?*, which nothing had decided. Tracked as **B6** in §7 and
+spun out as #1527 when #1448 closed. #1298 was read at the time as evidence for
+narrowing: it moved `ScenarioEditorView`'s two headers because a `--muted`
+count sat beside each inside one `HStack`, and its inline comment said so —
+"only the count-bearing headers qualify".
 
-No single grep reproduces that 21, so the recipe is the record — two greps
-over `Pastura/Pastura`, then three named subtractions:
+**Decision (#1527): a system section header follows the table where Pastura
+paints the `Form`'s ground, and stays system where the ground is the system's.**
+The discriminator is mechanical — `.scrollContentBackground(.hidden)` plus a
+token background — and `ScenarioEditorView` is the only such host app-wide
+(`grep -rn scrollContentBackground Pastura/Pastura/Views/` returns that one
+file): a pushed route that keeps `Form` only for `.onMove` (design-system §5.9)
+and paints `screenBackground` beneath it. There the four headers share one
+ground with the `PasturaSection` headers B5 moved, the `--ink-2` pairing is the
+one B5 already uses on it, and two of the four were already on it — one `Form`,
+one ground, two treatments, the only genuine inconsistency in the set. So
+`Basic Info` / `Context` move, and #1298's "only the count-bearing headers
+qualify" becomes an instance of the rule rather than its limit: the count was
+the first symptom, not the criterion. Every other host is a sheet whose ground,
+rows and controls are the system's. A warm `--ink-2` there would be the single
+tokenized element in otherwise system chrome, on a ground that is not among
+the pins and that §8 forbids computing by hand — so those stay, in the same
+direction as design-system §5.8.3's sheet-interior line (an analogy: that
+table is about toolbars). Net: **2 moved, the rest retained**, and the QA is
+one screen in both appearances (`docs/qa/dark-mode-qa.md`), not the triple of
+B5 this section once projected. Derivation: ADR-028 § Amendment 2026-08-22
+(#1527).
+
+No single grep reproduces the population, so the recipe is the record — two
+greps over `Pastura/Pastura`, then the named subtractions. The figures are as
+of #1527's tree: the two moved headers changed spelling from
+`Section(String(localized:` to `} header: {`, which is why both greps differ
+from the 7 / 18 recorded at #1448-close while the literal total does not:
 
 ```sh
-grep -rn 'Section(String(localized' --include='*.swift' | grep -v PasturaSection   # 7
-grep -rn '} header: {' --include='*.swift'                                          # 18
+grep -rn 'Section(String(localized' --include='*.swift' | grep -v PasturaSection   # 5
+grep -rn '} header: {' --include='*.swift'                                          # 20
 ```
 
 25 literals, minus the two hosted in a `Menu` (`ActiveModelChip` · `Active
-model`, and `ResultDetailView` · `Developer`, itself `#if DEBUG`) and the two
-`ScenarioEditorView` headers #1298 already tokenized = **21, over 9 files**.
-`.headerProminence` and the legacy `Section(header:)` form are both zero
-app-wide, and no `Section` literal exists outside `Views/`.
+model`, and `ResultDetailView` · `Developer`, itself `#if DEBUG`) and the four
+`ScenarioEditorView` headers now on `--ink-2` (#1298 ×2, #1527 ×2) = **19
+retained, over 8 files**. `.headerProminence` and the legacy `Section(header:)`
+form are both zero app-wide, and no `Section` literal exists outside `Views/`.
 
-**21 is a floor on rendered headers, not a measurement of them.** Two of the
+**19 is a floor on rendered headers, not a measurement of them.** Two of the
 literals sit in helpers invoked twice — `PhaseEditorSheet+ConditionalSection`'s
 `branchSection` (then / else) and `VariablePickerSheet`'s `group` — and both
-render a runtime `Text(title)`, so ≥23 headers reach the screen and a future
+render a runtime `Text(title)`, so ≥21 headers reach the screen and a future
 grep keyed on a localized literal *inside* a header would miss them. The error
-runs toward more work than stated, so it does not threaten the exclusion. Two further headers were
-read and excluded as **not** §2.2 section labels: `ResultsView+Timeline`'s day
-header and `HighlightCandidatesSection`'s `Share a highlight` are bold `ink`
-titles, not subordinate labels.
+runs toward more retained headers than stated, so it does not threaten the
+decision. Two further headers were read and excluded as **not** §2.2 section
+labels: `ResultsView+Timeline`'s day header and `HighlightCandidatesSection`'s
+`Share a highlight` are bold `ink` titles, not subordinate labels.
 
 ### 6.4 The rows the sweep looked at and left alone
 
@@ -733,7 +758,7 @@ arms. The asymmetry between those and these is **role**, never measurability.
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown — all A3; the two `ScoreboardSheet` rows are the first **U** rows to move, by §3.3's direction argument | 6 | **applied (#1448)** |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix. Three rows moved; the other five were adjudicated and **retained** (§6.4) | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | **applied (#1448)** |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
-| **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlived its own umbrella**: #1448 closed when the `Color.muted` census read done, which B6 contributed nothing to — so, as this row required, it was **spun out as its own issue, #1527, at #1448-close time**. Needs the substrate decision before any site moves | 21 over 9 files | spun out — #1527, undecided |
+| **B6** | §6.3's open question — system `Form` / `List` section headers on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlived its own umbrella**: #1448 closed when the `Color.muted` census read done, which B6 contributed nothing to — so, as this row required, it was **spun out as its own issue, #1527, at #1448-close time**. Decided there **by the ground**: a system header follows §2.2 where Pastura paints the `Form`'s ground, and stays system where the ground is the system's (§6.3). `MutedSweepLedgerTests` pins the moved file's `inkSecondary` count, by the B5 arm's argument | 2 repointed (`ScenarioEditorView`); 19 retained over 8 files | **applied (#1527)** — 19 retained |
 
 B2 was the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast
