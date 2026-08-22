@@ -457,11 +457,16 @@ call, and these are what the batches so far have taught.
   happens to be an ideal answer to the topic, the model reproduces it
   verbatim rather than inventing anything. `oogiri_knockout_v1`'s
   `一言必殺のゼロ次` emitted its example line unchanged in two independent
-  draws, so it is in neither the excerpt nor the hook fragment. Publishing
+  draws, so the batch-2 excerpt kept it out of both the excerpt and the hook
+  fragment; #1475 then replaced the example with one that answers none of
+  the topics, and the current excerpt quotes ゼロ次 only because two fresh
+  draws re-checked every round against the new `例:`. Publishing
   such a line would show the flagship "real run" quoting its own prompt — and
   the full YAML is one tap away in the app, so a reader can see it. This bites
   hardest for a `yaml_hook` persona slice, since the excerpt and the `例:`
-  would then render on the same screen.
+  would then render on the same screen — so for a hooked persona, also reject
+  a pick that merely reuses the example's sentence frame (the same closing
+  phrase with the nouns swapped), which the gate cannot see.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
