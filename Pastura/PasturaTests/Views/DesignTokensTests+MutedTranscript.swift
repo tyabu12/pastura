@@ -12,6 +12,11 @@
 // `WASH_DECL`. Renaming this file, or renaming/relaxing the `private static let`
 // on ``opaqueGroundPins`` / ``washRowPins``, makes the checker raise rather than
 // pass emptily; repoint those three constants in the same commit.
+//
+// This file reached the 400-line `file_length` cap in #1448 batch 4; the two
+// arms that batch added went to `DesignTokensTests+MutedDirection.swift`, since
+// neither transcribes a doc figure. Keep that boundary — an arm about a
+// *routing rule* belongs there, an arm about a *printed figure* belongs here.
 
 import SwiftUI
 import Testing

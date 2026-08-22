@@ -36,9 +36,13 @@ extension SettingsView {
         } label: {
           HStack {
             Text(String(localized: "Clear all results"))
+              // Routing, not contrast: the blocked arm is a disabled control,
+              // so §2.7's `disabledText` is the token and the ratio drops on
+              // purpose — WCAG 1.4.3's inactive-control carve-out, recorded at
+              // design-system §2.9. Ledger §6.1 (#1448 batch 4).
               // Explicit `Color.danger` (not `.danger`) — Color extension
               // tokens don't resolve through the ShapeStyle overload.
-              .foregroundStyle(isClearAllBlocked ? Color.muted : Color.danger)
+              .foregroundStyle(isClearAllBlocked ? Color.disabledText : Color.danger)
             Spacer()
           }
           .padding(.horizontal, 17)

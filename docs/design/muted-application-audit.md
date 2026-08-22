@@ -8,8 +8,10 @@ examples in `PredictionOutcomeBadge`.
 
 **This file is the sweep's ledger, not its rule.** §8 remains normative; what is
 recorded here is the per-site *application* of §8 across the population, plus the
-adjudications that were judgement calls. The sweep runs in batches — batches 1,
-2, 3 and 5 are applied; every other row still ships as written.
+adjudications that were judgement calls. The sweep runs in batches — batches 1
+through 5 are all applied, so **no misapplication remains open**. What is left is
+B6, which is not a `Color.muted` batch at all (§7), and the rows §6.4 records as
+adjudicated and **retained**.
 
 ## 1. Population
 
@@ -43,9 +45,14 @@ Batch 1 removed eight occurrences and emptied three files; batch 5 (#1485)
 removed three more and emptied three more; batch 2 repointed nineteen sites for
 a net eighteen occurrences and emptied none; batch 3 repointed six — the
 eliminated rows in `SimulationResultCard` / `ScoreboardSheet` and the prediction
-countdown — and emptied none either. So the population as it ships today is
-**64 lines · 4 doc-comment mentions · 60 code sites across 37 files**.
-`MutedSweepLedgerTests` pins the per-file breakdown — §8.
+countdown — and emptied none either. Batch 4 repointed three — the header pill's
+terminal-state labels, the model row's meta, and the blocked clear-all label —
+and emptied two files. So the population as it ships today is
+**61 lines · 4 doc-comment mentions · 57 code sites across 35 files**.
+`MutedSweepLedgerTests` pins the per-file breakdown — §8. Re-derived on this
+batch's final commit; note the §8 command reports **36** files, one more than
+the figure above, because `ActiveModelChipPresenter.swift` carries only a
+mention (the two-denominator note above).
 
 The mentions went 3 → 4 because batch 2's why-comment in `ResultDetailView`
 names the token it left behind. **A comment mention is not a site** — §8's
@@ -266,20 +273,64 @@ no ground to composite against, so the omission is a recorded exclusion rather
 than a gap. The fixture says so at the arrays.
 
 **A translucent ground over a translucent ground is a fourth kind**, and §3.2's
-three washes do not cover it. `GameHeaderStatus`'s `foreground` draws `muted`
+three washes do not cover it. `GameHeaderStatus`'s `foreground` drew `muted`
 over a `muted@0.14` self-wash sitting on `screenBackground@0.78` — the header
 wash is itself alpha over whatever the scroll position puts behind it, so the
 base is as unknown as a material's. Recorded here rather than in §3.2, and owned
-by batch 4 with the other composited questions. It is listed in §5 with its
+by batch 4 with the other composited questions.
+
+**Batch 4 moved it, and by measurement rather than by the direction argument
+below.** «No bound exists» is not the same as «nothing can be measured»: the bar
+lays `screenBackground@0.78` under its material, which is an opaque floor, so a
+*nominal* ground can be written the way `DesignTokensTests+MossOnWash` already
+writes one for this same pill's moss arm. `headerPillArmsClearTheBarOnTheNominal-
+HeaderGround` pins it. A nominal figure is not a bound — dark content under the
+bar puts the real ratio below it — so §5's cell still reads *unmeasurable* and
+device QA is what covers the difference. design-system §8 now states the
+ordering: nominal measurement first, direction only where no floor exists. It is listed in §5 with its
 ratio column reading *unmeasurable*, which is what pointed at the gap: §3.2
 enumerated the measurable washes and §3.3 the materials, and this site is
 neither.
 
-A repoint on such a ground cannot be pinned by a ratio and must be argued by
+A repoint on such a ground cannot be pinned by a ratio. **Reach for a nominal
+ground first** — where an opaque floor exists under the translucency, measure
+against it and label the row *nominal* rather than a bound (design-system §8,
+routing priority 1). Only where no floor can be written is the repoint argued by
 **direction** instead: `inkSecondary` (#5A5A55) is darker than `muted` (#8A8A83)
-and `nightInkSecondary` (#B0AC9C) is lighter than `nightMuted` (#7A7768), so
-contrast rises in both appearances over any ground either token shares. That is
-weaker than a measurement and is labelled as such wherever it is used.
+and `nightInkSecondary` (#B0AC9C) is lighter than `nightMuted` (#7A7768).
+
+⚠️ **That does not by itself mean contrast rises**, and an earlier revision of
+this paragraph said it did — «over any ground either token shares», which is
+false. Moving a foreground darker is *guaranteed* to raise the ratio only while
+the ground is **lighter than `muted` itself**. Below that the sign is not
+determined by inspection: it flips partway **between the two foregrounds**, and
+from there down the repoint **lowers** the ratio, because `muted` is then the
+token further from the ground.
+
+⚠️ **The flip is not "darker than both tokens" — it is a band above that**, so
+"my ground is not as dark as the replacement, therefore I am safe" is exactly
+the wrong test. `directionArgumentInvertsOnAGroundDarkerThanMuted` constructs a
+ground inside that band (darker than `muted`, lighter than `inkSecondary`) and
+pins the inversion, so the figures live there rather than here.
+
+The side condition that follows: the direction argument is available only where
+the ground can be **shown** to stay lighter than `muted` in light and darker
+than `nightMuted` in dark. Where it cannot — including where it merely might
+enter the band — go back to a nominal measurement (§8's priority 1) or leave the
+site alone. Weaker than a measurement either way, and labelled as such wherever
+it is used.
+
+**A §2.7 state overlay is neither of these kinds, nor one of §3.2's washes.**
+`ModelRow`'s selected row paints `moss@0.06` — §2.7's `hover` value — over
+`bubbleBackground`, and batch 4 found that a fill which comes and goes with a
+state is not a §2.3 wash: the ground stays the card beneath it, so the meta
+routes to the neutral answer (`inkSecondary`) rather than to `mossOnWash`. The
+ratio is nonetheless measured **through** the overlay —
+`inkSecondaryClearsTheBarUnderTheSelectionOverlay` in
+`DesignTokensTests+MutedDirection`, with `mutedMossWashGrounds`' two `ModelRow`
+rows as the before-figure. design-system §8's overlay bullet carries the rule and
+its counter-case, `GalleryCatalogRow`, where the same token painted permanently
+*is* a wash.
 
 Two further grounds are **sheet defaults** — `ScoreboardSheet`, `ReportSheet`,
 `PersonaDetailSheet`, and `PhaseEditorSheet` set no Pastura background token at
@@ -311,23 +362,34 @@ Verdicts: **S** sanctioned · **M** misapplication (class in brackets) ·
 **U** unmeasured ground, exemption cannot be cited · **N** non-text (1.4.11,
 out of §8's scope) · **P** `#Preview`, never ships · **C** comment mention.
 
-`B` names the batch. `B1`, `B2`, `B3` and `B5` are applied; everything else still
-ships as written. An applied row is **kept**, not deleted — the adjudication is what §5
-records, and the bolded batch marker is what says the repoint landed.
+`B` names the batch. `B1` through `B5` are applied; what still ships as written is
+either a sanctioned row or one §6.4 records as retained. An applied row is
+**kept**, not deleted — the adjudication is what §5 records, and the bolded batch
+marker is what says the repoint landed.
+
+**A third state exists, and the batch marker alone cannot express it.** A row can
+be *looked at* by a batch and deliberately **not moved** — the sweep adjudicated
+it and the answer was "stay". That is not the same as a row nothing has reached
+yet, and it reads identically here: an unbolded `B` marker. So such a row says
+**retained** in its verdict column, and §6.4 carries the per-site reasoning.
+Reserve the word: **kept** is about the *row* surviving in this table, **retained**
+is about the *site* keeping `muted`. B4 is where this first mattered, because it
+is the batch that ends the sweep — after it, an unbolded marker with no
+"retained" would wrongly read as unfinished work.
 
 ### Components
 
 | Site (file · symbol) | Ground | light/dark | Verdict | B |
 |---|---|---|---|---|
-| `ActiveModelChip` · chevron glyph | `mossDark@0.10` | 2.953 / 3.098 | N + U | B4 |
-| `ActiveModelChip` · `dotColor(.inactive)` | `mossDark@0.10` | 2.953 / 3.098 | N + U | B4 |
+| `ActiveModelChip` · chevron glyph | `mossDark@0.10` | 2.953 / 3.098 | N + U — retained, §6.4 (1.4.11, not §8) | B4 |
+| `ActiveModelChip` · `dotColor(.inactive)` | `mossDark@0.10` | 2.953 / 3.098 | N + U — retained, §6.4 (1.4.11, not §8) | B4 |
 | `ActiveModelChipPresenter` · doc comment | — | — | C | — |
 | `AgentOutputRow` · share glyph | `screenBackground` | 3.329 / 3.779 | N | — |
 | `AgentOutputRow` · `INNER VOICE` tag | `screenBackground` | 3.329 / 3.779 | S — discloser label, not the disclosed | — |
 | `AgentOutputRow` · rationale comment | — | — | C | — |
 | `AgentOutputRow` · `thoughtBody` | `screenBackground` | 3.329 / 3.779 | **M (A5)** — the model's inner monologue is product, not metadata | **B2** |
 | `DogMark` · `26 pt` / `44 pt` captions ×2 | `screenBackground` | — | P | — |
-| `GameHeaderStatus` · `foreground` (paused/cancelled/error) | `muted@0.14` self-wash over `screenBackground@0.78` | unmeasurable | **M (A1)** + U — the run-state pill is the header's reason to exist | B4 |
+| `GameHeaderStatus` · `foreground` (paused/cancelled/error) | `muted@0.14` self-wash over `screenBackground@0.78` | unmeasurable | **M (A1)** + U — the run-state pill is the header's reason to exist; repointed against a *nominal* ground, §3.3 | **B4** |
 | `GameHeaderStatus` · `washToken` | same | unmeasurable | N | — |
 | `IdleFriendlyProgressView` · ellipsis stand-in | 3 caller grounds, 2 material | mixed | N — `isUITestMode` only | — |
 | `PasturaCard` · `Text("2")` | `bubbleBackground` | — | P | — |
@@ -357,7 +419,7 @@ what the reader came to compare.
 | `ScoreboardSheet` · score (eliminated) | sheet default | unmeasured | **M (A3)** + U — restrictive control | **B3** |
 | `SimulationView` · `%@ is thinking…` | `screenBackground` | 3.329 / 3.779 | S — transient, superseded when the agent speaks | — |
 | `SimulationView` · scrim-label comment | — | — | C | — |
-| `SimulationView` · loading-scrim subtitle | `.regularMaterial` | unmeasurable | S + U — elaborates a title already at `ink` | B4 |
+| `SimulationView` · loading-scrim subtitle | `.regularMaterial` | unmeasurable | S + U — elaborates a title already at `ink`; retained, §6.4 | B4 |
 | `SimulationView+Background` · BG-continuation glyph | `screenBackground` | 3.329 / 3.779 | N | — |
 | `SimulationView+LogEntries` · `assignmentEntry` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `SimulationView+LogEntries` · `voteResultsEntry` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
@@ -370,7 +432,7 @@ what the reader came to compare.
 | `SimulationView+LogEntries` · `scoresSummary` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ViewerPredictionSheet` · eyebrow | `page` | 3.030 / 4.152 | S — category label | — |
 | `ViewerPredictionSheet` · `%lld s left` | `page` | 3.030 / 4.152 | **M (A3)** — a deadline the user acts against; the sheet auto-skips at zero | **B3** |
-| `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.300–3.018 / 2.520–3.503 | S + U — the ID is embedded in the report URL anyway | B4 |
+| `ReportSheet` · `ID: %@` chip | `rule@0.45` | 2.300–3.018 / 2.520–3.503 | S + U — the ID is embedded in the report URL anyway; retained, §6.4 | B4 |
 
 ### Results · Home · ScenarioDetail
 
@@ -388,7 +450,7 @@ what the reader came to compare.
 | `ResultsView` · `categoryCaption` | `screenBackground` or `bubbleBackground` | 3.329 / 3.021 worst | S — list caption, §8's named shape | — |
 | `ResultsView` · timestamp | same | same | S — list caption | — |
 | `ResultsView` · `degradedRunCaption` | same | same | **M (A4)** | **B2** |
-| `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | 2.895 / 3.239 | S on role + **U** — see §6.2 | B4 |
+| `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | 2.895 / 3.239 | S on role + **U** — see §6.2; retained, §6.4 | B4 |
 | `ResultsView` · `pillBackground(.pending)` | row ground | — | N | — |
 | `ResultsView+Timeline` · `N records` | `screenBackground` | 3.329 / 3.779 | S — count of the list below it | — |
 | `HomeView` · `Scenarios` header | `screenBackground` | 3.329 / 3.779 | S on contrast — routing → `--ink-2`, see §6.3 | **B5** |
@@ -405,7 +467,7 @@ what the reader came to compare.
 | `SettingsView` · prediction caption | `bubbleBackground` | 3.475 / 3.021 | S — expands the toggle title | — |
 | `SettingsView+Models` · `Models` header | `screenBackground` | 3.329 / 3.779 | S on contrast — routing → `--ink-2`, see §6.3 | **B5** |
 | `SettingsView+Models` · switch-blocked reason | `screenBackground` | 3.329 / 3.779 | **M (A1)** | **B1** |
-| `SettingsView+PastResults` · `Clear all results` (blocked) | `bubbleBackground` | 3.475 / 3.021 | routing → `disabledText`, see §6.1 | B4 |
+| `SettingsView+PastResults` · `Clear all results` (blocked) | `bubbleBackground` | 3.475 / 3.021 | routing → `disabledText`, see §6.1 | **B4** |
 | `SettingsView+PastResults` · `Storage used: %@` | `screenBackground` | 3.329 / 3.779 | **M (A3)** | **B1** |
 | `SettingsView+PastResults` · clear-blocked reason | `screenBackground` | 3.329 / 3.779 | **M (A1)** | **B1** |
 | `ModelSettingsRow` · `·` separator | `bubbleBackground` | 3.475 / 3.021 | S — separator | — |
@@ -414,7 +476,7 @@ what the reader came to compare.
 | `OrphanedModelFileRow` · on-disk filename | `bubbleBackground` | 3.475 / 3.021 | **M (A3)** — identifies what a delete removes | **B1** |
 | `ModelPickerView` · `PASTURA · SETUP` | `screenBackground` | 3.329 / 3.779 | S — branding eyebrow | — |
 | `ModelPickerView` · add-later reassurance | `screenBackground` | 3.329 / 3.779 | S — footnote | — |
-| `ModelRow` · vendor · size meta | `moss@0.06` when selected, else `bubbleBackground` | 3.287 / 2.693 | **M (A3)** + U — bundles the file size | B4 |
+| `ModelRow` · vendor · size meta | `moss@0.06` when selected, else `bubbleBackground` | 3.287 / 2.693 | **M (A3)** + U — bundles the file size; the wash is a §2.7 state overlay, not a §2.3 wash | **B4** |
 | `ModelDownloadHostView+CodePhaseRows` · `codePhaseContent` `.assignment` arm | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ModelDownloadHostView+CodePhaseRows` · `voteResultsContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
 | `ModelDownloadHostView+CodePhaseRows` · `scoresContent` | `screenBackground` | 3.329 / 3.779 | **M (A5)** | **B2** |
@@ -488,7 +550,7 @@ plain token swap cannot cause it.
 
 ## 6. Decisions this sweep was chartered to make
 
-### 6.1 The disabled `Clear all results` label
+### 6.1 The disabled `Clear all results` label — routed to `disabledText`, applied in B4
 
 `isClearAllBlocked ? Color.muted : Color.danger`. This is not a contrast defect —
 it is a **routing** one: the app has `disabledText` (#B5B0A2 / `nightDisabledText`
@@ -501,7 +563,9 @@ the licence and §2.7 only for the token.
 Correcting it therefore **lowers** the ratio, which §8 permits only when returning
 to the token the norm points at — the same licence #1459 used. It is kept out of
 batch 1 so a single PR does not mix raise-contrast and lower-contrast edits, whose
-review arguments are opposite. Batch 4.
+review arguments are opposite. Batch 4 — applied (#1526) as its own commit, the
+why-comment citing §2.9 for the licence and §2.7 for the token, and pinned by
+symbol in `MutedSweepLedgerTests+BatchFour`.
 
 ### 6.2 `ResultsView`'s `.pending` pill
 
@@ -622,6 +686,42 @@ read and excluded as **not** §2.2 section labels: `ResultsView+Timeline`'s day
 header and `HighlightCandidatesSection`'s `Share a highlight` are bold `ink`
 titles, not subordinate labels.
 
+### 6.4 The rows the sweep looked at and left alone
+
+Five `muted` sites carry **U** — a ground §8's exemption was never measured on —
+and were nonetheless **retained**. They are recorded together because "unmeasured"
+is the thing they share and it is *not* what decided them: each one was decided on
+**role**, exactly as §8's own bullet says a U row should be. Two different rules
+supply the answer, which is why the group does not reduce to a count.
+
+**Retained under §8's tier** — ambient roles, so the quietude tier is correct and
+the unmeasured ground changes nothing:
+
+| Site | Ground | Why the role is ambient |
+|---|---|---|
+| `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | A run that has not started yet. The pill states a *pending* state whose content is elsewhere on the row; §6.2 records the verdict and `ResultsPillTokenTests.pendingStaysOnTheQuietudeTier` pins it so the sweep could not take it silently |
+| `SimulationView` · loading-scrim subtitle | `.regularMaterial` over `SimulationScrimStyle.fill` | Elaborates a title already drawn at `ink`. Nothing here is the sole statement of anything — the scrim's title carries the state. ⚠️ Its true ground is the one shipped surface plausibly dark enough to enter §3.3's inversion band, since the scrim is a near-black: **a future repoint here must be measured, never direction-argued** |
+| `ReportSheet` · `ID: %@` chip | `rule@0.45` | The identifier is embedded in the report URL the sheet submits, so the user never has to read it off the screen to act |
+
+**Retained under WCAG 1.4.11, not §8** — non-text, so §8's text bar never applied
+in the first place:
+
+| Site | Ground | Note |
+|---|---|---|
+| `ActiveModelChip` · chevron glyph | `mossDark@0.10` | A disclosure affordance's arrow, at 1.4.11's 3:1 bar |
+| `ActiveModelChip` · `dotColor(.inactive)` | `mossDark@0.10` | A status dot; the state it encodes is also in the chip's label |
+
+**Do not fold the two tables into one figure.** They agree on the outcome and
+differ on the rule, and a later reader deriving "what §8's tier retains" from a
+single number would inherit two non-text sites that §8 never governed. §5 marks
+all five `retained` in the verdict column with an unbolded `B4`, per §5's intro.
+
+**What this section is not.** It is not a licence to retain by default. Each row
+above names the role that decided it, and the sweep moved every site whose role
+was one of §2's five classes even where the ground was equally unmeasured — B1's
+`DLCompleteOverlay`, B3's two `ScoreboardSheet` rows, B4's `GameHeaderStatus`
+arms. The asymmetry between those and these is **role**, never measurability.
+
 ## 7. Batches
 
 | | Scope | Sites | State |
@@ -629,7 +729,7 @@ titles, not subordinate labels.
 | **B1** | Blocked-state reasons, the tap-to-proceed instruction, and act-on numbers, in Settings / model management / gallery | 8 | **applied (#1448)** |
 | **B2** | A3 + A4 + A5 — the simulation transcript and past-run detail rows: assignments, tallies, score summaries, degraded-turn narration, the scenario description, and the gallery detail values (the one A3 here) | 19 | **applied (#1448)** |
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown — all A3; the two `ScoreboardSheet` rows are the first **U** rows to move, by §3.3's direction argument | 6 | **applied (#1448)** |
-| **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus`, the sites whose target token is undecided (a direction-argued repoint is outside this gate, §3.3) — plus §6.1's routing fix | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | open |
+| **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix. Three rows moved; the other five were adjudicated and **retained** (§6.4) | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | **applied (#1448)** |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
 | **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
 
@@ -663,21 +763,23 @@ Batches are ordered by how settled the judgement is, not by size. B2 and B3 are
 straightforward applications of §2 once B1 establishes the shape — with the
 caveat B2 turned up: a site whose token sits on a `Label` or any other
 multi-slot call cannot be repointed without changing the call's shape, and that
-is a decision, not a swap (§5's added glyph row); B4 needs §8 to
-say what a *material or otherwise unmeasurable* ground routes to before any
-of **its** sites moves — the routing for a merely-composited one is already in
-§8's `*-on-wash` bullet, so stating the gate that way would leave it already
-satisfied. A direction-argued repoint on a §3.3 ground is **outside** that
-gate, and two batches have made one: B1's `DLCompleteOverlay` (which carries no
-**U** — its ground is a material, not merely unmeasured, so B3's rows are still
-the first **U** rows to move) and B3's two `ScoreboardSheet` rows. Neither
-claims a ratio, and both land on the token
-§8's neutral-ground bullet already names; what B4 owes §8 is the answer for the
-sites where the token might *not* be `--ink-2` — the self-wash pills and the
-moss-washed chips, whose role is ambient and whose ground is tinted; B5
-repoints three call sites but repaints five screens, because one
-of the three is a shared component — §6.3 separates that figure from the three the
-blast radius actually has.
+is a decision, not a swap (§5's added glyph row); B4 owed §8 the answer for a
+*material or otherwise unmeasurable* ground before any of **its** sites moved —
+the routing for a merely-composited one was already in §8's `*-on-wash` bullet,
+so stating the gate that way would have left it already satisfied. **That debt
+is paid**: §8 now carries the routing-priority bullet (nominal measurement where
+an opaque floor exists, direction only where none does, with the side condition
+the direction argument needs) and the §2.7-overlay bullet. Two earlier batches
+had already made a direction-argued repoint without the rule — B1's
+`DLCompleteOverlay` (which carries no **U**: its ground is a material, not
+merely unmeasured, so B3's rows are still the first **U** rows to move) and B3's
+two `ScoreboardSheet` rows — and both are now instances of it rather than
+exceptions to it. Where B4 landed differently from what the gate anticipated:
+the sites whose token might *not* be `--ink-2` turned out to need **no** repoint
+at all, because their role is ambient (§6.4), so the answer §8 owed them is the
+retention rule rather than a token. B5 repoints three call sites but repaints
+five screens, because one of the three is a shared component — §6.3 separates
+that figure from the three the blast radius actually has.
 
 ## 8. Regenerating this ledger
 

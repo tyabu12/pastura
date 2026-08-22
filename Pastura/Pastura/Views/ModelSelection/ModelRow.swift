@@ -110,7 +110,12 @@ struct ModelRow: View {
         Text(Self.formattedFileSize(descriptor.fileSize))
       }
       .font(.system(size: 11.5, design: .monospaced))
-      .foregroundStyle(Color.muted)
+      // Audit class A3 — the size is what a model is chosen by, so it has to
+      // be legible. The selected-state tint over this row is §2.7's `hover`
+      // overlay, not a §2.3 wash, so the ground stays the card and the token
+      // is the neutral one; the ratio is measured through the overlay in
+      // `DesignTokensTests+MutedDirection` (design-system §8, #1448 batch 4).
+      .foregroundStyle(Color.inkSecondary)
 
       if !descriptor.tagline.isEmpty {
         Text(descriptor.tagline)

@@ -20,8 +20,9 @@ import SwiftUI
 ///   on a `moss` wash
 /// - **completed** → `mossInk` on a `mossDark` wash (distinct accent for
 ///   "successfully done", kept distinct at the *label* level too)
-/// - **terminal-exception** (`paused` / `cancelled` / `error`) → `muted`
-///   on a `muted` wash
+/// - **terminal-exception** (`paused` / `cancelled` / `error`) → `inkOnWash`
+///   on a `muted` wash — the wash keeps the quietude tier, the label does
+///   not (#1448 batch 4)
 ///
 /// The label used to be the wash's own token at 100% (`background` was
 /// `foreground.opacity(0.14)`), which made all four moss arms self-washes
@@ -31,22 +32,28 @@ import SwiftUI
 /// bar even with the capsule erased. So the labels moved to the family's
 /// role tokens and the washes were left byte-identical. Splitting the two
 /// is the established shape — every translucent-wash site that owes AA
-/// already does it — and the carve-out is §8's quietude tier, which is why
-/// the `muted` arms stay a self-wash. `.completed` takes `mossInk` rather
-/// than `mossOnWash` under §8's one exception; design-system §8 and ADR-028
+/// already does it. The three terminal-exception arms kept `muted` as their
+/// label under §8's quietude tier until #1448 batch 4 re-adjudicated them: a
+/// run-state pill is the header's reason to exist (audit class A1,
+/// `docs/design/muted-application-audit.md` §2), so the label moved to the
+/// ink family's wash role token while the wash stayed — pinned by symbol in
+/// `MutedSweepLedgerTests+BatchFour`, measured on a nominal ground in
+/// `DesignTokensTests+InkOnWash`. `.completed` takes `mossInk` rather than
+/// `mossOnWash` under §8's one exception; design-system §8 and ADR-028
 /// § Amendment 2026-08-14 carry the discriminator and its limits (#1455).
 ///
-/// Cancelled and error currently share the muted palette with paused; if
-/// later UX work calls for differentiating them (e.g. red accent for
-/// `error`), update the color groupings here — **and take the contrast
-/// obligation with you.** The contrast guards are keyed on site names, not
-/// on `allCases`: a new arm on a wash no existing row covers goes green
-/// across `GameHeaderStatusTests` the moment its row is added there, while
-/// reaching **no** contrast fixture at all. So route the new label to that
-/// family's `*-on-wash` role
-/// token, or take design-system §8's exception explicitly, and add the arm
-/// to `DesignTokensTests+MossOnWash`'s `mossWashSites` or
-/// `+MossInkAsWashLabel`'s `mossInkWashSites`. The semantic distinction
+/// Cancelled and error currently share paused's routing — `inkOnWash` on a
+/// `muted` wash; if later UX work calls for differentiating them (e.g. red
+/// accent for `error`), update the color groupings here — **and take the
+/// contrast obligation with you.** The contrast guards are keyed on site
+/// names, not on `allCases`: a new arm on a wash no existing row covers goes
+/// green across `GameHeaderStatusTests` the moment its row is added there,
+/// while reaching **no** contrast fixture at all. So route the new label to
+/// that family's `*-on-wash` role token, or take design-system §8's exception
+/// explicitly, and add the arm to `DesignTokensTests+MossOnWash`'s
+/// `mossWashSites`, `+MossInkAsWashLabel`'s `mossInkWashSites`, or — for an
+/// ink-family wash on this bar — an arm beside
+/// `headerPillArmsClearTheBarOnTheNominalHeaderGround`. The semantic distinction
 /// (`.cancelled` vs `.error` vs `.paused`) is preserved at the enum
 /// level so consumers like `SimulationViewModelStatusTests` can pin
 /// derivation precedence even when colors collapse.
@@ -111,7 +118,14 @@ public enum GameHeaderStatus: String, Sendable, CaseIterable {
     case .completed:
       return Color.mossInk
     case .paused, .cancelled, .error:
-      return Color.muted
+      // Audit class A1 — the run state is why the header exists, so this label
+      // is not the quietude tier's to hold. The wash below stays on `muted`;
+      // only the label moves, to the ink family's wash role token (§8's default
+      // for a translucent ink-family ground). The bar's true ground is content-
+      // dependent, so the figure pinned in `DesignTokensTests+InkOnWash` is
+      // nominal rather than a bound — design-system §8's routing priority 1,
+      // ledger §3.3 (#1448 batch 4).
+      return Color.inkOnWash
     }
   }
 

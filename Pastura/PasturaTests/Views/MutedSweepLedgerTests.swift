@@ -13,7 +13,11 @@ import Testing
 /// they take opposite remedies**: a rename or a deletion means re-anchor the
 /// row by symbol rather than dropping it; an **applied batch** means the row
 /// stays put with its `B` marker bolded and the entry here is dropped, which is
-/// what batches 1, 5, 2 and 3 did. Read the file's § 5 rows before choosing.
+/// what batches 1, 5, 2, 3 and 4 did. Read the file's § 5 rows before choosing.
+/// A batch can also **decrement** an entry rather than drop it — batch 4 took
+/// `GameHeaderStatus.swift` 2 → 1, moving the label while the wash kept the
+/// spelling — so a count that fell without reaching zero is the same question,
+/// not a different one.
 ///
 /// **It fires on an addition too**, which is the half prose cannot do. The
 /// expectation is a whole-map comparison, so a new file reaching for
@@ -42,8 +46,10 @@ struct MutedSweepLedgerTests {
   /// the spelling on the glyph above — and emptied none. Batch 3 repointed six
   /// sites in three files — the eliminated rows in `SimulationResultCard` /
   /// `ScoreboardSheet` and the prediction countdown — and emptied none either.
-  /// So this table is the post-batch-3 population, not § 1's `9a40565a`
-  /// baseline.
+  /// Batch 4 repointed three — the header pill's terminal-state labels, the
+  /// model row's meta, and the blocked clear-all label — emptying two files and
+  /// decrementing a third. So this table is the post-batch-4 population, not
+  /// § 1's `9a40565a` baseline.
   private static let expectedMutedOccurrences: [String: Int] = [
     "Views/Community/SharedScenarios/GalleryCatalogRow.swift": 1,
     "Views/Community/SharedScenarios/GalleryScenarioDetailView+Highlight.swift": 2,
@@ -52,7 +58,7 @@ struct MutedSweepLedgerTests {
     "Views/Components/ActiveModelChip.swift": 2,
     "Views/Components/AgentOutputRow.swift": 2,
     "Views/Components/DogMark.swift": 2,
-    "Views/Components/GameHeaderStatus.swift": 2,
+    "Views/Components/GameHeaderStatus.swift": 1,
     "Views/Components/IdleFriendlyProgressView.swift": 1,
     "Views/Components/PasturaCard.swift": 1,
     "Views/Components/PasturaRowLabel.swift": 1,
@@ -65,7 +71,6 @@ struct MutedSweepLedgerTests {
     "Views/Home/HomeCompactScenarioRow.swift": 2,
     "Views/ModelDownload/ModelDownloadHostView+CodePhaseRows.swift": 1,
     "Views/ModelSelection/ModelPickerView.swift": 2,
-    "Views/ModelSelection/ModelRow.swift": 1,
     "Views/Report/ReportSheet.swift": 1,
     "Views/Results/ResultDetailView+CodePhaseRows.swift": 1,
     "Views/Results/ResultDetailView+RowLayout.swift": 1,
@@ -74,7 +79,6 @@ struct MutedSweepLedgerTests {
     "Views/Results/ResultsView.swift": 5,
     "Views/ScenarioDetail/ScenarioDetailView+Sections.swift": 1,
     "Views/Settings/ModelSettingsRow.swift": 1,
-    "Views/Settings/SettingsView+PastResults.swift": 1,
     "Views/Settings/SettingsView.swift": 2,
     "Views/Simulation/HighlightCandidatesSection.swift": 2,
     "Views/Simulation/ScoreboardSheet.swift": 1,

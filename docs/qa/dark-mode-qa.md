@@ -235,6 +235,61 @@ The store-screenshot capture (`StoreScreenshotTests`, anchored on
 
 Derivation: `muted-application-audit` §2 (class A3), §3.3 and §5.
 
+### The header pill, the model row, and the disabled clear-all (#1448 batch 4)
+
+The sweep's last batch, and the one where a test reaches least. Three sites
+moved and they do not share a question:
+
+**Does a terminal state still read as *quiet*?** `Paused` / `Cancelled` /
+`Error` keep their `--muted` capsule and take `--ink-on-wash` for the label,
+so the pill's fill is unchanged and only the word inside it darkened. Unlike
+#1408's four repoints, **this one is visible in light** (#5A5A55 against
+#8A8A83). The pill is also the site with the weakest test: the bar composites
+`--screen-bg@0.78` over `.ultraThinMaterial` with content scrolling beneath,
+so `headerPillArmsClearTheBarOnTheNominalHeaderGround` pins a *nominal* ground
+and dark content under the bar puts the real ratio below it. A device is the
+only instrument here.
+
+- [ ] **Simulation** — priority. Start a run, then **pause** it and read the
+      pill beside the scenario title (`--ink`): the state must still read as
+      subordinate to the title, not as a second heading. Then **cancel** and
+      check `Cancelled` the same way. Compare against `Simulating` a moment
+      earlier — the terminal states should read quieter than the active one
+      even though both labels now clear the bar.
+- [ ] **Simulation, light, with dark content under the bar** — scroll a long
+      transcript up beneath the header while a terminal pill is showing. This
+      is the case the fixture cannot see. Read the **whole bar**, not just the
+      pill: the ROUND label beside it is the thinner margin (#1455 recorded it).
+- [ ] **Demo replay** (model-download host) — the same header. `Replaying` has
+      no producer in the current surface, so record it as not exercised rather
+      than as passed.
+
+**Does the model row's meta still sit under its title?** `ModelRow`'s
+vendor · size line moved to `--ink-2`, one step below the title's `--ink`
+instead of two. The row also carries a selected-state tint (`moss@0.06`,
+§2.7's `hover` value), which is why the after-figure is measured through the
+overlay rather than off the bare card.
+
+- [ ] **ModelSelection** — put a **selected** row beside an **unselected** one
+      and read both in both appearances. The falsifiable question: does the
+      meta line now compete with the model name? It must not — and the tagline
+      beneath it has been `--ink-2` all along, so the two subordinate lines
+      should now read as one tier rather than as two.
+
+**Does the blocked clear-all read as *inactive*?** `Clear all results`, when
+blocked, moved from `--muted` to `--disabled-text` — the only edit in this
+batch that **lowers** the ratio, deliberately, under WCAG 1.4.3's
+inactive-control carve-out (design-system §2.9).
+
+- [ ] **Settings › Past Results**, with the block condition active — the label
+      must read as *unavailable*, not merely as a quieter destructive action.
+      Compare against the unblocked state, where it is `--danger`. If it reads
+      as "quiet red" rather than "off", the routing is right but the token
+      pairing is worth re-opening.
+
+Derivation: `muted-application-audit` §2 (classes A1 / A3), §3.3, §6.1, §6.4;
+design-system §8's routing-priority bullet.
+
 ### The walk
 
 - [ ] **Home** — cards, `ActiveModelChip` (including its warning / danger states
