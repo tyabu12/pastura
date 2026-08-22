@@ -63,8 +63,9 @@ MIN_TRACKED_FILES = 50
 
 # Floor guard for SPLIT-target verification: `git ls-files -- shared | grep -c
 # '\.kt$'` measured 160 tracked `.kt` files on 2026-08-22. 80 keeps ~2x headroom
-# (mirrors MIN_TRACKED_FILES's ~57% ratio above) while still catching a git or
-# path-glob regression that would otherwise silently pass every SPLIT target.
+# (a slightly looser ratio than MIN_TRACKED_FILES's ~57%, since the shared/
+# tree is still growing) while still catching a git or path-glob regression
+# that would otherwise silently pass every SPLIT target.
 MIN_TRACKED_SHARED_KT = 80
 
 

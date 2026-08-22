@@ -12,12 +12,11 @@ import com.pastura.models.Scenario
  * specifically its `estimateInferenceCount` / `estimatePhase` pair. The rest of
  * `ScenarioLoader` (YAML ingest, structural mapping) is ported separately, so
  * this is a **1 Swift file → 2 Kotlin files** split rather than a whole-type
- * port. ADR-023 §4's vocabulary has no term for that shape — it covers many
- * Swift → 1 Kotlin (`FOLDED`) but not 1 Swift → several Kotlin under different
- * names — and `shared/adr-023-port-ledger.tsv` cannot express it either, since
- * `check-adr023-port-coverage.py` forbids a `kotlin_target` on a `PORT` row. The
- * Swift side therefore carries a hand-written pointer back to this file; see the
- * `///` note on `ScenarioLoader.estimateInferenceCount`.
+ * port — a `SPLIT` row in `shared/adr-023-port-ledger.tsv` (ADR-023 §13) names
+ * this file as one of `ScenarioLoader.swift`'s Kotlin landings. The coverage
+ * gate verifies that path is tracked, not that an edit on either side was
+ * mirrored, so the pairing is yours to honour; the Swift side carries the
+ * matching pointer — see the `///` note on `ScenarioLoader.estimateInferenceCount`.
  *
  * Extracted rather than folded into a Kotlin `ScenarioLoader` because the
  * validator port needs the estimate and nothing else from the loader — the
