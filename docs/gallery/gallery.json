@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-22T00:00:00Z",
+  "updated_at": "2026-08-22T12:19:16Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -142,7 +142,7 @@
       "id": "shachiku_senryu_v1",
       "title": "社畜川柳バトル",
       "category": "creative",
-      "description": "お題に対して五・七・五の川柳で一句詠む音数制約つき大喜利。 内容の面白さだけでなく、五七五のリズムに収める職人芸を競う。",
+      "description": "お題に対して川柳で一句詠む大喜利。五七五を狙いつつ、字余り・字足らずも味のうち。 キャラの文体の落差と句の切れ味で笑いを取る。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 16,
@@ -157,7 +157,7 @@
       ],
       "language": "ja",
       "yaml_url": "shachiku_senryu_v1.yaml",
-      "yaml_sha256": "86dc7faa286bd361cfbcadf1308cf2999ac2f0355feda6727dd26009fda79b36",
+      "yaml_sha256": "f75b457a8a6b5fdca9d86732f5cffa1602b44dd5879e61317bb550b810efbed3",
       "added_at": "2026-06-13"
     },
     {
