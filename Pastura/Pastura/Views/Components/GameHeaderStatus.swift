@@ -36,10 +36,11 @@ import SwiftUI
 /// label under §8's quietude tier until #1448 batch 4 re-adjudicated them: a
 /// run-state pill is the header's reason to exist (audit class A1,
 /// `docs/design/muted-application-audit.md` §2), so the label moved to the
-/// ink family's wash role token while the wash stayed. `.completed` takes
-/// `mossInk` rather than `mossOnWash` under §8's one exception; design-system
-/// §8 and ADR-028 § Amendment 2026-08-14 carry the discriminator and its
-/// limits (#1455).
+/// ink family's wash role token while the wash stayed — pinned by symbol in
+/// `MutedSweepLedgerTests+BatchFour`, measured on a nominal ground in
+/// `DesignTokensTests+InkOnWash`. `.completed` takes `mossInk` rather than
+/// `mossOnWash` under §8's one exception; design-system §8 and ADR-028
+/// § Amendment 2026-08-14 carry the discriminator and its limits (#1455).
 ///
 /// Cancelled and error currently share paused's routing — `inkOnWash` on a
 /// `muted` wash; if later UX work calls for differentiating them (e.g. red

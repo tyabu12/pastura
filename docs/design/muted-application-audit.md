@@ -320,6 +320,18 @@ enter the band — go back to a nominal measurement (§8's priority 1) or leave 
 site alone. Weaker than a measurement either way, and labelled as such wherever
 it is used.
 
+**A §2.7 state overlay is neither of these kinds, nor one of §3.2's washes.**
+`ModelRow`'s selected row paints `moss@0.06` — §2.7's `hover` value — over
+`bubbleBackground`, and batch 4 found that a fill which comes and goes with a
+state is not a §2.3 wash: the ground stays the card beneath it, so the meta
+routes to the neutral answer (`inkSecondary`) rather than to `mossOnWash`. The
+ratio is nonetheless measured **through** the overlay —
+`inkSecondaryClearsTheBarUnderTheSelectionOverlay` in
+`DesignTokensTests+MutedDirection`, with `mutedMossWashGrounds`' two `ModelRow`
+rows as the before-figure. design-system §8's overlay bullet carries the rule and
+its counter-case, `GalleryCatalogRow`, where the same token painted permanently
+*is* a wash.
+
 Two further grounds are **sheet defaults** — `ScoreboardSheet`, `ReportSheet`,
 `PersonaDetailSheet`, and `PhaseEditorSheet` set no Pastura background token at
 all, so they render on the system sheet surface. Also outside the fixture.
@@ -538,7 +550,7 @@ plain token swap cannot cause it.
 
 ## 6. Decisions this sweep was chartered to make
 
-### 6.1 The disabled `Clear all results` label
+### 6.1 The disabled `Clear all results` label — routed to `disabledText`, applied in B4
 
 `isClearAllBlocked ? Color.muted : Color.danger`. This is not a contrast defect —
 it is a **routing** one: the app has `disabledText` (#B5B0A2 / `nightDisabledText`
@@ -551,7 +563,9 @@ the licence and §2.7 only for the token.
 Correcting it therefore **lowers** the ratio, which §8 permits only when returning
 to the token the norm points at — the same licence #1459 used. It is kept out of
 batch 1 so a single PR does not mix raise-contrast and lower-contrast edits, whose
-review arguments are opposite. Batch 4.
+review arguments are opposite. Batch 4 — applied (#1526) as its own commit, the
+why-comment citing §2.9 for the licence and §2.7 for the token, and pinned by
+symbol in `MutedSweepLedgerTests+BatchFour`.
 
 ### 6.2 `ResultsView`'s `.pending` pill
 
