@@ -2,10 +2,12 @@ import SwiftUI
 
 // The visual editor's scalar sections — Basic Info (ID / name / description /
 // rounds) and Context. Split out of `ScenarioEditorView.swift` to keep that
-// file under SwiftLint's `file_length` limit, the same way `+Banners` is;
-// these four members read only `viewModel`, so nothing private had to widen.
-// The Personas / Phases sections stay in the main file with the `@State` they
-// drive.
+// file under SwiftLint's `file_length` limit, the same way `+Banners` is.
+// These members read only the internal `viewModel`, so no `private @State` on
+// `ScenarioEditorView` had to widen — keep it that way, or the split stops
+// being free. Only the two sections cross the file boundary; the rounds
+// helpers stay `private` here. The Personas / Phases sections stay in the
+// main file with the `@State` they drive.
 
 extension ScenarioEditorView {
   // MARK: - Basic Info
@@ -37,7 +39,7 @@ extension ScenarioEditorView {
   /// Slider + stepper hybrid for discrete integer values (1...30).
   /// Matches iOS HIG for discrete tunable values where both precise
   /// increments (±) and quick scrubbing (drag) are desirable.
-  var roundsControl: some View {
+  private var roundsControl: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack {
         Text(String(localized: "Rounds"))
@@ -70,7 +72,7 @@ extension ScenarioEditorView {
     }
   }
 
-  var roundsSliderBinding: Binding<Double> {
+  private var roundsSliderBinding: Binding<Double> {
     Binding(
       get: { Double(viewModel.rounds) },
       set: { viewModel.rounds = Int($0) }

@@ -2,6 +2,10 @@ import SwiftUI
 import UIKit
 import UniformTypeIdentifiers
 
+// The body still clears `type_body_length`'s warn threshold after the
+// `+BasicInfoSection` split; moving Personas / Phases out too would drag
+// their `@State` across the file boundary, which the split avoids.
+
 /// The main dual-mode scenario editor view.
 ///
 /// Supports two modes toggled via a segmented picker:

@@ -668,8 +668,9 @@ count sat beside each inside one `HStack`, and its inline comment said so —
 paints the `Form`'s ground, and stays system where the ground is the system's.**
 The discriminator is mechanical — `.scrollContentBackground(.hidden)` plus a
 token background — and `ScenarioEditorView` is the only such host app-wide
-(`grep -rn scrollContentBackground Pastura/Pastura/Views/` returns that one
-file): a pushed route that keeps `Form` only for `.onMove` (design-system §5.9)
+(`grep -rn '^\s*\.scrollContentBackground' Pastura/Pastura/Views/` returns
+one call site; anchor it, because `+BasicInfoSection` quotes the modifier in
+a comment): a pushed route that keeps `Form` only for `.onMove` (design-system §5.9)
 and paints `screenBackground` beneath it. There the four headers share one
 ground with the `PasturaSection` headers B5 moved, the `--ink-2` pairing is the
 one B5 already uses on it, and two of the four were already on it — one `Form`,
@@ -687,14 +688,15 @@ B5 this section once projected. Derivation: ADR-028 § Amendment 2026-08-22
 (#1527).
 
 No single grep reproduces the population, so the recipe is the record — two
-greps over `Pastura/Pastura`, then the named subtractions. The figures are as
-of #1527's tree: the two moved headers changed spelling from
+greps over `Pastura/Pastura` (the path is part of the recipe: the test tree
+quotes one literal in a doc comment), then the named subtractions. The figures
+are as of #1527's tree: the two moved headers changed spelling from
 `Section(String(localized:` to `} header: {`, which is why both greps differ
 from the 7 / 18 recorded at #1448-close while the literal total does not:
 
 ```sh
-grep -rn 'Section(String(localized' --include='*.swift' | grep -v PasturaSection   # 5
-grep -rn '} header: {' --include='*.swift'                                          # 20
+grep -rn 'Section(String(localized' --include='*.swift' Pastura/Pastura | grep -v PasturaSection   # 5
+grep -rn '} header: {' --include='*.swift' Pastura/Pastura                                          # 20
 ```
 
 25 literals, minus the two hosted in a `Menu` (`ActiveModelChip` · `Active
