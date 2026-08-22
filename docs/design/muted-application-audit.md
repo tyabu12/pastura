@@ -9,9 +9,10 @@ examples in `PredictionOutcomeBadge`.
 **This file is the sweep's ledger, not its rule.** §8 remains normative; what is
 recorded here is the per-site *application* of §8 across the population, plus the
 adjudications that were judgement calls. The sweep runs in batches — batches 1
-through 5 are all applied, so **no misapplication remains open**. What is left is
-B6, which is not a `Color.muted` batch at all (§7), and the rows §6.4 records as
-adjudicated and **retained**.
+through 5 are all applied, so **no misapplication remains open**, and #1448 is
+closed. What is left is the rows §6.4 records as adjudicated and **retained**,
+and B6 — which is not a `Color.muted` batch at all and was spun out as its own
+issue, #1527, at #1448-close time (§7).
 
 ## 1. Population
 
@@ -660,7 +661,8 @@ tokenize system `Form` / `List` section chrome?*, which nothing has decided, and
 would roughly triple the QA. #1298 is evidence for narrowing rather than
 against it: it moved `ScenarioEditorView`'s two headers because a `--muted`
 count sat beside each inside one `HStack`, and its inline comment says so —
-"only the count-bearing headers qualify". Tracked as **B6** in §7.
+"only the count-bearing headers qualify". Tracked as **B6** in §7, and spun out
+as #1527 when #1448 closed.
 
 No single grep reproduces that 21, so the recipe is the record — two greps
 over `Pastura/Pastura`, then three named subtractions:
@@ -731,7 +733,7 @@ arms. The asymmetry between those and these is **role**, never measurability.
 | **B3** | Eliminated-player rows (`ScoreboardSheet`, `SimulationResultCard`) and the prediction countdown — all A3; the two `ScoreboardSheet` rows are the first **U** rows to move, by §3.3's direction argument | 6 | **applied (#1448)** |
 | **B4** | Composited and material grounds as one question — the self-wash pills, `ActiveModelChip`, `ModelRow`, `ReportSheet`, `GameHeaderStatus` — plus §6.1's routing fix. Three rows moved; the other five were adjudicated and **retained** (§6.4) | 2 misapplications + 1 routing, over 8 rows carrying 7 of the 9 **U** flags | **applied (#1448)** |
 | **B5** | §6.3's §2.2 alignment — the `PasturaSection` header plus 2 hand-rolled ones: 3 repointed call sites, 5 screens repainted | 3 | **applied (#1485)** |
-| **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlives its own umbrella**: #1448 closes when the `Color.muted` census reads done, which B6 contributes nothing to. So — **do not close #1448 while this row is open; spin B6 out as its own issue at #1448-close time.** Needs the substrate decision before any site moves | 21 over 9 files | open — undecided |
+| **B6** | §6.3's open question — system `Form` / `List` section headers still on `secondaryLabel`. **Not a `Color.muted` batch**: these sites carry no token at all, so nothing in §1, §5 or the census counts them — and unlike B2–B4, no unprompted guard ever routes an editor here. It therefore **outlived its own umbrella**: #1448 closed when the `Color.muted` census read done, which B6 contributed nothing to — so, as this row required, it was **spun out as its own issue, #1527, at #1448-close time**. Needs the substrate decision before any site moves | 21 over 9 files | spun out — #1527, undecided |
 
 B2 was the larger visual change of the two batches carrying a QA note — nineteen
 sites across the transcript and past-run detail, moving in the raise-contrast

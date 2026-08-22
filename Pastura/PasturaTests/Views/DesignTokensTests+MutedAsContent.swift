@@ -11,7 +11,8 @@ import Testing
 // («#FCFAF4 上で ≈ 3.3:1», the `screenBackground` ground), and the token degrades
 // well past it on the other grounds the app ships, so a label legitimately
 // ambient on the page ground can sit at 2.136 on a tinted capsule and still read
-// as sanctioned. The app-wide sweep of the remaining sites is #1448.
+// as sanctioned. The app-wide sweep of the remaining sites was #1448 (closed;
+// ledger: `docs/design/muted-application-audit.md`).
 //
 // Sibling-file extension rather than a fresh `@Suite`, per
 // `.claude/rules/testing.md` § "Splitting a Suite Across Files". `contrastRatio`

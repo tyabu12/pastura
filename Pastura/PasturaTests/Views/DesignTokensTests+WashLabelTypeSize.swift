@@ -28,8 +28,9 @@ import UIKit
 // sub-label is `.caption.weight(.medium)`, and both speak for it, so either
 // would force a fourth ``WashLabelWeight`` case — a WCAG judgement call this
 // branch had no occasion to make. `+MutedAsContent` has a second obstacle: its
-// remaining claim is entangled with the occupancy question it defers to #1448.
-// Do not read the criterion below as covering either.
+// remaining claim is entangled with the occupancy question it deferred to #1448
+// (closed; the per-site verdicts are `docs/design/muted-application-audit.md`
+// §5 / §6.4). Do not read the criterion below as covering either.
 //
 // Sibling-file extension of `DesignTokensTests` per `.claude/rules/testing.md`
 // § "Splitting a Suite Across Files" — a fresh `@Suite` would run in parallel
