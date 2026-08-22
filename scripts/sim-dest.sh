@@ -33,8 +33,11 @@
 # load-bearing, not trivia: the `set -euo pipefail` below turns pipefail ON for
 # this file, so if it did NOT round-trip, every caller would come back silently
 # promoted to pipefail. A7 in `scripts/tests/simdest-errexit-test.sh` executes the
-# errexit/`nounset` pair; pipefail is covered only by A5, which needs `xcrun` and
-# so never runs in CI's ubuntu `shell-tests` job. Redden those before rewriting.
+# errexit/`nounset` pair; pipefail is covered only by A5, which needs the REAL
+# `xcrun` and so never runs in CI's ubuntu `shell-tests` job
+# (`scripts/tests/xcodebuild-wrapper-test.sh` does reach this file's success path
+# there, but through a STUB `xcrun`, and asserts nothing about shell options).
+# Redden those before rewriting.
 #
 # `shopt inherit_errexit` (bash 4.4+) reverses the whole effect; the capture below
 # is the 3.2-compatible equivalent, and it only re-adds errexit that was genuinely
