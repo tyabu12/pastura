@@ -22,12 +22,24 @@ extension MutedSweepLedgerTests {
   ///
   /// - The `foreground` window is **nine** lines and holds **three** `Color.`
   ///   lines rather than the usual one, because the anchor is the property and
-  ///   the site is one arm of its `switch`. That is deliberate: no line nearer
-  ///   the site is unique in the file — `case .paused, .cancelled, .error:`
-  ///   appears again in `washToken`, and so does every `return` shape. The
-  ///   window stops two lines past the site and never reaches `washToken`'s
-  ///   surviving `Color.muted`, so the no-`Color.muted` check still means what
-  ///   it means elsewhere: it catches this arm reverting, not the wash.
+  ///   the site is one arm of its `switch`. A nearer anchor does exist —
+  ///   `return Color.mossInk` is unique in the file and sits two lines above —
+  ///   and is deliberately not used: anchoring on a **sibling arm's** token
+  ///   couples this pin to `.completed`'s routing, so a later re-adjudication
+  ///   of that arm would surface here as a resolution failure and be read as a
+  ///   rename. Anchoring on the property costs a wider window and keeps the
+  ///   two arms independent. (`case .paused, .cancelled, .error:` is not
+  ///   available either way — it appears again in `washToken`.)
+  ///
+  ///   The window stops two lines past the site and never reaches
+  ///   `washToken`'s surviving `Color.muted`, so the no-`Color.muted` check
+  ///   still means what it means elsewhere: it catches this arm reverting, not
+  ///   the wash. Two residuals come with the width, and neither is covered:
+  ///   a **coordinated** edit that reverts this arm *and* puts
+  ///   `Color.inkOnWash` on another arm keeps the window green; and a future
+  ///   re-route of `.completed` or the active arms to `Color.muted` reddens
+  ///   *this* pin with a message naming the `foreground` anchor, attributing
+  ///   the change to the terminal arm. Read the arm, not just the message.
   /// - The clear-all window's single `Color.` line carries **two** tokens
   ///   (`Color.disabledText` and `Color.danger`, the blocked and unblocked
   ///   arms of one ternary). `+BatchTwo`'s doc describes windows holding one
@@ -41,7 +53,8 @@ extension MutedSweepLedgerTests {
       "public var foreground: Color {", window: 9, token: "Color.inkOnWash"),
     .init(
       "Views/ModelSelection/ModelRow.swift",
-      ".font(.system(size: 11.5, design: .monospaced))", window: 1),
+      ".font(.system(size: 11.5, design: .monospaced))", window: 1,
+      token: "Color.inkSecondary"),
     .init(
       "Views/Settings/SettingsView+PastResults.swift",
       #"Text(String(localized: "Clear all results"))"#, window: 3,

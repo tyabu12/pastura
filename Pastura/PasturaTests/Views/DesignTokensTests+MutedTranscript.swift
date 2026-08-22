@@ -12,6 +12,11 @@
 // `WASH_DECL`. Renaming this file, or renaming/relaxing the `private static let`
 // on ``opaqueGroundPins`` / ``washRowPins``, makes the checker raise rather than
 // pass emptily; repoint those three constants in the same commit.
+//
+// This file reached the 400-line `file_length` cap in #1448 batch 4; the two
+// arms that batch added went to `DesignTokensTests+MutedDirection.swift`, since
+// neither transcribes a doc figure. Keep that boundary — an arm about a
+// *routing rule* belongs there, an arm about a *printed figure* belongs here.
 
 import SwiftUI
 import Testing
@@ -310,87 +315,5 @@ extension DesignTokensTests {
     #expect(light >= Self.contentTextBar, "light page: \(light)")
     let dark = contrastRatio(PasturaPalette.nightInkSecondary, PasturaPalette.nightPage)
     #expect(dark >= Self.contentTextBar, "dark nightPage: \(dark)")
-  }
-
-  // MARK: - Direction-argument negative control (#1448 batch 4)
-
-  /// design-system §8's direction-argument side condition cites this arm
-  /// **by name**. The direction argument — "the replacement is darker in
-  /// light, so contrast rises" — holds only while the ground is lighter than
-  /// `muted` itself. This arm is the constructed counterexample §8 points
-  /// at: a synthetic mid-dark grey, darker than `muted`, on which routing a
-  /// `muted` site to `inkSecondary` would LOWER the ratio rather than raise
-  /// it — exactly what the side condition exists to forbid. The figures
-  /// live only here, as comparisons, and are not transcribed into the docs.
-  ///
-  /// No shipped site reaches this ground today — the nearest is
-  /// `SimulationScrimStyle.fill`, a retained row that is not moving.
-  @Test func directionArgumentInvertsOnAGroundDarkerThanMuted() {
-    let midDarkGround = PasturaColorValue(hex: 0x666666)
-
-    // Negative case: on a ground darker than `muted`, the direction argument
-    // inverts — `muted` contrasts MORE than the replacement `inkSecondary`
-    // would, since `muted` sits farther from a dark ground than the darker
-    // `inkSecondary` does.
-    let mutedOnMidDark = contrastRatio(PasturaPalette.muted, midDarkGround)
-    let inkSecondaryOnMidDark = contrastRatio(PasturaPalette.inkSecondary, midDarkGround)
-    #expect(
-      mutedOnMidDark > inkSecondaryOnMidDark,
-      "expected the direction argument to invert on a ground darker than muted")
-
-    // Companion positive case: on `screenBackground` — lighter than `muted`,
-    // like every ground §3.1 measures — the ordering is the other way round.
-    let mutedOnScreen = contrastRatio(PasturaPalette.muted, PasturaPalette.screenBackground)
-    let inkSecondaryOnScreen = contrastRatio(
-      PasturaPalette.inkSecondary, PasturaPalette.screenBackground)
-    #expect(
-      inkSecondaryOnScreen > mutedOnScreen,
-      "expected the direction argument to hold on screenBackground")
-  }
-
-  // MARK: - ModelRow after-figure, measured through the overlay (#1448 batch 4)
-
-  /// design-system §8's finding for `ModelRow`: the selected-state background
-  /// is `moss@0.06` (light) / `nightMoss@0.06` (dark), which is §2.7's
-  /// `hover` value applied as a state overlay rather than a §2.3 wash — the
-  /// overlay comes and goes with `isSelected`, so it does not own the row's
-  /// ground. Routing stays neutral (`inkSecondary`), but the ratio must still
-  /// be measured **through** the overlay rather than against the bare card,
-  /// since a selected row really does composite `moss@0.06` on top.
-  ///
-  /// The composite parameters mirror ``mutedMossWashGrounds``' "ModelRow
-  /// moss@0.06 over bubbleBackground" / "ModelRow nightMoss@0.06 over
-  /// nightBubble" entries exactly — that pair is the **before** figure
-  /// (`muted` on this overlay); this arm is the **after** figure
-  /// (`inkSecondary` on the same overlay), so the two are read side by side.
-  ///
-  /// Only the selected/composited case is asserted against the bar. The
-  /// unselected row is the bare card (`bubbleBackground` / `nightBubble`),
-  /// already covered by the opaque-ground pins, so asserting it against the
-  /// bar again would be redundant — *but only because* the composited case is
-  /// the harder of the two, and that is a claim rather than a given. It is
-  /// therefore **asserted here**, not stated: the two `#expect`s below pin the
-  /// overlay ground as the tighter one in each appearance. If a future overlay
-  /// alpha or token change inverted it, those would redden and this arm would
-  /// owe the bare-card assertion too, instead of silently guarding the easier
-  /// case.
-  @Test func inkSecondaryClearsTheBarUnderTheSelectionOverlay() {
-    let lightGround = composite(
-      PasturaPalette.moss, over: PasturaPalette.bubbleBackground, alpha: 0.06)
-    let light = contrastRatio(PasturaPalette.inkSecondary, lightGround)
-    #expect(light >= Self.contentTextBar, "light selected ModelRow: \(light)")
-
-    let darkGround = composite(
-      PasturaPalette.nightMoss, over: PasturaPalette.nightBubble, alpha: 0.06)
-    let dark = contrastRatio(PasturaPalette.nightInkSecondary, darkGround)
-    #expect(dark >= Self.contentTextBar, "dark selected ModelRow: \(dark)")
-
-    // The redundancy argument above, made executable: the overlay has to be
-    // the tighter ground, or asserting it alone would guard the easier case.
-    let lightBare = contrastRatio(PasturaPalette.inkSecondary, PasturaPalette.bubbleBackground)
-    #expect(light < lightBare, "light: the overlay ground stopped being the tighter one")
-
-    let darkBare = contrastRatio(PasturaPalette.nightInkSecondary, PasturaPalette.nightBubble)
-    #expect(dark < darkBare, "dark: the overlay ground stopped being the tighter one")
   }
 }

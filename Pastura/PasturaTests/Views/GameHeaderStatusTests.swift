@@ -97,14 +97,13 @@ struct GameHeaderStatusTests {
   /// Token *values* stay `DesignTokensTests`' contract and the contrast
   /// claims are `DesignTokensTests+MossOnWash`'s / `+MossInkAsWashLabel`'s /
   /// `+InkOnWash`'s. This suite guards only the routing. There is
-  /// deliberately no "label differs from wash" assertion — that is one of
-  /// the vacuous `!=` shapes above, the three terminal-exception arms
-  /// legitimately route to one label token and one wash token, and the
-  /// table is what records which arms split. Since #1448 batch 4 all seven
-  /// rows differ label from wash, which makes a blanket "label != wash"
-  /// assertion look available — but every side of every row here is a
-  /// `PasturaDynamicColor`-backed alias, so it would compare by provider
-  /// instance and pass vacuously whatever the tokens are; do not add it.
+  /// deliberately no "label differs from wash" assertion, and the table is
+  /// what records which arms split. Since #1448 batch 4 all seven rows do
+  /// differ, which makes a blanket "label != wash" assertion look available —
+  /// but every side of every row here is a `PasturaDynamicColor`-backed alias,
+  /// so it would compare by provider instance and pass vacuously whatever the
+  /// tokens are (`view-testing.md` § "Change-detector tripwire"); do not add
+  /// it.
   @Test func everyCaseRoutesToItsDeclaredLabelAndWashTokens() {
     #expect(Self.routing.count == GameHeaderStatus.allCases.count)
     #expect(Set(Self.routing.map(\.status)) == Set(GameHeaderStatus.allCases))

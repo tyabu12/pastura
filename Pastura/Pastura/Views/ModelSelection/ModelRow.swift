@@ -114,7 +114,7 @@ struct ModelRow: View {
       // be legible. The selected-state tint over this row is §2.7's `hover`
       // overlay, not a §2.3 wash, so the ground stays the card and the token
       // is the neutral one; the ratio is measured through the overlay in
-      // `DesignTokensTests+MutedTranscript` (design-system §8, #1448 batch 4).
+      // `DesignTokensTests+MutedDirection` (design-system §8, #1448 batch 4).
       .foregroundStyle(Color.inkSecondary)
 
       if !descriptor.tagline.isEmpty {

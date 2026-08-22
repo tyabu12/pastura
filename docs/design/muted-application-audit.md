@@ -301,14 +301,24 @@ and `nightInkSecondary` (#B0AC9C) is lighter than `nightMuted` (#7A7768).
 
 ⚠️ **That does not by itself mean contrast rises**, and an earlier revision of
 this paragraph said it did — «over any ground either token shares», which is
-false. Moving a foreground darker raises the ratio only while the ground is
-*lighter than `muted` itself*; over a ground darker than both tokens the
-comparison inverts and the repoint **lowers** it, because `muted` is then the
-token further from the ground. So the direction argument carries a side
-condition: it is available only when the ground can be shown to stay lighter
-than `muted` in light, and darker than `nightMuted` in dark. Where that cannot
-be shown, go back to a nominal measurement or leave the site alone. Weaker than
-a measurement either way, and labelled as such wherever it is used.
+false. Moving a foreground darker is *guaranteed* to raise the ratio only while
+the ground is **lighter than `muted` itself**. Below that the sign is not
+determined by inspection: it flips partway **between the two foregrounds**, and
+from there down the repoint **lowers** the ratio, because `muted` is then the
+token further from the ground.
+
+⚠️ **The flip is not "darker than both tokens" — it is a band above that**, so
+"my ground is not as dark as the replacement, therefore I am safe" is exactly
+the wrong test. `directionArgumentInvertsOnAGroundDarkerThanMuted` constructs a
+ground inside that band (darker than `muted`, lighter than `inkSecondary`) and
+pins the inversion, so the figures live there rather than here.
+
+The side condition that follows: the direction argument is available only where
+the ground can be **shown** to stay lighter than `muted` in light and darker
+than `nightMuted` in dark. Where it cannot — including where it merely might
+enter the band — go back to a nominal measurement (§8's priority 1) or leave the
+site alone. Weaker than a measurement either way, and labelled as such wherever
+it is used.
 
 Two further grounds are **sheet defaults** — `ScoreboardSheet`, `ReportSheet`,
 `PersonaDetailSheet`, and `PhaseEditorSheet` set no Pastura background token at
@@ -676,7 +686,7 @@ the unmeasured ground changes nothing:
 | Site | Ground | Why the role is ambient |
 |---|---|---|
 | `ResultsView` · `pillForeground(.pending)` | `muted@0.14` self-wash | A run that has not started yet. The pill states a *pending* state whose content is elsewhere on the row; §6.2 records the verdict and `ResultsPillTokenTests.pendingStaysOnTheQuietudeTier` pins it so the sweep could not take it silently |
-| `SimulationView` · loading-scrim subtitle | `.regularMaterial` | Elaborates a title already drawn at `ink`. Nothing here is the sole statement of anything — the scrim's title carries the state |
+| `SimulationView` · loading-scrim subtitle | `.regularMaterial` over `SimulationScrimStyle.fill` | Elaborates a title already drawn at `ink`. Nothing here is the sole statement of anything — the scrim's title carries the state. ⚠️ Its true ground is the one shipped surface plausibly dark enough to enter §3.3's inversion band, since the scrim is a near-black: **a future repoint here must be measured, never direction-argued** |
 | `ReportSheet` · `ID: %@` chip | `rule@0.45` | The identifier is embedded in the report URL the sheet submits, so the user never has to read it off the screen to act |
 
 **Retained under WCAG 1.4.11, not §8** — non-text, so §8's text bar never applied
