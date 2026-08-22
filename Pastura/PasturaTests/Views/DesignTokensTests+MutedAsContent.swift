@@ -27,10 +27,14 @@ import Testing
 extension DesignTokensTests {
 
   /// WCAG 1.4.3 normal-text bar. The ceiling arms use it over *grounds*, where
-  /// no label font applies. The two floor arms speak for `PredictionOutcomeBadge`'s
-  /// #1427 labels, and that they are normal text — so this is their bar — is
-  /// asserted per row by `predictionBadgeLabelsAreNormalTextSoTheContentBarApplies`
-  /// in `+MutedTranscript.swift` (#1495).
+  /// no label font applies. The two `PredictionOutcomeBadge` floor arms speak
+  /// for the #1427 labels, and that those are normal text — so this is their
+  /// bar — is asserted per row by
+  /// `predictionBadgeLabelsAreNormalTextSoTheContentBarApplies` in
+  /// `+MutedTranscript.swift` (#1495). Its two other floor consumers —
+  /// `+MutedDirection`'s selected-`ModelRow` arm (a wash) and
+  /// `+MutedTranscript`'s `page` arm — speak for labels whose size is still
+  /// observed by nothing.
   static let contentTextBar = 4.5  // internal: `+MutedTranscript`'s `page` arm reads it
 
   /// Every opaque ground the app ships that `muted` is or could be drawn on, per

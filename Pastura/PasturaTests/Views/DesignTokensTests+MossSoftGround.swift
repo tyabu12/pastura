@@ -39,7 +39,10 @@ extension DesignTokensTests {
   ///
   /// Each row carries the label's font (``OpaqueLabelSite``), so the
   /// large-text admission criterion below is executed per row rather than
-  /// claimed in this comment.
+  /// claimed in this comment. The streak row is hand-recorded a second time in
+  /// `+MutedTranscript.swift`'s `predictionBadgeLabelSites`, for the #1427
+  /// arms; a weight change in the view has to be transcribed in both, and
+  /// nothing detects updating only one.
   static let mossSoftTextSites = [
     OpaqueLabelSite(
       "ContradictionBadge", pointSize: WashLabelSemanticSize.caption, weight: .semibold),

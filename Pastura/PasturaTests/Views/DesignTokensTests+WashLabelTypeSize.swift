@@ -302,8 +302,8 @@ enum WashLabelSemanticSize {
 ///
 /// **Lives in this file rather than in a fixture** because two fixtures
 /// share it — `DesignTokensTests+MossSoftGround.swift`'s
-/// `mossSoftTextSites`, and the #1427 label rows
-/// `DesignTokensTests+MutedTranscript.swift` will carry — and a row type
+/// `mossSoftTextSites`, and `DesignTokensTests+MutedTranscript.swift`'s
+/// `predictionBadgeLabelSites` (the #1427 labels) — and a row type
 /// shared by two fixtures is criterion-level, per this file's header
 /// ownership split.
 ///

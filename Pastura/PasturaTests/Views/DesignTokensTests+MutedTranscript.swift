@@ -319,18 +319,26 @@ extension DesignTokensTests {
 
   // MARK: - PredictionOutcomeBadge label sites (#1495)
 
-  /// The two labels `bothPredictionBadgeRepointsClearTheBar` and
-  /// `inkSecondaryDoesNotRescueTheStreakOnMossSoftInLight` (both in the sibling
-  /// `DesignTokensTests+MutedAsContent.swift`) speak for: `PredictionOutcomeBadge`'s
-  /// miss arm, on the opaque `bubbleBackground` card ground, and its streak
-  /// sub-label, on the opaque `mossSoft` capsule. Both grounds are opaque —
-  /// neither label sits on a wash — so ``OpaqueLabelSite`` is the right row
-  /// type for them, per its own doc.
+  /// The labels the arms `bothPredictionBadgeRepointsClearTheBar` (both
+  /// labels) and `inkSecondaryDoesNotRescueTheStreakOnMossSoftInLight` (the
+  /// streak's negative control), in the sibling
+  /// `DesignTokensTests+MutedAsContent.swift`, together speak for:
+  /// `PredictionOutcomeBadge`'s miss arm, on the opaque `bubbleBackground` card
+  /// ground, and its streak sub-label, on the opaque `mossSoft` capsule. Both
+  /// grounds are opaque — neither label sits on a wash — so ``OpaqueLabelSite``
+  /// is the right row type for them, per its own doc.
+  ///
+  /// The streak row is also hand-recorded in `+MossSoftGround.swift`'s
+  /// `mossSoftTextSites`, for its mossSoft-ground arm; keep the two in step —
+  /// nothing detects a weight change transcribed into only one.
   ///
   /// Lives here rather than beside those two arms because that file sits at
   /// SwiftLint's `file_length` cap; its header routes a new arm to this
   /// sibling, and that routing covers a row-type pin like this one just as much
-  /// as an arm that computes a ground.
+  /// as an arm that computes a ground. Residual of the split: nothing ties
+  /// these rows to those arms, so a third label joining
+  /// `bothPredictionBadgeRepointsClearTheBar` needs no row here and the
+  /// `count == 2` pin would not notice — a reviewer has to look.
   static let predictionBadgeLabelSites = [
     OpaqueLabelSite(
       "PredictionOutcomeBadge.missArm", pointSize: WashLabelSemanticSize.caption,
