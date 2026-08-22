@@ -228,7 +228,7 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 **trait-based 配線済み／値は完成。** `PasturaDynamicColor` が light/dark 対を
 `UIColor(dynamicProvider:)` で解決し、下表の対が `Color.*` エイリアス経由で実 UI に
 届いている（対の数は `PasturaDynamicPalette.all` の size guard（`DesignTokensTests+DarkMode`）が正 —
-ここには書かない。内訳は [ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
+ここには書かない。由来は [ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
 18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対
 + slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`
 + gate 1 を閉じた**後**に増えた役割トークン 2 対 — `mossOnWash`（#1327）と
