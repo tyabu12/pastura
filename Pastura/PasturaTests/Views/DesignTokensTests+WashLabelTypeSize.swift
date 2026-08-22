@@ -146,6 +146,24 @@ extension DesignTokensTests {
         "\(probe.pointSize)pt \(probe.weight): expected isNormalText == \(probe.isNormalText)")
     }
   }
+
+  /// The negative control for ``OpaqueLabelSite/isNormalText``, and
+  /// deliberately a third one rather than a reuse of the two controls above:
+  /// all three row types forward the same fields to the same
+  /// ``WashLabelWeight`` method, so sharing would look sufficient — but what
+  /// each type can get wrong is its own wiring, and a control run through a
+  /// sibling that happens to be correct passes without observing this one at
+  /// all.
+  @Test func opaqueLabelSiteRejectsLargeTextLabels() {
+    #expect(Self.washLabelBoundaryCases.count == 9)
+
+    for probe in Self.washLabelBoundaryCases {
+      let row = OpaqueLabelSite("probe", pointSize: probe.pointSize, weight: probe.weight)
+      #expect(
+        row.isNormalText == probe.isNormalText,
+        "\(probe.pointSize)pt \(probe.weight): expected isNormalText == \(probe.isNormalText)")
+    }
+  }
 }
 
 // MARK: - Helpers
@@ -272,6 +290,55 @@ func largeTextRejection(_ name: String, pointSize: Double, weight: WashLabelWeig
 enum WashLabelSemanticSize {
   static let caption = 12.0
   static let caption2 = 11.0
+}
+
+/// One shipped label on an **opaque** token-filled ground.
+///
+/// **No ground fields, unlike ``MossWashSite``.** That type composites a
+/// translucent wash over a background it must record on the row; this type's
+/// ground is the token itself at full opacity, so nothing behind it can move
+/// the ratio, the fixture measures that token pair directly, and a row only
+/// needs to carry the label's font.
+///
+/// **Lives in this file rather than in a fixture** because two fixtures
+/// share it — `DesignTokensTests+MossSoftGround.swift`'s
+/// `mossSoftTextSites`, and the #1427 label rows
+/// `DesignTokensTests+MutedTranscript.swift` will carry — and a row type
+/// shared by two fixtures is criterion-level, per this file's header
+/// ownership split.
+///
+/// **Speaks for the site's `Text` label only.** A site that also draws an SF
+/// Symbol icon — `PredictionOutcomeBadge`'s hit capsule draws `target` at
+/// `.caption2.weight(.bold)` alongside its label — is not recorded here: an
+/// icon is non-text under WCAG 1.4.11's 3:1 bar, outside a normal-text
+/// fixture's scope. A decorative glyph (`ContradictionBadge`'s 🃏,
+/// `.accessibilityHidden`) is excluded the same way.
+///
+/// Hand-recorded against the view, like the other row types in this suite;
+/// ``WashLabelSemanticSize`` is the reference for what `pointSize` means.
+struct OpaqueLabelSite {
+  let name: String
+
+  /// The label's point size at the default `.large` content size — the two
+  /// regimes it spans, and why a wrong transcription is caught by nothing:
+  /// ``WashLabelSemanticSize``.
+  let pointSize: Double
+
+  /// Which WCAG large-text half the label's weight selects — the `.semibold`
+  /// decision, and the token-derived form: ``WashLabelWeight``.
+  let weight: WashLabelWeight
+
+  init(_ name: String, pointSize: Double, weight: WashLabelWeight) {
+    self.name = name
+    self.pointSize = pointSize
+    self.weight = weight
+  }
+
+  /// Whether this row's label is still WCAG **normal** text, i.e. whether the
+  /// 4.5:1 bar the fixture pins is the bar it actually answers to. Both
+  /// fields are required at construction, so a row cannot join without
+  /// declaring a font.
+  var isNormalText: Bool { weight.admitsAsNormalText(pointSize: pointSize) }
 }
 
 /// One boundary case for the ``WashLabelWeight`` halves: a point size, a
