@@ -48,6 +48,14 @@ Pair `nonisolated` with `Sendable` when every stored member is an immutable `Sen
 
 Reference: `Views/Components/ShareCaptionItemSource.swift` (`UIActivityItemSource` is nonisolated; measured 2026-07-24).
 
+A Kotlin/Native-exported protocol is the same case, not a UIKit one: `LLMBackend` imports as an
+unannotated Obj-C protocol and its members are read from `Dispatchers.Default`, so a Stage-5
+adapter in `LLM/` conforming to it must be `nonisolated` — every gate-spike conformer carries it
+for this reason (`tools/kmp-gate-spike/Sources/KMPGateSpike/ScriptedStreamingBackend.swift`).
+Stated from the KDoc on `knownTurnMarkers` in `shared/engine/.../LLMBackend.kt`, not yet from the
+probe above — run it against the staged framework before relying on it (`kmp-interop.md` owns
+the other K/N import traps and does not load for an `LLM/` edit; `engine.md` carries the pointer).
+
 ## Pattern 8 — MainActor-inferred closure handed to a framework callback
 
 A framework initializer taking a **non-`@Sendable`** escaping closure (`UIColor(dynamicProvider:)`, any `@escaping` UIKit callback) accepts a closure literal written in a MainActor context, where it is inferred `@MainActor`. The framework may then invoke it off the main actor. The build succeeds either way.
