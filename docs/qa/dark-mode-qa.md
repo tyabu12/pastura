@@ -18,7 +18,7 @@ still has it, that is why dark does not appear.)
 
 ## What is actually at risk
 
-69 pairs invert. The token system is not where breakage shows up — these six
+Every §2.9 pair inverts. The token system is not where breakage shows up — these six
 classes are:
 
 | Class | Why it can break | Where |

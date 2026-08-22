@@ -225,9 +225,10 @@ Amendment が `link` に添えた「~7:1 の帯」は slice 1 の Ink-over-Soft 
 
 ### 2.9 Dark Mode（夜の牧場）
 
-**trait-based 配線済み（69 対）／値は完成。** `PasturaDynamicColor` が light/dark 対を
-`UIColor(dynamicProvider:)` で解決し、下表の 69 対が `Color.*` エイリアス経由で実 UI に
-届いている（[ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
+**trait-based 配線済み／値は完成。** `PasturaDynamicColor` が light/dark 対を
+`UIColor(dynamicProvider:)` で解決し、下表の対が `Color.*` エイリアス経由で実 UI に
+届いている（対の数は `PasturaDynamicPalette.all` の size guard（`DesignTokensTests+DarkMode`）が正 —
+ここには書かない。由来は [ADR-028](../decisions/ADR-028.md) の 8 対 + #1282 が設計した §2.6/§2.7 の
 18 対 + #1313 が設計した §2.4 の 12 対と §2.12 の 2 対 + #1319 が設計した §2.5 の 17 対
 + slice 4 が設計した §2.1/§2.3/§2.8 の残り 9 対と §2.2 の `inkOnAccent`
 + gate 1 を閉じた**後**に増えた役割トークン 2 対 — `mossOnWash`（#1327）と
@@ -276,7 +277,7 @@ Source: `§2.9 Dark Mode`。
 `HighlightShareCard`）。**注入を省くと書き出しは端末がダークでも light に倒れる** — #1337
 で計測。これが本当の失敗モードで、エイリアスを読むこと自体ではない。
 
-その上で **この 69 対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
+その上で **§2.9 の対のエイリアスは読まず** `PasturaPalette.<token>.color` を直接読むのが
 規約。理由は呼び出し側で選んだ外観が読んで分かること、および Apple 側の挙動に書き出しの
 正しさを預けないこと。エイリアスを読んでも*要求した*外観では出る（注入は `Canvas` の
 `GraphicsContext` にも届く — #1337）が、`light` と `dark` が同じ値に潰れて呼び出し側の
@@ -436,11 +437,11 @@ pair registry 不在をアサートするトリップワイヤを持っていて
 | `nightPromoBackground` | `#282C24` | `promoBackground`（カード段。§2.4 梯子の実際の描画地） |
 | `nightPromoBorder` | `#35392F` | `promoBorder`（倍率保持・**向き反転**。`rule`→`nightRule` と同じ） |
 | `nightInkOnAccent` | `#2C2F28` | `inkOnAccent`（白ではない。`nightBubble` と同値だがそれは AAA 配置の**結果**） |
-| `nightInkOnWash` | `#BAB7A9` | `inkOnWash`（アーム3。4 種の self-wash 上で 4.991〜5.397。`nightInkSecondary` では 4.413〜4.773 で、うち 2 つは 4.501 と「バーちょうど」だった）。**#1327 とは向きが逆** — 壊れていたのは dark。`nightInk` なら 7.955〜8.602 で通るので不可能性の証明は無く、退けた根拠は**役割**（§8） |
+| `nightInkOnWash` | `#BAB7A9` | `inkOnWash`（アーム3。`inkWashSites` の全 self-wash 上で 4.991〜5.397 — サイト数はその size pin が正、ここには書かない。`nightInkSecondary` では 4.413〜4.773 で、うち 2 つは 4.501 と「バーちょうど」だった）。**#1327 とは向きが逆** — 壊れていたのは dark。`nightInk` なら 7.955〜8.602 で通るので不可能性の証明は無く、退けた根拠は**役割**（§8） |
 | `nightMossDark` | `#B3C197` | `mossDark`（**`nightMoss` より明るい** — 強調段の向きが反転） |
 | `nightMossInk` | `#C6CBB1` | `mossInk`（アーム3、地に対し 10.19 保持） |
 | `nightMossSoft` | `#384029` | `mossSoft`（向き反転。色相は moss 族へ寄せた） |
-| `nightMossOnWash` | `#BDC6A4` | `mossOnWash`（アーム3。7 種のウォッシュ上で 4.70〜6.03、最薄はカテゴリチップ） |
+| `nightMossOnWash` | `#BDC6A4` | `mossOnWash`（アーム3。`mossWashSites` の全ウォッシュ上で 4.70〜6.03、最薄はカテゴリチップ — ウォッシュの種類数はその fixture が正、ここには書かない） |
 | `nightLink` | `#699054` | `link` |
 | `nightLinkVisited` | `#9B9075` | `linkVisited` |
 | `nightLinkHover` | `#7FAA62` | `linkHover` |
@@ -871,7 +872,7 @@ Sim 画面に限った2つの例外的コンポーネント。Source: `Simulatio
 - **例外は1つだけ。しかも「役割が文書化されていれば既定を上書きしてよい」ではない。** 上の既定（半透明ウォッシュ → `*-on-wash`）を外れてファミリの **Ink 段**を使ってよいのは、次の4つを**すべて**満たす場合に限る: **(1)** §2.2/§2.3 がその Ink 段に**その意味そのもの**の役割を割り当てている、**(2)** 同じファミリのウォッシュ上でその段を描いている出荷済みのピルが既にある — **ただしこの例外を経由して着地したサイトは先例に数えない**（さもないと最初の1件が以後すべての (2) を自動的に満たし、条件がラチェットで緩む）、**(3)** その要素が**行の主役を上回らない**（階層が反転しない）、**(4)** 借りる Ink 段が、過去の amendment でコントラスト不足を理由に退けられたトークン**ではない**。今日これを満たすのは**完了**だけで、答えは `--moss-ink` — (1) は §2.3 の「完了タイトル」、(2) は `ResultsView` の完了ピル、(3) はヘッダのタイトルが完了ピルを上回ること（light 13.147 対 8.604、dark 10.769 対 6.047）、(4) は `--moss-ink` がどの amendment でも失敗トークンでないこと。`GameHeaderStatus.completed` がこの経路
 - ⚠️ **インク系はこの例外を取らない。上のバレットの `--ink-2` に関する記述はそのまま有効。** インク系の Ink 段は `--ink`（`--ink-2` ではない — あれは #1408 で dark 4.413〜4.773 を出した当の失敗トークンで、置き換え先の候補ですらない = 条件 (4) で落ちる）。その `--ink` は (1) を満たさない（§2.2 は本文の段としか結び付けていない）し、(3) でも落ちる — バーはクリアするのに #1408 が**役割**を理由に退けたのがまさにこれで、`nightInkWouldAlsoClearTheBarAndIsRejectedOnRoleNotContrast` がその算術を pin している。**「文書化された役割＋出荷先例」だけで既定を上書きしてよい、と一般化しないこと** — (1)(2) だけなら通ってしまう組み合わせがある。導出は ADR-028 § Amendment 2026-08-14（#1455）
 - ⚠️ **「§8 の例外が認めるサイト」と「同じ形をしたサイト」は別集合。** 半透明の同族ウォッシュ上に Ink 段が乗っているサイトは、上の4条件を満たさなくても存在しうる — 満たさないなら**コントラストではなく routing の問題**で、比がバーを越えていても正当化されていない。実例だった `HomePausedCard` の進捗ラベル（`--moss-ink` on `--moss` 0.16→0.07。「Round X / Y」は §2.3 がこのトークンに与えたどの役割でもなかった）は #1459 で `--moss-on-wash` へ repoint 済み。**#1459 時点の掃引では他に出なかったが、これを「もう無い」と読まないこと** — 掃引は `DesignTokensTests+MossInkAsWashLabel` の doc が持つ `rg 'Color\.moss(Dark)?\.opacity\('` を起点にした手作業で、新しいサイトを検出する gate は無く、`--muted` における #1448 のような常設の追跡も置いていない
-  - **比を下げてよいのは §8 の既定が指すトークンへ戻すときに限る。** #1459 は 8.807→5.782（light）/ 5.927→5.550（dark）と、**バーを越えていた比を意図的に下げた**。根拠は routing（既定のトークンへ戻した）であって階層判断そのものではない — **「階層のために比を下げてよい」と一般化しないこと**。fixture の下限は 4.5 だけなので、余裕を残した引き下げはテストに一切映らない。コントラストの修理ではないので、この形を「AA 落ちを直す」話としても読まないこと
+  - **比を下げてよいのは §8 の既定が指すトークンへ戻すときに限る。** #1459 は 8.807→5.782（light）/ 5.927→5.550（dark）と、**バーを越えていた比を意図的に下げた**。根拠は routing（既定のトークンへ戻した）であって階層判断そのものではない — **「階層のために比を下げてよい」と一般化しないこと**。fixture の下限は 4.5 だけなので、余裕を残した引き下げはテストに一切映らない。コントラストの修理ではないので、この形を「AA 落ちを直す」話としても読まないこと。導出は ADR-028 § Amendment 2026-08-22（#1459）
   - **`DesignTokensTests+MossInkAsWashLabel` は例外の許可リストではない。** membership の正本はあの fixture で、ここの名前は今日の写しにすぎない。**行ごとに**見ること: `"ResultsView.completed"` は条件 (2) の先例**そのもの**なので (2) を自分で満たすとは言えない。`"GameHeader.statusPill"`（= `GameHeaderStatus.completed`）は4条件を満たすが、carve-out により**次のサイトの (2) にはなれない**。集合として「行があれば4条件を満たす」と要約しないこと。同じ形が再び現れたら、比ではなく §2.2/§2.3 の役割から判定に入る。**ここの写しは `scripts/check-mossink-wash-membership.py` が set-equality で pin している**（pre-commit サブゲート / CI `shell-tests`）。fixture に行を足してここを更新しない場合も、逆にここが fixture の持たない名前を挙げる場合も落ちる。ただし**緑は名前の集合が一致していること以上を言わない** — 名前だけ足せば緑になるので、上の「行ごとに」はゲートが肩代わりしない。アプリ側の新しいサイトを検出するものでもない（一つ上のバレットの記述はそのまま有効）
 - DL 進捗は `role="status" aria-live="polite"` / SwiftUI は `.accessibilityAddTraits(.updatesFrequently)`
 - アバター・犬マークは `aria-hidden="true"` / `.accessibilityHidden(true)`（飾りだから）
