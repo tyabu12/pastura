@@ -4,14 +4,17 @@
 # carries exactly one disposition. This file is the manifest; the enforcement is
 # scripts/check-adr023-port-coverage.py, which cross-checks it against the tracked
 # tree in both directions (no unclassified file, no dangling entry). It doubles as
-# ADR-023 §12 condition-3's port-ledger surface: a REPLACED/FOLDED row names the
-# Kotlin symbol a change to the Swift file must also update.
+# ADR-023 §12 condition-3's port-ledger surface: a REPLACED/FOLDED/SPLIT row names
+# the Kotlin symbol(s) a change to the Swift file must also update.
 #
 # Disposition vocabulary (ADR-023 §4):
 #   PORT     — moves to shared/engine commonMain (kotlin_target blank: not yet written pre-Stage-3)
 #   STAY     — remains Swift for Phase 3.0 (kotlin_target blank)
 #   REPLACED — a different Kotlin design supersedes it; kotlin_target names it
 #   FOLDED   — ports as part of a consumer's Kotlin file; kotlin_target names it
+#   SPLIT    — ports as more than one Kotlin file (ADR-023 §13); kotlin_target lists
+#              every one that has landed, comma-separated repo-relative shared/**/*.kt
+#              paths, each verified tracked by the checker (REPLACED/FOLDED stay free text)
 # There is deliberately no catch-all and no UNDECIDED row: a file no §4 row/rule
 # reaches is a violation the checker reports, not a default. EXEMPT (a declared
 # exclusion) is valid but unused today — the only non-Swift files under the two
@@ -51,7 +54,7 @@ Pastura/Pastura/Engine/PromptBuilder+Injection.swift	PORT
 Pastura/Pastura/Engine/PromptBuilder+PrivateSections.swift	PORT
 Pastura/Pastura/Engine/PromptPlaceholders.swift	PORT
 Pastura/Pastura/Engine/RelationshipVerbalizer.swift	PORT
-Pastura/Pastura/Engine/ScenarioLoader.swift	PORT
+Pastura/Pastura/Engine/ScenarioLoader.swift	SPLIT	shared/engine/src/commonMain/kotlin/com/pastura/engine/InferenceEstimator.kt
 Pastura/Pastura/Engine/ScenarioSemanticLinter.swift	PORT
 Pastura/Pastura/Engine/ScenarioSemanticLinter+Conditions.swift	PORT
 Pastura/Pastura/Engine/ScenarioSemanticLinter+Config.swift	PORT

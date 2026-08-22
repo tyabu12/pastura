@@ -2,7 +2,7 @@
 #
 # ADR-023 §4 requires every Swift file under Pastura/Pastura/Engine/** and
 # Pastura/Pastura/LLM/** to carry exactly one disposition (PORT/STAY/REPLACED/
-# FOLDED, exclusions as EXEMPT), tracked in shared/adr-023-port-ledger.tsv. This
+# FOLDED/SPLIT, exclusions as EXEMPT), tracked in shared/adr-023-port-ledger.tsv. This
 # job cross-checks the ledger against the tracked tree in both directions (no
 # unclassified file, no dangling entry) — the enforcement §4 lacked, which is how
 # it went stale within hours of being written. The git pre-commit hook runs the
@@ -28,6 +28,7 @@ on:
       - 'Pastura/Pastura/Engine/**'
       - 'Pastura/Pastura/LLM/**'
       - 'shared/adr-023-port-ledger.tsv'
+      - 'shared/**/*.kt'
       - 'scripts/check-adr023-port-coverage.py'
       - '.github/workflows/adr023-port-coverage.yml'
   pull_request:
@@ -36,6 +37,9 @@ on:
       - 'Pastura/Pastura/Engine/**'
       - 'Pastura/Pastura/LLM/**'
       - 'shared/adr-023-port-ledger.tsv'
+      # A SPLIT row's targets are tracked `shared/**` `.kt` files (ADR-023 §13);
+      # a Kotlin rename/delete can dangle one, so the gate must run on them.
+      - 'shared/**/*.kt'
       - 'scripts/check-adr023-port-coverage.py'
       - '.github/workflows/adr023-port-coverage.yml'
 
