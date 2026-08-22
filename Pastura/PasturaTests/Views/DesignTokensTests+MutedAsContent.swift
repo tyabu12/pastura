@@ -26,15 +26,15 @@ import Testing
 // one that computes a ground, while this file sits within a few lines of the cap.
 extension DesignTokensTests {
 
-  /// WCAG 1.4.3 normal-text bar. Both #1427 labels are `caption`-class (~12pt),
-  /// under the "large text" threshold, so 3:1 never applies to either.
-  ///
-  /// ⚠️ **Prose, observed by nothing.** ``WashLabelWeight`` made this criterion
-  /// executable for the *wash* fixtures; #1495 tracks this one. The obstacle is
-  /// not the fixture's ground-oriented shape — the two arms using this bar as a
-  /// **floor** speak for named labels and could carry the fields — it is that
-  /// the streak sub-label is `.caption.weight(.medium)`, a weight with no WCAG
-  /// half assigned yet.
+  /// WCAG 1.4.3 normal-text bar. The ceiling arms use it over *grounds*, where
+  /// no label font applies. The two `PredictionOutcomeBadge` floor arms speak
+  /// for the #1427 labels, and that those are normal text — so this is their
+  /// bar — is asserted per row by
+  /// `predictionBadgeLabelsAreNormalTextSoTheContentBarApplies` in
+  /// `+MutedTranscript.swift` (#1495). Its two other floor consumers —
+  /// `+MutedDirection`'s selected-`ModelRow` arm (a wash) and
+  /// `+MutedTranscript`'s `page` arm — speak for labels whose size is still
+  /// observed by nothing.
   static let contentTextBar = 4.5  // internal: `+MutedTranscript`'s `page` arm reads it
 
   /// Every opaque ground the app ships that `muted` is or could be drawn on, per

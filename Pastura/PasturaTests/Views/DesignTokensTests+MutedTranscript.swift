@@ -316,4 +316,47 @@ extension DesignTokensTests {
     let dark = contrastRatio(PasturaPalette.nightInkSecondary, PasturaPalette.nightPage)
     #expect(dark >= Self.contentTextBar, "dark nightPage: \(dark)")
   }
+
+  // MARK: - PredictionOutcomeBadge label sites (#1495)
+
+  /// The labels the arms `bothPredictionBadgeRepointsClearTheBar` (both
+  /// labels) and `inkSecondaryDoesNotRescueTheStreakOnMossSoftInLight` (the
+  /// streak's negative control), in the sibling
+  /// `DesignTokensTests+MutedAsContent.swift`, together speak for:
+  /// `PredictionOutcomeBadge`'s miss arm, on the opaque `bubbleBackground` card
+  /// ground, and its streak sub-label, on the opaque `mossSoft` capsule. Both
+  /// grounds are opaque — neither label sits on a wash — so ``OpaqueLabelSite``
+  /// is the right row type for them, per its own doc.
+  ///
+  /// The streak row is also hand-recorded in `+MossSoftGround.swift`'s
+  /// `mossSoftTextSites`, for its mossSoft-ground arm; keep the two in step —
+  /// nothing detects a weight change transcribed into only one.
+  ///
+  /// Lives here rather than beside those two arms because that file sits at
+  /// SwiftLint's `file_length` cap; its header routes a new arm to this
+  /// sibling, and that routing covers a row-type pin like this one just as much
+  /// as an arm that computes a ground. Residual of the split: nothing ties
+  /// these rows to those arms, so a third label joining
+  /// `bothPredictionBadgeRepointsClearTheBar` needs no row here and the
+  /// `count == 2` pin would not notice — a reviewer has to look.
+  static let predictionBadgeLabelSites = [
+    OpaqueLabelSite(
+      "PredictionOutcomeBadge.missArm", pointSize: WashLabelSemanticSize.caption,
+      weight: .semibold),
+    OpaqueLabelSite(
+      "PredictionOutcomeBadge.streak", pointSize: WashLabelSemanticSize.caption, weight: .medium)
+  ]
+
+  /// Makes the 4.5 bar's applicability to the two arms above executable rather
+  /// than prose (#1495; the shape #1466 falsified for the wash fixtures).
+  @Test func predictionBadgeLabelsAreNormalTextSoTheContentBarApplies() {
+    // Anti-vacuity: the loop below iterates this literal, so an emptied array
+    // would pass silently.
+    #expect(Self.predictionBadgeLabelSites.count == 2)
+    for site in Self.predictionBadgeLabelSites {
+      #expect(
+        site.isNormalText,
+        "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
+    }
+  }
 }

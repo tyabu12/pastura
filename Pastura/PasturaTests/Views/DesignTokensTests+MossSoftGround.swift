@@ -36,34 +36,45 @@ extension DesignTokensTests {
   /// at 2.136 / 2.413), but that is a fact about today's tree, not a property of
   /// this fixture — so still read this guard as "the moss-family labels clear
   /// AA", never "every label on `mossSoft` does".
+  ///
+  /// Each row carries the label's font (``OpaqueLabelSite``), so the
+  /// large-text admission criterion below is executed per row rather than
+  /// claimed in this comment. The streak row is hand-recorded a second time in
+  /// `+MutedTranscript.swift`'s `predictionBadgeLabelSites`, for the #1427
+  /// arms; a weight change in the view has to be transcribed in both, and
+  /// nothing detects updating only one.
   static let mossSoftTextSites = [
-    "ContradictionBadge",
-    "PredictionOutcomeBadge.hitArm",
-    "PredictionOutcomeBadge.streak",
-    "HighlightCandidatesSection.revealedChip"
+    OpaqueLabelSite(
+      "ContradictionBadge", pointSize: WashLabelSemanticSize.caption, weight: .semibold),
+    OpaqueLabelSite(
+      "PredictionOutcomeBadge.hitArm", pointSize: WashLabelSemanticSize.caption, weight: .semibold),
+    OpaqueLabelSite(
+      "PredictionOutcomeBadge.streak", pointSize: WashLabelSemanticSize.caption, weight: .medium),
+    OpaqueLabelSite("HighlightCandidatesSection.revealedChip", pointSize: 10, weight: .bold)
   ]
 
-  /// WCAG 1.4.3 normal-text bar. All four labels are under the "large text"
-  /// threshold (≥14pt bold / ≥18pt regular) — the largest is `caption`-class at
-  /// ~12pt and the chip is 10pt bold — so 3:1 never applies to any of them.
-  ///
-  /// ⚠️ **Prose, observed by nothing** — `mossSoftTextSites` is a `[String]`,
-  /// so neither that claim nor the superlative inside it can redden when a
-  /// fifth label arrives. This is the shape #1466 falsified; ``WashLabelWeight``
-  /// made the criterion executable for the *wash* fixtures and #1495 tracks
-  /// bringing this one along. When adding a row, promote the list to a row type
-  /// rather than re-deriving the superlative by hand.
+  /// The WCAG 1.4.3 normal-text bar — the right bar because every row's
+  /// `isNormalText` is asserted in `mossInkClearsAAOnTheOpaqueMossSoftGround`:
+  /// a large-text row reddens there instead of being admitted silently
+  /// (#1495; the shape #1466 falsified).
   private static let textBar = 4.5
 
   /// The ground is the token itself, not a composite: unlike the wash sites,
   /// `mossSoft` here fills the capsule at full opacity, so whatever card or
   /// screen sits behind it is occluded and cannot move the ratio.
   @Test func mossInkClearsAAOnTheOpaqueMossSoftGround() {
-    // Size pin: the assertions below don't iterate the fixture, so an emptied
-    // list wouldn't make them vacuous — it would silently drop the record of
-    // which views this guard speaks for. Residual: it catches a row added or
-    // removed, never one *renamed* to a view that no longer draws on this ground.
+    // Size pin: the CONTRAST assertions below don't iterate the fixture, so an
+    // emptied list wouldn't make them vacuous — it would silently drop the
+    // record of which views this guard speaks for. Residual: it catches a row
+    // added or removed, never one *renamed* to a view that no longer draws on
+    // this ground. (The admission loop just below DOES iterate the fixture.)
     #expect(Self.mossSoftTextSites.count == 4)
+
+    for site in Self.mossSoftTextSites {
+      #expect(
+        site.isNormalText,
+        "\(largeTextRejection(site.name, pointSize: site.pointSize, weight: site.weight))")
+    }
 
     let light = contrastRatio(PasturaPalette.mossInk, PasturaPalette.mossSoft)
     #expect(light >= Self.textBar, "light: \(light)")
