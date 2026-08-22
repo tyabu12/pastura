@@ -2,22 +2,22 @@
   "schema_version": 1,
   "scenario_ref": {
     "id": "oogiri_knockout_v1",
-    "yaml_sha256": "9675bfa9cda85c848cfed97dbdc568280ddeebc06c466f4cbd24cbb8393cd5b3"
+    "yaml_sha256": "a30028d4e5091bb7c2562c2b66be8b288c6f900e6ae16e9853bd1f2d394f23b2"
   },
   "source": {
     "model": "gemma-4-e2b-q4-k-m",
-    "run_id": "20260814-093449-bccc",
-    "generated_at": "2026-08-14"
+    "run_id": "20260822-190704-9efc",
+    "generated_at": "2026-08-22"
   },
   "excerpt": [
     {
-      "agent": "不謹慎すれすれ黒岩",
+      "agent": "一言必殺のゼロ次",
       "round": 1,
       "phase": "speak_all",
       "phase_index": 1,
-      "persona_index": 1,
+      "persona_index": 0,
       "source_field": "statement",
-      "text": "夕飯出るなら押すしかなくない？"
+      "text": "押す。ご飯が食べたい。"
     },
     {
       "agent": "ほのぼの天然のなぎ",
@@ -26,7 +26,7 @@
       "phase_index": 1,
       "persona_index": 2,
       "source_field": "statement",
-      "text": "ボタン押す前に、夕飯のメニューを教えてください。"
+      "text": "世界が終わるより、夕飯がなくなる方がショックだね。"
     },
     {
       "agent": "理屈っぽい教授モドキ",
@@ -35,7 +35,7 @@
       "phase_index": 1,
       "persona_index": 3,
       "source_field": "statement",
-      "text": "世界が終わる確率と夕飯の満足度、どちらがより非合理的な選択なのかというパラドックスだ。"
+      "text": "ボタンを押すのは、食料という名の存在の消滅、究極の功利主義的ジレンマだ。"
     }
   ],
   "yaml_hook": {

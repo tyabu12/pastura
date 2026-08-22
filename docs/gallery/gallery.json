@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-14T00:00:00Z",
+  "updated_at": "2026-08-22T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -179,9 +179,9 @@
       ],
       "language": "ja",
       "yaml_url": "oogiri_knockout_v1.yaml",
-      "yaml_sha256": "9675bfa9cda85c848cfed97dbdc568280ddeebc06c466f4cbd24cbb8393cd5b3",
+      "yaml_sha256": "a30028d4e5091bb7c2562c2b66be8b288c6f900e6ae16e9853bd1f2d394f23b2",
       "highlight_url": "highlights/oogiri_knockout_v1.json",
-      "highlight_sha256": "2321c040840a0796e769a07f506814c33dcaa2ebd99ff11b71dd1a44bfb459b7",
+      "highlight_sha256": "814a6cf7ec3b4c25b5c005d97722f008b8061079668a8dcd7b1c13d92103c50b",
       "added_at": "2026-06-13"
     },
     {
