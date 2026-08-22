@@ -12,10 +12,13 @@
 #
 # REAL vs FIXTURE. A1, A2, A6 source the REAL sim-dest.sh; A3, A4 run in-file
 # fixtures. The runner forces the split: CI's ubuntu job has no `xcrun`, so the
-# real SUCCESS path cannot run there — but its FAILURE path can, through the
-# same helper, so A1 (errexit-ON caller must abort) and A2 (errexit-OFF must not
-# be promoted) bind the real file on both OSes. A5 covers the success path and
-# SKIPS loudly where it cannot run; do not silence that notice.
+# real SUCCESS path cannot run there against a REAL `xcrun` — but its FAILURE
+# path can, through the same helper, so A1 (errexit-ON caller must abort) and A2
+# (errexit-OFF must not be promoted) bind the real file on both OSes. A5 covers
+# the success path and SKIPS loudly where it cannot run; do not silence that
+# notice. `xcodebuild-wrapper-test.sh` reaches the same success path on ubuntu
+# through a STUB `xcrun`; un-skipping A5 that way is a separate decision, not
+# something to fold in while editing here.
 #
 # A3 IS THE NEGATIVE CONTROL AND IS NOT OPTIONAL: it reproduces the pre-#1503
 # capture and requires errexit to end up OFF, without which A1/A2 would pass
