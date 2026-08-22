@@ -18,7 +18,9 @@
 # requires the REAL `xcrun` and SKIPs without it: the stub here proves the
 # wrapper's own flag handling and control flow, NOT that a real
 # `xcrun simctl list devices` resolves correctly against a real Simulator.app
-# install. Any unexpected call reaches the stub's catch-all arm and exits 97,
+# install. PASTURA_SIM_NAME is pinned to the stub's one device for the same
+# reason: sim-dest.sh's priority list is not under test here.
+# Any unexpected call reaches the stub's catch-all arm and exits 97,
 # which reddens loudly rather than silently returning plausible-looking data.
 #
 # NEGATIVE CONTROLS ARE NOT OPTIONAL. N1-N4 (accepted shapes must still pass)
@@ -78,25 +80,33 @@ join_tab() {
 
 # --- Stub xcrun / xcodebuild on PATH ----------------------------------------
 #
+# The stub's one device. Every probe also pins PASTURA_SIM_NAME to it, so the
+# accept arms do not depend on sim-dest.sh's SIMULATOR_NAMES priority list —
+# which rotates with Xcode releases and would otherwise redden this file from
+# an unrelated PR the day its head entry is renamed.
+STUB_SIM_NAME='iPhone 17 Pro'
+
 # xcrun: only responds to the exact `simctl list devices available --json`
 # invocation sim-dest.sh's python helper makes via subprocess.check_output
 # (a PATH lookup, so this stub is what actually runs). Anything else is an
-# unexpected real-tool call and exits loudly rather than silently.
+# unexpected real-tool call and exits loudly rather than silently. Unquoted
+# heredoc on purpose: $STUB_SIM_NAME expands now, `\$*` stays for the stub.
 mkdir -p "$TMP/bin"
-cat > "$TMP/bin/xcrun" <<'XCRUN_STUB'
+cat > "$TMP/bin/xcrun" <<XCRUN_STUB
 #!/bin/sh
-if [ "$*" = "simctl list devices available --json" ]; then
-  printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-0":[{"name":"iPhone 17 Pro","udid":"STUB-UDID","isAvailable":true}]}}'
+if [ "\$*" = "simctl list devices available --json" ]; then
+  printf '%s\n' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-0":[{"name":"$STUB_SIM_NAME","udid":"STUB-UDID","isAvailable":true}]}}'
   exit 0
 fi
-echo "stub xcrun: unexpected args: $*" >&2
+echo "stub xcrun: unexpected args: \$*" >&2
 exit 97
 XCRUN_STUB
 chmod +x "$TMP/bin/xcrun"
 
 # xcodebuild: appends ONE tab-joined argv line per invocation to
-# $XCB_STUB_LOG and exits 0. `sep` avoids a trailing tab so log lines compare
-# byte-for-byte against join_tab()'s output.
+# $XCB_STUB_LOG, then exits with $XCB_STUB_RC (default 0) so an arm can make
+# the "build" fail and watch whether the wrapper reports it. `sep` avoids a
+# trailing tab so log lines compare byte-for-byte against join_tab()'s output.
 cat > "$TMP/bin/xcodebuild" <<'XCB_STUB'
 #!/bin/sh
 {
@@ -107,7 +117,7 @@ cat > "$TMP/bin/xcodebuild" <<'XCB_STUB'
   done
   printf '\n'
 } >> "$XCB_STUB_LOG"
-exit 0
+exit "${XCB_STUB_RC:-0}"
 XCB_STUB
 chmod +x "$TMP/bin/xcodebuild"
 
@@ -117,15 +127,16 @@ probe_out=""
 probe_rc=0
 
 # Truncates the stub log, runs the wrapper with a fully scrubbed environment
-# (so an inherited PASTURA_SIM_NAME or ambient *_INTEGRATION var cannot leak
-# into an arm), and captures combined stdout+stderr / exit status via the
-# `printf '__RC__%s' "$?"` trick (mirrors simdest-errexit-test.sh's
-# run_probe): this suite itself runs under `set -e`, and several arms probe a
-# deliberate non-zero exit.
+# (so an ambient *_INTEGRATION var cannot leak into an arm, and PASTURA_SIM_NAME
+# is the stub's device rather than whatever the shell inherited), and captures
+# combined stdout+stderr / exit status via the `printf '__RC__%s' "$?"` trick
+# (mirrors simdest-errexit-test.sh's run_probe): this suite itself runs under
+# `set -e`, and several arms probe a deliberate non-zero exit.
 run_wrapper() {
   : > "$log"
   probe_out="$(cd "$ROOT" && env -i PATH="$TMP/bin:$PATH" HOME="$HOME" \
       PASTURA_SKIP_SIM_WAIT=1 PASTURA_SKIP_XCSTRINGS_SYNC=1 XCB_STUB_LOG="$log" \
+      PASTURA_SIM_NAME="$STUB_SIM_NAME" \
       ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} /bin/bash "$WRAPPER" "$@" 2>&1; printf '__RC__%s' "$?")"
   probe_rc="${probe_out##*__RC__}"
   probe_out="${probe_out%__RC__*}"
@@ -196,6 +207,31 @@ else
   bad "R10 rc=$probe_rc (expected 2) when the rejected flag is not first: $probe_out"
 fi
 
+# R11-R13: the other exit-2 paths that sit before anything slow — usage, an
+# unknown subcommand, and a malformed `--tail`. Not #1506's guard, but the
+# same "fail fast, before sim-dest.sh" family, and one arm each to keep.
+run_wrapper
+if [ "$probe_rc" = "2" ] && has "Usage: scripts/xcodebuild.sh" "$probe_out"; then
+  ok "R11 no arguments: usage + rc 2"
+else
+  bad "R11 rc=$probe_rc (expected 2 with usage) on no arguments: $probe_out"
+fi
+
+run_wrapper bogus
+if [ "$probe_rc" = "2" ] && has "Unknown subcommand: bogus" "$probe_out"; then
+  ok "R12 unknown subcommand: rc 2"
+else
+  bad "R12 rc=$probe_rc (expected 2) on unknown subcommand: $probe_out"
+fi
+
+run_wrapper build --tail x
+if [ "$probe_rc" = "2" ] && has "--tail requires a positive integer" "$probe_out" \
+    && ! has "Selected simulator" "$probe_out"; then
+  ok "R13 --tail with a non-numeric value: rc 2 before sim-dest.sh"
+else
+  bad "R13 rc=$probe_rc (expected 2) on --tail x: $probe_out"
+fi
+
 # =============================================================================
 # N1-N4: negative controls — accepted shapes MUST still pass. If the guard
 # ever rejected everything, every R arm above would read green for the wrong
@@ -208,7 +244,7 @@ expected_n1="$(join_tab build -scheme Pastura -project "$ROOT/Pastura/Pastura.xc
   -destination "generic/platform=iOS Simulator" -derivedDataPath "$ROOT/Pastura/DerivedData" -quiet)"
 last_line="$(tail -n 1 "$log")"
 if [ "$probe_rc" = "0" ] && [ "$last_line" = "$expected_n1" ] \
-    && has "Selected simulator: iPhone 17 Pro (iOS 26.0) [id=STUB-UDID]" "$probe_out"; then
+    && has "Selected simulator: $STUB_SIM_NAME (iOS 26.0) [id=STUB-UDID]" "$probe_out"; then
   ok "N1 build -quiet (pre-commit shape): accepted, argv matches, stub-driven sim-dest.sh success path proven"
 else
   bad "N1 rc=$probe_rc last_line=[$last_line] expected=[$expected_n1] output: $probe_out"
@@ -222,6 +258,18 @@ if [ "$probe_rc" = "0" ] && [ "$last_line" = "$expected_n1" ]; then
   ok "N2 build -quiet --tail 5: --tail consumed, argv identical to N1 via the --tail exec path"
 else
   bad "N2 rc=$probe_rc last_line=[$last_line] expected=[$expected_n1] output: $probe_out"
+fi
+
+# N5: the property the --tail path exists for. `.claude/rules/xcodebuild-cli.md`
+# calls it pipefail-safe — a failed xcodebuild must NOT read as exit 0 through
+# `| tail -n`. Drop `set -o pipefail` from the wrapper and only this arm
+# reddens (N2 cannot: its stub always succeeds).
+EXTRA_ENV=(XCB_STUB_RC=65)
+run_wrapper build -quiet --tail 5
+if [ "$probe_rc" = "65" ] && [ -s "$log" ]; then
+  ok "N5 build --tail 5 with a failing xcodebuild (rc 65) exits 65 — pipefail preserved through | tail"
+else
+  bad "N5 rc=$probe_rc (expected 65: the stub's failure must survive the --tail pipe): $probe_out"
 fi
 
 # N3: the documented device compile-check recipe — bare -destination is
@@ -316,10 +364,21 @@ extract_invocations() {
   ' "$file"
 }
 
+# Whitespace tokenization is by unquoted expansion, so pathname expansion is
+# switched off around it (`set -f`): a future caller line containing `*` must
+# not be retokenized against this suite's cwd. Quote-insensitive on purpose.
+split_tokens() { # $1 = line; result in $tokens (array)
+  set -f
+  # shellcheck disable=SC2206 # unquoted on purpose: whitespace split, globbing off
+  tokens=($1)
+  set +f
+}
+
 # The subcommand is the token immediately after the xcodebuild.sh mention.
 subcmd_of_line() {
   local line="$1" prev="" tok
-  for tok in $line; do
+  split_tokens "$line"
+  for tok in ${tokens[@]+"${tokens[@]}"}; do
     if [ -n "$prev" ]; then
       case "$prev" in
         *xcodebuild.sh*)
@@ -337,10 +396,10 @@ subcmd_of_line() {
 #   -scheme / -project / -derivedDataPath, bare or `=`-joined
 #   -destination=*  (either subcommand)
 #   -destination bare, only when subcmd is "test"
-# Quote-insensitive: tokenizes on whitespace only.
 check_invocation() {
   local subcmd="$1" line="$2" tok
-  for tok in $line; do
+  split_tokens "$line"
+  for tok in ${tokens[@]+"${tokens[@]}"}; do
     case "$tok" in
       -scheme|-scheme=*|-project|-project=*|-derivedDataPath|-derivedDataPath=*|-destination=*)
         return 1
@@ -367,7 +426,7 @@ p1_actual="$(printf '%s\n' "$p1_pattern_lines" \
   | sed 's/)$//' \
   | tr '|' '\n' \
   | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
-  | sort -u \
+  | LC_ALL=C sort -u \
   | tr '\n' ' ')"
 p1_actual="${p1_actual% }"
 p1_expected='-derivedDataPath -derivedDataPath=* -destination -destination=* -project -project=* -scheme -scheme=*'
@@ -443,7 +502,10 @@ else
 fi
 
 # =============================================================================
-# Final: the suite must not dirty the working tree.
+# Final: the suite must not dirty the working tree. The target is a
+# `Localizable.xcstrings` mutation by sync_xcstrings (which every arm opts out
+# of) — `Pastura/DerivedData/` is gitignored and invisible here by design, so do
+# not "strengthen" this with `--ignored`.
 # =============================================================================
 
 STATUS_AFTER="$(git -C "$ROOT" status --porcelain)"
