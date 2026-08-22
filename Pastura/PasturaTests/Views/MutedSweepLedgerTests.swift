@@ -139,6 +139,31 @@ struct MutedSweepLedgerTests {
     "Views/Settings/SettingsView+Models.swift": 2
   ]
 
+  /// The `Color.inkSecondary` count of the one system `Form` host #1527 moved
+  /// onto the table — `ScenarioEditorView`, whose `Basic Info` / `Context`
+  /// headers joined the two #1298 had already repointed.
+  ///
+  /// Same argument as ``batchFiveSitesStillReadInkSecondary``, one step
+  /// further from the census: these headers never read `Color.muted`, so the
+  /// map above could not see them move and cannot see them move back. A slide
+  /// to the system default — the `.foregroundStyle` line deleted, or the
+  /// `header:` closure collapsing back into `Section(String(localized:))` —
+  /// leaves every gate green while design-system §2.2's ground rule goes
+  /// false on the only screen it currently reaches.
+  ///
+  /// A per-file count, for the reason the batch-5 comment gives: the two
+  /// files hold three reads each — `Basic Info` / `Context` plus the rounds
+  /// value in the split-out section file, `Personas` / `Phases` plus the
+  /// persona description in the main one — so a reverted header is an
+  /// off-by-one rather than noise inside a large total. Scoped to these two
+  /// files on purpose: the retained sheet headers read no token *by decision*
+  /// (ledger §6.3), and a census of absence is what `expectedMutedOccurrences`
+  /// already is.
+  private static let expectedGroundRuleInkSecondary: [String: Int] = [
+    "Views/Editor/ScenarioEditorView.swift": 3,
+    "Views/Editor/ScenarioEditorView+BasicInfoSection.swift": 3
+  ]
+
   private static let rawPaletteNeedles = [
     "PasturaPalette.muted", "PasturaPalette.nightMuted",
     "PasturaDynamicPalette.muted", "palette.muted"
@@ -173,6 +198,18 @@ struct MutedSweepLedgerTests {
       \(Self.diff(
         observed: observed, expected: Self.expectedAppliedInkSecondary,
         what: "batch 5 `Color.inkSecondary`"))
+      """)
+  }
+
+  @Test func editorFormHeadersStillReadInkSecondary() throws {
+    let observed = Self.census(of: ["Color.inkSecondary"], excludingDesignTokens: true)
+      .filter { Self.expectedGroundRuleInkSecondary.keys.contains($0.key) }
+    #expect(
+      observed == Self.expectedGroundRuleInkSecondary,
+      """
+      \(Self.diff(
+        observed: observed, expected: Self.expectedGroundRuleInkSecondary,
+        what: "#1527 ground-rule `Color.inkSecondary`"))
       """)
   }
 
