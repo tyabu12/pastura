@@ -80,6 +80,37 @@ measurement over them is otherwise unrecoverable — but they are **not** verdic
 so they carry no gate and live under `###` subheadings here rather than as
 `## <model> — <date> — **VERDICT**` entries.
 
+### Mora allocation (5-7-5) does not load — 2026-08-22
+
+**Scope**: `shachiku_senryu_v1` (gallery, ja) on the maintainer's machine, Gemma 4
+E2B Q4_K_M unless stated; every arm is 2 harness runs = 16 verses, morae counted
+by hand (拗音 1, 促音 / 長音 / 撥音 1 each). Transcripts are gitignored
+(`data/factory/audit-runs/2026-08-22-1412/`); the per-verse tables are in
+[#1412](https://github.com/tyabu12/pastura/issues/1412).
+
+| Arm | 5-7-5 | three-segment |
+|---|---|---|
+| Control — shipped YAML, same day | 0/16 | 12/16 |
+| Prompt subtraction — counting rule and topic hint deleted | 0/16 | 9/16 |
+| `reflect` → `speak_all` structural chain-of-thought (count in a private note, then recite) | 2/16 | 9/16 |
+| Qwen 3 4B Q4_K_M on the shipped YAML | 0/16 | 9/16 |
+| Relaxed promise (shipped after this measurement) | 0/16 | 11/16 |
+
+Together with #1421's example-fix run (true 5-7-5 examples + a counting rule:
+0/16) this is five prompt shapes at zero. The reflect arm is the informative one:
+forced to count before reciting, the model counted in only 4/16 notes and
+miscounted in all four (「在宅の」 as 4 morae, an 11-mora line as 7), then
+copied a note verbatim — counts and all — into the verse. A **three-segment form
+and a ~17-mora total** are met roughly 70% of the time across every arm, so that
+is the ceiling a scenario on this tier may promise.
+
+**What it licenses.** A quantitative form constraint the model cannot evaluate
+(mora or syllable allocation) is not fixable by structure either — the
+register-dominance law's "change structure" remedy (`.claude/rules/presets.md`)
+stops here. Relax the promise instead of adding a lever. Qwen 3 4B is not a
+counter-example: it could not hold the senryu form at all (7/16 single-segment),
+so the result says nothing about larger models.
+
 ### Spelled-out chat-template markers — 2026-08-13
 
 **Scope**: every `data/models/eval-runs/**/*.jsonl` harness transcript on the
