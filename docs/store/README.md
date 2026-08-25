@@ -23,7 +23,7 @@ the copy that a human pastes into App Store Connect.
 - **Primary locale**: en (Go criterion = English submission Approved)
 - **URLs** (Support/Marketing are per-locale — despite Apple's canonical
   "required-localizable-and-editable-properties" table claiming app-wide; the
-  real UI wins. Privacy Policy is set in App Information):
+  real UI wins, observed 2026-07. Privacy Policy is set in App Information):
   - en — Support `https://pastura.app/support/` · Marketing `https://pastura.app/`
   - ja — Support `https://pastura.app/ja/support/` · Marketing `https://pastura.app/ja/`
   - Privacy Policy `https://pastura.app/legal/privacy-policy/` (ja: `https://pastura.app/ja/legal/privacy-policy/`)
@@ -32,17 +32,17 @@ the copy that a human pastes into App Store Connect.
 
 Copy is ready; these are the gates around it. Not all are in this repo's scope.
 
-### Hard blockers (ADR-005 §9.2 + #233)
+### Hard blockers (ADR-005 §9.2 + #233) — all cleared for the 1.0 release (2026-07-23)
 
-- [ ] `OllamaService` wrapped out of the release binary; `nm` audit clean (#148)
-- [ ] `PrivacyInfo.xcprivacy` present, required-reason APIs declared (#149)
-- [ ] Support URL landing page live at `https://pastura.app/support/` (#182)
-- [ ] Privacy Policy URL registered in ASC → App Information (#233)
-- [ ] App Privacy questionnaire answered "Data Not Collected" (#233)
+- [x] `OllamaService` wrapped out of the release binary; `nm` audit clean (#148)
+- [x] `PrivacyInfo.xcprivacy` present, required-reason APIs declared (#149)
+- [x] Support URL landing page live at `https://pastura.app/support/` (#182)
+- [x] Privacy Policy URL registered in ASC → App Information (#233)
+- [x] App Privacy questionnaire answered "Data Not Collected" (#233)
 - [x] EU DSA: declare **non-trader** status in ASC → Business (free app, hobby dev) (#233)
       — done for 1.0. The form lives at Business → Agreements → Compliance →
       **Digital Services Act** (account-level, not per-app)
-- [ ] `ITSAppUsesNonExemptEncryption = NO` declared (#159)
+- [x] `ITSAppUsesNonExemptEncryption = NO` declared (#159)
 
 ### Ordering / verification gates (this task surfaced these)
 

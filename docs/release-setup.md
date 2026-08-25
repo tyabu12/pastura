@@ -116,7 +116,9 @@ If `bundle install` fails on the system Ruby (2.6.x), install a newer Ruby
 
 Non-interactive shells (scripts, agents) don't read `~/.zshrc`, so the Homebrew
 Ruby silently loses to the system 2.6.x there — prefix `bundle` / `fastlane`
-invocations with an explicit `PATH="/opt/homebrew/opt/ruby/bin:$PATH"`.
+invocations with an explicit `PATH="/opt/homebrew/opt/ruby/bin:$PATH"`
+(Apple Silicon; on Intel it is `/usr/local/opt/ruby/bin` — `brew --prefix ruby`
+resolves either).
 
 ### 6. Verify
 
