@@ -16,7 +16,8 @@ import kotlin.test.assertTrue
  * commonTest sibling of Swift's `ScenarioValidatorTests.swift`,
  * `ScenarioValidatorTests+Language.swift`, `ScenarioValidatorTests+MaxSentences.swift`,
  * and `ScenarioValidatorTests+OutputFieldNames.swift`
- * (`Pastura/PasturaTests/Engine/`) — 62 tests, 1:1 by name with those four files.
+ * (`Pastura/PasturaTests/Engine/`) — 63 tests: 62 are 1:1 by name with those four
+ * files, plus one Kotlin-only pin (next paragraph).
  *
  * Three tests here and in [ConditionalValidatorTests] have **no Swift sibling** —
  * [rejectsEventInjectWithEmptyDictSource],
@@ -142,7 +143,9 @@ import kotlin.test.assertTrue
  *    mechanism.** Only a message-inspecting test could see the phase-type token, and
  *    the reflect / whisper / relationship_update rejection tests assert the phase
  *    label and the missing field name but never the type. A swapped or hardcoded
- *    `type` argument would ship silently.
+ *    `type` argument would ship silently. Closing it (one `contains("reflect")`
+ *    per test) was declined for Swift parity — the siblings assert type only —
+ *    not overlooked.
  */
 class ScenarioValidatorTests {
 
@@ -738,6 +741,10 @@ class ScenarioValidatorTests {
         assertTrue(message.contains("Phase 1 (event_inject)"))
         assertTrue(message.contains("'events'"))
         assertTrue(message.contains("empty"))
+        // Distinguishes the dict-shaped site from the string-shaped one — both
+        // render the three fragments above. Fragment sourced from
+        // `ScenarioValidationMessage.swift` (`eventInjectSourceEmptyEvents`).
+        assertTrue(message.contains("at least one event"), message)
     }
 
     @Test

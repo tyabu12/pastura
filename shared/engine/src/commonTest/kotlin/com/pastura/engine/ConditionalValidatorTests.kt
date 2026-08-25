@@ -18,7 +18,11 @@ import kotlin.test.assertTrue
  * `ConditionalValidatorTests+Reflect.swift`,
  * `ConditionalValidatorTests+RelationshipUpdate.swift`, and
  * `ConditionalValidatorTests+Whisper.swift`
- * (`Pastura/PasturaTests/Engine/`) — 24 tests, 1:1 by name with those six files.
+ * (`Pastura/PasturaTests/Engine/`) — 26 tests: 24 are 1:1 by name with those
+ * six files; two (`rejectsMalformedConditionWithPhaseLabelPrefix`,
+ * `rejectsEmptyConditionWithMissingIfMessage`) are Kotlin-only mechanism pins
+ * with no Swift twin — see their own comments and the §12 condition-4 record
+ * in `ScenarioValidatorTests.kt`.
  *
  * The parse-time tests (`rejectsMalformedConditionAtValidateTime`,
  * `rejectsDanglingCombinatorAtValidateTime`) exercise
@@ -381,6 +385,9 @@ class ConditionalValidatorTests {
     // critical for gallery curation where curated scenarios must fail before
     // shipping.
 
+    // Deliberately loose (type-only), 1:1 with Swift; the "$phaseLabel: " rewrap
+    // is pinned by `rejectsMalformedConditionWithPhaseLabelPrefix` on the same
+    // fixture — do not de-duplicate the pair.
     @Test
     fun rejectsMalformedConditionAtValidateTime() {
         val scenario = makeScenario(

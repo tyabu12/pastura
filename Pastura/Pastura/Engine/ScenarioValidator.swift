@@ -12,9 +12,10 @@ import Foundation
 /// (spelled out so a move leaves a greppable string behind) — change both
 /// (ADR-023). The Kotlin twin carries the run gate (`validate`) from this file,
 /// `+EventInject` and `+OutputFieldNames`; `validateForCommit` /
-/// `+CanonicalFields` are not ported yet (#1552 B2). The ledger row is `PORT`,
-/// so no checker verifies an edit here was mirrored — the pairing is yours to
-/// honour, and `.claude/rules/kmp-interop.md` does not load for `Pastura/**`.
+/// `+CanonicalFields` are not ported yet (#1552 B2). No checker verifies that
+/// an edit here was mirrored — for any ledger disposition — so the pairing is
+/// yours to honour; `.claude/rules/kmp-interop.md` does not load for
+/// `Pastura/**`, `engine.md` does.
 nonisolated public struct ScenarioValidator: Sendable {
 
   /// Creates a validator.

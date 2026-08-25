@@ -42,7 +42,7 @@ import com.pastura.models.SimulationError
  *
  * ## Known rendering divergences from Swift
  *
- * All four are **documented, not ledgered**. They are the same family as
+ * All five are **documented, not ledgered**. They are the same family as
  * `DivergenceLedger.DivergenceClass.NUMBER_LITERAL_FORMATTING` and
  * `SCOREBOARD_ORDERING` — cross-language differences in how a value becomes
  * text — but none is a ledger entry, because validation errors never reach a
@@ -63,11 +63,22 @@ import com.pastura.models.SimulationError
  * 3. **Whitespace trimming.** Swift trims `.whitespacesAndNewlines` (a Unicode
  *    character set); Kotlin `trim()` trims `Char.isWhitespace()`. The two sets
  *    disagree on a handful of exotic code points, so a source key or `if:`
- *    padded with one of them could trim on one side and not the other.
+ *    padded with one of them could trim on one side and not the other. Unlike
+ *    (1), (2) and (4) this is **not** message-text only: the trimmed value
+ *    feeds the `extraData[sourceKey]` lookup and the empty-`if` guard, so one
+ *    engine can reject (`SourceNotFound` / `EventInjectMissingSource` /
+ *    `ConditionalMissingIf`) a scenario the other accepts. Still unledgered
+ *    for the same reason — the rejecting side produces no transcript.
  * 4. **Output-key ordering.** `schema.keys.sorted()` is Unicode-scalar order in
  *    Swift and UTF-16 code-unit order in Kotlin. Only *which* invalid key is
  *    reported first can differ, and only when a schema has ≥2 invalid keys
  *    straddling the BMP boundary — accept/reject is identical either way.
+ * 5. **Estimate rendering above `Int.MAX_VALUE`.** Swift `Int` is 64-bit, so
+ *    `estimatedInferencesExceedsMaximum` prints the true estimate; the Kotlin
+ *    message mirror takes `Int` (#1464's 1:1 mirror is deliberately not widened
+ *    for one arg), so [validate] clamps to `2147483647` before rendering. The
+ *    `> 100` throw has already fired, so accept/reject agrees. See the clamp
+ *    site in [validate].
  */
 public class ScenarioValidator {
 

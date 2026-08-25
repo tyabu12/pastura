@@ -5,6 +5,13 @@ import Foundation
 // the project's default MainActor isolation — breaking `nonisolated` callers in
 // the main file (`validatePhases` / `validateBranch`). See
 // `.claude/rules/swift-isolation.md` Pattern 3.
+//
+// Dual-landed with
+// `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioValidator.kt`
+// (spelled out so a move leaves a greppable string behind) — change both
+// (ADR-023). The Kotlin twin folds this extension into its single file; no
+// checker verifies that an edit here was mirrored, so the pairing is yours to
+// honour. See the base type's doc in `ScenarioValidator.swift`.
 nonisolated extension ScenarioValidator {
   /// Rejects any `output:` field name that is not an ASCII identifier
   /// (``ScenarioConventions/isValidFieldName(_:)``).

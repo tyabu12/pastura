@@ -23,9 +23,9 @@ import com.pastura.models.Scenario
  * `estimatedInferencesExceedsMaximum` / `highInferenceCount` limits are
  * `ScenarioValidator`'s, not the loader's.
  *
- * Landed as infra for the ADR-023 §6 Stage-3 Engine migration (#501): there is
- * **no Kotlin consumer yet**, because `ScenarioValidator` itself is unported
- * (`DivergenceLedger.DivergenceClass.VALIDATOR_UNPORTED`).
+ * Landed as infra for the ADR-023 §6 Stage-3 Engine migration (#501, #1464);
+ * its consumer is [ScenarioValidator.validate] (#1552). Neither is wired into
+ * [SimulationEngine] yet (`DivergenceLedger.DivergenceClass.VALIDATOR_UNPORTED`).
  */
 internal object InferenceEstimator {
 
@@ -40,9 +40,9 @@ internal object InferenceEstimator {
      * 30 *before* calling this, but nothing caps a phase's `sub_rounds`. A
      * `speak_each` with `sub_rounds: 300000000` overflows 32 bits, and the wrapped
      * value is small or negative — so a ported validator would **accept** a
-     * scenario Swift rejects via `estimatedInferencesExceedsMaximum`. Latent while
-     * nothing consumes this, and live the moment the validator lands, which is
-     * this file's whole purpose.
+     * scenario Swift rejects via `estimatedInferencesExceedsMaximum`. Live since
+     * [ScenarioValidator.validate] landed (#1552) — it compares this value
+     * against the caps as `Long` and only clamps to `Int` for the message text.
      *
      * Per-phase formula (per round):
      * - `speak_all` / `vote` / `reflect`: agent count

@@ -70,8 +70,9 @@ lowercase path work locally and fail the gate.
 **A new `PhaseType` must be dispositioned in TWO Kotlin maps, neither compiler-caught.**
 `PhaseDispatcher.defaultHandlers()` decides whether the phase runs at all; `ConditionalHandler`'s
 `subHandlers` decides whether it may run *inside a conditional branch*. Both are `Map` literals, so
-an omission compiles and fails as a mid-run throw. With no `ScenarioValidator` here, `subHandlers`
-is the sole enforcement, not a backstop.
+an omission compiles and fails as a mid-run throw. `ScenarioValidator.kt` exists but is not wired
+into `SimulationEngine` (it waits for the linter port, ADR-023 §4), so `subHandlers` is the sole
+run-path enforcement, not a backstop.
 
 **A Models change can break `shared/engine`**, and `:shared:models:jvmTest` alone is blind to it —
 run the CI pair `:shared:models:jvmTest :shared:engine:jvmTest` before pushing. Likewise every
