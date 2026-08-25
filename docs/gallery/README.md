@@ -207,6 +207,12 @@ non-factory source YAML, e.g. an improved variant). **Step 4 (curation)
 is still yours** — the script promotes the id you name and never picks
 by score.
 
+Promoting from an `/orchestrate` worktree: the factory sources are gitignored
+and exist only in the **main checkout**, while the script writes under the
+current tree (`git rev-parse --show-toplevel` = the worktree). Pass
+`--scenario` / `--run-log` as absolute main-checkout paths — source=main /
+dest=worktree is the working combination.
+
 Then verify the scenario end-to-end (§3 below) and open a PR (§4) — the
 script has already done §1's drafting and §2's registration.
 

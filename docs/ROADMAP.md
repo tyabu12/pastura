@@ -1,8 +1,32 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-07-10
+> Last updated: 2026-08-25
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
+
+---
+
+## Product principles — a "surume" app
+
+Pastura is deliberately a スルメ (surume / dried-squid) app: the more you chew,
+the more flavor comes out. Value accrues through repeated experimentation, not
+first-launch wow. Phase 0 showed the on-device LLM's output quality cannot carry
+an entertainment-first proposition (`docs/phase0/pastura-phase0-assessment.md`);
+the v0.3 pivot (`docs/specs/pastura-mvp-spec-v0_3.md`) reframed Pastura as an
+experiment platform where value comes from the user's own curiosity,
+hypothesis-building, and comparison across runs.
+
+When judging a feature proposal:
+
+- **Prefer depth hooks over polish** — features that reward curiosity
+  (inner-thought reveal, run-to-run comparison, export for external analysis)
+  beat features that polish first impressions.
+- **Don't optimize for "wow on first run"** — a single run is a sample of one;
+  favor making many varied runs easy.
+- **Let users build their own hypotheses** (e.g. "why did this LLM conform in
+  Trolley but not Asch?") rather than consuming pre-packaged conclusions.
+- **Keep persona/scenario variation frictionless** (duplicate-and-edit, scenario
+  export) — iterate-and-compare is the core loop.
 
 ---
 

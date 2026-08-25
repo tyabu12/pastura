@@ -21,7 +21,9 @@ the copy that a human pastes into App Store Connect.
 - **Primary category**: Developer Tools · **Secondary**: Entertainment (per-version editable, not a one-way door)
 - **Age rating**: 13+ (ADR-005 §3.2; 16+ pre-planned fallback)
 - **Primary locale**: en (Go criterion = English submission Approved)
-- **URLs** (Support/Marketing are per-locale; Privacy Policy is set in App Information):
+- **URLs** (Support/Marketing are per-locale — despite Apple's canonical
+  "required-localizable-and-editable-properties" table claiming app-wide; the
+  real UI wins, observed 2026-07. Privacy Policy is set in App Information):
   - en — Support `https://pastura.app/support/` · Marketing `https://pastura.app/`
   - ja — Support `https://pastura.app/ja/support/` · Marketing `https://pastura.app/ja/`
   - Privacy Policy `https://pastura.app/legal/privacy-policy/` (ja: `https://pastura.app/ja/legal/privacy-policy/`)
@@ -30,15 +32,17 @@ the copy that a human pastes into App Store Connect.
 
 Copy is ready; these are the gates around it. Not all are in this repo's scope.
 
-### Hard blockers (ADR-005 §9.2 + #233)
+### Hard blockers (ADR-005 §9.2 + #233) — all cleared for the 1.0 release (2026-07-23)
 
-- [ ] `OllamaService` wrapped out of the release binary; `nm` audit clean (#148)
-- [ ] `PrivacyInfo.xcprivacy` present, required-reason APIs declared (#149)
-- [ ] Support URL landing page live at `https://pastura.app/support/` (#182)
-- [ ] Privacy Policy URL registered in ASC → App Information (#233)
-- [ ] App Privacy questionnaire answered "Data Not Collected" (#233)
-- [ ] EU DSA: declare **non-trader** status in ASC → Business (free app, hobby dev) (#233)
-- [ ] `ITSAppUsesNonExemptEncryption = NO` declared (#159)
+- [x] `OllamaService` wrapped out of the release binary; `nm` audit clean (#148)
+- [x] `PrivacyInfo.xcprivacy` present, required-reason APIs declared (#149)
+- [x] Support URL landing page live at `https://pastura.app/support/` (#182)
+- [x] Privacy Policy URL registered in ASC → App Information (#233)
+- [x] App Privacy questionnaire answered "Data Not Collected" (#233)
+- [x] EU DSA: declare **non-trader** status in ASC → Business (free app, hobby dev) (#233)
+      — done for 1.0. The form lives at Business → Agreements → Compliance →
+      **Digital Services Act** (account-level, not per-app)
+- [x] `ITSAppUsesNonExemptEncryption = NO` declared (#159)
 
 ### Ordering / verification gates (this task surfaced these)
 
@@ -61,3 +65,20 @@ Copy is ready; these are the gates around it. Not all are in this repo's scope.
 | Promotional Text | 170 | 164 | 93 |
 
 (Counts are Unicode code points; ja full-width = 1 each, matching ASC.)
+
+## ASC field locations (observed 2026-07 in the real UI)
+
+Fields whose location the ASC docs don't make findable:
+
+- **Copyright** is a per-version field on the version page, not App Information.
+- **Device requirements** (the ASC-computed compatible-device list): TestFlight
+  → select the build → build metadata → Device requirements.
+
+## Review history (operator notes — never pasted into ASC)
+
+- **1.0 (2026-07): rejected once under 5.1.1(i)/5.1.2(i)**, on the reviewer's
+  false premise that Pastura sends user data to a third-party AI (it is 100%
+  on-device). Approved after rebuttal; the rebuttal is kept permanently in
+  `review-notes.md` § "No third-party AI service" so every later submission
+  pre-empts it. If Phase 3 ever adds a real Cloud API, that posture must be
+  re-derived, not patched (ADR-005 §7.5; ADR-006 when written).

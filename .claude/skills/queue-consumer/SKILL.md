@@ -38,7 +38,9 @@ Non-goals:
   pre-start skips do not count)
 - Branch: `agent/issue-<N>`; collision fallback `agent/issue-<N>-<YYYYMMDD>`
 - Labels: `agent-ready` (input — human-assigned only), `needs-detail`,
-  `agent-blocked`
+  `agent-blocked`. The write permission needed to assign `agent-ready` is the
+  **sole** security wall; there is deliberately no issue-author gate, so
+  external reports on this public repo stay processable — don't add one.
 - Digest: `data/queue/digest.md` — a gitignored **local log** in the main
   checkout (the helper script resolves it; the worktree's copy would die
   with the worktree, and it bootstraps the file if absent)
