@@ -51,9 +51,17 @@
 #                                preserved from existing entry.
 #   --non-interactive           fail if any required field is missing
 #                                (no prompts, no confirmation). In
-#                                update mode, all fields default to
-#                                existing-entry values, so this works
-#                                without overrides.
+#                                update mode, fields not overridden by a
+#                                flag default to the existing entry's
+#                                values (and any field this script does
+#                                not manage — e.g. ADR-029 highlight_*,
+#                                ADR-020 min_engine_version/featured — is
+#                                carried forward unconditionally), so
+#                                this works without overrides. REQUIRED
+#                                for a caller with no usable tty (CI, an
+#                                agent's Bash tool): without it, a
+#                                missing field or the confirmation
+#                                prompt tries to read /dev/tty and fails.
 #
 # Failure modes — chosen behavior:
 #
@@ -110,6 +118,38 @@ if ! python3 -c "import yaml" 2>/dev/null; then
   echo "ERROR: PyYAML not available — install via 'python3 -m pip install pyyaml'" >&2
   exit 1
 fi
+
+ADD_GALLERY_TTY="${PASTURA_ADD_GALLERY_TTY:-/dev/tty}"
+
+# Opens $ADD_GALLERY_TTY on fd 3 and reads one line into $1. `[ -e /dev/tty ]`
+# and `[ -t 0 ]` both under/over-detect (the device node can exist but fail
+# to open — ENXIO — or stdin can be a pipe while the tty is fine), so this
+# probes with a real open (in a subshell — see below) and reports the
+# actionable fix on failure instead of the raw shell error ("Device not
+# configured").
+# Locals are `__rft_`-prefixed: `printf -v "$1"` targets a variable by name,
+# and a caller (e.g. prompt_required) that also has a local `value` would
+# otherwise collide with an unprefixed local here — bash resolves `-v`'s
+# target against the nearest matching scope, silently writing this
+# function's own local instead of the caller's.
+read_from_tty() {
+  local __rft_var_name="$1"
+  local __rft_prompt="$2"
+  # Probed in a subshell first: `exec 3<file 2>/dev/null` with no command
+  # after it makes bash's redirections PERMANENT for the rest of the
+  # script — a failed open would silently swallow every later `>&2`
+  # prompt/error, not just this one. `(: 3<file) 2>/dev/null` scopes both
+  # the open attempt and the stderr suppression to the subshell.
+  if ! (: 3<"$ADD_GALLERY_TTY") 2>/dev/null; then
+    echo "ERROR: cannot read from $ADD_GALLERY_TTY to prompt for $__rft_prompt — pass --non-interactive instead" >&2
+    exit 1
+  fi
+  local __rft_value
+  exec 3<"$ADD_GALLERY_TTY"
+  read -r __rft_value <&3
+  exec 3<&-
+  printf -v "$__rft_var_name" '%s' "$__rft_value"
+}
 
 ROOT="$(git rev-parse --show-toplevel)"
 GALLERY_DIR="$ROOT/docs/gallery"
@@ -340,7 +380,7 @@ prompt_required() {
   fi
   printf "%s: " "$label" >&2
   local value
-  read -r value < /dev/tty
+  read_from_tty value "$label"
   if [ -z "$value" ]; then
     echo "ERROR: $label cannot be empty" >&2
     exit 1
@@ -411,20 +451,29 @@ fi
 
 # --- Build candidate entry -------------------------------------------------
 
-# ADR-029 highlight fields are derivable from neither the YAML nor any flag of
-# this script, and update mode replaces the entry wholesale — so without this
-# carry-forward, `--update` on a highlighted entry drops them. The post-validate
-# gate then fails on the orphaned highlight file and restores the backup, so
-# nothing is destroyed, but the error names an orphan and never mentions the
-# dropped fields.
+# ADR-029 highlight fields (and any other key this script does not manage —
+# e.g. ADR-020's `min_engine_version`, `featured`) are derivable from neither
+# the YAML nor any flag of this script, and update mode replaces the entry
+# wholesale — so without this carry-forward, `--update` drops them silently.
+# A dropped highlight field trips the post-validate gate (orphaned highlight
+# file) and restores the backup, so nothing is destroyed there — but a
+# dropped `min_engine_version` / `featured` has no such gate and would
+# silently vanish.
 #
-# Selected by `highlight_` prefix rather than by naming the two keys: the
-# fail-safe direction is carrying an unrecognised field, not dropping it, and a
-# field added to the contract later would otherwise vanish unnoticed.
-HIGHLIGHT_FIELDS='{}'
+# Selected by "every key NOT in the fields this script manages" rather than a
+# `highlight_` prefix allowlist: the fail-safe direction is carrying an
+# unrecognised field, not dropping it, so a field added to the contract later
+# is carried forward automatically instead of vanishing unnoticed. The
+# managed-key set is named once, inline in the jq filter below, and used
+# both to filter `$extra_raw` down to the truly-unmanaged keys AND to build
+# the object — so there is no second, hand-maintained key list that could
+# desync from it. Managed fields are also emitted first, preserving
+# existing entries' key order (curator-readable diffs;
+# scripts/tests/gallery-highlight-test.sh asserts highlight_url's position
+# relative to yaml_sha256).
+EXTRA_RAW='{}'
 if [ "$MODE" = "update" ]; then
-  HIGHLIGHT_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \
-    | jq -c 'with_entries(select(.key | startswith("highlight_")))')
+  EXTRA_RAW=$(printf '%s' "$EXISTING_ENTRY" | jq -c '.')
 fi
 
 NEW_ENTRY=$(jq -n \
@@ -441,7 +490,7 @@ NEW_ENTRY=$(jq -n \
   --arg language "$YAML_LANGUAGE" \
   --arg yaml_url "$YAML_BASENAME" \
   --arg yaml_sha256 "$YAML_SHA" \
-  --argjson highlight "$HIGHLIGHT_FIELDS" \
+  --argjson extra_raw "$EXTRA_RAW" \
   --arg added_at "$ADDED_AT" \
   '{
     id: $id,
@@ -457,11 +506,11 @@ NEW_ENTRY=$(jq -n \
     language: $language,
     yaml_url: $yaml_url,
     yaml_sha256: $yaml_sha256
-  }
-  + $highlight
-  + {
-    added_at: $added_at
-  }')
+  } as $managed
+  | (($managed | keys_unsorted) + ["added_at"]) as $managed_keys
+  | $managed
+  + ($extra_raw | with_entries(select(.key as $k | ($managed_keys | index($k)) | not)))
+  + { added_at: $added_at }')
 
 # --- update-mode no-op short-circuit --------------------------------------
 #
@@ -538,7 +587,8 @@ if [ "$NON_INTERACTIVE" != "1" ]; then
   echo "" >&2
   echo "  updated_at: $UPDATED_AT" >&2
   printf "Proceed? [y/N]: " >&2
-  read -r confirm < /dev/tty
+  confirm=""
+  read_from_tty confirm "confirmation"
   if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
     echo "Aborted." >&2
     exit 0

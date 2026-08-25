@@ -212,6 +212,87 @@ if [ "$SHA_BEFORE" != "$SHA_AFTER" ]; then PASS=$((PASS + 1)); else bad "A4 sha 
 runc "$R" bash scripts/add-gallery-entry.sh --update foo_v1 --non-interactive
 expect_ok "A5 no-op update exits 0"; expect_out "No change needed" "A5 no-op message"
 
+# A8 — without --non-interactive, an unopenable tty seam fails with an
+# actionable message naming --non-interactive (not the raw shell error).
+mk_gallery_yaml "$R" foo_v1 5 3 "a8 body"
+runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/no-such-tty" bash scripts/add-gallery-entry.sh --update foo_v1
+expect_fail "A8 unopenable tty fails"
+expect_out "pass --non-interactive instead" "A8 actionable message"
+
+# A9 — a readable file substituted for the tty seam is consumed normally
+# (positive counterpart to A8 — guards against an always-firing check).
+printf 'y\n' > "$R/fake-tty"
+runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/fake-tty" bash scripts/add-gallery-entry.sh --update foo_v1
+expect_ok "A9 fake-tty confirm exits 0"; expect_out "Updated entry" "A9 fake-tty update message"
+
+# A10 — --update carries forward a key this script does not manage (e.g.
+# ADR-020's min_engine_version / featured), not just highlight_*-prefixed
+# ones — regression for the old highlight_-prefix-only allowlist silently
+# dropping any other unrecognized field.
+jq '.scenarios[0].min_engine_version = "1.2.0" | .scenarios[0].featured = 1' \
+  "$R/docs/gallery/gallery.json" > "$R/docs/gallery/gallery.json.t"
+mv "$R/docs/gallery/gallery.json.t" "$R/docs/gallery/gallery.json"
+mk_gallery_yaml "$R" foo_v1 5 3 "a10 body"
+runc "$R" bash scripts/add-gallery-entry.sh --update foo_v1 --non-interactive
+expect_ok "A10 update exits 0"
+runc "$R" jq -r '.scenarios[0] | "\(.min_engine_version) \(.featured)"' docs/gallery/gallery.json
+expect_out "1.2.0 1" "A10 unmanaged keys carried forward"
+
+# A11 — prompt_required (interactive add mode, missing --category) writes
+# back to the CALLER's variable, not a same-named local inside
+# read_from_tty. Regression for a variable-name collision that made every
+# interactive required-field prompt fail with "cannot be empty" while A8/A9
+# (which use a non-colliding var name, "confirm") stayed green. The tty
+# seam replays the same first line on every read (each call reopens the
+# file at offset 0), so the answer also reaches the confirmation prompt —
+# "creative" != y/Y aborts cleanly. A live bug would instead exit 1 with
+# "category cannot be empty" before ever reaching the confirmation prompt.
+R="$(new_repo)"; mk_gallery_yaml "$R" prompt_v1 4 2
+mkdir -p "$R/Pastura/Pastura/Models"
+printf 'case creative = "creative"\n' > "$R/Pastura/Pastura/Models/GalleryScenario.swift"
+printf 'creative\n' > "$R/fake-tty"
+runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/fake-tty" bash scripts/add-gallery-entry.sh \
+  docs/gallery/prompt_v1.yaml \
+  --recommended-model gemma-4-e2b-q4-k-m --estimated-inferences 8 \
+  --description card --author tester
+expect_ok "A11 prompted category reaches confirmation, not a hard error"
+expect_out "Aborted." "A11 prompted category propagated to caller"
+case "$OUT" in
+  *"cannot be empty"*) bad "A11 category prompt regressed to the shadowing bug" ;;
+  *) PASS=$((PASS + 1)) ;;
+esac
+
+# A12 — a flag override wins over an unmanaged carried-forward key of the
+# SAME name colliding with a managed field would be impossible (the
+# managed-key set is derived from the constructed object itself, not a
+# second hand-maintained list, so the two cannot desync by construction).
+# What remains to pin: (1) a flag override still wins over the pre-existing
+# managed value, and (2) an unmanaged field lands AFTER the managed fields
+# and BEFORE added_at in the emitted entry — the ordering
+# scripts/tests/gallery-highlight-test.sh's H35 depends on for the real
+# ADR-029 highlight_* fields (a plain unmanaged key here, not
+# highlight_url/highlight_sha256, to avoid check-gallery-entry.sh's
+# highlight-validator gate, which this sandboxed repo doesn't scaffold).
+R="$(new_repo)"; mk_gallery_yaml "$R" ov_v1 4 2
+runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/ov_v1.yaml \
+  --category creative --recommended-model gemma-4-e2b-q4-k-m \
+  --estimated-inferences 8 --description card --author tester --non-interactive
+expect_ok "A12 add exits 0"
+jq '.scenarios[0].min_engine_version = "1.2.0"' \
+  "$R/docs/gallery/gallery.json" > "$R/docs/gallery/gallery.json.t"
+mv "$R/docs/gallery/gallery.json.t" "$R/docs/gallery/gallery.json"
+runc "$R" bash scripts/add-gallery-entry.sh --update ov_v1 \
+  --recommended-model qwen-3-4b-q4-k-m --non-interactive
+expect_ok "A12 update exits 0"
+runc "$R" jq -r '.scenarios[0].recommended_model' docs/gallery/gallery.json
+expect_out "qwen-3-4b-q4-k-m" "A12 flag override wins over existing value"
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("yaml_sha256")' docs/gallery/gallery.json
+YAML_SHA_IDX="$OUT"
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("min_engine_version")' docs/gallery/gallery.json
+expect_out "$((YAML_SHA_IDX + 1))" "A12 unmanaged key ordered directly after managed fields"
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | last' docs/gallery/gallery.json
+expect_out "added_at" "A12 added_at stays the last key"
+
 # A3 — filename stem != YAML id rejected.
 R="$(new_repo)"; mk_gallery_yaml "$R" wrongstem 4 2
 # Rewrite the internal id so stem (wrongstem) != id (otherid).
