@@ -111,6 +111,27 @@ if ! python3 -c "import yaml" 2>/dev/null; then
   exit 1
 fi
 
+ADD_GALLERY_TTY="${PASTURA_ADD_GALLERY_TTY:-/dev/tty}"
+
+# Opens $ADD_GALLERY_TTY on fd 3 and reads one line into $1. `[ -e /dev/tty ]`
+# and `[ -t 0 ]` both under/over-detect (the device node can exist but fail
+# to open — ENXIO — or stdin can be a pipe while the tty is fine), so this
+# probes with a real `exec` open and reports the actionable fix on failure
+# instead of the raw shell error ("Device not configured").
+read_from_tty() {
+  local var_name="$1"
+  local prompt="$2"
+  if ! (: 3<"$ADD_GALLERY_TTY") 2>/dev/null; then
+    echo "ERROR: cannot read from $ADD_GALLERY_TTY to prompt for $prompt — pass --non-interactive instead" >&2
+    exit 1
+  fi
+  local value
+  exec 3<"$ADD_GALLERY_TTY"
+  read -r value <&3
+  exec 3<&-
+  printf -v "$var_name" '%s' "$value"
+}
+
 ROOT="$(git rev-parse --show-toplevel)"
 GALLERY_DIR="$ROOT/docs/gallery"
 GALLERY_JSON="$GALLERY_DIR/gallery.json"
@@ -340,7 +361,7 @@ prompt_required() {
   fi
   printf "%s: " "$label" >&2
   local value
-  read -r value < /dev/tty
+  read_from_tty value "$label"
   if [ -z "$value" ]; then
     echo "ERROR: $label cannot be empty" >&2
     exit 1
@@ -538,7 +559,8 @@ if [ "$NON_INTERACTIVE" != "1" ]; then
   echo "" >&2
   echo "  updated_at: $UPDATED_AT" >&2
   printf "Proceed? [y/N]: " >&2
-  read -r confirm < /dev/tty
+  confirm=""
+  read_from_tty confirm "confirmation"
   if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
     echo "Aborted." >&2
     exit 0

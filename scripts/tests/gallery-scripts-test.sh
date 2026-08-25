@@ -212,6 +212,19 @@ if [ "$SHA_BEFORE" != "$SHA_AFTER" ]; then PASS=$((PASS + 1)); else bad "A4 sha 
 runc "$R" bash scripts/add-gallery-entry.sh --update foo_v1 --non-interactive
 expect_ok "A5 no-op update exits 0"; expect_out "No change needed" "A5 no-op message"
 
+# A8 — without --non-interactive, an unopenable tty seam fails with an
+# actionable message naming --non-interactive (not the raw shell error).
+mk_gallery_yaml "$R" foo_v1 5 3 "a8 body"
+runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/no-such-tty" bash scripts/add-gallery-entry.sh --update foo_v1
+expect_fail "A8 unopenable tty fails"
+expect_out "pass --non-interactive instead" "A8 actionable message"
+
+# A9 — a readable file substituted for the tty seam is consumed normally
+# (positive counterpart to A8 — guards against an always-firing check).
+printf 'y\n' > "$R/fake-tty"
+runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/fake-tty" bash scripts/add-gallery-entry.sh --update foo_v1
+expect_ok "A9 fake-tty confirm exits 0"; expect_out "Updated entry" "A9 fake-tty update message"
+
 # A3 — filename stem != YAML id rejected.
 R="$(new_repo)"; mk_gallery_yaml "$R" wrongstem 4 2
 # Rewrite the internal id so stem (wrongstem) != id (otherid).
