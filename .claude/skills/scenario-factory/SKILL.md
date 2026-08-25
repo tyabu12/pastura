@@ -79,7 +79,8 @@ Read four sources, in order:
   **grep the `### S` heading and `paper:` lines only, never Read them whole**
   (context budget). A runner-up that lost only on axis-distinctness may be
   selected tonight; a sketch that lost twice on paper is a saturated-family
-  signal — do not re-sketch it.
+  signal — do not re-sketch it. Also `grep '^- open' data/factory/incubator.md`
+  here, so Step 1.5 already knows whether the incubation lane fires tonight.
 
 Dedup semantics (sourced from (a)+(b)+(c)): the new batch must not repeat same
 premise, same persona cast, or a theme judged ≤2 on humor twice in a row.
@@ -148,13 +149,13 @@ the 2 fresh slots only — the v2 keeps its original axis. A fired tripwire
 
 Sketching in-session burns no inference; the harness run (~4–10 min each) is
 the bottleneck, so selecting at sketch level buys ~3× candidate diversity per
-inference minute (第1弾 #952/#955 and 第2弾 #956/#960 tuned judging and lessons;
-this round moves selection BEFORE the run).
+inference minute (rounds 1–2 tuned judging and lessons; this round moves
+selection BEFORE the run).
 
 ### 2a — Sketch 8–10 candidates
 
 Sketch into `data/factory/sketches/<DATE>.md` (create the dir). One block each,
-**≤6 lines**: `### S<n> <slug>`, premise (1 line), cast (3–4 personas, 1 line),
+**≤7 lines**: `### S<n> <slug>`, premise (1 line), cast (3–4 personas, 1 line),
 `axis:` (a Step 1.5 target), phase spine + inference estimate (2c formula) on
 one line, PLAYBOOK rules relied on + any `[hypothesis]` lever, and a `paper:`
 line. Span ≥3 distinct Step 1.5 axes, including ≥1 comedy sketch (rule 29). If
@@ -176,8 +177,9 @@ stated shortfall beats a silent one.
 ### 2b — Select
 
 Rank by total; take the top 3 (top 2 when the incubation lane fires) subject to:
-distinct axes across the fresh slots, exactly one comedy slot among the fresh
-slots (rule 29), batch inference ≤ ~120. **Precedence when constraints collide:
+distinct axes across the fresh slots, at least one comedy slot among the
+fresh slots (rule 29 is a floor — the humor datapoint), batch inference
+≤ ~120. **Precedence when constraints collide:
 census tripwire > rule-29 comedy slot > incubation lane.** Append a
 `## Selection` block to the sketch file (ranking + one-line reason per
 pick/drop) so Step 1(d) can read it back next night.
@@ -186,8 +188,9 @@ pick/drop) so Step 1(d) can read it back next night.
 an open entry (line starts with `- open`, `attempts: <2`), the 3rd slot is that
 scenario's v2 — take the OLDEST open entry. Copy its original YAML from
 `data/factory/scenarios/<orig date>/` to
-`data/factory/scenarios/<DATE>/<slug>_v2.yaml` (`_v3` on the second attempt),
-set `id: factory_<DATESTAMP>_<slug>_v2`, and apply ONLY the entry's recorded
+`data/factory/scenarios/<DATE>/<id>.yaml` with
+`id: factory_<DATESTAMP>_<slug>_v2` (`_v3` on the second attempt — the file
+follows the id, same as a fresh slot), and apply ONLY the entry's recorded
 `fix:` — single-lever discipline, so the score delta is attributable (same rule
 as `/scenario-refine`'s A/B). If the original YAML is missing (pruned /
 different checkout), rewrite the entry's leading `- open` to `- retired` with
@@ -197,11 +200,12 @@ when the incubator is absent, empty, or all-closed.
 
 ### 2c — Author the full YAMLs
 
-For the selected sketches only. Write 3 files to
-`data/factory/scenarios/<DATE>/<id>.yaml` with
-`id: factory_<DATESTAMP>_<slug>` (snake_case slug, also the filename). The
-v2's Step 5 results row: `axis` = `incubator / <original axis>`, and `theme`
-begins `v2 of <original id> — <fix applied>`.
+For the selected sketches only — write the FRESH files (3, or 2 when the lane
+fired; the v2 already exists from 2b) to `data/factory/scenarios/<DATE>/<id>.yaml`
+with `id: factory_<DATESTAMP>_<slug>` (snake_case slug, also the filename). The
+v2's Step 5 results row keeps `axis` as the original two-part axis (the
+rotation scan reads that column against the census vocabulary) and marks the
+lane in `theme`, which begins `v2 of <original id> — <fix applied>`.
 
 Theme: **driven by the per-scenario axis from Step 1.5**, not a fixed focus. The
 oogiri / comedy family is a strong default *tone* — use
@@ -355,7 +359,10 @@ the comment). The judge is a quality filter, not a safety screen.
 ### Incubator (near-miss queue)
 
 After scoring, append to `data/factory/incubator.md` (create with a one-line
-header if absent) when a run is a **near miss**: status `ok`, total ≥ **60% of
+header if absent) when a **fresh-slot** run is a **near miss** — an incubated
+v2 is never queued as a new entry; its result goes ONLY into the v2-outcome
+update below, or each `_vN` id would restart at `attempts: 0` and defeat the
+cap: status `ok`, total ≥ **60% of
 the available max** (15/25; 12/20 when humor is null; 9/15 when humor and
 development both are), AND the judge comment names ONE concrete promotion
 blocker with a mechanical fix mapped to a PLAYBOOK rule or lever (rule 5
@@ -363,8 +370,9 @@ blocker with a mechanical fix mapped to a PLAYBOOK rule or lever (rule 5
 rule 1 field-name drift → guard). A `failed` run whose crash is design-caused
 with a known fix (rules 2/3) also qualifies. NOT a near miss: a vague blocker
 ("not funny enough") or a model-limit one (rules 19/28 territory) — those are
-lessons-inbox material. Entry shape (status token line-initial so grep anchors),
-**grep-before-append** so one id is never queued twice:
+lessons-inbox material. Entry shape (status token line-initial so grep anchors);
+**grep-before-append on the base `<slug>`**, not the exact id, so a scenario
+family is never queued twice:
 
 ```
 - open <DATE> <id> total=<n>/<max> blocker: <one line> fix: <one line, single lever> attempts: 0
@@ -374,9 +382,9 @@ lessons-inbox material. Entry shape (status token line-initial so grep anchors),
 blocker cleared AND total ≥ original → change `- open` to `- resolved`, append
 ` resolved: <DATE> Δ+<n>`; it is now a **promotion suggestion** (Step 6 reports
 both YAML paths; never auto-promoted — § Promotion). Otherwise bump `attempts:`
-and append ` <DATE>: <why still blocked>`; at 2 attempts change it to
-`- retired` and append ` retired: <DATE>`, so the lane never sinks a third
-night into it.
+and append ` <DATE>: <why still blocked>`; if it now reads `attempts: 2`,
+change `- open` to `- retired` and append ` retired: <DATE>`, so the lane
+never sinks a third night into it.
 
 ## Step 5 — Append the digest
 
