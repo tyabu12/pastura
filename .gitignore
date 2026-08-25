@@ -65,6 +65,8 @@ __pycache__/
 # #515 / #521) — local-only.
 data/factory/runs/
 data/factory/scenarios/
+# Paper-tournament sketch seed bank (#1541) — same local-only channel.
+data/factory/sketches/
 
 # Scenario-refine (/scenario-refine #730) raw run logs and A/B improvement
 # candidate YAMLs — local-only. The skill's hard safety boundary is that it
@@ -83,6 +85,7 @@ data/factory/digest-index.jsonl
 data/factory/audit-digest.md
 data/queue/digest.md
 data/factory/lessons-inbox.md
+data/factory/incubator.md
 
 # Harness transcripts backing gallery highlights (ADR-029) — local-only by
 # decision: the pre-commit human sign-off is the sole durable record of a

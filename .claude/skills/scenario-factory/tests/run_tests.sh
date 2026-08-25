@@ -273,4 +273,18 @@ REAL=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json 
 echo "$REAL" | grep -q "NEW ENGINE MECHANICS" \
   && fail "census: unexpected drift against real PhaseType.swift (new phase needs a census axis)"
 
+# --- SKILL.md ↔ .gitignore contract (#1541) ---------------------------------
+# The paper-tournament seed bank and the incubator queue are local-only files
+# the skill writes every night; if either path drops out of .gitignore the
+# nightly Routine dirties the main checkout, and if SKILL.md stops naming them
+# the prose and the ignore list have drifted apart.
+# check-ignore -v names the SOURCE rule, so a match coming from
+# .git/info/exclude or a global excludesfile (the tracked entry deleted) fails.
+for P in data/factory/sketches/x.md data/factory/incubator.md; do
+  SRC=$(git -C "$REPO_ROOT" check-ignore -v "$P" | cut -f1 | cut -d: -f1 || true)
+  [ "$SRC" = ".gitignore" ] || fail "gitignore: $P not ignored by tracked .gitignore (source: ${SRC:-none})"
+done
+grep -q "data/factory/sketches/" ../SKILL.md || fail "SKILL.md: sketch seed bank path missing"
+grep -q "data/factory/incubator.md" ../SKILL.md || fail "SKILL.md: incubator queue path missing"
+
 echo "ALL TESTS PASSED"
