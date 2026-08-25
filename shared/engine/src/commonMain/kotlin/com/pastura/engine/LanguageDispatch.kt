@@ -15,8 +15,11 @@ package com.pastura.engine
  * falls to **ja**, not en.
  *
  * That consequence is load-bearing here in a way it is not in Swift: Swift's
- * `ScenarioValidator` gates the input, but that validator is a Stage-3 port
- * (ADR-023 §4), so **no Kotlin gate enforces `{"ja", "en"}` yet**. Until it
+ * `ScenarioValidator` gates the input at the run preflight. Kotlin's
+ * [ScenarioValidator] ports the run gate (`validate`) but is **not wired into
+ * [SimulationEngine]** — ADR-023 §4 gates the preflight on the validator and
+ * `ScenarioSemanticLinter` together, and the linter is unported — so **no
+ * Kotlin gate enforces `{"ja", "en"}` on the run path yet**. Until the wiring
  * lands, an unvalidated scenario reaches this function directly and silently
  * renders ja. Preserved as-is rather than "hardened" — a divergence here would
  * make Stage-4 transcript parity fail for exactly the inputs the validator is
