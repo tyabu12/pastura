@@ -432,20 +432,25 @@ fi
 
 # --- Build candidate entry -------------------------------------------------
 
-# ADR-029 highlight fields are derivable from neither the YAML nor any flag of
-# this script, and update mode replaces the entry wholesale — so without this
-# carry-forward, `--update` on a highlighted entry drops them. The post-validate
-# gate then fails on the orphaned highlight file and restores the backup, so
-# nothing is destroyed, but the error names an orphan and never mentions the
-# dropped fields.
+# ADR-029 highlight fields (and any other key this script does not manage —
+# e.g. ADR-020's `min_engine_version`, `featured`) are derivable from neither
+# the YAML nor any flag of this script, and update mode replaces the entry
+# wholesale — so without this carry-forward, `--update` drops them silently.
+# A dropped highlight field trips the post-validate gate (orphaned highlight
+# file) and restores the backup, so nothing is destroyed there — but a
+# dropped `min_engine_version` / `featured` has no such gate and would
+# silently vanish.
 #
-# Selected by `highlight_` prefix rather than by naming the two keys: the
-# fail-safe direction is carrying an unrecognised field, not dropping it, and a
-# field added to the contract later would otherwise vanish unnoticed.
-HIGHLIGHT_FIELDS='{}'
+# Selected by "every key NOT in the fields this script manages" rather than a
+# `highlight_` prefix allowlist: the fail-safe direction is carrying an
+# unrecognised field, not dropping it, so a field added to the contract later
+# is carried forward automatically instead of vanishing unnoticed.
+EXTRA_FIELDS='{}'
 if [ "$MODE" = "update" ]; then
-  HIGHLIGHT_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \
-    | jq -c 'with_entries(select(.key | startswith("highlight_")))')
+  EXTRA_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \
+    | jq -c 'del(.id, .title, .category, .description, .author,
+      .recommended_model, .estimated_inferences, .agent_count, .rounds,
+      .phases, .language, .yaml_url, .yaml_sha256, .added_at)')
 fi
 
 NEW_ENTRY=$(jq -n \
@@ -462,7 +467,7 @@ NEW_ENTRY=$(jq -n \
   --arg language "$YAML_LANGUAGE" \
   --arg yaml_url "$YAML_BASENAME" \
   --arg yaml_sha256 "$YAML_SHA" \
-  --argjson highlight "$HIGHLIGHT_FIELDS" \
+  --argjson extra "$EXTRA_FIELDS" \
   --arg added_at "$ADDED_AT" \
   '{
     id: $id,
@@ -479,7 +484,7 @@ NEW_ENTRY=$(jq -n \
     yaml_url: $yaml_url,
     yaml_sha256: $yaml_sha256
   }
-  + $highlight
+  + $extra
   + {
     added_at: $added_at
   }')

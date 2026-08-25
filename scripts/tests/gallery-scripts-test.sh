@@ -225,6 +225,19 @@ printf 'y\n' > "$R/fake-tty"
 runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/fake-tty" bash scripts/add-gallery-entry.sh --update foo_v1
 expect_ok "A9 fake-tty confirm exits 0"; expect_out "Updated entry" "A9 fake-tty update message"
 
+# A10 — --update carries forward a key this script does not manage (e.g.
+# ADR-020's min_engine_version / featured), not just highlight_*-prefixed
+# ones — regression for the old highlight_-prefix-only allowlist silently
+# dropping any other unrecognized field.
+jq '.scenarios[0].min_engine_version = "1.2.0" | .scenarios[0].featured = 1' \
+  "$R/docs/gallery/gallery.json" > "$R/docs/gallery/gallery.json.t"
+mv "$R/docs/gallery/gallery.json.t" "$R/docs/gallery/gallery.json"
+mk_gallery_yaml "$R" foo_v1 5 3 "a10 body"
+runc "$R" bash scripts/add-gallery-entry.sh --update foo_v1 --non-interactive
+expect_ok "A10 update exits 0"
+runc "$R" jq -r '.scenarios[0] | "\(.min_engine_version) \(.featured)"' docs/gallery/gallery.json
+expect_out "1.2.0 1" "A10 unmanaged keys carried forward"
+
 # A3 — filename stem != YAML id rejected.
 R="$(new_repo)"; mk_gallery_yaml "$R" wrongstem 4 2
 # Rewrite the internal id so stem (wrongstem) != id (otherid).
