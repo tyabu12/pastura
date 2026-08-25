@@ -99,7 +99,11 @@ distribution (the flag authenticates via that session).
 > Apple's servers, not the Mac's keychain, so there is nothing to export as a
 > `.p12` and a new machine needs no cert of its own — just the signed-in Apple
 > ID + `-allowProvisioningUpdates`. (The `.p12` export route applies only to a
-> traditional, non-cloud "Apple Distribution" certificate.)
+> traditional, non-cloud "Apple Distribution" certificate.) Consequently
+> `security find-identity -v -p codesigning` listing **no** distribution
+> identity on this machine is normal, not a broken setup. If releases ever move
+> to unattended CI, the signed-in-Apple-ID session is unavailable there — pass
+> an ASC API key (App Manager role) to `xcodebuild` instead.
 
 ### 5. Install fastlane
 
@@ -109,6 +113,10 @@ bundle install            # generates Gemfile.lock (recommend committing it)
 
 If `bundle install` fails on the system Ruby (2.6.x), install a newer Ruby
 (`brew install ruby`) and re-run.
+
+Non-interactive shells (scripts, agents) don't read `~/.zshrc`, so the Homebrew
+Ruby silently loses to the system 2.6.x there — prefix `bundle` / `fastlane`
+invocations with an explicit `PATH="/opt/homebrew/opt/ruby/bin:$PATH"`.
 
 ### 6. Verify
 
