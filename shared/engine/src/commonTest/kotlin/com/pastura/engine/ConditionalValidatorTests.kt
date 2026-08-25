@@ -27,6 +27,11 @@ import kotlin.test.assertTrue
  * `SimulationError.ScenarioValidationFailed`, rewraps the message as
  * `"$phaseLabel: ..."` before rethrowing — so these tests pin the wrapped
  * validator-level message, not `ConditionEvaluator.parse`'s own rendering.
+ *
+ * The ADR-023 §12 condition-4 perturbation record for `ScenarioValidator` lives in
+ * [ScenarioValidatorTests]' class KDoc and covers this file's claimants too — both
+ * suites were run together for every mutation, and three of its rows name tests
+ * added here.
  */
 class ConditionalValidatorTests {
 
@@ -389,6 +394,49 @@ class ConditionalValidatorTests {
         )
         val caught = assertFailsWith<SimulationException> { validator.validate(scenario) }
         assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    @Test
+    fun rejectsMalformedConditionWithPhaseLabelPrefix() {
+        // No Swift sibling: neither side asserted the `"$phaseLabel: "` rewrap, so
+        // the condition-4 sweep found dropping the prefix green across all 86 tests
+        // (#1552). The two tests above accept any `ScenarioValidationFailed`, which
+        // `ConditionEvaluator.parse` throws on its own — only this one can tell the
+        // validator's rewrap from the evaluator's raw rendering.
+        val scenario = makeScenario(
+            phases = listOf(
+                Phase(
+                    type = PhaseType.CONDITIONAL,
+                    condition = "(current_round == 1 && max_score > 0",
+                    thenPhases = listOf(Phase(type = PhaseType.SUMMARIZE, template = "t")),
+                ),
+            ),
+        )
+        val caught = assertFailsWith<SimulationException> { validator.validate(scenario) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.startsWith("Phase 1 (conditional): "))
+    }
+
+    @Test
+    fun rejectsEmptyConditionWithMissingIfMessage() {
+        // No Swift sibling: [rejectsEmptyCondition] and friends accept any
+        // `ScenarioValidationFailed`, and `ConditionEvaluator.parse("")` throws one
+        // too — so deleting the fail-fast empty-`if` guard stayed green in the
+        // condition-4 sweep (#1552). Only the message tells the two apart.
+        val scenario = makeScenario(
+            phases = listOf(
+                Phase(
+                    type = PhaseType.CONDITIONAL,
+                    condition = "",
+                    thenPhases = listOf(Phase(type = PhaseType.SUMMARIZE, template = "t")),
+                ),
+            ),
+        )
+        val caught = assertFailsWith<SimulationException> { validator.validate(scenario) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("missing or empty 'if' expression"))
     }
 
     @Test

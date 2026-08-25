@@ -18,7 +18,131 @@ import kotlin.test.assertTrue
  * and `ScenarioValidatorTests+OutputFieldNames.swift`
  * (`Pastura/PasturaTests/Engine/`) — 62 tests, 1:1 by name with those four files.
  *
- * The ADR-023 §12 condition-4 perturbation record is added in a later commit.
+ * Three tests here and in [ConditionalValidatorTests] have **no Swift sibling** —
+ * [rejectsEventInjectWithEmptyDictSource],
+ * [ConditionalValidatorTests.rejectsMalformedConditionWithPhaseLabelPrefix], and
+ * [ConditionalValidatorTests.rejectsEmptyConditionWithMissingIfMessage]. They were
+ * added because the sweep below found their mechanisms uncovered on **both** sides;
+ * see note 3.
+ *
+ * ## ADR-023 §12 condition-4 perturbation record
+ *
+ * Each mechanism of
+ * `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioValidator.kt` was
+ * broken in isolation and the named **dedicated claimant** — a test that detects the
+ * break through **its own** assertion — confirmed to redden. Every mutation's anchor
+ * count was asserted before applying (all 50 matched **exactly once**) and the
+ * mutated text re-read to confirm it landed; a `replace` that silently no-ops leaves
+ * the original behaviour and reads as verified. The file was restored byte-identically
+ * after each run. The unmutated baseline was measured green (89 tests, both suites)
+ * immediately before the first mutation and again after the last revert, so every
+ * reddening below is signal rather than pre-existing noise. Counts are measured, not
+ * derived — re-measure rather than reason if you change a fixture. Measured
+ * 2026-08-26, #1552.
+ *
+ * The sweep ran **only** these two suites. That is sufficient rather than a shortcut:
+ * `grep` confirms no other `shared/engine` code constructs [ScenarioValidator] — the
+ * gate is deliberately not wired into the engine yet (see the class KDoc on
+ * [ScenarioValidator]), so no other suite could redden.
+ *
+ * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
+ * |---|---|---|---|
+ * | `language` gate | `scenario.language !in ACCEPTED_LANGUAGES` → `in` | [rejectsInvalidLanguage] | 52 — every valid-language fixture then throws |
+ * | `simulationLanguage` null-accept arm | `val simulationLanguage = scenario.simulationLanguage` → `… ?: "fr"` | [acceptsNilSimulationLanguage] | 50 — every fixture leaves it null; see note 2 |
+ * | …membership polarity | `simulationLanguage !in …` → `in` | [rejectsInvalidSimulationLanguage] | none |
+ * | `agentCount` ≥ 2 | `if (scenario.agentCount < 2)` → `if (false)` | [rejectsZeroAgents], [rejectsSingleAgent] | none |
+ * | `agentCount` ≤ 10 | `if (scenario.agentCount > 10)` → `if (false)` | [rejectsMoreThan10Agents] | none |
+ * | persona count matches `agentCount` | `!=` → `==` | [rejectsPersonaCountMismatch] | 51 — every matched-persona fixture then throws |
+ * | `rounds` ≤ 30 | `if (scenario.rounds > 30)` → `if (false)` | [rejectsMoreThan30Rounds] | none |
+ * | `logWindow` ≥ 1 | `logWindow < 1` → `logWindow < 0` (not `if (false)`; see note 2) | [rejectsZeroLogWindow] | none |
+ * | Estimate > 100 is an error | `if (estimated > 100)` → `if (false)` | [errorsWhenInferencesExceed100] | none |
+ * | Estimate > 50 is a warning | `if (estimated > 50)` → `if (false)` | [warnsWhenInferencesExceed50] | none |
+ * | `validatePhases` ASSIGN arm | → `Unit` | all 7 top-level assign cases, e.g. [rejectsAssignAllWithDictionarySource] | none |
+ * | `validatePhases` CONDITIONAL arm | → `Unit` | all 22 rejecting [ConditionalValidatorTests] cases, plus [rejectsOutOfRangeInNestedBranch], [rejectsCjkOutputKeyInsideConditionalBranch], [rejectsEventInjectWithEmptyArraySourceInsideConditional] | none — all 25 fail on their own assertion |
+ * | `validatePhases` REFLECT arm | → `Unit` | [rejectsReflectWithoutNoteOutputAtRunGate] | none |
+ * | `validatePhases` WHISPER arm | → `Unit` | [rejectsWhisperWithoutStatementOutputAtRunGate] | none |
+ * | `validatePhases` RELATIONSHIP_UPDATE arm | → `Unit` | [rejectsRelationshipUpdateWithNoRuleAtRunGate], [rejectsRelationshipUpdateWithEmptyActionDeltas] | none |
+ * | `validatePhases` EVENT_INJECT arm | → `Unit` | all 9 top-level event_inject cases, e.g. [rejectsEventInjectWithStringSource] | none |
+ * | `max_sentences` range | `value !in 1..6` → `!in 0..7` | [rejectsMaxSentencesBelowRange], [rejectsMaxSentencesAboveRange], [rejectsOutOfRangeInNestedBranch] | none |
+ * | …checked at the **branch** site too | the `validateMaxSentences(subPhase, subLabel)` call deleted (branch site only) | [rejectsOutOfRangeInNestedBranch] | none |
+ * | Empty-`if` guard | `if (trimmedCondition.isEmpty())` → `if (false)` | [ConditionalValidatorTests.rejectsEmptyConditionWithMissingIfMessage] — **added**, note 3 | none |
+ * | Conditional parse pre-flight | the `ConditionEvaluator().parse(…)` call removed | [ConditionalValidatorTests.rejectsMalformedConditionAtValidateTime], [ConditionalValidatorTests.rejectsDanglingCombinatorAtValidateTime], [ConditionalValidatorTests.rejectsMalformedConditionWithPhaseLabelPrefix] | none |
+ * | `"$phaseLabel: "` rewrap of a parse error | the prefix dropped | [ConditionalValidatorTests.rejectsMalformedConditionWithPhaseLabelPrefix] — **added**, note 3 | none |
+ * | Empty-branches guard | `if (thenCount == 0 && elseCount == 0)` → `if (false)` | [ConditionalValidatorTests.rejectsBothBranchesEmpty], [ConditionalValidatorTests.rejectsBothBranchesNil] | none |
+ * | Depth guard | `if (depth > 0)` → `if (false)` | *(none — expected green, note 4)* | none |
+ * | Branch rejects CONDITIONAL | arm → `Unit` | [ConditionalValidatorTests.rejectsNestedConditionalInThenBranch], [ConditionalValidatorTests.rejectsNestedConditionalInElseBranch] | none |
+ * | Branch rejects REFLECT | arm → `Unit` | [ConditionalValidatorTests.rejectsReflectInThenBranch], [ConditionalValidatorTests.rejectsReflectInElseBranch] | none |
+ * | Branch rejects WHISPER | arm → `Unit` | [ConditionalValidatorTests.rejectsWhisperInThenBranch], [ConditionalValidatorTests.rejectsWhisperInElseBranch] | none |
+ * | Branch rejects RELATIONSHIP_UPDATE | arm → `Unit` | [ConditionalValidatorTests.rejectsRelationshipUpdateInThenBranch], [ConditionalValidatorTests.rejectsRelationshipUpdateInElseBranch] | none |
+ * | Branch rejects NARRATE | arm → `Unit` | [ConditionalValidatorTests.rejectsNarrateInThenBranch], [ConditionalValidatorTests.rejectsNarrateInElseBranch] | none |
+ * | Branch ASSIGN shape check | arm → `Unit` | [ConditionalValidatorTests.rejectsAssignShapeMismatchInThenBranch] | none |
+ * | Branch EVENT_INJECT shape check | arm → `Unit` | [ConditionalValidatorTests.rejectsEventInjectInThenBranchWithMissingSource], [ConditionalValidatorTests.rejectsEventInjectInElseBranchWithProbabilityOutOfRange], [rejectsEventInjectWithEmptyArraySourceInsideConditional] | none |
+ * | reflect `note` guard | `outputSchema["note"] == null` → `false` | [rejectsReflectWithoutNoteOutputAtRunGate] | none |
+ * | whisper `statement` guard | `outputSchema["statement"] == null` → `false` | [rejectsWhisperWithoutStatementOutputAtRunGate] | none |
+ * | relationship_update no-rule guard | `!hasVoteRule && !hasActionRule` → `false` | [rejectsRelationshipUpdateWithNoRuleAtRunGate], [rejectsRelationshipUpdateWithEmptyActionDeltas] | none |
+ * | assign source-missing guard | the `?: throw …SourceNotFound` → `?: return` | [rejectsAssignAllWhenSourceKeyMissingFromExtraData], [rejectsAssignRandomOneWhenSourceKeyMissingFromExtraData] | none |
+ * | assign ALL-arm rejection | grouped-shape arm → `Unit` | [rejectsAssignAllWithArrayOfDictionariesSource], [rejectsAssignAllWithDictionarySource], [rejectAssignAllWithBadShapeIncludesPhaseIndexAndSourceKey], [ConditionalValidatorTests.rejectsAssignShapeMismatchInThenBranch] | none |
+ * | assign RANDOM_ONE-arm rejection | ungrouped-shape arm → `Unit` | [rejectsAssignRandomOneWithArraySource], [rejectsAssignRandomOneWithStringSource] | none |
+ * | event_inject missing-`source` guard | `if (sourceKey.isEmpty())` → `if (false)` | [rejectsEventInjectWithMissingSource] | none — see note 5 |
+ * | event_inject source-not-found guard | the `?: throw …SourceNotFound` → `?: return` | [rejectsEventInjectWhenSourceKeyAbsentFromExtraData], [ConditionalValidatorTests.rejectsEventInjectInThenBranchWithMissingSource] | none |
+ * | event_inject empty-string-list guard | `if (sourceValue.value.isEmpty())` → `if (false)` | [rejectsEventInjectWithEmptyArraySource], [rejectsEventInjectWithEmptyArraySourceInsideConditional] | none |
+ * | event_inject wrong-shape arm | string / dictionary arm → `Unit` | [rejectsEventInjectWithStringSource], [rejectsEventInjectWithDictionarySource] | none |
+ * | event_inject empty-**events** guard (dict shape) | `if (entries.isEmpty())` → `if (false)` | [rejectsEventInjectWithEmptyDictSource] — **added**, note 3 | none |
+ * | event_inject entry-missing-`text` guard | `if (entries.any { … })` → `if (false)` | [rejectsEventInjectDictEntryMissingText] | none |
+ * | `probability` range | `value !in 0.0..1.0` → `!in -1.0..2.0` | [rejectsEventInjectWithProbabilityAboveOne], [rejectsEventInjectWithNegativeProbability], [ConditionalValidatorTests.rejectsEventInjectInElseBranchWithProbabilityOutOfRange] | none |
+ * | Output-field-name check at the **top-level** site | the `validateOutputFieldNames(phase, label)` call deleted | [rejectsCjkPrimaryOutputKey], [rejectsCjkSecondaryOutputKey], [rejectsNonAsciiLatinAndEmojiOutputKeys] | none |
+ * | …at the **branch** site | the `validateOutputFieldNames(subPhase, subLabel)` call deleted | [rejectsCjkOutputKeyInsideConditionalBranch] | none |
+ * | The field-name predicate itself | `firstOrNull { !isValidFieldName(it) }` → `firstOrNull { false }` | all four of the above | none |
+ * | `Long.clampToInt` narrowing | `coerceAtMost(Int.MAX_VALUE.toLong())` dropped | *(none — expected green, note 6)* | none |
+ * | reflect message `type` arg | `type = phase.type.serialName()` → `"x"` | *(none — expected green, note 7)* | none |
+ * | whisper message `type` arg | same, whisper site | *(none — expected green, note 7)* | none |
+ * | relationship_update message `type` arg | same, relationship_update site | *(none — expected green, note 7)* | none |
+ *
+ * Seven things this table encodes that are easy to misread:
+ *
+ * 1. ⚠️ **Re-measure the whole table when you add a fixture, not the row you were
+ *    thinking about** (the lesson [InferenceEstimatorTests]' record was corrected
+ *    for). This record is the second sweep: adding the three tests in note 3 moved
+ *    three `Incidental` / claimant cells that had nothing to do with them
+ *    (`validatePhases` CONDITIONAL 23 → 25 red, EVENT_INJECT 8 → 9, parse pre-flight
+ *    2 → 3). Every row above was re-measured after they landed.
+ * 2. **Two mutations do not compile in their obvious form, and the substitutes are
+ *    not equivalent.** `if (false)` on the `logWindow` and `simulationLanguage`
+ *    guards drops the smart cast their `!= null &&` left arm provides, so the throw
+ *    argument stops type-checking — the run then reddens *nothing* because no test
+ *    executes, which is a measurement defect, not a green. Both were re-run with
+ *    compiling substitutes (`< 0`, and an `?: "fr"` on the binding) that break the
+ *    same arm. A row that reports zero failures is only evidence when the suite
+ *    actually ran; the driver asserts a non-zero test count for that reason.
+ * 3. **Three mechanisms had no claimant on the first sweep, and the Swift suite has
+ *    none either** — verified by grep, not assumed. Rather than paper over them:
+ *    [rejectsEventInjectWithEmptyDictSource] (the dict-shaped source's own
+ *    empty-list guard — only the string shape was covered),
+ *    [ConditionalValidatorTests.rejectsMalformedConditionWithPhaseLabelPrefix], and
+ *    [ConditionalValidatorTests.rejectsEmptyConditionWithMissingIfMessage]. The last
+ *    two share one cause worth stating: `ConditionEvaluator.parse` throws the *same*
+ *    `SimulationError.ScenarioValidationFailed` the validator's own guards throw, so
+ *    every pre-existing test that asserts only the error **type** is blind to which
+ *    layer produced it. Only a message assertion separates them.
+ * 4. **The depth guard is unreachable, and that is the finding.** `validateBranch`
+ *    rejects a nested `conditional` outright, so `validateConditionalPhase` is only
+ *    ever entered with `depth = 0` and no fixture can reach `depth > 0`. It is
+ *    defensive parity with the Swift original, not dead code to delete — but nothing
+ *    here watches it.
+ * 5. **The event_inject missing-`source` row is a claimant only because its test
+ *    asserts the message.** With the guard disabled, the empty key falls through to
+ *    the source-not-found lookup and still throws, so an error-type-only assertion
+ *    would have stayed green; [rejectsEventInjectWithMissingSource] reddens on its
+ *    `contains("missing 'source'")` line. Same mechanism as note 3, caught in time.
+ * 6. **`clampToInt` is expected green.** Both call sites are documented as
+ *    display-only (the `> 100` throw has already fired, and the `> 50` band cannot
+ *    exceed `Int.MAX_VALUE`), so no reachable input distinguishes the clamp from a
+ *    bare `toInt()`.
+ * 7. **The three `serialName()` rows are an acknowledged gap, not a covered
+ *    mechanism.** Only a message-inspecting test could see the phase-type token, and
+ *    the reflect / whisper / relationship_update rejection tests assert the phase
+ *    label and the missing field name but never the type. A swapped or hardcoded
+ *    `type` argument would ship silently.
  */
 class ScenarioValidatorTests {
 
@@ -594,6 +718,26 @@ class ScenarioValidatorTests {
         )
         // Must NOT throw.
         validator.validate(scenario)
+    }
+
+    @Test
+    fun rejectsEventInjectWithEmptyDictSource() {
+        // No Swift sibling: the string-shaped empty-source case is covered on both
+        // sides, but nothing exercised `validateDictEventEntries`' own empty-list
+        // guard — the condition-4 sweep found it green under mutation. Added here
+        // because the guard is a distinct site from the string-shape one (#1552).
+        val scenario = makeEventInjectScenario(
+            source = "events",
+            probability = 1.0,
+            extraData = mapOf("events" to AnyCodableValue.ArrayOfDictionariesValue(emptyList())),
+        )
+        val caught = assertFailsWith<SimulationException> { validator.validate(scenario) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val message = error.message
+        assertTrue(message.contains("Phase 1 (event_inject)"))
+        assertTrue(message.contains("'events'"))
+        assertTrue(message.contains("empty"))
     }
 
     @Test
