@@ -124,8 +124,9 @@ ADD_GALLERY_TTY="${PASTURA_ADD_GALLERY_TTY:-/dev/tty}"
 # Opens $ADD_GALLERY_TTY on fd 3 and reads one line into $1. `[ -e /dev/tty ]`
 # and `[ -t 0 ]` both under/over-detect (the device node can exist but fail
 # to open — ENXIO — or stdin can be a pipe while the tty is fine), so this
-# probes with a real `exec` open and reports the actionable fix on failure
-# instead of the raw shell error ("Device not configured").
+# probes with a real open (in a subshell — see below) and reports the
+# actionable fix on failure instead of the raw shell error ("Device not
+# configured").
 # Locals are `__rft_`-prefixed: `printf -v "$1"` targets a variable by name,
 # and a caller (e.g. prompt_required) that also has a local `value` would
 # otherwise collide with an unprefixed local here — bash resolves `-v`'s
@@ -462,17 +463,17 @@ fi
 # Selected by "every key NOT in the fields this script manages" rather than a
 # `highlight_` prefix allowlist: the fail-safe direction is carrying an
 # unrecognised field, not dropping it, so a field added to the contract later
-# is carried forward automatically instead of vanishing unnoticed. `del(...)`
-# below is a hand-maintained mirror of the managed-key set built into
-# `NEW_ENTRY` just after — merged as `$extra + {managed fields}` (managed
-# fields win) so that if the two lists ever desync, a stale carried-forward
-# value can only be shadowed by a fresh one, never the reverse.
-EXTRA_FIELDS='{}'
+# is carried forward automatically instead of vanishing unnoticed. The
+# managed-key set is named once, inline in the jq filter below, and used
+# both to filter `$extra_raw` down to the truly-unmanaged keys AND to build
+# the object — so there is no second, hand-maintained key list that could
+# desync from it. Managed fields are also emitted first, preserving
+# existing entries' key order (curator-readable diffs;
+# scripts/tests/gallery-highlight-test.sh asserts highlight_url's position
+# relative to yaml_sha256).
+EXTRA_RAW='{}'
 if [ "$MODE" = "update" ]; then
-  EXTRA_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \
-    | jq -c 'del(.id, .title, .category, .description, .author,
-      .recommended_model, .estimated_inferences, .agent_count, .rounds,
-      .phases, .language, .yaml_url, .yaml_sha256, .added_at)')
+  EXTRA_RAW=$(printf '%s' "$EXISTING_ENTRY" | jq -c '.')
 fi
 
 NEW_ENTRY=$(jq -n \
@@ -489,10 +490,9 @@ NEW_ENTRY=$(jq -n \
   --arg language "$YAML_LANGUAGE" \
   --arg yaml_url "$YAML_BASENAME" \
   --arg yaml_sha256 "$YAML_SHA" \
-  --argjson extra "$EXTRA_FIELDS" \
+  --argjson extra_raw "$EXTRA_RAW" \
   --arg added_at "$ADDED_AT" \
-  '$extra
-  + {
+  '{
     id: $id,
     title: $title,
     category: $category,
@@ -505,9 +505,12 @@ NEW_ENTRY=$(jq -n \
     phases: $phases,
     language: $language,
     yaml_url: $yaml_url,
-    yaml_sha256: $yaml_sha256,
-    added_at: $added_at
-  }')
+    yaml_sha256: $yaml_sha256
+  } as $managed
+  | (($managed | keys_unsorted) + ["added_at"]) as $managed_keys
+  | $managed
+  + ($extra_raw | with_entries(select(.key as $k | ($managed_keys | index($k)) | not)))
+  + { added_at: $added_at }')
 
 # --- update-mode no-op short-circuit --------------------------------------
 #

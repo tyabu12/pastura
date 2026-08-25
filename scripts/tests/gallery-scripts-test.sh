@@ -257,20 +257,41 @@ runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/fake-tty" bash scripts/add-gallery-ent
   --description card --author tester
 expect_ok "A11 prompted category reaches confirmation, not a hard error"
 expect_out "Aborted." "A11 prompted category propagated to caller"
+case "$OUT" in
+  *"cannot be empty"*) bad "A11 category prompt regressed to the shadowing bug" ;;
+  *) PASS=$((PASS + 1)) ;;
+esac
 
-# A12 — a flag override wins over the pre-existing value in update mode,
-# even after widening the carry-forward (--recommended-model must not be
-# shadowed by $extra's unmanaged-field carry-forward).
+# A12 — a flag override wins over an unmanaged carried-forward key of the
+# SAME name colliding with a managed field would be impossible (the
+# managed-key set is derived from the constructed object itself, not a
+# second hand-maintained list, so the two cannot desync by construction).
+# What remains to pin: (1) a flag override still wins over the pre-existing
+# managed value, and (2) an unmanaged field lands AFTER the managed fields
+# and BEFORE added_at in the emitted entry — the ordering
+# scripts/tests/gallery-highlight-test.sh's H35 depends on for the real
+# ADR-029 highlight_* fields (a plain unmanaged key here, not
+# highlight_url/highlight_sha256, to avoid check-gallery-entry.sh's
+# highlight-validator gate, which this sandboxed repo doesn't scaffold).
 R="$(new_repo)"; mk_gallery_yaml "$R" ov_v1 4 2
 runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/ov_v1.yaml \
   --category creative --recommended-model gemma-4-e2b-q4-k-m \
   --estimated-inferences 8 --description card --author tester --non-interactive
 expect_ok "A12 add exits 0"
+jq '.scenarios[0].min_engine_version = "1.2.0"' \
+  "$R/docs/gallery/gallery.json" > "$R/docs/gallery/gallery.json.t"
+mv "$R/docs/gallery/gallery.json.t" "$R/docs/gallery/gallery.json"
 runc "$R" bash scripts/add-gallery-entry.sh --update ov_v1 \
   --recommended-model qwen-3-4b-q4-k-m --non-interactive
 expect_ok "A12 update exits 0"
 runc "$R" jq -r '.scenarios[0].recommended_model' docs/gallery/gallery.json
 expect_out "qwen-3-4b-q4-k-m" "A12 flag override wins over existing value"
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("yaml_sha256")' docs/gallery/gallery.json
+YAML_SHA_IDX="$OUT"
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | index("min_engine_version")' docs/gallery/gallery.json
+expect_out "$((YAML_SHA_IDX + 1))" "A12 unmanaged key ordered directly after managed fields"
+runc "$R" jq -r '.scenarios[0] | keys_unsorted | last' docs/gallery/gallery.json
+expect_out "added_at" "A12 added_at stays the last key"
 
 # A3 — filename stem != YAML id rejected.
 R="$(new_repo)"; mk_gallery_yaml "$R" wrongstem 4 2
