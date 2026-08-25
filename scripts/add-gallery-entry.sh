@@ -126,18 +126,28 @@ ADD_GALLERY_TTY="${PASTURA_ADD_GALLERY_TTY:-/dev/tty}"
 # to open — ENXIO — or stdin can be a pipe while the tty is fine), so this
 # probes with a real `exec` open and reports the actionable fix on failure
 # instead of the raw shell error ("Device not configured").
+# Locals are `__rft_`-prefixed: `printf -v "$1"` targets a variable by name,
+# and a caller (e.g. prompt_required) that also has a local `value` would
+# otherwise collide with an unprefixed local here — bash resolves `-v`'s
+# target against the nearest matching scope, silently writing this
+# function's own local instead of the caller's.
 read_from_tty() {
-  local var_name="$1"
-  local prompt="$2"
+  local __rft_var_name="$1"
+  local __rft_prompt="$2"
+  # Probed in a subshell first: `exec 3<file 2>/dev/null` with no command
+  # after it makes bash's redirections PERMANENT for the rest of the
+  # script — a failed open would silently swallow every later `>&2`
+  # prompt/error, not just this one. `(: 3<file) 2>/dev/null` scopes both
+  # the open attempt and the stderr suppression to the subshell.
   if ! (: 3<"$ADD_GALLERY_TTY") 2>/dev/null; then
-    echo "ERROR: cannot read from $ADD_GALLERY_TTY to prompt for $prompt — pass --non-interactive instead" >&2
+    echo "ERROR: cannot read from $ADD_GALLERY_TTY to prompt for $__rft_prompt — pass --non-interactive instead" >&2
     exit 1
   fi
-  local value
+  local __rft_value
   exec 3<"$ADD_GALLERY_TTY"
-  read -r value <&3
+  read -r __rft_value <&3
   exec 3<&-
-  printf -v "$var_name" '%s' "$value"
+  printf -v "$__rft_var_name" '%s' "$__rft_value"
 }
 
 ROOT="$(git rev-parse --show-toplevel)"
@@ -452,7 +462,11 @@ fi
 # Selected by "every key NOT in the fields this script manages" rather than a
 # `highlight_` prefix allowlist: the fail-safe direction is carrying an
 # unrecognised field, not dropping it, so a field added to the contract later
-# is carried forward automatically instead of vanishing unnoticed.
+# is carried forward automatically instead of vanishing unnoticed. `del(...)`
+# below is a hand-maintained mirror of the managed-key set built into
+# `NEW_ENTRY` just after — merged as `$extra + {managed fields}` (managed
+# fields win) so that if the two lists ever desync, a stale carried-forward
+# value can only be shadowed by a fresh one, never the reverse.
 EXTRA_FIELDS='{}'
 if [ "$MODE" = "update" ]; then
   EXTRA_FIELDS=$(printf '%s' "$EXISTING_ENTRY" \
@@ -477,7 +491,8 @@ NEW_ENTRY=$(jq -n \
   --arg yaml_sha256 "$YAML_SHA" \
   --argjson extra "$EXTRA_FIELDS" \
   --arg added_at "$ADDED_AT" \
-  '{
+  '$extra
+  + {
     id: $id,
     title: $title,
     category: $category,
@@ -490,10 +505,7 @@ NEW_ENTRY=$(jq -n \
     phases: $phases,
     language: $language,
     yaml_url: $yaml_url,
-    yaml_sha256: $yaml_sha256
-  }
-  + $extra
-  + {
+    yaml_sha256: $yaml_sha256,
     added_at: $added_at
   }')
 

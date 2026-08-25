@@ -238,6 +238,40 @@ expect_ok "A10 update exits 0"
 runc "$R" jq -r '.scenarios[0] | "\(.min_engine_version) \(.featured)"' docs/gallery/gallery.json
 expect_out "1.2.0 1" "A10 unmanaged keys carried forward"
 
+# A11 — prompt_required (interactive add mode, missing --category) writes
+# back to the CALLER's variable, not a same-named local inside
+# read_from_tty. Regression for a variable-name collision that made every
+# interactive required-field prompt fail with "cannot be empty" while A8/A9
+# (which use a non-colliding var name, "confirm") stayed green. The tty
+# seam replays the same first line on every read (each call reopens the
+# file at offset 0), so the answer also reaches the confirmation prompt —
+# "creative" != y/Y aborts cleanly. A live bug would instead exit 1 with
+# "category cannot be empty" before ever reaching the confirmation prompt.
+R="$(new_repo)"; mk_gallery_yaml "$R" prompt_v1 4 2
+mkdir -p "$R/Pastura/Pastura/Models"
+printf 'case creative = "creative"\n' > "$R/Pastura/Pastura/Models/GalleryScenario.swift"
+printf 'creative\n' > "$R/fake-tty"
+runc "$R" env PASTURA_ADD_GALLERY_TTY="$R/fake-tty" bash scripts/add-gallery-entry.sh \
+  docs/gallery/prompt_v1.yaml \
+  --recommended-model gemma-4-e2b-q4-k-m --estimated-inferences 8 \
+  --description card --author tester
+expect_ok "A11 prompted category reaches confirmation, not a hard error"
+expect_out "Aborted." "A11 prompted category propagated to caller"
+
+# A12 — a flag override wins over the pre-existing value in update mode,
+# even after widening the carry-forward (--recommended-model must not be
+# shadowed by $extra's unmanaged-field carry-forward).
+R="$(new_repo)"; mk_gallery_yaml "$R" ov_v1 4 2
+runc "$R" bash scripts/add-gallery-entry.sh docs/gallery/ov_v1.yaml \
+  --category creative --recommended-model gemma-4-e2b-q4-k-m \
+  --estimated-inferences 8 --description card --author tester --non-interactive
+expect_ok "A12 add exits 0"
+runc "$R" bash scripts/add-gallery-entry.sh --update ov_v1 \
+  --recommended-model qwen-3-4b-q4-k-m --non-interactive
+expect_ok "A12 update exits 0"
+runc "$R" jq -r '.scenarios[0].recommended_model' docs/gallery/gallery.json
+expect_out "qwen-3-4b-q4-k-m" "A12 flag override wins over existing value"
+
 # A3 — filename stem != YAML id rejected.
 R="$(new_repo)"; mk_gallery_yaml "$R" wrongstem 4 2
 # Rewrite the internal id so stem (wrongstem) != id (otherid).
