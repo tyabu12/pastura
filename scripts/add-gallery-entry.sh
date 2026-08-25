@@ -51,9 +51,17 @@
 #                                preserved from existing entry.
 #   --non-interactive           fail if any required field is missing
 #                                (no prompts, no confirmation). In
-#                                update mode, all fields default to
-#                                existing-entry values, so this works
-#                                without overrides.
+#                                update mode, fields not overridden by a
+#                                flag default to the existing entry's
+#                                values (and any field this script does
+#                                not manage — e.g. ADR-029 highlight_*,
+#                                ADR-020 min_engine_version/featured — is
+#                                carried forward unconditionally), so
+#                                this works without overrides. REQUIRED
+#                                for a caller with no usable tty (CI, an
+#                                agent's Bash tool): without it, a
+#                                missing field or the confirmation
+#                                prompt tries to read /dev/tty and fails.
 #
 # Failure modes — chosen behavior:
 #

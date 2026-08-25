@@ -298,7 +298,13 @@ In update mode:
 
 - Fields not overridden by a flag are **preserved** from the existing
   `gallery.json` entry — `--non-interactive` works without forcing
-  every field to be re-supplied.
+  every field to be re-supplied. Any field this script does not
+  manage (ADR-029's `highlight_*`, ADR-020's `min_engine_version` /
+  `featured`) is carried forward unconditionally.
+- Calling this script with no usable tty — CI, or an agent's Bash
+  tool — **requires `--non-interactive`**. Without it, a missing
+  required field or the confirmation prompt tries to read `/dev/tty`
+  and fails.
 - If the candidate entry is byte-identical to the existing one (no
   flag overrides AND unchanged YAML body), the script exits 0 with
   *No change needed* — `updated_at` is **not** bumped, so re-running
