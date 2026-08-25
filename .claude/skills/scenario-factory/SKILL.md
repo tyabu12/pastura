@@ -37,6 +37,15 @@ Non-goals:
   stderr lands in a `.stderr.log` sidecar next to each log)
 - Digest: `data/factory/digest.md` (gitignored local log — appended in
   place, never committed; bootstrapped by `append_digest.py` if absent)
+- Sketch seed bank: `data/factory/sketches/<DATE>.md` (gitignored; the
+  paper tournament of Step 2a, read back as seeds by Step 1(d))
+- Incubator queue: `data/factory/incubator.md` (gitignored; one-line
+  header, bootstrapped by the session on first append — same pattern as
+  `lessons-inbox.md`)
+- **Naming**: a factory `_v2` / `_v3` id suffix means an incubated re-author
+  of a FACTORY candidate (Step 2b lane, Step 4 queue); `/scenario-refine`'s
+  `__v2` (double underscore, under `improvements/`) is an A/B candidate for a
+  SHIPPED scenario — different lanes, different journals.
 - Per-run timeout: `600` seconds (not the harness default 1800 — bounds a
   wedged run at 2 attempts × 600 s)
 - Helper scripts: `.claude/skills/scenario-factory/scripts/` (incl.
@@ -52,7 +61,7 @@ Non-goals:
 
 ## Step 1 — Read prior scenarios (dedup)
 
-Read three sources, in order:
+Read four sources, in order:
 
 - **(a) The PLAYBOOK first** — `.claude/skills/scenario-factory/PLAYBOOK.md`
   (repo-tracked), in full. It is the **GENERATION GATE**: every generated
@@ -66,6 +75,11 @@ Read three sources, in order:
   freshest nuance — last nights' comments, lessons, and axis-rotation context.
   **NEVER read the whole digest** (it exceeds the session Read cap, ~39k
   tokens): read with `offset`/`limit`, or stop at the 2nd `## <date>` heading.
+- **(d) The newest 2 files in `data/factory/sketches/`** as a seed bank —
+  **grep the `### S` heading and `paper:` lines only, never Read them whole**
+  (context budget). A runner-up that lost only on axis-distinctness may be
+  selected tonight; a sketch that lost twice on paper is a saturated-family
+  signal — do not re-sketch it.
 
 Dedup semantics (sourced from (a)+(b)+(c)): the new batch must not repeat same
 premise, same persona cast, or a theme judged ≤2 on humor twice in a row.
@@ -126,32 +140,88 @@ semantics, output-field contract, and cost) and tracking issue #906 (the
 interestingness umbrella — design considerations for every recent / planned
 phase).
 
-## Step 2 — Generate 3 scenario YAMLs
+When the incubation lane fires (Step 2b) the distinct-axis requirement covers
+the 2 fresh slots only — the v2 keeps its original axis. A fired tripwire
+**outranks the lane**: skip the lane that night so the batch stays 3 fresh.
 
-Write 3 files to `data/factory/scenarios/<DATE>/<id>.yaml` with
-`id: factory_<DATESTAMP>_<slug>` (snake_case slug, also the filename).
+## Step 2 — Paper tournament, then generate 3 YAMLs
 
-Theme: **driven by the per-scenario axis from Step 1.5**, not a fixed
-focus. The oogiri / comedy family is a strong default *tone* — use
-`Pastura/Pastura/Resources/Presets/bokete.yaml` as the schema/tone
-reference — but the assigned mechanic axis dictates the *format* (e.g.
-`elimination` → knockout bracket, `branching` → `conditional` divergent
-paths, `reactive_event` → `event_inject`, `scoring_free` → observation /
-discussion with no vote), and an assigned **category** axis may rotate the
-premise out of comedy entirely (a `game_theory` cooperation dilemma, an
-`experimental` social-psych setup à la the original asch/trolley seeds). A
-non-comedy scenario is judged on its own terms — see Step 4. Each of the 3
-must differ from the other 2 AND from digest history in premise or
-mechanics, not merely in topic strings.
+Sketching in-session burns no inference; the harness run (~4–10 min each) is
+the bottleneck, so selecting at sketch level buys ~3× candidate diversity per
+inference minute (第1弾 #952/#955 and 第2弾 #956/#960 tuned judging and lessons;
+this round moves selection BEFORE the run).
 
-**Design defaults — subtract by default (#919):** author the SMALLER shape
-unless the assigned axis needs more. Concretely: **2 output fields**
-(`statement` + `inner_thought`), **3–4 agents**, and **no mandatory scoring**
-(a `narrate` score-free ending or `scoring_free` observation is fine — drop
-`vote → score_calc → summarize` when the payoff is the phenomenon). Each
-addition trades against 2B breakdown rate, tokens, and latency — justify it.
-Canonical guidelines (the numbers live here): `PLAYBOOK.md`
-§ "Subtract by default".
+### 2a — Sketch 8–10 candidates
+
+Sketch into `data/factory/sketches/<DATE>.md` (create the dir). One block each,
+**≤6 lines**: `### S<n> <slug>`, premise (1 line), cast (3–4 personas, 1 line),
+`axis:` (a Step 1.5 target), phase spine + inference estimate (2c formula) on
+one line, PLAYBOOK rules relied on + any `[hypothesis]` lever, and a `paper:`
+line. Span ≥3 distinct Step 1.5 axes, including ≥1 comedy sketch (rule 29). If
+8 are out of budget, sketch at least 5 and say so in the Step 6 report — a
+stated shortfall beats a silent one.
+
+**Paper rubric** (0–2 each, max 8), written as
+`paper: N=<n> R=<n> P=<n> B=<n> total=<n>`:
+
+- **N** novelty — vs digest-index ids/themes + PLAYBOOK saturated families; a
+  topic-skin of a saturated family = 0.
+- **R** rule compliance — any `[validated]` violation = **DQ** (not 0); 2 =
+  every rule relied on is cited.
+- **P** payoff mechanism — arc / humor mechanically forced by a phase or an
+  `assign` rotation = 2; merely hoped for from personas = 0.
+- **B** budget fit — ≤50 = 2, ≤80 = 1, 81–100 = 0, >100 = DQ. Ties break
+  toward the rarer axis.
+
+### 2b — Select
+
+Rank by total; take the top 3 (top 2 when the incubation lane fires) subject to:
+distinct axes across the fresh slots, exactly one comedy slot among the fresh
+slots (rule 29), batch inference ≤ ~120. **Precedence when constraints collide:
+census tripwire > rule-29 comedy slot > incubation lane.** Append a
+`## Selection` block to the sketch file (ranking + one-line reason per
+pick/drop) so Step 1(d) can read it back next night.
+
+**Incubation lane** (max 1 slot per night): if `data/factory/incubator.md` has
+an open entry (line starts with `- open`, `attempts: <2`), the 3rd slot is that
+scenario's v2 — take the OLDEST open entry. Copy its original YAML from
+`data/factory/scenarios/<orig date>/` to
+`data/factory/scenarios/<DATE>/<slug>_v2.yaml` (`_v3` on the second attempt),
+set `id: factory_<DATESTAMP>_<slug>_v2`, and apply ONLY the entry's recorded
+`fix:` — single-lever discipline, so the score delta is attributable (same rule
+as `/scenario-refine`'s A/B). If the original YAML is missing (pruned /
+different checkout), rewrite the entry's leading `- open` to `- retired` with
+` retired: <DATE> source-missing` and skip the lane tonight (all 3 fresh). The
+v2 never counts as the comedy slot even when it is comedy; the lane is skipped
+when the incubator is absent, empty, or all-closed.
+
+### 2c — Author the full YAMLs
+
+For the selected sketches only. Write 3 files to
+`data/factory/scenarios/<DATE>/<id>.yaml` with
+`id: factory_<DATESTAMP>_<slug>` (snake_case slug, also the filename). The
+v2's Step 5 results row: `axis` = `incubator / <original axis>`, and `theme`
+begins `v2 of <original id> — <fix applied>`.
+
+Theme: **driven by the per-scenario axis from Step 1.5**, not a fixed focus. The
+oogiri / comedy family is a strong default *tone* — use
+`Pastura/Pastura/Resources/Presets/bokete.yaml` as the schema/tone reference —
+but the assigned mechanic axis dictates the *format* (e.g. `elimination` →
+knockout bracket, `branching` → `conditional` divergent paths, `reactive_event`
+→ `event_inject`, `scoring_free` → observation / discussion with no vote), and
+an assigned **category** axis may rotate the premise out of comedy entirely (a
+`game_theory` cooperation dilemma, an `experimental` social-psych setup à la the
+original asch/trolley seeds). A non-comedy scenario is judged on its own terms —
+see Step 4. Each of the 3 must differ from the other 2 AND from digest history
+in premise or mechanics, not merely in topic strings.
+
+**Design defaults — subtract by default (#919):** author the SMALLER shape unless
+the assigned axis needs more. Concretely: **2 output fields** (`statement` +
+`inner_thought`), **3–4 agents**, and **no mandatory scoring** (a `narrate`
+score-free ending or `scoring_free` observation is fine — drop
+`vote → score_calc → summarize` when the payoff is the phenomenon). Each addition
+trades against 2B breakdown rate, tokens, and latency — justify it. Canonical
+guidelines (the numbers live here): `PLAYBOOK.md` § "Subtract by default".
 
 Schema requirements (ScenarioLoader — all required):
 
@@ -282,6 +352,32 @@ Failed runs get **no scores** — record the status and the wrapper's
 `error` (skim the partial transcript only to classify the failure for
 the comment). The judge is a quality filter, not a safety screen.
 
+### Incubator (near-miss queue)
+
+After scoring, append to `data/factory/incubator.md` (create with a one-line
+header if absent) when a run is a **near miss**: status `ok`, total ≥ **60% of
+the available max** (15/25; 12/20 when humor is null; 9/15 when humor and
+development both are), AND the judge comment names ONE concrete promotion
+blocker with a mechanical fix mapped to a PLAYBOOK rule or lever (rule 5
+`vote_winner` leak; rule 27 one-note by R3 → rounds cap + `assign` rotation;
+rule 1 field-name drift → guard). A `failed` run whose crash is design-caused
+with a known fix (rules 2/3) also qualifies. NOT a near miss: a vague blocker
+("not funny enough") or a model-limit one (rules 19/28 territory) — those are
+lessons-inbox material. Entry shape (status token line-initial so grep anchors),
+**grep-before-append** so one id is never queued twice:
+
+```
+- open <DATE> <id> total=<n>/<max> blocker: <one line> fix: <one line, single lever> attempts: 0
+```
+
+**v2 outcome** (when tonight ran an incubated v2): update its entry in place —
+blocker cleared AND total ≥ original → change `- open` to `- resolved`, append
+` resolved: <DATE> Δ+<n>`; it is now a **promotion suggestion** (Step 6 reports
+both YAML paths; never auto-promoted — § Promotion). Otherwise bump `attempts:`
+and append ` <DATE>: <why still blocked>`; at 2 attempts change it to
+`- retired` and append ` retired: <DATE>`, so the lane never sinks a third
+night into it.
+
 ## Step 5 — Append the digest
 
 1. Write the results JSON (schema documented in `append_digest.py`'s
@@ -289,7 +385,11 @@ the comment). The judge is a quality filter, not a safety screen.
    yaml, run_log, status, attempts, duration_sec, scores (5 axes: coherence /
    interaction / breakdown_free / humor / development), comment, error) to
    a temp file. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
-   `"elimination / creative"`) so cross-night rotation can read it back.
+   `"elimination / creative"`) so cross-night rotation can read it back. Keep
+   `notes` a **single line** (a line-initial `## ` or `|` would split the digest
+   section on re-parse): `tournament: <N> sketched → <selected ids>; sketches:
+   data/factory/sketches/<DATE>.md; incubator: <none | v2 of <id> →
+   resolved/blocked/retired>`.
 2. ```bash
    python3 .claude/skills/scenario-factory/scripts/append_digest.py \
      --results /tmp/factory_results_<DATE>.json \
@@ -322,9 +422,11 @@ The inbox is a **PROPOSAL queue only** — the nightly cycle NEVER edits
 Summarize for the user: per-scenario status + scores + best line of the
 night, failures with one-line causes, and where the artifacts live
 (`scenarios/<DATE>/`, `runs/<DATE>/`, the appended digest section; the
-`lessons-inbox.md` entries if any were proposed in Step 5.5). If the index was
-missing (Step 1 fallback), surface the degraded-dedup notice with the
-`--rebuild-index` command.
+`lessons-inbox.md` entries if any were proposed in Step 5.5). Add the tournament
+summary (N sketched, picks with one-line reasons, any shortfall) and the
+incubator outcomes (`resolved` → "ready for promotion" with both YAML paths;
+any `retired` entries). If the index was missing (Step 1 fallback), surface the
+degraded-dedup notice with the `--rebuild-index` command.
 `data/factory/digest.md` is a gitignored local log — the new section is
 appended in place and is NOT committed or pushed. Only *promoting* a
 winning scenario (bundled preset or shared-scenario gallery; see
@@ -343,7 +445,9 @@ via an `/orchestrate` PR either way:
 - **Shared-scenario gallery** (remote — served from `main` via
   `raw.githubusercontent.com`, so **merge is the deploy**): copy to
   `docs/gallery/<slug>_v1.yaml` (rename the YAML's `id:` from
-  `factory_<date>_<slug>` to `<slug>_v1`), then run
+  `factory_<date>_<slug>` to `<slug>_v1`; an incubated `..._v2` / `_v3` drops
+  that suffix too and ships as `<slug>_v1` — it is a generation marker, not a
+  gallery version), then run
   `scripts/add-gallery-entry.sh`. The gallery does **not** pass through the
   blocklist gate — curate by the judge scores yourself (hold back
   low-coherence / low-humor runs). Full bridge: `docs/gallery/README.md`
@@ -365,8 +469,9 @@ human-driven `/orchestrate` PR — same pattern as scenario promotion. The PR:
   (invariant + why + evidence pointer; see the PLAYBOOK header discipline,
   soft cap ~150 lines) — never paste inbox prose verbatim.
 - After merge, an **operator step** CLEARS promoted / duplicate / stale entries
-  from the local inbox. The PR itself can't do this — the inbox is a gitignored
-  local file, invisible to the merge — mirroring how the gitignored digest is
+  from the local inbox, and clears `resolved` / `retired` lines from the local
+  `incubator.md`. The PR itself can't do this — both are gitignored local
+  files, invisible to the merge — mirroring how the gitignored digest is
   maintained locally rather than by the PR.
 
 ## Scheduling (how the unattended run works)
@@ -383,7 +488,8 @@ human-driven `/orchestrate` PR — same pattern as scenario promotion. The PR:
   scenario is a separate `/orchestrate` PR — see § Promotion.)
 - **Run in the user's main checkout — not a throwaway worktree.** The
   gitignored digest, its `digest-index.jsonl` sidecar, `scenarios/<DATE>/`,
-  and `runs/<DATE>/` must persist between nights so the full history stays
+  `runs/<DATE>/`, `sketches/<DATE>.md`, and `incubator.md` (the cross-night
+  near-miss queue) must persist between nights so the full history stays
   available — Step 1 dedup reads the index (rebuilt from the digest); a fresh
   per-run worktree would start with an empty bootstrapped digest and lose that
   history. The digest being gitignored is what keeps the main working tree

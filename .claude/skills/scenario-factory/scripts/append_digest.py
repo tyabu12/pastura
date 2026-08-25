@@ -39,6 +39,7 @@ Results JSON schema (composed by the /scenario-factory session):
       "axis": "branching / roleplay",   // optional: the under-represented
                                         // gallery axis this scenario targeted
                                         // (SKILL.md Step 1.5); omitted → em-dash
+                                        // an incubated v2 prefixes it: "incubator / <original axis>"
       "yaml": "data/factory/scenarios/2026-06-13/....yaml",
       "run_log": "data/factory/runs/2026-06-13/....jsonl",
       "status": "ok|failed|config_error",
