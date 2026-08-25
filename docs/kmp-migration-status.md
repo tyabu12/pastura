@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-08-14._
+_Last updated: 2026-08-26._
 
 ## Stages
 
@@ -45,7 +45,7 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
 | Wave B — 14 phase handlers | ✅ 14/14 | checklist ↓ |
 | code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
-| Loader / validator port + `detector`·`logger` wiring | 🟡 partial | validator prerequisites in ([#1464](https://github.com/tyabu12/pastura/issues/1464)); validator / loader / linter / wiring left · [ADR-023](decisions/ADR-023.md) §4 · #501 |
+| Loader / validator port + `detector`·`logger` wiring | 🟡 partial | validator prerequisites in ([#1464](https://github.com/tyabu12/pastura/issues/1464)); validator run gate in ([#1552](https://github.com/tyabu12/pastura/issues/1552) B1); commit gate (B2) / loader / linter / wiring left · [ADR-023](decisions/ADR-023.md) §4 · #501 |
 
 ### Wave B handler checklist
 

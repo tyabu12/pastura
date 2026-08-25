@@ -7,6 +7,13 @@ import Foundation
 /// `nonisolated` Engine type, and a plain sibling-file `extension` would
 /// inherit default-MainActor isolation and break the nonisolated callers in
 /// the main file (see `.claude/rules/swift-isolation.md` Pattern 3).
+///
+/// **Dual-landed with
+/// `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioValidator.kt`**
+/// (spelled out so a move leaves a greppable string behind) — change both
+/// (ADR-023). The Kotlin twin folds this extension into its single file; no
+/// checker verifies that an edit here was mirrored, so the pairing is yours to
+/// honour. See the base type's doc in `ScenarioValidator.swift`.
 nonisolated extension ScenarioValidator {
 
   /// Shared shape-check for event_inject phases, callable from both the
