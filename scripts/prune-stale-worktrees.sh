@@ -138,12 +138,17 @@
 #   scripts/prune-stale-worktrees.sh --log FILE   # override the decision log
 #   scripts/prune-stale-worktrees.sh --age-minutes N   # test lever only
 #
+# The wired SessionStart hook needs BOTH flags. `--quiet` alone leaves the
+# default dry run in place, so the hook logs `(dry-run)` decisions forever and
+# removes nothing — silently, because its stdout is discarded (#1543):
+#   ./scripts/prune-stale-worktrees.sh --quiet --apply >/dev/null 2>&1 || true
+#
 # stdout defaults to on when it is a TTY and off otherwise, because the wired
 # caller is a `SessionStart` hook whose stdout is a context-injection channel —
 # printing there would cost every session, every turn. Decisions always go to
-# the log file instead. Nothing in this repository wires that hook: see the
-# "Automated hooks" bullet under CLAUDE.md's "Swift Coding Conventions", which
-# directs it to your own untracked .claude/settings.local.json.
+# the log file instead. Nothing in this repository wires that hook: it belongs
+# in your own untracked .claude/settings.local.json, using the invocation shown
+# under USAGE above.
 #
 # This script exits 0 on every non-fatal path for the same reason: a
 # SessionStart hook that exits non-zero surfaces an error on every session for
