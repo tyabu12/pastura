@@ -2,16 +2,21 @@
 """Append one /model-eval scorecard section to the local eval digest.
 
 This is the THIRD fork of `.claude/skills/scenario-factory/scripts/
-append_digest.py`'s marker / same-key-idempotency / bootstrap core —
+append_digest.py`'s marker / same-key-idempotency / bootstrap / flock core —
 `append_digest.py` (factory) -> `.claude/skills/scenario-refine/scripts/
-append_audit.py` (refine) -> this file. If the shared 2-marker core ever
-needs a real fix (bootstrap, marker validation, section-replace mechanics),
+append_audit.py` (refine) -> this file. All three forks now carry the flock
+(#1542 swept it across the set). If the shared 2-marker core ever needs a
+real fix (bootstrap, marker validation, section-replace mechanics, locking),
 sweep all three files.
 
 usage: append_eval.py --results <results.json> --journal <eval-digest.md>
 
 The journal is a LOCAL log (gitignored — not committed). If absent it is
 bootstrapped from a scaffold.
+
+The journal read-modify-write runs under an exclusive flock on
+`<journal>.lock`: sibling runs sharing a main checkout would otherwise
+interleave and lose a whole section regardless of key.
 
 Section key is (date, model.profile_id) — unlike the factory/refine digests
 (date-only), a single day can run the battery against more than one model
@@ -56,6 +61,8 @@ of its rules are enforced here and which stay in SKILL.md prose (#1419).
 """
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import re
@@ -86,6 +93,28 @@ See `.claude/skills/model-eval/SKILL.md` for the battery definition, rubric,
 and gate criteria. The `**Gate**:` line in each section is the per-run call;
 this file does not aggregate a final recommendation across models.
 """
+
+
+@contextlib.contextmanager
+def journal_lock(journal_path):
+    """Exclusive flock on `<journal>.lock` around the whole read-modify-write.
+
+    The (date, profile_id) key stops two same-day runs from OVERWRITING each
+    other's section, but not from interleaving: both read the same body, both
+    write, and the loser's section vanishes. The lock file is separate from
+    the journal so the truncating write below can never drop it. Mirrors
+    append_digest.py's digest_lock() / append_audit.py's journal_lock()."""
+    lock_path = journal_path + ".lock"
+    os.makedirs(os.path.dirname(lock_path) or ".", exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def cell(value):
@@ -308,6 +337,11 @@ def main():
         print(f"append_eval: {err}", file=sys.stderr)
         return 1
 
+    with journal_lock(args.journal):
+        return _append_locked(args, results)
+
+
+def _append_locked(args, results):
     if not os.path.exists(args.journal):
         os.makedirs(os.path.dirname(args.journal) or ".", exist_ok=True)
         with open(args.journal, "w", encoding="utf-8") as f:

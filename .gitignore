@@ -104,6 +104,8 @@ data/highlight-runs/
 # if absent.
 data/models/eval-runs/
 data/models/eval-digest.md
+# append_eval.py's flock target, serializing same-day sibling runs (#1542)
+data/models/eval-digest.md.lock
 
 # Per-user Claude Code settings — permission grants and opt-in hooks such as
 # the worktree pruner (wiring: the header of scripts/prune-stale-worktrees.sh).

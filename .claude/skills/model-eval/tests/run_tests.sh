@@ -180,6 +180,38 @@ fi
 grep -qF "Retry: #751" "$PARTIAL_SECTION" \
   || fail "append: partial blocked section missing the Retry line"
 
+# (f) the append really takes an exclusive flock on <journal>.lock — the
+# (date, profile_id) key alone does not stop a concurrent read-modify-write
+# from losing a whole section. A helper holds the lock while an append is
+# launched.
+LK="$TMP/lock"; mkdir -p "$LK"
+python3 "$SCRIPTS/append_eval.py" \
+  --results fixtures/results_sample.json --journal "$LK/eval-digest.md" >/dev/null \
+  || fail "lock: seed append should succeed"
+python3 - "$LK/eval-digest.md.lock" <<'PY' &
+import fcntl, os, sys, time
+fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+time.sleep(4)
+fcntl.flock(fd, fcntl.LOCK_UN)
+os.close(fd)
+PY
+HOLDER_PID=$!
+sleep 1   # generous margin: let the helper acquire before the append starts
+python3 "$SCRIPTS/append_eval.py" \
+  --results fixtures/results_sample_profile2.json --journal "$LK/eval-digest.md" \
+  >/dev/null 2>&1 &
+APPEND_PID=$!
+sleep 1
+COUNT_DURING=$(grep -c "^## 2026-07-07 — " "$LK/eval-digest.md")
+[ "$COUNT_DURING" -eq 1 ] \
+  || fail "lock: append wrote the journal while the lock was held"
+wait "$HOLDER_PID"
+wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
+COUNT_AFTER=$(grep -c "^## 2026-07-07 — " "$LK/eval-digest.md")
+[ "$COUNT_AFTER" -eq 2 ] \
+  || fail "lock: second profile's section missing after the lock was released"
+
 # --- run_scenario.sh --profile canary (PASTURA_HARNESS_BIN test seam) ------
 FAKE_BIN="$TMP/fake_harness.sh"
 cat > "$FAKE_BIN" <<'EOF'
