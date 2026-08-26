@@ -124,11 +124,10 @@ the annotation on the interface for exactly this reason.
 frameworks *and* is re-exported through the engine umbrella, so its throws are the same crash class.
 
 The gate is `verifyExportedThrowsAnnotations` in `shared/engine/build.gradle.kts` — it pins the
-throwing entry points by `swift_name` and asserts each exports `error:` in the generated header,
-`finalizedBy` the link and XCFramework assembly. **Header, not source, and the pin is hand-kept**:
-a source-side check would need the KDoc `@throws` line as its trigger and would therefore be blind
-to a throw whose KDoc never mentioned one. That blind spot is real — `ScenarioCodec.encodeToString`
-/ `encodeToJsonElement` are a self-described Swift-callable facade over `Json.encodeToString`, which
-can throw `SerializationException` in principle, with no `@throws` KDoc anywhere. They are left
-un-annotated because the fixed encoder does not reach that path (judged 2026-08-26, #1553) — a
-decision, not an oversight. Adding a new throwing public entry point means adding its pin by hand.
+throwing entry points by `swift_name` and asserts each exports `error:` in the generated header
+(that file's `Why the header and not the Kotlin source` comment has the reasoning). **The pin is
+hand-kept**: a new throwing public entry point needs its pin added. `ScenarioCodec.encodeToString` /
+`encodeToJsonElement` are deliberately outside it — un-annotated because the fixed encoder does not
+reach `Json.encodeToString`'s throwing path, judged 2026-08-26, and invisible to any KDoc-triggered
+check regardless. That is a reading of today's `Scenario` shape, so revisit it if the schema gains a
+polymorphic field or a non-finite `Double`.

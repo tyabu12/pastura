@@ -29,6 +29,13 @@ import kotlinx.serialization.json.JsonElement
  * default settings) matches existing `commonTest/` usage. No custom
  * configuration (`isLenient`, `ignoreUnknownKeys`) — production scenarios
  * use strict schemas and the spike's measurement should reflect that.
+ *
+ * **No `@Throws`, deliberately (#1553).** Both functions are exported to Swift,
+ * where an un-annotated Kotlin throw terminates the caller rather than raising
+ * (`.claude/rules/kmp-interop.md` Pattern 5). `Json.encodeToString` can throw
+ * `SerializationException` in principle, but today's `Scenario` shape does not
+ * reach that path, so neither is pinned by the header gate. Revisit if the
+ * schema gains a polymorphic field or a non-finite `Double`.
  */
 public object ScenarioCodec {
 

@@ -45,11 +45,8 @@ public data class TurnOutput(
     /**
      * Returns the value for the given key, or throws if the key is missing or empty.
      *
-     * `@Throws` is load-bearing at the K/N boundary: a Kotlin exception from an
-     * **un-annotated** function is not surfaced to Swift as a catchable error —
-     * it terminates the process. The `@throws` line below does not close that
-     * gap; only the annotation reaches the generated Obj-C header
-     * (`.claude/rules/kmp-interop.md` Pattern 5).
+     * `@Throws` is load-bearing at the K/N boundary, and the `@throws` line below
+     * does not substitute for it (`.claude/rules/kmp-interop.md` Pattern 5).
      *
      * @param key The field key to look up.
      * @return The non-empty value for the key.
