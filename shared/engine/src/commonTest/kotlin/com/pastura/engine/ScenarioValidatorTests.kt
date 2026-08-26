@@ -35,25 +35,28 @@ import kotlin.test.assertTrue
  * count was asserted before applying (all 50 matched **exactly once**) and the
  * mutated text re-read to confirm it landed; a `replace` that silently no-ops leaves
  * the original behaviour and reads as verified. The file was restored byte-identically
- * after each run. The unmutated baseline was measured green (89 tests, both suites)
+ * after each run (`git diff --exit-code` on the file after the last revert). The
+ * unmutated baseline was measured green (**120 tests across the three suites**)
  * immediately before the first mutation and again after the last revert, so every
  * reddening below is signal rather than pre-existing noise. Counts are measured, not
  * derived — re-measure rather than reason if you change a fixture. Measured
- * 2026-08-26, #1552.
+ * 2026-08-26, #1552 (PR B2; the run-gate rows were first measured in PR B1 and are
+ * re-measured here — see note 1).
  *
- * The sweep ran **only** these two suites. That is sufficient rather than a shortcut:
- * `grep` confirms no other `shared/engine` code constructs [ScenarioValidator] — the
- * gate is deliberately not wired into the engine yet (see the class KDoc on
- * [ScenarioValidator]), so no other suite could redden.
+ * The sweep ran **only** these three suites — [ScenarioValidatorTests],
+ * [ConditionalValidatorTests], and [ScenarioValidatorCommitTests]. That is sufficient
+ * rather than a shortcut: `grep` confirms no other `shared/engine` code constructs
+ * [ScenarioValidator] — the gate is deliberately not wired into the engine yet (see
+ * the class KDoc on [ScenarioValidator]), so no other suite could redden.
  *
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|
- * | `language` gate | `scenario.language !in ACCEPTED_LANGUAGES` → `in` | [rejectsInvalidLanguage] | 52 — every valid-language fixture then throws |
- * | `simulationLanguage` null-accept arm | `val simulationLanguage = scenario.simulationLanguage` → `… ?: "fr"` | [acceptsNilSimulationLanguage] | 50 — every fixture leaves it null; see note 2 |
+ * | `language` gate | `scenario.language !in ACCEPTED_LANGUAGES` → `in` | [rejectsInvalidLanguage] | 68 — every valid-language fixture then throws |
+ * | `simulationLanguage` null-accept arm | `val simulationLanguage = scenario.simulationLanguage` → `… ?: "fr"` | [acceptsNilSimulationLanguage] | 66 — every fixture leaves it null; see note 2 |
  * | …membership polarity | `simulationLanguage !in …` → `in` | [rejectsInvalidSimulationLanguage] | none |
- * | `agentCount` ≥ 2 | `if (scenario.agentCount < 2)` → `if (false)` | [rejectsZeroAgents], [rejectsSingleAgent] | none |
+ * | `agentCount` ≥ 2 | `if (scenario.agentCount < 2)` → `if (false)` | [rejectsZeroAgents], [rejectsSingleAgent] | 1 — [ScenarioValidatorCommitTests.runsValidateChecksFirst]: its `agents = 0` fixture then passes every remaining check (`makeValidatorScenario` derives zero personas, so the count matches), so nothing throws |
  * | `agentCount` ≤ 10 | `if (scenario.agentCount > 10)` → `if (false)` | [rejectsMoreThan10Agents] | none |
- * | persona count matches `agentCount` | `!=` → `==` | [rejectsPersonaCountMismatch] | 51 — every matched-persona fixture then throws |
+ * | persona count matches `agentCount` | `!=` → `==` | [rejectsPersonaCountMismatch] | 67 — every matched-persona fixture then throws |
  * | `rounds` ≤ 30 | `if (scenario.rounds > 30)` → `if (false)` | [rejectsMoreThan30Rounds] | none |
  * | `logWindow` ≥ 1 | `logWindow < 1` → `logWindow < 0` (not `if (false)`; see note 2) | [rejectsZeroLogWindow] | none |
  * | Estimate > 100 is an error | `if (estimated > 100)` → `if (false)` | [errorsWhenInferencesExceed100] | none |
@@ -99,14 +102,47 @@ import kotlin.test.assertTrue
  * | whisper message `type` arg | same, whisper site | *(none — expected green, note 7)* | none |
  * | relationship_update message `type` arg | same, relationship_update site | *(none — expected green, note 7)* | none |
  *
- * Seven things this table encodes that are easy to misread:
+ * ### Commit gate ([ScenarioValidator.validateForCommit], PR B2)
+ *
+ * Same driver, same run, same baseline. Every claimant below lives in
+ * [ScenarioValidatorCommitTests]; the class prefix is dropped for width.
+ *
+ * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
+ * |---|---|---|---|
+ * | Commit gate runs [validate]'s checks first | `val result = validate(scenario)` → a literal `ValidationResult` | `runsValidateChecksFirst` | none |
+ * | …then runs the canonical-field check at all | the `validateCanonicalFields(scenario)` call deleted | 15 of the suite's 18 rejecting cases, e.g. `rejectsSpeakAllWithoutStatement` | none — all 15 fail on their own assertion. The other three claim no commit-gate mechanism: `rejectsReflectWithoutNote` and `rejectsReflectWithMissingOutputSchema` are pre-empted by the run gate's [validateReflectShape], and `runsValidateChecksFirst` rejects on `agentCount` |
+ * | Canonical **primary** field required | `if (schema[canonical] == null)` → `if (false)` | 9 cases, e.g. `rejectsVoteWithoutVoteField`, `rejectsChooseWithFactionAlias` | none |
+ * | …and code phases exempt from it | the primary `?: return` → `?: "statement"` | `acceptsCodePhases`, `acceptsSpeakAllInsideThenBranchWithStatement`, `acceptsCodePhaseDeclaringAStraySecondaryKey` | none |
+ * | Canonical **thought** field enforced | `if (schema[key] != null && key != canonical)` → `if (false)` | 6 cases, e.g. `rejectsVoteWithInnerThought`, `rejectsSpeakAllWithReason` | none |
+ * | …checked for **every** declared known-secondary key, not the priority pick | the loop iterates only `knownSecondaryKeys.firstOrNull { schema[it] != null }` | `rejectsChooseWithBothInnerThoughtAndReason` | none |
+ * | …and code phases exempt from it | the thought `?: return` → `?: "inner_thought"` | `acceptsCodePhaseDeclaringAStraySecondaryKey` — **added**, note 8 | none |
+ * | Descent into `then:` | the `validateBranchCanonicalFields(phase.thenPhases, …)` call deleted | `rejectsSpeakAllInsideThenBranchMissingStatement`, `rejectsChooseWithReasonInsideThenBranch`, `branchLabelCarriesTheParentPhaseTypeNotConditional` | none |
+ * | Descent into `else:` | same, else site | `rejectsVoteInsideElseBranchMissingVoteField` | none |
+ * | Parent label derived from the phase type | the `serialName()` interpolation → a hardcoded `"(conditional)"` | `branchLabelCarriesTheParentPhaseTypeNotConditional` — **added**, note 9 | none |
+ * | Sub-phase index is 1-based | `subIndex + 1` → `subIndex` in the branch label | `branchLabelCarriesTheParentPhaseTypeNotConditional` | none |
+ *
+ * Nine things this table encodes that are easy to misread:
  *
  * 1. ⚠️ **Re-measure the whole table when you add a fixture, not the row you were
  *    thinking about** (the lesson [InferenceEstimatorTests]' record was corrected
- *    for). This record is the second sweep: adding the three tests in note 3 moved
+ *    for). The second sweep proved it once: adding the three tests in note 3 moved
  *    three `Incidental` / claimant cells that had nothing to do with them
  *    (`validatePhases` CONDITIONAL 23 → 25 red, EVENT_INJECT 8 → 9, parse pre-flight
- *    2 → 3). Every row above was re-measured after they landed.
+ *    2 → 3). This third sweep (PR B2) proved it twice over, at a longer range.
+ *    All figures below are `Incidental` counts, the same quantity the table's
+ *    cells carry — **not** red totals, which run one higher on every row that has
+ *    a single claimant. First, a whole new suite chaining through [validate] moved
+ *    four rows: `language` 52 → 67, `simulationLanguage` null-accept 50 → 65,
+ *    persona count 51 → 66, and `agentCount` ≥ 2 from `none` to 1. The first three
+ *    gained 15 apiece — 12 of the commit suite's accepting fixtures, plus the 3
+ *    *rejecting* ones that assert message **content** (`errorMentions…`,
+ *    `thoughtFieldErrorMentions…`, `branchLabel…`), whose
+ *    `is ScenarioValidationFailed` check survives a global-gate throw while their
+ *    `contains` / `startsWith` does not. Then adding the single accepting test in
+ *    note 8 moved five more cells, three of them in those same global-gate rows it
+ *    has nothing else to do with, taking them to 68 / 66 / 67. Every row above was
+ *    re-measured after each landing; the rows not named here measured identical,
+ *    which is a measurement, not an assumption.
  * 2. **Two mutations do not compile in their obvious form, and the substitutes are
  *    not equivalent.** `if (false)` on the `logWindow` and `simulationLanguage`
  *    guards drops the smart cast their `!= null &&` left arm provides, so the throw
@@ -146,6 +182,26 @@ import kotlin.test.assertTrue
  *    `type` argument would ship silently. Closing it (one `contains("reflect")`
  *    per test) was declined for Swift parity — the siblings assert type only —
  *    not overlooked.
+ * 8. **The thought rule's code-phase exemption had no claimant on either side.**
+ *    `ScenarioConventions.thoughtField` returns `null` for every code phase, so the
+ *    `?: return` is what keeps a code phase from being measured against a canonical
+ *    it does not have — but no Swift test constructs a code phase with an `output:`
+ *    block at all, so replacing the early return with a fallback canonical reddened
+ *    nothing. Rather than paper over it (note 3's precedent),
+ *    `ScenarioValidatorCommitTests.acceptsCodePhaseDeclaringAStraySecondaryKey` was
+ *    added. Its fixture is deliberately unrealistic — a `summarize` emits no LLM
+ *    output, so authoring an `output:` for it is a mistake — and exists to make the
+ *    exemption observable, not to bless the shape.
+ * 9. **The branch-label rows are the port's one behavioural near-miss, caught here.**
+ *    Swift's `validateCanonicalFields(_:)` descends into `then:` / `else:` for
+ *    *every* phase type, unlike the run gate's [validatePhases], which reaches
+ *    branches only through its `CONDITIONAL` arm. All three Swift branch cases build
+ *    a `.conditional` parent, so a Kotlin port that hardcoded `"(conditional)"` into
+ *    the parent label would have passed the whole 1:1 transcription — and diverged
+ *    from Swift on any non-conditional phase carrying `thenPhases`, message text
+ *    only, with no gate able to see it (a rejected scenario produces no parity
+ *    transcript). `branchLabelCarriesTheParentPhaseTypeNotConditional` is the pin;
+ *    it has no Swift sibling because no Swift test can distinguish the two shapes.
  */
 class ScenarioValidatorTests {
 

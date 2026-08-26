@@ -91,9 +91,10 @@ internal object DivergenceLedger {
 
         /**
          * Kotlin's `SimulationEngine` runs no preflight gate, so it behaves
-         * differently for scenarios Swift rejects. `ScenarioValidator.validate`
-         * is ported (run gate only — `validateForCommit` is #1552 B2) but
-         * deliberately unwired: ADR-023 §4 gates the preflight on the validator
+         * differently for scenarios Swift rejects. `ScenarioValidator` is now
+         * ported in full — the run gate `validate` (#1554) and the commit gate
+         * `validateForCommit` (#1552) — but deliberately unwired: ADR-023 §4
+         * gates the preflight on the validator
          * and `ScenarioSemanticLinter` together, and the linter is unported. The
          * class name stays until the wiring lands — it names the gate, not the
          * port.

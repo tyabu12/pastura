@@ -10,11 +10,11 @@ import Foundation
 /// **Dual-landed with
 /// `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioValidator.kt`**
 /// (spelled out so a move leaves a greppable string behind) — change both
-/// (ADR-023). The Kotlin twin carries the run gate (`validate`) from this file,
-/// `+EventInject` and `+OutputFieldNames`; `validateForCommit` /
-/// `+CanonicalFields` are not ported yet (#1552 B2). No checker verifies that
-/// an edit here was mirrored — for any ledger disposition — so the pairing is
-/// yours to honour; `.claude/rules/kmp-interop.md` does not load for
+/// (ADR-023). The Kotlin twin now carries this whole gate — both `validate` and
+/// `validateForCommit` from this file, plus `+EventInject`, `+OutputFieldNames`
+/// and `+CanonicalFields` (PR #1554 = B1, and B2 on issue #1552). No checker
+/// verifies that an edit here was mirrored — for any ledger disposition — so the
+/// pairing is yours to honour; `.claude/rules/kmp-interop.md` does not load for
 /// `Pastura/**`, `engine.md` does.
 nonisolated public struct ScenarioValidator: Sendable {
 
