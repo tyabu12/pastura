@@ -56,7 +56,7 @@ nonisolated public enum ScenarioLintMessage: Sendable {
   case unknownConditionIdentifier(token: String)
 
   /// Every rule ID, in declaration order, one per case above. Stands in for
-  /// `CaseIterable` — unavailable here because four cases carry an associated
+  /// `CaseIterable` — unavailable here because six cases carry an associated
   /// `token: String` value.
   public static let ruleIDs: [String] = [
     "eliminate-needs-vote",

@@ -12,12 +12,14 @@ package com.pastura.models
  *
  * These 53 cases come from `ScenarioValidator` (+ its extensions) and
  * `ScenarioLoader` **only**. The ADR-024 semantic linter is a *separate* surface
- * with its own 21 messages (Ordering 8 / Config 7 / Conditions 3 /
- * Placeholders 3 — measured against
- * `Pastura/Pastura/Engine/ScenarioSemanticLinter+*.swift`), which are not here
- * and grow this type when `ScenarioSemanticLinter` is ported — at which point
- * `ScenarioValidationMessageTests`' count pin fails by design, not as a
- * regression.
+ * with its own 21 messages (Ordering 8 / Config 7 / Placeholders 3 /
+ * Conditions 3), and they live in their own type — [ScenarioLintMessage],
+ * mirroring `Pastura/Pastura/Models/ScenarioLintMessage.swift`. That split is a
+ * decision (#1562), not a staging accident: a lint finding carries a severity
+ * and is collected alongside others for the same scenario, while a validation
+ * message is thrown as the sole reason a load or commit-gate check failed.
+ * So the `53` pins in `ScenarioValidationMessageTests` **stay at 53** when
+ * `ScenarioSemanticLinter` is ported — the linter's cases never join this type.
  *
  * ## Landed as infra
  *
