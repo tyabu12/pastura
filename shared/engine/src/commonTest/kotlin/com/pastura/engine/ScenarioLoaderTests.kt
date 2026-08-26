@@ -61,7 +61,7 @@ import kotlin.test.assertTrue
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|
  * | Code-fence strip | `filterNot { … startsWith("```") }` → `filterNot { false }` | [stripsCodeFencesBeforeParsing] | none |
- * | Decode failure → `InvalidYAMLFormat` | the `throw` → `JsonObject(emptyMap())` | [throwsOnInvalidYAML] — assertion **strengthened**, note 1; also [throwsOnIntegerBeyondLongRange] (added post-sweep, C2b/divergence-4 region — same fold, not itself sweep-mutated) | none |
+ * | Decode failure → `InvalidYAMLFormat` | the `throw` → `JsonObject(emptyMap())` | [throwsOnInvalidYAML] — assertion **strengthened**, note 1; also [throwsOnIntegerBeyondLongRange] (added post-sweep — same fold, not itself sweep-mutated) | none |
  * | Non-mapping root → `InvalidYAMLFormat` | the `?: throw` → `?: JsonObject(emptyMap())` | [throwsOnNonMappingRoot], [throwsOnEmptyDocument] — both **added**, note 2 | none |
  * | `parseRequired` missing-key arm | `?: throw …MissingRequiredField` → `?: JsonNull` | [throwsOnMissingRequiredField] — assertion **strengthened**, note 1 | none |
  * | `parseRequired` wrong-type arm | early-return the cast, no throw | [throwsOnWrongTypeForRequiredString], [throwsOnWrongTypeForRequiredInt], [throwsOnWrongTypeForPersonasList], [throwsOnWrongTypeForPersonaName] | none |
@@ -91,15 +91,15 @@ import kotlin.test.assertTrue
  * | `renderActualType` `Int64` arm | `"Int64"` → `"Int"` | [throwsOnIntegerBeyond32Bits] — **added**, note 5 | none |
  * | `PhaseType` serial-name lookup | unknown type → `PhaseType.SPEAK_ALL` | [throwsOnInvalidPhaseType] | none |
  * | Missing-`type:` throw | `?: throw …PhaseMissingType` → `?: "speak_all"` | [throwsOnMissingPhaseType] — **added**, note 2 | none |
- * | Phase wiring: `prompt` | read → hardcoded `null` | [parsesPhaseSpeakAll], [phaseSpecialisationIsStillUnmapped] | none |
+ * | Phase wiring: `prompt` | read → hardcoded `null` | [parsesPhaseSpeakAll] | none |
  * | Phase wiring: `exclude_self` | read → `null` | [acceptsYAML11BooleanExcludeSelf], [throwsOnQuotedExcludeSelf], [throwsOnIntExcludeSelf] | none |
  * | Phase wiring: `options` | read → `null` | [throwsOnMixedTypeOptions] | none |
  * | Phase wiring: `rounds` → `subRounds` | read → `null` | [throwsOnQuotedSubRounds] | none |
  * | Phase wiring: `probability` | read → `null` | [parsesProbabilityAsDouble], [parsesProbabilityAsIntCoercesToDouble], [throwsOnProbabilityWrongType], [throwsOnProbabilityBoolPretendingToBeInt], [parsesEventInjectFullSpec] | none |
  * | Phase wiring: `as` → `eventVariable` | read → `null` | [parsesEventInjectFullSpec] | none |
  * | Phase wiring: `no_repeat` | read → `null` | [parsesNoRepeat] — **added**, note 2 | none |
- * | Phase wiring: `source` | read → `null` | [parsesEventInjectFullSpec], [parsesEventInjectMinimalSpec], [phaseSpecialisationIsStillUnmapped] | none |
- * | Phase wiring: `if` → `condition` | read → `null` | [phaseSpecialisationIsStillUnmapped] | none |
+ * | Phase wiring: `source` | read → `null` | [parsesEventInjectFullSpec], [parsesEventInjectMinimalSpec] | none |
+ * | Phase wiring: `if` → `condition` | read → `null` | [loadsConditionalWithBothBranches] — reassigned in C2b, note 7 | none |
  * | Scenario wiring: `log_window` | read → `null` | [parsesLogWindow], [rejectsNonIntLogWindow] | none |
  * | `YamlType.BOOL` token lookup on a **quoted** token (divergence 2) | *(not sweep-mutated; added post-sweep as a divergence pin)* | [throwsOnQuotedExcludeSelf] pins the rejecting case; [divergesOnQuotedYesExcludeSelf] pins the accepting (divergent) one | none
  * | **NEGATIVE CONTROL** — `acceptedLanguagesList` ordering | `.sorted()` → `.sortedDescending()` | *(none — expected green)* | none |
@@ -124,9 +124,10 @@ import kotlin.test.assertTrue
  *    smart cast from the `!= null` half is lost and the later `!!`-free use
  *    fails. The polarity flip is the compiling substitute, and it reddens the
  *    accepting fixture as well as the rejecting one.
- * 4. The nested-`conditional` depth guard is **structurally unreachable in this
- *    port**: `depth` has no non-zero caller until C2b's `mapBranch` descends
- *    into `then:` / `else:`. Expected green; C2b must claim it.
+ * 4. The nested-`conditional` depth guard was **structurally unreachable when
+ *    this row was measured**: `depth` had no non-zero caller until `mapBranch`
+ *    landed. Green then, and claimed now — see the C2b table's
+ *    `mapBranch: depth + 1 recursion` row.
  * 5. `Int` is 32-bit in Kotlin and 64-bit in Swift, so this mechanism and its
  *    `Int64` rendering exist only on this side and have no Swift twin to
  *    transcribe. [throwsOnIntegerBeyond32Bits] is the detector for what was
@@ -136,6 +137,82 @@ import kotlin.test.assertTrue
  *    guarded on its own. Expected green — kept because a future caller without
  *    that guard would need it, and removing it would make this file's one
  *    boolean-literal predicate quietly wrong.
+ * 7. **Reassigned in C2b.** The three cells above that named
+ *    `phaseSpecialisationIsStillUnmapped` lost their claimant when C2b deleted
+ *    that pin. Two were over-claimed and simply drop it ([parsesPhaseSpeakAll]
+ *    and the two `event_inject` cases already detect those breaks on their
+ *    own); `Phase wiring: if → condition` had the pin as its **sole** claimant
+ *    and is reassigned to [loadsConditionalWithBothBranches], which asserts
+ *    `phase.condition` directly. Re-measured under the C2b sweep below, not
+ *    inferred.
+ *
+ * ## ADR-023 §12 condition-4 perturbation record — C2b surface
+ *
+ * Same procedure, same guarantees, scoped to what PR C2b added: the seven
+ * phase-specialisation helpers, `mapBranch`'s recursion, and the seven
+ * `mapPhase` arguments that stopped being `null`. C2a's ingest and
+ * generic-helper surface is **not** re-swept — it was swept whole above, and
+ * the table's three reassigned cells were re-measured rather than assumed.
+ * **34 mutations executed, 33 reddened, 1 green** (the negative control).
+ * Baseline: 85 tests green immediately before the first mutation and again
+ * after the last revert. Measured 2026-08-26, #1560 (PR C2b).
+ *
+ * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
+ * |---|---|---|---|
+ * | `target:` unknown-value throw | the `?: throw …InvalidTarget` dropped | [rejectsAssignWithUnknownTarget], [rejectsAssignWithCapitalizedTarget] | none |
+ * | `target:` routes through [parseOptional] first | the `parseOptional` call → a raw type-name read | [throwsOnIntAssignTarget] | 5 |
+ * | `pairing:` unknown-value throw | the `?: throw …InvalidPairing` dropped | [rejectsChooseWithUnknownPairing] | none |
+ * | `pairing:` routes through [parseOptional] first | same shape | [throwsOnIntChoosePairing] | 2 |
+ * | `logic:` unknown-value throw | the `?: throw …InvalidLogic` → a fallback enum case | [rejectsScoreCalcWithUnknownLogic] | none |
+ * | `logic:` routes through [parseOptional] first | same shape | [throwsOnBoolScoreCalcLogic] | 5 |
+ * | `allowed:` fragment derived from the lookup's key order | `.keys.joinToString` → `.keys.sorted().joinToString` | [rejectsScoreCalcWithUnknownLogic] — assertion **strengthened**, note 8 | none |
+ * | `payoff:` absent → `null` | `?: return null` → `?: JsonNull` | [absentPayoffLeavesNilNotThrow] and 40 others | 40 |
+ * | `payoff:` whole-collection cast | the `?: throw …PayoffNotList` → `?: emptyList()` | [throwsOnPayoffNotList] | none |
+ * | `payoff:` row `when` string-list cast | `STRING_LIST.cast` → a lenient `toString()` map | [parsesPayoffTableOnScoreCalc] | none |
+ * | `payoff:` row `when` arity 2 | `takeIf { it.size == 2 }` → `takeIf { true }` | [throwsOnWhenArityNotTwo] | none |
+ * | `payoff:` row `points` array cast + arity | same `takeIf` flip | [throwsOnPointsArityNotTwo] | none |
+ * | `payoff:` row `points` element throw | the `?: throw …PayoffRowInvalid` made unreachable | [throwsOnNonIntPayoffPointsValue] — **added**, note 9 | 1 |
+ * | `payoff:` row `points` bool / quoted exclusion | `YamlType.INT.cast` → a lenient `content.toIntOrNull()` | [throwsOnQuotedPayoffPointsValue] — **added**, note 9 | none |
+ * | `action_deltas:` absent → `null` | `?: return null` → `?: JsonNull` | [parsesRelationshipUpdateMinimalSpec] and 39 others | 39 |
+ * | `action_deltas:` non-mapping throw | the `?: throw …ActionDeltasNotDict` → an empty mapping | [throwsOnNonDictActionDeltas] — **added**, note 9 | none |
+ * | `action_deltas:` per-value `Int` throw | the `?: throw …ActionDeltasValueNotInt` → `?: 0` | [throwsOnNonIntActionDeltaValue] | none |
+ * | `output:` absent → `null` | `?: return null` → `?: JsonNull` | [parsesPhaseWithAllFields] and 33 others | 33 |
+ * | `output:` non-mapping throw | the `?: throw …OutputNotDict` → an empty mapping | [throwsOnNonDictOutputSchema] | none |
+ * | `output:` per-value `String` throw | the `?: throw …OutputValueNotString` → `?: ""` | [throwsOnNonStringOutputSchemaValue] | none |
+ * | `then:` / `else:` absent → `null` | `?: return null` → `?: JsonNull` | [loadsConditionalWithOnlyThenBranch] and 41 others | 41 |
+ * | `mapBranch` whole-collection cast | the `?: throw …BranchNotArray` → `?: emptyList()` | [throwsOnScalarThenBranch] — **added** in the C2b gap-retirement commit | none |
+ * | `mapBranch` names the **branch**, not the parent | `branch = branchLabel` → `branch = parentLabel` | [throwsOnScalarThenBranch] | none |
+ * | `mapBranch` descends at `depth + 1` | `depth = depth + 1` → `depth = depth` | [rejectsNestedConditionalInThenBranch], [rejectsNestedConditionalInElseBranch] | none |
+ * | `mapBranch` sub-phase label form | `"$parent.$branch[$i]"` → `"$parent"` | [namesTheOffendingSubPhaseInsideABranch] — **added**, note 9 | none |
+ * | Phase wiring: `output` → `outputSchema` | read → `null` | [parsesPhaseSpeakAll] | none |
+ * | Phase wiring: `pairing` | read → `null` | [parsesPhaseWithAllFields] | none |
+ * | Phase wiring: `logic` | read → `null` | [parsesPhaseWithAllFields] | none |
+ * | Phase wiring: `target` | read → `null` | [parsesPhaseWithAllFields] | none |
+ * | Phase wiring: `then` → `thenPhases` | read → `null` | [loadsConditionalWithBothBranches], [loadsConditionalWithOnlyThenBranch] | none |
+ * | Phase wiring: `else` → `elsePhases` | read → `null` | [loadsConditionalWithBothBranches] | none |
+ * | Phase wiring: `action_deltas` | read → `null` | [parsesRelationshipUpdateFullSpec] | none |
+ * | Phase wiring: `payoff` | read → `null` | [parsesPayoffTableOnScoreCalc] | none |
+ * | **NEGATIVE CONTROL** — `parsePayoff` KDoc wording | "matching" → "mirroring" | *(none — expected green)* | none |
+ *
+ * 8. The `allowed:` fragment is derived from
+ *    `ScenarioLoader.SCORE_CALC_LOGICS_BY_YAML_NAME`'s key order *so that* it
+ *    cannot drift from the enum — but nothing detected a drift, because the
+ *    transcribed case only asserted that loading throws. Re-ordering the
+ *    fragment left the suite green. The assertion now spells the whole string
+ *    out in declaration order.
+ * 9. **Four mechanisms had no claimant on either side.** Swift's `+Payoff`
+ *    suite covers both arity failures but never a well-sized row holding a bad
+ *    value; no Swift test feeds a non-mapping `action_deltas:`; and every
+ *    conditional test asserts on a *well-formed* branch, so nothing read the
+ *    sub-phase label that is a curator's only way to locate the offending
+ *    phase. Each gained a test in the "condition-4 sweep additions (C2b
+ *    surface)" region.
+ *
+ *    Six mutations in an earlier pass — the `?: throw` arms — were first
+ *    attempted as `if (false) { throw … }` and did **not** compile, the same
+ *    shape as note 3. They were re-run as elvis-substitutions and are counted
+ *    once, in the form that executed; the non-compiling attempts are not
+ *    evidence and are not among the 34.
  */
 class ScenarioLoaderTests {
 
@@ -1170,6 +1247,19 @@ class ScenarioLoaderTests {
         assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
     }
 
+    /**
+     * Assertion **strengthened** beyond the Swift original, which only checks
+     * that loading throws.
+     *
+     * The `allowed:` fragment is derived from
+     * `ScenarioLoader.SCORE_CALC_LOGICS_BY_YAML_NAME`'s key order rather than
+     * hand-written, precisely so it cannot drift from the enum — but the
+     * condition-4 sweep found that nothing detected a drift: re-ordering the
+     * fragment left the suite green. This spells the whole string out, in
+     * `ScoreCalcLogic` declaration order, matching what Swift's
+     * `allCases.map(\.rawValue).joined(separator: ", ")` renders. A sixth
+     * case, or a re-ordering, reddens here.
+     */
     @Test
     fun rejectsScoreCalcWithUnknownLogic() {
         val yaml = makeMinimalYAML(
@@ -1180,7 +1270,14 @@ class ScenarioLoaderTests {
             """.trimIndent(),
         )
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(
+            error.message.contains(
+                "prisoners_dilemma, vote_tally, wordwolf_judge, event_reactive, pairwise_payoff",
+            ),
+            error.message,
+        )
     }
 
     // endregion
@@ -2112,6 +2209,115 @@ class ScenarioLoaderTests {
         )
         val scenario = loader.load(yaml)
         assertEquals(true, scenario.phases[0].excludeSelf)
+    }
+
+    // endregion
+
+    // region condition-4 sweep additions (C2b surface)
+
+    /*
+     * Every test in this region was added because the ADR-023 §12 condition-4
+     * sweep over C2b's surface broke the mechanism it names and the suite
+     * stayed green — no transcribed Swift case reached it, and Swift has no
+     * dedicated claimant for it either. They are Kotlin-side claimants for
+     * mechanisms both ports share, the same category as the region above.
+     */
+
+    /**
+     * A non-Int `points:` element is rejected. Swift's `+Payoff` suite covers
+     * both arity failures but never a well-sized row holding a bad value, so
+     * the per-element guard (`YamlType.INT`, i.e. Swift's
+     * `as? Int, !(value is Bool)`) shipped unclaimed.
+     */
+    @Test
+    fun throwsOnNonIntPayoffPointsValue() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [a, b]
+                      points: [3, "x"]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'points' has a non-Int value"), error.message)
+    }
+
+    /**
+     * A **quoted** `points:` element is rejected too.
+     *
+     * Separate from [throwsOnNonIntPayoffPointsValue] because it claims a
+     * different half of the guard: that one detects the throw going missing,
+     * this one detects the *cast* being loosened to a lenient
+     * `content.toIntOrNull()`, which would accept `"3"` and drop the 32-bit
+     * range check with it. Swift needs its explicit `!(value is Bool)` at the
+     * same spot for the same reason — `as? Int` launders a boolean — and
+     * rejects a quoted scalar identically, so this is parity, not a Kotlin
+     * house rule.
+     */
+    @Test
+    fun throwsOnQuotedPayoffPointsValue() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [a, b]
+                      points: [3, "3"]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'points' has a non-Int value"), error.message)
+    }
+
+    /** A scalar `action_deltas:` is rejected, naming the field. */
+    @Test
+    fun throwsOnNonDictActionDeltas() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: relationship_update
+                    action_deltas: not_a_dict
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'action_deltas'"), error.message)
+    }
+
+    /**
+     * An error raised **inside** a `then:` sub-phase names that sub-phase, not
+     * its parent.
+     *
+     * `mapBranch`'s `"$parentLabel.$branchLabel[$subIndex]"` label is the only
+     * thing that lets a curator find the offending phase in a conditional, and
+     * the sweep showed that collapsing it to the bare parent label left the
+     * suite green — every other conditional test asserts on a *well-formed*
+     * branch.
+     */
+    @Test
+    fun namesTheOffendingSubPhaseInsideABranch() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: conditional
+                    if: "current_round == 1"
+                    then:
+                      - type: speak_each
+                        prompt: "Talk"
+                        rounds: "3"
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("Phase 0.then[0]"), error.message)
     }
 
     // endregion
