@@ -335,6 +335,18 @@ jq -es 'map(select(.id=="new_a"))[0].run_id == "01:00:00"' "$LGIDX" >/dev/null \
 jq -es 'map(select(.id=="new_b"))[0].run_id == "02:00:00"' "$LGIDX" >/dev/null \
   || fail "legacy: second suffixed section not parsed"
 
+# a hand-edited heading suffix is NOT a run_id: rebuild hard-fails rather than
+# letting free text into the index, and writes nothing.
+BH="$TMP/badheading"; mkdir -p "$BH"
+sed 's/^## 2026-06-14 — 02:00:00$/## 2026-06-14 — rerun after the OOM/' \
+  "$LG/digest.md" > "$BH/digest.md"
+if python3 "$SCRIPTS/append_digest.py" \
+  --digest "$BH/digest.md" --rebuild-index >/dev/null 2>"$BH/err"; then
+  fail "badheading: a non-run_id heading suffix should hard-fail the rebuild"
+fi
+grep -q "run_id" "$BH/err" || fail "badheading: error must name run_id"
+[ ! -f "$BH/digest-index.jsonl" ] || fail "badheading: index written despite hard-fail"
+
 # (e) the append really takes an exclusive flock on <digest>.lock — the
 # compound key alone does not stop a concurrent read-modify-write from losing
 # a whole section. A helper holds the lock while an append is launched.

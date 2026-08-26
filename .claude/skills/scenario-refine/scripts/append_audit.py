@@ -194,7 +194,13 @@ def prior_ok_scores(journal_text, model, exclude_date, exclude_run_id):
     "Most recent" therefore orders by (date, run_id or "") rather than date
     alone, so two runs on one date resolve deterministically to the later one.
     A legacy record has no run_id and sorts as "" — before any real run_id on
-    the same date, which is the right precedence for a pre-#1542 section.
+    the same date, which is the right precedence for a pre-#1542 section. The
+    self-baseline guarantee is therefore about post-#1542 sections only: a
+    legacy date-only section is never the one being replaced (the replace
+    pattern cannot match it), so re-running that cycle compares the new
+    section against the legacy one — Δ ≈ 0 against what is effectively itself.
+    That falls out of keeping legacy sections alive, and clears as soon as the
+    date has one run_id-keyed section.
 
     An ok record missing any of the 5 score axes is skipped as a baseline — an
     old pre-`development` record carries only 4 axes, a different total scale,

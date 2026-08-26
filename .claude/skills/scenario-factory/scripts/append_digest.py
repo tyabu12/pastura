@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Append one factory-cycle section to the local digest, (date, run_id)-idempotently.
 
+This is the ROOT of a four-script fork family sharing this marker /
+same-key-idempotency / bootstrap / flock core: forked by
+`.claude/skills/scenario-refine/scripts/append_audit.py`,
+`.claude/skills/model-eval/scripts/append_eval.py` and
+`.claude/skills/queue-consumer/scripts/append_digest.py`. A real fix to that
+shared core is swept across all four.
+
 usage: append_digest.py --results <results.json> --digest <digest.md>
          (results.json must carry `run_id` — the section key is (date, run_id))
        append_digest.py --digest <digest.md> --rebuild-index
@@ -332,6 +339,13 @@ def _rebuild_index_locked(digest_path):
         if not m:
             continue  # preamble / non-section text
         date, run_id = m.group(1), m.group(2)
+        # A suffix is held to the same shape the append path enforces, so a
+        # hand-edited heading (`## <date> — rerun after the OOM`) cannot enter
+        # the index as a run_id. Rebuild is a recovery operation: it hard-fails
+        # rather than fail-open into a silently wrong index.
+        if run_id is not None and validate_run_id(run_id):
+            _rebuild_fail(date, heading.strip(),
+                          f"heading suffix is not a valid run_id: {run_id!r}")
         section_count += 1
 
         table_lines = [l for l in rest.split("\n") if l.lstrip().startswith("|")]

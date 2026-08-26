@@ -64,7 +64,12 @@ Actually changing a shipped scenario is a SEPARATE, human-driven step (see
   the same date from overwriting the first (#1542). Re-reading the clock when
   re-appending a partially-failed cycle would write a SECOND section instead
   of replacing its own. Two cycles that could start within the same second
-  must not share it — suffix one (`01:23:45-b`).
+  must not share it — suffix one (`01:23:45-b`). **A resumed session has no
+  memory of it**, which is exactly the re-append case, so recover rather than
+  mint: read `run_id` back from this cycle's results JSON temp file
+  (`/tmp/refine_results_<DATE>.json`), else from the cycle's
+  `## <DATE> — <RUN_ID>` heading in `data/factory/audit-digest.md`. Only when
+  neither exists is this a genuinely new cycle — mint it with `date +%H:%M:%S`.
 - `COUNT`: scenarios to evaluate this cycle (rotation slice). Default `5`
   (≈10-15 min before A/B). Running the whole ~21-scenario inventory nightly
   would take ≈45-90 min; the rotation re-checks the oldest slice instead.

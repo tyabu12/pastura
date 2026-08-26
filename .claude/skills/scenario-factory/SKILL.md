@@ -38,6 +38,11 @@ Non-goals:
   SECOND section instead of replacing its own — reuse the original value. If
   two cycles could plausibly start within the same second, give one a
   disambiguating suffix (`01:23:45-b`) rather than sharing the value.
+  **A resumed session has no memory of it**, which is exactly the re-append
+  case, so recover rather than mint: read `run_id` back from this cycle's
+  results JSON temp file, else from the cycle's `## <DATE> — <RUN_ID>` heading
+  in `data/factory/digest.md`. Only when neither exists is this a genuinely
+  new cycle — mint it with `date +%H:%M:%S`.
 - Generated YAMLs: `data/factory/scenarios/<DATE>/` (gitignored; kept
   local for later promotion — do NOT write into `runs/`, that is the
   harness output dir)
