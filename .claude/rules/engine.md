@@ -15,7 +15,15 @@ omission. Four do not.
   breaks only once `shared/models/.../PhaseType.kt` gains the case, and no gate
   ties the two enums together (the ADR-023 ledger covers `Engine/**` + `LLM/**`
   only). Add the Swift case alone and the Kotlin lane stays green while the enums
-  diverge.
+  diverge. `ScenarioLoader.kt`'s `type:` lookup is **not** another hand-maintained
+  map alongside `PhaseDispatcher.defaultHandlers()` and
+  `ConditionalHandler.subHandlers` (`kmp-interop.md` Pattern 4) — it derives from
+  `PhaseType.serializer().descriptor` via its `serialNameLookup` helper, so a new
+  case is picked up automatically and needs no edit there. The trap moves rather
+  than vanishing: the descriptor falls back to the **declaration** name when
+  `@SerialName` is absent, so a Kotlin case added without its annotation resolves
+  as `SPEAK_ALL` rather than `speak_all`, and `serialNameLookup`'s count check
+  cannot see it. (Phase-field mapping is a separate, still-unported concern, C2b.)
 - **Conditional-branch policy.** `ScenarioValidator.validateBranch` and
   `ConditionalHandler.subHandlers` are not `PhaseType`-exhaustive, so decide
   explicitly: *allow* (register in `subHandlers`) or *reject* (a

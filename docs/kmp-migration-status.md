@@ -45,7 +45,7 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
 | Wave B — 14 phase handlers | ✅ 14/14 | checklist ↓ |
 | code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
-| Loader / validator port + `detector`·`logger` wiring | 🟡 partial | validator prerequisites in ([#1464](https://github.com/tyabu12/pastura/issues/1464)); validator fully ported — run gate + commit gate ([#1552](https://github.com/tyabu12/pastura/issues/1552) B1/B2); loader / linter / preflight wiring left · [ADR-023](decisions/ADR-023.md) §4 · #501 |
+| Loader / validator port + `detector`·`logger` wiring | 🟡 partial | validator prerequisites in ([#1464](https://github.com/tyabu12/pastura/issues/1464)); validator fully ported — run gate + commit gate ([#1552](https://github.com/tyabu12/pastura/issues/1552) B1/B2); loader half-ported — YAML ingest + top-level mapping landed ([#1558](https://github.com/tyabu12/pastura/issues/1558) C2a), phase specialisation deferred (C2b), and like the validator it is **not wired** yet; linter / preflight wiring left · [ADR-023](decisions/ADR-023.md) §4 · #501 |
 
 ### Wave B handler checklist
 

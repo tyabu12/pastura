@@ -7,8 +7,10 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 //
 // Deliberately minimal vs `shared/models`:
 //   - No `kotlin-serialization` PLUGIN and no `snakeyaml-engine-kmp` — the engine
-//     run-path declares no `@Serializable` types of its own and does not parse
-//     YAML (that is Models' `YamlCodec`). The plugin is codegen for
+//     run-path declares no `@Serializable` types of its own, and YAML TEXT only
+//     ever enters this module through Models' `YamlCodec` (`ScenarioLoader.kt`
+//     ingests YAML but parses it via that call, not a snakeyaml dependency of
+//     its own). The plugin is codegen for
 //     `@Serializable`; `JSONResponseParser` only needs the RUNTIME library to
 //     walk a `JsonElement`, so the library is a dependency and the plugin stays
 //     out. Models' own dep is `implementation`, so it does not reach here
@@ -337,6 +339,7 @@ tasks.matching {
 val exportedThrowingSelectors = mapOf(
     "evaluate(expression:state:scenario:)" to "ConditionEvaluator.evaluate",
     "parse(expression:)" to "ConditionEvaluator.parse",
+    "load(yaml:)" to "ScenarioLoader.load",
     "validate(scenario:)" to "ScenarioValidator.validate",
     "validateForCommit(scenario:)" to "ScenarioValidator.validateForCommit",
     "require(key:)" to "TurnOutput.require (shared/models, re-exported)",
