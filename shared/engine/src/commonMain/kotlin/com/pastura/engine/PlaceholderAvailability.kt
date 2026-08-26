@@ -157,7 +157,7 @@ internal object PlaceholderAvailability {
      * `{conversation_log}` (built per call) and `{current_round}` (written
      * to `state.variables` by `SimulationRunner` each round).
      */
-    internal val baseInjected: Set<String> = setOf(
+    val baseInjected: Set<String> = setOf(
         "scoreboard", "conversation_log", "current_round"
     )
 
@@ -168,7 +168,7 @@ internal object PlaceholderAvailability {
      * from `summarize`/code phases, which never call the inject* helpers
      * (rule R12).
      */
-    internal val perPersonaInjected: Set<String> = setOf(
+    val perPersonaInjected: Set<String> = setOf(
         "assigned", "assigned_word", "my_notes", "relationships", "my_mood"
     )
 
@@ -177,15 +177,15 @@ internal object PlaceholderAvailability {
      * handler **except** `choose` individual (`executeIndividual` omits the
      * call).
      */
-    internal val whisperSelfInjected: Set<String> = setOf("my_whispers")
+    val whisperSelfInjected: Set<String> = setOf("my_whispers")
 
     /** Pairing tokens `SummarizeHandler` writes in its per-pairing branch. */
-    internal val pairingInjected: Set<String> = setOf(
+    val pairingInjected: Set<String> = setOf(
         "agent1", "action1", "agent2", "action2", "score1", "score2"
     )
 
     /** Tokens `AssignHandler` makes resolvable downstream. */
-    internal val assignProduced: Set<String> = setOf(
+    val assignProduced: Set<String> = setOf(
         "assigned", "assigned_word", "assigned_topic", "wolf_name"
     )
 
@@ -196,7 +196,7 @@ internal object PlaceholderAvailability {
      * reference, #890). Named here so the union-equality maintenance test
      * can state the delta explicitly instead of hiding it.
      */
-    internal val tokensBeyondEngineSupplied: Set<String> = setOf(
+    val tokensBeyondEngineSupplied: Set<String> = setOf(
         "my_notes", // reflect's channel -- promote to engineSupplied when a bundled preset first references {my_notes}
         "my_mood", // mood inertia (#913) -- promote to engineSupplied when a bundled preset first references {my_mood}
         "whisper_partner", "whisper_exchange",
@@ -214,7 +214,7 @@ internal object PlaceholderAvailability {
      * round). The reverse order is a compile error here, not a runtime
      * surprise — measured in the commonTest sibling's condition-4 record.
      */
-    internal val producerMap: Map<String, Set<PhaseType>> = mapOf(
+    val producerMap: Map<String, Set<PhaseType>> = mapOf(
         "assigned" to setOf(PhaseType.ASSIGN),
         "assigned_word" to setOf(PhaseType.ASSIGN),
         "assigned_topic" to setOf(PhaseType.ASSIGN),
@@ -258,7 +258,7 @@ internal object PlaceholderAvailability {
      * initialises its properties strictly top-to-bottom, and the compiler
      * rejects an initialiser that reads a later-declared property.
      */
-    internal val crossPhaseStateReadable: Set<String> =
+    val crossPhaseStateReadable: Set<String> =
         producerMap.keys
             .minus(perPersonaInjected)
             .minus(whisperSelfInjected)

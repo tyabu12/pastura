@@ -25,6 +25,10 @@ import kotlin.test.assertTrue
  * | 1 | moved `crossPhaseStateReadable` above `producerMap` | **compile error**, not a test: `Variable 'producerMap' must be initialized.` |
  * | 2 | added `whisperSelfInjected` to the `chooseRoundRobin == false` branch | `chooseIndividualOmitsWhisperChannel` |
  * | 3 | dropped `WHISPER` from `producerMap["my_mood"]` | `moodProducedByAllLLMPhases` |
+ * | 4 | dropped `assigned_topic` from `assignProduced` | `unionOfSuppliedEqualsEngineSuppliedPlusDocumentedDelta`, `everyEngineSuppliedTokenIsSuppliedBySomePhase`, `everyProducedTokenIsInItsProducersSuppliedSet` |
+ *
+ * Mutation 4 was added at review so that three mutations are test-detected;
+ * mutation 1 is a compiler detection.
  *
  * Mutation 1 is the reason the value pin in
  * [crossPhaseStateReadableIsProducerTokensMinusPerPersona] is *not* the
