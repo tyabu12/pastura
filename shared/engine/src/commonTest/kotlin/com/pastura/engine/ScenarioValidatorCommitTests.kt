@@ -18,15 +18,17 @@ import kotlin.test.assertTrue
  * tests, all 1:1 by name (with the Swift `validateForCommit_` / `validate_`
  * prefix dropped; two run-gate-leniency cases keep a disambiguating
  * `...AtRunGate` suffix instead, noted at their definitions, mirroring how
- * `ScenarioValidatorTests.kt` disambiguates its own run-gate cases) — plus
- * one Kotlin-only pin, [branchLabelCarriesTheParentPhaseTypeNotConditional],
- * which has no Swift sibling: it locks in that the branch-descent label
- * derives from `phase.type.serialName()` rather than a hardcoded
- * `"(conditional)"`. Swift behaves identically here — its
- * `validateCanonicalFields(_:)` also descends for every phase type — but all
- * three of its branch cases build a `.conditional` parent, so no Swift test
- * can tell the two label shapes apart. The gap was found while porting; this
- * pin closes it on the Kotlin side only.
+ * `ScenarioValidatorTests.kt` disambiguates its own run-gate cases) — plus two
+ * Kotlin-only pins with no Swift sibling, for a suite total of 31.
+ *
+ * Both pins close a mechanism the ADR-023 §12 condition-4 sweep found
+ * unclaimed on **both** sides;
+ * [branchLabelCarriesTheParentPhaseTypeNotConditional] and
+ * [acceptsCodePhaseDeclaringAStraySecondaryKey] carry the reasoning at their
+ * definitions, and notes 8–9 of [ScenarioValidatorTests]' perturbation record
+ * carry the measurement. That record covers this suite too — the sweep ran
+ * all three validator suites as one measurement, so it is the single place
+ * the commit gate's mechanism-to-claimant mapping lives.
  */
 class ScenarioValidatorCommitTests {
 
@@ -510,7 +512,43 @@ class ScenarioValidatorCommitTests {
 
     // endregion
 
-    // region Kotlin-only pin (no Swift sibling)
+    // region Kotlin-only pins (no Swift sibling)
+
+    /**
+     * Pins the thought-field rule's code-phase exemption:
+     * [com.pastura.models.ScenarioConventions.thoughtField] returns `null` for
+     * every code phase, so a code phase declaring a known secondary key is
+     * accepted rather than measured against a canonical it does not have.
+     *
+     * Added because the ADR-023 §12 condition-4 sweep found the exemption's
+     * `?: return` had **no** claimant on either side — no Swift test constructs
+     * a code phase with an `output:` block at all, so replacing the early
+     * return with a fallback canonical reddened nothing. The fixture is
+     * deliberately unrealistic (`summarize` emits no LLM output, so authoring
+     * an `output:` for it is a mistake); it exists to make the exemption
+     * observable, not to bless the shape.
+     */
+    @Test
+    fun acceptsCodePhaseDeclaringAStraySecondaryKey() {
+        val scenario = makeValidatorScenario(
+            agents = 2,
+            rounds = 1,
+            phases = listOf(
+                Phase(
+                    type = PhaseType.SPEAK_ALL,
+                    prompt = "Speak.",
+                    outputSchema = mapOf("statement" to "string"),
+                ),
+                Phase(
+                    type = PhaseType.SUMMARIZE,
+                    template = "Round done",
+                    outputSchema = mapOf("reason" to "string"),
+                ),
+            ),
+        )
+        validator.validateForCommit(scenario)
+    }
+
 
     /**
      * Pins the phase-type-derived branch parent label: the canonical-field
