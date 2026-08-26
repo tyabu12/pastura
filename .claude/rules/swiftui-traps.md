@@ -31,6 +31,8 @@ Replacing the top route **in place** is not a push, and trips two **device-only*
 
 Reference: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
 
+**A tab root's `.task` also re-fires on every pop back to it** (measured iOS 26.5, #1565): pushing a route fires the root's `onDisappear`, the pop fires `onAppear`, and `.task` restarts. A root that builds its VM in `.task` without a `guard viewModel == nil` rebuilds it, and the state reset swaps the `ScrollView` out — losing scroll offset, search text and chip selection. Keep the VM; do only the cheap re-sync (installed snapshot) on re-fire. Reference: `SharedScenariosListView`.
+
 ## Production-side-effecting service: inject at View boundary
 
 VM `init()` defaults run **in tests too**, so a production-only side-effecting service defaulted there is silently live in fixture tests: `SimulationRunner(detector: NLLanguageDetector())` fires on every output, drains the `MockLLMService` queue, and cascades into "Mock exhausted".

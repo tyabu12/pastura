@@ -322,7 +322,11 @@ final class SharedScenariosViewModel {
     didSeedInitialLanguage = true
   }
 
-  private func refreshInstalledSnapshot() async {
+  /// Re-reads the installed gallery rows into ``installedBySourceId`` without
+  /// touching the index or `state`. Called by the Browse root when it
+  /// re-appears after a detail pop, so an install made on the detail screen
+  /// (which owns its own ViewModel) is reflected in the list without a reload.
+  func refreshInstalledSnapshot() async {
     let rows: [ScenarioRecord]
     do {
       rows = try await offMain { [repository] in
