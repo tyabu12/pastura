@@ -31,8 +31,6 @@ Replacing the top route **in place** is not a push, and trips two **device-only*
 
 Reference: `AppRouter.replaceTop`, `ScenarioDetailView.scenarioContent`.
 
-**A tab root's `.task` also re-fires on every pop back to it** (measured iOS 26.5, #1565): pushing a route fires the root's `onDisappear`, the pop fires `onAppear`, and `.task` restarts. A root that builds its VM in `.task` without a `guard viewModel == nil` rebuilds it, and the state reset swaps the `ScrollView` out — losing scroll offset, search text and chip selection. Keep the VM; do only the cheap re-sync (installed snapshot) on re-fire. Reference: `SharedScenariosListView`.
-
 ## Production-side-effecting service: inject at View boundary
 
 VM `init()` defaults run **in tests too**, so a production-only side-effecting service defaulted there is silently live in fixture tests: `SimulationRunner(detector: NLLanguageDetector())` fires on every output, drains the `MockLLMService` queue, and cascades into "Mock exhausted".
@@ -90,6 +88,8 @@ Pass the **model itself**. A project-wide `extension Int: Identifiable` applies 
 ## Never instantiate a ViewModel in a factory func / computed property
 
 A VM created inside a View function or computed property gets a **fresh instance on every `body` re-evaluation**, silently wiping user state — `@Bindable` / `@Observable` references observe but do not own. Retain it with `@State` in a host view that creates it once (`.task { guard viewModel == nil … }`), showing a `ProgressView` until it exists.
+
+**On a tab root that guard is load-bearing**: a pushed route makes the root disappear, so every pop re-runs its `.task` (measured iOS 26.5, #1565) — the opposite of the replaceTop leaf above. Rebuilding the VM resets state to `.idle`, swapping the `ScrollView` for the loading arm and losing scroll offset, search text and chip selection. Re-fire only a cheap re-sync — except from `.idle` / `.loading`, where a first load never finished and must be re-run. Reference: `SharedScenariosListView`.
 
 ## iOS 26 AttributeGraph crash — ForEach + glyph in a plain-ScrollView card
 
