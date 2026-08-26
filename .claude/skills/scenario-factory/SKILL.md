@@ -30,6 +30,14 @@ Non-goals:
 - `MODEL`: `~/Models/gemma-4-E2B-it-Q4_K_M.gguf` (sha256 matches the
   `ModelRegistry` pin)
 - `DATE`: today as `YYYY-MM-DD`; `DATESTAMP`: `YYYYMMDD`
+- `RUN_ID`: this cycle's start time as `HH:MM:SS`, captured ONCE here at the
+  top of the cycle and reused **verbatim** in every append it makes. It is the
+  second half of the digest section key `(DATE, RUN_ID)`, which is what stops
+  a second cycle on the same date from overwriting the first (#1542). Taking
+  the clock again when re-appending a partially-failed cycle would write a
+  SECOND section instead of replacing its own — reuse the original value. If
+  two cycles could plausibly start within the same second, give one a
+  disambiguating suffix (`01:23:45-b`) rather than sharing the value.
 - Generated YAMLs: `data/factory/scenarios/<DATE>/` (gitignored; kept
   local for later promotion — do NOT write into `runs/`, that is the
   harness output dir)
@@ -71,10 +79,13 @@ Read four sources, in order:
 - **(b) `data/factory/digest-index.jsonl`** for FULL-history dedup — one line
   per past scenario (id / name / theme / axis / status / scores, no comments;
   ~19 KB vs the ~97 KB digest). Collect every past **id, name, theme** here.
-- **(c) Only the NEWEST 2 sections of `data/factory/digest.md`** for the
-  freshest nuance — last nights' comments, lessons, and axis-rotation context.
-  **NEVER read the whole digest** (it exceeds the session Read cap, ~39k
-  tokens): read with `offset`/`limit`, or stop at the 2nd `## <date>` heading.
+- **(c) Only the NEWEST 2 DATES' sections of `data/factory/digest.md`** for
+  the freshest nuance — last nights' comments, lessons, and axis-rotation
+  context. Headings are `## <date> — <run_id>` and one date can carry several
+  of them (#1542), so count DATES, not headings, or a night that ran twice
+  crowds out the previous night entirely. **NEVER read the whole digest** (it
+  exceeds the session Read cap, ~39k tokens): read with `offset`/`limit`, or
+  stop at the first heading whose date is the 3rd distinct one.
 - **(d) The newest 2 files in `data/factory/sketches/`** as a seed bank —
   **grep the `### S` heading and `paper:` lines only, never Read them whole**
   (context budget). A runner-up that lost only on axis-distinctness may be
@@ -389,15 +400,13 @@ never sinks a third night into it.
 ## Step 5 — Append the digest
 
 1. Write the results JSON (schema documented in `append_digest.py`'s
-   docstring: date / **run_id** / model / notes / per-scenario id, name, theme, **axis**,
-   yaml, run_log, status, attempts, duration_sec, scores (5 axes: coherence /
-   interaction / breakdown_free / humor / development), comment, error) to
-   a temp file. Set `run_id` to this cycle's `HH:MM:SS` start time — the
-   digest section key is (date, run_id), so a second cycle on the same date
-   gets its own section instead of overwriting the first (#1542). Reuse the
-   SAME `run_id` when re-appending a partially-failed cycle, so it replaces
-   its own section. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
-   `"elimination / creative"`) so cross-night rotation can read it back. Keep
+   docstring: date / **run_id** / model / notes / per-scenario id, name, theme,
+   **axis**, yaml, run_log, status, attempts, duration_sec, scores (5 axes:
+   coherence / interaction / breakdown_free / humor / development), comment,
+   error) to a temp file. Set `run_id` to the `RUN_ID` fixed in § Constants —
+   reuse that value, do not re-read the clock here. Set `axis` to the Step 1.5
+   axis this scenario targeted (e.g. `"elimination / creative"`) so cross-night
+   rotation can read it back. Keep
    `notes` a **single line** (a line-initial `## ` or `|` would split the digest
    section on re-parse): `tournament: <N> sketched → <selected ids>; sketches:
    data/factory/sketches/<DATE>.md; incubator: <none | v2 of <id> →
