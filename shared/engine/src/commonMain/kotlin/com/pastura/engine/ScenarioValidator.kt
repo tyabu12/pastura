@@ -2,6 +2,7 @@ package com.pastura.engine
 
 import com.pastura.models.AnyCodableValue
 import com.pastura.models.AssignTarget
+import com.pastura.models.OutputSchema
 import com.pastura.models.Phase
 import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
@@ -194,6 +195,155 @@ public class ScenarioValidator {
         }
 
         return ValidationResult(warnings = warnings, estimatedInferences = estimated)
+    }
+
+    /**
+     * Strict validation gate for commit-to-persist callsites
+     * (`ScenarioEditorViewModel.save()`).
+     *
+     * Runs every check [validate] runs, then adds the canonical primary-field
+     * requirement: every LLM phase must declare its
+     * [ScenarioConventions.primaryField] key in `output:`. The engine and UI key
+     * on those canonical fields, so a scenario that omits them silently breaks
+     * (empty conversation log, blank UI rows, `options[0]` fallback for choose).
+     * Surfacing the error at commit time keeps already-persisted scenarios
+     * runnable while preventing new ones from entering the database in the
+     * broken shape.
+     *
+     * ## Deliberately `public`, unlike the Swift original
+     *
+     * Swift's `validateForCommit(_:)` is module-`internal`; this is the port's
+     * **first deliberate access-level widening**. An `internal` Kotlin member is
+     * not emitted into the exported Obj-C header at all, and the Stage-5 K/N
+     * consumer (`ScenarioEditorViewModel.save()`, ADR-023 §6) calls this across
+     * that boundary — so `internal` here would compile fine and leave the
+     * commit gate simply unreachable from Swift. Read this modifier as a
+     * decision, not as a copy of [validate]'s.
+     *
+     * `@Throws` is load-bearing for the same reason it is on [validate]: an
+     * un-annotated Kotlin throw does not reach Swift as a catchable error at the
+     * K/N boundary — it terminates the process.
+     *
+     * @return the [ValidationResult] produced by [validate].
+     * @throws SimulationException carrying
+     *   [SimulationError.ScenarioValidationFailed] if a limit is exceeded or a
+     *   canonical output field is missing / mis-named.
+     */
+    @Throws(SimulationException::class)
+    public fun validateForCommit(scenario: Scenario): ValidationResult {
+        val result = validate(scenario)
+        validateCanonicalFields(scenario)
+        return result
+    }
+
+    /**
+     * Enforces [ScenarioConventions.primaryField] and
+     * [ScenarioConventions.thoughtField] for LLM phases, descending into
+     * `then:` / `else:` sub-phases so violations nested in a branch are caught
+     * at commit time. Code phases are exempt (the conventions tables return
+     * `null` and the per-phase checks return early). Termination is trivial:
+     * `conditional` is depth-1 by both [validateConditionalPhase] and the YAML
+     * parser (`ScenarioLoader.mapPhase`), so the recursion bottoms out after one
+     * descent.
+     *
+     * ## The branch descent is phase-type-independent by design
+     *
+     * Unlike [validatePhases], which reaches branches only through its
+     * [PhaseType.CONDITIONAL] arm, this walks `thenPhases` / `elsePhases` for
+     * **every** phase type, and the parent label is therefore derived from
+     * `phase.type.serialName()` rather than hardcoded to `"(conditional)"`. That
+     * is not an oversight to be "fixed" into symmetry with [validatePhases]:
+     * this gate guards the programmatic-construction path, where a
+     * non-conditional phase can carry `thenPhases`, and such a violation must
+     * render `"Phase 1 (speak_all) then[1]"` — a label naming the wrong phase
+     * type would send the author looking at a phase that does not exist.
+     * Mirrors Swift's `validateCanonicalFields(_:)`, which descends
+     * unconditionally for the same reason.
+     */
+    private fun validateCanonicalFields(scenario: Scenario) {
+        scenario.phases.forEachIndexed { index, phase ->
+            val label = "Phase ${index + 1}"
+            validateCanonicalFields(phase, label)
+            val parentLabel = "$label (${phase.type.serialName()})"
+            validateBranchCanonicalFields(phase.thenPhases, parentLabel, "then")
+            validateBranchCanonicalFields(phase.elsePhases, parentLabel, "else")
+        }
+    }
+
+    /** Runs both canonical-field checks (primary + thought) for one phase. */
+    private fun validateCanonicalFields(phase: Phase, label: String) {
+        validateCanonicalPrimaryField(phase, label)
+        validateCanonicalThoughtField(phase, label)
+    }
+
+    /**
+     * Requires the phase's canonical primary output key to be declared in
+     * `output:`. A phase type with no canonical primary (every code phase, plus
+     * `narrate`, whose schema is Engine-fixed) returns `null` from the
+     * conventions table and is exempt.
+     */
+    private fun validateCanonicalPrimaryField(phase: Phase, label: String) {
+        val canonical = ScenarioConventions.primaryField(phase.type) ?: return
+        val schema = phase.outputSchema ?: emptyMap()
+        if (schema[canonical] == null) {
+            throw validationError(
+                ScenarioValidationMessage.RequiresOutputField(
+                    label = label,
+                    type = phase.type.serialName(),
+                    field = canonical,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Enforces [ScenarioConventions.thoughtField]: when a phase declares any
+     * known secondary key ([OutputSchema.knownSecondaryKeys] — `inner_thought` /
+     * `reason`), it must be the phase's canonical thought field (vote→`reason`,
+     * speak_all / speak_each / choose→`inner_thought`). The secondary field is
+     * optional, so a phase that declares none passes. (Swift's `///` original
+     * writes that list as a `speak*` glob; a block comment cannot, since the
+     * glob's second character would close the KDoc.)
+     *
+     * Checks **every** declared known-secondary key rather than only
+     * `OutputSchema.thoughtFieldName`'s priority pick, so a stray `reason`
+     * alongside a canonical `inner_thought` is still caught. This is what keeps
+     * the live-streaming THINKING source (`OutputSchema.thoughtFieldName`,
+     * schema-driven) and the committed source (`TurnOutput.secondaryText`,
+     * phase-hardcoded) reading the same key — a choose authored with `reason`
+     * streamed live but went blank on commit (#760).
+     */
+    private fun validateCanonicalThoughtField(phase: Phase, label: String) {
+        val canonical = ScenarioConventions.thoughtField(phase.type) ?: return
+        val schema = phase.outputSchema ?: emptyMap()
+        for (key in OutputSchema.knownSecondaryKeys) {
+            if (schema[key] != null && key != canonical) {
+                throw validationError(
+                    ScenarioValidationMessage.SecondaryFieldMismatch(
+                        label = label,
+                        type = phase.type.serialName(),
+                        canonical = canonical,
+                        key = key,
+                    ),
+                )
+            }
+        }
+    }
+
+    /**
+     * Applies [validateCanonicalFields] to each sub-phase of one branch, with
+     * the same `parent branch[n]` label shape [validateBranch] uses so every
+     * branch-related validator message reads from a single mental template.
+     */
+    private fun validateBranchCanonicalFields(
+        phases: List<Phase>?,
+        parentLabel: String,
+        branchLabel: String,
+    ) {
+        phases ?: return
+        phases.forEachIndexed { subIndex, subPhase ->
+            validateCanonicalFields(subPhase, "$parentLabel $branchLabel[${subIndex + 1}]")
+        }
     }
 
     /**
