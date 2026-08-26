@@ -1,5 +1,3 @@
-import Foundation
-
 /// Producer–consumer phase-ordering rules R1–R6 (ADR-024 D3).
 ///
 /// Each rule compares **phase-list indices**: a consuming phase
@@ -229,49 +227,27 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for an ordering `ruleID` (one sentence
-  /// naming the rule + a concrete fix).
+  /// naming the rule + a concrete fix), rendered via ``ScenarioLintMessage``.
   private func orderingMessage(_ ruleID: String) -> String {
     switch ruleID {
     case "eliminate-needs-vote":
-      return String(
-        localized:
-          "eliminate-needs-vote: an 'eliminate' phase does nothing without a 'vote' phase in the same round — add a 'vote' phase before it."
-      )
+      return ScenarioLintMessage.eliminateNeedsVote.localized
     case "eliminate-after-vote":
-      return String(
-        localized:
-          "eliminate-after-vote: this 'eliminate' runs before every 'vote' phase, so it acts on the previous round's stale tally — move it after the 'vote' phase."
-      )
+      return ScenarioLintMessage.eliminateAfterVote.localized
     case "pd-needs-round-robin-choose":
-      return String(
-        localized:
-          "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'."
-      )
+      return ScenarioLintMessage.pdNeedsRoundRobinChoose.localized
     case "pairwise-payoff-needs-round-robin-choose":
-      return String(
-        localized:
-          "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a round-robin 'choose' phase earlier in the round to populate pairings, or scores never change — add one before this 'score_calc'."
-      )
+      return ScenarioLintMessage.pairwisePayoffNeedsRoundRobinChoose.localized
     case "wordwolf-needs-assign-and-vote":
-      return String(
-        localized:
-          "wordwolf-needs-assign-and-vote: 'wordwolf_judge' scoring needs both an 'assign' phase with target 'random_one' and a 'vote' phase earlier in the round, or it judges nothing — add the missing phase(s) before this 'score_calc'."
-      )
+      return ScenarioLintMessage.wordwolfNeedsAssignAndVote.localized
     case "event-reactive-needs-event-inject":
-      return String(
-        localized:
-          "event-reactive-needs-event-inject: 'event_reactive' scoring needs an earlier 'event_inject' phase with a dictionary event source and the default 'as: current_event', or the favored action is never scored — fix the 'event_inject' before this 'score_calc'."
-      )
+      return ScenarioLintMessage.eventReactiveNeedsEventInject.localized
     case "relationship-update-placement":
-      return String(
-        localized:
-          "relationship-update-placement: this 'relationship_update' cannot see its vote/choose signals — place it after the producing 'vote'/'choose' phase and before any 'prisoners_dilemma' 'score_calc', with no 'speak'/'choose' phase between the vote and it."
-      )
+      return ScenarioLintMessage.relationshipUpdatePlacement.localized
     default:
-      return String(
-        localized:
-          "vote-tally-needs-vote: 'vote_tally' scoring has no 'vote' phase earlier in the round, so it scores nothing or re-adds a stale tally — add a 'vote' phase before this 'score_calc'."
-      )
+      // Falls to `vote-tally-needs-vote`: the only remaining `score_calc`
+      // logic arm (`.voteTally`) that reaches `finding(_:_:at:)`.
+      return ScenarioLintMessage.voteTallyNeedsVote.localized
     }
   }
 

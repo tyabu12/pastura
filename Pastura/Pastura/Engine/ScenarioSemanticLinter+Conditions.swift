@@ -1,5 +1,3 @@
-import Foundation
-
 /// Condition-expression rules R13/R14/R15/R16 (ADR-024 D3), applied to every
 /// `conditional` phase's **parsed** `if:` string (`phase.condition`) — never
 /// raw YAML, whose scalar quoting (`if: 'current_event != ""'`) is already
@@ -173,27 +171,17 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for a condition `ruleID`, naming the
-  /// offending operand.
+  /// offending operand, rendered via ``ScenarioLintMessage``.
   private func conditionMessage(_ ruleID: String, token: String) -> String {
     switch ruleID {
     case "single-quoted-literal-in-condition":
-      return String(
-        format: String(
-          localized:
-            "single-quoted-literal-in-condition: the operand %@ is single-quoted, but the condition evaluator treats only double quotes as string literals — it is read as an undefined identifier and the comparison is always false. Use double quotes instead."
-        ), token)
+      return ScenarioLintMessage.singleQuotedLiteralInCondition(token: token).localized
     case "bare-identifier-looks-like-literal":
-      return String(
-        format: String(
-          localized:
-            "bare-identifier-looks-like-literal: the operand '%@' matches a persona name but is unquoted, so the condition evaluator reads it as an undefined identifier and the comparison is always false — wrap it in double quotes to compare against the name."
-        ), token)
+      return ScenarioLintMessage.bareIdentifierLooksLikeLiteral(token: token).localized
     default:
-      return String(
-        format: String(
-          localized:
-            "unknown-condition-identifier: '%@' is not a known condition variable (a derived variable, score, persona, extraData key, or engine-injected name), so it resolves to no value at runtime — check for a typo."
-        ), token)
+      // Falls to `unknown-condition-identifier`: the only other ruleID
+      // `classifyOperand` builds via this helper.
+      return ScenarioLintMessage.unknownConditionIdentifier(token: token).localized
     }
   }
 }

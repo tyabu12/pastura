@@ -195,27 +195,17 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for a placeholder `ruleID`, naming the
-  /// offending `{token}`.
+  /// offending `{token}`, rendered via ``ScenarioLintMessage``.
   private func placeholderMessage(_ ruleID: String, token: String) -> String {
     switch ruleID {
     case "unresolvable-placeholder":
-      return String(
-        format: String(
-          localized:
-            "unresolvable-placeholder: the placeholder '{%@}' is supplied by no phase, so it leaks into the LLM prompt verbatim — check for a typo or remove it."
-        ), token)
+      return ScenarioLintMessage.unresolvablePlaceholder(token: token).localized
     case "placeholder-phase-availability":
-      return String(
-        format: String(
-          localized:
-            "placeholder-phase-availability: the placeholder '{%@}' is only populated by a producing phase, but none runs earlier in the phase list, so it resolves to an empty value — move the producing phase before this one."
-        ), token)
+      return ScenarioLintMessage.placeholderPhaseAvailability(token: token).localized
     default:
-      return String(
-        format: String(
-          localized:
-            "per-persona-placeholder-in-summarize: the per-persona placeholder '{%@}' is never populated in a 'summarize' phase (summaries aren't per-agent), so it leaks literally — remove it or move it to an LLM phase."
-        ), token)
+      // Falls to `per-persona-placeholder-in-summarize`: the only other
+      // ruleID `placeholderFinding` builds via this helper.
+      return ScenarioLintMessage.perPersonaPlaceholderInSummarize(token: token).localized
     }
   }
 }

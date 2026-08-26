@@ -1,5 +1,3 @@
-import Foundation
-
 /// Silently-inert configuration rules R7/R8/R9/R17/R18 (ADR-024 D3).
 ///
 /// Unlike the ordering rules (`ScenarioSemanticLinter+Ordering.swift`), these
@@ -229,44 +227,25 @@ nonisolated extension ScenarioSemanticLinter {
   }
 
   /// The user-facing fix-hint message for a config `ruleID` (one sentence
-  /// naming the rule + a concrete fix).
+  /// naming the rule + a concrete fix), rendered via ``ScenarioLintMessage``.
   private func configMessage(_ ruleID: String) -> String {
     switch ruleID {
     case "choose-should-declare-options":
-      return String(
-        localized:
-          "choose-should-declare-options: this 'choose' phase has no 'options' list, so the agent's action is unconstrained free text — add an 'options' list to steer the choice."
-      )
+      return ScenarioLintMessage.chooseShouldDeclareOptions.localized
     case "assign-source-nonempty":
-      return String(
-        localized:
-          "assign-source-nonempty: this 'assign' phase's source resolves to an empty list, so nothing is assigned (or every agent gets an empty value) — add at least one entry to the referenced source data."
-      )
+      return ScenarioLintMessage.assignSourceNonempty.localized
     case "summarize-pairing-placeholders":
-      return String(
-        localized:
-          "summarize-pairing-placeholders: this 'summarize' template references {agent1}-family placeholders, but no round-robin 'choose' phase runs earlier in the round, so the placeholders leak literally into the summary — add a round-robin 'choose' phase before this 'summarize', or remove the pairing placeholders."
-      )
+      return ScenarioLintMessage.summarizePairingPlaceholders.localized
     case "max-sentences-no-op":
-      return String(
-        localized:
-          "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' cap never reaches a prompt and has no effect — remove it, or move it to a phase that emits a statement (speak_all / speak_each / whisper)."
-      )
+      return ScenarioLintMessage.maxSentencesNoOp.localized
     case "pairwise-payoff-no-scorable-row":
-      return String(
-        localized:
-          "pairwise-payoff-no-scorable-row: no 'payoff' row's 'when' tokens match the round-robin 'choose' options, so no pairing is ever scored — add a 'payoff' table whose 'when' rows use the 'choose' option tokens."
-      )
+      return ScenarioLintMessage.pairwisePayoffNoScorableRow.localized
     case "pairwise-payoff-dead-row":
-      return String(
-        localized:
-          "pairwise-payoff-dead-row: one or more 'payoff' rows use 'when' tokens that aren't in the round-robin 'choose' options, so those rows never fire — fix the tokens to match the 'choose' options, or remove the unused rows."
-      )
+      return ScenarioLintMessage.pairwisePayoffDeadRow.localized
     default:
-      return String(
-        localized:
-          "log-window-below-agent-count: 'log_window' is smaller than the agent count while a 'speak_each' phase is present, so same-round earlier speakers vanish from the addressee pool — raise 'log_window' to at least the agent count."
-      )
+      // Falls to `log-window-below-agent-count`: `logWindowFindings` is the
+      // only other caller of `configMessage`, always with this ruleID.
+      return ScenarioLintMessage.logWindowBelowAgentCount.localized
     }
   }
 }

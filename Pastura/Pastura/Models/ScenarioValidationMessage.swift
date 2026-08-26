@@ -94,7 +94,7 @@ nonisolated public enum ScenarioValidationMessage: Sendable {
 
 // `nonisolated` on the extension is load-bearing: the enum is a `nonisolated`
 // Models type, but a sibling `extension` inherits the project's default
-// MainActor isolation unless annotated (`.claude/rules/swift-isolation.md`
+// MainActor isolation unless annotated (`docs/swift-isolation-compile-time-patterns.md`
 // Pattern 3), which would break the synchronous `nonisolated` Engine callers.
 nonisolated extension ScenarioValidationMessage {
 
