@@ -88,6 +88,9 @@ data/factory/audit-digest.md
 # append_audit.py's flock target, serializing same-date sibling runs (#1542)
 data/factory/audit-digest.md.lock
 data/queue/digest.md
+# append_digest.py's flock target, serializing runs that share the
+# main checkout (#1542)
+data/queue/digest.md.lock
 data/factory/lessons-inbox.md
 data/factory/incubator.md
 

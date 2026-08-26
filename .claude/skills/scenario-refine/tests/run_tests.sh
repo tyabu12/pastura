@@ -14,6 +14,26 @@ trap 'rm -rf "$TMP"' EXIT
 
 fail() { echo "FAIL: $1" >&2; exit 1; }
 
+# Bounded poll helpers for the flock cases below. Synchronization is by
+# sentinel file / process liveness, never by a sleep margin: a cold python
+# start on a loaded CI runner outruns any fixed margin, and a margin that is
+# too short would fire the "did not write" assertion on a CORRECT
+# implementation. Every poll is capped so a hang fails loudly, not silently.
+await_file() {   # $1 = path to wait for, $2 = failure message
+  i=0
+  until [ -e "$1" ]; do
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after 60s)"
+    sleep 0.1
+  done
+}
+await_pid() {    # $1 = pid to wait to become observable, $2 = failure message
+  i=0
+  until kill -0 "$1" 2>/dev/null; do
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after 60s)"
+    sleep 0.1
+  done
+}
+
 sel() { # run select_inventory.py against the fixture inventory
   python3 "$SCRIPTS/select_inventory.py" \
     --presets-dir "$INV/presets" \
@@ -84,9 +104,19 @@ python3 "$SCRIPTS/append_audit.py" \
   --results fixtures/results_sample.json --journal "$TMP/journal.md" >/dev/null
 grep -q "^## 2026-06-21 — 01:00:00$" "$TMP/journal.md" || fail "audit: section heading missing"
 
+# The Δ cell is field 11 when the row is split on " | " (the development
+# column shifted it from 10 to 11); its first token is the signed delta, any
+# ⚠️ / ✅ flag follows. Always compare that token for EQUALITY — a bare
+# `grep -- "+1"` also matches +10, a raw score column, or a comment.
+# NR==1: a whole-journal grep returns one row per section, newest first, and
+# these assertions are about the section just appended.
+delta_of() { echo "$1" | awk -F' \\| ' 'NR==1 {print $11}' | awk '{print $1}'; }
+
 # regression: word_wolf prior total 16 (2026-06-20) → new 12 → Δ-4, flagged ⚠️
 WW_ROW=$(grep '^| word_wolf ' "$TMP/journal.md")
-echo "$WW_ROW" | grep -q -- "-4" || fail "audit: word_wolf regression delta -4 missing"
+WW_DELTA=$(delta_of "$WW_ROW")
+[ "$WW_DELTA" = "-4" ] \
+  || fail "audit: word_wolf regression delta must be exactly -4, got '$WW_DELTA'"
 echo "$WW_ROW" | grep -q "⚠️" || fail "audit: regression ⚠️ flag missing"
 
 # A/B candidate: bokete__v2 total 20 vs same-run baseline bokete 18 → vs base +2
@@ -144,8 +174,9 @@ COUNT=$(grep -c "^## 2026-06-21 — 01:00:00$" "$TMP/journal.md")
 grep -q "warning: replaced" "$TMP/warn" || fail "audit: replace warning missing"
 # re-running the same (date, run_id) must NOT use the replaced section as its
 # own baseline — word_wolf still compares to 2026-06-20, so Δ stays -4 (not 0).
-grep '^| word_wolf ' "$TMP/journal.md" | grep -q -- "-4" \
-  || fail "audit: same-key re-run must not self-baseline (Δ should stay -4)"
+RERUN_DELTA=$(delta_of "$(grep '^| word_wolf ' "$TMP/journal.md")")
+[ "$RERUN_DELTA" = "-4" ] \
+  || fail "audit: same-key re-run must not self-baseline (Δ should stay -4, got '$RERUN_DELTA')"
 
 # --- append_audit.py: markers + bootstrap ----------------------------------
 echo "# broken" > "$TMP/broken.md"
@@ -270,9 +301,9 @@ ww_row_of() { # $1 = run_id: the word_wolf row inside that run's section
     '$0 == h {inside=1; next} /^## / {inside=0} inside' "$RK/journal.md" \
     | grep '^| word_wolf '
 }
-RK_WW=$(ww_row_of "02:00:00")
-echo "$RK_WW" | grep -q -- "+1" \
-  || fail "runkey: same-date sibling run must stay available as a Δ baseline, got '$RK_WW'"
+RK_WW=$(delta_of "$(ww_row_of "02:00:00")")
+[ "$RK_WW" = "+1" ] \
+  || fail "runkey: same-date sibling run must stay available as a Δ baseline (expected +1, got '$RK_WW')"
 
 # (b) re-appending the SAME (date, run_id) replaces only that section, and
 # still excludes itself from its own baseline (Δ stays +1, never 0).
@@ -283,9 +314,9 @@ grep -q "warning: replaced" "$RK/warn" || fail "runkey: replace warning missing"
   || fail "runkey: same-key re-append duplicated the section"
 [ "$(grep -c "^## 2026-06-21 — 01:00:00$" "$RK/journal.md")" -eq 1 ] \
   || fail "runkey: sibling run's section disturbed by a same-key re-append"
-RK_WW2=$(ww_row_of "02:00:00")
-echo "$RK_WW2" | grep -q -- "+1" \
-  || fail "runkey: same-key re-append must not self-baseline, got '$RK_WW2'"
+RK_WW2=$(delta_of "$(ww_row_of "02:00:00")")
+[ "$RK_WW2" = "+1" ] \
+  || fail "runkey: same-key re-append must not self-baseline (expected +1, got '$RK_WW2')"
 
 # the newest of two same-date siblings wins the "most recent prior" pick, so a
 # third run resolves deterministically against run 2 (17) → Δ 0, not run 1.
@@ -293,9 +324,9 @@ jq '.run_id = "03:00:00" | .scenarios[0].scores.coherence = 4' \
   fixtures/results_sample.json > "$RK/results_run3.json"
 python3 "$SCRIPTS/append_audit.py" \
   --results "$RK/results_run3.json" --journal "$RK/journal.md" >/dev/null
-RK_WW3=$(ww_row_of "03:00:00")
-echo "$RK_WW3" | grep -q -- "+0" \
-  || fail "runkey: baseline pick must order by (date, run_id), got '$RK_WW3'"
+RK_WW3=$(delta_of "$(ww_row_of "03:00:00")")
+[ "$RK_WW3" = "+0" ] \
+  || fail "runkey: baseline pick must order by (date, run_id) (expected +0, got '$RK_WW3')"
 
 # a legacy date-only heading in an existing local journal survives untouched
 LG="$TMP/legacy"; mkdir -p "$LG"
@@ -335,22 +366,34 @@ cmp -s "$RV/journal.before" "$RV/journal.md" || fail "runid: journal touched by 
 # a whole section. A helper holds the lock while an append is launched.
 LK="$TMP/lock"; mkdir -p "$LK"
 cp fixtures/journal_seed.md "$LK/journal.md"
-python3 - "$LK/journal.md.lock" <<'PY' &
+# The helper takes the flock and only THEN writes a readiness sentinel; the
+# shell waits for that sentinel before launching the append, and releases the
+# helper through a second sentinel once the assertion is done — so the hold
+# always covers the polls without a guessed duration (the 60s inside is a
+# safety cap so a broken test cannot hang CI, not a schedule).
+python3 - "$LK/journal.md.lock" "$LK/held" "$LK/release" <<'PY' &
 import fcntl, os, sys, time
 fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
 fcntl.flock(fd, fcntl.LOCK_EX)
-time.sleep(4)
+open(sys.argv[2], "w").close()   # readiness sentinel: the lock is now HELD
+deadline = time.time() + 60
+while not os.path.exists(sys.argv[3]) and time.time() < deadline:
+    time.sleep(0.05)
 fcntl.flock(fd, fcntl.LOCK_UN)
 os.close(fd)
 PY
 HOLDER_PID=$!
-sleep 1   # generous margin: let the helper acquire before the append starts
+await_file "$LK/held" "lock: helper never acquired the flock"
 python3 "$SCRIPTS/append_audit.py" \
   --results fixtures/results_sample.json --journal "$LK/journal.md" >/dev/null 2>&1 &
 APPEND_PID=$!
-sleep 1
+await_pid "$APPEND_PID" "lock: the append process never came up"
+sleep 0.5   # settle: the holder keeps the lock until the release sentinel
+            # below, so a generous settle costs wall time, never a false
+            # failure — unlike the fixed margin this replaced.
 grep -q "^## 2026-06-21" "$LK/journal.md" \
   && fail "lock: append wrote the journal while the lock was held"
+: > "$LK/release"
 wait "$HOLDER_PID"
 wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
 grep -q "^## 2026-06-21 — 01:00:00$" "$LK/journal.md" \

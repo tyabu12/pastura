@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Append one /model-eval scorecard section to the local eval digest.
 
-This is the THIRD fork of `.claude/skills/scenario-factory/scripts/
+This is the THIRD of FOUR forks of `.claude/skills/scenario-factory/scripts/
 append_digest.py`'s marker / same-key-idempotency / bootstrap / flock core —
 `append_digest.py` (factory) -> `.claude/skills/scenario-refine/scripts/
-append_audit.py` (refine) -> this file. All three forks now carry the flock
-(#1542 swept it across the set). If the shared 2-marker core ever needs a
-real fix (bootstrap, marker validation, section-replace mechanics, locking),
-sweep all three files.
+append_audit.py` (refine) -> this file -> `.claude/skills/queue-consumer/
+scripts/append_digest.py` (queue). All four forks now carry the flock (#1542
+swept it across the set; the queue fork is single-marker and append-only, but
+shares the rest). If the shared core ever needs a real fix (bootstrap, marker
+validation, section-replace mechanics, locking), sweep all four files.
 
 usage: append_eval.py --results <results.json> --journal <eval-digest.md>
 

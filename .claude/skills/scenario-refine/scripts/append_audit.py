@@ -15,8 +15,10 @@ two things the factory digest does not need:
      A/B improvement candidate — vs its baseline in the SAME run.
 
 The fork is deliberate (different marker namespace, extra columns); the two
-scripts are expected to drift only in those respects. If the shared 2-marker
-core ever needs a real fix, fix both.
+scripts are expected to drift only in those respects. The family is FOUR
+scripts, all now carrying the flock (#1542): factory's append_digest.py, this
+file, model-eval's append_eval.py, and queue-consumer's append_digest.py. If
+the shared core ever needs a real fix, sweep all four.
 
 usage: append_audit.py --results <results.json> --journal <audit-digest.md>
          (results.json must carry `run_id` — the section key is (date, run_id))

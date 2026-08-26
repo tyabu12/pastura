@@ -15,12 +15,26 @@ Resolution:
      (bare repo / unexpected layout) — this is the real wrong-target
      catch now that the tracked-check is gone.
   2. If the digest is absent there, bootstrap a fresh scaffold (the log
-     is no longer tracked, so a clean clone / first run has no file).
-     A present file must still carry the section marker (main() checks)
-     — a stray wrong target would lack it.
+     is no longer tracked, so a clean clone / first run has no file) —
+     under the lock, since creating the target is part of the
+     read-modify-write. A present file must still carry the section
+     marker — a stray wrong target would lack it.
 
 With --digest (tests, manual use) resolution is skipped, but the marker
 check below still applies.
+
+This is the FOURTH fork of `.claude/skills/scenario-factory/scripts/
+append_digest.py`'s marker / bootstrap / flock core (the others: refine's
+append_audit.py, model-eval's append_eval.py); all four now carry the flock
+(#1542 swept it across the set). If that shared core ever needs a real fix,
+sweep all four files.
+
+The digest read-modify-write — resolution's bootstrap-if-absent included —
+runs under an exclusive flock on `<digest>.lock`. This fork is the most
+exposed member of the family: it deliberately targets the MAIN checkout, so
+runs from every routine worktree write ONE shared file, and it is
+append-only, so an interleaved read-modify-write drops a whole run record
+with no key to recover it from.
 
 The digest must contain exactly one section marker:
 
@@ -53,6 +67,8 @@ Results JSON schema (composed by the /queue-consumer session):
 """
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import re
@@ -84,7 +100,11 @@ def cell(value):
 
 
 def resolve_main_digest():
-    """Locate the main checkout's local digest; bootstrap it if absent."""
+    """Locate the main checkout's local digest. Resolution only — the
+    bootstrap-if-absent moved into _append_locked(): creating the target is
+    itself part of the read-modify-write and must happen under the lock, or
+    two first runs racing from different worktrees each write a scaffold and
+    one loses its section."""
     common = subprocess.run(
         ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
         capture_output=True, text=True, check=True).stdout.strip()
@@ -92,15 +112,30 @@ def resolve_main_digest():
         sys.exit(f"unexpected --git-common-dir {common!r} (bare repo?) — "
                  "pass --digest explicitly")
     main_root = os.path.dirname(common)
-    path = os.path.join(main_root, DIGEST_RELPATH)
-    if not os.path.exists(path):
-        # Local-log model: the digest is gitignored, so a clean clone or
-        # the very first run has no file. Bootstrap the scaffold (with the
-        # section marker) rather than aborting.
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(SCAFFOLD)
-    return path
+    return os.path.join(main_root, DIGEST_RELPATH)
+
+
+@contextlib.contextmanager
+def digest_lock(digest_path):
+    """Exclusive flock on `<digest>.lock` around the whole read-modify-write.
+
+    Every routine worktree resolves to the SAME main-checkout digest, so two
+    runs would otherwise both read the body, both write, and the loser's
+    section would vanish — and this log is append-only, so there is no key to
+    recover it from. The lock file is separate from the digest so the
+    truncating write below can never drop it. Mirrors the factory digest's
+    digest_lock() / the refine journal's journal_lock()."""
+    lock_path = digest_path + ".lock"
+    os.makedirs(os.path.dirname(lock_path) or ".", exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
 
 
 def render_section(results):
@@ -147,7 +182,27 @@ def main():
             sys.exit(f"issue {issue.get('number')}: outcome must be one of "
                      f"{OUTCOMES}, got: {issue.get('outcome')!r}")
 
+    # Resolve first, lock the resolved path, then bootstrap / read / write
+    # under it. Parsing and validation above touch no target file, so they
+    # stay outside the lock.
+    may_bootstrap = args.digest is None
     digest_path = args.digest or resolve_main_digest()
+    with digest_lock(digest_path):
+        return _append_locked(digest_path, results, run_id, may_bootstrap)
+
+
+def _append_locked(digest_path, results, run_id, may_bootstrap):
+    """Bootstrap-if-absent, read, and rewrite the digest. Caller must hold
+    digest_lock()."""
+    if may_bootstrap and not os.path.exists(digest_path):
+        # Local-log model: the digest is gitignored, so a clean clone or the
+        # very first run has no file. Bootstrap the scaffold (with the section
+        # marker) rather than aborting. Re-checked here, under the lock — the
+        # racing sibling may have created it since resolution.
+        os.makedirs(os.path.dirname(digest_path), exist_ok=True)
+        with open(digest_path, "w", encoding="utf-8") as f:
+            f.write(SCAFFOLD)
+
     with open(digest_path, encoding="utf-8") as f:
         digest = f.read()
     if digest.count(SECTIONS_MARKER) != 1:

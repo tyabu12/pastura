@@ -15,6 +15,26 @@ trap 'rm -rf "$TMP"' EXIT
 
 fail() { echo "FAIL: $1" >&2; exit 1; }
 
+# Bounded poll helpers for the flock cases below. Synchronization is by
+# sentinel file / process liveness, never by a sleep margin: a cold python
+# start on a loaded CI runner outruns any fixed margin, and a margin that is
+# too short would fire the "did not write" assertion on a CORRECT
+# implementation. Every poll is capped so a hang fails loudly, not silently.
+await_file() {   # $1 = path to wait for, $2 = failure message
+  i=0
+  until [ -e "$1" ]; do
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after 60s)"
+    sleep 0.1
+  done
+}
+await_pid() {    # $1 = pid to wait to become observable, $2 = failure message
+  i=0
+  until kill -0 "$1" 2>/dev/null; do
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after 60s)"
+    sleep 0.1
+  done
+}
+
 # --- analyze_model_eval.py --------------------------------------------------
 RESULT=$(python3 "$SCRIPTS/analyze_model_eval.py" fixtures/run_ok.jsonl fixtures/run_crashed.jsonl)
 echo "$RESULT" > "$TMP/analyze_out.json"
@@ -188,24 +208,36 @@ LK="$TMP/lock"; mkdir -p "$LK"
 python3 "$SCRIPTS/append_eval.py" \
   --results fixtures/results_sample.json --journal "$LK/eval-digest.md" >/dev/null \
   || fail "lock: seed append should succeed"
-python3 - "$LK/eval-digest.md.lock" <<'PY' &
+# The helper takes the flock and only THEN writes a readiness sentinel; the
+# shell waits for that sentinel before launching the append, and releases the
+# helper through a second sentinel once the assertion is done — so the hold
+# always covers the polls without a guessed duration (the 60s inside is a
+# safety cap so a broken test cannot hang CI, not a schedule).
+python3 - "$LK/eval-digest.md.lock" "$LK/held" "$LK/release" <<'PY' &
 import fcntl, os, sys, time
 fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
 fcntl.flock(fd, fcntl.LOCK_EX)
-time.sleep(4)
+open(sys.argv[2], "w").close()   # readiness sentinel: the lock is now HELD
+deadline = time.time() + 60
+while not os.path.exists(sys.argv[3]) and time.time() < deadline:
+    time.sleep(0.05)
 fcntl.flock(fd, fcntl.LOCK_UN)
 os.close(fd)
 PY
 HOLDER_PID=$!
-sleep 1   # generous margin: let the helper acquire before the append starts
+await_file "$LK/held" "lock: helper never acquired the flock"
 python3 "$SCRIPTS/append_eval.py" \
   --results fixtures/results_sample_profile2.json --journal "$LK/eval-digest.md" \
   >/dev/null 2>&1 &
 APPEND_PID=$!
-sleep 1
+await_pid "$APPEND_PID" "lock: the append process never came up"
+sleep 0.5   # settle: the holder keeps the lock until the release sentinel
+            # below, so a generous settle costs wall time, never a false
+            # failure — unlike the fixed margin this replaced.
 COUNT_DURING=$(grep -c "^## 2026-07-07 — " "$LK/eval-digest.md")
 [ "$COUNT_DURING" -eq 1 ] \
   || fail "lock: append wrote the journal while the lock was held"
+: > "$LK/release"
 wait "$HOLDER_PID"
 wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
 COUNT_AFTER=$(grep -c "^## 2026-07-07 — " "$LK/eval-digest.md")
