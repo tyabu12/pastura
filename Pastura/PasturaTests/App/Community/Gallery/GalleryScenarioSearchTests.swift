@@ -273,4 +273,38 @@ struct GalleryScenarioSearchTests {
     let result = GalleryScenarioSearch.filter(input, category: nil, query: "", language: nil)
     #expect(result.map(\.id) == ["alpha", "mu", "zeta"])
   }
+
+  // MARK: - Install-state sort key (ADR-025)
+
+  @Test func allShowsInstalledButSortsThemLast() {
+    // "a" is featured AND installed-unchanged; "c" is unpinned and NOT
+    // installed. Even though "a" is pinned, an installed-unchanged row
+    // always sorts after every non-installed row.
+    let input = [
+      sortable(id: "a", featured: 1, addedAt: "2026-01-01"),
+      sortable(id: "b", featured: 2, addedAt: "2026-01-01"),
+      sortable(id: "c", addedAt: "2026-06-01")
+    ]
+    let result = GalleryScenarioSearch.filter(
+      input, category: nil, query: "", language: nil,
+      installedUnchangedIds: ["a", "b"])
+    // Non-installed "c" first, then the installed group in ADR-025 order
+    // (featured ascending: "a" before "b").
+    #expect(result.map(\.id) == ["c", "a", "b"])
+  }
+
+  @Test func queryStillSortsInstalledLast() {
+    // `sortable` uses the id as the title, so a shared "q_" prefix is the
+    // query both rows match.
+    let input = [
+      sortable(id: "q_installed_new", addedAt: "2026-06-01"),
+      sortable(id: "q_fresh_old", addedAt: "2026-01-01")
+    ]
+    let result = GalleryScenarioSearch.filter(
+      input, category: nil, query: "q_", language: nil,
+      installedUnchangedIds: ["q_installed_new"])
+    // Both rows match the query; the installed one is demoted below the row
+    // the user lacks, even though it is newer.
+    #expect(result.map(\.id) == ["q_fresh_old", "q_installed_new"])
+  }
 }

@@ -262,6 +262,30 @@ import Testing
     let bumped = makeGalleryScenario(hash: String(repeating: "f", count: 64))
     #expect(viewModel.hasUpdate(for: bumped))
   }
+
+  /// The Browse root re-fires `.task` on every detail pop and keeps its VM
+  /// (#1565); the detail screen installs through its *own* VM, so the list
+  /// must be able to pick up a row that appeared behind its back.
+  @Test func refreshInstalledSnapshotPicksUpNewRows() async throws {
+    let repo = try makeRepo()
+    let scenario = makeGalleryScenario()
+    let viewModel = SharedScenariosViewModel(
+      galleryService: StubVMGalleryService(), repository: repo)
+    #expect(!viewModel.isInstalled(scenario))
+
+    // Simulate the detail screen's install: a gallery row written by another VM.
+    try repo.save(
+      ScenarioRecord(
+        id: scenario.id, name: "Asch", yamlDefinition: Self.sampleYAML,
+        isPreset: false, createdAt: Date(), updatedAt: Date(),
+        sourceType: ScenarioSourceType.gallery, sourceId: scenario.id,
+        sourceHash: scenario.yamlSHA256))
+    #expect(!viewModel.isInstalled(scenario))  // snapshot is a cache, not live
+
+    await viewModel.refreshInstalledSnapshot()
+    #expect(viewModel.isInstalled(scenario))
+    #expect(!viewModel.hasUpdate(for: scenario))
+  }
 }
 
 // MARK: - StubVMGalleryService

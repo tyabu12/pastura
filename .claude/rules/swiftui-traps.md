@@ -89,6 +89,8 @@ Pass the **model itself**. A project-wide `extension Int: Identifiable` applies 
 
 A VM created inside a View function or computed property gets a **fresh instance on every `body` re-evaluation**, silently wiping user state — `@Bindable` / `@Observable` references observe but do not own. Retain it with `@State` in a host view that creates it once (`.task { guard viewModel == nil … }`), showing a `ProgressView` until it exists.
 
+**On a tab root that guard is load-bearing**: a pushed route makes the root disappear, so every pop re-runs its `.task` (measured iOS 26.5, #1565) — the opposite of the replaceTop leaf above. Rebuilding the VM resets state to `.idle`, swapping the `ScrollView` for the loading arm and losing scroll offset, search text and chip selection. Re-fire only a cheap re-sync — except from `.idle` / `.loading`, where a first load never finished and must be re-run. Reference: `SharedScenariosListView`.
+
 ## iOS 26 AttributeGraph crash — ForEach + glyph in a plain-ScrollView card
 
 An unconditional subview (a glyph, a `.background(_, in: Capsule())` badge) added to a `ForEach` inside a plain `ScrollView` → eager `VStack` can crash with `EXC_BAD_ACCESS` as the screen appears — a pure-SwiftUI fault stack with no app frame.
