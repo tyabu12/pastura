@@ -61,10 +61,24 @@ final class SharedScenariosViewModel {
   /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:language:)``).
   var searchQuery: String = ""
 
+  /// The Browse install-state filter (ADR-025 § Amendment 2026-08-26).
+  /// Defaults to hiding installed-and-unchanged rows. Deliberately
+  /// **session-only**: the VM lives in the tab root's `@State`, so the choice
+  /// survives tab switches and detail pushes but resets on the next launch —
+  /// the catalog should open in its discovery default every time.
+  var installFilter: GalleryScenarioSearch.InstallFilter = .hideInstalled
+
   /// Rows keyed by `sourceId` for the subset of scenarios whose
   /// `sourceType == "gallery"` and whose `sourceId` is non-nil. Rebuilt
   /// after every load and save so UI bindings can read synchronously.
   private(set) var installedBySourceId: [String: ScenarioRecord] = [:]
+
+  /// Ids that became installed-and-unchanged *behind* this VM — installed or
+  /// updated from the detail screen (which owns its own VM) and noticed by
+  /// ``refreshInstalledSnapshot()`` on the pop back. They stay visible until
+  /// the next index ``refresh()`` so the row the user just acted on does not
+  /// vanish from under the restored scroll position.
+  private(set) var sessionPinnedIds: Set<String> = []
 
   /// The distinct languages present in the loaded feed (via
   /// ``GalleryScenario/effectiveLanguage``). Drives the language chip
@@ -88,7 +102,8 @@ final class SharedScenariosViewModel {
   var visibleScenarios: [GalleryScenario] {
     GalleryScenarioSearch.filter(
       allScenarios, category: selectedCategory, query: searchQuery,
-      language: selectedLanguage)
+      language: selectedLanguage, installedUnchangedIds: installedUnchangedIds,
+      installFilter: installFilter)
   }
 
   /// Why ``visibleScenarios`` is empty — drives the empty-card copy. Only
@@ -96,7 +111,8 @@ final class SharedScenariosViewModel {
   var emptyReason: GalleryScenarioSearch.EmptyReason {
     GalleryScenarioSearch.emptyReason(
       allScenariosEmpty: allScenarios.isEmpty,
-      category: selectedCategory, query: searchQuery, language: selectedLanguage)
+      category: selectedCategory, query: searchQuery, language: selectedLanguage,
+      hiddenInstalledCount: hiddenInstalledCount)
   }
 
   private let galleryService: any GalleryService
@@ -142,6 +158,10 @@ final class SharedScenariosViewModel {
 
   /// Force a network refresh. Preserves cached content on failure.
   func refresh() async {
+    // A refresh is the user (or the initial load) asking for the current
+    // catalog view, so rows pinned by an install behind the list may now
+    // fall under the hide filter like any other installed row.
+    sessionPinnedIds = []
     do {
       if let fresh = try await galleryService.refreshIndex() {
         apply(index: fresh)
@@ -275,32 +295,6 @@ final class SharedScenariosViewModel {
     }
   }
 
-  // MARK: - Sync helpers for UI
-
-  /// True if a gallery row for this scenario is already in the local DB.
-  func isInstalled(_ scenario: GalleryScenario) -> Bool {
-    installedBySourceId[scenario.id] != nil
-  }
-
-  /// True if an installed gallery row's `sourceHash` differs from the
-  /// current gallery's `yaml_sha256`.
-  func hasUpdate(for scenario: GalleryScenario) -> Bool {
-    guard let local = installedBySourceId[scenario.id] else { return false }
-    return local.sourceHash != scenario.yamlSHA256
-  }
-
-  /// Whether this build's engine can execute `scenario` (ADR-020 D2 + D3).
-  ///
-  /// Drives the Browse-tab grey-out: an incompatible entry renders as a
-  /// dimmed, non-tappable card with an "update app" badge instead of a
-  /// `NavigationLink` (see ``SharedScenariosListView``). Delegates to
-  /// ``EngineSchemaVersion`` so the capability comparison stays in the Engine
-  /// layer and drift-proof against `PhaseType` additions.
-  func isCompatible(_ scenario: GalleryScenario) -> Bool {
-    EngineSchemaVersion.isCompatible(
-      phases: scenario.phases, minEngineVersion: scenario.minEngineVersion)
-  }
-
   // MARK: - Private
 
   private func apply(index: GalleryIndex) {
@@ -341,11 +335,17 @@ final class SharedScenariosViewModel {
     // trapping if two gallery rows ever share a `sourceId` (shouldn't
     // happen under the curation rules + readonly guard, but we prefer
     // "first wins" over a crash).
-    installedBySourceId = Dictionary(
+    let fresh = Dictionary(
       rows.compactMap { record -> (String, ScenarioRecord)? in
         guard let sourceId = record.sourceId else { return nil }
         return (sourceId, record)
       },
       uniquingKeysWith: { first, _ in first })
+    // Anything that *became* installed-and-unchanged since the last snapshot
+    // was installed behind this VM (detail screen) — keep it visible.
+    let before = installedUnchangedIds(in: allScenarios, snapshot: installedBySourceId)
+    let after = installedUnchangedIds(in: allScenarios, snapshot: fresh)
+    sessionPinnedIds.formUnion(after.subtracting(before))
+    installedBySourceId = fresh
   }
 }
