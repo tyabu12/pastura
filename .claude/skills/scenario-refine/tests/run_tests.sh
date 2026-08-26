@@ -10,26 +10,29 @@ cd "$(dirname "$0")"
 SCRIPTS=../scripts
 INV=fixtures/inv
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+HOLDER_PID=""
+# The flock cases below run a lock holder with a 60s deadline. A failing
+# assertion must not orphan it: it inherits the harness's stdout, so an
+# orphan can stall a piped CI invocation for the whole deadline.
+cleanup() { [ -n "$HOLDER_PID" ] && kill "$HOLDER_PID" 2>/dev/null; rm -rf "$TMP"; return 0; }
+trap cleanup EXIT
 
 fail() { echo "FAIL: $1" >&2; exit 1; }
 
 # Bounded poll helpers for the flock cases below. Synchronization is by
-# sentinel file / process liveness, never by a sleep margin: a cold python
-# start on a loaded CI runner outruns any fixed margin, and a margin that is
-# too short would fire the "did not write" assertion on a CORRECT
-# implementation. Every poll is capped so a hang fails loudly, not silently.
+# sentinel file: the append is launched through a wrapper that touches a
+# "started" sentinel immediately before exec'ing python, and the holder keeps
+# the lock until the release sentinel. The short settle after the started
+# sentinel IS a sleep margin, but a one-sided one — the lock is still held
+# across it, so a slow python start can only yield a false PASS, never a false
+# failure. What makes the case bite is the liveness assertion immediately
+# before the release (the append must still be running, and not defunct)
+# together with the post-release assertions. Every poll is capped so a hang
+# fails loudly, not silently.
 await_file() {   # $1 = path to wait for, $2 = failure message
-  i=0
+  local i=0
   until [ -e "$1" ]; do
-    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after 60s)"
-    sleep 0.1
-  done
-}
-await_pid() {    # $1 = pid to wait to become observable, $2 = failure message
-  i=0
-  until kill -0 "$1" 2>/dev/null; do
-    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after 60s)"
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after ~600 polls)"
     sleep 0.1
   done
 }
@@ -111,6 +114,11 @@ grep -q "^## 2026-06-21 — 01:00:00$" "$TMP/journal.md" || fail "audit: section
 # NR==1: a whole-journal grep returns one row per section, newest first, and
 # these assertions are about the section just appended.
 delta_of() { echo "$1" | awk -F' \\| ' 'NR==1 {print $11}' | awk '{print $1}'; }
+# Whole-cell variant, for a Δ whose text is multi-token and so has no single
+# "delta token" to isolate: "vs base +2 ✅" (A/B candidate) as well as
+# "-4 ⚠️" (regression). Same reason as above — `grep -q "vs base +2"` also
+# matches "vs base +20", and a Δ against a 25-point total can reach ±20.
+delta_cell() { echo "$1" | awk -F' \\| ' 'NR==1 {print $11}'; }
 
 # regression: word_wolf prior total 16 (2026-06-20) → new 12 → Δ-4, flagged ⚠️
 WW_ROW=$(grep '^| word_wolf ' "$TMP/journal.md")
@@ -121,7 +129,9 @@ echo "$WW_ROW" | grep -q "⚠️" || fail "audit: regression ⚠️ flag missing
 
 # A/B candidate: bokete__v2 total 20 vs same-run baseline bokete 18 → vs base +2
 CAND_ROW=$(grep '^| bokete__v2 ' "$TMP/journal.md")
-echo "$CAND_ROW" | grep -q "vs base +2" || fail "audit: A/B delta 'vs base +2' missing"
+CAND_DELTA=$(delta_cell "$CAND_ROW")
+[ "$CAND_DELTA" = "vs base +2 ✅" ] \
+  || fail "audit: A/B delta cell must be exactly 'vs base +2 ✅', got '$CAND_DELTA'"
 echo "$CAND_ROW" | grep -q "✅" || fail "audit: A/B win ✅ missing"
 
 # bokete itself has no prior baseline → Δ em-dash, not a number. Field 11
@@ -370,31 +380,57 @@ cp fixtures/journal_seed.md "$LK/journal.md"
 # shell waits for that sentinel before launching the append, and releases the
 # helper through a second sentinel once the assertion is done — so the hold
 # always covers the polls without a guessed duration (the 60s inside is a
-# safety cap so a broken test cannot hang CI, not a schedule).
+# safety cap so a broken test cannot hang CI, not a schedule — blowing it
+# exits the helper non-zero, which the wait below turns into a FAIL).
 python3 - "$LK/journal.md.lock" "$LK/held" "$LK/release" <<'PY' &
 import fcntl, os, sys, time
 fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
 fcntl.flock(fd, fcntl.LOCK_EX)
 open(sys.argv[2], "w").close()   # readiness sentinel: the lock is now HELD
 deadline = time.time() + 60
-while not os.path.exists(sys.argv[3]) and time.time() < deadline:
+while not os.path.exists(sys.argv[3]):
+    if time.time() >= deadline:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        sys.exit("lock helper: release sentinel never appeared")
     time.sleep(0.05)
 fcntl.flock(fd, fcntl.LOCK_UN)
 os.close(fd)
 PY
 HOLDER_PID=$!
 await_file "$LK/held" "lock: helper never acquired the flock"
-python3 "$SCRIPTS/append_audit.py" \
+# bash assigns $! at fork and `kill -0` also succeeds on an unreaped zombie,
+# so neither proves the append got as far as the lock. Launch it through a
+# wrapper that touches a "started" sentinel immediately before exec'ing
+# python (exec keeps $! pointing at the python process itself).
+cat > "$LK/append_wrapper.sh" <<'EOF'
+#!/bin/bash
+# $1 = "started" sentinel; the rest is the command to exec.
+started=$1; shift
+: > "$started"
+exec "$@"
+EOF
+bash "$LK/append_wrapper.sh" "$LK/started" \
+  python3 "$SCRIPTS/append_audit.py" \
   --results fixtures/results_sample.json --journal "$LK/journal.md" >/dev/null 2>&1 &
 APPEND_PID=$!
-await_pid "$APPEND_PID" "lock: the append process never came up"
-sleep 0.5   # settle: the holder keeps the lock until the release sentinel
-            # below, so a generous settle costs wall time, never a false
-            # failure — unlike the fixed margin this replaced.
+await_file "$LK/started" "lock: the append never started"
+sleep 0.5   # one-sided settle: the holder keeps the lock across it, so this
+            # can only cost wall time, never a false failure.
+# ...and the append must still be ALIVE and blocked here. An append that
+# already exited — or that never took the lock at all — would satisfy the
+# "did not write" assertion below vacuously.
+APPEND_STATE=$(ps -o state= -p "$APPEND_PID" 2>/dev/null | tr -d '[:space:]' || true)
+[ -n "$APPEND_STATE" ] \
+  || fail "lock: the append exited instead of blocking on the held lock"
+case "$APPEND_STATE" in
+  Z*) fail "lock: the append is defunct — it exited instead of blocking on the held lock" ;;
+esac
 grep -q "^## 2026-06-21" "$LK/journal.md" \
   && fail "lock: append wrote the journal while the lock was held"
 : > "$LK/release"
-wait "$HOLDER_PID"
+wait "$HOLDER_PID" || fail "lock: holder timed out waiting for the release sentinel"
+HOLDER_PID=""
 wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
 grep -q "^## 2026-06-21 — 01:00:00$" "$LK/journal.md" \
   || fail "lock: section missing after the lock was released"

@@ -293,13 +293,23 @@ def split_row_cells(line):
     return [p.strip().replace("\\|", "|") for p in parts]
 
 
-def _rebuild_fail(date, header, msg):
+def _rebuild_fail(date, line, msg, kind="table shape", label="header",
+                  remedy=None):
     """Rebuild is a manual/recovery operation — unlike the nightly append it
     MUST NOT fail-open into a silently partial index. Hard-fail loudly and
-    write nothing."""
-    print(f"rebuild-index: unrecognized table shape in section {date}: {msg}",
+    write nothing.
+
+    `kind` / `label` name the line the operator has to look at: the table
+    header for a column/row-shape failure, the `## <date> — <suffix>` heading
+    for an unparseable run_id. Pointing at the wrong one sends them editing a
+    table that is fine. `remedy` spells out the edit when there is exactly
+    one — this is the tool reached for when the digest is ALREADY damaged, so
+    a dead end here has no fallback."""
+    print(f"rebuild-index: unrecognized {kind} in section {date}: {msg}",
           file=sys.stderr)
-    print(f"  header: {header}", file=sys.stderr)
+    print(f"  {label}: {line}", file=sys.stderr)
+    if remedy:
+        print(f"  fix: {remedy}", file=sys.stderr)
     sys.exit(2)
 
 
@@ -345,7 +355,12 @@ def _rebuild_index_locked(digest_path):
         # rather than fail-open into a silently wrong index.
         if run_id is not None and validate_run_id(run_id):
             _rebuild_fail(date, heading.strip(),
-                          f"heading suffix is not a valid run_id: {run_id!r}")
+                          f"heading suffix is not a valid run_id: {run_id!r}",
+                          kind="section heading", label="heading",
+                          remedy=(f"edit the heading to `## {date} — HH:MM:SS` "
+                                  f"(any run_id of that shape — the cycle's "
+                                  f"start time is the convention), or delete "
+                                  f"the section, then re-run --rebuild-index"))
         section_count += 1
 
         table_lines = [l for l in rest.split("\n") if l.lstrip().startswith("|")]
