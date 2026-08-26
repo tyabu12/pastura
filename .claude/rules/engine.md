@@ -23,7 +23,11 @@ omission. Four do not.
   than vanishing: the descriptor falls back to the **declaration** name when
   `@SerialName` is absent, so a Kotlin case added without its annotation resolves
   as `SPEAK_ALL` rather than `speak_all`, and `serialNameLookup`'s count check
-  cannot see it. (Phase-field mapping is a separate, still-unported concern, C2b.)
+  cannot see it. The same helper resolves `target:` / `pairing:` / `logic:` against
+  `AssignTarget` / `PairingStrategy` / `ScoreCalcLogic`, so all four enum mirrors in
+  the loader are derived, not written — and `InvalidLogic`'s `allowed:` message text
+  is joined from that same map's key order, which is why it lists the cases in
+  declaration order rather than sorted.
 - **Conditional-branch policy.** `ScenarioValidator.validateBranch` and
   `ConditionalHandler.subHandlers` are not `PhaseType`-exhaustive, so decide
   explicitly: *allow* (register in `subHandlers`) or *reject* (a

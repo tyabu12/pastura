@@ -4,11 +4,10 @@ package com.pastura.engine
  * YAML fixture builders for [ScenarioLoaderTests].
  *
  * Kotlin counterpart of the private / file-scope helpers on Swift's
- * `ScenarioLoaderTests.swift` (`makeMinimalYAML()` / `makeMinimalYAML(phasesBlock:)`)
- * and `ScenarioLoaderTests+Language.swift` (`makeBaseYAML`). Collapsed into one
- * file, mirroring `ScenarioValidatorTestSupport.kt`'s precedent for this port
- * series — Swift's `makeYAMLWithAssignTarget` has no port here because none of
- * the 44 transcribed tests use it (the assign-target suite is deferred).
+ * `ScenarioLoaderTests.swift` (`makeMinimalYAML()` / `makeMinimalYAML(phasesBlock:)`
+ * / `makeYAMLWithAssignTarget`) and `ScenarioLoaderTests+Language.swift`
+ * (`makeBaseYAML`). Collapsed into one file, mirroring
+ * `ScenarioValidatorTestSupport.kt`'s precedent for this port series.
  */
 
 /**
@@ -65,6 +64,37 @@ internal fun makeMinimalYAML(phasesBlock: String): String = buildString {
     appendLine("    description: D")
     append(phasesBlock)
 }
+
+/**
+ * A two-persona (A / B) minimal `assign` scenario whose `target:` value is
+ * [target] — for the strict `AssignTarget` parsing tests, which need an
+ * otherwise-fixed fixture varying only that one token.
+ *
+ * Interpolated into a `trimIndent()`'d literal, unlike
+ * [makeMinimalYAML]'s `phasesBlock`, and safe only because [target] is a bare
+ * scalar token: a multi-line value would contribute lines to `trimIndent()`'s
+ * common-margin computation and mis-dedent the whole fixture.
+ */
+internal fun makeYAMLWithAssignTarget(target: String): String = """
+    id: t
+    language: ja
+    name: T
+    description: T
+    agents: 2
+    rounds: 1
+    context: C
+    personas:
+      - name: A
+        description: D
+      - name: B
+        description: D
+    phases:
+      - type: assign
+        source: topics
+        target: $target
+    topics:
+      - x
+""".trimIndent()
 
 /**
  * A minimal scenario whose `language:` / `simulation_language:` lines are

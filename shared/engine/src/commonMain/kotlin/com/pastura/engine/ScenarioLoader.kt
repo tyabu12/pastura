@@ -1,11 +1,15 @@
 package com.pastura.engine
 
 import com.pastura.models.AnyCodableValue
+import com.pastura.models.AssignTarget
+import com.pastura.models.PairingStrategy
+import com.pastura.models.PayoffRule
 import com.pastura.models.Persona
 import com.pastura.models.Phase
 import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
 import com.pastura.models.ScenarioValidationMessage
+import com.pastura.models.ScoreCalcLogic
 import com.pastura.models.SimulationError
 import com.pastura.models.YamlCodec
 import com.pastura.models.YamlDecodeError
@@ -32,27 +36,6 @@ import kotlinx.serialization.json.JsonPrimitive
  * membership, `personas` count matching `agents`) and does **not** run
  * [ScenarioValidator]'s execution-limit / inference-cap / phase-semantic gate —
  * the returned scenario is well-formed but not yet known to be runnable.
- *
- * ## PORT IN PROGRESS — phase specialisation is not here yet (C2b)
- *
- * [mapPhase] maps exactly the phase fields reachable through the three generic
- * parse helpers. Every field needing a dedicated helper is still unmapped and is
- * passed to the [Phase] constructor as an explicit `null, // C2b`:
- * `output` (`parseOutputSchema`), `target` (`parseAssignTarget`),
- * `pairing` (`parsePairing`), `logic` (`parseLogic`), `then` / `else`
- * (`mapBranch`, the depth-1 conditional), `action_deltas`
- * (`parseActionDeltas`) and `payoff` (`parsePayoff`). A scenario using any of
- * them therefore loads with that field silently `null` here while Swift maps it
- * — which is why nothing calls this loader yet (see below).
- *
- * `ScenarioLoaderTests.phaseSpecialisationIsStillUnmapped` pins that list from
- * the test side and is written to go **red** the moment any of the seven starts
- * being mapped, so this section cannot outlive the gap it describes. **Three
- * artefacts describe this gap and must be deleted together**: that pin, this
- * section, and the "delete the next sentence when C2b lands" paragraph on
- * `ScenarioLoader.swift`'s `load(yaml:)` — the Swift one is the dangerous
- * straggler, because a stale "no Kotlin side to mirror yet" tells the next
- * editor to skip a mirror that by then exists.
  *
  * ## Not wired into the engine
  *
@@ -117,7 +100,14 @@ import kotlinx.serialization.json.JsonPrimitive
  *    `Long` range but outside `Int.MIN_VALUE..Int.MAX_VALUE` is a
  *    [ScenarioValidationMessage.FieldWrongType] rather than an accepted value.
  *    Truncating instead would be worse than a divergence — it would silently run
- *    a different scenario. **Beyond `Long` range the failure changes shape**:
+ *    a different scenario. Every field reusing [YamlType.INT]'s cast inherits
+ *    this, so it reaches the phase-level integral fields too, only under a
+ *    different message: an out-of-range `payoff:` row `points` element reports
+ *    [ScenarioValidationMessage.PayoffRowInvalid] and an out-of-range
+ *    `action_deltas` value reports
+ *    [ScenarioValidationMessage.ActionDeltasValueNotInt], because those two
+ *    helpers own their own vocabulary rather than routing through
+ *    [parseOptional]. **Beyond `Long` range the failure changes shape**:
  *    `YamlCodec`'s `yamlValueToJson` handles `Int` / `Long` / `Float` / `Double`
  *    and nothing else, so the value raises `YamlDecodeError.UnsupportedScalar`,
  *    which [load] folds into
@@ -131,10 +121,14 @@ import kotlinx.serialization.json.JsonPrimitive
  *    [ScenarioValidator]'s divergence 3. [stripCodeFences] is a second trim site
  *    with a *narrower* Swift set — `.whitespaces`, no `\v` / `\f` / `` —
  *    so a fence line indented with one of those is stripped here and kept there.
- * 6. **Which offending key gets reported.** `collectExtraData` throws on the
- *    first offending key in `JsonObject` insertion order; Swift iterates a
- *    `Dictionary`, whose order is unspecified. Both reject the same scenarios;
- *    only the key named in the message can differ.
+ * 6. **Which offending key gets reported.** `collectExtraData`,
+ *    [parseOutputSchema] and [parseActionDeltas] each throw on the first
+ *    offending key in `JsonObject` insertion order; Swift iterates a
+ *    `Dictionary`, whose order is unspecified. Both engines reject the same
+ *    scenarios; only the key named in the message can differ, and only when a
+ *    mapping holds more than one bad value. The two phase-level sites arrived
+ *    with C2b — this entry covers all three, so the next per-key helper joins
+ *    it rather than opening a fourth.
  *
  * ## `validationError` is re-declared here on purpose
  *
@@ -390,6 +384,64 @@ public class ScenarioLoader {
         )
     }
 
+    /**
+     * Resolves the `assign` phase's `target:` against [AssignTarget]'s
+     * `@SerialName` values. Strict-throw on an unknown value, mirroring
+     * [parsePhaseType] (issue #108 / #211).
+     *
+     * A **wrong-typed** value routes through [parseOptional] first, exactly as
+     * Swift's `parseOptional<String>` does, so `target: 3` reports the unified
+     * [ScenarioValidationMessage.FieldWrongType] message and only a well-typed
+     * but unrecognised string reaches
+     * [ScenarioValidationMessage.InvalidTarget]. The order is the message the
+     * curator sees; do not fold the two steps together.
+     */
+    private fun parseAssignTarget(dict: JsonObject, label: String): AssignTarget? {
+        val str = parseOptional(dict, "target", label, YamlType.STRING) ?: return null
+        return ASSIGN_TARGETS_BY_YAML_NAME[str]
+            ?: throw validationError(
+                ScenarioValidationMessage.InvalidTarget(label = label, value = str),
+            )
+    }
+
+    /**
+     * Same shape as [parseAssignTarget], **including the [parseOptional]-first
+     * order** — resolving the lookup against the raw element instead would turn
+     * a wrong-typed `pairing:` from a
+     * [ScenarioValidationMessage.FieldWrongType] into an
+     * [ScenarioValidationMessage.InvalidPairing].
+     */
+    private fun parsePairing(dict: JsonObject, label: String): PairingStrategy? {
+        val str = parseOptional(dict, "pairing", label, YamlType.STRING) ?: return null
+        return PAIRING_STRATEGIES_BY_YAML_NAME[str]
+            ?: throw validationError(
+                ScenarioValidationMessage.InvalidPairing(label = label, value = str),
+            )
+    }
+
+    /**
+     * Same shape as [parseAssignTarget], for a `score_calc` phase's `logic:`,
+     * plus the `allowed:` fragment listing every accepted value.
+     *
+     * That fragment is **derived from the lookup map, never hand-written**:
+     * [serialNameLookup]'s `associate` yields a `LinkedHashMap` in enum
+     * declaration order, so this reaches the same string as Swift's
+     * `ScoreCalcLogic.allCases.map(\.rawValue).joined(separator: ", ")`. A
+     * hand-written list would be a second mirror no compiler checks; derived,
+     * a sixth case joins the lookup and this message in one edit.
+     */
+    private fun parseLogic(dict: JsonObject, label: String): ScoreCalcLogic? {
+        val str = parseOptional(dict, "logic", label, YamlType.STRING) ?: return null
+        return SCORE_CALC_LOGICS_BY_YAML_NAME[str]
+            ?: throw validationError(
+                ScenarioValidationMessage.InvalidLogic(
+                    label = label,
+                    value = str,
+                    allowed = SCORE_CALC_LOGICS_BY_YAML_NAME.keys.joinToString(", "),
+                ),
+            )
+    }
+
     private fun mapPhase(dict: JsonObject, index: Int): Phase =
         mapPhase(dict, label = "Phase $index", depth = 0)
 
@@ -397,14 +449,11 @@ public class ScenarioLoader {
      * Maps one phase mapping.
      *
      * [label] is used in error messages: top-level calls pass `"Phase K"`, and
-     * C2b's nested calls will pass `"Phase K.then[N]"` / `"Phase K.else[N]"` so
-     * the user can locate the offending sub-phase in their YAML. [depth] is `0`
-     * at top level; `>= 1` rejects a nested `conditional` at parse time, which
-     * defends the depth-1 rule before [ScenarioValidator] sees the scenario.
-     *
-     * **[depth] has no non-zero caller yet** — `then:` / `else:` descent is
-     * C2b's `mapBranch`. The parameter and its check are ported now so that
-     * diff adds only the recursion.
+     * the nested calls from [mapBranch] pass `"Phase K.then[N]"` /
+     * `"Phase K.else[N]"` so the user can locate the offending sub-phase in
+     * their YAML. [depth] is `0` at top level; `>= 1` rejects a nested
+     * `conditional` at parse time, which defends the depth-1 rule before
+     * [ScenarioValidator] sees the scenario.
      */
     private fun mapPhase(dict: JsonObject, label: String, depth: Int): Phase {
         val phaseType = parsePhaseType(dict, label, depth)
@@ -415,12 +464,21 @@ public class ScenarioLoader {
         val excludeSelf = parseOptional(dict, "exclude_self", label, YamlType.BOOL)
         val options = parseOptional(dict, "options", label, YamlType.STRING_LIST)
 
+        val target = parseAssignTarget(dict, label)
+        val outputSchema = parseOutputSchema(dict, label)
+        val pairing = parsePairing(dict, label)
+        val logic = parseLogic(dict, label)
+
         // speak_each `rounds:` → subRounds (the scenario-level `rounds` is a
         // different key on a different mapping).
         val subRounds = parseOptional(dict, "rounds", label, YamlType.INT)
 
-        // Conditional-specific `if:` expression. `then:` / `else:` are C2b.
+        // Conditional-specific fields (`if:` expression + `then:` / `else:`
+        // sub-phase arrays). The branches descend with depth+1, so a nested
+        // `conditional` is rejected by `parsePhaseType`.
         val condition = parseOptional(dict, "if", label, YamlType.STRING)
+        val thenPhases = mapBranch(dict["then"], "then", label, depth)
+        val elsePhases = mapBranch(dict["else"], "else", label, depth)
 
         // event_inject-specific fields. `probability` accepts an integral scalar
         // so the boundary literals `0` / `1` round-trip naturally; `as:` names
@@ -431,9 +489,11 @@ public class ScenarioLoader {
         // `exclude_self`; no validation needed — a bool is always well-formed.
         val noRepeat = parseOptional(dict, "no_repeat", label, YamlType.BOOL)
 
-        // relationship_update-specific (#910). YAML-only — no visual editing UI
-        // in v1 — but it round-trips through the editor's dual buffer.
+        // relationship_update-specific (#910). Both YAML-only — no visual
+        // editing UI in v1 — but they round-trip through the editor's dual
+        // buffer.
         val voteAgainst = parseOptional(dict, "vote_against", label, YamlType.INT)
+        val actionDeltas = parseActionDeltas(dict, label)
 
         // Per-phase statement brevity override (#881). The 1..6 range is
         // ScenarioValidator's, not the loader's — `load` stays non-validating.
@@ -443,33 +503,127 @@ public class ScenarioLoader {
         // commentator. Absent falls back to the Engine-owned default template.
         val narrator = parseOptional(dict, "narrator", label, YamlType.STRING)
 
-        // Every argument is named and present, including the seven this port
-        // does not map yet, so C2b's diff lands exactly on the gap rather than
-        // adding lines around it.
+        // pairwise_payoff table (ADR-027). YAML-only, round-tripping through
+        // the editor's dual buffer like `narrator` / `action_deltas`. An absent
+        // `payoff:` stays null — a guaranteed-no-op phase is the linter's to
+        // flag, not a load throw; only a malformed *present* table throws.
+        val payoff = parsePayoff(dict, label)
+
+        // Every argument is named, mirroring the Swift original's call.
         return Phase(
             type = phaseType,
             prompt = prompt,
-            outputSchema = null, // C2b
+            outputSchema = outputSchema,
             options = options,
-            pairing = null, // C2b
-            logic = null, // C2b
+            pairing = pairing,
+            logic = logic,
             template = template,
             source = source,
-            target = null, // C2b
+            target = target,
             excludeSelf = excludeSelf,
             subRounds = subRounds,
             maxSentences = maxSentences,
             condition = condition,
-            thenPhases = null, // C2b
-            elsePhases = null, // C2b
+            thenPhases = thenPhases,
+            elsePhases = elsePhases,
             probability = probability,
             eventVariable = eventVariable,
             voteAgainst = voteAgainst,
-            actionDeltas = null, // C2b
+            actionDeltas = actionDeltas,
             noRepeat = noRepeat,
             narrator = narrator,
-            payoff = null, // C2b
+            payoff = payoff,
         )
+    }
+
+    /**
+     * Parses the `payoff:` table for a `pairwise_payoff` `score_calc` phase — a
+     * list of `{when: [String], points: [Int]}` rows (ADR-027). Strict on
+     * arity: each `when` / `points` must hold exactly two elements. A malformed
+     * row throws rather than silently scoring a wrong verdict at runtime.
+     *
+     * Mixed semantics, matching Swift's cast ladder: `payoff:` itself is
+     * whole-collection ([YamlType.OBJECT_LIST]), so a non-list is rejected as a
+     * whole rather than row by row, while each row is checked individually and
+     * reports its own index. The
+     * `points` elements go through [YamlType.INT], which supplies the
+     * boolean and quoted-scalar exclusions Swift's `as? Int` guards spell out
+     * by hand (`!(value is Bool)`), plus the 32-bit range check of the class
+     * KDoc's divergence 4.
+     */
+    private fun parsePayoff(dict: JsonObject, label: String): List<PayoffRule>? {
+        val raw = dict["payoff"] ?: return null
+        val list = YamlType.OBJECT_LIST.cast(raw)
+            ?: throw validationError(
+                ScenarioValidationMessage.PayoffNotList(
+                    label = label,
+                    got = renderActualType(raw),
+                ),
+            )
+        return list.mapIndexed { index, row ->
+            val actions = row["when"]
+                ?.let { YamlType.STRING_LIST.cast(it) }
+                ?.takeIf { it.size == 2 }
+                ?: throw validationError(
+                    ScenarioValidationMessage.PayoffRowInvalid(
+                        label = label,
+                        detail = "row $index 'when' must be 2 strings",
+                    ),
+                )
+            val pointsRaw = (row["points"] as? JsonArray)?.takeIf { it.size == 2 }
+                ?: throw validationError(
+                    ScenarioValidationMessage.PayoffRowInvalid(
+                        label = label,
+                        detail = "row $index 'points' must be 2 ints",
+                    ),
+                )
+            val points = pointsRaw.map { element ->
+                YamlType.INT.cast(element)
+                    ?: throw validationError(
+                        ScenarioValidationMessage.PayoffRowInvalid(
+                            label = label,
+                            detail = "row $index 'points' has a non-Int value",
+                        ),
+                    )
+            }
+            PayoffRule(`when` = actions, points = points)
+        }
+    }
+
+    /**
+     * Parses the `action_deltas:` map for `relationship_update` phases — a
+     * mapping of choose-action value → affinity delta. Strict per #130: a
+     * non-Int value (`cooperate: "one"`) throws rather than silently coercing,
+     * and [YamlType.INT] excludes booleans and quoted scalars for the same
+     * reason Swift writes `!(value is Bool)` — `as? Int` launders one.
+     *
+     * **Deliberately not a [YamlType] whole-collection cast**, unlike the
+     * `STRING_LIST` / `OBJECT_LIST` sites a few lines up: Swift's
+     * `raw as? [String: Any]` succeeds on any mapping and then throws *per
+     * offending key*, so the message names the key the curator must fix. Only a
+     * non-mapping `raw` is whole-collection here.
+     */
+    private fun parseActionDeltas(dict: JsonObject, label: String): Map<String, Int>? {
+        val raw = dict["action_deltas"] ?: return null
+        val map = raw as? JsonObject
+            ?: throw validationError(
+                ScenarioValidationMessage.ActionDeltasNotDict(
+                    label = label,
+                    got = renderActualType(raw),
+                ),
+            )
+        return map.entries.associate { (key, value) ->
+            key to (
+                YamlType.INT.cast(value)
+                    ?: throw validationError(
+                        ScenarioValidationMessage.ActionDeltasValueNotInt(
+                            label = label,
+                            key = key,
+                            got = renderActualType(value),
+                        ),
+                    )
+                )
+        }
     }
 
     /**
@@ -491,6 +645,67 @@ public class ScenarioLoader {
             throw validationError(ScenarioValidationMessage.NestedConditionalNotAllowed(label))
         }
         return phaseType
+    }
+
+    /**
+     * Parses the `output:` schema mapping. Values must be strings — the schema
+     * is an LLM prompt hint, and a non-string value (e.g. `count: 1`) is a typo
+     * rather than a type shorthand worth preserving. It used to be stringified
+     * silently.
+     *
+     * **Deliberately not a [YamlType] whole-collection cast**, for the same
+     * reason as [parseActionDeltas]: Swift's `raw as? [String: Any]` succeeds on
+     * any mapping and then throws *per offending key*, so the message names the
+     * key. Only a non-mapping `raw` is whole-collection here.
+     */
+    private fun parseOutputSchema(dict: JsonObject, label: String): Map<String, String>? {
+        val raw = dict["output"] ?: return null
+        val output = raw as? JsonObject
+            ?: throw validationError(
+                ScenarioValidationMessage.OutputNotDict(
+                    label = label,
+                    got = renderActualType(raw),
+                ),
+            )
+        return output.entries.associate { (key, value) ->
+            key to (
+                value.stringContentOrNull()
+                    ?: throw validationError(
+                        ScenarioValidationMessage.OutputValueNotString(
+                            label = label,
+                            key = key,
+                            got = renderActualType(value),
+                        ),
+                    )
+                )
+        }
+    }
+
+    /**
+     * Maps a conditional's `then:` / `else:` sub-phase array, recursing into
+     * [mapPhase] at `depth + 1` so a nested `conditional` is rejected there.
+     *
+     * Whole-collection ([YamlType.OBJECT_LIST]), matching Swift's
+     * `as? [[String: Any]]`: one non-mapping element makes the branch
+     * wrong-shaped as a whole.
+     */
+    private fun mapBranch(
+        raw: JsonElement?,
+        branchLabel: String,
+        parentLabel: String,
+        depth: Int,
+    ): List<Phase>? {
+        val phasesRaw = raw ?: return null
+        val list = YamlType.OBJECT_LIST.cast(phasesRaw)
+            ?: throw validationError(
+                ScenarioValidationMessage.BranchNotArray(
+                    label = parentLabel,
+                    branch = branchLabel,
+                ),
+            )
+        return list.mapIndexed { subIndex, subRaw ->
+            mapPhase(subRaw, label = "$parentLabel.$branchLabel[$subIndex]", depth = depth + 1)
+        }
     }
 
     /**
@@ -574,6 +789,20 @@ public class ScenarioLoader {
 
         private val PHASE_TYPES_BY_YAML_NAME: Map<String, PhaseType> =
             serialNameLookup(PhaseType.serializer(), PhaseType.entries)
+
+        private val ASSIGN_TARGETS_BY_YAML_NAME: Map<String, AssignTarget> =
+            serialNameLookup(AssignTarget.serializer(), AssignTarget.entries)
+
+        private val PAIRING_STRATEGIES_BY_YAML_NAME: Map<String, PairingStrategy> =
+            serialNameLookup(PairingStrategy.serializer(), PairingStrategy.entries)
+
+        /**
+         * Also the source of [ScenarioValidationMessage.InvalidLogic]'s
+         * `allowed:` fragment — see [parseLogic] for why it is derived from the
+         * key order rather than written out.
+         */
+        private val SCORE_CALC_LOGICS_BY_YAML_NAME: Map<String, ScoreCalcLogic> =
+            serialNameLookup(ScoreCalcLogic.serializer(), ScoreCalcLogic.entries)
     }
 }
 
@@ -676,14 +905,17 @@ internal class YamlType<T> private constructor(
  * drift out of the loader (`.claude/rules/engine.md` § "Kotlin enum mirror" — the
  * mirrors that no compiler catches). Same source and same reasoning as the
  * forward direction, `PhaseType.serialName()` in `PhaseDispatcher.kt`; this is
- * generic because C2b needs it for three more enums, none of which has a
- * `serialName()` extension.
+ * generic because the loader needs it for four enums — [PhaseType],
+ * `AssignTarget`, `PairingStrategy` and `ScoreCalcLogic` — only the first of
+ * which has a `serialName()` extension.
  *
  * [entries] must be the enum's `entries` list: an enum serial descriptor names
  * its elements in declaration order, so index *i* is `entries[i]`. The
  * [require] guards the one way that could stop being true.
  *
- * Reused by C2b for `target:` / `pairing:` / `logic:`.
+ * Declaration order is load-bearing for one caller beyond lookup: the returned
+ * `LinkedHashMap`'s key order is what `ScenarioLoader.parseLogic` joins into
+ * [ScenarioValidationMessage.InvalidLogic]'s `allowed:` fragment.
  */
 internal fun <T : Enum<T>> serialNameLookup(
     serializer: KSerializer<T>,
