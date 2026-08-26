@@ -174,14 +174,45 @@ kotlin {
 //      while Decision 2 names `suspend` FIRST. Measured false-positive risk: the
 //      clean header contains zero `completionHandler` occurrences.
 //
-// Comment-stripping is load-bearing, not defensive: K/N copies Kotlin KDoc into
-// the generated header, and this module's boundary docs legitimately *discuss*
-// `CompletableDeferred` and `suspendCancellableCoroutine`. A naive grep scores 10
-// hits on a perfectly clean header. Only CODE lines are evidence.
+// Returns the header's CODE lines, paired with their 0-based index, with KDoc
+// and `//` comments dropped.
+//
+// Comment-stripping is load-bearing for both gates below, not defensive: K/N
+// copies Kotlin KDoc into the generated header, so this module's boundary docs
+// legitimately *discuss* `CompletableDeferred` and, now, `@Throws` and
+// `swift_name`. A naive grep scores 10 hits for `coroutin` on a perfectly clean
+// header. Only CODE lines are evidence.
 //
 // The state machine is calibrated to K/N's emitted shape (KDoc as leading
-// `/** … */` blocks), NOT to general Obj-C: a block comment opened mid-line is not
-// recognised. Fine here; do not reuse it as a general stripper.
+// `/** … */` blocks), NOT to general Obj-C: a block comment opened mid-line is
+// not recognised. Fine here; do not reuse it as a general stripper.
+fun strippedCodeLines(header: java.io.File): List<IndexedValue<String>> {
+    // Defense in depth only — each caller declares the header via `inputs.file`,
+    // which already fails the task if it is missing, and `outputs.upToDateWhen
+    // { false }` is what actually prevents a vacuous pass. Do not relax either
+    // believing this branch covers them.
+    if (!header.isFile) {
+        throw GradleException(
+            "Framework header not found at ${header.path}. " +
+                "linkDebugFrameworkMacosArm64 did not produce the expected layout.",
+        )
+    }
+
+    var inBlockComment = false
+    val code = mutableListOf<IndexedValue<String>>()
+    header.readLines().forEachIndexed { index, raw ->
+        val line = raw.trim()
+        when {
+            inBlockComment -> if (line.contains("*/")) inBlockComment = false
+            line.startsWith("/*") -> if (!line.contains("*/")) inBlockComment = true
+            line.startsWith("*") || line.startsWith("//") -> Unit
+            else -> code += IndexedValue(index, line)
+        }
+    }
+    return code
+}
+
+// Comment-stripping is load-bearing here — see [strippedCodeLines] above.
 val verifyEngineFrameworkSurface by tasks.registering {
     group = "verification"
     description = "Fails if a coroutine type leaked into the exported PasturaSharedEngine surface."
@@ -196,26 +227,9 @@ val verifyEngineFrameworkSurface by tasks.registering {
     outputs.upToDateWhen { false }
 
     doLast {
-        val header = headerFile.get().asFile
-        // Defense in depth only — `inputs.file(headerFile)` above already fails the
-        // task if the header is missing, and `outputs.upToDateWhen { false }` is
-        // what actually prevents a vacuous pass. Do not relax either believing this
-        // branch covers them.
-        if (!header.isFile) {
-            throw GradleException(
-                "Framework header not found at ${header.path}. " +
-                    "linkDebugFrameworkMacosArm64 did not produce the expected layout.",
-            )
-        }
-
-        var inBlockComment = false
         val offenders = mutableListOf<String>()
-        header.readLines().forEachIndexed { index, raw ->
-            val line = raw.trim()
+        strippedCodeLines(headerFile.get().asFile).forEach { (index, line) ->
             when {
-                inBlockComment -> if (line.contains("*/")) inBlockComment = false
-                line.startsWith("/*") -> if (!line.contains("*/")) inBlockComment = true
-                line.startsWith("*") || line.startsWith("//") -> Unit
                 line.contains("coroutin", ignoreCase = true) ->
                     offenders += "  ${index + 1}: [coroutine type] $line"
                 line.contains("completionHandler:") ->
@@ -261,4 +275,115 @@ tasks.matching {
     it.name.startsWith("assemblePasturaSharedEngine") && it.name.endsWith("XCFramework")
 }.configureEach {
     finalizedBy(verifyEngineFrameworkSurface)
+}
+
+// ---------------------------------------------------------------------------
+// The @Throws contract at the K/N boundary (#1553).
+//
+// A Kotlin exception thrown from a function K/N exported WITHOUT `@Throws` is
+// not converted to a Swift error — it terminates the process. `@Throws` is what
+// turns the exported selector into a `…error:(NSError**)` one, which Swift
+// imports as `throws`. A KDoc `@throws` line reaches the header as a comment and
+// changes nothing.
+//
+// Why the header and not the Kotlin source: a source-side check can only ask
+// whether an annotation is written, and it needs a proxy (the KDoc `@throws`
+// line) to decide where one is *required* — so it is blind to a throw whose KDoc
+// never mentioned it. The header states the fact directly, and this module is
+// where the whole surface converges: the engine umbrella `export`s
+// `shared/models`, so the two Models entry points below are asserted here too,
+// off the same single link.
+//
+// Absence is a failure, not a skip. A pin that matches zero lines means the
+// selector was renamed, un-exported, or dropped — exactly the silent regression
+// this exists to catch — so a missing pin fails as loudly as an un-annotated
+// one. Each pin is required to match EXACTLY once: two matches mean the Swift
+// name is no longer unique and the pin has stopped identifying one declaration.
+// All six were measured unique on the 2026-08-26 header.
+//
+// This is not the coroutine gate's concern (that one enforces ADR-023 Decision 2),
+// so it is a separate task with its own failure message. Both read the same
+// header through [strippedCodeLines].
+//
+// Negative control, measured 2026-08-26 — the gate is load-bearing, not decor.
+// Each mutation was applied alone on clean HEAD, run against
+// `:shared:engine:verifyExportedThrowsAnnotations --rerun-tasks`, then reverted:
+//
+//   M1  drop `@Throws` from `ConditionEvaluator.parse`
+//       -> RED "line 380 … without an error: parameter, so @Throws is missing"
+//   M2  rename `parse` -> `parseRenamed` (plus its four call sites)
+//       -> RED "no exported selector carries swift_name(\"parse(expression:)\")"
+//
+// M2 is the one worth keeping in mind: it is why absence fails instead of
+// skipping. Without that arm the pin would evaporate on the rename and the gate
+// would report six-of-six green while checking five.
+val exportedThrowingSelectors = mapOf(
+    "evaluate(expression:state:scenario:)" to "ConditionEvaluator.evaluate",
+    "parse(expression:)" to "ConditionEvaluator.parse",
+    "validate(scenario:)" to "ScenarioValidator.validate",
+    "validateForCommit(scenario:)" to "ScenarioValidator.validateForCommit",
+    "require(key:)" to "TurnOutput.require (shared/models, re-exported)",
+    "decode(yaml:)" to "YamlCodec.decode (shared/models, re-exported)",
+)
+
+val verifyExportedThrowsAnnotations by tasks.registering {
+    group = "verification"
+    description = "Fails if a pinned throwing entry point lost its @Throws export (#1553)."
+    dependsOn("linkDebugFrameworkMacosArm64")
+
+    val headerFile = layout.buildDirectory.file(
+        "bin/macosArm64/debugFramework/PasturaSharedEngine.framework/Headers/PasturaSharedEngine.h",
+    )
+    inputs.file(headerFile)
+    outputs.upToDateWhen { false }
+
+    doLast {
+        val codeLines = strippedCodeLines(headerFile.get().asFile)
+        val failures = mutableListOf<String>()
+
+        exportedThrowingSelectors.forEach { (swiftName, origin) ->
+            val marker = "swift_name(\"$swiftName\")"
+            val matches = codeLines.filter { it.value.contains(marker) }
+            when {
+                matches.isEmpty() -> failures +=
+                    "  $origin — no exported selector carries swift_name(\"$swiftName\"). " +
+                        "Renamed, un-exported, or deleted; update this pin deliberately."
+                matches.size > 1 -> failures +=
+                    "  $origin — swift_name(\"$swiftName\") matched ${matches.size} declarations " +
+                        "(lines ${matches.joinToString { (it.index + 1).toString() }}). " +
+                        "The pin no longer identifies one declaration."
+                !matches.single().value.contains("error:(NSError") -> failures +=
+                    "  $origin — line ${matches.single().index + 1} exports swift_name(\"$swiftName\") " +
+                        "without an error: parameter, so @Throws is missing."
+            }
+        }
+
+        if (failures.isNotEmpty()) {
+            throw GradleException(
+                buildString {
+                    appendLine("The K/N @Throws contract is broken (#1553).")
+                    appendLine()
+                    appendLine("An un-annotated Kotlin throw does NOT reach Swift as a catchable")
+                    appendLine("error at this boundary — it terminates the calling process. Add")
+                    appendLine("`@Throws(<ErrorType>::class)` to the Kotlin declaration; a KDoc")
+                    appendLine("`@throws` line does not count.")
+                    appendLine()
+                    appendLine("Failures (${failures.size}):")
+                    failures.forEach { appendLine(it) }
+                },
+            )
+        }
+        logger.lifecycle(
+            "K/N @Throws contract: ${exportedThrowingSelectors.size} pinned selectors export error:.",
+        )
+    }
+}
+
+tasks.named("linkDebugFrameworkMacosArm64") {
+    finalizedBy(verifyExportedThrowsAnnotations)
+}
+tasks.matching {
+    it.name.startsWith("assemblePasturaSharedEngine") && it.name.endsWith("XCFramework")
+}.configureEach {
+    finalizedBy(verifyExportedThrowsAnnotations)
 }
