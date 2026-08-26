@@ -11,28 +11,31 @@ import com.pastura.models.ScenarioValidationMessage
 import com.pastura.models.SimulationError
 
 /**
- * Validates a [Scenario] against execution limits before running.
+ * Validates a [Scenario] against execution limits.
  *
- * Enforces agent count (2–10), round count (≤30), estimated inference count
- * (warn >50, error >100), and phase-field semantics (e.g. assign-phase
- * target/source compatibility) to prevent runaway or misconfigured simulations.
+ * Two entry points, not one. [validate] is the **run gate**: agent count (2–10),
+ * round count (≤30), estimated inference count (warn >50, error >100), and
+ * phase-field semantics (e.g. assign-phase target/source compatibility), all to
+ * prevent runaway or misconfigured simulations. [validateForCommit] is the
+ * **commit gate**: everything the run gate checks, plus the canonical
+ * output-field requirement that only applies when a scenario is being persisted.
  *
- * Kotlin port of `Pastura/Pastura/Engine/ScenarioValidator.swift` plus its two
- * sibling extensions `ScenarioValidator+EventInject.swift` and
- * `ScenarioValidator+OutputFieldNames.swift` (ADR-023 §4, the "Load + validate"
- * row). The Swift originals split across three files only to stay under
+ * Kotlin port of `Pastura/Pastura/Engine/ScenarioValidator.swift` plus its three
+ * sibling extensions `ScenarioValidator+EventInject.swift`,
+ * `ScenarioValidator+OutputFieldNames.swift` and
+ * `ScenarioValidator+CanonicalFields.swift` (ADR-023 §4, the "Load + validate"
+ * row). The Swift originals split across four files only to stay under
  * SwiftLint's file/type length caps and to dodge a default-MainActor isolation
  * trap on sibling extensions; Kotlin has neither constraint, so the whole gate
  * lives here.
  *
  * ## Scope: both gates, neither wired
  *
- * Both halves are ported: the run gate [validate] (#1554, PR B1) and the commit
- * gate [validateForCommit] plus its canonical-field checks, Swift's
- * `ScenarioValidator+CanonicalFields.swift` (#1552, PR B2). What remains
- * unported from ADR-023 §4's "Load + validate" row is `ScenarioLoader` and
- * `ScenarioSemanticLinter` (ADR-024) — see the next section for why the
- * linter's absence keeps even the ported half unwired.
+ * Both halves are ported, under issue #1552: the run gate [validate] (PR #1554,
+ * B1) and the commit gate [validateForCommit] with its canonical-field checks
+ * (PR B2). What remains unported from ADR-023 §4's "Load + validate" row is
+ * `ScenarioLoader` and `ScenarioSemanticLinter` (ADR-024) — see the next
+ * section for why the linter's absence keeps even the ported half unwired.
  *
  * ## Not wired into the engine
  *
@@ -226,6 +229,16 @@ public class ScenarioValidator {
      * `@Throws` is load-bearing for the same reason it is on [validate]: an
      * un-annotated Kotlin throw does not reach Swift as a catchable error at the
      * K/N boundary — it terminates the process.
+     *
+     * Do not assume the resulting export is CI-protected. It has no Swift
+     * consumer yet, and the only Swift consumer there will ever be is the gate
+     * spike under `tools/kmp-gate-spike`, which builds **nightly**
+     * (`.claude/rules/kmp-interop.md`). A later rename or signature change here
+     * reddens a nightly run, not the PR that breaks it. (The spike's path is
+     * written without its usual trailing `-slash-star-star` glob on purpose:
+     * Kotlin block comments **nest**, so that sequence inside a KDoc opens a
+     * second comment, and the next close-marker ends only the inner one —
+     * silently commenting out the rest of the file. Measured here, the hard way.)
      *
      * @return the [ValidationResult] produced by [validate].
      * @throws SimulationException carrying

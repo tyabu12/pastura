@@ -401,7 +401,9 @@ internal class LLMCaller(
      * The [expectedKeys] precondition is a **compatibility guard, not a
      * refinement**: `ScenarioValidator.validateForCommit` (ported to commonMain
      * in #1552, and still Swift's own gate on the iOS side) enforces the
-     * canonical field at commit time and nothing re-checks it at run time, so a
+     * canonical field at commit time, and the run gate re-checks it for only two
+     * phase types (reflect's `note`, whisper's `statement`) — never for the speak
+     * / choose / vote phases this guard covers — so a
      * scenario persisted before that gate — or imported under ADR-020
      * backward-compat — can omit it from `output:` entirely. The grammar never
      * generates an undeclared key, so without this guard the field would read absent

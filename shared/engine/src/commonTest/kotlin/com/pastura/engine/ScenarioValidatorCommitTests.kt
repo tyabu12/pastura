@@ -167,6 +167,11 @@ class ScenarioValidatorCommitTests {
         validator.validateForCommit(scenario)
     }
 
+    // Both reflect rejections are dominated by the run gate: [validate]'s REFLECT
+    // arm (`validateReflectShape`) throws before `validateCanonicalFields` is
+    // reached, so they stay green with the commit-gate check deleted entirely.
+    // Kept as faithful Swift transcriptions — they claim no commit-gate mechanism
+    // (see the check-deleted row of [ScenarioValidatorTests]' perturbation record).
     @Test
     fun rejectsReflectWithoutNote() {
         val phase = Phase(
@@ -548,7 +553,6 @@ class ScenarioValidatorCommitTests {
         )
         validator.validateForCommit(scenario)
     }
-
 
     /**
      * Pins the phase-type-derived branch parent label: the canonical-field

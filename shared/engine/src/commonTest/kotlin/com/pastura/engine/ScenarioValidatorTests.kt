@@ -54,7 +54,7 @@ import kotlin.test.assertTrue
  * | `language` gate | `scenario.language !in ACCEPTED_LANGUAGES` → `in` | [rejectsInvalidLanguage] | 68 — every valid-language fixture then throws |
  * | `simulationLanguage` null-accept arm | `val simulationLanguage = scenario.simulationLanguage` → `… ?: "fr"` | [acceptsNilSimulationLanguage] | 66 — every fixture leaves it null; see note 2 |
  * | …membership polarity | `simulationLanguage !in …` → `in` | [rejectsInvalidSimulationLanguage] | none |
- * | `agentCount` ≥ 2 | `if (scenario.agentCount < 2)` → `if (false)` | [rejectsZeroAgents], [rejectsSingleAgent] | none |
+ * | `agentCount` ≥ 2 | `if (scenario.agentCount < 2)` → `if (false)` | [rejectsZeroAgents], [rejectsSingleAgent] | 1 — [ScenarioValidatorCommitTests.runsValidateChecksFirst]: its `agents = 0` fixture then passes every remaining check (`makeValidatorScenario` derives zero personas, so the count matches), so nothing throws |
  * | `agentCount` ≤ 10 | `if (scenario.agentCount > 10)` → `if (false)` | [rejectsMoreThan10Agents] | none |
  * | persona count matches `agentCount` | `!=` → `==` | [rejectsPersonaCountMismatch] | 67 — every matched-persona fixture then throws |
  * | `rounds` ≤ 30 | `if (scenario.rounds > 30)` → `if (false)` | [rejectsMoreThan30Rounds] | none |
@@ -110,7 +110,7 @@ import kotlin.test.assertTrue
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|
  * | Commit gate runs [validate]'s checks first | `val result = validate(scenario)` → a literal `ValidationResult` | `runsValidateChecksFirst` | none |
- * | …then runs the canonical-field check at all | the `validateCanonicalFields(scenario)` call deleted | all 15 rejecting commit cases, e.g. `rejectsSpeakAllWithoutStatement` | none — all 15 fail on their own assertion |
+ * | …then runs the canonical-field check at all | the `validateCanonicalFields(scenario)` call deleted | 15 of the suite's 18 rejecting cases, e.g. `rejectsSpeakAllWithoutStatement` | none — all 15 fail on their own assertion. The other three claim no commit-gate mechanism: `rejectsReflectWithoutNote` and `rejectsReflectWithMissingOutputSchema` are pre-empted by the run gate's [validateReflectShape], and `runsValidateChecksFirst` rejects on `agentCount` |
  * | Canonical **primary** field required | `if (schema[canonical] == null)` → `if (false)` | 9 cases, e.g. `rejectsVoteWithoutVoteField`, `rejectsChooseWithFactionAlias` | none |
  * | …and code phases exempt from it | the primary `?: return` → `?: "statement"` | `acceptsCodePhases`, `acceptsSpeakAllInsideThenBranchWithStatement`, `acceptsCodePhaseDeclaringAStraySecondaryKey` | none |
  * | Canonical **thought** field enforced | `if (schema[key] != null && key != canonical)` → `if (false)` | 6 cases, e.g. `rejectsVoteWithInnerThought`, `rejectsSpeakAllWithReason` | none |
@@ -128,14 +128,21 @@ import kotlin.test.assertTrue
  *    for). The second sweep proved it once: adding the three tests in note 3 moved
  *    three `Incidental` / claimant cells that had nothing to do with them
  *    (`validatePhases` CONDITIONAL 23 → 25 red, EVENT_INJECT 8 → 9, parse pre-flight
- *    2 → 3). This third sweep (PR B2) proved it twice over, at a longer range: a
- *    whole new suite chaining through [validate] moved the three global-gate rows
- *    and nothing else (`language` 53 → 68 red, `simulationLanguage` null-accept
- *    51 → 66, persona count 52 → 67 — each gaining exactly the accepting
- *    commit-gate fixtures), and then adding the single test in note 8 moved five
- *    more cells, three of them in rows that test has nothing to do with. Every row
- *    above was re-measured after each landing; none of the remaining run-gate rows
- *    moved, which is a measurement, not an assumption.
+ *    2 → 3). This third sweep (PR B2) proved it twice over, at a longer range.
+ *    All figures below are `Incidental` counts, the same quantity the table's
+ *    cells carry — **not** red totals, which run one higher on every row that has
+ *    a single claimant. First, a whole new suite chaining through [validate] moved
+ *    four rows: `language` 52 → 67, `simulationLanguage` null-accept 50 → 65,
+ *    persona count 51 → 66, and `agentCount` ≥ 2 from `none` to 1. The first three
+ *    gained 15 apiece — 12 of the commit suite's accepting fixtures, plus the 3
+ *    *rejecting* ones that assert message **content** (`errorMentions…`,
+ *    `thoughtFieldErrorMentions…`, `branchLabel…`), whose
+ *    `is ScenarioValidationFailed` check survives a global-gate throw while their
+ *    `contains` / `startsWith` does not. Then adding the single accepting test in
+ *    note 8 moved five more cells, three of them in those same global-gate rows it
+ *    has nothing else to do with, taking them to 68 / 66 / 67. Every row above was
+ *    re-measured after each landing; the rows not named here measured identical,
+ *    which is a measurement, not an assumption.
  * 2. **Two mutations do not compile in their obvious form, and the substitutes are
  *    not equivalent.** `if (false)` on the `logWindow` and `simulationLanguage`
  *    guards drops the smart cast their `!= null &&` left arm provides, so the throw
