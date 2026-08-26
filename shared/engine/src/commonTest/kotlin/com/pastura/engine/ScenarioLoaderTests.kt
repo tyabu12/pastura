@@ -22,10 +22,10 @@ import kotlin.test.assertTrue
  * and 25 from C2b, each complete. The suite carries **88** tests in all —
  * `88 = 69 transcriptions + 14 in the two "condition-4 sweep additions"
  * regions + 3 sweep additions filed under "Validation Errors" instead, next to
- * the mechanism they share a fold with (note 2) + 2 divergence pins`. Every non-transcription is a claimant some sweep
- * asked for and says so in its own KDoc; the arithmetic is spelled out so a
- * reader auditing the count can tell a bookkeeping slip from a missing
- * transcription.
+ * the mechanisms they share a fold with (note 2) + 2 divergence pins`. Every
+ * non-transcription is either a sweep claimant or a divergence pin, and says
+ * which in its own KDoc; the arithmetic is spelled out so a reader auditing the
+ * count can tell a bookkeeping slip from a missing transcription.
  *
  * **Scope.** Only [ScenarioLoader.load]'s behaviour is covered here, matching
  * [ScenarioLoader]'s own class KDoc. Two groups of Swift cases are therefore
@@ -79,7 +79,7 @@ import kotlin.test.assertTrue
  * | `STANDARD_KEYS` extra-data filter | `filterNot { it.key in STANDARD_KEYS }` → `filterNot { false }` | [parsesExtraDataStringArray] and 24 others | 24 — every fixture then routes `id` etc. through `convertToAnyCodableValue` |
  * | persona `secret` trim | `?.trim()` dropped | [trimsSurroundingWhitespaceFromPersonaSecret], [normalizesEmptyPersonaSecretToNil] | none |
  * | persona `secret` empty→null | `if (secret.isNullOrEmpty()) null else secret` → `secret` | [normalizesEmptyPersonaSecretToNil] | none |
- * | Nested-`conditional` depth guard | `if (… && depth > 0)` → `if (false)` | [rejectsNestedConditionalInThenBranch], [rejectsNestedConditionalInElseBranch] — **re-measured in C2b**, note 4 | none |
+ * | Nested-`conditional` depth guard | `if (… && depth > 0)` → `if (false)` | *(none — green in C2a, note 4)*; red under C2b: [rejectsNestedConditionalInThenBranch], [rejectsNestedConditionalInElseBranch] | none |
  * | extra-data scalar `isString` guard | `&& value.isString` dropped | [throwsOnScalarTopLevelExtraData] | none |
  * | extra-data array-of-dicts whole-collection cast | `all { it is JsonObject }` → `any` | [throwsOnExtraDataArrayMixingDictAndScalar] — **added**, note 2 | none |
  * | …its non-String value throw | the `throw` → `?: ""` | [throwsOnNonStringValueInArrayOfDicts] | none |
@@ -122,9 +122,10 @@ import kotlin.test.assertTrue
  *    scalars, a `personas:` list holding a scalar, an absent `type:`, `no_repeat`,
  *    or a non-mapping YAML root (a sequence, or an empty document) either — see
  *    each addition's own KDoc for the specific gap. Each gained a test in the
- *    "condition-4 sweep additions" region, except the non-mapping-root pair
- *    ([throwsOnNonMappingRoot], [throwsOnEmptyDocument]), which sit in the
- *    "Validation Errors" region next to the mechanism they share a fold with.
+ *    "condition-4 sweep additions" region, except three —
+ *    [throwsOnMissingPhaseType], [throwsOnNonMappingRoot] and
+ *    [throwsOnEmptyDocument] — which sit in the "Validation Errors" region next
+ *    to the mechanisms they share a fold with.
  * 3. `if (false)` does **not** compile on the `simulation_language` arm: the
  *    smart cast from the `!= null` half is lost and the later `!!`-free use
  *    fails. The polarity flip is the compiling substitute, and it reddens the
@@ -192,8 +193,8 @@ import kotlin.test.assertTrue
  * | `payoff:` row `points` element throw | the `?: throw …PayoffRowInvalid` made unreachable | [throwsOnNonIntPayoffPointsValue] — **added**, note 9 | 1 |
  * | `payoff:` row `points` quoted-scalar exclusion | `YamlType.INT.cast` → a lenient `content.toIntOrNull()` | [throwsOnQuotedPayoffPointsValue] — **added**, note 9 | none |
  * | `payoff:` row `points` boolean exclusion | `true` special-cased to `1` ahead of the cast | [throwsOnBoolPayoffPointsValue] — **added**, note 9 | none |
- * | `payoff:` row `points` 32-bit range (divergence 4) | the range check dropped from the cast | [throwsOnPayoffPointsBeyond32Bits] — **added**, note 10 | none |
- * | `action_deltas` value 32-bit range + `Int64` rendering (divergence 4) | same | [throwsOnActionDeltaBeyond32Bits] — **added**, note 10 | none |
+ * | `payoff:` row `points` 32-bit range (divergence 4) | the `YamlType.INT.cast` call replaced **site-locally** by a lenient `toLongOrNull()?.toInt()`, note 11 | [throwsOnPayoffPointsBeyond32Bits] — **added**, note 10 | none |
+ * | `action_deltas` value 32-bit range (divergence 4) | same, site-local, note 11 | [throwsOnActionDeltaBeyond32Bits] — **added**, note 10 | none |
  * | *(C2a surface, re-measured)* Phase wiring: `prompt` | read → `null` | [parsesPhaseSpeakAll] | 1 |
  * | *(C2a surface, re-measured)* Phase wiring: `source` | read → `null` | [parsesEventInjectFullSpec], [parsesEventInjectMinimalSpec] | 1 |
  * | *(C2a surface, re-measured)* Phase wiring: `if` → `condition` | read → `null` | [loadsConditionalWithBothBranches] | none |
@@ -243,11 +244,20 @@ import kotlin.test.assertTrue
  *    now, and the `action_deltas` case also pins the `Int64` `got:` rendering
  *    that keeps the message from reading "must be Int, got Int".
  *
- *    Six mutations in an earlier pass — the `?: throw` arms — were first
- *    attempted as `if (false) { throw … }` and did **not** compile, the same
- *    shape as note 3. They were re-run as elvis-substitutions and are counted
- *    once, in the form that executed; the non-compiling attempts are not
- *    evidence and are not among the 34.
+ *     Six mutations in an earlier pass — the `?: throw` arms — were first
+ *     attempted as `if (false) { throw … }` and did **not** compile, the same
+ *     shape as note 3. They were re-run as elvis-substitutions and are counted
+ *     once, in the form that executed; the non-compiling attempts are not
+ *     evidence and are not among the 41.
+ * 11. **Both divergence-4 mutations are site-local on purpose.** Editing the
+ *     shared `YamlType.INT` range check instead — C2a's own
+ *     `YamlType.INT 32-bit range check` row — would have reddened
+ *     [throwsOnIntegerBeyond32Bits] as well, and the two new tests each other,
+ *     so the row would have measured C2a's mechanism rather than the
+ *     phase-level claim it exists to defend. `Incidental | none` on both rows
+ *     is the measured result of the site-local form. The `Int64` `got:`
+ *     rendering [throwsOnActionDeltaBeyond32Bits] also asserts is **not**
+ *     mutated here — that is C2a's `renderActualType Int64 arm` row.
  */
 class ScenarioLoaderTests {
 
@@ -2243,11 +2253,13 @@ class ScenarioLoaderTests {
     // region condition-4 sweep additions (C2b surface)
 
     /*
-     * Every test in this region was added because the ADR-023 §12 condition-4
-     * sweep over C2b's surface broke the mechanism it names and the suite
-     * stayed green — no transcribed Swift case reached it, and Swift has no
-     * dedicated claimant for it either. They are Kotlin-side claimants for
-     * mechanisms both ports share, the same category as the region above.
+     * Every test in this region claims a mechanism that had no dedicated
+     * claimant on **either** side: no transcribed Swift case reaches it, and
+     * Swift has none of its own. All but one were found by the ADR-023 §12
+     * condition-4 sweep over C2b's surface — the mutation landed and the suite
+     * stayed green. The exception is [throwsOnScalarThenBranch], written ahead
+     * of the sweep from reading the Swift suite; its own KDoc says so. Same
+     * category as the region above.
      */
 
     /**
@@ -2309,8 +2321,11 @@ class ScenarioLoaderTests {
      * **No Swift twin to transcribe.** `ScenarioValidationMessage.branchNotArray`
      * is rendered by `ScenarioValidationMessageTests.swift` but no Swift loader
      * test reaches `mapBranch`'s cast, so the mechanism ships unclaimed on both
-     * sides; this is the Kotlin-side claimant, in the same category as the
-     * "condition-4 sweep additions" region below.
+     * sides; this is the Kotlin-side claimant. Written **before** the sweep
+     * rather than because of it — the gap was visible from the Swift suite — so
+     * it is the one test in this region the preamble's "the sweep found it"
+     * does not describe. The sweep then confirmed it also catches a
+     * `label` / `branch` argument swap.
      *
      * Asserts the rendered branch name rather than the exception type alone:
      * `then:` and `else:` share the mechanism, and a `label`/`branch` argument
@@ -2335,7 +2350,7 @@ class ScenarioLoaderTests {
     /**
      * A **boolean** `points:` element is rejected.
      *
-     * The third of the guard's three halves. Swift needs an explicit
+     * The third of the guard's three exclusions. Swift needs an explicit
      * `!(value is Bool)` here because `as? Int` launders a boolean into `1` /
      * `0` — the #130 type-laundering class the whole helper family exists to
      * prevent — and a `payoff:` row silently scoring `1` for `true` is a wrong
