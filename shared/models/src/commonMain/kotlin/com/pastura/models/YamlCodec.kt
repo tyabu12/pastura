@@ -35,9 +35,17 @@ public interface YamlCodec {
     /**
      * Parse a YAML 1.2 string into a [JsonElement] tree.
      *
+     * `@Throws` sits on this **declaration**, not on the implementations: it is
+     * the declaration K/N exports as a protocol requirement, and the only
+     * implementation ([SnakeYamlEngineCodec]) is `internal`, so it is emitted
+     * into no header at all. An implementation that ever goes `public` needs its
+     * own annotation — Kotlin does not inherit this one
+     * (`.claude/rules/kmp-interop.md` Pattern 5).
+     *
      * @throws YamlDecodeError if the input is malformed or contains
      *   unsupported scalar types.
      */
+    @Throws(YamlDecodeError::class)
     public fun decode(yaml: String): JsonElement
 
     public companion object {

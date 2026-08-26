@@ -47,8 +47,15 @@ public data class TurnOutput(
      *
      * @param key The field key to look up.
      * @return The non-empty value for the key.
+     * `@Throws` is load-bearing at the K/N boundary: a Kotlin exception from an
+     * **un-annotated** function is not surfaced to Swift as a catchable error —
+     * it terminates the process. The KDoc line below does not close that gap;
+     * only the annotation reaches the generated Obj-C header
+     * (`.claude/rules/kmp-interop.md` Pattern 5).
+     *
      * @throws [TurnOutputError.MissingField] if the key is absent or empty.
      */
+    @Throws(TurnOutputError::class)
     public fun require(key: String): String {
         val value = fields[key]
         if (value.isNullOrEmpty()) throw TurnOutputError.MissingField(key)
