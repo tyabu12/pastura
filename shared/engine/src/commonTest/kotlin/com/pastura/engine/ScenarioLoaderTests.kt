@@ -11,8 +11,10 @@ import kotlin.test.assertTrue
 /**
  * commonTest sibling of Swift's `ScenarioLoaderTests.swift`,
  * `ScenarioLoaderTests+Language.swift`, and `ScenarioLoaderTests+StrictTypes.swift`
- * (`Pastura/PasturaTests/Engine/`) — 43 of the port's 44 planned 1:1 transcriptions
- * landed; see the note below on the one that did not.
+ * (`Pastura/PasturaTests/Engine/`) — all 44 of the port's planned 1:1
+ * transcriptions are present, though [parsesPhaseSpeakAll] is a *partial* one
+ * (see below). The suite also carries tests beyond those 44: the
+ * "condition-4 sweep additions" region and the C2b gap pin.
  *
  * **Scope.** Only [ScenarioLoader.load]'s YAML-ingest and top-level-mapping
  * behaviour is covered here, matching [ScenarioLoader]'s own class KDoc: the
@@ -25,23 +27,23 @@ import kotlin.test.assertTrue
  * as unmapped "C2b" fields, so a test asserting on any of them cannot pass
  * against today's loader.
  *
- * **`parsesPhaseSpeakAll` is the one planned transcription NOT landed here.**
- * Swift's version asserts `phase.outputSchema?["statement"] == "string"`, and
- * `outputSchema` is exactly the C2b gap above — [ScenarioLoader.mapPhase]
- * passes it through as a hardcoded `null`. Fixing that would mean widening
- * `mapPhase` (adding `parseOutputSchema`), which is out of bounds for a
- * mechanical transcription task; the test belongs with the rest of C2b's
- * `outputSchema` coverage. `loadsMinimalValidScenario` already exercises the
- * same YAML shape (a `speak_all` phase carrying an `output:` block) without
- * asserting on the unmapped field, so the "does an `output:` block break
- * parsing" question stays covered.
+ * **[parsesPhaseSpeakAll] is a *partial* transcription, and the only one.**
+ * Swift's version makes three assertions; its third reads
+ * `phase.outputSchema?["statement"]`, which is exactly the C2b gap above —
+ * [ScenarioLoader.mapPhase] passes `outputSchema` through as a hardcoded
+ * `null`. The two `speak_all` fields this port *does* map are asserted here so
+ * the case is not silently missing from the suite, and the dropped third
+ * assertion is not simply lost: [phaseSpecialisationIsStillUnmapped] asserts
+ * `outputSchema` is `null` for a phase that declares an `output:` block, so C2b
+ * cannot restore Swift's assertion without first reddening that pin. Read the
+ * two together — neither alone is the full Swift case.
  *
  * ## ADR-023 §12 condition-4 perturbation record
  *
  * Each mechanism of
  * `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioLoader.kt` was
  * broken in isolation and the named **dedicated claimant** — a test that detects the
- * break through **its own** assertion — confirmed to redden. **43 mutations**, each
+ * break through **its own** assertion — confirmed to redden. **42 mutations**, each
  * asserted to match its anchor **exactly once** before applying, with the mutated
  * text re-read to confirm it landed (a `replace` that silently no-ops leaves the
  * original behaviour and reads as verified) and the executed-test count asserted
@@ -57,22 +59,26 @@ import kotlin.test.assertTrue
  * is deliberately not wired into the engine (see its class KDoc), so no other
  * suite could redden.
  *
- * **40 of the 43 reddened.** The three that did not are accounted for below the
- * table; one of them is a deliberate negative control.
+ * **42 mutations executed, 39 reddened, 3 green** (one of them the negative
+ * control). The three that stayed green are accounted for below the table. A
+ * 43rd *attempt* — `if (false)` on the `simulation_language` arm — did not
+ * compile (note 3) and was replaced by the polarity flip already in the
+ * table; a non-executing attempt is not evidence and is not counted among the
+ * 42.
  *
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|
  * | Code-fence strip | `filterNot { … startsWith("```") }` → `filterNot { false }` | [stripsCodeFencesBeforeParsing] | none |
- * | Decode failure → `InvalidYAMLFormat` | the `throw` → `JsonObject(emptyMap())` | [throwsOnInvalidYAML] — assertion **strengthened**, note 1 | none |
- * | Non-mapping root → `InvalidYAMLFormat` | the `?: throw` → `?: JsonObject(emptyMap())` | [throwsOnNonMappingRoot], [throwsOnEmptyDocument] — both **added**, note 1 | none |
+ * | Decode failure → `InvalidYAMLFormat` | the `throw` → `JsonObject(emptyMap())` | [throwsOnInvalidYAML] — assertion **strengthened**, note 1; also [throwsOnIntegerBeyondLongRange] (added post-sweep, C2b/divergence-4 region — same fold, not itself sweep-mutated) | none |
+ * | Non-mapping root → `InvalidYAMLFormat` | the `?: throw` → `?: JsonObject(emptyMap())` | [throwsOnNonMappingRoot], [throwsOnEmptyDocument] — both **added**, note 2 | none |
  * | `parseRequired` missing-key arm | `?: throw …MissingRequiredField` → `?: JsonNull` | [throwsOnMissingRequiredField] — assertion **strengthened**, note 1 | none |
  * | `parseRequired` wrong-type arm | early-return the cast, no throw | [throwsOnWrongTypeForRequiredString], [throwsOnWrongTypeForRequiredInt], [throwsOnWrongTypeForPersonasList], [throwsOnWrongTypeForPersonaName] | none |
  * | `parseOptional` absent-key arm | `?: return null` → `?: JsonNull` | [absentLogWindowIsNil] and 32 others | 32 — every fixture that omits an optional key then throws |
  * | `parseOptional` wrong-type arm | the `throw` dropped | [throwsOnQuotedSubRounds], [throwsOnQuotedExcludeSelf], [throwsOnIntExcludeSelf], [throwsOnMixedTypeOptions], [throwsOnWrongTypeForPersonaSecret], [bareSecretKeyWithNoValueIsATypeError] | 1 |
  * | `probability` quoted/bool guard | `!it.isString && !it.isYamlBooleanLiteral()` dropped | [throwsOnQuotedProbability] — **added**, note 2 | none |
- * | `language` membership | `!in` → `in` | [rejectsLanguageInvalid] | none |
+ * | `language` membership | `if (…) {` → `if (false) {` | [rejectsLanguageInvalid] | none |
  * | `simulation_language` membership | `!in` → `in` (not `if (false)`; see note 3) | [rejectsSimulationLanguageInvalid] | 1 — [parsesSimulationLanguageEn] |
- * | persona count matches `agents` | `!=` → `==` | [throwsOnAgentCountMismatch] | none |
+ * | persona count matches `agents` | `if (…) {` → `if (false) {` | [throwsOnAgentCountMismatch] | none |
  * | `STANDARD_KEYS` extra-data filter | `filterNot { it.key in STANDARD_KEYS }` → `filterNot { false }` | [parsesExtraDataStringArray] and 24 others | 24 — every fixture then routes `id` etc. through `convertToAnyCodableValue` |
  * | persona `secret` trim | `?.trim()` dropped | [trimsSurroundingWhitespaceFromPersonaSecret], [normalizesEmptyPersonaSecretToNil] | none |
  * | persona `secret` empty→null | `if (secret.isNullOrEmpty()) null else secret` → `secret` | [normalizesEmptyPersonaSecretToNil] | none |
@@ -103,19 +109,25 @@ import kotlin.test.assertTrue
  * | Phase wiring: `source` | read → `null` | [parsesEventInjectFullSpec], [parsesEventInjectMinimalSpec], [phaseSpecialisationIsStillUnmapped] | none |
  * | Phase wiring: `if` → `condition` | read → `null` | [phaseSpecialisationIsStillUnmapped] | none |
  * | Scenario wiring: `log_window` | read → `null` | [parsesLogWindow], [rejectsNonIntLogWindow] | none |
+ * | `YamlType.BOOL` token lookup on a **quoted** token (divergence 2) | *(not sweep-mutated; added post-sweep as a divergence pin)* | [throwsOnQuotedExcludeSelf] pins the rejecting case; [divergesOnQuotedYesExcludeSelf] pins the accepting (divergent) one | none
  * | **NEGATIVE CONTROL** — `acceptedLanguagesList` ordering | `.sorted()` → `.sortedDescending()` | *(none — expected green)* | none |
  *
- * 1. **Three mechanisms were claimed only by a bare "it throws" assertion**, so
+ * 1. **Two mechanisms were claimed only by a bare "it throws" assertion**, so
  *    the mutation moved the failure to a *different* message and the test stayed
- *    green. Common cause: the loader has one exception type, so a type-only
- *    assertion cannot tell its layers apart — the same shape B1's sweep found in
- *    `ScenarioValidator`. Fixed by asserting the rendered message.
- * 2. **Six mechanisms had no claimant at all**, and five of them have none on the
- *    **Swift** side either — nothing in `ScenarioLoaderTests*.swift` drives a
- *    quoted `probability`, a dictionary-valued extra-data key, an extra-data
- *    array mixing mappings and scalars, a `personas:` list holding a scalar, an
- *    absent `type:`, or `no_repeat`. Each gained a test in the
- *    "condition-4 sweep additions" region.
+ *    green: the decode-failure fold ([throwsOnInvalidYAML]) and `parseRequired`'s
+ *    missing-key arm ([throwsOnMissingRequiredField]). Common cause: the loader
+ *    has one exception type, so a type-only assertion cannot tell its layers
+ *    apart — the same shape B1's sweep found in `ScenarioValidator`. Fixed by
+ *    asserting the rendered message.
+ * 2. **Seven mechanisms had no claimant at all** — nothing in
+ *    `ScenarioLoaderTests*.swift` drives a quoted `probability`, a
+ *    dictionary-valued extra-data key, an extra-data array mixing mappings and
+ *    scalars, a `personas:` list holding a scalar, an absent `type:`, `no_repeat`,
+ *    or a non-mapping YAML root (a sequence, or an empty document) either — see
+ *    each addition's own KDoc for the specific gap. Each gained a test in the
+ *    "condition-4 sweep additions" region, except the non-mapping-root pair
+ *    ([throwsOnNonMappingRoot], [throwsOnEmptyDocument]), which sit in the
+ *    "Validation Errors" region next to the mechanism they share a fold with.
  * 3. `if (false)` does **not** compile on the `simulation_language` arm: the
  *    smart cast from the `!= null` half is lost and the later `!!`-free use
  *    fails. The polarity flip is the compiling substitute, and it reddens the
@@ -248,7 +260,11 @@ class ScenarioLoaderTests {
                   statement: string
         """.trimIndent()
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("'log_window'"))
+        assertTrue(msg.contains("Int"))
     }
 
     @Test
@@ -258,14 +274,6 @@ class ScenarioLoaderTests {
         assertEquals("A strategist", scenario.personas[0].description)
         assertEquals("Bob", scenario.personas[1].name)
     }
-
-    // `parsesPhaseSpeakAll` is deliberately NOT transcribed here — see the
-    // class KDoc's "parsesPhaseSpeakAll is the one planned transcription NOT
-    // landed here" paragraph. Its Swift assertion on `phase.outputSchema` hits
-    // ScenarioLoader.kt's C2b gap (outputSchema is a hardcoded `null` today),
-    // and watering the assertion down to only the fields that do parse would
-    // silently narrow the test's meaning rather than flag the gap — the STOP
-    // RULE calls for removal plus a report, not a weakened stand-in.
 
     // endregion
 
@@ -401,8 +409,14 @@ class ScenarioLoaderTests {
      *
      * Added by the condition-4 sweep: [throwsOnInvalidPhaseType] covers an
      * *unknown* type, but nothing drove an *absent* one, so defaulting the
-     * missing-type throw to `speak_all` left the suite green. The two collapse
-     * to one message by design — see `parsePhaseType`'s KDoc.
+     * missing-type throw to `speak_all` left the suite green. Missing and
+     * invalid do **not** collapse to one message — `parsePhaseType` throws
+     * [com.pastura.models.ScenarioValidationMessage.PhaseMissingType] here and
+     * [com.pastura.models.ScenarioValidationMessage.PhaseInvalidType] for
+     * [throwsOnInvalidPhaseType], and this test's own assertion proves they
+     * differ. What *does* collapse is missing-vs-**wrong-type**: `type: 42`
+     * (a non-String value) also renders `PhaseMissingType`, per
+     * `parsePhaseType`'s KDoc — and no test in this suite claims that arm.
      */
     @Test
     fun throwsOnMissingPhaseType() {
@@ -438,7 +452,11 @@ class ScenarioLoaderTests {
                 prompt: "Go"
         """.trimIndent()
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("invalid type"))
+        assertTrue(msg.contains("'invalid_type'"))
     }
 
     @Test
@@ -461,7 +479,11 @@ class ScenarioLoaderTests {
                 prompt: "Go"
         """.trimIndent()
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("agents (5)"))
+        assertTrue(msg.contains("personas count (2)"))
     }
 
     @Test
@@ -617,8 +639,18 @@ class ScenarioLoaderTests {
 
     @Test
     fun throwsOnProbabilityBoolPretendingToBeInt() {
-        // Bool-as-Int laundering would let `probability: true` pass — guard
-        // against it explicitly so the Int-coercion exception stays narrow.
+        // In Swift this guard is load-bearing: `as? Int` launders a Bool, so
+        // without an explicit Bool check `probability: true` would silently
+        // pass. In Kotlin it is not — the condition-4 sweep found that
+        // deleting `!it.isYamlBooleanLiteral()` from
+        // `parseOptionalDoubleAcceptingInt` leaves `"true".toDoubleOrNull() ==
+        // null`, so this fixture still throws either way and no input here
+        // can distinguish the guard's presence from its absence. Kept for
+        // parity with the Swift transcription and because a no-op guard is
+        // still correct, not because it detects anything on this side.
+        // (`YamlType.INT`'s copy of the same `!it.isYamlBooleanLiteral()`
+        // guard is redundant for the identical reason; its `!it.isString`
+        // sibling is not — see [throwsOnQuotedSubRounds].)
         val yaml = makeMinimalYAML(
             """
                 phases:
@@ -876,7 +908,7 @@ class ScenarioLoaderTests {
                   - type: speak_all
                     prompt: "Go"
             """.trimIndent()
-            assertNull(loader.load(yaml).personas[0].secret)
+            assertNull(loader.load(yaml).personas[0].secret, "authored=$authored")
         }
     }
 
@@ -1023,7 +1055,11 @@ class ScenarioLoaderTests {
             """.trimIndent(),
         )
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("'exclude_self'"))
+        assertTrue(msg.contains("Bool"))
     }
 
     /** YAML 1.1 treats bare `yes`/`no`/`on`/`off` as booleans. This loader
@@ -1200,11 +1236,16 @@ class ScenarioLoaderTests {
     /*
      * Every test in this region was added because the ADR-023 §12 condition-4
      * sweep broke the mechanism it names and the suite stayed green — no
-     * transcribed Swift case reached it. Three of them (the `probability`
-     * quoted-scalar guard, the dictionary-valued extra-data guard, and the
-     * absent-`type:` throw, above) have no dedicated claimant on the **Swift**
-     * side either; the rest cover Kotlin-only mechanisms the port introduced.
-     * The sweep's full table is in the #501 record for #1558.
+     * transcribed Swift case reached it. Only [throwsOnIntegerBeyond32Bits]
+     * (and, added separately below in the C2b gap / divergence-4 region,
+     * `throwsOnIntegerBeyondLongRange`) cover Kotlin-only mechanisms with no
+     * Swift twin to transcribe. The rest — [throwsOnQuotedProbability],
+     * [throwsOnExtraDataArrayMixingDictAndScalar],
+     * [throwsOnPersonasListWithScalarElement], and [parsesNoRepeat] — cover
+     * mechanisms Swift shares and equally lacks a dedicated claimant for; the
+     * absent-`type:` throw ([throwsOnMissingPhaseType], in a different
+     * region above) is the same case. The sweep's full table is in the #501
+     * record for #1558.
      */
 
     /**
@@ -1256,6 +1297,7 @@ class ScenarioLoaderTests {
         val error = caught.error
         assertTrue(error is SimulationError.ScenarioValidationFailed)
         assertTrue(error.message.contains("'rules'"))
+        assertTrue(error.message.contains("mixed-type arrays are not supported"))
     }
 
     /**
@@ -1278,6 +1320,7 @@ class ScenarioLoaderTests {
         assertTrue(error is SimulationError.ScenarioValidationFailed)
         assertTrue(error.message.contains("'config'"))
         assertTrue(error.message.contains("String"))
+        assertTrue(error.message.contains("dictionary values must all be String"))
     }
 
     /**
@@ -1364,6 +1407,73 @@ class ScenarioLoaderTests {
 
     // endregion
 
+    // region Divergence pins (class KDoc divergences 2 and 4)
+
+    /**
+     * An integral scalar beyond even `Long` range.
+     *
+     * Referenced by name in [ScenarioLoader]'s class KDoc, divergence 4:
+     * `YamlCodec`'s `yamlValueToJson` handles `Int` / `Long` / `Float` / `Double`
+     * only, so a value outside all four raises `YamlDecodeError.UnsupportedScalar`,
+     * which [ScenarioLoader.load] folds into
+     * [com.pastura.models.ScenarioValidationMessage.InvalidYAMLFormat] — a
+     * whole-document rejection naming no field, unlike
+     * [throwsOnIntegerBeyond32Bits]'s field-level [FieldWrongType]-shaped message.
+     * Swift's `Int` is 64-bit and has no failure mode at this magnitude at all, so
+     * this has no Swift twin either.
+     */
+    @Test
+    fun throwsOnIntegerBeyondLongRange() {
+        val yaml = """
+            id: t
+            language: ja
+            name: T
+            description: T
+            agents: 9223372036854775808
+            rounds: 1
+            context: C
+            personas:
+              - name: A
+                description: A
+            phases:
+              - type: speak_all
+                prompt: "Speak"
+        """.trimIndent()
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("Invalid YAML format"))
+    }
+
+    /**
+     * **Divergence pin, not desirable behaviour.** Pins [ScenarioLoader]'s class
+     * KDoc divergence 2's over-acceptance: a **quoted** `exclude_self: "yes"`
+     * parses to `true` here, because [YamlType.BOOL] routes every `isString`
+     * primitive through `YAML_11_BOOLEAN_TOKENS` without checking whether the
+     * source token was quoted, and snakeyaml gives bare `yes` and quoted `"yes"`
+     * the same `isString == true`. Yams keeps a quoted `"yes"` a `String` and
+     * Swift rejects it. [throwsOnQuotedExcludeSelf] only drives `"true"`, a token
+     * outside [YamlType.BOOL]'s YAML-1.1 token map, so nothing previously pinned
+     * this input. A future fix that closes divergence 2 should make this test
+     * go red — that is the point of writing it as a pin rather than silently
+     * leaving the gap undetected.
+     */
+    @Test
+    fun divergesOnQuotedYesExcludeSelf() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: vote
+                    prompt: "Vote"
+                    exclude_self: "yes"
+            """.trimIndent(),
+        )
+        val scenario = loader.load(yaml)
+        assertEquals(true, scenario.phases[0].excludeSelf)
+    }
+
+    // endregion
+
     // region C2b gap pin
 
     /**
@@ -1379,9 +1489,16 @@ class ScenarioLoaderTests {
      * after the gap closed would be the coverage theater
      * `.claude/rules/kmp-interop.md` Pattern 4 warns about.
      *
-     * The `assertEquals(5, …)` guards the pin's own reachability: if a future
-     * edit made `load` reject this fixture outright, every `assertNull` below
-     * would become vacuous rather than failing.
+     * The `assertEquals(5, …)` does **not** guard against a `load` that rejects
+     * this fixture outright — a rejection throws out of `loader.load` and this
+     * test fails right there, at the `loader.load(yaml)` call, before any
+     * `assertNull` runs. What it actually guards is a `load` that *succeeds*
+     * but silently returns a shorter or empty phase list: without the size
+     * check, a five-`assertNull` pin against a zero-or-short `phases` list
+     * would go vacuous (an out-of-bounds index throws `IndexOutOfBounds`,
+     * which itself would fail the test — but only accidentally, and a
+     * `phases` list padded with unrelated phases at the checked indices would
+     * not even do that).
      *
      * **Delete this whole region in C2b**, together with the KDoc section it
      * names.
@@ -1433,6 +1550,8 @@ class ScenarioLoaderTests {
         // empty phase would fail here rather than passing the assertNulls.
         assertEquals("Choose", phases[0].prompt)
         assertEquals("words", phases[1].source)
+        assertEquals(PhaseType.SCORE_CALC, phases[2].type)
+        assertEquals(PhaseType.RELATIONSHIP_UPDATE, phases[3].type)
         assertEquals("round == 1", phases[4].condition)
     }
 

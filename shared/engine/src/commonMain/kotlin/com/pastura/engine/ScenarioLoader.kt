@@ -47,8 +47,12 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * `ScenarioLoaderTests.phaseSpecialisationIsStillUnmapped` pins that list from
  * the test side and is written to go **red** the moment any of the seven starts
- * being mapped, so this section cannot outlive the gap it describes. Delete
- * both together.
+ * being mapped, so this section cannot outlive the gap it describes. **Three
+ * artefacts describe this gap and must be deleted together**: that pin, this
+ * section, and the "delete the next sentence when C2b lands" paragraph on
+ * `ScenarioLoader.swift`'s `load(yaml:)` — the Swift one is the dangerous
+ * straggler, because a stale "no Kotlin side to mirror yet" tells the next
+ * editor to skip a mirror that by then exists.
  *
  * ## Not wired into the engine
  *
@@ -73,15 +77,18 @@ import kotlinx.serialization.json.JsonPrimitive
  * this loader rejects produces no run and therefore no parity transcript to
  * compare (`DivergenceClass.VALIDATOR_UNPORTED`).
  *
- * 1. **Two YAML-1.1 typed scalars are accepted on one side and rejected on the
- *    other.** Measured on both engines: `12:30:00` (sexagesimal) resolves to
- *    `Int 45000` under Yams and stays a `String` under snakeyaml-engine's YAML
- *    1.2 core schema; `2026-08-26` resolves to a `Date` under Yams and stays a
- *    `String` here. So for a `String`-typed field Swift **rejects** what Kotlin
- *    **accepts**, and for an `Int`-typed field the polarity flips. Deliberately
- *    **not** closed: closing it means regex-sniffing every plain scalar for ISO
- *    dates and sexagesimals, which risks rejecting legitimate curator text, for
- *    an input shape no bundled preset or gallery scenario uses.
+ * 1. **Two YAML-1.1 typed scalars resolve differently.** Measured on both
+ *    engines: `12:30:00` (sexagesimal) resolves to `Int 45000` under Yams and
+ *    stays a `String` under snakeyaml-engine's YAML 1.2 core schema;
+ *    `2026-08-26` resolves to a `Date` under Yams and stays a `String` here.
+ *    The consequences are **not** symmetric, so state them per scalar rather
+ *    than as one rule: in a `String`-typed field both are rejected by Swift and
+ *    accepted here; in an `Int`-typed field `12:30:00` is accepted by Swift and
+ *    rejected here, while `2026-08-26` is rejected by **both** (a `Date` fails
+ *    `as? Int` too) and only the `got:` fragment differs. Deliberately **not**
+ *    closed: closing it means regex-sniffing every plain scalar for ISO dates
+ *    and sexagesimals, which risks rejecting legitimate curator text, for an
+ *    input shape no bundled preset or gallery scenario uses.
  * 2. **YAML-1.1 boolean tokens are re-accepted loader-locally.** `yes` / `no` /
  *    `on` / `off` (and their `Yes` / `YES` case variants) resolve to `Bool`
  *    under Yams and to `String` here, so [YamlType.BOOL] maps that token set
@@ -89,22 +96,45 @@ import kotlinx.serialization.json.JsonPrimitive
  *    both engines already agree they are `String` (libyaml's bool set does not
  *    contain them), so accepting them would open a *new* divergence rather than
  *    close one. This is the loader's decision alone — `YamlCodec`'s YAML 1.2
- *    contract and its `LoadSettings` are untouched. The cost is one narrow
- *    over-acceptance: snakeyaml erases the quoted/plain distinction for these
- *    tokens, so a **quoted** `"yes"` is also read as a boolean here while Swift
- *    keeps it a `String`.
+ *    contract and its `LoadSettings` are untouched.
+ *
+ *    The cost is two over-acceptances, in **opposite** directions, because the
+ *    token map is consulted only by [YamlType.BOOL]:
+ *    - a **quoted** `"yes"` in a `Bool` field reads as a boolean here (snakeyaml
+ *      erases the quoted/plain distinction for a token it resolves to `String`)
+ *      while Swift keeps it a `String` and rejects;
+ *    - a **plain** `yes` in a `String`-typed field — `narrator: no`,
+ *      `options: [yes, no]` — stays a string here and is accepted, while Yams
+ *      hands Swift a `Bool` whose `as? String` / `as? [String]` fails and the
+ *      scenario is rejected. This is the likelier one in real curator YAML.
+ *
+ *    `ScenarioLoaderTests.divergesOnQuotedYesExcludeSelf` pins the first of the
+ *    two, so the behaviour cannot drift without this entry being revisited.
  * 3. **Type-name rendering.** The `expected:` / `got:` fragments come from
  *    [YamlType.rendered] and [renderActualType] — see [renderActualType] for
  *    where they part company with Swift's `String(describing: type(of:))`.
- * 4. **`Int` is 32-bit here and 64-bit in Swift.** An integral scalar outside
- *    `Int.MIN_VALUE..Int.MAX_VALUE` is a [ScenarioValidationMessage.FieldWrongType]
- *    rather than an accepted value. Truncating instead would be worse than a
- *    divergence — it would silently run a different scenario.
+ * 4. **`Int` is 32-bit here and 64-bit in Swift.** An integral scalar inside
+ *    `Long` range but outside `Int.MIN_VALUE..Int.MAX_VALUE` is a
+ *    [ScenarioValidationMessage.FieldWrongType] rather than an accepted value.
+ *    Truncating instead would be worse than a divergence — it would silently run
+ *    a different scenario. **Beyond `Long` range the failure changes shape**:
+ *    `YamlCodec`'s `yamlValueToJson` handles `Int` / `Long` / `Float` / `Double`
+ *    and nothing else, so the value raises `YamlDecodeError.UnsupportedScalar`,
+ *    which [load] folds into
+ *    [ScenarioValidationMessage.InvalidYAMLFormat] — a whole-document rejection
+ *    that names no field, where Swift reports a field-level error.
+ *    `ScenarioLoaderTests.throwsOnIntegerBeyondLongRange` pins that.
  * 5. **Whitespace trimming.** Swift trims `.whitespacesAndNewlines` (a Unicode
  *    character set), Kotlin `trim()` trims `Char.isWhitespace()`. The two
  *    disagree on a handful of exotic code points, so a persona `secret:` padded
  *    with one of them could normalize to `null` on one side only. Same family as
- *    [ScenarioValidator]'s divergence 3.
+ *    [ScenarioValidator]'s divergence 3. [stripCodeFences] is a second trim site
+ *    with a *narrower* Swift set — `.whitespaces`, no `\v` / `\f` / `` —
+ *    so a fence line indented with one of those is stripped here and kept there.
+ * 6. **Which offending key gets reported.** `collectExtraData` throws on the
+ *    first offending key in `JsonObject` insertion order; Swift iterates a
+ *    `Dictionary`, whose order is unspecified. Both reject the same scenarios;
+ *    only the key named in the message can differ.
  *
  * ## `validationError` is re-declared here on purpose
  *
@@ -158,7 +188,7 @@ public class ScenarioLoader {
         // while telling the curator nothing they can act on.
         val root: JsonElement = try {
             YamlCodec.default().decode(stripped)
-        } catch (error: YamlDecodeError) {
+        } catch (@Suppress("SwallowedException") ignored: YamlDecodeError) {
             throw validationError(ScenarioValidationMessage.InvalidYAMLFormat)
         }
         val dict = root as? JsonObject
@@ -660,6 +690,12 @@ internal fun <T : Enum<T>> serialNameLookup(
     entries: List<T>,
 ): Map<String, T> {
     val descriptor = serializer.descriptor
+    // `require` throws IllegalArgumentException, which `load`'s
+    // `@Throws(SimulationException::class)` does not cover — from Swift that
+    // terminates the process rather than raising (`kmp-interop.md` Pattern 5).
+    // Acceptable only because this is a build-time invariant of the enum and its
+    // descriptor, unreachable from any input. Do not widen this helper to a path
+    // where a caller's data can trip it without giving it a checked failure.
     require(descriptor.elementsCount == entries.size) {
         "${descriptor.serialName}: descriptor has ${descriptor.elementsCount} elements " +
             "but the enum has ${entries.size} entries"
@@ -673,14 +709,16 @@ internal fun <T : Enum<T>> serialNameLookup(
  * The **single** place a decoded YAML value becomes a type name, so the loader's
  * whole error vocabulary moves together. It targets Swift's
  * `String(describing: type(of:))` output over the Yams-bridged values, and
- * reaches it for every shape but two:
+ * reaches it for every shape but three:
  *
  * - an explicit `null` renders `Null` here and `NSNull` in Swift;
  * - an integral scalar outside 32-bit range renders `Int64` here, where Swift
- *   simply says `Int` and accepts the value.
+ *   simply says `Int` and accepts the value;
+ * - the two YAML-1.1 typed scalars of the class KDoc's divergence 1 render
+ *   `String` here, where Yams has already bridged them to `Int` / `Date`.
  *
- * Both are message text only, and message text from a *rejected* scenario, which
- * is why this is documented rather than ledgered (see the class KDoc of
+ * All three are message text only, and message text from a *rejected* scenario,
+ * which is why this is documented rather than ledgered (see the class KDoc of
  * [ScenarioLoader]).
  */
 internal fun renderActualType(element: JsonElement): String = when (element) {

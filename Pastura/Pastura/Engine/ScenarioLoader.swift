@@ -55,10 +55,19 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   ///
   /// **Partially dual-landed with
   /// `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioLoader.kt`**
-  /// (ADR-023 §4 C2a) — the YAML-ingest and top-level-mapping change here
-  /// needs mirroring there. Phase specialisation (`output`, `target`, `pairing`,
-  /// `logic`, `then`/`else`, `action_deltas`, `payoff`) is not yet ported (C2b);
-  /// a change confined to one of those fields has no Kotlin side to mirror yet.
+  /// (spelled out so a move leaves a greppable string behind) — change both
+  /// (ADR-023 §4, PR C2a). This file's row in `shared/adr-023-port-ledger.tsv`
+  /// is `SPLIT` naming that path alongside `InferenceEstimator.kt`, and the
+  /// coverage gate verifies both paths are tracked — it cannot verify that an
+  /// edit here was mirrored, so the pairing is yours to honour.
+  ///
+  /// **Delete the next sentence when C2b lands**, together with the Kotlin
+  /// file's `PORT IN PROGRESS` KDoc section; both are pinned by
+  /// `ScenarioLoaderTests.phaseSpecialisationIsStillUnmapped`, which reddens the
+  /// moment those fields start being mapped. Phase specialisation (`output`,
+  /// `target`, `pairing`, `logic`, `then`/`else`, `action_deltas`, `payoff`) is
+  /// not yet ported, so a change confined to one of those fields has no Kotlin
+  /// side to mirror yet.
   public func load(yaml: String) throws -> Scenario {
     let stripped = stripCodeFences(yaml)
 
