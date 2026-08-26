@@ -58,15 +58,8 @@ final class SharedScenariosViewModel {
   var selectedLanguage: String?
 
   /// The Browse-tab search field text. Blank / whitespace-only applies no
-  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:language:installedUnchangedIds:installFilter:)``).
+  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:language:installedUnchangedIds:)``).
   var searchQuery: String = ""
-
-  /// The Browse install-state filter (ADR-025 § Amendment 2026-08-27).
-  /// Defaults to hiding installed-and-unchanged rows. Deliberately
-  /// **session-only**: the VM lives in the tab root's `@State`, so the choice
-  /// survives tab switches and detail pushes but resets on the next launch —
-  /// the catalog should open in its discovery default every time.
-  var installFilter: GalleryScenarioSearch.InstallFilter = .hideInstalled
 
   /// Rows keyed by `sourceId` for the subset of scenarios whose
   /// `sourceType == "gallery"` and whose `sourceId` is non-nil. Rebuilt
@@ -102,8 +95,7 @@ final class SharedScenariosViewModel {
   var visibleScenarios: [GalleryScenario] {
     GalleryScenarioSearch.filter(
       allScenarios, category: selectedCategory, query: searchQuery,
-      language: selectedLanguage, installedUnchangedIds: installedUnchangedIds,
-      installFilter: installFilter)
+      language: selectedLanguage, installedUnchangedIds: installedUnchangedIds)
   }
 
   /// Why ``visibleScenarios`` is empty — drives the empty-card copy. Only
@@ -111,8 +103,7 @@ final class SharedScenariosViewModel {
   var emptyReason: GalleryScenarioSearch.EmptyReason {
     GalleryScenarioSearch.emptyReason(
       allScenariosEmpty: allScenarios.isEmpty,
-      category: selectedCategory, query: searchQuery, language: selectedLanguage,
-      hiddenInstalledCount: hiddenInstalledCount)
+      category: selectedCategory, query: searchQuery, language: selectedLanguage)
   }
 
   private let galleryService: any GalleryService

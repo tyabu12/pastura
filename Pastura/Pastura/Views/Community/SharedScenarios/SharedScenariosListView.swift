@@ -32,15 +32,6 @@ struct SharedScenariosListView: View {
     // across `state` transitions. Gated to the loaded states: searching the
     // loading / network-unavailable / error screens is meaningless.
     .modifier(GallerySearchable(enabled: isSearchEnabled, text: searchQueryBinding))
-    .toolbar {
-      // Same gate as the search field: a filter over the loading / offline /
-      // error screens has nothing to filter.
-      if let viewModel, isSearchEnabled {
-        ToolbarItem(placement: .primaryAction) {
-          installFilterMenu(viewModel: viewModel)
-        }
-      }
-    }
     .task {
       // Re-fires every time this tab root re-appears — measured on iOS 26.5
       // (#1565): pushing the detail route fires the root's onDisappear, and
@@ -145,7 +136,6 @@ struct SharedScenariosListView: View {
         }
         categoryChips(selection: $bindable.selectedCategory)
         scenariosCard(viewModel: viewModel)
-        hiddenInstalledFooter(viewModel: viewModel)
         if let updated = viewModel.updatedAt {
           Text(String(format: String(localized: "Last updated: %@"), updated))
             .font(.caption)
@@ -202,8 +192,6 @@ struct SharedScenariosListView: View {
       return String(localized: "No scenarios in this category.")
     case .emptyLanguage:
       return String(localized: "No scenarios in this language.")
-    case .allInstalled:
-      return String(localized: "Everything here is already installed.")
     case .galleryEmpty:
       return String(localized: "No scenarios available yet.")
     }

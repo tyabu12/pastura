@@ -3,10 +3,9 @@ import Testing
 
 @testable import Pastura
 
-/// Install-state filter coverage for `SharedScenariosViewModel` (#1565):
-/// the `.hideInstalled` default, `installedUnchangedIds`, the session pin
-/// for rows installed behind the list, and the hidden-count / empty-reason
-/// wiring. Same-struct extension, not a second `@Suite`
+/// Install-state coverage for `SharedScenariosViewModel` (#1565):
+/// `installedUnchangedIds`, the sort-last key, and the session pin for rows
+/// installed behind the list. Same-struct extension, not a second `@Suite`
 /// (`testing.md` § "Splitting a Suite Across Files").
 extension SharedScenariosViewModelTests {
 
@@ -23,7 +22,7 @@ extension SharedScenariosViewModelTests {
         sourceHash: hash ?? scenario.yamlSHA256))
   }
 
-  @Test func hideInstalledIsTheDefaultAndHidesInstalledUnchangedRows() async throws {
+  @Test func installedUnchangedRowsSortLast() async throws {
     let repo = try makeRepo()
     let installed = makeGalleryScenario(id: "installed")
     let fresh = makeGalleryScenario(id: "fresh")
@@ -34,14 +33,8 @@ extension SharedScenariosViewModelTests {
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
 
-    #expect(viewModel.installFilter == .hideInstalled)
-    #expect(viewModel.installedUnchangedIds == ["installed"])
-    #expect(viewModel.visibleScenarios.map(\.id) == ["fresh"])
-    #expect(viewModel.hiddenInstalledCount == 1)
-
-    viewModel.installFilter = .all
     #expect(viewModel.visibleScenarios.map(\.id) == ["fresh", "installed"])
-    #expect(viewModel.hiddenInstalledCount == 0)
+    #expect(viewModel.installedUnchangedIds == ["installed"])
   }
 
   @Test func installedRowWithPendingUpdateStaysVisible() async throws {
@@ -73,8 +66,9 @@ extension SharedScenariosViewModelTests {
   @Test func loadClearsSessionPins() async throws {
     let repo = try makeRepo()
     let scenario = makeGalleryScenario(id: "pinned")
+    let other = makeGalleryScenario(id: "other")
     let service = StubVMGalleryService()
-    service.cachedIndex = makeIndex([scenario])
+    service.cachedIndex = makeIndex([scenario, other])
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
     try installBehindTheList(scenario, in: repo)
@@ -83,49 +77,44 @@ extension SharedScenariosViewModelTests {
 
     await viewModel.load()
     #expect(viewModel.sessionPinnedIds.isEmpty)
-    #expect(viewModel.visibleScenarios.isEmpty)
+    // The pin is gone, so "pinned" is now installed-and-unchanged and sorts
+    // after "other" regardless of the two ids' relative ordering.
+    #expect(viewModel.visibleScenarios.map(\.id) == ["other", "pinned"])
   }
 
   @Test func rowInstalledBehindTheListStaysPinnedUntilRefresh() async throws {
     let repo = try makeRepo()
     let scenario = makeGalleryScenario(id: "acted_on")
+    // Older `addedAt` than the default ("2026-04-14") so the plain date sort
+    // would otherwise put "acted_on" first — making the pin's effect on
+    // position observable rather than incidental.
+    let other = GalleryScenario(
+      id: "other", title: "Other", category: .socialPsychology,
+      description: "desc", author: "t",
+      recommendedModel: ModelRegistry.gemma4E2B.id, estimatedInferences: 10,
+      // swiftlint:disable:next force_unwrapping
+      yamlURL: URL(string: "https://example.com/other.yaml")!,
+      yamlSHA256: "otherhash", addedAt: "2026-01-01")
     let service = StubVMGalleryService()
-    service.cachedIndex = makeIndex([scenario])
+    service.cachedIndex = makeIndex([scenario, other])
 
     let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
     await viewModel.load()
-    #expect(viewModel.visibleScenarios.map(\.id) == ["acted_on"])
+    #expect(viewModel.visibleScenarios.map(\.id) == ["acted_on", "other"])
 
     // Detail screen installs it; the pop re-syncs the snapshot.
     try installBehindTheList(scenario, in: repo)
     await viewModel.refreshInstalledSnapshot()
     #expect(viewModel.isInstalled(scenario))
     #expect(viewModel.sessionPinnedIds == ["acted_on"])
-    #expect(viewModel.visibleScenarios.map(\.id) == ["acted_on"], "must not vanish under the restored scroll")
-    #expect(viewModel.hiddenInstalledCount == 0)
+    #expect(
+      viewModel.visibleScenarios.map(\.id) == ["acted_on", "other"],
+      "must not vanish or move under the restored scroll while pinned")
 
-    // A later refresh treats it like any other installed row.
+    // A later refresh treats it like any other installed row: the pin drops
+    // and it sorts to the bottom.
     await viewModel.refresh()
     #expect(viewModel.sessionPinnedIds.isEmpty)
-    #expect(viewModel.visibleScenarios.isEmpty)
-    #expect(viewModel.hiddenInstalledCount == 1)
-  }
-
-  @Test func emptyReasonReportsAllInstalledWhenTheFilterHidEverything() async throws {
-    let repo = try makeRepo()
-    let scenario = makeGalleryScenario(id: "only", category: .ethics)
-    try installBehindTheList(scenario, in: repo)
-    let service = StubVMGalleryService()
-    service.cachedIndex = makeIndex([scenario])
-
-    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
-    await viewModel.load()
-    viewModel.selectedCategory = .ethics
-
-    #expect(viewModel.visibleScenarios.isEmpty)
-    #expect(viewModel.emptyReason == .allInstalled)
-
-    viewModel.searchQuery = "zzz"
-    #expect(viewModel.emptyReason == .noMatchingQuery)
+    #expect(viewModel.visibleScenarios.map(\.id) == ["other", "acted_on"])
   }
 }

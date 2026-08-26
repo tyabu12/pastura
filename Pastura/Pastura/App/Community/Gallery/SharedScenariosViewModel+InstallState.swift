@@ -2,29 +2,20 @@ import Foundation
 
 // Install-state projection of `SharedScenariosViewModel`, split out of the
 // main file for the SwiftLint `file_length` budget (#1565). Stored state
-// (`installFilter`, `installedBySourceId`, `sessionPinnedIds`) stays in the
-// main file — extensions cannot add stored properties — and everything here
-// is derived from it synchronously so views can read it without a hop.
+// (`installedBySourceId`, `sessionPinnedIds`) stays in the main file —
+// extensions cannot add stored properties — and everything here is derived
+// from it synchronously so views can read it without a hop.
 extension SharedScenariosViewModel {
 
   // MARK: - Install-state filter
 
   /// Gallery ids installed locally whose local hash equals the gallery hash
   /// (installed AND no update available), minus ``sessionPinnedIds``. Feeds
-  /// the hide filter and the "sort last" key in ``GalleryScenarioSearch``.
+  /// the sort-last key in ``GalleryScenarioSearch`` — installed-and-unchanged
+  /// rows still show in Browse, just at the bottom.
   var installedUnchangedIds: Set<String> {
     installedUnchangedIds(in: allScenarios, snapshot: installedBySourceId)
       .subtracting(sessionPinnedIds)
-  }
-
-  /// Rows the hide filter removed under the current category / language /
-  /// query — drives the "N installed scenarios hidden" footer. Zero under
-  /// `.all`, where nothing is hidden.
-  var hiddenInstalledCount: Int {
-    guard installFilter == .hideInstalled else { return 0 }
-    return GalleryScenarioSearch.hiddenInstalledCount(
-      allScenarios, category: selectedCategory, query: searchQuery,
-      language: selectedLanguage, installedUnchangedIds: installedUnchangedIds)
   }
 
   // MARK: - Sync helpers for UI
