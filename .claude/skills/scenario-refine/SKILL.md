@@ -287,18 +287,21 @@ promotion — it stays in `improvements/`. See § Promotion.
 ## Step 5 — Append the journal
 
 1. Compose the results JSON (schema in `append_audit.py`'s docstring: date /
-   model / notes / per-scenario id, name, channel, category, yaml, run_log,
-   status, attempts, duration_sec, scores {coherence, interaction,
+   **run_id** / model / notes / per-scenario id, name, channel, category, yaml,
+   run_log, status, attempts, duration_sec, scores {coherence, interaction,
    breakdown_free, development, payoff}, payoff_axis, comment, error,
-   candidate_of). Write
-   it to a temp file.
+   candidate_of). Set `run_id` to this cycle's `HH:MM:SS` start time — the
+   section key is (date, run_id), so a second cycle on the same date gets its
+   own section instead of overwriting the first (#1542). Reuse the SAME
+   `run_id` when re-appending a partially-failed cycle, so it replaces its own
+   section. Write it to a temp file.
 2. ```bash
    python3 .claude/skills/scenario-refine/scripts/append_audit.py \
      --results /tmp/refine_results_<DATE>.json \
      --journal data/factory/audit-digest.md
    ```
 3. Verify: `grep -c 'audit-digest:' data/factory/audit-digest.md` prints `2`
-   (both markers survived) and the new `## <DATE>` section exists.
+   (both markers survived) and the new `## <DATE> — <RUN_ID>` section exists.
 
 ## Step 5.5 — Propose lessons (inbox)
 

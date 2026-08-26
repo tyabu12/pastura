@@ -1,8 +1,8 @@
 #!/bin/bash
 # Self-test for the scenario-refine helper scripts. No Swift toolchain or
 # model needed — exercises inventory selection (rotation / category resolution
-# / ja-en tiering) and audit-journal appending (date idempotency / baseline
-# delta / failed-run exclusion) against fixtures.
+# / ja-en tiering) and audit-journal appending ((date, run_id) idempotency /
+# baseline delta / failed-run exclusion) against fixtures.
 #
 # usage: bash .claude/skills/scenario-refine/tests/run_tests.sh
 set -eu
@@ -82,7 +82,7 @@ echo "$JE" | jq -e 'length >= 6' >/dev/null || fail "absent journal should still
 cp fixtures/journal_seed.md "$TMP/journal.md"
 python3 "$SCRIPTS/append_audit.py" \
   --results fixtures/results_sample.json --journal "$TMP/journal.md" >/dev/null
-grep -q "^## 2026-06-21$" "$TMP/journal.md" || fail "audit: section heading missing"
+grep -q "^## 2026-06-21 — 01:00:00$" "$TMP/journal.md" || fail "audit: section heading missing"
 
 # regression: word_wolf prior total 16 (2026-06-20) → new 12 → Δ-4, flagged ⚠️
 WW_ROW=$(grep '^| word_wolf ' "$TMP/journal.md")
@@ -136,16 +136,16 @@ RT=$(python3 "$SCRIPTS/select_inventory.py" \
 RT_WW=$(echo "$RT" | jq -r '.[] | select(.id=="word_wolf") | .last_evaluated')
 [ "$RT_WW" = "2026-06-21" ] || fail "round-trip: word_wolf should read evaluated 2026-06-21, got $RT_WW"
 
-# --- append_audit.py: date idempotency -------------------------------------
+# --- append_audit.py: (date, run_id) idempotency ----------------------------
 python3 "$SCRIPTS/append_audit.py" \
   --results fixtures/results_sample.json --journal "$TMP/journal.md" >/dev/null 2>"$TMP/warn"
-COUNT=$(grep -c "^## 2026-06-21$" "$TMP/journal.md")
+COUNT=$(grep -c "^## 2026-06-21 — 01:00:00$" "$TMP/journal.md")
 [ "$COUNT" -eq 1 ] || fail "audit: re-append duplicated the section ($COUNT)"
 grep -q "warning: replaced" "$TMP/warn" || fail "audit: replace warning missing"
-# re-running same date must NOT use the replaced same-date section as its own
-# baseline — word_wolf still compares to 2026-06-20, so Δ stays -4 (not 0).
+# re-running the same (date, run_id) must NOT use the replaced section as its
+# own baseline — word_wolf still compares to 2026-06-20, so Δ stays -4 (not 0).
 grep '^| word_wolf ' "$TMP/journal.md" | grep -q -- "-4" \
-  || fail "audit: same-date re-run must not self-baseline (Δ should stay -4)"
+  || fail "audit: same-key re-run must not self-baseline (Δ should stay -4)"
 
 # --- append_audit.py: markers + bootstrap ----------------------------------
 echo "# broken" > "$TMP/broken.md"
@@ -158,7 +158,7 @@ python3 "$SCRIPTS/append_audit.py" \
   || fail "audit: absent file should bootstrap, not error"
 grep -q "audit-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sections marker missing"
 grep -q "audit-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
-grep -q "^## 2026-06-21$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
+grep -q "^## 2026-06-21 — 01:00:00$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
 
 # --- append_audit.py: malformed prior ok record warns (not silent) ---------
@@ -215,6 +215,7 @@ MIG_COUNT=$(grep -c "missing score axes" "$TMP/migwarn")
 cat > "$TMP/nulldev.json" <<'EOF'
 {
   "date": "2026-06-22",
+  "run_id": "01:00:00",
   "model": "gemma-4-E2B-it-Q4_K_M",
   "scenarios": [
     {"id": "single_round_v1", "name": "SR", "channel": "preset",
@@ -231,5 +232,128 @@ python3 "$SCRIPTS/append_audit.py" \
 ND_ROW=$(grep '^| single_round_v1 ' "$TMP/nulldev.md")
 ND_DEV=$(echo "$ND_ROW" | awk -F' \\| ' '{print $9}')
 [ "$ND_DEV" = "–" ] || fail "null development must render em-dash in (d) column, got '$ND_DEV'"
+
+# --- append_audit.py: (date, run_id) section key (#1542) --------------------
+# Two /scenario-refine cycles can share a date in the same main checkout (a
+# re-run after a fix, a second nightly pass). Before #1542 the second append
+# silently wiped the first run's audit record — the journal is the only
+# durable one — so these cases pin the compound key.
+RK="$TMP/runkey"; mkdir -p "$RK"
+cp fixtures/journal_seed.md "$RK/journal.md"
+# run 2: same date, later run_id, word_wolf one point better (total 17).
+jq '.run_id = "02:00:00" | .scenarios[0].scores.coherence = 4' \
+  fixtures/results_sample.json > "$RK/results_run2.json"
+
+# (a) REGRESSION TEST FOR #1542: same date, different run_ids → both survive.
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$RK/journal.md" >/dev/null
+python3 "$SCRIPTS/append_audit.py" \
+  --results "$RK/results_run2.json" --journal "$RK/journal.md" >/dev/null
+grep -q "^## 2026-06-21 — 01:00:00$" "$RK/journal.md" \
+  || fail "runkey: first run's section wiped by a same-date second run (#1542)"
+grep -q "^## 2026-06-21 — 02:00:00$" "$RK/journal.md" \
+  || fail "runkey: second run's section missing"
+[ "$(grep -c '<!-- audit-data: ' "$RK/journal.md")" -eq 3 ] \
+  || fail "runkey: expected 3 audit-data comments (seed + 2 runs)"
+# run_id rides in the audit-data payload alongside date
+grep -o '<!-- audit-data: .* -->' "$RK/journal.md" \
+  | sed 's/^<!-- audit-data: //; s/ -->$//' \
+  | jq -es 'map(select(.run_id=="02:00:00")) | length == 1' >/dev/null \
+  || fail "runkey: run_id missing from the audit-data payload"
+
+# (d) refine-specific: a sibling run EARLIER the same date is a legitimate Δ
+# baseline — the exclusion unit is (date, run_id), not the whole date. run 2's
+# word_wolf (17) is scored against run 1 (16) → +1, not against 2026-06-20
+# (20, which would give -3).
+ww_row_of() { # $1 = run_id: the word_wolf row inside that run's section
+  awk -v h="## 2026-06-21 — $1" \
+    '$0 == h {inside=1; next} /^## / {inside=0} inside' "$RK/journal.md" \
+    | grep '^| word_wolf '
+}
+RK_WW=$(ww_row_of "02:00:00")
+echo "$RK_WW" | grep -q -- "+1" \
+  || fail "runkey: same-date sibling run must stay available as a Δ baseline, got '$RK_WW'"
+
+# (b) re-appending the SAME (date, run_id) replaces only that section, and
+# still excludes itself from its own baseline (Δ stays +1, never 0).
+python3 "$SCRIPTS/append_audit.py" \
+  --results "$RK/results_run2.json" --journal "$RK/journal.md" >/dev/null 2>"$RK/warn"
+grep -q "warning: replaced" "$RK/warn" || fail "runkey: replace warning missing"
+[ "$(grep -c "^## 2026-06-21 — 02:00:00$" "$RK/journal.md")" -eq 1 ] \
+  || fail "runkey: same-key re-append duplicated the section"
+[ "$(grep -c "^## 2026-06-21 — 01:00:00$" "$RK/journal.md")" -eq 1 ] \
+  || fail "runkey: sibling run's section disturbed by a same-key re-append"
+RK_WW2=$(ww_row_of "02:00:00")
+echo "$RK_WW2" | grep -q -- "+1" \
+  || fail "runkey: same-key re-append must not self-baseline, got '$RK_WW2'"
+
+# the newest of two same-date siblings wins the "most recent prior" pick, so a
+# third run resolves deterministically against run 2 (17) → Δ 0, not run 1.
+jq '.run_id = "03:00:00" | .scenarios[0].scores.coherence = 4' \
+  fixtures/results_sample.json > "$RK/results_run3.json"
+python3 "$SCRIPTS/append_audit.py" \
+  --results "$RK/results_run3.json" --journal "$RK/journal.md" >/dev/null
+RK_WW3=$(ww_row_of "03:00:00")
+echo "$RK_WW3" | grep -q -- "+0" \
+  || fail "runkey: baseline pick must order by (date, run_id), got '$RK_WW3'"
+
+# a legacy date-only heading in an existing local journal survives untouched
+LG="$TMP/legacy"; mkdir -p "$LG"
+cp fixtures/journal_seed.md "$LG/journal.md"
+jq '.run_id = "01:00:00" | .date = "2026-06-20"' \
+  fixtures/results_sample.json > "$LG/results_same_date.json"
+python3 "$SCRIPTS/append_audit.py" \
+  --results "$LG/results_same_date.json" --journal "$LG/journal.md" >/dev/null
+grep -q "^## 2026-06-20$" "$LG/journal.md" \
+  || fail "legacy: pre-#1542 date-only section must survive an append on its date"
+grep -q "^## 2026-06-20 — 01:00:00$" "$LG/journal.md" \
+  || fail "legacy: new section missing"
+
+# (c) run_id is REQUIRED and shape-checked; a rejected results JSON must leave
+# the journal byte-identical (an unattended run has to be recoverable by hand).
+RV="$TMP/runid_valid"; mkdir -p "$RV"
+cp "$RK/journal.md" "$RV/journal.md"
+cp "$RV/journal.md" "$RV/journal.before"
+jq 'del(.run_id)' fixtures/results_sample.json > "$RV/no_run_id.json"
+if python3 "$SCRIPTS/append_audit.py" \
+  --results "$RV/no_run_id.json" --journal "$RV/journal.md" 2>"$RV/err"; then
+  fail "runid: missing run_id should be a hard error"
+fi
+grep -q "run_id" "$RV/err" || fail "runid: error message must name run_id"
+grep -q "no_run_id.json" "$RV/err" || fail "runid: error message must name the results path"
+cmp -s "$RV/journal.before" "$RV/journal.md" || fail "runid: journal touched by a rejected append"
+# 99:99 has the right shape but is not a real clock time
+jq '.run_id = "99:99"' fixtures/results_sample.json > "$RV/bad_clock.json"
+if python3 "$SCRIPTS/append_audit.py" \
+  --results "$RV/bad_clock.json" --journal "$RV/journal.md" 2>/dev/null; then
+  fail "runid: 99:99 should be rejected as a non-clock run_id"
+fi
+cmp -s "$RV/journal.before" "$RV/journal.md" || fail "runid: journal touched by an invalid run_id"
+
+# (e) the append really takes an exclusive flock on <journal>.lock — the
+# compound key alone does not stop a concurrent read-modify-write from losing
+# a whole section. A helper holds the lock while an append is launched.
+LK="$TMP/lock"; mkdir -p "$LK"
+cp fixtures/journal_seed.md "$LK/journal.md"
+python3 - "$LK/journal.md.lock" <<'PY' &
+import fcntl, os, sys, time
+fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+time.sleep(4)
+fcntl.flock(fd, fcntl.LOCK_UN)
+os.close(fd)
+PY
+HOLDER_PID=$!
+sleep 1   # generous margin: let the helper acquire before the append starts
+python3 "$SCRIPTS/append_audit.py" \
+  --results fixtures/results_sample.json --journal "$LK/journal.md" >/dev/null 2>&1 &
+APPEND_PID=$!
+sleep 1
+grep -q "^## 2026-06-21" "$LK/journal.md" \
+  && fail "lock: append wrote the journal while the lock was held"
+wait "$HOLDER_PID"
+wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
+grep -q "^## 2026-06-21 — 01:00:00$" "$LK/journal.md" \
+  || fail "lock: section missing after the lock was released"
 
 echo "ALL TESTS PASSED"
