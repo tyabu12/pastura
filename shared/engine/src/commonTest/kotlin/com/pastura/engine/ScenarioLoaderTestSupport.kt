@@ -69,6 +69,11 @@ internal fun makeMinimalYAML(phasesBlock: String): String = buildString {
  * A two-persona (A / B) minimal `assign` scenario whose `target:` value is
  * [target] — for the strict `AssignTarget` parsing tests, which need an
  * otherwise-fixed fixture varying only that one token.
+ *
+ * Interpolated into a `trimIndent()`'d literal, unlike
+ * [makeMinimalYAML]'s `phasesBlock`, and safe only because [target] is a bare
+ * scalar token: a multi-line value would contribute lines to `trimIndent()`'s
+ * common-margin computation and mis-dedent the whole fixture.
  */
 internal fun makeYAMLWithAssignTarget(target: String): String = """
     id: t

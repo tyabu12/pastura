@@ -121,10 +121,14 @@ import kotlinx.serialization.json.JsonPrimitive
  *    [ScenarioValidator]'s divergence 3. [stripCodeFences] is a second trim site
  *    with a *narrower* Swift set — `.whitespaces`, no `\v` / `\f` / `` —
  *    so a fence line indented with one of those is stripped here and kept there.
- * 6. **Which offending key gets reported.** `collectExtraData` throws on the
- *    first offending key in `JsonObject` insertion order; Swift iterates a
- *    `Dictionary`, whose order is unspecified. Both reject the same scenarios;
- *    only the key named in the message can differ.
+ * 6. **Which offending key gets reported.** `collectExtraData`,
+ *    [parseOutputSchema] and [parseActionDeltas] each throw on the first
+ *    offending key in `JsonObject` insertion order; Swift iterates a
+ *    `Dictionary`, whose order is unspecified. Both engines reject the same
+ *    scenarios; only the key named in the message can differ, and only when a
+ *    mapping holds more than one bad value. The two phase-level sites arrived
+ *    with C2b — this entry covers all three, so the next per-key helper joins
+ *    it rather than opening a fourth.
  *
  * ## `validationError` is re-declared here on purpose
  *
@@ -400,7 +404,13 @@ public class ScenarioLoader {
             )
     }
 
-    /** Same shape as [parseAssignTarget], for a `choose` phase's `pairing:`. */
+    /**
+     * Same shape as [parseAssignTarget], **including the [parseOptional]-first
+     * order** — resolving the lookup against the raw element instead would turn
+     * a wrong-typed `pairing:` from a
+     * [ScenarioValidationMessage.FieldWrongType] into an
+     * [ScenarioValidationMessage.InvalidPairing].
+     */
     private fun parsePairing(dict: JsonObject, label: String): PairingStrategy? {
         val str = parseOptional(dict, "pairing", label, YamlType.STRING) ?: return null
         return PAIRING_STRATEGIES_BY_YAML_NAME[str]
@@ -533,8 +543,9 @@ public class ScenarioLoader {
      * row throws rather than silently scoring a wrong verdict at runtime.
      *
      * Mixed semantics, matching Swift's cast ladder: `payoff:` itself is
-     * whole-collection ([YamlType.OBJECT_LIST], so a non-list names the key),
-     * while each row is checked individually and reports its own index. The
+     * whole-collection ([YamlType.OBJECT_LIST]), so a non-list is rejected as a
+     * whole rather than row by row, while each row is checked individually and
+     * reports its own index. The
      * `points` elements go through [YamlType.INT], which supplies the
      * boolean and quoted-scalar exclusions Swift's `as? Int` guards spell out
      * by hand (`!(value is Bool)`), plus the 32-bit range check of the class

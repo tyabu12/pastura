@@ -19,8 +19,13 @@ import kotlin.test.assertTrue
  * `ScenarioLoaderTests+Payoff.swift`, `ScenarioLoaderTests+MaxSentences.swift`
  * and the loader-facing arms of `ConditionalScenarioIOTests.swift`
  * (`Pastura/PasturaTests/Engine/`) — **69 1:1 transcriptions**, 44 from PR C2a
- * and 25 from C2b, each complete. The suite also carries tests beyond those 69:
- * the two "condition-4 sweep additions" regions.
+ * and 25 from C2b, each complete. The suite carries **88** tests in all —
+ * `88 = 69 transcriptions + 14 in the two "condition-4 sweep additions"
+ * regions + 3 sweep additions filed under "Validation Errors" instead, next to
+ * the mechanism they share a fold with (note 2) + 2 divergence pins`. Every non-transcription is a claimant some sweep
+ * asked for and says so in its own KDoc; the arithmetic is spelled out so a
+ * reader auditing the count can tell a bookkeeping slip from a missing
+ * transcription.
  *
  * **Scope.** Only [ScenarioLoader.load]'s behaviour is covered here, matching
  * [ScenarioLoader]'s own class KDoc. Two groups of Swift cases are therefore
@@ -74,7 +79,7 @@ import kotlin.test.assertTrue
  * | `STANDARD_KEYS` extra-data filter | `filterNot { it.key in STANDARD_KEYS }` → `filterNot { false }` | [parsesExtraDataStringArray] and 24 others | 24 — every fixture then routes `id` etc. through `convertToAnyCodableValue` |
  * | persona `secret` trim | `?.trim()` dropped | [trimsSurroundingWhitespaceFromPersonaSecret], [normalizesEmptyPersonaSecretToNil] | none |
  * | persona `secret` empty→null | `if (secret.isNullOrEmpty()) null else secret` → `secret` | [normalizesEmptyPersonaSecretToNil] | none |
- * | Nested-`conditional` depth guard | `if (… && depth > 0)` → `if (false)` | *(none — expected green, note 4)* | none |
+ * | Nested-`conditional` depth guard | `if (… && depth > 0)` → `if (false)` | [rejectsNestedConditionalInThenBranch], [rejectsNestedConditionalInElseBranch] — **re-measured in C2b**, note 4 | none |
  * | extra-data scalar `isString` guard | `&& value.isString` dropped | [throwsOnScalarTopLevelExtraData] | none |
  * | extra-data array-of-dicts whole-collection cast | `all { it is JsonObject }` → `any` | [throwsOnExtraDataArrayMixingDictAndScalar] — **added**, note 2 | none |
  * | …its non-String value throw | the `throw` → `?: ""` | [throwsOnNonStringValueInArrayOfDicts] | none |
@@ -125,9 +130,12 @@ import kotlin.test.assertTrue
  *    fails. The polarity flip is the compiling substitute, and it reddens the
  *    accepting fixture as well as the rejecting one.
  * 4. The nested-`conditional` depth guard was **structurally unreachable when
- *    this row was measured**: `depth` had no non-zero caller until `mapBranch`
- *    landed. Green then, and claimed now — see the C2b table's
- *    `mapBranch: depth + 1 recursion` row.
+ *    this row was first measured**: `depth` had no non-zero caller until
+ *    `mapBranch` landed. Green then. C2b re-ran this exact mutation once
+ *    `mapBranch` existed, and it reddens; the cell above now names its
+ *    claimants. The guard (in `parsePhaseType`) and the recursion (in
+ *    `mapBranch`) are two different mutations that happen to share detectors —
+ *    the C2b table carries the recursion as its own row.
  * 5. `Int` is 32-bit in Kotlin and 64-bit in Swift, so this mechanism and its
  *    `Int64` rendering exist only on this side and have no Swift twin to
  *    transcribe. [throwsOnIntegerBeyond32Bits] is the detector for what was
@@ -148,14 +156,24 @@ import kotlin.test.assertTrue
  *
  * ## ADR-023 §12 condition-4 perturbation record — C2b surface
  *
- * Same procedure, same guarantees, scoped to what PR C2b added: the seven
- * phase-specialisation helpers, `mapBranch`'s recursion, and the seven
- * `mapPhase` arguments that stopped being `null`. C2a's ingest and
- * generic-helper surface is **not** re-swept — it was swept whole above, and
- * the table's three reassigned cells were re-measured rather than assumed.
- * **34 mutations executed, 33 reddened, 1 green** (the negative control).
- * Baseline: 85 tests green immediately before the first mutation and again
- * after the last revert. Measured 2026-08-26, #1560 (PR C2b).
+ * Same procedure, same guarantees, scoped to what PR C2b added: six
+ * phase-specialisation helpers plus `mapBranch` and its recursion, and the
+ * seven `mapPhase` arguments that stopped being `null`. (Six helpers, seven
+ * arguments — `then` / `else` is one helper feeding two fields.) C2a's ingest
+ * and generic-helper surface is **not** re-swept: it was swept whole above.
+ *
+ * Four C2a-surface mutations *are* re-run here, and appear as rows in this
+ * table rather than as a claim in prose — the three cells whose claimant this
+ * PR deleted (`Phase wiring: prompt` / `source` / `if → condition`) and note
+ * 4's depth guard, which only became reachable once `mapBranch` landed. An
+ * unrecorded re-measurement is indistinguishable from an inference, which is
+ * the standard this record already holds its non-executing attempts to.
+ *
+ * **41 mutations executed, 40 reddened, 1 green** (the negative control):
+ * 34 on C2b's own surface, 4 re-measured from C2a's table, and 3 added in a
+ * second pass to claim mechanisms the first pass exposed. Baseline: 88 tests
+ * green immediately before the first mutation and again after the last revert.
+ * Measured 2026-08-26, #1560 (PR C2b).
  *
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|
@@ -172,7 +190,14 @@ import kotlin.test.assertTrue
  * | `payoff:` row `when` arity 2 | `takeIf { it.size == 2 }` → `takeIf { true }` | [throwsOnWhenArityNotTwo] | none |
  * | `payoff:` row `points` array cast + arity | same `takeIf` flip | [throwsOnPointsArityNotTwo] | none |
  * | `payoff:` row `points` element throw | the `?: throw …PayoffRowInvalid` made unreachable | [throwsOnNonIntPayoffPointsValue] — **added**, note 9 | 1 |
- * | `payoff:` row `points` bool / quoted exclusion | `YamlType.INT.cast` → a lenient `content.toIntOrNull()` | [throwsOnQuotedPayoffPointsValue] — **added**, note 9 | none |
+ * | `payoff:` row `points` quoted-scalar exclusion | `YamlType.INT.cast` → a lenient `content.toIntOrNull()` | [throwsOnQuotedPayoffPointsValue] — **added**, note 9 | none |
+ * | `payoff:` row `points` boolean exclusion | `true` special-cased to `1` ahead of the cast | [throwsOnBoolPayoffPointsValue] — **added**, note 9 | none |
+ * | `payoff:` row `points` 32-bit range (divergence 4) | the range check dropped from the cast | [throwsOnPayoffPointsBeyond32Bits] — **added**, note 10 | none |
+ * | `action_deltas` value 32-bit range + `Int64` rendering (divergence 4) | same | [throwsOnActionDeltaBeyond32Bits] — **added**, note 10 | none |
+ * | *(C2a surface, re-measured)* Phase wiring: `prompt` | read → `null` | [parsesPhaseSpeakAll] | 1 |
+ * | *(C2a surface, re-measured)* Phase wiring: `source` | read → `null` | [parsesEventInjectFullSpec], [parsesEventInjectMinimalSpec] | 1 |
+ * | *(C2a surface, re-measured)* Phase wiring: `if` → `condition` | read → `null` | [loadsConditionalWithBothBranches] | none |
+ * | *(C2a surface, re-measured)* Nested-`conditional` depth guard | `if (… && depth > 0)` → `if (false)` | [rejectsNestedConditionalInThenBranch], [rejectsNestedConditionalInElseBranch] | none |
  * | `action_deltas:` absent → `null` | `?: return null` → `?: JsonNull` | [parsesRelationshipUpdateMinimalSpec] and 39 others | 39 |
  * | `action_deltas:` non-mapping throw | the `?: throw …ActionDeltasNotDict` → an empty mapping | [throwsOnNonDictActionDeltas] — **added**, note 9 | none |
  * | `action_deltas:` per-value `Int` throw | the `?: throw …ActionDeltasValueNotInt` → `?: 0` | [throwsOnNonIntActionDeltaValue] | none |
@@ -200,13 +225,23 @@ import kotlin.test.assertTrue
  *    transcribed case only asserted that loading throws. Re-ordering the
  *    fragment left the suite green. The assertion now spells the whole string
  *    out in declaration order.
- * 9. **Four mechanisms had no claimant on either side.** Swift's `+Payoff`
+ * 9. **Six mechanisms had no claimant on either side.** Swift's `+Payoff`
  *    suite covers both arity failures but never a well-sized row holding a bad
  *    value; no Swift test feeds a non-mapping `action_deltas:`; and every
  *    conditional test asserts on a *well-formed* branch, so nothing read the
  *    sub-phase label that is a curator's only way to locate the offending
  *    phase. Each gained a test in the "condition-4 sweep additions (C2b
- *    surface)" region.
+ *    surface)" region, joined by the boolean-exclusion fixture the first pass
+ *    itself missed: nothing fed `points: [3, true]`, and Swift needs its
+ *    explicit `!(value is Bool)` at that spot precisely because `as? Int`
+ *    launders one into `1`.
+ * 10. **Divergence 4 gained two specific, testable claims in this PR** — an
+ *    out-of-32-bit-range `payoff:` `points` element reports
+ *    `PayoffRowInvalid`, an `action_deltas` value reports
+ *    `ActionDeltasValueNotInt` — and neither had a detector. Same shape as
+ *    note 5: a KDoc claim with nothing behind it is not a claim. Both have one
+ *    now, and the `action_deltas` case also pins the `Int64` `got:` rendering
+ *    that keeps the message from reading "must be Int, got Int".
  *
  *    Six mutations in an earlier pass — the `?: throw` arms — were first
  *    attempted as `if (false) { throw … }` and did **not** compile, the same
@@ -1205,7 +1240,12 @@ class ScenarioLoaderTests {
     fun rejectsAssignWithUnknownTarget() {
         val yaml = makeYAMLWithAssignTarget("randomOne") // typo of random_one
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        // Strengthened beyond the Swift original, which only checks that
+        // loading throws: a `label` / `value` argument swap in the throw would
+        // otherwise stay green. Same reason as [rejectsScoreCalcWithUnknownLogic].
+        assertTrue(error.message.contains("'randomOne'"), error.message)
     }
 
     /**
@@ -1216,12 +1256,21 @@ class ScenarioLoaderTests {
     fun rejectsAssignWithCapitalizedTarget() {
         val yaml = makeYAMLWithAssignTarget("All")
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        // Strengthened beyond the Swift original, which only checks that
+        // loading throws: a `label` / `value` argument swap in the throw would
+        // otherwise stay green. Same reason as [rejectsScoreCalcWithUnknownLogic].
+        assertTrue(error.message.contains("'All'"), error.message)
     }
 
     @Test
     fun acceptsAssignWithCanonicalTargetAll() {
-        loader.load(makeYAMLWithAssignTarget("all"))
+        val scenario = loader.load(makeYAMLWithAssignTarget("all"))
+        // Swift asserts only that loading succeeds, but nothing else in the
+        // suite reads `AssignTarget.ALL` — [parsesPhaseWithAllFields] covers
+        // only `RANDOM_ONE` — so a mis-mapped `all` key would be invisible.
+        assertEquals(AssignTarget.ALL, scenario.phases[0].target)
     }
 
     @Test
@@ -1244,7 +1293,12 @@ class ScenarioLoaderTests {
             """.trimIndent(),
         )
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        // Strengthened beyond the Swift original, which only checks that
+        // loading throws: a `label` / `value` argument swap in the throw would
+        // otherwise stay green. Same reason as [rejectsScoreCalcWithUnknownLogic].
+        assertTrue(error.message.contains("'roundRobin'"), error.message)
     }
 
     /**
@@ -1689,8 +1743,11 @@ class ScenarioLoaderTests {
      * arity, which a serializer<->loader round-trip alone cannot (a symmetric
      * mis-key round-trips). Kotlin counterpart of Swift's `payoffHeader`
      * private computed property (`ScenarioLoaderTests+Payoff.swift`); local to
-     * this region rather than [makeMinimalYAML] since only these five tests
-     * use its Alice/Bob-named personas.
+     * this region rather than [makeMinimalYAML] since only the payoff cases
+     * need its Alice/Bob-named personas. Like [makeMinimalYAML], it builds with
+     * [buildString] because [phasesBlock] arrives dedented to column 0 —
+     * `trimIndent()` over the concatenation would compute one margin across
+     * both halves and mis-indent the shorter one.
      */
     private fun makePayoffYAML(phasesBlock: String): String = buildString {
         appendLine("id: t")
@@ -1937,36 +1994,6 @@ class ScenarioLoaderTests {
 
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
         assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
-    }
-
-    /**
-     * A `then:` / `else:` that is not a list of mappings is rejected, naming
-     * the branch.
-     *
-     * **No Swift twin to transcribe.** `ScenarioValidationMessage.branchNotArray`
-     * is rendered by `ScenarioValidationMessageTests.swift` but no Swift loader
-     * test reaches `mapBranch`'s cast, so the mechanism ships unclaimed on both
-     * sides; this is the Kotlin-side claimant, in the same category as the
-     * "condition-4 sweep additions" region below.
-     *
-     * Asserts the rendered branch name rather than the exception type alone:
-     * `then:` and `else:` share the mechanism, and a `label`/`branch` argument
-     * swap is exactly the kind of break a type-only assertion sleeps through.
-     */
-    @Test
-    fun throwsOnScalarThenBranch() {
-        val yaml = makeMinimalYAML(
-            """
-                phases:
-                  - type: conditional
-                    if: "current_round == 1"
-                    then: not_a_list
-            """.trimIndent(),
-        )
-        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        val error = caught.error
-        assertTrue(error is SimulationError.ScenarioValidationFailed)
-        assertTrue(error.message.contains("'then'"), error.message)
     }
 
     // endregion
@@ -2273,6 +2300,111 @@ class ScenarioLoaderTests {
         val error = caught.error
         assertTrue(error is SimulationError.ScenarioValidationFailed)
         assertTrue(error.message.contains("'points' has a non-Int value"), error.message)
+    }
+
+    /**
+     * A `then:` / `else:` that is not a list of mappings is rejected, naming
+     * the branch.
+     *
+     * **No Swift twin to transcribe.** `ScenarioValidationMessage.branchNotArray`
+     * is rendered by `ScenarioValidationMessageTests.swift` but no Swift loader
+     * test reaches `mapBranch`'s cast, so the mechanism ships unclaimed on both
+     * sides; this is the Kotlin-side claimant, in the same category as the
+     * "condition-4 sweep additions" region below.
+     *
+     * Asserts the rendered branch name rather than the exception type alone:
+     * `then:` and `else:` share the mechanism, and a `label`/`branch` argument
+     * swap is exactly the kind of break a type-only assertion sleeps through.
+     */
+    @Test
+    fun throwsOnScalarThenBranch() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: conditional
+                    if: "current_round == 1"
+                    then: not_a_list
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'then'"), error.message)
+    }
+
+    /**
+     * A **boolean** `points:` element is rejected.
+     *
+     * The third of the guard's three halves. Swift needs an explicit
+     * `!(value is Bool)` here because `as? Int` launders a boolean into `1` /
+     * `0` — the #130 type-laundering class the whole helper family exists to
+     * prevent — and a `payoff:` row silently scoring `1` for `true` is a wrong
+     * verdict, not a parse warning. Kotlin gets the exclusion from
+     * [YamlType.INT]; without a fixture, a caller that special-cased `true`
+     * would stay green.
+     */
+    @Test
+    fun throwsOnBoolPayoffPointsValue() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [a, b]
+                      points: [3, true]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'points' has a non-Int value"), error.message)
+    }
+
+    /**
+     * An out-of-32-bit-range `points:` element is rejected — the phase-level
+     * half of the class KDoc's **divergence 4**.
+     *
+     * `PayoffRule.points` is `List<Int>`, so a value Swift accepts (its `Int` is
+     * 64-bit) is a `PayoffRowInvalid` here. Truncating would be worse than the
+     * divergence: it would score a different table than the author wrote. The
+     * KDoc names this exact message, and note 5's lesson is that a KDoc claim
+     * with no detector behind it is not a claim.
+     */
+    @Test
+    fun throwsOnPayoffPointsBeyond32Bits() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [a, b]
+                      points: [2147483648, 0]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'points' has a non-Int value"), error.message)
+    }
+
+    /** The `action_deltas` half of the same divergence-4 claim. */
+    @Test
+    fun throwsOnActionDeltaBeyond32Bits() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: relationship_update
+                    action_deltas:
+                      cooperate: 2147483648
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("action_deltas value for 'cooperate'"), error.message)
+        // The `got:` fragment is Int64, not Int — see divergence 4. A bare
+        // "must be Int, got Int" would be the bewildering message it avoids.
+        assertTrue(error.message.contains("Int64"), error.message)
     }
 
     /** A scalar `action_deltas:` is rejected, naming the field. */
