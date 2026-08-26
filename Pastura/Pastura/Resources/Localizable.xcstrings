@@ -3235,6 +3235,16 @@
         }
       }
     },
+    "Everything here is already installed." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここにあるシナリオはすべてインストール済みです。"
+          }
+        }
+      }
+    },
     "Exclude Self" : {
       "localizations" : {
         "ja" : {

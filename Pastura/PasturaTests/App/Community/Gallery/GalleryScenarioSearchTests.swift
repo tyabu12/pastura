@@ -18,8 +18,12 @@ import Testing
 struct GalleryScenarioSearchTests {
 
   // MARK: - Fixtures
+  //
+  // Not `private`: shared with GalleryScenarioSearchTests+InstallFilter.swift
+  // (testing.md § "Splitting a Suite Across Files" — a same-struct extension
+  // in a sibling file, not a second @Suite, to stay under type_body_length).
 
-  private func scenario(
+  func scenario(
     id: String, title: String, description: String, category: GalleryCategory,
     language: String? = nil
   ) -> GalleryScenario {
@@ -33,7 +37,7 @@ struct GalleryScenarioSearchTests {
       language: language)
   }
 
-  private var sample: [GalleryScenario] {
+  var sample: [GalleryScenario] {
     [
       scenario(
         id: "asch", title: "Asch Conformity",
@@ -223,7 +227,7 @@ struct GalleryScenarioSearchTests {
 
   // MARK: - Sort ordering (featured pin → added_at desc → id tie-break)
 
-  private func sortable(
+  func sortable(
     id: String, featured: Int? = nil, addedAt: String
   ) -> GalleryScenario {
     GalleryScenario(
