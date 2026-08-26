@@ -9,9 +9,32 @@ set -eu
 cd "$(dirname "$0")"
 SCRIPTS=../scripts
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+HOLDER_PID=""
+# The flock cases below run a lock holder with a 60s deadline. A failing
+# assertion must not orphan it: it inherits the harness's stdout, so an
+# orphan can stall a piped CI invocation for the whole deadline.
+cleanup() { [ -n "$HOLDER_PID" ] && kill "$HOLDER_PID" 2>/dev/null; rm -rf "$TMP"; return 0; }
+trap cleanup EXIT
 
 fail() { echo "FAIL: $1" >&2; exit 1; }
+
+# Bounded poll helpers for the flock cases below. Synchronization is by
+# sentinel file: the append is launched through a wrapper that touches a
+# "started" sentinel immediately before exec'ing python, and the holder keeps
+# the lock until the release sentinel. The short settle after the started
+# sentinel IS a sleep margin, but a one-sided one — the lock is still held
+# across it, so a slow python start can only yield a false PASS, never a false
+# failure. What makes the case bite is the liveness assertion immediately
+# before the release (the append must still be running, and not defunct)
+# together with the post-release assertions. Every poll is capped so a hang
+# fails loudly, not silently.
+await_file() {   # $1 = path to wait for, $2 = failure message
+  local i=0
+  until [ -e "$1" ]; do
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after ~600 polls)"
+    sleep 0.1
+  done
+}
 check_status() { # <label> <jsonl> <exit_code> <expected_status>
   local got
   got=$(bash "$SCRIPTS/run_scenario.sh" --classify "$2" "$3" | jq -r '.status')
@@ -50,7 +73,7 @@ echo "$T" | grep -q "1 unparseable line" || fail "transcript: truncated line not
 cp fixtures/digest_seed.md "$TMP/digest.md"
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$TMP/digest.md" >/dev/null
-grep -q "^## 2026-06-13$" "$TMP/digest.md" || fail "digest: section heading missing"
+grep -q "^## 2026-06-13 — 01:23:45$" "$TMP/digest.md" || fail "digest: section heading missing"
 grep -q "factory_20260613_test_ok" "$TMP/digest.md" || fail "digest: ok row missing"
 grep -q '設定は一貫、ボケの幅 \\| は狭め' "$TMP/digest.md" || fail "digest: pipe not escaped in comment"
 grep -q 'elimination / creative' "$TMP/digest.md" || fail "digest: axis column not rendered"
@@ -63,10 +86,10 @@ grep -q '| 1 | 2 | 3 | 4 | – |' "$TMP/digest.md" || fail "digest: null develop
 grep -q "factory-digest:promotion" "$TMP/digest.md" || fail "digest: promotion marker lost"
 tail -1 "$TMP/digest.md" | grep -q "^Promotion:" || fail "digest: promotion line no longer last"
 
-# date idempotency: re-append replaces, never duplicates
+# (date, run_id) idempotency: re-append replaces, never duplicates
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$TMP/digest.md" >/dev/null 2>"$TMP/warn"
-COUNT=$(grep -c "^## 2026-06-13$" "$TMP/digest.md")
+COUNT=$(grep -c "^## 2026-06-13 — 01:23:45$" "$TMP/digest.md")
 [ "$COUNT" -eq 1 ] || fail "digest: re-append duplicated the section ($COUNT)"
 grep -q "warning: replaced" "$TMP/warn" || fail "digest: replace warning missing"
 
@@ -83,7 +106,7 @@ python3 "$SCRIPTS/append_digest.py" \
   || fail "digest: absent file should bootstrap, not error"
 grep -q "factory-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sections marker missing"
 grep -q "factory-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
-grep -q "^## 2026-06-13$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
+grep -q "^## 2026-06-13 — 01:23:45$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
 
 # --- append_digest.py: sidecar index ----------------------------------------
@@ -140,7 +163,7 @@ echo '{not json' > "$CI/digest-index.jsonl"
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$CI/digest.md" >/dev/null 2>"$CI/warn" \
   || fail "index: corrupt existing index line must not fail the append"
-grep -q "^## 2026-06-13$" "$CI/digest.md" || fail "index: digest not updated on corrupt index line"
+grep -q "^## 2026-06-13 — 01:23:45$" "$CI/digest.md" || fail "index: digest not updated on corrupt index line"
 grep -q -- "--rebuild-index" "$CI/warn" || fail "index: corrupt-line warning must name --rebuild-index"
 
 # round-trip: --rebuild-index off the produced digest == the incremental index
@@ -208,8 +231,211 @@ mkdir "$UW/digest-index.jsonl"   # a directory can't be overwritten by a file
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$UW/digest.md" >/dev/null 2>"$UW/warn" \
   || fail "index: unwritable index must not fail the append"
-grep -q "^## 2026-06-13$" "$UW/digest.md" || fail "index: digest not updated when index write fails"
+grep -q "^## 2026-06-13 — 01:23:45$" "$UW/digest.md" || fail "index: digest not updated when index write fails"
 grep -q -- "--rebuild-index" "$UW/warn" || fail "index: failure warning must name --rebuild-index"
+
+# --- append_digest.py: (date, run_id) section key (#1542) --------------------
+# Two /scenario-factory cycles can share a date in the same main checkout
+# (a re-run after a fix, a second nightly pass). Before #1542 the second
+# append silently wiped the first run's judging record — the digest is the
+# only durable one — so these cases pin the compound key.
+RK="$TMP/runkey"; mkdir -p "$RK"
+cp fixtures/digest_seed.md "$RK/digest.md"
+jq '.run_id = "02:34:56"
+    | .scenarios = [.scenarios[0]]
+    | .scenarios[0].id = "factory_20260613_second_run"' \
+  fixtures/results_sample.json > "$RK/results_run2.json"
+
+# (a) REGRESSION TEST FOR #1542: same date, different run_ids → both survive.
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$RK/digest.md" >/dev/null
+python3 "$SCRIPTS/append_digest.py" \
+  --results "$RK/results_run2.json" --digest "$RK/digest.md" >/dev/null
+grep -q "^## 2026-06-13 — 01:23:45$" "$RK/digest.md" \
+  || fail "runkey: first run's section wiped by a same-date second run (#1542)"
+grep -q "^## 2026-06-13 — 02:34:56$" "$RK/digest.md" \
+  || fail "runkey: second run's section missing"
+grep -q "factory_20260613_test_ok" "$RK/digest.md" || fail "runkey: run-1 rows lost"
+grep -q "factory_20260613_second_run" "$RK/digest.md" || fail "runkey: run-2 rows lost"
+RKIDX="$RK/digest-index.jsonl"
+[ "$(jq -es 'map(select(.run_id=="01:23:45")) | length' "$RKIDX")" -eq 3 ] \
+  || fail "runkey: run-1 index lines lost (#1542)"
+[ "$(jq -es 'map(select(.run_id=="02:34:56")) | length' "$RKIDX")" -eq 1 ] \
+  || fail "runkey: run-2 index line missing"
+
+# (b) re-appending the SAME (date, run_id) replaces only that section
+python3 "$SCRIPTS/append_digest.py" \
+  --results "$RK/results_run2.json" --digest "$RK/digest.md" >/dev/null 2>"$RK/warn"
+grep -q "warning: replaced" "$RK/warn" || fail "runkey: replace warning missing"
+[ "$(grep -c "^## 2026-06-13 — 02:34:56$" "$RK/digest.md")" -eq 1 ] \
+  || fail "runkey: same-key re-append duplicated the section"
+[ "$(grep -c "^## 2026-06-13 — 01:23:45$" "$RK/digest.md")" -eq 1 ] \
+  || fail "runkey: sibling run's section disturbed by a same-key re-append"
+[ "$(jq -es 'map(select(.run_id=="01:23:45")) | length' "$RKIDX")" -eq 3 ] \
+  || fail "runkey: sibling run's index lines disturbed by a same-key re-append"
+[ "$(jq -es 'map(select(.run_id=="02:34:56")) | length' "$RKIDX")" -eq 1 ] \
+  || fail "runkey: same-key re-append duplicated index lines"
+
+# (c) run_id is REQUIRED and shape-checked; a rejected results JSON must leave
+# the digest byte-identical (an unattended run has to be recoverable by hand).
+RV="$TMP/runid_valid"; mkdir -p "$RV"
+cp "$RK/digest.md" "$RV/digest.md"
+cp "$RV/digest.md" "$RV/digest.before"
+jq 'del(.run_id)' fixtures/results_sample.json > "$RV/no_run_id.json"
+if python3 "$SCRIPTS/append_digest.py" \
+  --results "$RV/no_run_id.json" --digest "$RV/digest.md" 2>"$RV/err"; then
+  fail "runid: missing run_id should be a hard error"
+fi
+grep -q "run_id" "$RV/err" || fail "runid: error message must name run_id"
+grep -q "no_run_id.json" "$RV/err" || fail "runid: error message must name the results path"
+cmp -s "$RV/digest.before" "$RV/digest.md" || fail "runid: digest touched by a rejected append"
+# 99:99 has the right shape but is not a real clock time
+jq '.run_id = "99:99"' fixtures/results_sample.json > "$RV/bad_clock.json"
+if python3 "$SCRIPTS/append_digest.py" \
+  --results "$RV/bad_clock.json" --digest "$RV/digest.md" 2>/dev/null; then
+  fail "runid: 99:99 should be rejected as a non-clock run_id"
+fi
+cmp -s "$RV/digest.before" "$RV/digest.md" || fail "runid: digest touched by an invalid run_id"
+
+# (d) --rebuild-index over a digest holding BOTH a legacy date-only section
+# and new run_id-suffixed ones: legacy lines carry run_id null (they predate
+# the key change and must never collide with a real run_id).
+LG="$TMP/legacy"; mkdir -p "$LG"
+cat > "$LG/digest.md" <<'EOF'
+# Digest
+<!-- factory-digest:sections -->
+
+## 2026-06-14 — 02:00:00
+
+| id | name | theme | axis | status | (a) coherence | (b) interaction | (c) breakdown-free | (d) humor | (e) development | comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| new_b | 新 | t | – | ok | 4 | 3 | 5 | 2 | 3 | c |
+
+## 2026-06-14 — 01:00:00
+
+| id | name | theme | axis | status | (a) coherence | (b) interaction | (c) breakdown-free | (d) humor | (e) development | comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| new_a | 新 | t | – | ok | 4 | 3 | 5 | 2 | 3 | c |
+
+## 2026-06-13
+
+| id | name | theme | axis | status | (a) coherence | (b) interaction | (c) breakdown-free | (d) humor | (e) development | comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| old_a | 旧 | t | – | ok | 1 | 2 | 3 | 4 | – | c |
+
+<!-- factory-digest:promotion -->
+Promotion: x
+EOF
+python3 "$SCRIPTS/append_digest.py" \
+  --digest "$LG/digest.md" --rebuild-index >/dev/null || fail "legacy: rebuild failed"
+LGIDX="$LG/digest-index.jsonl"
+[ "$(grep -c . "$LGIDX")" -eq 3 ] \
+  || fail "legacy: expected 3 lines, got $(grep -c . "$LGIDX")"
+jq -es 'map(select(.id=="old_a"))[0].run_id == null' "$LGIDX" >/dev/null \
+  || fail "legacy: date-only section should rebuild with run_id null"
+jq -es 'map(select(.id=="new_a"))[0].run_id == "01:00:00"' "$LGIDX" >/dev/null \
+  || fail "legacy: suffixed section run_id not parsed"
+jq -es 'map(select(.id=="new_b"))[0].run_id == "02:00:00"' "$LGIDX" >/dev/null \
+  || fail "legacy: second suffixed section not parsed"
+
+# a hand-edited heading suffix is NOT a run_id: rebuild hard-fails rather than
+# letting free text into the index, and writes nothing.
+BH="$TMP/badheading"; mkdir -p "$BH"
+sed 's/^## 2026-06-14 — 02:00:00$/## 2026-06-14 — rerun after the OOM/' \
+  "$LG/digest.md" > "$BH/digest.md"
+# Seed an EXISTING index first: "nothing was created" is the cheap half of
+# the guarantee. The regression that actually costs data is a hard-fail that
+# truncates or partially rewrites the index already on disk, so the payload
+# below must survive the failing rebuild byte-for-byte.
+printf '%s\n' '{"date":"2026-06-13","run_id":null,"id":"old_a"}' \
+              '{"date":"2026-06-14","run_id":"01:00:00","id":"new_a"}' \
+  > "$BH/digest-index.jsonl"
+cp "$BH/digest-index.jsonl" "$BH/index.before"
+if python3 "$SCRIPTS/append_digest.py" \
+  --digest "$BH/digest.md" --rebuild-index >/dev/null 2>"$BH/err"; then
+  fail "badheading: a non-run_id heading suffix should hard-fail the rebuild"
+fi
+grep -q "run_id" "$BH/err" || fail "badheading: error must name run_id"
+# the diagnostic must point at the HEADING (not the table header, which is
+# fine here) and state the one edit that unblocks the rebuild
+grep -q "^  heading: " "$BH/err" || fail "badheading: error must point at the heading line"
+grep -q "HH:MM:SS" "$BH/err" || fail "badheading: error must state the heading remediation"
+cmp -s "$BH/index.before" "$BH/digest-index.jsonl" \
+  || fail "badheading: existing index truncated or rewritten despite hard-fail"
+# and on a digest with no index yet, the hard-fail must not create one
+BH2="$TMP/badheading_fresh"; mkdir -p "$BH2"
+cp "$BH/digest.md" "$BH2/digest.md"
+if python3 "$SCRIPTS/append_digest.py" \
+  --digest "$BH2/digest.md" --rebuild-index >/dev/null 2>&1; then
+  fail "badheading: a non-run_id heading suffix should hard-fail the rebuild"
+fi
+[ ! -f "$BH2/digest-index.jsonl" ] || fail "badheading: index written despite hard-fail"
+
+# (e) the append really takes an exclusive flock on <digest>.lock — the
+# compound key alone does not stop a concurrent read-modify-write from losing
+# a whole section. A helper holds the lock while an append is launched.
+LK="$TMP/lock"; mkdir -p "$LK"
+cp fixtures/digest_seed.md "$LK/digest.md"
+# The helper takes the flock and only THEN writes a readiness sentinel; the
+# shell waits for that sentinel before launching the append, and releases the
+# helper through a second sentinel once the assertion is done — so the hold
+# always covers the polls without a guessed duration (the 60s inside is a
+# safety cap so a broken test cannot hang CI, not a schedule — blowing it
+# exits the helper non-zero, which the wait below turns into a FAIL).
+python3 - "$LK/digest.md.lock" "$LK/held" "$LK/release" <<'PY' &
+import fcntl, os, sys, time
+fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+open(sys.argv[2], "w").close()   # readiness sentinel: the lock is now HELD
+deadline = time.time() + 60
+while not os.path.exists(sys.argv[3]):
+    if time.time() >= deadline:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        sys.exit("lock helper: release sentinel never appeared")
+    time.sleep(0.05)
+fcntl.flock(fd, fcntl.LOCK_UN)
+os.close(fd)
+PY
+HOLDER_PID=$!
+await_file "$LK/held" "lock: helper never acquired the flock"
+# bash assigns $! at fork and `kill -0` also succeeds on an unreaped zombie,
+# so neither proves the append got as far as the lock. Launch it through a
+# wrapper that touches a "started" sentinel immediately before exec'ing
+# python (exec keeps $! pointing at the python process itself).
+cat > "$LK/append_wrapper.sh" <<'EOF'
+#!/bin/bash
+# $1 = "started" sentinel; the rest is the command to exec.
+started=$1; shift
+: > "$started"
+exec "$@"
+EOF
+bash "$LK/append_wrapper.sh" "$LK/started" \
+  python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$LK/digest.md" >/dev/null 2>&1 &
+APPEND_PID=$!
+await_file "$LK/started" "lock: the append never started"
+sleep 0.5   # one-sided settle: the holder keeps the lock across it, so this
+            # can only cost wall time, never a false failure.
+# ...and the append must still be ALIVE and blocked here. An append that
+# already exited — or that never took the lock at all — would satisfy the
+# "did not write" assertion below vacuously.
+APPEND_STATE=$(ps -o state= -p "$APPEND_PID" 2>/dev/null | tr -d '[:space:]' || true)
+[ -n "$APPEND_STATE" ] \
+  || fail "lock: the append exited instead of blocking on the held lock"
+case "$APPEND_STATE" in
+  Z*) fail "lock: the append is defunct — it exited instead of blocking on the held lock" ;;
+esac
+grep -q "^## 2026-06-13" "$LK/digest.md" \
+  && fail "lock: append wrote the digest while the lock was held"
+: > "$LK/release"
+wait "$HOLDER_PID" || fail "lock: holder timed out waiting for the release sentinel"
+HOLDER_PID=""
+wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
+grep -q "^## 2026-06-13 — 01:23:45$" "$LK/digest.md" \
+  || fail "lock: section missing after the lock was released"
+[ "$(grep -c . "$LK/digest-index.jsonl")" -eq 3 ] \
+  || fail "lock: sidecar index not updated after the lock was released"
 
 # --- gallery_census.py ------------------------------------------------------
 C=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json)

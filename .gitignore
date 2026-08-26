@@ -81,9 +81,16 @@ data/factory/improvements/
 # checkout's working tree stays clean; each skill's append_digest.py
 # bootstraps the file from a scaffold if absent.
 data/factory/digest.md
+# append_digest.py's flock target, serializing same-date sibling runs (#1542)
+data/factory/digest.md.lock
 data/factory/digest-index.jsonl
 data/factory/audit-digest.md
+# append_audit.py's flock target, serializing same-date sibling runs (#1542)
+data/factory/audit-digest.md.lock
 data/queue/digest.md
+# append_digest.py's flock target, serializing runs that share the
+# main checkout (#1542)
+data/queue/digest.md.lock
 data/factory/lessons-inbox.md
 data/factory/incubator.md
 
@@ -100,6 +107,8 @@ data/highlight-runs/
 # if absent.
 data/models/eval-runs/
 data/models/eval-digest.md
+# append_eval.py's flock target, serializing same-day sibling runs (#1542)
+data/models/eval-digest.md.lock
 
 # Per-user Claude Code settings — permission grants and opt-in hooks such as
 # the worktree pruner (wiring: the header of scripts/prune-stale-worktrees.sh).

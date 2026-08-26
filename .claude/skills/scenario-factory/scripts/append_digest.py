@@ -1,7 +1,15 @@
 #!/usr/bin/env python3
-"""Append one factory-cycle section to the local digest, date-idempotently.
+"""Append one factory-cycle section to the local digest, (date, run_id)-idempotently.
+
+This is the ROOT of a four-script fork family sharing this marker /
+same-key-idempotency / bootstrap / flock core: forked by
+`.claude/skills/scenario-refine/scripts/append_audit.py`,
+`.claude/skills/model-eval/scripts/append_eval.py` and
+`.claude/skills/queue-consumer/scripts/append_digest.py`. A real fix to that
+shared core is swept across all four.
 
 usage: append_digest.py --results <results.json> --digest <digest.md>
+         (results.json must carry `run_id` — the section key is (date, run_id))
        append_digest.py --digest <digest.md> --rebuild-index
 
 Alongside the digest an append also writes a machine-readable sidecar index
@@ -22,14 +30,32 @@ The digest must contain both marker comments:
                                       (newest first)
   <!-- factory-digest:promotion -->   promotion pointer footer; never modified
 
-If a section for the same date already exists between the markers it is
-REPLACED (so re-running a partially-failed cycle is safe) and a warning
-goes to stderr. Missing markers are a hard error — never blind-append.
+If a section for the same (date, run_id) already exists between the markers
+it is REPLACED (so re-running a partially-failed cycle is safe) and a warning
+goes to stderr. Two cycles sharing a date but not a run_id keep SEPARATE
+sections — before #1542 the key was the date alone and the second run of a
+day silently wiped the first run's judging record. A legacy date-only
+`## <date>` heading never matches the replace pattern, so pre-#1542 sections
+in an existing local digest survive untouched.
+
+Digest + sidecar writes are serialized by an exclusive flock on
+`<digest>.lock`: sibling runs sharing a main checkout would otherwise
+interleave a read-modify-write and lose a whole section regardless of key.
+
+Missing markers are a hard error — never blind-append.
 
 Results JSON schema (composed by the /scenario-factory session):
 
 {
   "date": "YYYY-MM-DD",
+  "run_id": "01:23:45",   // REQUIRED. Recommended value: the cycle's HH:MM:SS
+                          // start time — the heading already carries the date,
+                          // so unlike queue-consumer's full "YYYY-MM-DD HH:MM"
+                          // only the clock part is needed to disambiguate.
+                          // Never auto-derived from the clock: a generated
+                          // default would give a re-run of a partially-failed
+                          // cycle a NEW key and duplicate its section instead
+                          // of replacing it.
   "model": "gemma-4-E2B-it-Q4_K_M",
   "notes": "optional free text",
   "scenarios": [
@@ -55,12 +81,19 @@ Results JSON schema (composed by the /scenario-factory session):
 """
 
 import argparse
+import contextlib
+import fcntl
 import json
 import os
 import re
 import sys
+from datetime import datetime
 
 SECTIONS_MARKER = "<!-- factory-digest:sections -->"
+# run_id shape: short, filesystem/markdown-safe, and heading-legible. The
+# clock-shaped subset is additionally range-checked (see validate_run_id).
+RUN_ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9:_-]{0,15}")
+CLOCK_RE = re.compile(r"\d{2}:\d{2}(:\d{2})?")
 PROMOTION_MARKER = "<!-- factory-digest:promotion -->"
 RUBRIC_KEYS = ["coherence", "interaction", "breakdown_free", "humor", "development"]
 # Bootstrap scaffold for a fresh local log (the digest is gitignored, so a
@@ -81,6 +114,46 @@ Promotion: channels documented in `.claude/skills/scenario-factory/SKILL.md` § 
 """
 
 
+def validate_run_id(run_id):
+    """Return an error string, or None when `run_id` is usable as a section key.
+
+    A clock-shaped value is range-checked so a typo like `99:99` is rejected at
+    append time rather than becoming a permanent, unreachable section key."""
+    if not isinstance(run_id, str) or not RUN_ID_RE.fullmatch(run_id):
+        return (f"results.run_id must match {RUN_ID_RE.pattern} "
+                f"(recommended: the cycle's HH:MM:SS start time), "
+                f"got: {run_id!r}")
+    if CLOCK_RE.fullmatch(run_id):
+        fmt = "%H:%M:%S" if run_id.count(":") == 2 else "%H:%M"
+        try:
+            datetime.strptime(run_id, fmt)
+        except ValueError:
+            return f"results.run_id looks like a clock time but is not one: {run_id!r}"
+    return None
+
+
+@contextlib.contextmanager
+def digest_lock(digest_path):
+    """Exclusive flock on `<digest>.lock` around the whole read-modify-write.
+
+    The (date, run_id) key stops two same-day runs from OVERWRITING each other's
+    section, but not from interleaving: both read the same body, both write, and
+    the loser's section vanishes. The lock file is separate from the digest so
+    the truncating write below can never drop it, and it covers the sidecar too
+    — a sibling must never observe digest and index half-updated."""
+    lock_path = digest_path + ".lock"
+    os.makedirs(os.path.dirname(lock_path) or ".", exist_ok=True)
+    fd = os.open(lock_path, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+
+
 def cell(value):
     """Escape a markdown table cell; em-dash for absent values."""
     if value is None or value == "":
@@ -95,7 +168,7 @@ def render_section(results):
         counts[s.get("status", "failed")] = counts.get(s.get("status", "failed"), 0) + 1
 
     lines = [
-        f"## {results['date']}",
+        f"## {results['date']} — {results['run_id']}",
         "",
         f"Model: {results.get('model', '?')} | Scenarios: {len(scenarios)} "
         f"(ok {counts['ok']} / failed {counts['failed']} / "
@@ -147,7 +220,7 @@ def index_path_for(digest_path):
     return os.path.join(os.path.dirname(digest_path) or ".", INDEX_FILENAME)
 
 
-def build_index_lines(date, scenarios):
+def build_index_lines(date, run_id, scenarios):
     """One index object per scenario. `comment` omitted by design; `axis` /
     `scores` are absent-safe (null when the scenario has none)."""
     lines = []
@@ -161,6 +234,7 @@ def build_index_lines(date, scenarios):
             scores = {**scores, **{k: scores.get(k) for k in RUBRIC_KEYS if k not in scores}}
         lines.append({
             "date": date,
+            "run_id": run_id,
             "id": s.get("id"),
             "name": s.get("name"),
             "theme": s.get("theme"),
@@ -173,13 +247,19 @@ def build_index_lines(date, scenarios):
 
 def write_index_incremental(digest_path, results):
     """Update the sidecar from the IN-MEMORY results (not by re-parsing the
-    digest just written). Date-idempotent: drop existing same-date lines before
-    appending, mirroring the digest's section replace. Bootstraps the file if
-    absent. Fail-open: any write failure is a single non-fatal stderr warning —
-    the append (digest is already persisted) must never fail on the cache."""
+    digest just written). (date, run_id)-idempotent: drop existing lines with
+    BOTH the same date and the same run_id, mirroring the digest's section
+    replace. A pre-#1542 line has no `run_id` key, so it reads as None and can
+    never collide with a real run_id — the same survival property the digest's
+    legacy date-only headings have. Bootstraps the file if absent. Fail-open:
+    any write failure is a single non-fatal stderr warning — the append (digest
+    is already persisted) must never fail on the cache.
+
+    Caller must hold digest_lock()."""
     index_path = index_path_for(digest_path)
     date = results["date"]
-    new_lines = build_index_lines(date, results.get("scenarios", []))
+    run_id = results["run_id"]
+    new_lines = build_index_lines(date, run_id, results.get("scenarios", []))
     try:
         kept = []
         if os.path.exists(index_path):
@@ -189,7 +269,7 @@ def write_index_incremental(digest_path, results):
                     if not raw:
                         continue
                     obj = json.loads(raw)
-                    if obj.get("date") == date:
+                    if obj.get("date") == date and obj.get("run_id") == run_id:
                         continue  # replaced below
                     kept.append(obj)
         with open(index_path, "w", encoding="utf-8") as f:
@@ -213,13 +293,23 @@ def split_row_cells(line):
     return [p.strip().replace("\\|", "|") for p in parts]
 
 
-def _rebuild_fail(date, header, msg):
+def _rebuild_fail(date, line, msg, kind="table shape", label="header",
+                  remedy=None):
     """Rebuild is a manual/recovery operation — unlike the nightly append it
     MUST NOT fail-open into a silently partial index. Hard-fail loudly and
-    write nothing."""
-    print(f"rebuild-index: unrecognized table shape in section {date}: {msg}",
+    write nothing.
+
+    `kind` / `label` name the line the operator has to look at: the table
+    header for a column/row-shape failure, the `## <date> — <suffix>` heading
+    for an unparseable run_id. Pointing at the wrong one sends them editing a
+    table that is fine. `remedy` spells out the edit when there is exactly
+    one — this is the tool reached for when the digest is ALREADY damaged, so
+    a dead end here has no fallback."""
+    print(f"rebuild-index: unrecognized {kind} in section {date}: {msg}",
           file=sys.stderr)
-    print(f"  header: {header}", file=sys.stderr)
+    print(f"  {label}: {line}", file=sys.stderr)
+    if remedy:
+        print(f"  fix: {remedy}", file=sys.stderr)
     sys.exit(2)
 
 
@@ -227,10 +317,18 @@ def rebuild_index(digest_path):
     """Regenerate the ENTIRE sidecar by parsing the digest's markdown tables.
     Header-name-keyed column mapping (not fixed indices) so all three historical
     shapes parse — pre-axis-column, 4-axis, 5-axis. Writes nothing on any
-    unrecognized shape."""
+    unrecognized shape.
+
+    Read-and-rewrite runs under digest_lock(): a nightly append racing a manual
+    rebuild would otherwise rebuild from a half-written digest."""
     if not os.path.exists(digest_path):
         print(f"rebuild-index: digest not found: {digest_path}", file=sys.stderr)
         return 1
+    with digest_lock(digest_path):
+        return _rebuild_index_locked(digest_path)
+
+
+def _rebuild_index_locked(digest_path):
     with open(digest_path, encoding="utf-8") as f:
         digest = f.read()
     for marker in (SECTIONS_MARKER, PROMOTION_MARKER):
@@ -242,12 +340,27 @@ def rebuild_index(digest_path):
 
     all_lines = []
     section_count = 0
-    # Sections are `## YYYY-MM-DD` blocks between the two markers.
+    # Sections are `## YYYY-MM-DD — <run_id>` blocks between the two markers.
+    # The date-only form is the pre-#1542 heading: still parsed, with a null
+    # run_id that can never collide with a real one.
     for chunk in re.split(r"(?m)^## ", body):
         heading, _, rest = chunk.partition("\n")
-        date = heading.strip()
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date):
+        m = re.fullmatch(r"(\d{4}-\d{2}-\d{2})(?: — (.+))?", heading.strip())
+        if not m:
             continue  # preamble / non-section text
+        date, run_id = m.group(1), m.group(2)
+        # A suffix is held to the same shape the append path enforces, so a
+        # hand-edited heading (`## <date> — rerun after the OOM`) cannot enter
+        # the index as a run_id. Rebuild is a recovery operation: it hard-fails
+        # rather than fail-open into a silently wrong index.
+        if run_id is not None and validate_run_id(run_id):
+            _rebuild_fail(date, heading.strip(),
+                          f"heading suffix is not a valid run_id: {run_id!r}",
+                          kind="section heading", label="heading",
+                          remedy=(f"edit the heading to `## {date} — HH:MM:SS` "
+                                  f"(any run_id of that shape — the cycle's "
+                                  f"start time is the convention), or delete "
+                                  f"the section, then re-run --rebuild-index"))
         section_count += 1
 
         table_lines = [l for l in rest.split("\n") if l.lstrip().startswith("|")]
@@ -298,6 +411,7 @@ def rebuild_index(digest_path):
                                           f"in column {cn!r}")
             all_lines.append({
                 "date": date,
+                "run_id": run_id,   # None for a legacy date-only heading
                 "id": field("id"),
                 "name": field("name"),
                 "theme": field("theme"),
@@ -339,7 +453,21 @@ def main():
         print(f"results.date must be YYYY-MM-DD, got: {results.get('date')!r}",
               file=sys.stderr)
         return 1
+    run_id_err = validate_run_id(results.get("run_id"))
+    if run_id_err:
+        # The digest is the only durable record of a night's judging, so an
+        # unattended run that trips this must be recoverable by hand — name the
+        # file the operator has to edit and what to do to it.
+        print(f"append_digest: {run_id_err}", file=sys.stderr)
+        print(f"  add a `run_id` to {args.results} and re-run the append",
+              file=sys.stderr)
+        return 1
 
+    with digest_lock(args.digest):
+        return _append_locked(args, results)
+
+
+def _append_locked(args, results):
     if not os.path.exists(args.digest):
         # Local-log model: the digest is gitignored, so a clean clone or
         # the very first run has no file. Bootstrap the scaffold.
@@ -360,15 +488,18 @@ def main():
     head, _, tail = digest.partition(SECTIONS_MARKER)
     body, _, footer = tail.partition(PROMOTION_MARKER)
 
-    # Date idempotency: drop an existing same-date section (everything from
-    # its `## <date>` heading up to the next `## ` heading or body end).
+    # (date, run_id) idempotency: drop an existing section with the SAME key
+    # (everything from its `## <date> — <run_id>` heading up to the next `## `
+    # heading or body end). A legacy date-only `## <date>` heading cannot match
+    # this pattern, which is what keeps pre-#1542 sections alive.
     pattern = re.compile(
-        rf"^## {re.escape(results['date'])}\n.*?(?=^## |\Z)",
+        rf"^## {re.escape(results['date'])} — {re.escape(results['run_id'])}\n"
+        r".*?(?=^## |\Z)",
         re.DOTALL | re.MULTILINE)
     body, replaced = pattern.subn("", body)
     if replaced:
-        print(f"warning: replaced existing section for {results['date']}",
-              file=sys.stderr)
+        print(f"warning: replaced existing section for {results['date']} "
+              f"— {results['run_id']}", file=sys.stderr)
 
     section = render_section(results)
     body = "\n\n" + section + "\n" + body.strip("\n") + ("\n\n" if body.strip("\n") else "\n")
@@ -381,7 +512,7 @@ def main():
     write_index_incremental(args.digest, results)
 
     action = "replaced" if replaced else "appended"
-    print(f"{action} section {results['date']} "
+    print(f"{action} section {results['date']} — {results['run_id']} "
           f"({len(results.get('scenarios', []))} scenario(s)) in {args.digest}")
     return 0
 

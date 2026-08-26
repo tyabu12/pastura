@@ -58,6 +58,24 @@ Actually changing a shipped scenario is a SEPARATE, human-driven step (see
   `model` so the baseline delta keys on it — a model swap re-evaluates the
   inventory from scratch.
 - `DATE`: today as `YYYY-MM-DD`.
+- `RUN_ID`: this cycle's start time as `HH:MM:SS`, captured ONCE here and
+  reused **verbatim** in every append it makes. It is the second half of the
+  journal section key `(DATE, RUN_ID)`, which is what stops a second cycle on
+  the same date from overwriting the first (#1542). Re-reading the clock when
+  re-appending a partially-failed cycle would write a SECOND section instead
+  of replacing its own. Two cycles that could start within the same second
+  must not share it — suffix one (`01:23:45-b`). **A resumed session has no
+  memory of it**, which is exactly the re-append case — but both places it
+  could be read back from are DATE-keyed, not run-keyed:
+  `/tmp/refine_results_<DATE>.json` is overwritten by a second same-day cycle,
+  and one date can now carry several `## <DATE> — <RUN_ID>` sections in
+  `data/factory/audit-digest.md`. Recovering a sibling's value REPLACES that
+  sibling's section; over-minting only adds a spurious one — so recover only
+  when today has exactly one candidate (one results temp file whose `run_id`
+  has no section yet, or exactly one section for `<DATE>`). When the date
+  carries more than one run_id and you cannot identify your own, mint a
+  suffixed RUN_ID (`01:23:45-b`) rather than guess. A genuinely new cycle
+  mints with `date +%H:%M:%S`.
 - `COUNT`: scenarios to evaluate this cycle (rotation slice). Default `5`
   (≈10-15 min before A/B). Running the whole ~21-scenario inventory nightly
   would take ≈45-90 min; the rotation re-checks the oldest slice instead.
@@ -287,18 +305,18 @@ promotion — it stays in `improvements/`. See § Promotion.
 ## Step 5 — Append the journal
 
 1. Compose the results JSON (schema in `append_audit.py`'s docstring: date /
-   model / notes / per-scenario id, name, channel, category, yaml, run_log,
-   status, attempts, duration_sec, scores {coherence, interaction,
+   **run_id** / model / notes / per-scenario id, name, channel, category, yaml,
+   run_log, status, attempts, duration_sec, scores {coherence, interaction,
    breakdown_free, development, payoff}, payoff_axis, comment, error,
-   candidate_of). Write
-   it to a temp file.
+   candidate_of). Set `run_id` to the `RUN_ID` fixed in § Constants — reuse
+   that value, do not re-read the clock here. Write it to a temp file.
 2. ```bash
    python3 .claude/skills/scenario-refine/scripts/append_audit.py \
      --results /tmp/refine_results_<DATE>.json \
      --journal data/factory/audit-digest.md
    ```
 3. Verify: `grep -c 'audit-digest:' data/factory/audit-digest.md` prints `2`
-   (both markers survived) and the new `## <DATE>` section exists.
+   (both markers survived) and the new `## <DATE> — <RUN_ID>` section exists.
 
 ## Step 5.5 — Propose lessons (inbox)
 

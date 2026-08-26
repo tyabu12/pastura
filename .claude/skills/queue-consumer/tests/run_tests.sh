@@ -11,9 +11,32 @@ cd "$(dirname "$0")"
 SCRIPTS=$(cd ../scripts && pwd)
 FIXTURES=$(cd fixtures && pwd)
 TMP=$(mktemp -d)
-trap 'rm -rf "$TMP"' EXIT
+HOLDER_PID=""
+# The flock cases below run a lock holder with a 60s deadline. A failing
+# assertion must not orphan it: it inherits the harness's stdout, so an
+# orphan can stall a piped CI invocation for the whole deadline.
+cleanup() { [ -n "$HOLDER_PID" ] && kill "$HOLDER_PID" 2>/dev/null; rm -rf "$TMP"; return 0; }
+trap cleanup EXIT
 
 fail() { echo "FAIL: $1" >&2; exit 1; }
+
+# Bounded poll helpers for the flock cases below. Synchronization is by
+# sentinel file: the append is launched through a wrapper that touches a
+# "started" sentinel immediately before exec'ing python, and the holder keeps
+# the lock until the release sentinel. The short settle after the started
+# sentinel IS a sleep margin, but a one-sided one — the lock is still held
+# across it, so a slow python start can only yield a false PASS, never a false
+# failure. What makes the case bite is the liveness assertion immediately
+# before the release (the append must still be running, and not defunct)
+# together with the post-release assertions. Every poll is capped so a hang
+# fails loudly, not silently.
+await_file() {   # $1 = path to wait for, $2 = failure message
+  local i=0
+  until [ -e "$1" ]; do
+    i=$((i + 1)); [ "$i" -le 600 ] || fail "$2 (timed out after ~600 polls)"
+    sleep 0.1
+  done
+}
 
 SEED="# digest
 
@@ -110,6 +133,72 @@ grep -q "queue-digest:sections" "$REPO/data/queue/digest.md" \
   || fail "resolver: bootstrap did not write the section marker"
 grep -q "^## 2026-06-16 01:30$" "$REPO/data/queue/digest.md" \
   || fail "resolver: bootstrap did not append the section"
+
+# --- the append takes an exclusive flock on <digest>.lock (#1542) -----------
+# Every routine worktree resolves to the SAME main-checkout digest and this log
+# is append-only, so an interleaved read-modify-write drops a whole run record
+# with no key to recover it from. A helper holds the lock while an append is
+# launched; the append must block, not write.
+LK="$TMP/lock"; mkdir -p "$LK"
+printf '%s' "$SEED" > "$LK/digest.md"
+# The helper takes the flock and only THEN writes a readiness sentinel; the
+# shell waits for that sentinel before launching the append, and releases the
+# helper through a second sentinel once the assertion is done — so the hold
+# always covers the polls without a guessed duration (the 60s inside is a
+# safety cap so a broken test cannot hang CI, not a schedule — blowing it
+# exits the helper non-zero, which the wait below turns into a FAIL).
+python3 - "$LK/digest.md.lock" "$LK/held" "$LK/release" <<'PY' &
+import fcntl, os, sys, time
+fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+open(sys.argv[2], "w").close()   # readiness sentinel: the lock is now HELD
+deadline = time.time() + 60
+while not os.path.exists(sys.argv[3]):
+    if time.time() >= deadline:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        os.close(fd)
+        sys.exit("lock helper: release sentinel never appeared")
+    time.sleep(0.05)
+fcntl.flock(fd, fcntl.LOCK_UN)
+os.close(fd)
+PY
+HOLDER_PID=$!
+await_file "$LK/held" "lock: helper never acquired the flock"
+# bash assigns $! at fork and `kill -0` also succeeds on an unreaped zombie,
+# so neither proves the append got as far as the lock. Launch it through a
+# wrapper that touches a "started" sentinel immediately before exec'ing
+# python (exec keeps $! pointing at the python process itself).
+cat > "$LK/append_wrapper.sh" <<'EOF'
+#!/bin/bash
+# $1 = "started" sentinel; the rest is the command to exec.
+started=$1; shift
+: > "$started"
+exec "$@"
+EOF
+bash "$LK/append_wrapper.sh" "$LK/started" \
+  python3 "$SCRIPTS/append_digest.py" \
+  --results "$FIXTURES/results_sample.json" --digest "$LK/digest.md" >/dev/null 2>&1 &
+APPEND_PID=$!
+await_file "$LK/started" "lock: the append never started"
+sleep 0.5   # one-sided settle: the holder keeps the lock across it, so this
+            # can only cost wall time, never a false failure.
+# ...and the append must still be ALIVE and blocked here. An append that
+# already exited — or that never took the lock at all — would satisfy the
+# "did not write" assertion below vacuously.
+APPEND_STATE=$(ps -o state= -p "$APPEND_PID" 2>/dev/null | tr -d '[:space:]' || true)
+[ -n "$APPEND_STATE" ] \
+  || fail "lock: the append exited instead of blocking on the held lock"
+case "$APPEND_STATE" in
+  Z*) fail "lock: the append is defunct — it exited instead of blocking on the held lock" ;;
+esac
+grep -q "^## 2026-06-14 01:30$" "$LK/digest.md" \
+  && fail "lock: append wrote the digest while the lock was held"
+: > "$LK/release"
+wait "$HOLDER_PID" || fail "lock: holder timed out waiting for the release sentinel"
+HOLDER_PID=""
+wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
+grep -q "^## 2026-06-14 01:30$" "$LK/digest.md" \
+  || fail "lock: section missing after the lock was released"
 
 # present-but-marker-less file via the resolver → still refuses
 echo "# broken, no marker" > "$REPO/data/queue/digest.md"

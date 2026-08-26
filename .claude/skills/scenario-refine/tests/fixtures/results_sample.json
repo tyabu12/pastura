@@ -1,5 +1,6 @@
 {
   "date": "2026-06-21",
+  "run_id": "01:00:00",
   "model": "gemma-4-E2B-it-Q4_K_M",
   "notes": "self-test fixture",
   "scenarios": [
