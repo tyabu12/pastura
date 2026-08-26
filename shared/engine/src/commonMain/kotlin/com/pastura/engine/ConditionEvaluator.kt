@@ -113,9 +113,13 @@ public class ConditionEvaluator {
     /**
      * Evaluates [expression] against [state] and [scenario].
      *
+     * `@Throws` is load-bearing at the K/N boundary, for the reason spelled out
+     * on [parse] — read that one first.
+     *
      * @throws SimulationException carrying [SimulationError.ScenarioValidationFailed]
      *   for parse-time errors.
      */
+    @Throws(SimulationException::class)
     public fun evaluate(
         expression: String,
         state: SimulationState,
@@ -129,9 +133,18 @@ public class ConditionEvaluator {
      * Parses [expression] and discards the AST. Used to surface malformed `if:`
      * strings at scenario-load time, before any `state` exists.
      *
+     * `@Throws` is load-bearing at the K/N boundary, not decoration: Kotlin
+     * exceptions from an **un-annotated** function are not surfaced to Swift as
+     * catchable errors — they terminate the process. A KDoc `@throws` line does
+     * not close that gap; only the annotation does, because only the annotation
+     * reaches the generated Obj-C header. The pinned-selector assertion in
+     * `shared/engine/build.gradle.kts` is what holds this true per PR — see
+     * `.claude/rules/kmp-interop.md` Pattern 5.
+     *
      * @throws SimulationException on syntactic errors. Runtime-absent identifiers
      *   do NOT throw — those only surface during [evaluate] as warnings.
      */
+    @Throws(SimulationException::class)
     public fun parse(expression: String) {
         parseToAST(expression)
     }

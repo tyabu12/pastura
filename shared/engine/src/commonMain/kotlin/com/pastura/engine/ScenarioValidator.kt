@@ -104,9 +104,10 @@ public class ScenarioValidator {
      * exceptions from an **un-annotated** function are not surfaced to Swift as
      * catchable errors — they terminate the process. Stage-5 iOS consumers call
      * this across that boundary, so the annotation is what makes a validation
-     * failure a `catch`-able Swift error instead of a crash. This is the first
-     * `@Throws` in commonMain; `ConditionEvaluator.parse` has the same gap and
-     * is a follow-up, not this PR.
+     * failure a `catch`-able Swift error instead of a crash. This was the first
+     * `@Throws` in commonMain; the sweep that closed the remaining gaps
+     * (`ConditionEvaluator`, `TurnOutput.require`, `YamlCodec.decode`) landed in
+     * #1553, along with the header assertion that now holds all of them.
      *
      * @return a [ValidationResult] with any warnings and the inference estimate.
      * @throws SimulationException carrying
