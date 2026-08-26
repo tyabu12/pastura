@@ -1,10 +1,15 @@
 package com.pastura.engine
 
+import com.pastura.models.AssignTarget
+import com.pastura.models.PairingStrategy
+import com.pastura.models.PayoffRule
 import com.pastura.models.PhaseType
+import com.pastura.models.ScoreCalcLogic
 import com.pastura.models.SimulationError
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -184,21 +189,95 @@ class ScenarioLoaderTests {
         assertEquals(1, scenario.phases.size)
     }
 
-    /**
-     * Swift's `parsesPhaseSpeakAll`, minus its third assertion.
-     *
-     * Swift also reads `phase.outputSchema?["statement"]`; `output:` is one of
-     * the seven C2b fields [ScenarioLoader.mapPhase] leaves `null`, and
-     * [phaseSpecialisationIsStillUnmapped] is what pins that gap until C2b
-     * closes it. The two `speak_all` fields this port *does* map are asserted
-     * here so the case is not silently absent from the suite in the meantime.
-     */
     @Test
     fun parsesPhaseSpeakAll() {
         val scenario = loader.load(makeMinimalYAML())
         val phase = scenario.phases[0]
         assertEquals(PhaseType.SPEAK_ALL, phase.type)
         assertEquals("Speak your mind.", phase.prompt)
+        assertEquals("string", phase.outputSchema?.get("statement"))
+    }
+
+    @Test
+    fun parsesPhaseWithAllFields() {
+        val yaml = """
+            id: test
+            language: ja
+            name: Test
+            description: Test
+            agents: 2
+            rounds: 1
+            context: Context
+            personas:
+              - name: A
+                description: A
+              - name: B
+                description: B
+            phases:
+              - type: choose
+                prompt: "Choose!"
+                output:
+                  action: string
+                options:
+                  - cooperate
+                  - betray
+                pairing: round_robin
+              - type: score_calc
+                logic: prisoners_dilemma
+              - type: summarize
+                template: "{agent1}({action1}) vs {agent2}({action2})"
+              - type: vote
+                prompt: "Vote!"
+                output:
+                  vote: string
+                exclude_self: true
+              - type: speak_each
+                prompt: "Talk"
+                output:
+                  statement: string
+                rounds: 3
+              - type: assign
+                source: words
+                target: random_one
+              - type: eliminate
+        """.trimIndent()
+        val scenario = loader.load(yaml)
+
+        // choose phase
+        val choose = scenario.phases[0]
+        assertEquals(PhaseType.CHOOSE, choose.type)
+        assertEquals(listOf("cooperate", "betray"), choose.options)
+        assertEquals(PairingStrategy.ROUND_ROBIN, choose.pairing)
+
+        // score_calc phase
+        val scoreCalc = scenario.phases[1]
+        assertEquals(PhaseType.SCORE_CALC, scoreCalc.type)
+        assertEquals(ScoreCalcLogic.PRISONERS_DILEMMA, scoreCalc.logic)
+
+        // summarize phase
+        val summarize = scenario.phases[2]
+        assertEquals(PhaseType.SUMMARIZE, summarize.type)
+        assertEquals("{agent1}({action1}) vs {agent2}({action2})", summarize.template)
+
+        // vote phase
+        val vote = scenario.phases[3]
+        assertEquals(PhaseType.VOTE, vote.type)
+        assertEquals(true, vote.excludeSelf)
+
+        // speak_each phase
+        val speakEach = scenario.phases[4]
+        assertEquals(PhaseType.SPEAK_EACH, speakEach.type)
+        assertEquals(3, speakEach.subRounds)
+
+        // assign phase
+        val assign = scenario.phases[5]
+        assertEquals(PhaseType.ASSIGN, assign.type)
+        assertEquals("words", assign.source)
+        assertEquals(AssignTarget.RANDOM_ONE, assign.target)
+
+        // eliminate phase
+        val eliminate = scenario.phases[6]
+        assertEquals(PhaseType.ELIMINATE, eliminate.type)
     }
 
     // endregion
@@ -667,6 +746,61 @@ class ScenarioLoaderTests {
 
     // endregion
 
+    // region relationship_update phase parsing (#910)
+
+    @Test
+    fun parsesRelationshipUpdateFullSpec() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: relationship_update
+                    vote_against: -1
+                    action_deltas:
+                      cooperate: 1
+                      betray: -2
+            """.trimIndent(),
+        )
+        val scenario = loader.load(yaml)
+        val phase = scenario.phases[0]
+        assertEquals(PhaseType.RELATIONSHIP_UPDATE, phase.type)
+        assertEquals(-1, phase.voteAgainst)
+        assertEquals(mapOf("cooperate" to 1, "betray" to -2), phase.actionDeltas)
+    }
+
+    @Test
+    fun parsesRelationshipUpdateMinimalSpec() {
+        // Both rule fields are optional at parse time; the shape check that
+        // requires >= 1 rule lives at the validator gate (#910 later commit).
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: relationship_update
+            """.trimIndent(),
+        )
+        val scenario = loader.load(yaml)
+        val phase = scenario.phases[0]
+        assertEquals(PhaseType.RELATIONSHIP_UPDATE, phase.type)
+        assertNull(phase.voteAgainst)
+        assertNull(phase.actionDeltas)
+    }
+
+    @Test
+    fun throwsOnNonIntActionDeltaValue() {
+        // Strict per #130: a String delta value is a typo, not a coercion.
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: relationship_update
+                    action_deltas:
+                      cooperate: "one"
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    // endregion
+
     // region language field (DoD #2, #5, #6)
 
     @Test
@@ -997,6 +1131,73 @@ class ScenarioLoaderTests {
 
     // endregion
 
+    // region Assign target parsing (strict)
+
+    /**
+     * Typo'd target string is rejected at parse time (was a silent `.all`
+     * default before #108 / typed `AssignTarget`).
+     */
+    @Test
+    fun rejectsAssignWithUnknownTarget() {
+        val yaml = makeYAMLWithAssignTarget("randomOne") // typo of random_one
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    /**
+     * Case is significant — `target: All` was previously silently treated as
+     * the default; now rejected.
+     */
+    @Test
+    fun rejectsAssignWithCapitalizedTarget() {
+        val yaml = makeYAMLWithAssignTarget("All")
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    @Test
+    fun acceptsAssignWithCanonicalTargetAll() {
+        loader.load(makeYAMLWithAssignTarget("all"))
+    }
+
+    @Test
+    fun acceptsAssignWithCanonicalTargetRandomOne() {
+        loader.load(makeYAMLWithAssignTarget("random_one"))
+    }
+
+    // endregion
+
+    // region Pairing / logic parsing (strict)
+
+    @Test
+    fun rejectsChooseWithUnknownPairing() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: choose
+                    pairing: roundRobin
+                    options: [a, b]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    @Test
+    fun rejectsScoreCalcWithUnknownLogic() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: score_calc
+                    logic: made_up_logic
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    // endregion
+
     // region Phase-optional field wrong-type errors (#130 item 2)
 
     /** `rounds: "3"` (accidentally quoted in YAML) previously coerced silently
@@ -1079,6 +1280,52 @@ class ScenarioLoaderTests {
         )
         val scenario = loader.load(yaml)
         assertEquals(true, scenario.phases[0].excludeSelf)
+    }
+
+    // endregion
+
+    // region parseOutputSchema strict (#130 item 3)
+
+    /**
+     * `output: { count: 1 }` previously stringified `1` to `"1"` silently. The
+     * schema is an LLM prompt hint — a non-String value is almost always a typo.
+     */
+    @Test
+    fun throwsOnNonStringOutputSchemaValue() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: speak_all
+                    prompt: "Go"
+                    output:
+                      statement: string
+                      count: 1
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("output"))
+        assertTrue(msg.contains("'count'"))
+    }
+
+    /**
+     * `output: "string"` (scalar instead of dict) previously just skipped the
+     * schema (no-op). Strict loader throws so users catch the mis-shape.
+     */
+    @Test
+    fun throwsOnNonDictOutputSchema() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: speak_all
+                    prompt: "Go"
+                    output: "string"
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
     }
 
     // endregion
@@ -1227,6 +1474,385 @@ class ScenarioLoaderTests {
         val error = caught.error
         assertTrue(error is SimulationError.ScenarioValidationFailed)
         assertTrue(error.message.contains("'options'"))
+    }
+
+    // endregion
+
+    // region Enum-valued phase fields wrong-type (#211)
+
+    /**
+     * `target: 42` previously coerced silently via `as? String` -> `nil`,
+     * running the assign phase with no target. Strict loader throws with the
+     * unified wrong-type format (via `parseOptional<String>`).
+     */
+    @Test
+    fun throwsOnIntAssignTarget() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: assign
+                    source: words
+                    target: 42
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("'target'"))
+        assertTrue(msg.contains("String"))
+        assertTrue(!msg.lowercase().contains("missing"))
+        // Distinguish from the invalid-enum-value branch ("has invalid target: ...").
+        assertTrue(!msg.contains("invalid target"))
+    }
+
+    /**
+     * `pairing: 42` previously coerced silently to `nil`, running `choose`
+     * with no pairing strategy. Strict loader throws.
+     */
+    @Test
+    fun throwsOnIntChoosePairing() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: choose
+                    pairing: 42
+                    options: [a, b]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("'pairing'"))
+        assertTrue(msg.contains("String"))
+        assertTrue(!msg.lowercase().contains("missing"))
+        assertTrue(!msg.contains("invalid pairing"))
+    }
+
+    /**
+     * `logic: true` (YAML 1.1 bare boolean) previously coerced silently to
+     * `nil`, producing a score_calc phase with no scoring logic. Strict
+     * loader throws.
+     */
+    @Test
+    fun throwsOnBoolScoreCalcLogic() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: score_calc
+                    logic: true
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        val msg = error.message
+        assertTrue(msg.contains("'logic'"))
+        assertTrue(msg.contains("String"))
+        assertTrue(!msg.lowercase().contains("missing"))
+        assertTrue(!msg.contains("invalid logic"))
+    }
+
+    // endregion
+
+    // region max_sentences on phase (#881)
+
+    /**
+     * Parse coverage for the per-phase `max_sentences:` key (#881) — guards
+     * the literal YAML key name, which a serializer<->loader round-trip alone
+     * cannot (a symmetric mis-key would still round-trip).
+     */
+    @Test
+    fun parsesMaxSentencesOnPhase() {
+        val yaml = """
+            id: t
+            language: ja
+            name: T
+            description: d
+            agents: 2
+            rounds: 1
+            context: c
+            personas:
+              - name: Alice
+                description: a
+              - name: Bob
+                description: b
+            phases:
+              - type: speak_each
+                prompt: "Speak."
+                max_sentences: 5
+                output:
+                  statement: string
+              - type: speak_all
+                prompt: "Speak."
+                output:
+                  statement: string
+        """.trimIndent()
+        val scenario = loader.load(yaml)
+        assertEquals(5, scenario.phases[0].maxSentences)
+        // Absent key -> null (no backward-compat fill).
+        assertNull(scenario.phases[1].maxSentences)
+    }
+
+    // endregion
+
+    // region payoff table on score_calc phase (ADR-027)
+
+    /**
+     * Parse coverage for the `payoff:` table on a `pairwise_payoff`
+     * `score_calc` phase (ADR-027). Guards the literal YAML key names + strict
+     * arity, which a serializer<->loader round-trip alone cannot (a symmetric
+     * mis-key round-trips). Kotlin counterpart of Swift's `payoffHeader`
+     * private computed property (`ScenarioLoaderTests+Payoff.swift`); local to
+     * this region rather than [makeMinimalYAML] since only these five tests
+     * use its Alice/Bob-named personas.
+     */
+    private fun makePayoffYAML(phasesBlock: String): String = buildString {
+        appendLine("id: t")
+        appendLine("language: ja")
+        appendLine("name: T")
+        appendLine("description: d")
+        appendLine("agents: 2")
+        appendLine("rounds: 1")
+        appendLine("context: c")
+        appendLine("personas:")
+        appendLine("  - name: Alice")
+        appendLine("    description: a")
+        appendLine("  - name: Bob")
+        appendLine("    description: b")
+        appendLine("phases:")
+        append(phasesBlock)
+    }
+
+    @Test
+    fun parsesPayoffTableOnScoreCalc() {
+        val yaml = makePayoffYAML(
+            """
+                - type: choose
+                  options: [協力, 裏切り]
+                  pairing: round_robin
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [協力, 協力]
+                      points: [3, 3]
+                    - when: [裏切り, 裏切り]
+                      points: [1, 1]
+            """.trimIndent(),
+        )
+        val scenario = loader.load(yaml)
+        val payoff = scenario.phases[1].payoff
+        assertNotNull(payoff)
+        assertEquals(2, payoff.size)
+        assertEquals(PayoffRule(`when` = listOf("協力", "協力"), points = listOf(3, 3)), payoff[0])
+        assertEquals(PayoffRule(`when` = listOf("裏切り", "裏切り"), points = listOf(1, 1)), payoff[1])
+    }
+
+    @Test
+    fun absentPayoffLeavesNilNotThrow() {
+        // `load` stays non-validating (#665): a pairwise_payoff phase with no
+        // `payoff:` loads with `payoff == null` — the guaranteed-no-op is a
+        // linter concern (R20a), not a load throw.
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+            """.trimIndent(),
+        )
+        val scenario = loader.load(yaml)
+        assertNull(scenario.phases[0].payoff)
+    }
+
+    @Test
+    fun throwsOnWhenArityNotTwo() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [協力]
+                      points: [3, 3]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        // The message template names both fields, so assert the discriminating
+        // detail suffix, not a bare "when" substring.
+        assertTrue(error.message.contains("'when' must be 2 strings"))
+    }
+
+    @Test
+    fun throwsOnPointsArityNotTwo() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff:
+                    - when: [協力, 協力]
+                      points: [3]
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'points' must be 2 ints"))
+    }
+
+    @Test
+    fun throwsOnPayoffNotList() {
+        val yaml = makePayoffYAML(
+            """
+                - type: score_calc
+                  logic: pairwise_payoff
+                  payoff: not_a_list
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("payoff"))
+    }
+
+    // endregion
+
+    // region conditional phase parsing (loader-facing arms of Swift's ConditionalScenarioIOTests)
+
+    @Test
+    fun loadsConditionalWithBothBranches() {
+        val yaml = """
+            id: test
+            language: ja
+            name: Test
+            description: test
+            agents: 2
+            rounds: 1
+            context: ctx
+            personas:
+              - name: Alice
+                description: a
+              - name: Bob
+                description: b
+            phases:
+              - type: conditional
+                if: "max_score >= 10"
+                then:
+                  - type: summarize
+                    template: won
+                else:
+                  - type: speak_all
+                    prompt: keep going
+                    output:
+                      statement: string
+        """.trimIndent()
+
+        val scenario = loader.load(yaml)
+        assertEquals(1, scenario.phases.size)
+
+        val phase = scenario.phases[0]
+        assertEquals(PhaseType.CONDITIONAL, phase.type)
+        assertEquals("max_score >= 10", phase.condition)
+        assertEquals(1, phase.thenPhases?.size)
+        assertEquals(PhaseType.SUMMARIZE, phase.thenPhases?.first()?.type)
+        assertEquals("won", phase.thenPhases?.first()?.template)
+        assertEquals(1, phase.elsePhases?.size)
+        assertEquals(PhaseType.SPEAK_ALL, phase.elsePhases?.first()?.type)
+        assertEquals("keep going", phase.elsePhases?.first()?.prompt)
+    }
+
+    @Test
+    fun loadsConditionalWithOnlyThenBranch() {
+        val yaml = """
+            id: test
+            language: ja
+            name: Test
+            description: test
+            agents: 2
+            rounds: 1
+            context: ctx
+            personas:
+              - name: Alice
+                description: a
+              - name: Bob
+                description: b
+            phases:
+              - type: conditional
+                if: "current_round == 1"
+                then:
+                  - type: summarize
+                    template: intro
+        """.trimIndent()
+
+        val scenario = loader.load(yaml)
+        val phase = scenario.phases[0]
+        assertEquals(1, phase.thenPhases?.size)
+        // Unspecified `else:` parses as null — the handler falls back to a
+        // no-op branch when the condition is false.
+        assertNull(phase.elsePhases)
+    }
+
+    @Test
+    fun rejectsNestedConditionalInThenBranch() {
+        val yaml = """
+            id: test
+            language: ja
+            name: Test
+            description: test
+            agents: 2
+            rounds: 1
+            context: ctx
+            personas:
+              - name: Alice
+                description: a
+              - name: Bob
+                description: b
+            phases:
+              - type: conditional
+                if: "current_round == 1"
+                then:
+                  - type: conditional
+                    if: "max_score > 0"
+                    then:
+                      - type: summarize
+                        template: nested
+        """.trimIndent()
+
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+    }
+
+    @Test
+    fun rejectsNestedConditionalInElseBranch() {
+        val yaml = """
+            id: test
+            language: ja
+            name: Test
+            description: test
+            agents: 2
+            rounds: 1
+            context: ctx
+            personas:
+              - name: Alice
+                description: a
+              - name: Bob
+                description: b
+            phases:
+              - type: conditional
+                if: "current_round == 1"
+                then:
+                  - type: summarize
+                    template: fine
+                else:
+                  - type: conditional
+                    if: "current_round == 2"
+                    then:
+                      - type: summarize
+                        template: bad
+        """.trimIndent()
+
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
     }
 
     // endregion
