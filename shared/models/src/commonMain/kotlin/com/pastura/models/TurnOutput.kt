@@ -45,10 +45,14 @@ public data class TurnOutput(
     /**
      * Returns the value for the given key, or throws if the key is missing or empty.
      *
+     * `@Throws` is load-bearing at the K/N boundary, and the `@throws` line below
+     * does not substitute for it (`.claude/rules/kmp-interop.md` Pattern 5).
+     *
      * @param key The field key to look up.
      * @return The non-empty value for the key.
      * @throws [TurnOutputError.MissingField] if the key is absent or empty.
      */
+    @Throws(TurnOutputError::class)
     public fun require(key: String): String {
         val value = fields[key]
         if (value.isNullOrEmpty()) throw TurnOutputError.MissingField(key)

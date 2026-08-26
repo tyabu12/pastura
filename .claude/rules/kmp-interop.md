@@ -106,3 +106,28 @@ integral `Double` drops its `.0`. The third bites silently: `TranscriptComparato
 `@Serializable data class` — that fixes all three — and write it against a measured Swift line,
 never the fixtures' observed lines: a field no fixture populates is the one that bites later.
 `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that measurement.
+
+## Pattern 5 — a KDoc `@throws` does not reach K/N; only `@Throws` does
+
+An exception thrown from a function K/N exported **without** the `@Throws` annotation is not
+converted to a Swift error — it terminates the calling process. The annotation is what turns the
+exported selector into a `…error:(NSError**)` one, which Swift imports as `throws`. A KDoc
+`@throws` line reaches the header as a comment and changes nothing, so the two are easy to mistake
+for each other: the documentation reads correct while the export is a crash path.
+
+Annotate the **declaration** that gets exported. `internal` members are emitted into no header at
+all, so an `internal` implementation of a `public` interface needs nothing — but Kotlin does not
+inherit the annotation, so one that later goes `public` needs its own. `YamlCodec.decode` carries
+the annotation on the interface for exactly this reason.
+
+`shared/models` is in scope even when a task names only `shared/engine`: it builds its own iOS
+frameworks *and* is re-exported through the engine umbrella, so its throws are the same crash class.
+
+The gate is `verifyExportedThrowsAnnotations` in `shared/engine/build.gradle.kts` — it pins the
+throwing entry points by `swift_name` and asserts each exports `error:` in the generated header
+(that file's `Why the header and not the Kotlin source` comment has the reasoning). **The pin is
+hand-kept**: a new throwing public entry point needs its pin added. `ScenarioCodec.encodeToString` /
+`encodeToJsonElement` are deliberately outside it — un-annotated because the fixed encoder does not
+reach `Json.encodeToString`'s throwing path, judged 2026-08-26, and invisible to any KDoc-triggered
+check regardless. That is a reading of today's `Scenario` shape, so revisit it if the schema gains a
+polymorphic field or a non-finite `Double`.
