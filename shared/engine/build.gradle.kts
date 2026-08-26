@@ -337,6 +337,7 @@ tasks.matching {
 val exportedThrowingSelectors = mapOf(
     "evaluate(expression:state:scenario:)" to "ConditionEvaluator.evaluate",
     "parse(expression:)" to "ConditionEvaluator.parse",
+    "load(yaml:)" to "ScenarioLoader.load",
     "validate(scenario:)" to "ScenarioValidator.validate",
     "validateForCommit(scenario:)" to "ScenarioValidator.validateForCommit",
     "require(key:)" to "TurnOutput.require (shared/models, re-exported)",
