@@ -23,8 +23,9 @@ extension GalleryScenarioSearchTests {
   }
 
   @Test func hideInstalledKeepsRowsNotInSet() {
-    // "pd" is installed WITH an update available, so it is simply absent
-    // from installedUnchangedIds — it must stay visible.
+    // Only ids IN the set are ever dropped. An installed row with a pending
+    // update is modelled by its absence from the set (the VM suite covers the
+    // hash side); here "pd" is simply outside it and must stay visible.
     let result = GalleryScenarioSearch.filter(
       sample, category: nil, query: "", language: nil,
       installedUnchangedIds: ["asch"], installFilter: .hideInstalled)
@@ -39,6 +40,21 @@ extension GalleryScenarioSearchTests {
       sample, category: nil, query: "dilemma", language: nil,
       installedUnchangedIds: ["pd"], installFilter: .hideInstalled)
     #expect(result.map(\.id).contains("pd"))
+  }
+
+  @Test func queryBypassesHidingButNotDemotion() {
+    // `sortable` uses the id as the title, so a shared "q_" prefix is the
+    // query both rows match.
+    let input = [
+      sortable(id: "q_installed_new", addedAt: "2026-06-01"),
+      sortable(id: "q_fresh_old", addedAt: "2026-01-01")
+    ]
+    let result = GalleryScenarioSearch.filter(
+      input, category: nil, query: "q_", language: nil,
+      installedUnchangedIds: ["q_installed_new"], installFilter: .hideInstalled)
+    // Shown (hide bypassed) but demoted below the row the user lacks, even
+    // though it is newer.
+    #expect(result.map(\.id) == ["q_fresh_old", "q_installed_new"])
   }
 
   @Test func allShowsInstalledButSortsThemLast() {

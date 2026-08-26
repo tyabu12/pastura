@@ -57,6 +57,33 @@ extension SharedScenariosViewModelTests {
     #expect(viewModel.hasUpdate(for: scenario))
     #expect(viewModel.installedUnchangedIds.isEmpty)
     #expect(viewModel.visibleScenarios.map(\.id) == ["stale"])
+
+    // The detail screen applies the update; the pop re-syncs. Same transition
+    // into installed-and-unchanged as a fresh install → pinned, still visible.
+    try installBehindTheList(scenario, in: repo)
+    await viewModel.refreshInstalledSnapshot()
+    #expect(!viewModel.hasUpdate(for: scenario))
+    #expect(viewModel.sessionPinnedIds == ["stale"])
+    #expect(viewModel.visibleScenarios.map(\.id) == ["stale"])
+  }
+
+  /// The clearing half of the `refreshInstalledSnapshot()` invariant: `load()`
+  /// ends in `refresh()`, which drops the pins — so the re-appear path must
+  /// never call it (see the VM doc comment).
+  @Test func loadClearsSessionPins() async throws {
+    let repo = try makeRepo()
+    let scenario = makeGalleryScenario(id: "pinned")
+    let service = StubVMGalleryService()
+    service.cachedIndex = makeIndex([scenario])
+    let viewModel = SharedScenariosViewModel(galleryService: service, repository: repo)
+    await viewModel.load()
+    try installBehindTheList(scenario, in: repo)
+    await viewModel.refreshInstalledSnapshot()
+    #expect(viewModel.sessionPinnedIds == ["pinned"])
+
+    await viewModel.load()
+    #expect(viewModel.sessionPinnedIds.isEmpty)
+    #expect(viewModel.visibleScenarios.isEmpty)
   }
 
   @Test func rowInstalledBehindTheListStaysPinnedUntilRefresh() async throws {

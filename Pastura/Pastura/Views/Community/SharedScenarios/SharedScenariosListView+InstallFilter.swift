@@ -1,7 +1,7 @@
 import SwiftUI
 
 // Install-state filter UI for the Browse tab (#1565, ADR-025 § Amendment
-// 2026-08-26), split out of `SharedScenariosListView` like the category chips
+// 2026-08-27), split out of `SharedScenariosListView` like the category chips
 // (#731) to stay under the type_body_length budget. Two surfaces: the toolbar
 // filter menu (the control) and the footer hint (the explanation — a row
 // hidden by default must never look like a missing scenario).
@@ -20,6 +20,8 @@ extension SharedScenariosListView {
     return Menu {
       Toggle(
         isOn: Binding(
+          // Reads the VM again rather than `showsInstalled`: the local is a
+          // snapshot taken at body time and would make the binding stale.
           get: { viewModel.installFilter == .all },
           set: { viewModel.installFilter = $0 ? .all : .hideInstalled })
       ) {
@@ -39,9 +41,10 @@ extension SharedScenariosListView {
     .accessibilityIdentifier("sharedScenarios.installFilterMenu")
   }
 
-  /// "N installed scenarios hidden · Show" line under the catalog. Rendered
-  /// only while the hide filter actually removed something, so the default
-  /// state on a fresh install (nothing installed yet) shows no footer.
+  /// "N installed scenarios hidden" line with an inline "Show" action under
+  /// the catalog. Rendered only while the hide filter actually removed
+  /// something, so the default state on a fresh install (nothing installed
+  /// yet) shows no footer.
   @ViewBuilder
   func hiddenInstalledFooter(viewModel: SharedScenariosViewModel) -> some View {
     let count = viewModel.hiddenInstalledCount
@@ -53,7 +56,10 @@ extension SharedScenariosListView {
         // hidden", `extractionState: manual`.
         Text("\(count) installed scenarios hidden")
           .font(.caption)
-          .foregroundStyle(Color.muted)
+          // `inkSecondary`, not `muted`: this line is the sole statement that
+          // rows are hidden and why — class A1 in
+          // docs/design/muted-application-audit.md § 2 — so it must clear AA.
+          .foregroundStyle(Color.inkSecondary)
         Button(String(localized: "Show")) {
           viewModel.installFilter = .all
         }

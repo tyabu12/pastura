@@ -42,7 +42,10 @@ nonisolated enum GalleryScenarioSearch {
   ///   the query is blank**: once the user has typed a search, they are
   ///   looking for something specific, and hiding a match they just typed
   ///   because they happen to already have it is confusing — the row's own
-  ///   "Installed" badge disambiguates instead.
+  ///   "Installed" badge disambiguates instead. The query bypasses only the
+  ///   *hiding*: the installed-last sort key (below) still applies, so a
+  ///   matching installed row is shown, but after the matches the user does
+  ///   not have yet.
   static func filter(
     _ scenarios: [GalleryScenario], category: GalleryCategory?, query: String,
     language: String?, installedUnchangedIds: Set<String> = [],

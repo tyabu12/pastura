@@ -49,9 +49,18 @@ struct SharedScenariosListView: View {
       // discarded the scroll offset, search text and chip selection and
       // re-fetched the index on every pop. Keep the VM (mirrors
       // `GalleryScenarioDetailView`) and only re-read the installed rows, so
-      // an install done on the detail screen still updates its row.
+      // an install done on the detail screen still updates its row. One
+      // exception: a first `load()` cancelled mid-flight (tab switched while
+      // the index was fetching) leaves the VM in `.idle` / `.loading`, whose
+      // arm is a bare spinner with no Retry and no pull-to-refresh — so that
+      // case must re-run `load()` rather than the cheap re-sync.
       if let viewModel {
-        await viewModel.refreshInstalledSnapshot()
+        switch viewModel.state {
+        case .loaded, .offlineWithCache, .empty:
+          await viewModel.refreshInstalledSnapshot()
+        case .idle, .loading:
+          await viewModel.load()
+        }
         return
       }
       let newViewModel = SharedScenariosViewModel(

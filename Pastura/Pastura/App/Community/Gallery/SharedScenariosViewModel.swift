@@ -58,10 +58,10 @@ final class SharedScenariosViewModel {
   var selectedLanguage: String?
 
   /// The Browse-tab search field text. Blank / whitespace-only applies no
-  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:language:)``).
+  /// text filter (see ``GalleryScenarioSearch/filter(_:category:query:language:installedUnchangedIds:installFilter:)``).
   var searchQuery: String = ""
 
-  /// The Browse install-state filter (ADR-025 § Amendment 2026-08-26).
+  /// The Browse install-state filter (ADR-025 § Amendment 2026-08-27).
   /// Defaults to hiding installed-and-unchanged rows. Deliberately
   /// **session-only**: the VM lives in the tab root's `@State`, so the choice
   /// survives tab switches and detail pushes but resets on the next launch —
@@ -144,6 +144,10 @@ final class SharedScenariosViewModel {
   /// Offline-first entry point. Shows cached content immediately (if any),
   /// then kicks off a network refresh.
   func load() async {
+    // Snapshot BEFORE `apply(index:)`: the pin diff inside is taken over
+    // `allScenarios`, still empty here, so a first load pins nothing. Swapping
+    // these lines would session-pin every already-installed row and silently
+    // turn the `.hideInstalled` default into a no-op.
     await refreshInstalledSnapshot()
 
     if let cached = try? galleryService.loadCachedIndex() {
@@ -320,6 +324,11 @@ final class SharedScenariosViewModel {
   /// touching the index or `state`. Called by the Browse root when it
   /// re-appears after a detail pop, so an install made on the detail screen
   /// (which owns its own ViewModel) is reflected in the list without a reload.
+  ///
+  /// **Invariant:** the re-appear path calls only this — never ``load()`` or
+  /// ``refresh()``, both of which drop ``sessionPinnedIds`` and would make the
+  /// row the user just installed vanish from under the restored scroll
+  /// position. `loadClearsSessionPins` in the VM tests pins the clearing half.
   func refreshInstalledSnapshot() async {
     let rows: [ScenarioRecord]
     do {
