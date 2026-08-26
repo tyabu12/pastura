@@ -113,7 +113,11 @@ it never reaches `Models/`. Reword a literal in `Pastura/Pastura/Models/*Message
 Kotlin twin plus its commonTest pins stay stale *and agree with each other* — nothing reddens on
 either side. The Swift file is the source of truth; a reword is a three-file hand edit (Swift, the
 `.kt`, the commonTest expected string). Applies to `ScenarioValidationMessage` (53) and
-`ScenarioLintMessage` (21).
+`ScenarioLintMessage` (21). The same class, with a sharper edge: `Engine/PlaceholderAvailability.swift`
+→ `shared/engine/.../PlaceholderAvailability.kt` is a data map the Swift linter and two editor views
+**consume today**, so it keeps moving — a new `PhaseType` or handler-supplied token is a three-file
+hand edit (Swift, the `.kt`, its commonTest), and only the Swift union-guard test notices a Swift-side
+miss. The ledger pairs `PORT` rows by name alone; it does not diff them.
 
 ## Pattern 5 — a KDoc `@throws` does not reach K/N; only `@Throws` does
 
