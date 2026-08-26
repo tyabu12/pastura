@@ -75,6 +75,23 @@ class ScenarioLoaderTests {
         assertEquals(1, scenario.phases.size)
     }
 
+    /**
+     * Swift's `parsesPhaseSpeakAll`, minus its third assertion.
+     *
+     * Swift also reads `phase.outputSchema?["statement"]`; `output:` is one of
+     * the seven C2b fields [ScenarioLoader.mapPhase] leaves `null`, and
+     * [phaseSpecialisationIsStillUnmapped] is what pins that gap until C2b
+     * closes it. The two `speak_all` fields this port *does* map are asserted
+     * here so the case is not silently absent from the suite in the meantime.
+     */
+    @Test
+    fun parsesPhaseSpeakAll() {
+        val scenario = loader.load(makeMinimalYAML())
+        val phase = scenario.phases[0]
+        assertEquals(PhaseType.SPEAK_ALL, phase.type)
+        assertEquals("Speak your mind.", phase.prompt)
+    }
+
     // endregion
 
     // region log_window (#907)
@@ -1015,6 +1032,80 @@ class ScenarioLoaderTests {
         val error = caught.error
         assertTrue(error is SimulationError.ScenarioValidationFailed)
         assertTrue(error.message.contains("'options'"))
+    }
+
+    // endregion
+
+    // region C2b gap pin
+
+    /**
+     * Pins the seven phase fields this port deliberately leaves unmapped.
+     *
+     * The YAML below populates every one of them, and every assertion says
+     * `null`. That inverts the usual polarity on purpose: the test is **not**
+     * asserting correct behaviour — it is asserting a known-incomplete state,
+     * so that the moment C2b teaches [ScenarioLoader.mapPhase] to read any of
+     * these keys, this test goes red and forces both itself and the
+     * `PORT IN PROGRESS` section of [ScenarioLoader]'s class KDoc to be
+     * deleted. A pin that self-destructs is the point; one that stayed green
+     * after the gap closed would be the coverage theater
+     * `.claude/rules/kmp-interop.md` Pattern 4 warns about.
+     *
+     * The `assertEquals(5, …)` guards the pin's own reachability: if a future
+     * edit made `load` reject this fixture outright, every `assertNull` below
+     * would become vacuous rather than failing.
+     *
+     * **Delete this whole region in C2b**, together with the KDoc section it
+     * names.
+     */
+    @Test
+    fun phaseSpecialisationIsStillUnmapped() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: choose
+                    prompt: "Choose"
+                    output:
+                      action: string
+                    pairing: round_robin
+                  - type: assign
+                    source: words
+                    target: random_one
+                  - type: score_calc
+                    logic: pairwise_payoff
+                    payoff:
+                      - when: [cooperate, cooperate]
+                        points: [3, 3]
+                  - type: relationship_update
+                    action_deltas:
+                      betray: -2
+                  - type: conditional
+                    if: "round == 1"
+                    then:
+                      - type: speak_all
+                        prompt: "Hi"
+                    else:
+                      - type: eliminate
+            """.trimIndent(),
+        )
+        val phases = loader.load(yaml).phases
+        assertEquals(5, phases.size)
+
+        assertNull(phases[0].outputSchema, "output: is C2b")
+        assertNull(phases[0].pairing, "pairing: is C2b")
+        assertNull(phases[1].target, "target: is C2b")
+        assertNull(phases[2].logic, "logic: is C2b")
+        assertNull(phases[2].payoff, "payoff: is C2b")
+        assertNull(phases[3].actionDeltas, "action_deltas: is C2b")
+        assertNull(phases[4].thenPhases, "then: is C2b")
+        assertNull(phases[4].elsePhases, "else: is C2b")
+
+        // The C2a-mapped fields on the same phases DO land — this half of the
+        // pin is a positive control, so a `load` that silently returned an
+        // empty phase would fail here rather than passing the assertNulls.
+        assertEquals("Choose", phases[0].prompt)
+        assertEquals("words", phases[1].source)
+        assertEquals("round == 1", phases[4].condition)
     }
 
     // endregion

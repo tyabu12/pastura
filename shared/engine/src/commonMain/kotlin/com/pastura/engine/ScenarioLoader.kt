@@ -45,6 +45,11 @@ import kotlinx.serialization.json.JsonPrimitive
  * them therefore loads with that field silently `null` here while Swift maps it
  * — which is why nothing calls this loader yet (see below).
  *
+ * `ScenarioLoaderTests.phaseSpecialisationIsStillUnmapped` pins that list from
+ * the test side and is written to go **red** the moment any of the seven starts
+ * being mapped, so this section cannot outlive the gap it describes. Delete
+ * both together.
+ *
  * ## Not wired into the engine
  *
  * Nothing in `shared/engine` calls this, deliberately — the same posture as
