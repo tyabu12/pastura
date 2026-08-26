@@ -35,6 +35,103 @@ import kotlin.test.assertTrue
  * same YAML shape (a `speak_all` phase carrying an `output:` block) without
  * asserting on the unmapped field, so the "does an `output:` block break
  * parsing" question stays covered.
+ *
+ * ## ADR-023 §12 condition-4 perturbation record
+ *
+ * Each mechanism of
+ * `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioLoader.kt` was
+ * broken in isolation and the named **dedicated claimant** — a test that detects the
+ * break through **its own** assertion — confirmed to redden. **43 mutations**, each
+ * asserted to match its anchor **exactly once** before applying, with the mutated
+ * text re-read to confirm it landed (a `replace` that silently no-ops leaves the
+ * original behaviour and reads as verified) and the executed-test count asserted
+ * non-zero and unchanged (a mutation that stops the suite compiling otherwise
+ * reads as green — B2 recorded two that did). The file was restored
+ * byte-identically after each run (`git diff --exit-code`), and the unmutated
+ * baseline measured green immediately before the first mutation and again after
+ * the last revert, so every reddening below is signal rather than pre-existing
+ * noise. Measured 2026-08-26, #1558 (PR C2a).
+ *
+ * The sweep ran **only** this suite. That is sufficient rather than a shortcut:
+ * `grep` confirms no other `shared/engine` code constructs [ScenarioLoader] — it
+ * is deliberately not wired into the engine (see its class KDoc), so no other
+ * suite could redden.
+ *
+ * **40 of the 43 reddened.** The three that did not are accounted for below the
+ * table; one of them is a deliberate negative control.
+ *
+ * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
+ * |---|---|---|---|
+ * | Code-fence strip | `filterNot { … startsWith("```") }` → `filterNot { false }` | [stripsCodeFencesBeforeParsing] | none |
+ * | Decode failure → `InvalidYAMLFormat` | the `throw` → `JsonObject(emptyMap())` | [throwsOnInvalidYAML] — assertion **strengthened**, note 1 | none |
+ * | Non-mapping root → `InvalidYAMLFormat` | the `?: throw` → `?: JsonObject(emptyMap())` | [throwsOnNonMappingRoot], [throwsOnEmptyDocument] — both **added**, note 1 | none |
+ * | `parseRequired` missing-key arm | `?: throw …MissingRequiredField` → `?: JsonNull` | [throwsOnMissingRequiredField] — assertion **strengthened**, note 1 | none |
+ * | `parseRequired` wrong-type arm | early-return the cast, no throw | [throwsOnWrongTypeForRequiredString], [throwsOnWrongTypeForRequiredInt], [throwsOnWrongTypeForPersonasList], [throwsOnWrongTypeForPersonaName] | none |
+ * | `parseOptional` absent-key arm | `?: return null` → `?: JsonNull` | [absentLogWindowIsNil] and 32 others | 32 — every fixture that omits an optional key then throws |
+ * | `parseOptional` wrong-type arm | the `throw` dropped | [throwsOnQuotedSubRounds], [throwsOnQuotedExcludeSelf], [throwsOnIntExcludeSelf], [throwsOnMixedTypeOptions], [throwsOnWrongTypeForPersonaSecret], [bareSecretKeyWithNoValueIsATypeError] | 1 |
+ * | `probability` quoted/bool guard | `!it.isString && !it.isYamlBooleanLiteral()` dropped | [throwsOnQuotedProbability] — **added**, note 2 | none |
+ * | `language` membership | `!in` → `in` | [rejectsLanguageInvalid] | none |
+ * | `simulation_language` membership | `!in` → `in` (not `if (false)`; see note 3) | [rejectsSimulationLanguageInvalid] | 1 — [parsesSimulationLanguageEn] |
+ * | persona count matches `agents` | `!=` → `==` | [throwsOnAgentCountMismatch] | none |
+ * | `STANDARD_KEYS` extra-data filter | `filterNot { it.key in STANDARD_KEYS }` → `filterNot { false }` | [parsesExtraDataStringArray] and 24 others | 24 — every fixture then routes `id` etc. through `convertToAnyCodableValue` |
+ * | persona `secret` trim | `?.trim()` dropped | [trimsSurroundingWhitespaceFromPersonaSecret], [normalizesEmptyPersonaSecretToNil] | none |
+ * | persona `secret` empty→null | `if (secret.isNullOrEmpty()) null else secret` → `secret` | [normalizesEmptyPersonaSecretToNil] | none |
+ * | Nested-`conditional` depth guard | `if (… && depth > 0)` → `if (false)` | *(none — expected green, note 4)* | none |
+ * | extra-data scalar `isString` guard | `&& value.isString` dropped | [throwsOnScalarTopLevelExtraData] | none |
+ * | extra-data array-of-dicts whole-collection cast | `all { it is JsonObject }` → `any` | [throwsOnExtraDataArrayMixingDictAndScalar] — **added**, note 2 | none |
+ * | …its non-String value throw | the `throw` → `?: ""` | [throwsOnNonStringValueInArrayOfDicts] | none |
+ * | extra-data mixed-array throw | the `throw` → an empty `ArrayValue` | [throwsOnMixedTypeExtraDataArray] | none |
+ * | extra-data dictionary non-String throw | the `throw` → `?: ""` | [throwsOnExtraDataDictWithNonStringValue] — **added**, note 2 | none |
+ * | `YamlType.INT` quoted/bool guard | `!it.isString && !it.isYamlBooleanLiteral()` dropped | [throwsOnWrongTypeForRequiredInt], [throwsOnQuotedSubRounds] | none |
+ * | `YamlType.INT` 32-bit range check | the range `takeIf` dropped | [throwsOnIntegerBeyond32Bits] — **added**, note 5 | none |
+ * | `YamlType.BOOL` YAML-1.1 token set | the token lookup → `null` | [acceptsYAML11BooleanExcludeSelf] | none |
+ * | `YamlType.BOOL` `isString`-aware literal check | the quoted arm tried as a literal first | [throwsOnQuotedExcludeSelf] | none |
+ * | `STRING_LIST` whole-collection cast | `values.all { it != null }` → `any` | [throwsOnMixedTypeOptions] | none |
+ * | `OBJECT_LIST` whole-collection cast | `list.all { it is JsonObject }` → `any` | [throwsOnPersonasListWithScalarElement] — **added**, note 2 | none |
+ * | `stringContentOrNull` `isString` guard | `&& it.isString` dropped | [throwsOnWrongTypeForRequiredString], [throwsOnWrongTypeForPersonaName], [throwsOnWrongTypeForPersonaSecret], [throwsOnMixedTypeOptions], [throwsOnMixedTypeExtraDataArray], [throwsOnNonStringValueInArrayOfDicts] | none |
+ * | `isYamlBooleanLiteral` `!isString` guard | the guard dropped | *(none — expected green, note 6)* | none |
+ * | `renderActualType` `Int64` arm | `"Int64"` → `"Int"` | [throwsOnIntegerBeyond32Bits] — **added**, note 5 | none |
+ * | `PhaseType` serial-name lookup | unknown type → `PhaseType.SPEAK_ALL` | [throwsOnInvalidPhaseType] | none |
+ * | Missing-`type:` throw | `?: throw …PhaseMissingType` → `?: "speak_all"` | [throwsOnMissingPhaseType] — **added**, note 2 | none |
+ * | Phase wiring: `prompt` | read → hardcoded `null` | [parsesPhaseSpeakAll], [phaseSpecialisationIsStillUnmapped] | none |
+ * | Phase wiring: `exclude_self` | read → `null` | [acceptsYAML11BooleanExcludeSelf], [throwsOnQuotedExcludeSelf], [throwsOnIntExcludeSelf] | none |
+ * | Phase wiring: `options` | read → `null` | [throwsOnMixedTypeOptions] | none |
+ * | Phase wiring: `rounds` → `subRounds` | read → `null` | [throwsOnQuotedSubRounds] | none |
+ * | Phase wiring: `probability` | read → `null` | [parsesProbabilityAsDouble], [parsesProbabilityAsIntCoercesToDouble], [throwsOnProbabilityWrongType], [throwsOnProbabilityBoolPretendingToBeInt], [parsesEventInjectFullSpec] | none |
+ * | Phase wiring: `as` → `eventVariable` | read → `null` | [parsesEventInjectFullSpec] | none |
+ * | Phase wiring: `no_repeat` | read → `null` | [parsesNoRepeat] — **added**, note 2 | none |
+ * | Phase wiring: `source` | read → `null` | [parsesEventInjectFullSpec], [parsesEventInjectMinimalSpec], [phaseSpecialisationIsStillUnmapped] | none |
+ * | Phase wiring: `if` → `condition` | read → `null` | [phaseSpecialisationIsStillUnmapped] | none |
+ * | Scenario wiring: `log_window` | read → `null` | [parsesLogWindow], [rejectsNonIntLogWindow] | none |
+ * | **NEGATIVE CONTROL** — `acceptedLanguagesList` ordering | `.sorted()` → `.sortedDescending()` | *(none — expected green)* | none |
+ *
+ * 1. **Three mechanisms were claimed only by a bare "it throws" assertion**, so
+ *    the mutation moved the failure to a *different* message and the test stayed
+ *    green. Common cause: the loader has one exception type, so a type-only
+ *    assertion cannot tell its layers apart — the same shape B1's sweep found in
+ *    `ScenarioValidator`. Fixed by asserting the rendered message.
+ * 2. **Six mechanisms had no claimant at all**, and five of them have none on the
+ *    **Swift** side either — nothing in `ScenarioLoaderTests*.swift` drives a
+ *    quoted `probability`, a dictionary-valued extra-data key, an extra-data
+ *    array mixing mappings and scalars, a `personas:` list holding a scalar, an
+ *    absent `type:`, or `no_repeat`. Each gained a test in the
+ *    "condition-4 sweep additions" region.
+ * 3. `if (false)` does **not** compile on the `simulation_language` arm: the
+ *    smart cast from the `!= null` half is lost and the later `!!`-free use
+ *    fails. The polarity flip is the compiling substitute, and it reddens the
+ *    accepting fixture as well as the rejecting one.
+ * 4. The nested-`conditional` depth guard is **structurally unreachable in this
+ *    port**: `depth` has no non-zero caller until C2b's `mapBranch` descends
+ *    into `then:` / `else:`. Expected green; C2b must claim it.
+ * 5. `Int` is 32-bit in Kotlin and 64-bit in Swift, so this mechanism and its
+ *    `Int64` rendering exist only on this side and have no Swift twin to
+ *    transcribe. [throwsOnIntegerBeyond32Bits] is the detector for what was
+ *    otherwise a KDoc claim with nothing behind it.
+ * 6. `isYamlBooleanLiteral`'s `!isString` guard is **defence in depth**: every
+ *    caller that could be fooled by a quoted `"true"` is already `isString`-
+ *    guarded on its own. Expected green — kept because a future caller without
+ *    that guard would need it, and removing it would make this file's one
+ *    boolean-literal predicate quietly wrong.
  */
 class ScenarioLoaderTests {
 
@@ -290,7 +387,35 @@ class ScenarioLoaderTests {
               - type: speak_all
         """.trimIndent()
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        // Missing-vs-wrong-type is the whole point of parseRequired's two
+        // branches, and the condition-4 sweep found that collapsing the missing
+        // branch into the wrong-type one left this test green — both still
+        // throw. Assert which one fired.
+        assertTrue(error.message.contains("missing required field 'id'"))
+    }
+
+    /**
+     * A phase with no `type:` at all.
+     *
+     * Added by the condition-4 sweep: [throwsOnInvalidPhaseType] covers an
+     * *unknown* type, but nothing drove an *absent* one, so defaulting the
+     * missing-type throw to `speak_all` left the suite green. The two collapse
+     * to one message by design — see `parsePhaseType`'s KDoc.
+     */
+    @Test
+    fun throwsOnMissingPhaseType() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - prompt: "No type here"
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("missing 'type'"))
     }
 
     @Test
@@ -343,7 +468,41 @@ class ScenarioLoaderTests {
     fun throwsOnInvalidYAML() {
         val yaml = "{{invalid yaml: [["
         val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
-        assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        // The message, not just the throw: the condition-4 sweep found that
+        // replacing the decode-failure fold with an empty mapping keeps this
+        // test green, because the empty mapping then fails on `id` instead.
+        assertTrue(error.message.contains("Invalid YAML format"))
+    }
+
+    /**
+     * A sequence root — the second half of Swift's
+     * `guard let raw = try? Yams.load(...), let dict = raw as? [String: Any]`.
+     *
+     * Added by the condition-4 sweep: no transcribed test drove a well-formed
+     * document whose root is not a mapping, so replacing that fold with an
+     * empty mapping left the suite green.
+     */
+    @Test
+    fun throwsOnNonMappingRoot() {
+        val caught = assertFailsWith<SimulationException> { loader.load("- 1\n- 2") }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("Invalid YAML format"))
+    }
+
+    /**
+     * An empty document, which `YamlCodec` decodes to `JsonNull` rather than
+     * failing — so it reaches the same non-mapping fold as
+     * [throwsOnNonMappingRoot] by a different route.
+     */
+    @Test
+    fun throwsOnEmptyDocument() {
+        val caught = assertFailsWith<SimulationException> { loader.load("   \n") }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("Invalid YAML format"))
     }
 
     // endregion
@@ -1032,6 +1191,175 @@ class ScenarioLoaderTests {
         val error = caught.error
         assertTrue(error is SimulationError.ScenarioValidationFailed)
         assertTrue(error.message.contains("'options'"))
+    }
+
+    // endregion
+
+    // region condition-4 sweep additions
+
+    /*
+     * Every test in this region was added because the ADR-023 §12 condition-4
+     * sweep broke the mechanism it names and the suite stayed green — no
+     * transcribed Swift case reached it. Three of them (the `probability`
+     * quoted-scalar guard, the dictionary-valued extra-data guard, and the
+     * absent-`type:` throw, above) have no dedicated claimant on the **Swift**
+     * side either; the rest cover Kotlin-only mechanisms the port introduced.
+     * The sweep's full table is in the #501 record for #1558.
+     */
+
+    /**
+     * `probability: "0.5"` — a quoted scalar that would parse as a number.
+     *
+     * `throwsOnProbabilityWrongType` and `throwsOnProbabilityBoolPretendingToBeInt`
+     * both survive dropping `parseOptionalDoubleAcceptingInt`'s `isString`
+     * guard, because their fixtures fail the `toDoubleOrNull` step anyway. This
+     * is the one input the guard alone rejects.
+     */
+    @Test
+    fun throwsOnQuotedProbability() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: event_inject
+                    source: events
+                    probability: "0.5"
+                events:
+                  - storm
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'probability'"))
+    }
+
+    /**
+     * A top-level extra-data array mixing a mapping and a scalar.
+     *
+     * `throwsOnMixedTypeExtraDataArray` mixes only scalars, so it never
+     * exercises the whole-collection `all { it is JsonObject }` that decides
+     * whether the array-of-dictionaries branch is taken at all.
+     */
+    @Test
+    fun throwsOnExtraDataArrayMixingDictAndScalar() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: speak_all
+                    prompt: "Speak"
+                rules:
+                  - name: first
+                  - plain_string
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'rules'"))
+    }
+
+    /**
+     * A top-level extra-data mapping whose value is not a String — the
+     * `ExtraDataDictNotString` arm, which no transcribed case reached.
+     */
+    @Test
+    fun throwsOnExtraDataDictWithNonStringValue() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: speak_all
+                    prompt: "Speak"
+                config:
+                  majority: 1
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'config'"))
+        assertTrue(error.message.contains("String"))
+    }
+
+    /**
+     * An integral scalar beyond 32-bit `Int`.
+     *
+     * Kotlin-only: Swift's `Int` is 64-bit and accepts this, so there is no
+     * Swift twin to transcribe. This is the detector for divergence 4 in
+     * [ScenarioLoader]'s class KDoc — a claim that had none until the sweep —
+     * and it pins the `Int64` fragment [renderActualType] emits so the message
+     * is not the bewildering "must be Int, got Int".
+     */
+    @Test
+    fun throwsOnIntegerBeyond32Bits() {
+        val yaml = """
+            id: t
+            language: ja
+            name: T
+            description: T
+            agents: 2147483648
+            rounds: 1
+            context: C
+            personas:
+              - name: A
+                description: A
+            phases:
+              - type: speak_all
+                prompt: "Speak"
+        """.trimIndent()
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'agents'"))
+        assertTrue(error.message.contains("must be Int, got Int64"))
+    }
+
+    /**
+     * A `personas:` list holding a scalar element.
+     *
+     * `throwsOnWrongTypeForPersonasList` supplies a non-list, which fails the
+     * `as? JsonArray` step first — so it never reaches the whole-collection
+     * `all { it is JsonObject }`. Swift's `as? [[String: Any]]` fails for the
+     * WHOLE list here, which is why the error names `personas` rather than the
+     * offending element.
+     */
+    @Test
+    fun throwsOnPersonasListWithScalarElement() {
+        val yaml = """
+            id: t
+            language: ja
+            name: T
+            description: T
+            agents: 2
+            rounds: 1
+            context: C
+            personas:
+              - name: A
+                description: A
+              - just_a_string
+            phases:
+              - type: speak_all
+                prompt: "Speak"
+        """.trimIndent()
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'personas'"))
+    }
+
+    /** `no_repeat:` (#1006) — mapped, but claimed by nothing until the sweep. */
+    @Test
+    fun parsesNoRepeat() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: assign
+                    source: words
+                    no_repeat: true
+                words:
+                  - alpha
+            """.trimIndent(),
+        )
+        assertEquals(true, loader.load(yaml).phases[0].noRepeat)
     }
 
     // endregion
