@@ -399,7 +399,8 @@ internal class LLMCaller(
      * arrives absent, empty, or as the `"..."` filler.
      *
      * The [expectedKeys] precondition is a **compatibility guard, not a
-     * refinement**: Swift's `ScenarioValidator.validateForCommit` enforces the
+     * refinement**: `ScenarioValidator.validateForCommit` (ported to commonMain
+     * in #1552, and still Swift's own gate on the iOS side) enforces the
      * canonical field at commit time and nothing re-checks it at run time, so a
      * scenario persisted before that gate — or imported under ADR-020
      * backward-compat — can omit it from `output:` entirely. The grammar never

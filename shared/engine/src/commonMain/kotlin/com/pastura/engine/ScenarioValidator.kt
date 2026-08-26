@@ -25,11 +25,14 @@ import com.pastura.models.SimulationError
  * trap on sibling extensions; Kotlin has neither constraint, so the whole gate
  * lives here.
  *
- * ## Scope: the RUN gate only
+ * ## Scope: both gates, neither wired
  *
- * `validateForCommit` and the canonical primary-field checks
- * (`ScenarioValidator+CanonicalFields.swift`) are **not** ported yet — they land
- * in a follow-up PR. Everything `validate(_:)` runs is here.
+ * Both halves are ported: the run gate [validate] (#1554, PR B1) and the commit
+ * gate [validateForCommit] plus its canonical-field checks, Swift's
+ * `ScenarioValidator+CanonicalFields.swift` (#1552, PR B2). What remains
+ * unported from ADR-023 §4's "Load + validate" row is `ScenarioLoader` and
+ * `ScenarioSemanticLinter` (ADR-024) — see the next section for why the
+ * linter's absence keeps even the ported half unwired.
  *
  * ## Not wired into the engine
  *
