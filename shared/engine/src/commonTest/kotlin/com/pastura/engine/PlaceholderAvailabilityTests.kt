@@ -16,7 +16,22 @@ import kotlin.test.assertTrue
  *
  * ## Condition-4 perturbation record
  *
- * (filled in by the orchestrator)
+ * ADR-023 §12 condition 4 (perturbation sensitivity), measured at porting time
+ * against a 21-test baseline green before the first mutation and after the
+ * last revert:
+ *
+ * | # | Mutation of `PlaceholderAvailability.kt` | Reddened |
+ * |---|---|---|
+ * | 1 | moved `crossPhaseStateReadable` above `producerMap` | **compile error**, not a test: `Variable 'producerMap' must be initialized.` |
+ * | 2 | added `whisperSelfInjected` to the `chooseRoundRobin == false` branch | `chooseIndividualOmitsWhisperChannel` |
+ * | 3 | dropped `WHISPER` from `producerMap["my_mood"]` | `moodProducedByAllLLMPhases` |
+ *
+ * Mutation 1 is the reason the value pin in
+ * [crossPhaseStateReadableIsProducerTokensMinusPerPersona] is *not* the
+ * declaration-order guard it was first planned as: an initialiser that reads
+ * a later-declared `object` property is a Kotlin frontend error, so a wrong
+ * order cannot reach the test at all — the pin's job is the derived
+ * contents, which no compiler checks.
  */
 class PlaceholderAvailabilityTests {
 
@@ -64,13 +79,14 @@ class PlaceholderAvailabilityTests {
      * derived value so a `producerMap` / `perPersonaInjected` change that
      * shifts it fails here.
      *
-     * This pin doubles as the declaration-order pin for
+     * This pin is deliberately *not* a declaration-order guard for
      * [PlaceholderAvailability.producerMap] /
-     * [PlaceholderAvailability.crossPhaseStateReadable]: a Kotlin `object`
-     * initialises properties top-to-bottom, so if `crossPhaseStateReadable`
-     * were declared before `producerMap` it would read an empty map and
-     * this assertion would fail against an empty set instead of the pinned
-     * value.
+     * [PlaceholderAvailability.crossPhaseStateReadable], although it was
+     * first planned as one: declaring `crossPhaseStateReadable` first is a
+     * compile error (`Variable 'producerMap' must be initialized.` — measured
+     * as condition-4 mutation 1 in the class KDoc), not a silent empty set,
+     * so the order never reaches a test. What no compiler checks is the
+     * derived *contents*, and that is what this value pin holds.
      */
     @Test
     fun crossPhaseStateReadableIsProducerTokensMinusPerPersona() {

@@ -210,7 +210,9 @@ internal object PlaceholderAvailability {
      *
      * Declared BEFORE [crossPhaseStateReadable] because a Kotlin `object`
      * initialises its properties strictly in declaration order, unlike
-     * Swift's lazy `static let`.
+     * Swift's lazy `static let` (the Swift file has them the other way
+     * round). The reverse order is a compile error here, not a runtime
+     * surprise — measured in the commonTest sibling's condition-4 record.
      */
     internal val producerMap: Map<String, Set<PhaseType>> = mapOf(
         "assigned" to setOf(PhaseType.ASSIGN),
@@ -253,7 +255,8 @@ internal object PlaceholderAvailability {
      * no scenario context; only the default is listed).
      *
      * Must follow [producerMap] in declaration order: a Kotlin `object`
-     * initialises its properties strictly top-to-bottom.
+     * initialises its properties strictly top-to-bottom, and the compiler
+     * rejects an initialiser that reads a later-declared property.
      */
     internal val crossPhaseStateReadable: Set<String> =
         producerMap.keys
