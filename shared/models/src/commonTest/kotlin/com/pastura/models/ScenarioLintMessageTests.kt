@@ -29,9 +29,10 @@ import kotlin.test.assertTrue
  * Swift renders the six token-bearing cases through
  * `String(format: String(localized: "…%@…"), token)`, which interpolates the
  * token **verbatim** — no quoting, no escaping, and no second format pass. The
- * tokens below therefore contain both a quote character and a `%`, exactly as
- * `ScenarioLintMessageTests.swift` does: a Kotlin `render()` that tried to be
- * clever about either would redden here. They are also mutually distinguishable
+ * tokens below therefore contain both a quote character and a `%` on **all six**
+ * token-bearing cases (the Swift suite does so on only two, so this side is the
+ * stricter pin): a Kotlin `render()` that tried to be clever about either would
+ * redden here. They are also mutually distinguishable
  * across cases, so a roster entry pasted onto the wrong case cannot pass.
  *
  * ## En-only pin is Stage-5-scoped

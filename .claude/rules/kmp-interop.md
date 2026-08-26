@@ -107,6 +107,14 @@ integral `Double` drops its `.0`. The third bites silently: `TranscriptComparato
 never the fixtures' observed lines: a field no fixture populates is the one that bites later.
 `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that measurement.
 
+**A Models-layer message type is dual-landed, and no gate compares the two sides.**
+`check-prompt-literal-parity.py` only scans `Engine/` + `LLM/` files containing `pickLanguage`, so
+it never reaches `Models/`. Reword a literal in `Pastura/Pastura/Models/*Message.swift` and the
+Kotlin twin plus its commonTest pins stay stale *and agree with each other* — nothing reddens on
+either side. The Swift file is the source of truth; a reword is a three-file hand edit (Swift, the
+`.kt`, the commonTest expected string). Applies to `ScenarioValidationMessage` (53) and
+`ScenarioLintMessage` (21).
+
 ## Pattern 5 — a KDoc `@throws` does not reach K/N; only `@Throws` does
 
 An exception thrown from a function K/N exported **without** the `@Throws` annotation is not

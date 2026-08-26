@@ -93,6 +93,37 @@ struct ScenarioLintMessageTests {
 
   @Test func ruleIDsHasExactlyTwentyOneEntries() {
     #expect(ScenarioLintMessage.ruleIDs.count == 21)
+    #expect(Set(ScenarioLintMessage.ruleIDs).count == 21)
+  }
+
+  /// Pins the declaration order the doc comment promises — the Kotlin twin
+  /// hand-copies this list in the same order, so a Swift-side reorder must
+  /// redden here rather than only in `shared/models`.
+  @Test func ruleIDsAreInDeclarationOrder() {
+    #expect(
+      ScenarioLintMessage.ruleIDs == [
+        "eliminate-needs-vote",
+        "eliminate-after-vote",
+        "pd-needs-round-robin-choose",
+        "pairwise-payoff-needs-round-robin-choose",
+        "wordwolf-needs-assign-and-vote",
+        "event-reactive-needs-event-inject",
+        "relationship-update-placement",
+        "vote-tally-needs-vote",
+        "choose-should-declare-options",
+        "assign-source-nonempty",
+        "summarize-pairing-placeholders",
+        "max-sentences-no-op",
+        "pairwise-payoff-no-scorable-row",
+        "pairwise-payoff-dead-row",
+        "log-window-below-agent-count",
+        "unresolvable-placeholder",
+        "placeholder-phase-availability",
+        "per-persona-placeholder-in-summarize",
+        "single-quoted-literal-in-condition",
+        "bare-identifier-looks-like-literal",
+        "unknown-condition-identifier"
+      ])
   }
 
   @Test func everyMessageStartsWithItsOwnRuleID() {
