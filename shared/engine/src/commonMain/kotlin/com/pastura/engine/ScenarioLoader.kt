@@ -37,27 +37,6 @@ import kotlinx.serialization.json.JsonPrimitive
  * [ScenarioValidator]'s execution-limit / inference-cap / phase-semantic gate —
  * the returned scenario is well-formed but not yet known to be runnable.
  *
- * ## PORT IN PROGRESS — phase specialisation is not here yet (C2b)
- *
- * [mapPhase] maps exactly the phase fields reachable through the three generic
- * parse helpers. Every field needing a dedicated helper is still unmapped and is
- * passed to the [Phase] constructor as an explicit `null, // C2b`:
- * `output` (`parseOutputSchema`), `target` (`parseAssignTarget`),
- * `pairing` (`parsePairing`), `logic` (`parseLogic`), `then` / `else`
- * (`mapBranch`, the depth-1 conditional), `action_deltas`
- * (`parseActionDeltas`) and `payoff` (`parsePayoff`). A scenario using any of
- * them therefore loads with that field silently `null` here while Swift maps it
- * — which is why nothing calls this loader yet (see below).
- *
- * `ScenarioLoaderTests.phaseSpecialisationIsStillUnmapped` pins that list from
- * the test side and is written to go **red** the moment any of the seven starts
- * being mapped, so this section cannot outlive the gap it describes. **Three
- * artefacts describe this gap and must be deleted together**: that pin, this
- * section, and the "delete the next sentence when C2b lands" paragraph on
- * `ScenarioLoader.swift`'s `load(yaml:)` — the Swift one is the dangerous
- * straggler, because a stale "no Kotlin side to mirror yet" tells the next
- * editor to skip a mirror that by then exists.
- *
  * ## Not wired into the engine
  *
  * Nothing in `shared/engine` calls this, deliberately — the same posture as

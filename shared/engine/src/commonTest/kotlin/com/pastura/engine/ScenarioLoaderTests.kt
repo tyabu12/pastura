@@ -15,33 +15,20 @@ import kotlin.test.assertTrue
 
 /**
  * commonTest sibling of Swift's `ScenarioLoaderTests.swift`,
- * `ScenarioLoaderTests+Language.swift`, and `ScenarioLoaderTests+StrictTypes.swift`
- * (`Pastura/PasturaTests/Engine/`) — all 44 of the port's planned 1:1
- * transcriptions are present, though [parsesPhaseSpeakAll] is a *partial* one
- * (see below). The suite also carries tests beyond those 44: the
- * "condition-4 sweep additions" region and the C2b gap pin.
+ * `ScenarioLoaderTests+Language.swift`, `ScenarioLoaderTests+StrictTypes.swift`,
+ * `ScenarioLoaderTests+Payoff.swift`, `ScenarioLoaderTests+MaxSentences.swift`
+ * and the loader-facing arms of `ConditionalScenarioIOTests.swift`
+ * (`Pastura/PasturaTests/Engine/`) — **69 1:1 transcriptions**, 44 from PR C2a
+ * and 25 from C2b, each complete. The suite also carries tests beyond those 69:
+ * the two "condition-4 sweep additions" regions.
  *
- * **Scope.** Only [ScenarioLoader.load]'s YAML-ingest and top-level-mapping
- * behaviour is covered here, matching [ScenarioLoader]'s own class KDoc: the
- * six `estimateInferenceCount` tests (that estimator landed separately, in
- * [InferenceEstimator]), `parsesPhaseWithAllFields`, the three
- * `relationship_update` tests, and the eleven enum / `outputSchema` /
- * `payoff` arms of `ScenarioLoaderTests+StrictTypes.swift` are deferred to a
- * follow-up PR — [ScenarioLoader.mapPhase]'s KDoc documents `output`,
- * `target`, `pairing`, `logic`, `then` / `else`, `action_deltas`, and `payoff`
- * as unmapped "C2b" fields, so a test asserting on any of them cannot pass
- * against today's loader.
- *
- * **[parsesPhaseSpeakAll] is a *partial* transcription, and the only one.**
- * Swift's version makes three assertions; its third reads
- * `phase.outputSchema?["statement"]`, which is exactly the C2b gap above —
- * [ScenarioLoader.mapPhase] passes `outputSchema` through as a hardcoded
- * `null`. The two `speak_all` fields this port *does* map are asserted here so
- * the case is not silently missing from the suite, and the dropped third
- * assertion is not simply lost: [phaseSpecialisationIsStillUnmapped] asserts
- * `outputSchema` is `null` for a phase that declares an `output:` block, so C2b
- * cannot restore Swift's assertion without first reddening that pin. Read the
- * two together — neither alone is the full Swift case.
+ * **Scope.** Only [ScenarioLoader.load]'s behaviour is covered here, matching
+ * [ScenarioLoader]'s own class KDoc. Two groups of Swift cases are therefore
+ * deliberately absent rather than pending: the six `estimateInferenceCount`
+ * tests, which belong to [InferenceEstimator] and live in
+ * `InferenceEstimatorTests.kt` (`ScenarioLoader.swift` is a `SPLIT` ledger
+ * row), and `ConditionalScenarioIOTests`' `roundTrip*` arms, which exercise
+ * the Swift-only `ScenarioSerializer` (`STAY` per ADR-023 §4).
  *
  * ## ADR-023 §12 condition-4 perturbation record
  *
@@ -1855,6 +1842,36 @@ class ScenarioLoaderTests {
         assertTrue(caught.error is SimulationError.ScenarioValidationFailed)
     }
 
+    /**
+     * A `then:` / `else:` that is not a list of mappings is rejected, naming
+     * the branch.
+     *
+     * **No Swift twin to transcribe.** `ScenarioValidationMessage.branchNotArray`
+     * is rendered by `ScenarioValidationMessageTests.swift` but no Swift loader
+     * test reaches `mapBranch`'s cast, so the mechanism ships unclaimed on both
+     * sides; this is the Kotlin-side claimant, in the same category as the
+     * "condition-4 sweep additions" region below.
+     *
+     * Asserts the rendered branch name rather than the exception type alone:
+     * `then:` and `else:` share the mechanism, and a `label`/`branch` argument
+     * swap is exactly the kind of break a type-only assertion sleeps through.
+     */
+    @Test
+    fun throwsOnScalarThenBranch() {
+        val yaml = makeMinimalYAML(
+            """
+                phases:
+                  - type: conditional
+                    if: "current_round == 1"
+                    then: not_a_list
+            """.trimIndent(),
+        )
+        val caught = assertFailsWith<SimulationException> { loader.load(yaml) }
+        val error = caught.error
+        assertTrue(error is SimulationError.ScenarioValidationFailed)
+        assertTrue(error.message.contains("'then'"), error.message)
+    }
+
     // endregion
 
     // region condition-4 sweep additions
@@ -1863,8 +1880,7 @@ class ScenarioLoaderTests {
      * Every test in this region was added because the ADR-023 §12 condition-4
      * sweep broke the mechanism it names and the suite stayed green — no
      * transcribed Swift case reached it. Only [throwsOnIntegerBeyond32Bits]
-     * (and, added separately below in the C2b gap / divergence-4 region,
-     * `throwsOnIntegerBeyondLongRange`) cover Kotlin-only mechanisms with no
+     * and [throwsOnIntegerBeyondLongRange] cover Kotlin-only mechanisms with no
      * Swift twin to transcribe. The rest — [throwsOnQuotedProbability],
      * [throwsOnExtraDataArrayMixingDictAndScalar],
      * [throwsOnPersonasListWithScalarElement], and [parsesNoRepeat] — cover
@@ -2096,89 +2112,6 @@ class ScenarioLoaderTests {
         )
         val scenario = loader.load(yaml)
         assertEquals(true, scenario.phases[0].excludeSelf)
-    }
-
-    // endregion
-
-    // region C2b gap pin
-
-    /**
-     * Pins the seven phase fields this port deliberately leaves unmapped.
-     *
-     * The YAML below populates every one of them, and every assertion says
-     * `null`. That inverts the usual polarity on purpose: the test is **not**
-     * asserting correct behaviour — it is asserting a known-incomplete state,
-     * so that the moment C2b teaches [ScenarioLoader.mapPhase] to read any of
-     * these keys, this test goes red and forces both itself and the
-     * `PORT IN PROGRESS` section of [ScenarioLoader]'s class KDoc to be
-     * deleted. A pin that self-destructs is the point; one that stayed green
-     * after the gap closed would be the coverage theater
-     * `.claude/rules/kmp-interop.md` Pattern 4 warns about.
-     *
-     * The `assertEquals(5, …)` does **not** guard against a `load` that rejects
-     * this fixture outright — a rejection throws out of `loader.load` and this
-     * test fails right there, at the `loader.load(yaml)` call, before any
-     * `assertNull` runs. What it actually guards is a `load` that *succeeds*
-     * but silently returns a shorter or empty phase list: without the size
-     * check, a five-`assertNull` pin against a zero-or-short `phases` list
-     * would go vacuous (an out-of-bounds index throws `IndexOutOfBounds`,
-     * which itself would fail the test — but only accidentally, and a
-     * `phases` list padded with unrelated phases at the checked indices would
-     * not even do that).
-     *
-     * **Delete this whole region in C2b**, together with the KDoc section it
-     * names.
-     */
-    @Test
-    fun phaseSpecialisationIsStillUnmapped() {
-        val yaml = makeMinimalYAML(
-            """
-                phases:
-                  - type: choose
-                    prompt: "Choose"
-                    output:
-                      action: string
-                    pairing: round_robin
-                  - type: assign
-                    source: words
-                    target: random_one
-                  - type: score_calc
-                    logic: pairwise_payoff
-                    payoff:
-                      - when: [cooperate, cooperate]
-                        points: [3, 3]
-                  - type: relationship_update
-                    action_deltas:
-                      betray: -2
-                  - type: conditional
-                    if: "round == 1"
-                    then:
-                      - type: speak_all
-                        prompt: "Hi"
-                    else:
-                      - type: eliminate
-            """.trimIndent(),
-        )
-        val phases = loader.load(yaml).phases
-        assertEquals(5, phases.size)
-
-        assertNull(phases[0].outputSchema, "output: is C2b")
-        assertNull(phases[0].pairing, "pairing: is C2b")
-        assertNull(phases[1].target, "target: is C2b")
-        assertNull(phases[2].logic, "logic: is C2b")
-        assertNull(phases[2].payoff, "payoff: is C2b")
-        assertNull(phases[3].actionDeltas, "action_deltas: is C2b")
-        assertNull(phases[4].thenPhases, "then: is C2b")
-        assertNull(phases[4].elsePhases, "else: is C2b")
-
-        // The C2a-mapped fields on the same phases DO land — this half of the
-        // pin is a positive control, so a `load` that silently returned an
-        // empty phase would fail here rather than passing the assertNulls.
-        assertEquals("Choose", phases[0].prompt)
-        assertEquals("words", phases[1].source)
-        assertEquals(PhaseType.SCORE_CALC, phases[2].type)
-        assertEquals(PhaseType.RELATIONSHIP_UPDATE, phases[3].type)
-        assertEquals("round == 1", phases[4].condition)
     }
 
     // endregion
