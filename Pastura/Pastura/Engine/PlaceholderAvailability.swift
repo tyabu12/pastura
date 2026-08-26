@@ -35,6 +35,12 @@ import Foundation
 ///   tokens that `engineSupplied` (a curated coverage-guard subset, #890) never
 ///   registered. The equality is asserted in tests so a new handler-supplied
 ///   placeholder must update this map.
+///
+/// - Note: **Dual-landed with `shared/engine/.../PlaceholderAvailability.kt`**
+///   (ADR-023 Stage 3, D1b). This file is the source of truth and no gate diffs
+///   the two, so a new `PhaseType` case or supplied token is a three-file hand
+///   edit: here, the `.kt`, and its commonTest sibling
+///   (`.claude/rules/kmp-interop.md` Pattern 4).
 nonisolated public enum PlaceholderAvailability {
 
   // MARK: - Supplied tokens per phase type
