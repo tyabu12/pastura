@@ -1,5 +1,6 @@
 {
   "date": "2026-06-13",
+  "run_id": "01:23:45",
   "model": "gemma-4-E2B-it-Q4_K_M",
   "notes": "fixture cycle for append_digest tests",
   "scenarios": [

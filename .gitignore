@@ -81,6 +81,8 @@ data/factory/improvements/
 # checkout's working tree stays clean; each skill's append_digest.py
 # bootstraps the file from a scaffold if absent.
 data/factory/digest.md
+# append_digest.py's flock target, serializing same-date sibling runs (#1542)
+data/factory/digest.md.lock
 data/factory/digest-index.jsonl
 data/factory/audit-digest.md
 data/queue/digest.md

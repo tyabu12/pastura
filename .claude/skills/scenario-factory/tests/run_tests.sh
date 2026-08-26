@@ -50,7 +50,7 @@ echo "$T" | grep -q "1 unparseable line" || fail "transcript: truncated line not
 cp fixtures/digest_seed.md "$TMP/digest.md"
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$TMP/digest.md" >/dev/null
-grep -q "^## 2026-06-13$" "$TMP/digest.md" || fail "digest: section heading missing"
+grep -q "^## 2026-06-13 — 01:23:45$" "$TMP/digest.md" || fail "digest: section heading missing"
 grep -q "factory_20260613_test_ok" "$TMP/digest.md" || fail "digest: ok row missing"
 grep -q '設定は一貫、ボケの幅 \\| は狭め' "$TMP/digest.md" || fail "digest: pipe not escaped in comment"
 grep -q 'elimination / creative' "$TMP/digest.md" || fail "digest: axis column not rendered"
@@ -63,10 +63,10 @@ grep -q '| 1 | 2 | 3 | 4 | – |' "$TMP/digest.md" || fail "digest: null develop
 grep -q "factory-digest:promotion" "$TMP/digest.md" || fail "digest: promotion marker lost"
 tail -1 "$TMP/digest.md" | grep -q "^Promotion:" || fail "digest: promotion line no longer last"
 
-# date idempotency: re-append replaces, never duplicates
+# (date, run_id) idempotency: re-append replaces, never duplicates
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$TMP/digest.md" >/dev/null 2>"$TMP/warn"
-COUNT=$(grep -c "^## 2026-06-13$" "$TMP/digest.md")
+COUNT=$(grep -c "^## 2026-06-13 — 01:23:45$" "$TMP/digest.md")
 [ "$COUNT" -eq 1 ] || fail "digest: re-append duplicated the section ($COUNT)"
 grep -q "warning: replaced" "$TMP/warn" || fail "digest: replace warning missing"
 
@@ -83,7 +83,7 @@ python3 "$SCRIPTS/append_digest.py" \
   || fail "digest: absent file should bootstrap, not error"
 grep -q "factory-digest:sections" "$TMP/bootstrap.md" || fail "bootstrap: sections marker missing"
 grep -q "factory-digest:promotion" "$TMP/bootstrap.md" || fail "bootstrap: promotion marker missing"
-grep -q "^## 2026-06-13$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
+grep -q "^## 2026-06-13 — 01:23:45$" "$TMP/bootstrap.md" || fail "bootstrap: section not appended"
 tail -1 "$TMP/bootstrap.md" | grep -q "^Promotion:" || fail "bootstrap: promotion line not last"
 
 # --- append_digest.py: sidecar index ----------------------------------------
@@ -140,7 +140,7 @@ echo '{not json' > "$CI/digest-index.jsonl"
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$CI/digest.md" >/dev/null 2>"$CI/warn" \
   || fail "index: corrupt existing index line must not fail the append"
-grep -q "^## 2026-06-13$" "$CI/digest.md" || fail "index: digest not updated on corrupt index line"
+grep -q "^## 2026-06-13 — 01:23:45$" "$CI/digest.md" || fail "index: digest not updated on corrupt index line"
 grep -q -- "--rebuild-index" "$CI/warn" || fail "index: corrupt-line warning must name --rebuild-index"
 
 # round-trip: --rebuild-index off the produced digest == the incremental index
@@ -208,8 +208,140 @@ mkdir "$UW/digest-index.jsonl"   # a directory can't be overwritten by a file
 python3 "$SCRIPTS/append_digest.py" \
   --results fixtures/results_sample.json --digest "$UW/digest.md" >/dev/null 2>"$UW/warn" \
   || fail "index: unwritable index must not fail the append"
-grep -q "^## 2026-06-13$" "$UW/digest.md" || fail "index: digest not updated when index write fails"
+grep -q "^## 2026-06-13 — 01:23:45$" "$UW/digest.md" || fail "index: digest not updated when index write fails"
 grep -q -- "--rebuild-index" "$UW/warn" || fail "index: failure warning must name --rebuild-index"
+
+# --- append_digest.py: (date, run_id) section key (#1542) --------------------
+# Two /scenario-factory cycles can share a date in the same main checkout
+# (a re-run after a fix, a second nightly pass). Before #1542 the second
+# append silently wiped the first run's judging record — the digest is the
+# only durable one — so these cases pin the compound key.
+RK="$TMP/runkey"; mkdir -p "$RK"
+cp fixtures/digest_seed.md "$RK/digest.md"
+jq '.run_id = "02:34:56"
+    | .scenarios = [.scenarios[0]]
+    | .scenarios[0].id = "factory_20260613_second_run"' \
+  fixtures/results_sample.json > "$RK/results_run2.json"
+
+# (a) REGRESSION TEST FOR #1542: same date, different run_ids → both survive.
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$RK/digest.md" >/dev/null
+python3 "$SCRIPTS/append_digest.py" \
+  --results "$RK/results_run2.json" --digest "$RK/digest.md" >/dev/null
+grep -q "^## 2026-06-13 — 01:23:45$" "$RK/digest.md" \
+  || fail "runkey: first run's section wiped by a same-date second run (#1542)"
+grep -q "^## 2026-06-13 — 02:34:56$" "$RK/digest.md" \
+  || fail "runkey: second run's section missing"
+grep -q "factory_20260613_test_ok" "$RK/digest.md" || fail "runkey: run-1 rows lost"
+grep -q "factory_20260613_second_run" "$RK/digest.md" || fail "runkey: run-2 rows lost"
+RKIDX="$RK/digest-index.jsonl"
+[ "$(jq -es 'map(select(.run_id=="01:23:45")) | length' "$RKIDX")" -eq 3 ] \
+  || fail "runkey: run-1 index lines lost (#1542)"
+[ "$(jq -es 'map(select(.run_id=="02:34:56")) | length' "$RKIDX")" -eq 1 ] \
+  || fail "runkey: run-2 index line missing"
+
+# (b) re-appending the SAME (date, run_id) replaces only that section
+python3 "$SCRIPTS/append_digest.py" \
+  --results "$RK/results_run2.json" --digest "$RK/digest.md" >/dev/null 2>"$RK/warn"
+grep -q "warning: replaced" "$RK/warn" || fail "runkey: replace warning missing"
+[ "$(grep -c "^## 2026-06-13 — 02:34:56$" "$RK/digest.md")" -eq 1 ] \
+  || fail "runkey: same-key re-append duplicated the section"
+[ "$(grep -c "^## 2026-06-13 — 01:23:45$" "$RK/digest.md")" -eq 1 ] \
+  || fail "runkey: sibling run's section disturbed by a same-key re-append"
+[ "$(jq -es 'map(select(.run_id=="01:23:45")) | length' "$RKIDX")" -eq 3 ] \
+  || fail "runkey: sibling run's index lines disturbed by a same-key re-append"
+[ "$(jq -es 'map(select(.run_id=="02:34:56")) | length' "$RKIDX")" -eq 1 ] \
+  || fail "runkey: same-key re-append duplicated index lines"
+
+# (c) run_id is REQUIRED and shape-checked; a rejected results JSON must leave
+# the digest byte-identical (an unattended run has to be recoverable by hand).
+RV="$TMP/runid_valid"; mkdir -p "$RV"
+cp "$RK/digest.md" "$RV/digest.md"
+cp "$RV/digest.md" "$RV/digest.before"
+jq 'del(.run_id)' fixtures/results_sample.json > "$RV/no_run_id.json"
+if python3 "$SCRIPTS/append_digest.py" \
+  --results "$RV/no_run_id.json" --digest "$RV/digest.md" 2>"$RV/err"; then
+  fail "runid: missing run_id should be a hard error"
+fi
+grep -q "run_id" "$RV/err" || fail "runid: error message must name run_id"
+grep -q "no_run_id.json" "$RV/err" || fail "runid: error message must name the results path"
+cmp -s "$RV/digest.before" "$RV/digest.md" || fail "runid: digest touched by a rejected append"
+# 99:99 has the right shape but is not a real clock time
+jq '.run_id = "99:99"' fixtures/results_sample.json > "$RV/bad_clock.json"
+if python3 "$SCRIPTS/append_digest.py" \
+  --results "$RV/bad_clock.json" --digest "$RV/digest.md" 2>/dev/null; then
+  fail "runid: 99:99 should be rejected as a non-clock run_id"
+fi
+cmp -s "$RV/digest.before" "$RV/digest.md" || fail "runid: digest touched by an invalid run_id"
+
+# (d) --rebuild-index over a digest holding BOTH a legacy date-only section
+# and new run_id-suffixed ones: legacy lines carry run_id null (they predate
+# the key change and must never collide with a real run_id).
+LG="$TMP/legacy"; mkdir -p "$LG"
+cat > "$LG/digest.md" <<'EOF'
+# Digest
+<!-- factory-digest:sections -->
+
+## 2026-06-14 — 02:00:00
+
+| id | name | theme | axis | status | (a) coherence | (b) interaction | (c) breakdown-free | (d) humor | (e) development | comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| new_b | 新 | t | – | ok | 4 | 3 | 5 | 2 | 3 | c |
+
+## 2026-06-14 — 01:00:00
+
+| id | name | theme | axis | status | (a) coherence | (b) interaction | (c) breakdown-free | (d) humor | (e) development | comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| new_a | 新 | t | – | ok | 4 | 3 | 5 | 2 | 3 | c |
+
+## 2026-06-13
+
+| id | name | theme | axis | status | (a) coherence | (b) interaction | (c) breakdown-free | (d) humor | (e) development | comment |
+|---|---|---|---|---|---|---|---|---|---|---|
+| old_a | 旧 | t | – | ok | 1 | 2 | 3 | 4 | – | c |
+
+<!-- factory-digest:promotion -->
+Promotion: x
+EOF
+python3 "$SCRIPTS/append_digest.py" \
+  --digest "$LG/digest.md" --rebuild-index >/dev/null || fail "legacy: rebuild failed"
+LGIDX="$LG/digest-index.jsonl"
+[ "$(grep -c . "$LGIDX")" -eq 3 ] \
+  || fail "legacy: expected 3 lines, got $(grep -c . "$LGIDX")"
+jq -es 'map(select(.id=="old_a"))[0].run_id == null' "$LGIDX" >/dev/null \
+  || fail "legacy: date-only section should rebuild with run_id null"
+jq -es 'map(select(.id=="new_a"))[0].run_id == "01:00:00"' "$LGIDX" >/dev/null \
+  || fail "legacy: suffixed section run_id not parsed"
+jq -es 'map(select(.id=="new_b"))[0].run_id == "02:00:00"' "$LGIDX" >/dev/null \
+  || fail "legacy: second suffixed section not parsed"
+
+# (e) the append really takes an exclusive flock on <digest>.lock — the
+# compound key alone does not stop a concurrent read-modify-write from losing
+# a whole section. A helper holds the lock while an append is launched.
+LK="$TMP/lock"; mkdir -p "$LK"
+cp fixtures/digest_seed.md "$LK/digest.md"
+python3 - "$LK/digest.md.lock" <<'PY' &
+import fcntl, os, sys, time
+fd = os.open(sys.argv[1], os.O_CREAT | os.O_RDWR, 0o644)
+fcntl.flock(fd, fcntl.LOCK_EX)
+time.sleep(4)
+fcntl.flock(fd, fcntl.LOCK_UN)
+os.close(fd)
+PY
+HOLDER_PID=$!
+sleep 1   # generous margin: let the helper acquire before the append starts
+python3 "$SCRIPTS/append_digest.py" \
+  --results fixtures/results_sample.json --digest "$LK/digest.md" >/dev/null 2>&1 &
+APPEND_PID=$!
+sleep 1
+grep -q "^## 2026-06-13" "$LK/digest.md" \
+  && fail "lock: append wrote the digest while the lock was held"
+wait "$HOLDER_PID"
+wait "$APPEND_PID" || fail "lock: append failed after the lock was released"
+grep -q "^## 2026-06-13 — 01:23:45$" "$LK/digest.md" \
+  || fail "lock: section missing after the lock was released"
+[ "$(grep -c . "$LK/digest-index.jsonl")" -eq 3 ] \
+  || fail "lock: sidecar index not updated after the lock was released"
 
 # --- gallery_census.py ------------------------------------------------------
 C=$(python3 "$SCRIPTS/gallery_census.py" fixtures/gallery_census_sample.json)

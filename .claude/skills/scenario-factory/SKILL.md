@@ -389,10 +389,14 @@ never sinks a third night into it.
 ## Step 5 — Append the digest
 
 1. Write the results JSON (schema documented in `append_digest.py`'s
-   docstring: date / model / notes / per-scenario id, name, theme, **axis**,
+   docstring: date / **run_id** / model / notes / per-scenario id, name, theme, **axis**,
    yaml, run_log, status, attempts, duration_sec, scores (5 axes: coherence /
    interaction / breakdown_free / humor / development), comment, error) to
-   a temp file. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
+   a temp file. Set `run_id` to this cycle's `HH:MM:SS` start time — the
+   digest section key is (date, run_id), so a second cycle on the same date
+   gets its own section instead of overwriting the first (#1542). Reuse the
+   SAME `run_id` when re-appending a partially-failed cycle, so it replaces
+   its own section. Set `axis` to the Step 1.5 axis this scenario targeted (e.g.
    `"elimination / creative"`) so cross-night rotation can read it back. Keep
    `notes` a **single line** (a line-initial `## ` or `|` would split the digest
    section on re-parse): `tournament: <N> sketched → <selected ids>; sketches:
@@ -404,7 +408,8 @@ never sinks a third night into it.
      --digest data/factory/digest.md
    ```
 3. Verify: `grep -c 'factory-digest:' data/factory/digest.md` must print
-   `2` (both markers survived), and the new `## <DATE>` section exists.
+   `2` (both markers survived), and the new `## <DATE> — <RUN_ID>` section
+   exists.
 
 ## Step 5.5 — Propose lessons (inbox)
 
