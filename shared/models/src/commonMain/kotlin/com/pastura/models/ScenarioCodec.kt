@@ -20,10 +20,13 @@ import kotlinx.serialization.json.JsonElement
  *
  * **encode-only by design** (W4 PR-A scope decision per W3 PR-C plan v4
  * Option γ-prime): the W4 H4 measurement only exercises the encode path;
- * Swift→K/N decode is NOT on the production iOS graph (YAML → `Scenario`
- * decoding stays Swift-side via `ScenarioLoader`). Adding a decode surface
- * here would be premature — W4 PR-C snakeyaml validation work may need it,
- * in which case it lands then.
+ * Swift→K/N decode is NOT on the production iOS graph — YAML → `Scenario`
+ * decoding runs Swift-side via `Pastura/Pastura/Engine/ScenarioLoader.swift`
+ * in production. A Kotlin `ScenarioLoader` (`shared/engine`) exists as of
+ * ADR-023 Stage 3 Wave C PR C2a, but it is not wired into anything yet, so
+ * the production graph is unchanged. Adding a decode surface here would be
+ * premature — W4 PR-C snakeyaml validation work may need it, in which case
+ * it lands then.
  *
  * **Json instance choice:** `Json` (companion object — kotlinx-serialization
  * default settings) matches existing `commonTest/` usage. No custom

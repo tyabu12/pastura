@@ -52,6 +52,13 @@ nonisolated public struct ScenarioLoader: Sendable {  // swiftlint:disable:this 
   /// - Throws: ``SimulationError/scenarioValidationFailed(_:)`` on a YAML
   ///   parse error or a construct-time invariant violation (wrong field type,
   ///   unknown `language`, persona/agent mismatch, malformed phase shape).
+  ///
+  /// **Partially dual-landed with
+  /// `shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioLoader.kt`**
+  /// (ADR-023 §4 C2a) — the YAML-ingest and top-level-mapping change here
+  /// needs mirroring there. Phase specialisation (`output`, `target`, `pairing`,
+  /// `logic`, `then`/`else`, `action_deltas`, `payoff`) is not yet ported (C2b);
+  /// a change confined to one of those fields has no Kotlin side to mirror yet.
   public func load(yaml: String) throws -> Scenario {
     let stripped = stripCodeFences(yaml)
 
