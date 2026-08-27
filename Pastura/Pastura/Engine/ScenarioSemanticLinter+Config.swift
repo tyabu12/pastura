@@ -1,4 +1,4 @@
-/// Silently-inert configuration rules R7/R8/R9/R17/R18 (ADR-024 D3).
+/// Silently-inert configuration rules R7/R8/R9/R17/R18/R20a/R20b (ADR-024 D3).
 ///
 /// Unlike the ordering rules (`ScenarioSemanticLinter+Ordering.swift`), these
 /// rules don't compare producer/consumer phase indices — each phase (or the
@@ -9,6 +9,9 @@
 /// R9/R18 reuse the same "producer inside a `conditional` branch counts as
 /// present at the conditional's index" imprecision documented on the ordering
 /// rules.
+///
+/// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2b);
+/// a rule change here is a hand edit there and in its commonTest mirror.
 nonisolated extension ScenarioSemanticLinter {
 
   /// Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b).
@@ -137,7 +140,7 @@ nonisolated extension ScenarioSemanticLinter {
   /// no-op: it is parsed, round-tripped, and serialized, but never reaches a
   /// prompt. The brevity bullet it feeds is emitted only by
   /// `PromptBuilder.buildAnswerRules`, which is called from `buildSystemPrompt`
-  /// — reached solely by the six `requiresLLM` handlers. So `requiresLLM`
+  /// — reached solely by the `requiresLLM` handlers. So `requiresLLM`
   /// is exactly the "cap reaches the prompt" predicate, and its inverse is the
   /// provable no-op set. Reusing the existing no-default exhaustive switch
   /// (`PhaseType.requiresLLM`) keeps a single source of truth: a new phase type
@@ -218,7 +221,7 @@ nonisolated extension ScenarioSemanticLinter {
 
   // MARK: - Shared
 
-  /// Builds the single-element findings array for a config `ruleID`,
+  /// Builds the finding for a config `ruleID`,
   /// resolving its fix-hint message via ``configMessage(_:)``.
   private func configFinding(
     _ ruleID: String, _ severity: LintSeverity, at idx: Int

@@ -61,8 +61,9 @@ nonisolated public struct LintFinding: Sendable, Equatable {
 /// quality, thematic fit, or style.
 ///
 /// - Note: **Dual-landed with `shared/engine/.../ScenarioSemanticLinter.kt`**
-///   (ADR-023 Stage 3, D2a — base types and the Ordering group; D2b ports the
-///   other three groups). This file is the source of truth and no gate diffs
+///   (ADR-023 Stage 3, D2a — base types and the Ordering group; D2b — the
+///   Config group. Placeholders and Conditions follow as D2c and D2d). This
+///   file is the source of truth and no gate diffs
 ///   the two, so a new rule or a changed predicate is a three-file hand edit:
 ///   the Swift extension, the `.kt`, and its commonTest sibling
 ///   (`.claude/rules/kmp-interop.md` Pattern 4).
@@ -82,10 +83,10 @@ nonisolated public struct ScenarioSemanticLinter: Sendable {
       + conditionFindings(in: scenario)
   }
 
-  // Producer–consumer phase-ordering rules R1–R6 live in
+  // Producer–consumer phase-ordering rules R1a/R1b/R2/R3/R4/R5/R6/R19 live in
   // `ScenarioSemanticLinter+Ordering.swift` (`orderingFindings(in:)`).
 
-  // Silently-inert configuration rules R7/R8/R9/R17 live in
+  // Silently-inert configuration rules R7/R8/R9/R17/R18/R20a/R20b live in
   // `ScenarioSemanticLinter+Config.swift` (`configFindings(in:)`).
 
   // Placeholder-resolution rules R10–R12 live in
