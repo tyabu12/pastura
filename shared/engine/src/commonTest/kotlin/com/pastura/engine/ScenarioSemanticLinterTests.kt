@@ -12,8 +12,8 @@ import kotlin.test.assertTrue
  * Core-contract tests for [ScenarioSemanticLinter] / [LintFinding] /
  * [LintSeverity] — mirrors
  * `Pastura/PasturaTests/Engine/ScenarioSemanticLinterTests.swift` 1:1 (its
- * "Core contract" and "Severity" sections; the Ordering-rule tests land with
- * D2a item 2, which implements `orderingFindings`). Every function name below
+ * "Core contract" and "Severity" sections; the Ordering-rule tests live in
+ * `ScenarioSemanticLinterOrderingTests.kt`). Every function name below
  * matches its Swift twin exactly — see that file if a name here looks odd.
  */
 class ScenarioSemanticLinterTests {

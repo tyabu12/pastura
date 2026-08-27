@@ -519,59 +519,101 @@ class ScenarioSemanticLinterOrderingTests {
      * `finding.message`, so a mis-transcribed arm in `orderingMessage` would
      * stay green on both sides with nothing to catch it. This test builds a
      * minimal scenario firing each of the 8 ordering ruleIds and checks its
-     * `message` against the matching [ScenarioLintMessage] case's `render()`.
-     * The Swift suite is NOT amended in this PR — a Swift-side twin is a
-     * follow-up.
+     * `message` against the matching [ScenarioLintMessage] case's `render()`,
+     * pinning `size == 1` and the `ruleId` so a rule that fires first on one
+     * of these fixtures after D2b cannot silently change what is measured.
+     * The Swift suite is NOT amended in this PR — the Swift-side twin is #1575.
+     *
+     * Two limits, stated so nobody reads them as proofs: (1) the 8-entry list
+     * is a hand-maintained pin — a ninth ordering rule must be added here by
+     * hand, nothing reddens otherwise; (2) `vote-tally-needs-vote` has no
+     * explicit `orderingMessage` arm on either side (Swift `default:` / Kotlin
+     * `else`), so its row cannot tell "arm correct" from "fell through".
      */
     @Test
     fun orderingMessagesMapEachRuleIdToItsLintMessageCase() {
-        val cases: List<Pair<Scenario, ScenarioLintMessage>> = listOf(
-            makeLinterScenario(agents = 2, rounds = 1, phases = listOf(Phase(type = PhaseType.ELIMINATE))) to
+        val cases: List<Triple<String, Scenario, ScenarioLintMessage>> = listOf(
+            Triple(
+                "eliminate-needs-vote",
+                makeLinterScenario(agents = 2, rounds = 1, phases = listOf(Phase(type = PhaseType.ELIMINATE))),
                 ScenarioLintMessage.EliminateNeedsVote,
-            makeLinterScenario(
-                agents = 2, rounds = 1,
-                phases = listOf(Phase(type = PhaseType.ELIMINATE), Phase(type = PhaseType.VOTE)),
-            ) to ScenarioLintMessage.EliminateAfterVote,
-            makeLinterScenario(
-                agents = 2, rounds = 1,
-                phases = listOf(
-                    Phase(type = PhaseType.CHOOSE, options = listOf("cooperate", "betray")),
-                    Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.PRISONERS_DILEMMA),
+            ),
+            Triple(
+                "eliminate-after-vote",
+                makeLinterScenario(
+                    agents = 2, rounds = 1,
+                    phases = listOf(Phase(type = PhaseType.ELIMINATE), Phase(type = PhaseType.VOTE)),
                 ),
-            ) to ScenarioLintMessage.PdNeedsRoundRobinChoose,
-            makeLinterScenario(
-                agents = 2, rounds = 1,
-                phases = listOf(
-                    Phase(type = PhaseType.CHOOSE, options = listOf("cooperate", "betray")),
-                    Phase(
-                        type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.PAIRWISE_PAYOFF,
-                        payoff = pdPayoff,
+                ScenarioLintMessage.EliminateAfterVote,
+            ),
+            Triple(
+                "pd-needs-round-robin-choose",
+                makeLinterScenario(
+                    agents = 2, rounds = 1,
+                    phases = listOf(
+                        Phase(type = PhaseType.CHOOSE, options = listOf("cooperate", "betray")),
+                        Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.PRISONERS_DILEMMA),
                     ),
                 ),
-            ) to ScenarioLintMessage.PairwisePayoffNeedsRoundRobinChoose,
-            makeLinterScenario(
-                agents = 2, rounds = 1,
-                phases = listOf(Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.WORDWOLF_JUDGE)),
-            ) to ScenarioLintMessage.WordwolfNeedsAssignAndVote,
-            makeEventScenario(
-                phases = listOf(
-                    Phase(type = PhaseType.EVENT_INJECT, source = "events"),
-                    Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.EVENT_REACTIVE),
+                ScenarioLintMessage.PdNeedsRoundRobinChoose,
+            ),
+            Triple(
+                "pairwise-payoff-needs-round-robin-choose",
+                makeLinterScenario(
+                    agents = 2, rounds = 1,
+                    phases = listOf(
+                        Phase(type = PhaseType.CHOOSE, options = listOf("cooperate", "betray")),
+                        Phase(
+                            type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.PAIRWISE_PAYOFF,
+                            payoff = pdPayoff,
+                        ),
+                    ),
                 ),
-                events = AnyCodableValue.ArrayValue(listOf("storm", "calm")),
-            ) to ScenarioLintMessage.EventReactiveNeedsEventInject,
-            makeLinterScenario(
-                agents = 2, rounds = 1,
-                phases = listOf(Phase(type = PhaseType.RELATIONSHIP_UPDATE, voteAgainst = -1)),
-            ) to ScenarioLintMessage.RelationshipUpdatePlacement,
-            makeLinterScenario(
-                agents = 2, rounds = 1,
-                phases = listOf(Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.VOTE_TALLY)),
-            ) to ScenarioLintMessage.VoteTallyNeedsVote,
+                ScenarioLintMessage.PairwisePayoffNeedsRoundRobinChoose,
+            ),
+            Triple(
+                "wordwolf-needs-assign-and-vote",
+                makeLinterScenario(
+                    agents = 2, rounds = 1,
+                    phases = listOf(Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.WORDWOLF_JUDGE)),
+                ),
+                ScenarioLintMessage.WordwolfNeedsAssignAndVote,
+            ),
+            Triple(
+                "event-reactive-needs-event-inject",
+                makeEventScenario(
+                    phases = listOf(
+                        Phase(type = PhaseType.EVENT_INJECT, source = "events"),
+                        Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.EVENT_REACTIVE),
+                    ),
+                    events = AnyCodableValue.ArrayValue(listOf("storm", "calm")),
+                ),
+                ScenarioLintMessage.EventReactiveNeedsEventInject,
+            ),
+            Triple(
+                "relationship-update-placement",
+                makeLinterScenario(
+                    agents = 2, rounds = 1,
+                    phases = listOf(Phase(type = PhaseType.RELATIONSHIP_UPDATE, voteAgainst = -1)),
+                ),
+                ScenarioLintMessage.RelationshipUpdatePlacement,
+            ),
+            Triple(
+                "vote-tally-needs-vote",
+                makeLinterScenario(
+                    agents = 2, rounds = 1,
+                    phases = listOf(Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.VOTE_TALLY)),
+                ),
+                ScenarioLintMessage.VoteTallyNeedsVote,
+            ),
         )
-        for ((scenario, expected) in cases) {
-            val finding = linter.lint(scenario).first()
-            assertEquals(expected.render(), finding.message)
+        // Pin, not proof: a new ordering rule must be added to `cases` by hand.
+        assertEquals(8, cases.size)
+        for ((ruleId, scenario, expected) in cases) {
+            val findings = linter.lint(scenario)
+            assertEquals(1, findings.size, ruleId)
+            assertEquals(ruleId, findings.single().ruleId, ruleId)
+            assertEquals(expected.render(), findings.single().message, ruleId)
         }
     }
 

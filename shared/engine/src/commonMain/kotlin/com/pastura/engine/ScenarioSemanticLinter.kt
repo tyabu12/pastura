@@ -155,6 +155,9 @@ public class ScenarioSemanticLinter {
                     consumer, votes = votes, roundRobinChoose = roundRobinChoose,
                     assignRandomOne = assignRandomOne, eventInject = eventInject,
                 )
+                // Only ELIMINATE / SCORE_CALC reach here — `isOrderingConsumer`
+                // filters the rest. A new ordering consumer needs an arm added
+                // there AND here; this `else` is the Swift `default: break`.
                 else -> Unit
             }
         }
@@ -240,7 +243,7 @@ public class ScenarioSemanticLinter {
     }
 
     /**
-     * Whether a `vote_against` rule at top-level index [i] can't read a
+     * Whether a `vote_against` rule at top-level index [before] can't read a
      * vote: no `vote` precedes it, or a `lastOutputs`-overwriting phase sits
      * between the last preceding `vote` and it.
      */
