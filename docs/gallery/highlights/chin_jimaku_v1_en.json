@@ -32,7 +32,7 @@
   "yaml_hook": {
     "kind": "persona",
     "fragment": "  - name: Over-Local Ollie\n    description: >\n      [Role] A localizer who drags everything into hyper-casual modern slang.\n      [Goal] Make it so breezily colloquial that the original is unrecognizable.\n      e.g. \"Lowkey, this dude's been sus since day one.\"\n  - name: Spoiler Queen Sofia\n    description: >\n      [Role] A translator who carelessly leaks the ending in the subtitle.\n      [Goal] Slip an unrelated ending or plot twist into this line's subtitle.\n      e.g. \"Nice to meet you. (Anyway, she's the killer — you'll find out.)\"",
-    "caption": "The slang machine and the spoiler leak: two of the four translators. Neither description names a film, a scene or a line — the [Role] and [Goal] sentences are the entire act, and swapping them swaps the joke."
+    "caption": "The slang machine and the spoiler leak: two of the four translators. Their [Role] and [Goal] sentences are the entire act — the e.g. underneath is only one sample of it, and nothing here is tied to any particular film."
   },
   "teaser": "Four subtitles, one vote each, and another famous scene still waiting to be ruined.",
   "window_override": false,

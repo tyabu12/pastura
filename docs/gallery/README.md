@@ -463,6 +463,10 @@ call, and these are what the batches so far have taught.
   A hook may only quote personas the excerpt above it actually speaks for —
   the heading claims they are "behind these lines", and the app cannot check
   that claim. Every shipped hook has been a subset of the excerpt's speakers.
+  Nothing enforces it: a re-extract can change the speaker set while the hook
+  fragment is carried over unread, which is exactly how #1577 nearly published
+  a hook naming a persona who spoke none of its excerpt's lines. Re-check the
+  pairing on every re-extract, not just when writing a hook from scratch.
 - **An `eliminate` scenario leaks its outcome through the excerpt's speaker
   set.** Quoting N speakers in round *k* and N−1 of those same speakers in
   round *k+1* identifies the eliminated speaker by omission. ADR-029's
@@ -536,13 +540,18 @@ call, and these are what the batches so far have taught.
   Check the transcript, not the YAML. Dropping one speaker costs nothing —
   outside an `eliminate` scenario, a partial speaker set leaks no outcome (see
   the `eliminate` norm above).
-  **When it is most of the cast, the entry loses its highlight rather than its
-  standards.** Over five #1577 draws of `chin_jimaku_v1`, three of its four
-  translators ignored their own 【目的】 on the only pickable topic, so that
-  entry's highlight was deleted (§ "Updating a scenario that has a highlight",
-  second route) and the scenario tracked for a persona rewrite in #1581.
-  Shipping a thinner or laxer excerpt would have made a showcase out of the
-  design flaw; the highlight returns when the personas hold.
+  **One persona failing every draw can cost the entry its highlight, because
+  the constraints multiply.** `chin_jimaku_v1` lost its highlight in #1577 to a
+  chain, not to a single verdict: `直訳マシーンのボブ` failed six draws out of
+  six, so no hook may quote him; a hook may only quote personas the excerpt
+  speaks for; and in the one draw where the remaining three all held their
+  【目的】, `ネタバレ女王`'s line reused her own `例:` frame, which bars hooking
+  her. What was left was a two-persona slice resting on a `余計な情報のスズキ`
+  line that itself only half-kept his 【目的】 — thin enough that deleting the
+  highlight (§ "Updating a scenario that has a highlight", second route) beat
+  publishing it, with #1581 tracking the persona rewrite that earns it back.
+  Count the *surviving* slices before spending draws: one persona out can
+  eliminate every legal one.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
