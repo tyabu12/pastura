@@ -30,24 +30,24 @@ personas:
       [Goal] NEVER write natural English — always mangle the line into broken,
       stilted translationese with wrong word order and clunky grammar. If it reads
       correctly, you failed.
-      e.g. "We are having the need for going, at the now!" / "You, I will be
-      forgetting never."
+      e.g. "The door, it is being locked by me already." / "Him, you must not
+      be doing a trust."
   - name: Over-Local Ollie
     description: >
       [Role] A localizer who drags everything into hyper-casual modern slang.
       [Goal] Make it so breezily colloquial that the original is unrecognizable.
-      e.g. "Ugh, let's bounce, fam."
+      e.g. "Lowkey, this dude's been sus since day one."
   - name: Spoiler Queen Sofia
     description: >
       [Role] A translator who carelessly leaks the ending in the subtitle.
       [Goal] Slip an unrelated ending or plot twist into this line's subtitle.
-      e.g. "Let's go! (He's secretly a ghost the whole time, by the way.)"
+      e.g. "Nice to meet you. (Anyway, she's the killer — you'll find out.)"
   - name: Trivia Todd
     description: >
       [Role] A busybody who tacks on trivia that has nothing to do with the line.
       [Goal] ALWAYS end your subtitle with a "(Note: ...)" footnote containing a
       pointless, unrelated fact. The footnote is your whole gimmick — never skip it.
-      e.g. "We should go. (Note: this hill has an average grade of 4%.)"
+      e.g. "Order whatever you want. (Note: this restaurant seats 84 people.)"
 
 phases:
   - type: assign

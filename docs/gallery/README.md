@@ -458,10 +458,15 @@ call, and these are what the batches so far have taught.
   app's heading ("Some of the personas behind these lines", pinned by
   `HookHeadingLocalizationTests`). That is what ADR-029's
   § Amendment 2026-08-08 requires, and it is structural. Saying so again in the
-  caption is optional polish: `chin_jimaku_v1` states the count outright
-  (「この抜粋を生んだ4人のうち、特にクセの強い2人の設定。」),
-  `asch_conformity_v1` only implies it
-  (「サクラ4人の"後"に答えさせられるナオキの設定。」), and both are accepted.
+  caption is optional polish: `asch_conformity_v1` only implies the count
+  (「サクラ4人の"後"に答えさせられるナオキの設定。」) and is accepted as is.
+  A hook may only quote personas the excerpt above it actually speaks for —
+  the heading claims they are "behind these lines", and the app cannot check
+  that claim. Every shipped hook has been a subset of the excerpt's speakers.
+  Nothing enforces it: a re-extract can change the speaker set while the hook
+  fragment is carried over unread, which is exactly how #1577 nearly published
+  a hook naming a persona who spoke none of its excerpt's lines. Re-check the
+  pairing on every re-extract, not just when writing a hook from scratch.
 - **An `eliminate` scenario leaks its outcome through the excerpt's speaker
   set.** Quoting N speakers in round *k* and N−1 of those same speakers in
   round *k+1* identifies the eliminated speaker by omission. ADR-029's
@@ -503,18 +508,19 @@ call, and these are what the batches so far have taught.
   worked examples shadow its own `topics:` / `events:` entries will keep
   costing draws until the YAML is fixed.
   **When every persona's example shadows the same topic, no draw can fix it
-  and the hook is what has to move.** In `chin_jimaku_v1_en` all four `e.g.`
-  lines render topic 1's LINE, and topic 1 is the only pickable round, so any
-  `persona` hook would have printed its own example beside the excerpt. That
-  batch published a `raw` hook of the `speak_all` phase instead, which is
-  what the excerpt actually answers, and #1577 tracks re-pointing those
-  examples at a line neither topic uses. Fixing the YAML re-hashes it, so it
-  forces a re-extract and a fresh sign-off (§ "Updating a scenario that has a
-  highlight"). Treat this as the exception it is: ADR-029
-  § Amendment 2026-08-08 makes `persona` the default precisely so the app can
-  draw the hook in the editor's vocabulary rather than as a monospace block,
-  so reach for `raw` when a `persona` hook would publish something false or
-  spoiling, not because it is easier to slice.
+  and the hook is what has to move — but moving the hook is the stopgap, not
+  the fix.** `chin_jimaku_v1_en` shipped all four `e.g.` lines rendering
+  topic 1's LINE, and topic 1 is its only pickable round, so any `persona`
+  hook would have printed its own example beside the excerpt. That batch
+  published a `raw` hook of the `speak_all` phase instead, which is what the
+  excerpt actually answers. #1577 then re-pointed all four examples at lines
+  neither topic uses, and the entry is back on a `persona` hook. Reach for
+  `raw` only while the YAML is still wrong: ADR-029 § Amendment 2026-08-08
+  makes `persona` the default precisely so the app can draw the hook in the
+  editor's vocabulary rather than as a monospace block. Fixing the YAML
+  re-hashes it, so it forces a re-extract and a fresh sign-off
+  (§ "Updating a scenario that has a highlight") — budget that before
+  starting, not after the gate rejects the commit.
 - **Captions and teasers render verbatim — no Markdown.** The app draws both
   with `Text(verbatim:)` and the landing pages interpolate them as text, so
   backticks, asterisks and brackets ship as literal characters. Write
@@ -522,11 +528,30 @@ call, and these are what the batches so far have taught.
   at.
 - **A persona that drops its own gimmick is not quotable, however good the
   line is.** `chin_jimaku_v1_en`'s `Trivia Todd` is defined entirely by the
-  `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he omitted it
-  in both en draws. Quoting him would put a line that contradicts his own
-  declared gimmick on the page. Dropping the speaker costs nothing here —
+  `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he has now
+  omitted it in four draws across two YAML revisions. Quoting him would put a
+  line that contradicts his own declared gimmick on the page. Its ja sibling's
+  `直訳マシーンのボブ` fails the same way from the other side — in six draws
+  across two revisions, the shipped one included, he wrote fluent Japanese
+  where his 【目的】 demands collapsed word-for-word translationese. A `[Goal]`
+  the model quietly ignores is a scenario-design problem, not a draw problem,
+  so **an emphatic instruction is not evidence that it lands** — `Trivia Todd`
+  carries the most forceful wording in either file and honours it least.
+  Check the transcript, not the YAML. Dropping one speaker costs nothing —
   outside an `eliminate` scenario, a partial speaker set leaks no outcome (see
   the `eliminate` norm above).
+  **One persona failing every draw can cost the entry its highlight, because
+  the constraints multiply.** `chin_jimaku_v1` lost its highlight in #1577 to a
+  chain, not to a single verdict: `直訳マシーンのボブ` failed six draws out of
+  six, so no hook may quote him; a hook may only quote personas the excerpt
+  speaks for; and in the one draw where the remaining three all held their
+  【目的】, `ネタバレ女王`'s line reused her own `例:` frame, which bars hooking
+  her. What was left was a two-persona slice resting on a `余計な情報のスズキ`
+  line that itself only half-kept his 【目的】 — thin enough that deleting the
+  highlight (§ "Updating a scenario that has a highlight", second route) beat
+  publishing it, with #1581 tracking the persona rewrite that earns it back.
+  Count the *surviving* slices before spending draws: one persona out can
+  eliminate every legal one.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
