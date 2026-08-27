@@ -206,8 +206,6 @@
       "language": "ja",
       "yaml_url": "chin_jimaku_v1.yaml",
       "yaml_sha256": "407ad948cf983287e13d4e49d4128e32ee804ad79d2574cb4ec1688b06ed7b27",
-      "highlight_url": "highlights/chin_jimaku_v1.json",
-      "highlight_sha256": "55196157ea7ba0f42c9f46717eaba05d632f5ed22fde467a2702d61869edde2f",
       "added_at": "2026-06-13"
     },
     {
@@ -785,7 +783,7 @@
       "yaml_url": "chin_jimaku_v1_en.yaml",
       "yaml_sha256": "e9b3e2b71cf7427656c30f58528a2c77b4ddfeea0cbf0f6ee84cd7fd40885971",
       "highlight_url": "highlights/chin_jimaku_v1_en.json",
-      "highlight_sha256": "21e6e6255a3db1f18c156d2d8d9da60184c2d1bc8d7599cfaabe17d3800e0d50",
+      "highlight_sha256": "61f010145d733dcdc30fe3b1589c3f4f2de3ca28f25f7ca4f4e673865ba6ccda",
       "added_at": "2026-07-01"
     },
     {

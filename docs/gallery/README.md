@@ -458,10 +458,11 @@ call, and these are what the batches so far have taught.
   app's heading ("Some of the personas behind these lines", pinned by
   `HookHeadingLocalizationTests`). That is what ADR-029's
   § Amendment 2026-08-08 requires, and it is structural. Saying so again in the
-  caption is optional polish: `chin_jimaku_v1` states the count outright
-  (「4人の翻訳者から両極の2人を抜き出した設定」),
-  `asch_conformity_v1` only implies it
-  (「サクラ4人の"後"に答えさせられるナオキの設定。」), and both are accepted.
+  caption is optional polish: `asch_conformity_v1` only implies the count
+  (「サクラ4人の"後"に答えさせられるナオキの設定。」) and is accepted as is.
+  A hook may only quote personas the excerpt above it actually speaks for —
+  the heading claims they are "behind these lines", and the app cannot check
+  that claim. Every shipped hook has been a subset of the excerpt's speakers.
 - **An `eliminate` scenario leaks its outcome through the excerpt's speaker
   set.** Quoting N speakers in round *k* and N−1 of those same speakers in
   round *k+1* identifies the eliminated speaker by omission. ADR-029's
@@ -526,13 +527,22 @@ call, and these are what the batches so far have taught.
   `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he has now
   omitted it in four draws across two YAML revisions. Quoting him would put a
   line that contradicts his own declared gimmick on the page. Its ja sibling's
-  `直訳マシーンのボブ` fails the same way from the other side — twice he wrote
-  fluent Japanese where his 【目的】 demands collapsed word-for-word
-  translationese. A `[Goal]` the model quietly ignores is a scenario-design
-  problem, not a draw problem, so **an emphatic instruction is not evidence
-  that it lands**; check the transcript. Dropping the speaker costs nothing
-  here — outside an `eliminate` scenario, a partial speaker set leaks no
-  outcome (see the `eliminate` norm above).
+  `直訳マシーンのボブ` fails the same way from the other side — in six draws
+  across two revisions, the shipped one included, he wrote fluent Japanese
+  where his 【目的】 demands collapsed word-for-word translationese. A `[Goal]`
+  the model quietly ignores is a scenario-design problem, not a draw problem,
+  so **an emphatic instruction is not evidence that it lands** — `Trivia Todd`
+  carries the most forceful wording in either file and honours it least.
+  Check the transcript, not the YAML. Dropping one speaker costs nothing —
+  outside an `eliminate` scenario, a partial speaker set leaks no outcome (see
+  the `eliminate` norm above).
+  **When it is most of the cast, the entry loses its highlight rather than its
+  standards.** Over five #1577 draws of `chin_jimaku_v1`, three of its four
+  translators ignored their own 【目的】 on the only pickable topic, so that
+  entry's highlight was deleted (§ "Updating a scenario that has a highlight",
+  second route) and the scenario tracked for a persona rewrite in #1581.
+  Shipping a thinner or laxer excerpt would have made a showcase out of the
+  design flaw; the highlight returns when the personas hold.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
