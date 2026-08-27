@@ -254,6 +254,8 @@
       "language": "ja",
       "yaml_url": "hapning_ranyu_v1.yaml",
       "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
+      "highlight_url": "highlights/hapning_ranyu_v1.json",
+      "highlight_sha256": "c381ca4b8cc920852c2683017e08e5970ebc074e13cfb87395856477340acf06",
       "added_at": "2026-06-20"
     },
     {
