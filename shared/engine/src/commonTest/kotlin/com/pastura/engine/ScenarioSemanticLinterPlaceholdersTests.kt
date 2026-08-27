@@ -73,7 +73,7 @@ import kotlin.test.assertTrue
  *   none either, so the companion's presence in the known set is untested on
  *   both sides. Recorded as a gap rather than papered over with a Kotlin-only
  *   test, which would break the 1:1 mirror; the fix belongs on the Swift side
- *   first.
+ *   first — tracked as #1584.
  */
 class ScenarioSemanticLinterPlaceholdersTests {
 
