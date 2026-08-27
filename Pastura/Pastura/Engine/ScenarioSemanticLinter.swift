@@ -59,6 +59,13 @@ nonisolated public struct LintFinding: Sendable, Equatable {
 /// ``LintSeverity``): errors block like validation errors, warnings and info
 /// never block. It judges *reachability and effect* only — never content
 /// quality, thematic fit, or style.
+///
+/// - Note: **Dual-landed with `shared/engine/.../ScenarioSemanticLinter.kt`**
+///   (ADR-023 Stage 3, D2a — base types and the Ordering group; D2b ports the
+///   other three groups). This file is the source of truth and no gate diffs
+///   the two, so a new rule or a changed predicate is a three-file hand edit:
+///   the Swift extension, the `.kt`, and its commonTest sibling
+///   (`.claude/rules/kmp-interop.md` Pattern 4).
 nonisolated public struct ScenarioSemanticLinter: Sendable {
 
   /// Creates a linter.

@@ -1,4 +1,4 @@
-/// Producer–consumer phase-ordering rules R1–R6 (ADR-024 D3).
+/// Producer–consumer phase-ordering rules R1–R6 + R19 (ADR-024 D3).
 ///
 /// Each rule compares **phase-list indices**: a consuming phase
 /// (`eliminate` / `score_calc`) needs its producer (`vote`, round-robin
@@ -15,6 +15,9 @@
 ///   inside branches). "Earlier" is therefore `index <= consumerIndex`, so a
 ///   producer sharing the consumer's enclosing conditional is treated as
 ///   satisfying the dependency rather than flagged.
+///
+/// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2a);
+/// a rule change here is a hand edit there and in its commonTest mirror.
 nonisolated extension ScenarioSemanticLinter {
 
   /// A phase paired with the top-level phase-list index its finding anchors
@@ -28,7 +31,7 @@ nonisolated extension ScenarioSemanticLinter {
     let topLevelIndex: Int
   }
 
-  /// Producer–consumer ordering findings (R1a/R1b/R2/R3/R5/R6).
+  /// Producer–consumer ordering findings (R1a/R1b/R2/R3/R5/R6/R19 + R4).
   func orderingFindings(in scenario: Scenario) -> [LintFinding] {
     let phases = scenario.phases
     let votes = producerIndices(in: phases) { $0.type == .vote }
