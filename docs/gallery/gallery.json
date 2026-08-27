@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-22T00:00:00Z",
+  "updated_at": "2026-08-27T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -158,6 +158,8 @@
       "language": "ja",
       "yaml_url": "shachiku_senryu_v1.yaml",
       "yaml_sha256": "f75b457a8a6b5fdca9d86732f5cffa1602b44dd5879e61317bb550b810efbed3",
+      "highlight_url": "highlights/shachiku_senryu_v1.json",
+      "highlight_sha256": "271449c195eebfce5beffc708d2d726f94dfe82289dc21e2dd544e56388c8a09",
       "added_at": "2026-06-13"
     },
     {
