@@ -390,7 +390,7 @@ public class ScenarioSemanticLinter {
             phase.source != null &&
             scenario.extraData[phase.source] is AnyCodableValue.ArrayOfDictionariesValue
 
-    // MARK: - Config rules (R7/R8/R9/R17/R18)
+    // MARK: - Config rules (R7/R8/R9/R17/R18/R20a/R20b)
     //
     // Ported from `ScenarioSemanticLinter+Config.swift`. Unlike the ordering
     // rules above, these rules don't compare producer/consumer phase indices —
@@ -402,13 +402,14 @@ public class ScenarioSemanticLinter {
     // inside a `conditional` branch counts as present at the conditional's
     // index" imprecision documented on the ordering rules.
 
-    /** Silently-inert-configuration findings (R7/R8/R9/R17/R18). */
+    /** Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b). */
     internal fun configFindings(scenario: Scenario): List<LintFinding> =
         chooseOptionsFindings(scenario.phases) +
             assignSourceFindings(scenario.phases, scenario) +
             summarizePairingFindings(scenario.phases) +
             logWindowFindings(scenario) +
-            maxSentencesNoOpFindings(scenario.phases)
+            maxSentencesNoOpFindings(scenario.phases) +
+            payoffTokenFindings(scenario.phases)
 
     // MARK: - R7 choose-should-declare-options (warning)
 
@@ -560,6 +561,94 @@ public class ScenarioSemanticLinter {
         phaseRefs(phases) { it.maxSentences != null && !it.type.requiresLLM }
             .map { configFinding("max-sentences-no-op", LintSeverity.WARNING, it.topLevelIndex) }
 
+    // MARK: - R20a pairwise-payoff-no-scorable-row (error) / R20b dead-row (warning)
+
+    /**
+     * R20a/R20b (ADR-024 § Amendment 2026-07-17): a `pairwise_payoff` `payoff`
+     * table whose `when` tokens are checked against the round-robin `choose`
+     * options that populate its pairings. `ChooseHandler.validateAction`
+     * canonicalizes every action to an **exact** option string (on-menu
+     * verbatim, else `options[0]`) — no case/whitespace folding — and
+     * `PairwisePayoffLogic` matches rows by exact `==`, so a `when` token
+     * outside the option set can never match a real action and its row is dead.
+     * The exact [Set.contains] below mirrors that runtime exactly; if a future
+     * change (ADR-021 § Amendment, PR2.5) adds folding to `validateAction`,
+     * fold both sides here too, or this blocking [LintSeverity.ERROR] rule
+     * becomes stricter than the runtime it models.
+     *
+     * - **R20a** ([LintSeverity.ERROR]): *no* row is satisfiable (incl. an
+     *   absent/empty `payoff:`) -> every pairing scores nothing, a guaranteed
+     *   no-op.
+     * - **R20b** ([LintSeverity.WARNING]): some rows fire but at least one is
+     *   dead -> the phase still scores; leaving combinations unlisted is a
+     *   legitimate choice.
+     *
+     * Skipped when no options-bearing round-robin `choose` precedes: R19 owns
+     * the "no round-robin choose" case and R7 owns "choose with no options", so
+     * R20 has no closed set to check and must not double-report.
+     */
+    private fun payoffTokenFindings(phases: List<Phase>): List<LintFinding> {
+        val chooseOptions = roundRobinChooseOptions(phases)
+        return phaseRefs(phases) {
+            it.type == PhaseType.SCORE_CALC && it.logic == ScoreCalcLogic.PAIRWISE_PAYOFF
+        }
+            .mapNotNull { payoffFinding(it, chooseOptions) }
+    }
+
+    /**
+     * Round-robin `choose` phases carrying a non-empty `options` list, paired
+     * with the top-level index their pairings anchor to (a branch choose counts
+     * at its conditional's index — the may-run imprecision shared with the
+     * ordering rules).
+     *
+     * Two entries can share one top-level index (a round-robin `choose` in both
+     * the `then` and the `else` branch of one conditional). [payoffFinding]'s
+     * "last qualifying entry" pick then depends on a tie-break: Swift's
+     * `max(by:)` and Kotlin's [maxByOrNull] both return the **first** of equals,
+     * so the twins agree — but neither is a documented guarantee and no fixture
+     * pins it. Pin one before relying on the choice.
+     */
+    private fun roundRobinChooseOptions(phases: List<Phase>): List<Pair<Int, Set<String>>> {
+        val result = mutableListOf<Pair<Int, Set<String>>>()
+        phases.forEachIndexed { index, phase ->
+            for (candidate in listOf(phase) + branchPhases(phase)) {
+                if (candidate.type != PhaseType.CHOOSE || candidate.pairing != PairingStrategy.ROUND_ROBIN) {
+                    continue
+                }
+                val options = candidate.options ?: emptyList()
+                if (options.isNotEmpty()) result.add(index to options.toSet())
+            }
+        }
+        return result
+    }
+
+    /**
+     * The R20a/R20b finding for one `pairwise_payoff` `score_calc`, or `null`
+     * when it has no options-bearing round-robin `choose` producer (R19/R7
+     * territory) or every row is satisfiable.
+     */
+    private fun payoffFinding(
+        ref: PhaseRef,
+        chooseOptions: List<Pair<Int, Set<String>>>,
+    ): LintFinding? {
+        val idx = ref.topLevelIndex
+        // The LAST qualifying producer by index wins (first-of-equals on ties):
+        // Swift's `filter { $0.index <= idx }.max(by: { $0.index < $1.index })`.
+        val options = chooseOptions.filter { it.first <= idx }.maxByOrNull { it.first }?.second
+            ?: return null
+        val rows = ref.phase.payoff ?: emptyList()
+        val satisfiable = rows.filter {
+            it.`when`.size == 2 && options.contains(it.`when`[0]) && options.contains(it.`when`[1])
+        }
+        if (satisfiable.isEmpty()) {
+            return configFinding("pairwise-payoff-no-scorable-row", LintSeverity.ERROR, idx)
+        }
+        if (satisfiable.size < rows.size) {
+            return configFinding("pairwise-payoff-dead-row", LintSeverity.WARNING, idx)
+        }
+        return null
+    }
+
     // MARK: - Config shared
 
     /**
@@ -578,6 +667,8 @@ public class ScenarioSemanticLinter {
         "assign-source-nonempty" -> ScenarioLintMessage.AssignSourceNonempty.render()
         "summarize-pairing-placeholders" -> ScenarioLintMessage.SummarizePairingPlaceholders.render()
         "max-sentences-no-op" -> ScenarioLintMessage.MaxSentencesNoOp.render()
+        "pairwise-payoff-no-scorable-row" -> ScenarioLintMessage.PairwisePayoffNoScorableRow.render()
+        "pairwise-payoff-dead-row" -> ScenarioLintMessage.PairwisePayoffDeadRow.render()
         // Falls to `log-window-below-agent-count`: `logWindowFindings` is the
         // only other caller of `configMessage`, always with this ruleId.
         else -> ScenarioLintMessage.LogWindowBelowAgentCount.render()

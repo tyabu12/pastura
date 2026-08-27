@@ -18,8 +18,8 @@ import kotlin.test.assertTrue
  * file if a name here looks odd.
  *
  * 19 tests mirrored 1:1. R20a/R20b (`pairwise-payoff-no-scorable-row` /
- * `pairwise-payoff-dead-row`) land in the following commit with their own
- * tests.
+ * `pairwise-payoff-dead-row`) live in [ScenarioSemanticLinterPayoffTests],
+ * mirroring the Swift split across `…Tests+Config.swift` / `…Tests+Payoff.swift`.
  *
  * **One deviation from the Swift original**, in
  * [maxSentencesOnLLMPhasesDoesNotFire]: the Swift loop covered 6 phase types
@@ -44,12 +44,16 @@ import kotlin.test.assertTrue
  * | 5 | `maxSentencesNoOpFindings`: dropped the `!` from `!it.type.requiresLLM` | [maxSentencesOnCodePhaseFiresWarning], [maxSentencesOnCodePhaseNestedInConditionalFiresAtConditionalIndex], [maxSentencesOnLLMPhasesDoesNotFire] |
  * | 6 | `configMessage`: fallthrough `else` arm swapped to `MaxSentencesNoOp` | **nothing** — see below |
  *
- * Row 6 is a measured **gap**, recorded rather than hidden: no test in this
- * class asserts `finding.message`, so any mis-transcribed `configMessage` arm
- * ships green. [ScenarioSemanticLinterOrderingTests] closes the equivalent gap
- * with its `orderingMessagesMapEachRuleIdToItsLintMessageCase` pin; the Config
- * group has no counterpart yet because R20a/R20b's two ruleIds land in the
- * next commit and such a pin should cover all seven arms at once.
+ * Row 6 was a measured **gap** at the time of this class's port, recorded
+ * rather than hidden: no test in *this* class asserts `finding.message`, so any
+ * mis-transcribed `configMessage` arm shipped green.
+ * [ScenarioSemanticLinterOrderingTests] closes the equivalent gap with its
+ * `orderingMessagesMapEachRuleIdToItsLintMessageCase` pin; the Config
+ * counterpart is
+ * `ScenarioSemanticLinterPayoffTests.configMessagesMapEachRuleIdToItsLintMessageCase`,
+ * added with the R20a/R20b port so it could cover all seven arms at once. It
+ * lives in that class, not this one, so re-running row 6's mutation today
+ * reddens **it** rather than nothing.
  *
  * A mutation of R9's `<=` to `<` (the obvious off-by-one candidate) was
  * **not** recorded: every R9 fixture places its round-robin `choose` at a
