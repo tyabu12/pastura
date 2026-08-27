@@ -510,7 +510,11 @@ call, and these are what the batches so far have taught.
   what the excerpt actually answers, and #1577 tracks re-pointing those
   examples at a line neither topic uses. Fixing the YAML re-hashes it, so it
   forces a re-extract and a fresh sign-off (§ "Updating a scenario that has a
-  highlight").
+  highlight"). Treat this as the exception it is: ADR-029
+  § Amendment 2026-08-08 makes `persona` the default precisely so the app can
+  draw the hook in the editor's vocabulary rather than as a monospace block,
+  so reach for `raw` when a `persona` hook would publish something false or
+  spoiling, not because it is easier to slice.
 - **Captions and teasers render verbatim — no Markdown.** The app draws both
   with `Text(verbatim:)` and the landing pages interpolate them as text, so
   backticks, asterisks and brackets ship as literal characters. Write
@@ -518,11 +522,11 @@ call, and these are what the batches so far have taught.
   at.
 - **A persona that drops its own gimmick is not quotable, however good the
   line is.** `chin_jimaku_v1_en`'s `Trivia Todd` is defined entirely by the
-  `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he omitted
-  it in both en draws. Quoting him would put a line that contradicts his own
-  declared gimmick on the page. Dropping the speaker costs
-  nothing here — outside an `eliminate` scenario, a partial speaker set
-  leaks no outcome (see the `eliminate` norm above).
+  `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he omitted it
+  in both en draws. Quoting him would put a line that contradicts his own
+  declared gimmick on the page. Dropping the speaker costs nothing here —
+  outside an `eliminate` scenario, a partial speaker set leaks no outcome (see
+  the `eliminate` norm above).
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.

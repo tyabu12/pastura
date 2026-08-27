@@ -785,7 +785,7 @@
       "yaml_url": "chin_jimaku_v1_en.yaml",
       "yaml_sha256": "c5b2bb7b2dd0a2c5f380de4216dc6c86f39cd279921f0b3575c7ecaba9783c21",
       "highlight_url": "highlights/chin_jimaku_v1_en.json",
-      "highlight_sha256": "a295a054b8177171c4e44c9c05d49729a8321a3f517093e012497bbb58d2c4a3",
+      "highlight_sha256": "80114cacc7f59dd941c95e645b4118f0a5e0a35f568818162264581a82f6edf2",
       "added_at": "2026-07-01"
     },
     {
@@ -809,7 +809,7 @@
       "yaml_url": "shachiku_senryu_v1_en.yaml",
       "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2",
       "highlight_url": "highlights/shachiku_senryu_v1_en.json",
-      "highlight_sha256": "2bce685e89d64af4985ce1a5bebb0cb5a25317dcbf78b0380527d8b3d99096ef",
+      "highlight_sha256": "58c222f79fa0b2b643996f51df71931e1faaed120e599558d3a49de0ac47d452",
       "added_at": "2026-07-01"
     },
     {

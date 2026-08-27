@@ -41,7 +41,7 @@
   "yaml_hook": {
     "kind": "raw",
     "fragment": "  - type: speak_all\n    prompt: >\n      {assigned_topic}\n\n      Fully in character, write your English subtitle for this line in 1-2\n      sentences. Keep it short and commit to the bit.\n    output:\n      statement: string\n      inner_thought: string",
-    "caption": "Every subtitle above answers this one instruction. What separates them is not the prompt but the four translator descriptions it gets handed to."
+    "caption": "Every subtitle above answers this one instruction. What separates them is not the prompt but the four translator descriptions further up the same file."
   },
   "teaser": "Four subtitles, one vote each, and another famous scene still waiting to be ruined.",
   "window_override": false,

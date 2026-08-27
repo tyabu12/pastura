@@ -32,7 +32,7 @@
   "yaml_hook": {
     "kind": "persona",
     "fragment": "  - name: Byron the Bard\n    description: >\n      [Role] A pretentious Romantic poet drunk on his own melancholy.\n      [Goal] Inflate the pettiest office trifle into grand tragic poetry.\n      e.g. \"O, three hundred unread in my Slack / and my soul, it shall never come back.\"\n  - name: Old-Timer Walt\n    description: >\n      [Role] A weary veteran on the edge of retirement, still dragging the old days\n      along.\n      [Goal] Deliver a dry, bittersweet verse that makes you laugh and ache at once.\n      e.g. \"They rehired me, my title cut thin / just a badge and a chair to clock in.\"",
-    "caption": "Two of the four voices behind these verses. A Romantic poet who mistakes an office for a graveyard, and a veteran counting down to the exit. The form is fixed at five lines; nothing else is."
+    "caption": "The gloom and the ache, side by side: a Romantic poet who mistakes an office for a graveyard, and a veteran counting down to the exit. The form is fixed at five lines; nothing else is."
   },
   "teaser": "Once every limerick is in, they vote for the funniest that is not their own, and a second prompt is still waiting.",
   "window_override": false,
