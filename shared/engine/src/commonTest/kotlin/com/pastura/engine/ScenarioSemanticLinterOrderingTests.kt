@@ -522,7 +522,8 @@ class ScenarioSemanticLinterOrderingTests {
      * `message` against the matching [ScenarioLintMessage] case's `render()`,
      * pinning `size == 1` and the `ruleId` so a rule that fires first on one
      * of these fixtures after D2b cannot silently change what is measured.
-     * The Swift suite is NOT amended in this PR — the Swift-side twin is #1575.
+     * The Swift twin now exists: `ScenarioSemanticLinterTests+Ordering.swift`'s
+     * `orderingMessagesMapEachRuleIDToItsLintMessageCase`.
      *
      * Two limits, stated so nobody reads them as proofs: (1) the 8-entry list
      * is a hand-maintained pin — a ninth ordering rule must be added here by
