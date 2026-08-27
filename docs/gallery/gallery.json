@@ -694,6 +694,8 @@
       "language": "en",
       "yaml_url": "iiwake_battle_v1_en.yaml",
       "yaml_sha256": "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3",
+      "highlight_url": "highlights/iiwake_battle_v1_en.json",
+      "highlight_sha256": "ac1b38ca3a945efdc768f318edf1833baede865fba30d279abdaae4677fc8165",
       "added_at": "2026-07-01"
     },
     {
@@ -782,6 +784,8 @@
       "language": "en",
       "yaml_url": "chin_jimaku_v1_en.yaml",
       "yaml_sha256": "c5b2bb7b2dd0a2c5f380de4216dc6c86f39cd279921f0b3575c7ecaba9783c21",
+      "highlight_url": "highlights/chin_jimaku_v1_en.json",
+      "highlight_sha256": "80114cacc7f59dd941c95e645b4118f0a5e0a35f568818162264581a82f6edf2",
       "added_at": "2026-07-01"
     },
     {
@@ -804,6 +808,8 @@
       "language": "en",
       "yaml_url": "shachiku_senryu_v1_en.yaml",
       "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2",
+      "highlight_url": "highlights/shachiku_senryu_v1_en.json",
+      "highlight_sha256": "58c222f79fa0b2b643996f51df71931e1faaed120e599558d3a49de0ac47d452",
       "added_at": "2026-07-01"
     },
     {

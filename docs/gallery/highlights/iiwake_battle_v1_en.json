@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "iiwake_battle_v1_en",
+    "yaml_sha256": "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260827-100042-d0e3",
+    "generated_at": "2026-08-27"
+  },
+  "excerpt": [
+    {
+      "agent": "Global George",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "I apologize, but the fluctuating global shipping lanes caused an unavoidable delay in my arrival."
+    },
+    {
+      "agent": "Dr. Quantum",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "My temporal coordinates were momentarily entangled with a localized distortion field, resulting in an unavoidable phase shift."
+    },
+    {
+      "agent": "Sentimental Sam",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "Oh, the sheer agony of missing that meeting was due to a sudden, heartbreaking realization that I had forgotten my favorite childhood teddy bear at home."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Dr. Quantum\n    description: >\n      [Role] An excuse-maker armed with pseudo-science.\n      [Goal] Blind everyone with plausible-sounding jargon.\n      e.g. \"Until observed, my lateness remains in superposition.\" \"It was the\n      unanimous verdict of my gut microbiome.\"\n  - name: Sentimental Sam\n    description: >\n      [Role] A tear-jerking excuse-maker who tugs the heartstrings.\n      [Goal] Spin a sob story so shamelessly moving the listener wants to forgive\n      you anyway.\n      e.g. \"A stray kitten simply would not let go of me.\" \"It was a promise I made\n      to my late grandmother.\"",
+    "caption": "Pseudo-science and a sob story: two of the four excuse-makers in the line-up. The act lives in the e.g. lines. Swap those and you have changed the school of excuse-making, not just the wording."
+  },
+  "teaser": "Speaking later means topping the excuse before yours, and laying it on too thick backfires. There is another screw-up to answer for after this one.",
+  "window_override": false,
+  "content_filter_applied": true
+}

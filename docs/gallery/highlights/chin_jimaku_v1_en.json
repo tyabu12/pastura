@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "chin_jimaku_v1_en",
+    "yaml_sha256": "c5b2bb7b2dd0a2c5f380de4216dc6c86f39cd279921f0b3575c7ecaba9783c21"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260827-095525-aee7",
+    "generated_at": "2026-08-27"
+  },
+  "excerpt": [
+    {
+      "agent": "Literal Larry",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "Need go we now! Go, need we! Explosion big, we must run!"
+    },
+    {
+      "agent": "Over-Local Ollie",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "Gotta bail, fam, this ain't it anymore."
+    },
+    {
+      "agent": "Spoiler Queen Sofia",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "Go now, because the secret agent is actually a talking squirrel!"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "raw",
+    "fragment": "  - type: speak_all\n    prompt: >\n      {assigned_topic}\n\n      Fully in character, write your English subtitle for this line in 1-2\n      sentences. Keep it short and commit to the bit.\n    output:\n      statement: string\n      inner_thought: string",
+    "caption": "Every subtitle above answers this one instruction. What separates them is not the prompt but the four translator descriptions further up the same file."
+  },
+  "teaser": "Four subtitles, one vote each, and another famous scene still waiting to be ruined.",
+  "window_override": false,
+  "content_filter_applied": true
+}
