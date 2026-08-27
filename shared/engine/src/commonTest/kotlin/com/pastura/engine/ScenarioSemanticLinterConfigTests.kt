@@ -44,6 +44,11 @@ import kotlin.test.assertTrue
  * | 5 | `maxSentencesNoOpFindings`: dropped the `!` from `!it.type.requiresLLM` | [maxSentencesOnCodePhaseFiresWarning], [maxSentencesOnCodePhaseNestedInConditionalFiresAtConditionalIndex], [maxSentencesOnLLMPhasesDoesNotFire] |
  * | 6 | `configMessage`: fallthrough `else` arm swapped to `MaxSentencesNoOp` | **nothing** — see below |
  *
+ * Rows 1 and 5 were measured before [ScenarioSemanticLinterPayoffTests]
+ * landed in the same change; re-run today both would additionally redden
+ * several of its tests (every Payoff fixture's round-robin `choose` carries
+ * options, and its message pin exercises `max-sentences-no-op`).
+ *
  * Row 6 was a measured **gap** at the time of this class's port, recorded
  * rather than hidden: no test in *this* class asserts `finding.message`, so any
  * mis-transcribed `configMessage` arm shipped green.
@@ -274,6 +279,14 @@ class ScenarioSemanticLinterConfigTests {
         val llmTypes = listOf(
             PhaseType.SPEAK_ALL, PhaseType.SPEAK_EACH, PhaseType.VOTE, PhaseType.CHOOSE,
             PhaseType.REFLECT, PhaseType.WHISPER, PhaseType.NARRATE,
+        )
+        // Roster pin: an eighth `requiresLLM` type would otherwise leave this
+        // hand-written list silently short — the exact drift this port fixed.
+        // The list stays explicit (not derived from `requiresLLM`) so it cannot
+        // agree with the rule's own predicate by construction.
+        assertEquals(
+            llmTypes.size, PhaseType.entries.count { it.requiresLLM },
+            "new requiresLLM type: add it to llmTypes",
         )
         for (llmType in llmTypes) {
             val scenario = makeLinterScenario(

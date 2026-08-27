@@ -156,7 +156,16 @@ extension ScenarioSemanticLinterTests {
     // never fire for them. Guards against a `primaryField == "statement"`
     // over-narrowing that would false-flag vote/choose/reflect (whose brevity
     // bullet IS still emitted).
-    for llmType in [PhaseType.speakAll, .speakEach, .vote, .choose, .reflect, .whisper, .narrate] {
+    let llmTypes: [PhaseType] = [
+      .speakAll, .speakEach, .vote, .choose, .reflect, .whisper, .narrate
+    ]
+    // Roster pin: an eighth `requiresLLM` type would otherwise leave this
+    // hand-written list silently short — the exact drift this test once had
+    // (looped 6, claimed "All 6"). The list stays explicit (not derived from
+    // `requiresLLM`) so it cannot agree with the rule's own predicate by
+    // construction.
+    #expect(llmTypes.count == PhaseType.allCases.filter(\.requiresLLM).count)
+    for llmType in llmTypes {
       let scenario = makeScenario(
         agents: 2, rounds: 1, phases: [Phase(type: llmType, maxSentences: 2)])
       #expect(!linter.lint(scenario).contains { $0.ruleID == "max-sentences-no-op" })

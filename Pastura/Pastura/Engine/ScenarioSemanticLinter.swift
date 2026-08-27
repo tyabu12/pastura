@@ -83,7 +83,7 @@ nonisolated public struct ScenarioSemanticLinter: Sendable {
       + conditionFindings(in: scenario)
   }
 
-  // Producer–consumer phase-ordering rules R1–R6 live in
+  // Producer–consumer phase-ordering rules R1a/R1b/R2/R3/R4/R5/R6/R19 live in
   // `ScenarioSemanticLinter+Ordering.swift` (`orderingFindings(in:)`).
 
   // Silently-inert configuration rules R7/R8/R9/R17/R18/R20a/R20b live in
