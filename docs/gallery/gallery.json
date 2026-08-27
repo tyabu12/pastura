@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-22T00:00:00Z",
+  "updated_at": "2026-08-27T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -158,6 +158,8 @@
       "language": "ja",
       "yaml_url": "shachiku_senryu_v1.yaml",
       "yaml_sha256": "f75b457a8a6b5fdca9d86732f5cffa1602b44dd5879e61317bb550b810efbed3",
+      "highlight_url": "highlights/shachiku_senryu_v1.json",
+      "highlight_sha256": "bf741e36d89f7b1308d374b47fa531f30666937c32acce7d6c7879a8dbd3cdbe",
       "added_at": "2026-06-13"
     },
     {
@@ -252,6 +254,8 @@
       "language": "ja",
       "yaml_url": "hapning_ranyu_v1.yaml",
       "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
+      "highlight_url": "highlights/hapning_ranyu_v1.json",
+      "highlight_sha256": "c381ca4b8cc920852c2683017e08e5970ebc074e13cfb87395856477340acf06",
       "added_at": "2026-06-20"
     },
     {
