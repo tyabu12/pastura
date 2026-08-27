@@ -24,7 +24,25 @@ import kotlin.test.assertTrue
  *
  * ## Condition-4 perturbation check
  *
- * TODO(D2a item 3): item 3 fills this table.
+ * ADR-023 §12 condition 4 (perturbation sensitivity), measured at porting time
+ * against a 34-test baseline (28 here + 6 in [ScenarioSemanticLinterTests])
+ * green before the first mutation and after the last revert. Each mutation was
+ * applied to `ScenarioSemanticLinter.kt` alone and reverted exactly before the
+ * next; no mutation reddened anything in [ScenarioSemanticLinterTests].
+ *
+ * | # | Mutation of `ScenarioSemanticLinter.kt` | Reddened |
+ * |---|---|---|
+ * | 1 | dropped the `branchPhases(phase).any(predicate)` disjunct from `producerIndices` | `voteInsideConditionalBranchSatisfiesEliminate`, `sameConditionalVoteBeforeEliminatePassesOrdering`, `roundRobinChooseInsideConditionalSatisfiesPrisonersDilemma` |
+ * | 2 | swapped the severities in `eliminateFindings` (`eliminate-needs-vote` -> WARNING, `eliminate-after-vote` -> ERROR) | `eliminateWithoutAnyVoteFiresError`, `eliminateBeforeVoteFiresWarning` |
+ * | 3 | dropped the `it.logic == ScoreCalcLogic.PAIRWISE_PAYOFF` disjunct from `pairingsClearingScoreCalc` | `relationshipUpdateWithPairwisePayoffBetweenChooseAndItFiresWarning` |
+ * | 4 | dropped the `phase.eventVariable == null &&` guard from `isQualifyingEventInject` | `eventReactiveWithCustomAsFiresError` |
+ * | 5 | swapped the `"eliminate-needs-vote"` and `"pd-needs-round-robin-choose"` arms of `orderingMessage` | `orderingMessagesMapEachRuleIdToItsLintMessageCase` |
+ *
+ * Mutation 5 is the measurement that justifies the 28th test's existence as a
+ * deliberate exception to the 1:1-mirror rule: swapping two `orderingMessage`
+ * arms reddens [orderingMessagesMapEachRuleIdToItsLintMessageCase] and nothing
+ * else — the 27 mirrored tests assert `ruleId` / `severity` / `phaseIndex` but
+ * never `message`, so without it a mis-transcribed arm ships green.
  */
 class ScenarioSemanticLinterOrderingTests {
 
