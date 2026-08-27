@@ -419,7 +419,12 @@ covers the workflow and the taste calls the gate cannot make.
 
 4. **Register it in `gallery.json`** by hand, adding `highlight_url` and
    `highlight_sha256` (the extractor prints the hash) between `yaml_sha256`
-   and `added_at`.
+   and `added_at`. Bump the top-level `updated_at` to today (UTC) in the same
+   commit — `add-gallery-entry.sh` does it for a new entry, but a highlight is
+   registered by hand and no gate checks the field, so it is silently
+   skippable. Keep the highlight file and its two index fields in **one**
+   commit: the gate reads an unpaired `highlights/<id>.json` as an orphan, so
+   splitting them fails pre-commit at the intermediate state.
 
 5. **Verify**: `bash scripts/check-gallery-entry.sh --all` (needs PyYAML on top
    of `jq` / `shasum` — it hard-exits without it, which reads like a broken gate
@@ -479,6 +484,16 @@ call, and these are what the batches so far have taught.
   would then render on the same screen — so for a hooked persona, also reject
   a pick that merely reuses the example's sentence frame (the same closing
   phrase with the nouns swapped), which the gate cannot see.
+  **Whether a draw trips this is partly luck, so re-check it per draw rather
+  than per scenario.** An `event_inject` scenario picks its twist at random,
+  and a draw that happens to inject the very situation a persona's `例:`
+  answers will reproduce that example — `hapning_ranyu_v1`'s rejected batch-3
+  draw injected 「突然の停電…」, which is exactly what `安定の正統派`'s
+  `例:「停電? これでようやく私の顔面も定価になった」` answers. The published
+  draw drew a different twist and is clean. A scenario is not "safe" because
+  one draw came out clean; each draw is its own check, and a scenario whose
+  `例:` lines shadow its own `topics:` / `events:` entries will keep costing
+  draws until the YAML is fixed.
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
