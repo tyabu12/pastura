@@ -27,6 +27,11 @@ import Foundation
 /// deliberately never matches a JSON example brace (`{"statement": …}`,
 /// `{ "vote": … }`, `{…}`), whose first inner character is a quote / space /
 /// dot, so prompt-embedded output-format examples don't false-positive.
+///
+/// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2c);
+/// a rule change here is a hand edit there and in its commonTest mirror. The
+/// twins differ only in multi-finding-per-phase order (`placeholderTokens`'s
+/// `Set` is seed-randomised here, insertion-ordered there) — not a contract.
 nonisolated extension ScenarioSemanticLinter {
 
   /// Matches a `{token}` placeholder whose body is a single identifier. The
