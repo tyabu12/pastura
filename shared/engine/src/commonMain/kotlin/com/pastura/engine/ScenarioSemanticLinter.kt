@@ -73,7 +73,7 @@ public data class LintFinding(
  * `LintSeverity` live here (in `shared/engine`), not `shared/models`, because
  * their Swift originals live in `Engine/`, not `Models/`.
  *
- * ## Scope: Ordering (D2a) + Config (D2b)
+ * ## Scope: Ordering (D2a) + Config (D2b) + Placeholders (D2c)
  *
  * The Swift linter folds four rule groups into [lint]: producer–consumer
  * ordering (R1a/R1b/R2/R3/R4/R5/R6/R19, `+Ordering.swift`), silently-inert
@@ -82,10 +82,10 @@ public data class LintFinding(
  * (R13–R16, `+Conditions.swift`). D2a ported the base types ([LintFinding],
  * [LintSeverity]), the shared traversal helpers ([PhaseRef],
  * [producerIndices], [phaseRefs], [branchPhases]) and the Ordering rules
- * ([orderingFindings]); D2b adds the Config group ([configFindings]).
- * Placeholders (D2c) and Conditions (D2d) are still missing, so [lint]
- * returns the ordering + config union, not the full four-group union the
- * Swift `lint(_:)` returns.
+ * ([orderingFindings]); D2b added the Config group ([configFindings]); D2c
+ * adds the Placeholders group ([placeholderFindings]). Conditions (D2d) is
+ * still missing, so [lint] returns the ordering + config + placeholder union,
+ * not the full four-group union the Swift `lint(_:)` returns.
  *
  * ## Not wired into the engine
  *
@@ -116,7 +116,7 @@ public class ScenarioSemanticLinter {
      *   doc's Scope section).
      */
     public fun lint(scenario: Scenario): List<LintFinding> =
-        orderingFindings(scenario) + configFindings(scenario)
+        orderingFindings(scenario) + configFindings(scenario) + placeholderFindings(scenario)
 
     // MARK: - Ordering rules (R1a/R1b/R2/R3/R4/R5/R6/R19)
     //
@@ -672,6 +672,251 @@ public class ScenarioSemanticLinter {
         // Falls to `log-window-below-agent-count`: `logWindowFindings` is the
         // only other caller of `configMessage`, always with this ruleId.
         else -> ScenarioLintMessage.LogWindowBelowAgentCount.render()
+    }
+
+    // ── Placeholders (R10/R11/R12) ──
+    //
+    // Ported from `ScenarioSemanticLinter+Placeholders.swift`, reading the
+    // linter-owned [PlaceholderAvailability] map (D1b).
+    //
+    // A single scan over each LLM phase's `prompt` (and each `summarize` phase's
+    // `template`) extracts `{token}` occurrences and classifies each **once**, so
+    // the three rules never double-fire on the same occurrence. Precedence per
+    // token: R12 (summarize-specific) > R11 (known but ordered wrong) > R10
+    // (unknown):
+    //
+    // - **R12 `per-persona-placeholder-in-summarize`** — a per-persona injected
+    //   token (`assigned`/`assigned_word`/`my_notes`/`my_whispers`/`relationships`)
+    //   in a `summarize` template. `SummarizeHandler` never calls the `inject*`
+    //   helpers, so the braces leak literally. More specific than R10/R11, so it
+    //   wins for these tokens in `summarize`.
+    // - **R11 `placeholder-phase-availability`** — a *known* but producer-gated
+    //   token (per [PlaceholderAvailability.producers], plus a custom
+    //   `event_inject` `as:` name / its `__favors` companion) whose producing
+    //   phase runs at no earlier top-level index -> resolves empty/stale.
+    // - **R10 `unresolvable-placeholder`** — a token supplied by nothing: not in
+    //   the phase's supplied set, not an engine-reserved / producer-gated name,
+    //   not a per-persona reserved key, not a declared `extraData` key, not a
+    //   custom event variable -> leaks verbatim to the LLM (typo or stray token).
+    //
+    // Token shape is `\{[A-Za-z_][A-Za-z0-9_]*\}` — an identifier-only body. This
+    // deliberately never matches a JSON example brace (`{"statement": …}`,
+    // `{ "vote": … }`, `{…}`), whose first inner character is a quote / space /
+    // dot, so prompt-embedded output-format examples don't false-positive.
+
+    /** Placeholder-resolution findings (R10/R11/R12). */
+    internal fun placeholderFindings(scenario: Scenario): List<LintFinding> {
+        val known = globallyKnownTokens(scenario)
+        val findings = mutableListOf<LintFinding>()
+        for (ref in phaseRefs(scenario.phases) { scannedField(it) != null }) {
+            val field = scannedField(ref.phase) ?: continue
+            for (token in placeholderTokens(field)) {
+                val finding = placeholderFinding(
+                    token = token, phase = ref.phase, index = ref.topLevelIndex,
+                    known = known, scenario = scenario,
+                )
+                if (finding != null) findings.add(finding)
+            }
+        }
+        return findings
+    }
+
+    // MARK: - Classification (single-fire)
+
+    /**
+     * Classifies one distinct [token] in a phase into at most one finding,
+     * applying the R12 > R11 > R10 precedence (see the section header above).
+     */
+    private fun placeholderFinding(
+        token: String,
+        phase: Phase,
+        index: Int,
+        known: Set<String>,
+        scenario: Scenario,
+    ): LintFinding? {
+        // R12: a per-persona token in a summarize template (most specific).
+        if (phase.type == PhaseType.SUMMARIZE && perPersonaTokens.contains(token)) {
+            return placeholderLintFinding(
+                "per-persona-placeholder-in-summarize", LintSeverity.WARNING, token, index,
+            )
+        }
+        // R10: token supplied by nothing at all — not globally known and not in
+        // this phase type's own supplied set.
+        val supplied = PlaceholderAvailability.supplied(
+            phaseType = phase.type,
+            chooseRoundRobin = phase.pairing == PairingStrategy.ROUND_ROBIN,
+        )
+        if (!known.contains(token) && !supplied.contains(token)) {
+            return placeholderLintFinding("unresolvable-placeholder", LintSeverity.WARNING, token, index)
+        }
+        // R11: known, but producer-gated and no producer runs at an earlier index.
+        // Self-supplied tokens (a whisper's `{my_whispers}`, a reflect's
+        // `{my_notes}`) are in the phase's own supplied set -> never ordered-wrong.
+        // `<=` (not `<`): a producer nested in a `conditional` branch anchors to the
+        // conditional's index, so a consumer sub-phase ordered after it in the SAME
+        // conditional shares that index (gallery kasei_sanso_touban: event_inject ->
+        // speak_all inside one else-branch). Same-index counts as satisfied — the
+        // may-run leniency the ordering rules already apply (`<= idx` there).
+        val producers = producerIndicesForToken(token, scenario)
+        if (producers != null &&
+            !producerTypeMatchesPhase(token, phase) &&
+            producers.none { it <= index }
+        ) {
+            return placeholderLintFinding("placeholder-phase-availability", LintSeverity.WARNING, token, index)
+        }
+        return null
+    }
+
+    // MARK: - Token universes
+
+    /**
+     * Every token resolvable *anywhere* in the scenario — engine-reserved names
+     * ([PlaceholderAvailability.baseInjected] + every producer-gated token),
+     * per-persona reserved keys (`assigned_<name>` / `notes_<name>` /
+     * `whispers_<name>` / `relationships_<name>`), declared `extraData` keys, and
+     * each `event_inject` `as:` name plus its `__favors` companion. Deliberately
+     * generous — availability *ordering* is R11's lane, not R10's — so a token
+     * produced by any phase counts as "known" here even if it appears before its
+     * producer.
+     */
+    private fun globallyKnownTokens(scenario: Scenario): Set<String> {
+        val known = mutableSetOf<String>()
+        known.addAll(PlaceholderAvailability.baseInjected)
+        known.addAll(PlaceholderAvailability.producerMap.keys)
+        for (persona in scenario.personas) {
+            known.add("assigned_${persona.name}")
+            known.add("notes_${persona.name}")
+            known.add("whispers_${persona.name}")
+            known.add("relationships_${persona.name}")
+        }
+        known.addAll(scenario.extraData.keys)
+        for (ref in phaseRefs(scenario.phases) { it.type == PhaseType.EVENT_INJECT }) {
+            val name = ref.phase.eventVariable ?: EventInjectHandler.defaultVariableName
+            known.add(name)
+            known.add(EventInjectHandler.favoredVariableName(name))
+        }
+        return known
+    }
+
+    /**
+     * The per-persona injected tokens (`inject{Assigned,Notes,Whispers,Relationships}`)
+     * that only LLM phases write — absent from `summarize`'s supplied set, so
+     * they leak literally there (R12's set).
+     */
+    private val perPersonaTokens: Set<String>
+        get() = PlaceholderAvailability.perPersonaInjected
+            .union(PlaceholderAvailability.whisperSelfInjected)
+
+    // MARK: - Producer relation
+
+    /**
+     * Top-level indices at which [token]'s producer phase runs, or `null` when
+     * [token] is not producer-gated. Covers both the static
+     * [PlaceholderAvailability] producer map and a scenario-specific custom
+     * `event_inject` `as:` variable (and its `__favors` companion).
+     */
+    private fun producerIndicesForToken(token: String, scenario: Scenario): Set<Int>? {
+        val types = PlaceholderAvailability.producers(token)
+        if (types != null) {
+            return producerIndices(scenario.phases) { types.contains(it.type) }
+        }
+        val eventIndices = producerIndices(scenario.phases) { isEventInjectProducing(token, it) }
+        return if (eventIndices.isEmpty()) null else eventIndices
+    }
+
+    /**
+     * Whether [phase]'s own type produces [token] (self-supply): a `whisper`
+     * referencing `{my_whispers}` or a `reflect` referencing `{my_notes}` reads
+     * its own in-phase value, so R11 must not gate it on an *earlier* producer.
+     *
+     * Belt-and-suspenders, not load-bearing: the producing phase's own index is
+     * already in [producerIndicesForToken], so the `<=` comparison would
+     * self-satisfy anyway — this guard only states the intent explicitly.
+     */
+    private fun producerTypeMatchesPhase(token: String, phase: Phase): Boolean =
+        PlaceholderAvailability.producers(token)?.contains(phase.type) ?: false
+
+    /**
+     * Whether an `event_inject` [phase] writes [token] — its resolved `as:`
+     * variable (`eventVariable ?: "current_event"`) or that variable's
+     * `__favors` companion.
+     */
+    private fun isEventInjectProducing(token: String, phase: Phase): Boolean {
+        if (phase.type != PhaseType.EVENT_INJECT) return false
+        val name = phase.eventVariable ?: EventInjectHandler.defaultVariableName
+        return token == name || token == EventInjectHandler.favoredVariableName(name)
+    }
+
+    // MARK: - Field scanning
+
+    /**
+     * The template field scanned for placeholders: a `summarize` phase's
+     * `template`, or any LLM phase's `prompt`. `null` (skip) for code phases and
+     * empty fields.
+     */
+    private fun scannedField(phase: Phase): String? {
+        val field = if (phase.type == PhaseType.SUMMARIZE) phase.template else phase.prompt
+        if (field.isNullOrEmpty()) return null
+        return field
+    }
+
+    /**
+     * The distinct identifier bodies of every `{token}` in [field] (deduped so
+     * a repeated occurrence yields a single finding).
+     */
+    private fun placeholderTokens(field: String): Set<String> {
+        // No twin for Swift's `guard let regex`: Kotlin's [Regex] is non-null by
+        // construction, so the optional-`NSRegularExpression` bail-out has nothing
+        // to mirror here.
+        //
+        // The dedupe container differs in *iteration order* between the twins:
+        // Swift's `Set<String>` order is per-process seed-randomised, while
+        // Kotlin's `LinkedHashSet` (what `mutableSetOf` / `toSet()` build) is
+        // insertion-ordered. So the relative order of MULTIPLE findings within one
+        // phase is NOT a parity guarantee and must not be pinned by a test on
+        // either side — only the finding *set* is the contract.
+        val tokens = mutableSetOf<String>()
+        for (match in PLACEHOLDER_REGEX.findAll(field)) {
+            tokens.add(match.groupValues[1])
+        }
+        return tokens
+    }
+
+    // MARK: - Findings
+
+    /** Builds a placeholder finding with its token-interpolated fix-hint message. */
+    private fun placeholderLintFinding(
+        ruleId: String,
+        severity: LintSeverity,
+        token: String,
+        index: Int,
+    ): LintFinding =
+        LintFinding(
+            ruleId = ruleId, severity = severity,
+            message = placeholderMessage(ruleId, token), phaseIndex = index,
+        )
+
+    /**
+     * The user-facing fix-hint message for a placeholder [ruleId], naming the
+     * offending `{token}`, rendered via [ScenarioLintMessage].
+     */
+    private fun placeholderMessage(ruleId: String, token: String): String = when (ruleId) {
+        "unresolvable-placeholder" -> ScenarioLintMessage.UnresolvablePlaceholder(token).render()
+        "placeholder-phase-availability" ->
+            ScenarioLintMessage.PlaceholderPhaseAvailability(token).render()
+        // Falls to `per-persona-placeholder-in-summarize`: the only other
+        // ruleId `placeholderFinding` builds via this helper.
+        else -> ScenarioLintMessage.PerPersonaPlaceholderInSummarize(token).render()
+    }
+
+    private companion object {
+        /**
+         * Matches a `{token}` placeholder whose body is a single identifier. The
+         * identifier-only body is what excludes JSON-example braces (see the
+         * Placeholders section header). Twin of Swift's
+         * `ScenarioSemanticLinter.placeholderRegex`.
+         */
+        val PLACEHOLDER_REGEX = Regex("""\{([A-Za-z_][A-Za-z0-9_]*)\}""")
     }
 
     // MARK: - Traversal helpers
