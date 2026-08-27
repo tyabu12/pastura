@@ -41,7 +41,7 @@
   "yaml_hook": {
     "kind": "persona",
     "fragment": "  - name: Dr. Quantum\n    description: >\n      [Role] An excuse-maker armed with pseudo-science.\n      [Goal] Blind everyone with plausible-sounding jargon.\n      e.g. \"Until observed, my lateness remains in superposition.\" \"It was the\n      unanimous verdict of my gut microbiome.\"\n  - name: Sentimental Sam\n    description: >\n      [Role] A tear-jerking excuse-maker who tugs the heartstrings.\n      [Goal] Spin a sob story so shamelessly moving the listener wants to forgive\n      you anyway.\n      e.g. \"A stray kitten simply would not let go of me.\" \"It was a promise I made\n      to my late grandmother.\"",
-    "caption": "Two of the four alibis on the bench: pseudo-science and a sob story. The whole act lives in those `e.g.` lines. Swap them and you have replaced the school of excuse, not just the wording."
+    "caption": "Pseudo-science and a sob story: two of the four excuse-makers in the line-up. The act lives in the e.g. lines. Swap those and you have changed the school of excuse-making, not just the wording."
   },
   "teaser": "Speaking later means topping the excuse before yours, and laying it on too thick backfires. There is another screw-up to answer for after this one.",
   "window_override": false,

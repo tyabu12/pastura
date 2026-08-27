@@ -39,9 +39,9 @@
     }
   ],
   "yaml_hook": {
-    "kind": "persona",
-    "fragment": "  - name: Literal Larry\n    description: >\n      [Role] A translator who mechanically swaps word for word.\n      [Goal] NEVER write natural English — always mangle the line into broken,\n      stilted translationese with wrong word order and clunky grammar. If it reads\n      correctly, you failed.\n      e.g. \"We are having the need for going, at the now!\" / \"You, I will be\n      forgetting never.\"\n  - name: Spoiler Queen Sofia\n    description: >\n      [Role] A translator who carelessly leaks the ending in the subtitle.\n      [Goal] Slip an unrelated ending or plot twist into this line's subtitle.\n      e.g. \"Let's go! (He's secretly a ghost the whole time, by the way.)\"",
-    "caption": "Two of the four translators on this team. One is forbidden to write a sentence that parses; the other cannot hold an ending in. Rewrite a [Goal] line and the next disaster is yours."
+    "kind": "raw",
+    "fragment": "  - type: speak_all\n    prompt: >\n      {assigned_topic}\n\n      Fully in character, write your English subtitle for this line in 1-2\n      sentences. Keep it short and commit to the bit.\n    output:\n      statement: string\n      inner_thought: string",
+    "caption": "Every subtitle above answers this one instruction. What separates them is not the prompt but the four translator descriptions it gets handed to."
   },
   "teaser": "Four subtitles, one vote each, and another famous scene still waiting to be ruined.",
   "window_override": false,

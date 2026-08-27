@@ -475,12 +475,11 @@ call, and these are what the batches so far have taught.
 - **Check a pick against the speaking persona's own worked examples** — the
   `例:` lines of a ja persona, the `e.g.` lines of an en one, whatever the
   YAML uses to show the character how to answer. Those lines are part of the
-  prompt, so when one of them
-  happens to be an ideal answer to the topic, the model reproduces it
-  verbatim rather than inventing anything. The trap is the example, not the
-  label: `iiwake_battle_v1_en`'s `Shameless Mac` opened a round-1 draw with
-  `Honestly, you should be thanking me`, which is his `e.g.` line word for
-  word, so the en batch quoted the other three speakers instead.
+  prompt, so when one of them happens to be an ideal answer to the topic, the
+  model reproduces it verbatim rather than inventing anything. The trap is the
+  example, not the label: `iiwake_battle_v1_en`'s `Shameless Mac` opened a
+  round-1 draw with `Honestly, you should be thanking me`, which is his `e.g.`
+  line word for word, so the en batch quoted the other three speakers instead.
   `oogiri_knockout_v1`'s
   `一言必殺のゼロ次` emitted its example line unchanged in two independent
   draws, so the batch-2 excerpt kept it out of both the excerpt and the hook
@@ -503,11 +502,25 @@ call, and these are what the batches so far have taught.
   one draw came out clean; each draw is its own check, and a scenario whose
   worked examples shadow its own `topics:` / `events:` entries will keep
   costing draws until the YAML is fixed.
+  **When every persona's example shadows the same topic, no draw can fix it
+  and the hook is what has to move.** In `chin_jimaku_v1_en` all four `e.g.`
+  lines render topic 1's LINE, and topic 1 is the only pickable round, so any
+  `persona` hook would have printed its own example beside the excerpt. That
+  batch published a `raw` hook of the `speak_all` phase instead, which is
+  what the excerpt actually answers, and #1577 tracks re-pointing those
+  examples at a line neither topic uses. Fixing the YAML re-hashes it, so it
+  forces a re-extract and a fresh sign-off (§ "Updating a scenario that has a
+  highlight").
+- **Captions and teasers render verbatim — no Markdown.** The app draws both
+  with `Text(verbatim:)` and the landing pages interpolate them as text, so
+  backticks, asterisks and brackets ship as literal characters. Write
+  `[Goal]` only when that bracket is literally in the YAML you are pointing
+  at.
 - **A persona that drops its own gimmick is not quotable, however good the
   line is.** `chin_jimaku_v1_en`'s `Trivia Todd` is defined entirely by the
   `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he omitted
-  it in both en draws. Quoting him would put a line that contradicts the
-  hook fragment's own instruction on the page. Dropping the speaker costs
+  it in both en draws. Quoting him would put a line that contradicts his own
+  declared gimmick on the page. Dropping the speaker costs
   nothing here — outside an `eliminate` scenario, a partial speaker set
   leaks no outcome (see the `eliminate` norm above).
 
