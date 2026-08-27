@@ -20,7 +20,9 @@ import kotlin.test.assertTrue
  * 1:1. Every function name below matches its Swift twin exactly — see that
  * file if a name here looks odd.
  *
- * 27 mirrored 1:1 + 1 message-mapping test = 28.
+ * 28 mirrored 1:1 — the message-mapping test included, though its Swift twin
+ * lives in the sibling `ScenarioSemanticLinterTests+OrderingMessages.swift`
+ * rather than in `+Ordering.swift` with the other 27.
  *
  * ## Condition-4 perturbation check
  *
@@ -39,10 +41,11 @@ import kotlin.test.assertTrue
  * | 5 | swapped the `"eliminate-needs-vote"` and `"pd-needs-round-robin-choose"` arms of `orderingMessage` | `orderingMessagesMapEachRuleIdToItsLintMessageCase` |
  *
  * Mutation 5 is the measurement that justifies the 28th test's existence as a
- * deliberate exception to the 1:1-mirror rule: swapping two `orderingMessage`
- * arms reddens [orderingMessagesMapEachRuleIdToItsLintMessageCase] and nothing
- * else — the 27 mirrored tests assert `ruleId` / `severity` / `phaseIndex` but
- * never `message`, so without it a mis-transcribed arm ships green.
+ * deliberate exception to the one-test-per-rule shape: swapping two
+ * `orderingMessage` arms reddens
+ * [orderingMessagesMapEachRuleIdToItsLintMessageCase] and nothing else — the
+ * other 27 tests assert `ruleId` / `severity` / `phaseIndex` but never
+ * `message`, so without it a mis-transcribed arm ships green.
  */
 class ScenarioSemanticLinterOrderingTests {
 
@@ -511,18 +514,20 @@ class ScenarioSemanticLinterOrderingTests {
         assertTrue(linter.lint(scenario).isEmpty())
     }
 
-    // MARK: - Message mapping (deliberate exception to the 1:1 mirror rule)
+    // MARK: - Message mapping (deliberate exception to the one-test-per-rule shape)
 
     /**
-     * The one deliberate exception to the 1:1-mirror rule above: neither the
-     * Swift suite nor the rest of this Kotlin suite ever asserts on
-     * `finding.message`, so a mis-transcribed arm in `orderingMessage` would
-     * stay green on both sides with nothing to catch it. This test builds a
-     * minimal scenario firing each of the 8 ordering ruleIds and checks its
-     * `message` against the matching [ScenarioLintMessage] case's `render()`,
-     * pinning `size == 1` and the `ruleId` so a rule that fires first on one
-     * of these fixtures after D2b cannot silently change what is measured.
-     * The Swift suite is NOT amended in this PR — the Swift-side twin is #1575.
+     * The deliberate exception to the one-test-per-rule shape, not to the 1:1
+     * mirror: its Swift twin is
+     * `ScenarioSemanticLinterTests+OrderingMessages.swift`'s
+     * `orderingMessagesMapEachRuleIDToItsLintMessageCase`. No other test in
+     * this class asserts `finding.message`, so a mis-transcribed arm in
+     * `orderingMessage` would ship green with nothing to catch it. This test
+     * builds a minimal scenario firing each of the 8 ordering ruleIds and
+     * checks its `message` against the matching [ScenarioLintMessage] case's
+     * `render()`, pinning `size == 1` and the `ruleId` so a rule that starts
+     * firing first on one of these fixtures cannot silently change what is
+     * measured.
      *
      * Two limits, stated so nobody reads them as proofs: (1) the 8-entry list
      * is a hand-maintained pin — a ninth ordering rule must be added here by

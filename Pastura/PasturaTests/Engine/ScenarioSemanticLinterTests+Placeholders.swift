@@ -174,4 +174,51 @@ extension ScenarioSemanticLinterTests {
       phases: [Phase(type: .summarize, template: "Scores: {scoreboard}")])
     #expect(linter.lint(scenario).isEmpty)
   }
+
+  // MARK: - The `__favors` companion of an event_inject variable (#1584)
+
+  // `event_inject` writes both its `as:` variable and that variable's
+  // `__favors` companion (`EventInjectHandler.favoredVariableName(for:)`), so
+  // both must resolve. Until these three tests, no fixture on either side
+  // referenced a companion token at all: dropping the companion from
+  // `globallyKnownTokens` reddened nothing (ADR-023 §12 condition-4 pass on
+  // D2c). The default-name and custom-`as:` rows pin that insert; the
+  // ordered-wrong row pins `isEventInjectProducing`'s companion clause, which
+  // is what makes the token producer-gated rather than merely known.
+
+  @Test func defaultFavoredCompanionAfterEventInjectPasses() {
+    let scenario = makeEventScenario(
+      phases: [
+        Phase(type: .eventInject, source: "events"),
+        Phase(type: .speakAll, prompt: "The wind favors {current_event__favors}")
+      ],
+      events: .array(["storm", "calm"]))
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func customAsFavoredCompanionAfterEventInjectPasses() {
+    let scenario = makeEventScenario(
+      phases: [
+        Phase(type: .eventInject, source: "events", eventVariable: "my_event"),
+        Phase(type: .speakAll, prompt: "The wind favors {my_event__favors}")
+      ],
+      events: .array(["storm", "calm"]))
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func favoredCompanionBeforeItsEventInjectFiresR11() {
+    // Known but producer-gated: R11, not R10. Reverting the companion clause in
+    // `isEventInjectProducing` drops the gating and this finding disappears.
+    let scenario = makeEventScenario(
+      phases: [
+        Phase(type: .speakAll, prompt: "The wind favors {current_event__favors}"),
+        Phase(type: .eventInject, source: "events")
+      ],
+      events: .array(["storm", "calm"]))
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "placeholder-phase-availability")
+    #expect(findings.first?.severity == .warning)
+    #expect(findings.first?.phaseIndex == 0)
+  }
 }

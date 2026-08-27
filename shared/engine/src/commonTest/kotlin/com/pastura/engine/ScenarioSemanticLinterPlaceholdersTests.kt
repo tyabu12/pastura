@@ -17,15 +17,18 @@ import kotlin.test.assertTrue
  * 1:1. Every function name below matches its Swift twin exactly — see that
  * file if a name here looks odd.
  *
- * 14 mirrored 1:1 + 1 message-mapping test = 15.
+ * 18 mirrored 1:1 — the message-mapping test included, though its Swift twin
+ * lives in `ScenarioSemanticLinterTests+PlaceholderMessages.swift` rather than
+ * in `+Placeholders.swift` with the other 17.
  *
  * [placeholderMessagesMapEachRuleIdToItsLintMessageCase] is the deliberate
- * exception to the 1:1-mirror rule, following
- * `ScenarioSemanticLinterOrderingTests.orderingMessagesMapEachRuleIdToItsLintMessageCase`
- * and `ScenarioSemanticLinterPayoffTests.configMessagesMapEachRuleIdToItsLintMessageCase`.
- * No mirrored test here asserts `finding.message`, so without it all three
- * `placeholderMessage` arms — the fallthrough `else` especially — would ship
- * green however they were transcribed.
+ * exception to the one-test-per-rule shape, not to the 1:1 mirror: its Swift
+ * twin is `ScenarioSemanticLinterTests+PlaceholderMessages.swift`'s
+ * `placeholderMessagesMapEachRuleIDToItsLintMessageCase`, the same pairing
+ * the Ordering and Payoff mapping tests already have.
+ * No mirrored test here asserts `finding.message`, so without
+ * it all three `placeholderMessage` arms — the fallthrough `else` especially
+ * — would ship green however they were transcribed.
  *
  * **No test here pins the relative order of two findings within one phase.**
  * `placeholderTokens`' dedupe container is a seed-randomised `Set` on the Swift
@@ -37,11 +40,14 @@ import kotlin.test.assertTrue
  *
  * ## Condition-4 perturbation check
  *
- * ADR-023 §12 condition 4 (perturbation sensitivity), measured 2026-08-28 with
- * the whole `:shared:engine:jvmTest` suite (937 tests, this class's 15
- * included) green before the first mutation and after the last revert. Each
- * mutation was applied to `ScenarioSemanticLinter.kt`'s `placeholderFindings`
- * section alone and reverted exactly before the next.
+ * ADR-023 §12 condition 4 (perturbation sensitivity). Rows 1-6 measured
+ * 2026-08-28 with the whole `:shared:engine:jvmTest` suite (937 tests, this
+ * class's 15 at the time) green before the first mutation and after the last
+ * revert; rows 7-8 the same day with #1584's three tests added (940 tests, 18
+ * here). Each mutation was applied to `ScenarioSemanticLinter.kt`'s
+ * `placeholderFindings` section alone and reverted exactly before the next.
+ * Rows 7-8 were measured on both sides — the Swift twins reddened identically,
+ * which is what the 1:1 mirror is supposed to buy.
  *
  * | # | Mutation of `ScenarioSemanticLinter.kt` | Reddened |
  * |---|---|---|
@@ -51,6 +57,8 @@ import kotlin.test.assertTrue
  * | 4 | `globallyKnownTokens`: dropped `known.addAll(scenario.extraData.keys)` | [declaredExtraDataKeyPassesR10] |
  * | 5 | `scannedField`: swapped `template` / `prompt` | [unknownPlaceholderTypoFiresR10], [candidatesInSpeakAllFiresR10], [producerTokenBeforeItsProducerFiresR11], [perPersonaTokenInSummarizeFiresR12ExactlyOnce], [placeholderMessagesMapEachRuleIdToItsLintMessageCase] |
  * | 6 | `placeholderMessage`: fallthrough `else` arm swapped to `UnresolvablePlaceholder` | [placeholderMessagesMapEachRuleIdToItsLintMessageCase] |
+ * | 7 | `globallyKnownTokens`: dropped `known.add(EventInjectHandler.favoredVariableName(name))` | [defaultFavoredCompanionAfterEventInjectPasses], [customAsFavoredCompanionAfterEventInjectPasses], [favoredCompanionBeforeItsEventInjectFiresR11] |
+ * | 8 | `isEventInjectProducing`: dropped the `|| token == favoredVariableName(name)` disjunct | [favoredCompanionBeforeItsEventInjectFiresR11] |
  *
  * Row 6 is the measurement that justifies
  * [placeholderMessagesMapEachRuleIdToItsLintMessageCase]: it reddens that test
@@ -58,22 +66,22 @@ import kotlin.test.assertTrue
  * ship green — the gap row 6 of [ScenarioSemanticLinterConfigTests]'s KDoc
  * recorded for the config group.
  *
- * **Two candidate mutations measured insensitive and substituted or recorded**,
- * rather than dropped silently (same convention as
- * [ScenarioSemanticLinterPayoffTests]'s notes):
+ * **One candidate mutation measured insensitive and substituted**, rather than
+ * dropped silently (same convention as [ScenarioSemanticLinterPayoffTests]'s
+ * notes):
  *
  * - `PLACEHOLDER_REGEX`'s *first* char class `[A-Za-z_]` -> `[A-Za-z0-9_]` (the
  *   obvious leading-digit candidate) reddened **nothing**: no fixture on either
  *   side writes a digit-leading `{0token}`, so the two patterns agree on all of
  *   them. Row 3's body widening is the substitute — it measures the property
  *   that char class actually exists for (JSON-example braces must not match).
- * - `globallyKnownTokens`: dropping the `__favors` companion
- *   (`EventInjectHandler.favoredVariableName(name)`) reddened **nothing**. No
- *   fixture here references a `{<event>__favors}` token, and the Swift twin has
- *   none either, so the companion's presence in the known set is untested on
- *   both sides. Recorded as a gap rather than papered over with a Kotlin-only
- *   test, which would break the 1:1 mirror; the fix belongs on the Swift side
- *   first — tracked as #1584.
+ *
+ * The `__favors` companion drop used to sit alongside it, measured insensitive on
+ * both sides because no fixture referenced a `{<event>__favors}` token. #1584
+ * closed that gap Swift-first; it is now rows 7 and 8 above. Row 8 is the one
+ * that separates the two mechanisms: the companion has to be in the known set
+ * (row 7, R10) *and* resolve to its producing `event_inject` (row 8, R11), and
+ * only the ordered-wrong fixture can tell those apart.
  */
 class ScenarioSemanticLinterPlaceholdersTests {
 
@@ -285,7 +293,62 @@ class ScenarioSemanticLinterPlaceholdersTests {
         assertTrue(linter.lint(scenario).isEmpty())
     }
 
-    // MARK: - Message mapping (no Swift twin)
+    // MARK: - The `__favors` companion of an event_inject variable (#1584)
+
+    // `event_inject` writes both its `as:` variable and that variable's
+    // `__favors` companion (`EventInjectHandler.favoredVariableName`), so both
+    // must resolve. Until these three tests, no fixture on either side
+    // referenced a companion token at all: dropping the companion from
+    // `globallyKnownTokens` reddened nothing (the gap this class's KDoc used to
+    // record as an insensitive candidate; now row 7 of the table). The
+    // default-name and custom-`as:` rows pin that insert; the ordered-wrong row
+    // pins `isEventInjectProducing`'s companion clause, which is what makes the
+    // token producer-gated rather than merely known.
+
+    @Test
+    fun defaultFavoredCompanionAfterEventInjectPasses() {
+        val scenario = makeEventScenario(
+            phases = listOf(
+                Phase(type = PhaseType.EVENT_INJECT, source = "events"),
+                Phase(type = PhaseType.SPEAK_ALL, prompt = "The wind favors {current_event__favors}"),
+            ),
+            events = AnyCodableValue.ArrayValue(listOf("storm", "calm")),
+        )
+        assertTrue(linter.lint(scenario).isEmpty())
+    }
+
+    @Test
+    fun customAsFavoredCompanionAfterEventInjectPasses() {
+        val scenario = makeEventScenario(
+            phases = listOf(
+                Phase(type = PhaseType.EVENT_INJECT, source = "events", eventVariable = "my_event"),
+                Phase(type = PhaseType.SPEAK_ALL, prompt = "The wind favors {my_event__favors}"),
+            ),
+            events = AnyCodableValue.ArrayValue(listOf("storm", "calm")),
+        )
+        assertTrue(linter.lint(scenario).isEmpty())
+    }
+
+    @Test
+    fun favoredCompanionBeforeItsEventInjectFiresR11() {
+        // Known but producer-gated: R11, not R10. Reverting the companion clause
+        // in `isEventInjectProducing` drops the gating and this finding
+        // disappears.
+        val scenario = makeEventScenario(
+            phases = listOf(
+                Phase(type = PhaseType.SPEAK_ALL, prompt = "The wind favors {current_event__favors}"),
+                Phase(type = PhaseType.EVENT_INJECT, source = "events"),
+            ),
+            events = AnyCodableValue.ArrayValue(listOf("storm", "calm")),
+        )
+        val findings = linter.lint(scenario)
+        assertEquals(1, findings.size)
+        assertEquals("placeholder-phase-availability", findings.single().ruleId)
+        assertEquals(LintSeverity.WARNING, findings.single().severity)
+        assertEquals(0, findings.single().phaseIndex)
+    }
+
+    // MARK: - Message mapping (deliberate exception to the one-test-per-rule shape)
 
     /**
      * Pins each placeholder `ruleId` to the [ScenarioLintMessage] arm
