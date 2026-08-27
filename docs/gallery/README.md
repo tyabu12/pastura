@@ -420,11 +420,14 @@ covers the workflow and the taste calls the gate cannot make.
 4. **Register it in `gallery.json`** by hand, adding `highlight_url` and
    `highlight_sha256` (the extractor prints the hash) between `yaml_sha256`
    and `added_at`. Bump the top-level `updated_at` to today (UTC) in the same
-   commit — `add-gallery-entry.sh` does it for a new entry, but a highlight is
+   commit — `add-gallery-entry.sh` does it on both `--add` and `--update`, to
+   `max(today, existing)` so the field never regresses, but a highlight is
    registered by hand and no gate checks the field, so it is silently
    skippable. Keep the highlight file and its two index fields in **one**
-   commit: the gate reads an unpaired `highlights/<id>.json` as an orphan, so
-   splitting them fails pre-commit at the intermediate state.
+   commit, by hand: nothing enforces it. `check-gallery-entry.sh` reads the
+   **working tree**, not the index, so staging only the highlight still passes
+   pre-commit, and CI validates the PR head where both are present — an orphan
+   intermediate commit lands unnoticed and only bites on a bisect or a revert.
 
 5. **Verify**: `bash scripts/check-gallery-entry.sh --all` (needs PyYAML on top
    of `jq` / `shasum` — it hard-exits without it, which reads like a broken gate
