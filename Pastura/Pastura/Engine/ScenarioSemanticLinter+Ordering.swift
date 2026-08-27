@@ -15,6 +15,9 @@
 ///   inside branches). "Earlier" is therefore `index <= consumerIndex`, so a
 ///   producer sharing the consumer's enclosing conditional is treated as
 ///   satisfying the dependency rather than flagged.
+///
+/// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2a);
+/// a rule change here is a hand edit there and in its commonTest mirror.
 nonisolated extension ScenarioSemanticLinter {
 
   /// A phase paired with the top-level phase-list index its finding anchors
