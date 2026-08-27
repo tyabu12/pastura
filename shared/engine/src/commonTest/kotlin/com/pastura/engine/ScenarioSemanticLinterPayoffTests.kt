@@ -24,8 +24,11 @@ import kotlin.test.assertTrue
  * 6 mirrored 1:1 + 1 message-mapping test = 7.
  *
  * [configMessagesMapEachRuleIdToItsLintMessageCase] is the deliberate
- * exception to the 1:1-mirror rule, following
- * `ScenarioSemanticLinterOrderingTests.orderingMessagesMapEachRuleIdToItsLintMessageCase`.
+ * exception to the one-test-per-rule shape, not to the 1:1 mirror: its Swift
+ * twin is `ScenarioSemanticLinterTests+ConfigMessages.swift`'s
+ * `configMessagesMapEachRuleIDToItsLintMessageCase`, mirroring the pairing
+ * `ScenarioSemanticLinterOrderingTests.orderingMessagesMapEachRuleIdToItsLintMessageCase`
+ * already has.
  * It lives here rather than in [ScenarioSemanticLinterConfigTests] because it
  * can only cover **all seven** config ruleIds once R20a/R20b exist, and they
  * arrive with this file. It closes the gap that class's KDoc records as row 6:
