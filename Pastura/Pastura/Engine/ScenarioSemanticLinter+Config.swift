@@ -9,6 +9,9 @@
 /// R9/R18 reuse the same "producer inside a `conditional` branch counts as
 /// present at the conditional's index" imprecision documented on the ordering
 /// rules.
+///
+/// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2b);
+/// a rule change here is a hand edit there and in its commonTest mirror.
 nonisolated extension ScenarioSemanticLinter {
 
   /// Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b).
