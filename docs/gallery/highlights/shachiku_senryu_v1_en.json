@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "shachiku_senryu_v1_en",
+    "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260827-095401-a117",
+    "generated_at": "2026-08-27"
+  },
+  "excerpt": [
+    {
+      "agent": "Byron the Bard",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "A home office felt dreadfully slow,\nWhere the Wi-Fi gave folks a low blow.\nWith slippers and sighs,\nOne barely replies,\nAs the workday begins in a glow."
+    },
+    {
+      "agent": "Old-Timer Walt",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "A worker who worked from his chair,\nFound freedom and comfort out there.\nHe wore fuzzy old socks,\nIgnoring the clock's shocks,\nAnd logged in with a lazy, slow stare."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Byron the Bard\n    description: >\n      [Role] A pretentious Romantic poet drunk on his own melancholy.\n      [Goal] Inflate the pettiest office trifle into grand tragic poetry.\n      e.g. \"O, three hundred unread in my Slack / and my soul, it shall never come back.\"\n  - name: Old-Timer Walt\n    description: >\n      [Role] A weary veteran on the edge of retirement, still dragging the old days\n      along.\n      [Goal] Deliver a dry, bittersweet verse that makes you laugh and ache at once.\n      e.g. \"They rehired me, my title cut thin / just a badge and a chair to clock in.\"",
+    "caption": "Two of the four voices behind these verses. A Romantic poet who mistakes an office for a graveyard, and a veteran counting down to the exit. The form is fixed at five lines; nothing else is."
+  },
+  "teaser": "Once every limerick is in, they vote for the funniest that is not their own, and a second prompt is still waiting.",
+  "window_override": false,
+  "content_filter_applied": true
+}

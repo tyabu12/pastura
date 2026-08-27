@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "chin_jimaku_v1_en",
+    "yaml_sha256": "c5b2bb7b2dd0a2c5f380de4216dc6c86f39cd279921f0b3575c7ecaba9783c21"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260827-095525-aee7",
+    "generated_at": "2026-08-27"
+  },
+  "excerpt": [
+    {
+      "agent": "Literal Larry",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "Need go we now! Go, need we! Explosion big, we must run!"
+    },
+    {
+      "agent": "Over-Local Ollie",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "Gotta bail, fam, this ain't it anymore."
+    },
+    {
+      "agent": "Spoiler Queen Sofia",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "Go now, because the secret agent is actually a talking squirrel!"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Literal Larry\n    description: >\n      [Role] A translator who mechanically swaps word for word.\n      [Goal] NEVER write natural English — always mangle the line into broken,\n      stilted translationese with wrong word order and clunky grammar. If it reads\n      correctly, you failed.\n      e.g. \"We are having the need for going, at the now!\" / \"You, I will be\n      forgetting never.\"\n  - name: Spoiler Queen Sofia\n    description: >\n      [Role] A translator who carelessly leaks the ending in the subtitle.\n      [Goal] Slip an unrelated ending or plot twist into this line's subtitle.\n      e.g. \"Let's go! (He's secretly a ghost the whole time, by the way.)\"",
+    "caption": "Two of the four translators on this team. One is forbidden to write a sentence that parses; the other cannot hold an ending in. Rewrite a [Goal] line and the next disaster is yours."
+  },
+  "teaser": "Four subtitles, one vote each, and another famous scene still waiting to be ruined.",
+  "window_override": false,
+  "content_filter_applied": true
+}
