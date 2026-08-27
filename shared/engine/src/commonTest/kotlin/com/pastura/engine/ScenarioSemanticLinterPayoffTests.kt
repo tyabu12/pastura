@@ -21,7 +21,9 @@ import kotlin.test.assertTrue
  * 1:1. Every function name below matches its Swift twin exactly — see that
  * file if a name here looks odd.
  *
- * 6 mirrored 1:1 + 1 message-mapping test = 7.
+ * 7 mirrored 1:1 — the message-mapping test included, though its Swift twin
+ * lives in `ScenarioSemanticLinterTests+ConfigMessages.swift` rather than in
+ * `+Payoff.swift` with the other 6.
  *
  * [configMessagesMapEachRuleIdToItsLintMessageCase] is the deliberate
  * exception to the one-test-per-rule shape, not to the 1:1 mirror: its Swift

@@ -1,8 +1,9 @@
-// The Config group's ruleID → ScenarioLintMessage pin (ADR-024 D3). Split
-// out into its own file for the same three SwiftLint reasons as
-// ScenarioSemanticLinterTests+OrderingMessages.swift (file_length,
-// function_body_length, large_tuple); still an extension of the existing
-// suite (not a new @Suite) per .claude/rules/testing.md.
+// The Config group's ruleID → ScenarioLintMessage pin (ADR-024 D3). Its own
+// file for symmetry with ScenarioSemanticLinterTests+OrderingMessages.swift,
+// which had to split — `+Payoff.swift` has room for this test, but keeping the
+// three group pins shaped alike is worth more than saving a file. Still an
+// extension of the existing suite (not a new @Suite) per
+// .claude/rules/testing.md.
 import Testing
 
 @testable import Pastura

@@ -1,9 +1,9 @@
-// The Placeholder group's ruleID → ScenarioLintMessage pin (ADR-024 D3).
-// Split into its own file for the same three SwiftLint reasons as
-// ScenarioSemanticLinterTests+OrderingMessages.swift and
-// +ConfigMessages.swift (file_length, function_body_length, large_tuple);
-// still an extension of the existing suite (not a new @Suite) per
-// .claude/rules/testing.md.
+// The Placeholder group's ruleID → ScenarioLintMessage pin (ADR-024 D3). Its
+// own file for symmetry with ScenarioSemanticLinterTests+OrderingMessages.swift
+// and +ConfigMessages.swift — only the Ordering one had to split (its host was
+// at the 400-line file_length cap); this one fits in `+Placeholders.swift` and
+// is kept apart so the three group pins read alike. Still an extension of the
+// existing suite (not a new @Suite) per .claude/rules/testing.md.
 import Testing
 
 @testable import Pastura
