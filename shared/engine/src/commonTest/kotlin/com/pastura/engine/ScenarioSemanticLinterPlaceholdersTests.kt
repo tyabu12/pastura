@@ -20,12 +20,13 @@ import kotlin.test.assertTrue
  * 14 mirrored 1:1 + 1 message-mapping test = 15.
  *
  * [placeholderMessagesMapEachRuleIdToItsLintMessageCase] is the deliberate
- * exception to the 1:1-mirror rule, following
- * `ScenarioSemanticLinterOrderingTests.orderingMessagesMapEachRuleIdToItsLintMessageCase`
- * and `ScenarioSemanticLinterPayoffTests.configMessagesMapEachRuleIdToItsLintMessageCase`.
- * No mirrored test here asserts `finding.message`, so without it all three
- * `placeholderMessage` arms — the fallthrough `else` especially — would ship
- * green however they were transcribed.
+ * exception to the one-test-per-rule shape, not to the 1:1 mirror: its Swift
+ * twin is `ScenarioSemanticLinterTests+PlaceholderMessages.swift`'s
+ * `placeholderMessagesMapEachRuleIDToItsLintMessageCase`, the same pairing
+ * the Ordering and Payoff mapping tests already have.
+ * No mirrored test here asserts `finding.message`, so without
+ * it all three `placeholderMessage` arms — the fallthrough `else` especially
+ * — would ship green however they were transcribed.
  *
  * **No test here pins the relative order of two findings within one phase.**
  * `placeholderTokens`' dedupe container is a seed-randomised `Set` on the Swift

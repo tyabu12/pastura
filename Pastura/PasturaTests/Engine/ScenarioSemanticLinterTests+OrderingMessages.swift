@@ -92,10 +92,11 @@ extension ScenarioSemanticLinterTests {
     ]
   }
 
-  // MARK: - Message mapping (deliberate exception to the 1:1 mirror rule)
+  // MARK: - Message mapping (deliberate exception to the one-test-per-rule shape)
 
-  /// The one deliberate exception to the 1:1-mirror rule: no other test in this
-  /// suite asserts `finding.message`, so a mis-transcribed arm in the private
+  /// The deliberate exception to the one-test-per-rule shape the rest of this
+  /// suite keeps: no other test here asserts `finding.message`, so a
+  /// mis-transcribed arm in the private
   /// `orderingMessage(_:)` — a string switch with a `default:` fallthrough —
   /// would ship green with nothing to catch it. Each row fires exactly one
   /// ordering rule and pins its rendered message; `count == 1` and the `ruleID`

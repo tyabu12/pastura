@@ -82,7 +82,7 @@ extension ScenarioSemanticLinterTests {
     ]
   }
 
-  // MARK: - Message mapping (deliberate exception to the 1:1 mirror rule)
+  // MARK: - Message mapping (deliberate exception to the one-test-per-rule shape)
 
   /// The Config-group twin of ``orderingMessagesMapEachRuleIDToItsLintMessageCase``:
   /// no other test in this suite asserts `finding.message` for a config rule,
