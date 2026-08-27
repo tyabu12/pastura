@@ -472,10 +472,16 @@ call, and these are what the batches so far have taught.
   (`理屈っぽい教授モドキ`) was precisely the speaker a two-round excerpt would
   have dropped. The safe fallback is a single-round excerpt, which carries no
   elimination-order information at all.
-- **Check a pick against the speaking persona's own `例:`.** A persona
-  description's `例:` lines are part of the prompt, so when one of them
+- **Check a pick against the speaking persona's own worked examples** — the
+  `例:` lines of a ja persona, the `e.g.` lines of an en one, whatever the
+  YAML uses to show the character how to answer. Those lines are part of the
+  prompt, so when one of them
   happens to be an ideal answer to the topic, the model reproduces it
-  verbatim rather than inventing anything. `oogiri_knockout_v1`'s
+  verbatim rather than inventing anything. The trap is the example, not the
+  label: `iiwake_battle_v1_en`'s `Shameless Mac` opened a round-1 draw with
+  `Honestly, you should be thanking me`, which is his `e.g.` line word for
+  word, so the en batch quoted the other three speakers instead.
+  `oogiri_knockout_v1`'s
   `一言必殺のゼロ次` emitted its example line unchanged in two independent
   draws, so the batch-2 excerpt kept it out of both the excerpt and the hook
   fragment; #1475 then replaced the example with one that answers none of
@@ -483,7 +489,7 @@ call, and these are what the batches so far have taught.
   draws re-checked every round against the new `例:`. Publishing
   such a line would show the flagship "real run" quoting its own prompt — and
   the full YAML is one tap away in the app, so a reader can see it. This bites
-  hardest for a `yaml_hook` persona slice, since the excerpt and the `例:`
+  hardest for a `yaml_hook` persona slice, since the excerpt and the example
   would then render on the same screen — so for a hooked persona, also reject
   a pick that merely reuses the example's sentence frame (the same closing
   phrase with the nouns swapped), which the gate cannot see.
@@ -495,8 +501,15 @@ call, and these are what the batches so far have taught.
   `例:「停電? これでようやく私の顔面も定価になった」` answers. The published
   draw drew a different twist and is clean. A scenario is not "safe" because
   one draw came out clean; each draw is its own check, and a scenario whose
-  `例:` lines shadow its own `topics:` / `events:` entries will keep costing
-  draws until the YAML is fixed.
+  worked examples shadow its own `topics:` / `events:` entries will keep
+  costing draws until the YAML is fixed.
+- **A persona that drops its own gimmick is not quotable, however good the
+  line is.** `chin_jimaku_v1_en`'s `Trivia Todd` is defined entirely by the
+  `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he omitted
+  it in both en draws. Quoting him would put a line that contradicts the
+  hook fragment's own instruction on the page. Dropping the speaker costs
+  nothing here — outside an `eliminate` scenario, a partial speaker set
+  leaks no outcome (see the `eliminate` norm above).
 
 **Excerpt** and **hook fragment** are different things. The excerpt is the
 quoted conversation; the hook fragment is the slice of YAML shown beneath it.
