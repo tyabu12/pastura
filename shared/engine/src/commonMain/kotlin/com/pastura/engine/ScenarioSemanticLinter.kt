@@ -73,18 +73,19 @@ public data class LintFinding(
  * `LintSeverity` live here (in `shared/engine`), not `shared/models`, because
  * their Swift originals live in `Engine/`, not `Models/`.
  *
- * ## Scope: D2a ports base types + the Ordering group
+ * ## Scope: Ordering (D2a) + Config (D2b)
  *
  * The Swift linter folds four rule groups into [lint]: producer–consumer
  * ordering (R1a/R1b/R2/R3/R4/R5/R6/R19, `+Ordering.swift`), silently-inert
- * configuration (R7/R8/R9/R17, `+Config.swift`), placeholder resolution
- * (R10–R12, `+Placeholders.swift`) and condition expressions (R13–R16,
- * `+Conditions.swift`). This D2a port carries the base types ([LintFinding],
- * [LintSeverity]), the Ordering group's traversal helpers ([PhaseRef],
- * [producerIndices], [phaseRefs], [branchPhases]), and the Ordering rules
- * themselves ([orderingFindings]). Config / Placeholders / Conditions come in
- * D2b, so [lint] currently returns only ordering findings, not the full
- * four-group union the Swift `lint(_:)` returns.
+ * configuration (R7/R8/R9/R17/R18/R20a/R20b, `+Config.swift`), placeholder
+ * resolution (R10–R12, `+Placeholders.swift`) and condition expressions
+ * (R13–R16, `+Conditions.swift`). D2a ported the base types ([LintFinding],
+ * [LintSeverity]), the shared traversal helpers ([PhaseRef],
+ * [producerIndices], [phaseRefs], [branchPhases]) and the Ordering rules
+ * ([orderingFindings]); D2b adds the Config group ([configFindings]).
+ * Placeholders (D2c) and Conditions (D2d) are still missing, so [lint]
+ * returns the ordering + config union, not the full four-group union the
+ * Swift `lint(_:)` returns.
  *
  * ## Not wired into the engine
  *
@@ -114,7 +115,8 @@ public class ScenarioSemanticLinter {
      *   (with respect to the currently-ported rule groups — see the class
      *   doc's Scope section).
      */
-    public fun lint(scenario: Scenario): List<LintFinding> = orderingFindings(scenario)
+    public fun lint(scenario: Scenario): List<LintFinding> =
+        orderingFindings(scenario) + configFindings(scenario)
 
     // MARK: - Ordering rules (R1a/R1b/R2/R3/R4/R5/R6/R19)
     //
@@ -387,6 +389,199 @@ public class ScenarioSemanticLinter {
             phase.eventVariable == null &&
             phase.source != null &&
             scenario.extraData[phase.source] is AnyCodableValue.ArrayOfDictionariesValue
+
+    // MARK: - Config rules (R7/R8/R9/R17/R18)
+    //
+    // Ported from `ScenarioSemanticLinter+Config.swift`. Unlike the ordering
+    // rules above, these rules don't compare producer/consumer phase indices —
+    // each phase (or the scenario as a whole, for R17) is inert on its own
+    // terms because of a missing/empty field, an out-of-place field (a
+    // `max_sentences` on a code phase, for R18), or because a *different*
+    // producer relation (a round-robin `choose` gating pairing-placeholder
+    // resolution, for R9) never ran earlier. R9/R18 reuse the same "producer
+    // inside a `conditional` branch counts as present at the conditional's
+    // index" imprecision documented on the ordering rules.
+
+    /** Silently-inert-configuration findings (R7/R8/R9/R17/R18). */
+    internal fun configFindings(scenario: Scenario): List<LintFinding> =
+        chooseOptionsFindings(scenario.phases) +
+            assignSourceFindings(scenario.phases, scenario) +
+            summarizePairingFindings(scenario.phases) +
+            logWindowFindings(scenario) +
+            maxSentencesNoOpFindings(scenario.phases)
+
+    // MARK: - R7 choose-should-declare-options (warning)
+
+    /**
+     * A `choose` phase with null/empty `options` leaves the action
+     * unconstrained — `ChooseHandler.validateAction` returns the raw model
+     * output verbatim when `options` is empty, and `PromptBuilder` has no
+     * option list to steer the model with. Uniformly [LintSeverity.WARNING]
+     * (never escalated) — with `options` absent the prompt wording may still
+     * elicit the intended values, so "wrong" is probable, not statically
+     * provable (unlike R2's empty `pairings`).
+     */
+    private fun chooseOptionsFindings(phases: List<Phase>): List<LintFinding> =
+        phaseRefs(phases) { it.type == PhaseType.CHOOSE && (it.options ?: emptyList()).isEmpty() }
+            .map { configFinding("choose-should-declare-options", LintSeverity.WARNING, it.topLevelIndex) }
+
+    // MARK: - R8 assign-source-nonempty (error)
+
+    /**
+     * An `assign` phase whose source resolves to an empty list assigns nothing
+     * (`target: random_one`) or `""` to every agent (`target: all` with an
+     * empty array) — `AssignHandler`'s per-target branches both no-op on an
+     * empty collection. Mirrors `AssignHandler`'s shape branches exactly rather
+     * than duplicating [ScenarioValidator]'s assign shape errors (missing key /
+     * mismatched shape stay that gate's lane): this rule only adds the
+     * emptiness check on top of an already-resolved, correctly-shaped source.
+     */
+    private fun assignSourceFindings(phases: List<Phase>, scenario: Scenario): List<LintFinding> =
+        phaseRefs(phases) { it.type == PhaseType.ASSIGN && isAssignSourceEmpty(it, scenario) }
+            .map { configFinding("assign-source-nonempty", LintSeverity.ERROR, it.topLevelIndex) }
+
+    /**
+     * Whether an `assign` phase's resolved source is empty for its `target`
+     * mode. Returns `false` (no finding) when the source is missing or shaped
+     * incompatibly with `target` — those are [ScenarioValidator]'s errors, not
+     * this rule's to duplicate.
+     *
+     * ADR-022 no-default convention: both the [AssignTarget] `when` and the
+     * [AnyCodableValue] shape `when`s enumerate every arm explicitly, so a new
+     * target mode or a new value shape fails the build here instead of falling
+     * into a silent `else`.
+     */
+    private fun isAssignSourceEmpty(phase: Phase, scenario: Scenario): Boolean {
+        val sourceKey = phase.source ?: return false
+        val sourceValue = scenario.extraData[sourceKey] ?: return false
+        return when (phase.target ?: AssignTarget.ALL) {
+            AssignTarget.RANDOM_ONE -> when (sourceValue) {
+                is AnyCodableValue.ArrayOfDictionariesValue -> sourceValue.value.isEmpty()
+                // Any other shape is a `random_one` shape mismatch — the
+                // validator's error, so this rule stays silent.
+                is AnyCodableValue.ArrayValue,
+                is AnyCodableValue.StringValue,
+                is AnyCodableValue.DictionaryValue,
+                -> false
+            }
+            AssignTarget.ALL -> when (sourceValue) {
+                is AnyCodableValue.ArrayValue -> sourceValue.value.isEmpty()
+                // A single-string source is a legitimate `.all` shape — never
+                // empty in the "nothing to iterate" sense `AssignHandler`'s
+                // all-mode branch cares about (ADR-024 Rule-precision notes).
+                is AnyCodableValue.StringValue -> false
+                is AnyCodableValue.ArrayOfDictionariesValue,
+                is AnyCodableValue.DictionaryValue,
+                -> false
+            }
+        }
+    }
+
+    // MARK: - R9 summarize-pairing-placeholders (warning)
+
+    /**
+     * A `summarize` phase whose template references any `{agent1}`-family
+     * token without a round-robin `choose` phase earlier in the round: those
+     * tokens are only populated in `SummarizeHandler`'s per-pairing branch
+     * (gated on `state.pairings` being non-empty, which only a round-robin
+     * `choose` populates), so the braces leak literally into the summary text.
+     */
+    private fun summarizePairingFindings(phases: List<Phase>): List<LintFinding> {
+        val roundRobinChoose = producerIndices(phases) {
+            it.type == PhaseType.CHOOSE && it.pairing == PairingStrategy.ROUND_ROBIN
+        }
+        return phaseRefs(phases) {
+            it.type == PhaseType.SUMMARIZE && containsPairingPlaceholder(it.template)
+        }
+            .filter { ref -> roundRobinChoose.none { it <= ref.topLevelIndex } }
+            .map { configFinding("summarize-pairing-placeholders", LintSeverity.WARNING, it.topLevelIndex) }
+    }
+
+    /**
+     * Whether [template] references any pairing-only token
+     * ([PlaceholderAvailability.pairingInjected]: `agent1`/`action1`/`agent2`/
+     * `action2`/`score1`/`score2`).
+     */
+    private fun containsPairingPlaceholder(template: String?): Boolean {
+        if (template == null) return false
+        return PlaceholderAvailability.pairingInjected.any { template.contains("{$it}") }
+    }
+
+    // MARK: - R17 log-window-below-agent-count (warning)
+
+    /**
+     * `log_window < agentCount` with a `speak_each` phase present truncates
+     * same-round earlier speakers out of the addressee pool the accumulating
+     * `speak_each` prompt reads (documented in `.claude/rules/engine.md`, not
+     * enforced anywhere at load time until this rule). Scenario-level finding
+     * (`phaseIndex = null`) — the mismatch is between two scenario-wide
+     * fields, not any single phase.
+     */
+    private fun logWindowFindings(scenario: Scenario): List<LintFinding> {
+        val logWindow = scenario.logWindow ?: return emptyList()
+        if (logWindow >= scenario.agentCount) return emptyList()
+        if (!hasSpeakEach(scenario.phases)) return emptyList()
+        return listOf(
+            LintFinding(
+                ruleId = "log-window-below-agent-count",
+                severity = LintSeverity.WARNING,
+                message = configMessage("log-window-below-agent-count"),
+                phaseIndex = null,
+            ),
+        )
+    }
+
+    /**
+     * Whether any `speak_each` phase is present, top-level or nested in a
+     * `conditional` branch (may-run counts as present, same as the ordering
+     * rules' producer check).
+     */
+    private fun hasSpeakEach(phases: List<Phase>): Boolean =
+        phaseRefs(phases) { it.type == PhaseType.SPEAK_EACH }.isNotEmpty()
+
+    // MARK: - R18 max-sentences-no-op (warning)
+
+    /**
+     * A `max_sentences` set on a phase that emits no LLM statement is a silent
+     * no-op: it is parsed, round-tripped, and serialized, but never reaches a
+     * prompt. The brevity bullet it feeds is emitted only by
+     * `PromptBuilder.buildAnswerRules`, which is called from
+     * `buildSystemPrompt` — reached solely by the `requiresLLM` handlers. So
+     * [PhaseType.requiresLLM] is exactly the "cap reaches the prompt"
+     * predicate, and its inverse is the provable no-op set. Reusing that
+     * existing no-default exhaustive `when` keeps a single source of truth: a
+     * new phase type forces a decision there and R18 follows automatically.
+     * `reflect` is **excluded** (it is `requiresLLM`) even though its cap
+     * semantics are fuzzy (it emits a `note`, not a `statement`) — the bullet
+     * is still emitted, so it is not a *silent* no-op. Uniformly
+     * [LintSeverity.WARNING] — never blocks a run.
+     */
+    private fun maxSentencesNoOpFindings(phases: List<Phase>): List<LintFinding> =
+        phaseRefs(phases) { it.maxSentences != null && !it.type.requiresLLM }
+            .map { configFinding("max-sentences-no-op", LintSeverity.WARNING, it.topLevelIndex) }
+
+    // MARK: - Config shared
+
+    /**
+     * Builds the [LintFinding] for a config [ruleId], resolving its fix-hint
+     * message via [configMessage].
+     */
+    private fun configFinding(ruleId: String, severity: LintSeverity, idx: Int): LintFinding =
+        LintFinding(ruleId = ruleId, severity = severity, message = configMessage(ruleId), phaseIndex = idx)
+
+    /**
+     * The user-facing fix-hint message for a config [ruleId] (one sentence
+     * naming the rule + a concrete fix), rendered via [ScenarioLintMessage].
+     */
+    private fun configMessage(ruleId: String): String = when (ruleId) {
+        "choose-should-declare-options" -> ScenarioLintMessage.ChooseShouldDeclareOptions.render()
+        "assign-source-nonempty" -> ScenarioLintMessage.AssignSourceNonempty.render()
+        "summarize-pairing-placeholders" -> ScenarioLintMessage.SummarizePairingPlaceholders.render()
+        "max-sentences-no-op" -> ScenarioLintMessage.MaxSentencesNoOp.render()
+        // Falls to `log-window-below-agent-count`: `logWindowFindings` is the
+        // only other caller of `configMessage`, always with this ruleId.
+        else -> ScenarioLintMessage.LogWindowBelowAgentCount.render()
+    }
 
     // MARK: - Traversal helpers
     //

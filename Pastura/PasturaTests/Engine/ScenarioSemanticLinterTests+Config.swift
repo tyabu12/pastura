@@ -152,11 +152,11 @@ extension ScenarioSemanticLinterTests {
   }
 
   @Test func maxSentencesOnLLMPhasesDoesNotFire() {
-    // All 6 `requiresLLM` phases surface the brevity cap in-prompt, so R18 must
+    // All 7 `requiresLLM` phases surface the brevity cap in-prompt, so R18 must
     // never fire for them. Guards against a `primaryField == "statement"`
     // over-narrowing that would false-flag vote/choose/reflect (whose brevity
     // bullet IS still emitted).
-    for llmType in [PhaseType.speakAll, .speakEach, .vote, .choose, .reflect, .whisper] {
+    for llmType in [PhaseType.speakAll, .speakEach, .vote, .choose, .reflect, .whisper, .narrate] {
       let scenario = makeScenario(
         agents: 2, rounds: 1, phases: [Phase(type: llmType, maxSentences: 2)])
       #expect(!linter.lint(scenario).contains { $0.ruleID == "max-sentences-no-op" })
