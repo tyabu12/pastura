@@ -1019,6 +1019,26 @@
       "yaml_url": "zenkaiitchi_okite_v1.yaml",
       "yaml_sha256": "d0bbe43d5ec8c3683089f3f4a56647b06a0f22ae1d3e7cc9ae3d8a9e1631d497",
       "added_at": "2026-07-28"
+    },
+    {
+      "id": "ano_hi_no_teiden_v1",
+      "title": "あの日の停電 記憶のすり合わせ",
+      "category": "experimental",
+      "description": "同窓会で10年前の文化祭を語り合う4人。一人が確信する「停電」は実は起きていない — 偽の記憶はどこまで伝染するか。",
+      "author": "tyabu12",
+      "recommended_model": "gemma-4-e2b-q4-k-m",
+      "estimated_inferences": 12,
+      "agent_count": 4,
+      "rounds": 3,
+      "phases": [
+        "assign",
+        "speak_each",
+        "summarize"
+      ],
+      "language": "ja",
+      "yaml_url": "ano_hi_no_teiden_v1.yaml",
+      "yaml_sha256": "b88b94fa7dad1a86fb572bff1c31d33a64a03cec48e57c1a67e11e76bebc880f",
+      "added_at": "2026-08-28"
     }
   ]
 }
