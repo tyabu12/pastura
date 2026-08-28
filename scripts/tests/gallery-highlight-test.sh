@@ -1439,14 +1439,15 @@ expect_fail "C3h a transcript with no event lines is refused"
 expect_out "no event lines" "C3h names the missing events, not a downstream crash"
 expect_no_out "Traceback" "C3h fails by name rather than by traceback"
 
-# C3i — the OTHER unblocked shape, end-to-end. `detective_scene_v1` and
-# `kasei_sanso_touban_v1` put the conditional LAST, so their only eligible pick
-# is the top-level utterance BEFORE it — a case the branch resolver contributes
-# nothing to (they are unblocked by the class-refusal lift, not by it). Every
-# other extractor arm here picks a branch-interior line, so without this one
-# that shape is asserted only by direct `_check_position` calls, never through
-# the extractor. Modelled on kasei down to the `event_inject` branch child,
-# which no other fixture in this file exercises.
+# C3i — the OTHER unblocked shape, end-to-end. `detective_scene_v1` puts the
+# conditional LAST, so its only eligible pick is the top-level utterance BEFORE
+# it — a case the branch resolver contributes nothing to (it is unblocked by the
+# class-refusal lift, not by it). Every other extractor arm here picks a
+# branch-interior line, so without this one that shape is asserted only by direct
+# `_check_position` calls, never through the extractor. Modelled on
+# `kasei_sanso_touban_v1` as it stood before #1598 rewrote it, down to the
+# `event_inject` branch child, which no other fixture in this file exercises —
+# the fixture is deliberately kept even though no shipping YAML has the shape.
 TREE_KASEI='[{"type":"speak_all"},{"type":"vote"},{"type":"score_calc"},
   {"type":"conditional","then":[{"type":"summarize"}],
    "else":[{"type":"event_inject"},{"type":"speak_all"}]}]'

@@ -41,7 +41,9 @@ extension ScenarioSemanticLinterTests {
   }
 
   @Test func sameConditionalProducerBeforeConsumerPassesR11() {
-    // Regression (gallery kasei_sanso_touban): an `event_inject` and its
+    // Regression (gallery kasei_sanso_touban until #1598 rewrote it — this
+    // synthetic case is now the only place the shape is exercised): an
+    // `event_inject` and its
     // consumer sit in the SAME conditional branch, producer first. Both anchor
     // to the conditional's top-level index, so R11's comparison must accept
     // same-index producers (`<=`, may-run leniency) or this false-positives.

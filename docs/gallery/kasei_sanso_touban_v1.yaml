@@ -4,14 +4,14 @@ name: 火星コロニー 酸素当番
 description: >
   火星コロニーの酸素供給装置が故障寸前。誰か一人が危険な船外修理に出なければ
   全員が窒息するが、出た者は命を落としかねない。誰もが「自分以外の誰かが行く
-  べき」と願う——典型的なボランティアのジレンマ。合意が割れると酸素はさらに減る。
+  べき」と願う——典型的なボランティアのジレンマ。事態は毎ラウンド悪化する。
 context: >
   あなたは火星コロニーの居住者です。酸素供給装置が故障寸前で、誰か一人が
   危険な船外修理に出なければ全員が窒息します。しかし船外作業は命に関わります。
   毎ラウンド、あなたは自分の立場から「誰が修理に行くべきか」を1〜2文で主張します
   （自分が行くと申し出ても、他人を推しても構いません）。
   その後、自分以外で「修理当番に最もふさわしい」と思う相手に投票します。
-  合意がまとまらなければ、酸素はさらに減り、状況は悪化します。
+  時間が経つほど事態は悪化します。
 agents: 5
 rounds: 2
 personas:
@@ -41,22 +41,40 @@ personas:
       【目的】合意形成を促すが、自分が犠牲になる選択肢だけは巧妙に避ける。
       「全体最適」を語りながら自己保存を図る。
 phases:
+  - type: assign
+    source: crisis_events
+    target: all
   - type: speak_all
     prompt: >
-      ラウンド {current_round}。酸素の残量が減っています。
+      ラウンド {current_round}。いま起きていること: {assigned_topic}
+
       これまでの議論: {conversation_log}
 
-      「誰が船外修理に行くべきか」を、あなたの立場から1〜2文で主張してください。
+      まず、いま起きているこの事態にあなた自身がどう感じたかを一言で述べ、
+      そのうえで「誰が船外修理に行くべきか」をあなたの立場から主張してください。
+      事態の説明をなぞるのではなく、あなた個人の反応から語ること。
       自分が行くと申し出ても、他人を推しても構いません。
     output:
       statement: string
       inner_thought: string
+  # {scoreboard} は累積得点で、rounds: 2 では vote 実行時点（このラウンドの
+  # score_calc は未実行）の値が前ラウンドの得票と一致する。summarize は
+  # conversationLog に追記されないため、前ラウンドの投票結果がここへ届く唯一の
+  # 経路がこれ。rounds を増やすと累積と単ラウンドは一致しなくなる。
+  # {vote_results} はここでは使えない。VoteHandler が投票後に書く変数なので、
+  # ラウンド1の vote 時点では未定義であり、expandTemplate は未知のキーを
+  # 置換せずリテラルのまま LLM に渡してしまう。
   - type: vote
     prompt: >
+      いま起きていること: {assigned_topic}
+
+      これまでの指名状況: {scoreboard}
+
       各自の主張:
       {conversation_log}
 
       自分以外で「修理当番に最もふさわしい」と思う相手に投票してください。
+      投票の理由は、その人が直前に自分の口で述べた言葉に触れて書くこと。
       投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
     output:
       vote: string
@@ -64,25 +82,15 @@ phases:
     exclude_self: true
   - type: score_calc
     logic: vote_tally
-  - type: conditional
-    if: "max_score >= 3"
-    then:
-      - type: summarize
-        template: >
-          ラウンド{current_round}: 過半数が一人の当番を指名しました。
-          コロニーは辛うじて合意に達しました。指名状況: {scoreboard}
-    else:
-      - type: event_inject
-        source: crisis_events
-        as: current_event
-        probability: 1
-      - type: speak_all
-        prompt: >
-          合意がまとまらず、事態が悪化しました: {current_event}
-
-          この緊急事態を受けて、あなたの立場から一言、態度を述べてください。
-        output:
-          statement: string
+  - type: summarize
+    template: >
+      ラウンド{current_round}終了。このラウンドの指名状況: {vote_results}
+# crisis_events の件数は rounds と一致させること。assign(target: all) は
+# (current_round - 1) % 件数 でラウンド索引するため、件数が rounds より
+# 少ないと後半のラウンドが先頭の文面に巻き戻る。各文面は「残り時間がある」と
+# 断定せず、巻き戻っても矛盾ではなく反復に劣化するよう書いてある。
+# なおこのコメントはビジュアル編集画面での保存時に失われる
+# （ScenarioSerializer は Scenario モデルから YAML を手組みし、コメントを保持しない）。
 crisis_events:
-  - 議論が紛糾している間に酸素濃度が危険域まで低下し、警報が鳴り始めた。
-  - 装置から白煙が上がり、修理の猶予が残りわずかになった。
+  - 酸素濃度が警告域まで低下し、居住区の照明が非常灯に切り替わった。
+  - 装置から白煙が上がり、警報が鳴り止まない。猶予はもう残っていない。当番を決めなければ全員が死ぬ。

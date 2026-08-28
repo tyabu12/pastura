@@ -755,9 +755,12 @@ public class ScenarioSemanticLinter {
         // `{my_notes}`) are in the phase's own supplied set -> never ordered-wrong.
         // `<=` (not `<`): a producer nested in a `conditional` branch anchors to the
         // conditional's index, so a consumer sub-phase ordered after it in the SAME
-        // conditional shares that index (gallery kasei_sanso_touban: event_inject ->
-        // speak_all inside one else-branch). Same-index counts as satisfied — the
-        // may-run leniency the ordering rules already apply (`<= idx` there).
+        // conditional shares that index (gallery kasei_sanso_touban carried exactly
+        // this shape — event_inject -> speak_all inside one else-branch — until #1598
+        // rewrote it; no shipping YAML has it now, so the guarantee rests on
+        // `sameConditionalProducerBeforeConsumerPassesR11`). Same-index counts as
+        // satisfied — the may-run leniency the ordering rules already apply
+        // (`<= idx` there).
         val producers = producerIndicesForToken(token, scenario)
         if (producers != null &&
             !producerTypeMatchesPhase(token, phase) &&
