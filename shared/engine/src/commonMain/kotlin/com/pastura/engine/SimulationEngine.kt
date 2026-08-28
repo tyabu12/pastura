@@ -42,13 +42,17 @@ import kotlinx.coroutines.launch
  *
  * | Absent | Why |
  * |---|---|
- * | `ScenarioValidator` preflight + `ScenarioSemanticLinter` (ADR-024) | §4's `Load + validate` row, which the linter joined on 2026-07-19 (before that, §4 did not mention it and this row's `(§4)` citation pointed at nothing). [ScenarioValidator] is now ported in full — run gate `validate` (#1554) and commit gate `validateForCommit` (#1552) — but the linter is unported; neither is wired here, because §4 gates the preflight on both together and wiring one side would split it across languages. Nothing gates a scenario on this side yet, which is why the ported code must not assume validator floors — see `PromptBuilder`. |
+ * | ~~`ScenarioValidator` preflight + `ScenarioSemanticLinter` (ADR-024)~~ | **No longer absent — wired by D3 (#1591).** Both halves land together, as §4's `Load + validate` row requires; see [preflightGate], called below before the round loop starts. |
  * | Resume (`resumingFrom` seed / `startRound`) | needs the Data layer's persisted state; D2 keeps Data in Swift |
  * | `LanguageDetector` / `EngineLogger` injection | injection is Stage-3 freight — absent from `PhaseContext`. §4 ports both **seams only** (`LanguageDetector` in PR-3, `EngineLogger` in PR-2); the concrete `OSLogEngineLogger` / `NLLanguageDetector` stay in Swift App/ |
  *
  * Swift original: `Pastura/Pastura/Engine/SimulationRunner.swift`.
  */
 public class SimulationEngine {
+
+    // Swift's `SimulationRunner.validator`. A stateless value, held as a property
+    // for parity with the Swift original rather than out of necessity.
+    private val validator = ScenarioValidator()
 
     /**
      * Start a simulation.
@@ -76,6 +80,12 @@ public class SimulationEngine {
 
         val job = scope.launch {
             try {
+                // Structural validation + semantic lint (ADR-024) — see
+                // SimulationPreflight.kt. Mirrors Swift's position at the top of
+                // `executeSimulation`: inside the Task, before ANY event of the
+                // run is emitted, so `run()` still returns its handle immediately
+                // and a rejection arrives via `onEvent` like any other error.
+                if (!preflightGate(scenario, validator, onEvent)) return@launch
                 RunLoop(scenario, backend, relay, gate, onEvent).execute()
             } catch (e: CancellationException) {
                 // Swift's runner checks `Task.isCancelled` at each checkpoint and

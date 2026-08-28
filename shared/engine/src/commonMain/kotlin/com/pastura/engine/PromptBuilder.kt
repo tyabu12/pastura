@@ -142,15 +142,15 @@ internal class PromptBuilder {
      *   log is untouched in persistence. `null` keeps every entry.
      *
      *   Swift's doc reasons that "for any `window >= 1` (the validator's floor) the
-     *   trimmed slice is non-empty whenever `entries` is". **That floor does not
-     *   hold in Kotlin yet** — [ScenarioValidator] ports the run gate but is not
-     *   wired into [SimulationEngine] (ADR-023 §4: the preflight waits for the
-     *   linter port), so nothing on the run path rejects `log_window: 0`.
-     *   `takeLast(0)` returns empty, which would render
-     *   the empty-log placeholder on a *non-empty* log — silently telling the model
-     *   "no conversation yet" mid-round. Guarded explicitly below rather than
-     *   inherited by assumption; see [Phase.maxSentences] for the same
-     *   validator-gap pattern.
+     *   trimmed slice is non-empty whenever `entries` is". That floor now holds on
+     *   this side too: [preflightGate] runs [ScenarioValidator.validate] at the top
+     *   of [SimulationEngine.run] (D3, #1591), and it throws
+     *   `LogWindowBelowMinimum` on `log_window: 0`. The `coerceAtLeast(1)` below
+     *   stays as defence in depth, because this function is also reachable from
+     *   callers that never crossed that gate: `takeLast(0)` returns empty, which
+     *   would render the empty-log placeholder on a *non-empty* log — silently
+     *   telling the model "no conversation yet" mid-round. See
+     *   [Phase.maxSentences] for the same clamp pattern.
      */
     fun formatConversationLog(
         entries: List<ConversationEntry>,
@@ -160,9 +160,9 @@ internal class PromptBuilder {
         if (entries.isEmpty()) {
             return pickLanguage(language, ja = "（まだなし）", en = "(none yet)")
         }
-        // coerceAtLeast(1): see the `window` doc — the validator floor is not yet
-        // enforced on this run path, and a 0 window must not masquerade as an
-        // empty log.
+        // coerceAtLeast(1): see the `window` doc — the run path now enforces the
+        // validator's floor via the preflight, so this is defence in depth for
+        // callers that bypass it; a 0 window must not masquerade as an empty log.
         val windowed = window?.let { entries.takeLast(it.coerceAtLeast(1)) } ?: entries
         return windowed.joinToString(separator = "\n") { "  ${it.agentName}: ${it.content}" }
     }

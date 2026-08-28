@@ -11,9 +11,11 @@ package com.pastura.engine
  * while `toString()` prepends the class name and is only the last resort for a
  * message-less throwable.
  *
- * Landed as infra: there is **no Kotlin consumer yet**. The Engine
- * error-bridge call sites that wrap foreign errors into [SimulationError]-typed
- * strings — the analogue of the Swift wrap points — are later-Wave freight.
+ * Landed as infra; its first Kotlin consumer is [preflightGate] (D3, #1591),
+ * which wraps a non-[SimulationException] throwable out of the run gate into
+ * `ScenarioValidationFailed` exactly as Swift's `preflightGate` does. The
+ * remaining Engine error-bridge call sites that wrap foreign errors into
+ * [SimulationError]-typed strings are later-Wave freight.
  *
  * Swift original: `Pastura/Pastura/Engine/ErrorReadability.swift`.
  * Ported for the ADR-023 §6 Stage-3 Engine migration (#501).
