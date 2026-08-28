@@ -41,7 +41,9 @@
 /// resolve absent and are correctly R15.
 ///
 /// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2d);
-/// a rule change here is a hand edit there and in its commonTest mirror. One
+/// a rule change here is a hand edit there and in its commonTest mirror (the
+/// twin hoists one `ConditionEvaluator` per scan where this file builds one per
+/// phase — the parser's state is per-call on both sides, so neither is a bug). One
 /// **stated divergence**: this file classifies a numeric operand with
 /// `Double(text)`, which also accepts `nan` / `inf` / `infinity` / hex-floats
 /// (no finding), while the Kotlin evaluator's decimal-literal predicate does

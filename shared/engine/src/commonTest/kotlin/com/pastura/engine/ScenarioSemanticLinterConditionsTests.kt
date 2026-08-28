@@ -49,12 +49,13 @@ import kotlin.test.assertTrue
  *
  * ADR-023 §12 condition 4 (perturbation sensitivity). Measured 2026-08-28 with
  * the whole `:shared:engine:jvmTest` suite (952 tests, this class's 12) green
- * before the first mutation and after the last revert, rows 1-3 below. Rows 1
- * and 3 were re-measured the same day after
- * [eventFavorsCompanionIsKnownInCondition] and
+ * before the first mutation and after the last revert — all eight rows below
+ * were run in that session, one mutation at a time, applied to
+ * `ScenarioSemanticLinter.kt`'s Conditions section alone and reverted exactly
+ * before the next. Rows 1 and 3 were then re-measured the same day, same
+ * methodology, after [eventFavorsCompanionIsKnownInCondition] and
  * [barePersonaNameOutsideEqualityFiresR15NotR14] closed them (954 tests, this
- * class's 14) — same methodology, applied to `ScenarioSemanticLinter.kt`'s
- * Conditions section alone and reverted exactly before the next mutation.
+ * class's 14); the table shows the post-close result.
  *
  * | # | Mutation of `ScenarioSemanticLinter.kt` | Reddened |
  * |---|---|---|
@@ -293,16 +294,17 @@ class ScenarioSemanticLinterConditionsTests {
         assertEquals(LintSeverity.WARNING, findings.first().severity)
     }
 
-    // MARK: - Message mapping (deliberate exception to the 1:1 mirror)
+    // MARK: - Message mapping (deliberate exception to the one-test-per-rule shape)
 
     /**
      * Pins each condition `ruleId` to the [ScenarioLintMessage] arm
      * `conditionMessage` must render for it, token interpolation included.
      *
-     * Not a mirror of any Swift test: no mirrored test in this class asserts
-     * `finding.message`, so all three arms — the fallthrough `else`, reachable
-     * only via `unknown-condition-identifier`, especially — would otherwise be
-     * unverified on both sides. Same shape and rationale as
+     * Twin of `ScenarioSemanticLinterTests+ConditionMessages.swift`'s
+     * `conditionMessagesMapEachRuleIDToItsLintMessageCase` (same PR): no
+     * rule test in this class asserts `finding.message`, so all three arms —
+     * the fallthrough `else`, reachable only via `unknown-condition-identifier`,
+     * especially — would otherwise be unverified on both sides. Same shape and rationale as
      * `ScenarioSemanticLinterPlaceholdersTests.placeholderMessagesMapEachRuleIdToItsLintMessageCase`.
      */
     @Test
