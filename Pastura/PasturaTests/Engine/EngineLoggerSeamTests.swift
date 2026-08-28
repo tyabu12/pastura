@@ -85,6 +85,42 @@ struct EngineLoggerSeamTests {
     #expect(retry?.privacy == .public)
   }
 
+  /// Through-runner reach pin: a logger injected via
+  /// ``SimulationRunner/init(detector:logger:)`` must actually reach the run
+  /// path — `SimulationRunner` → `ExecutionContext` → `PhaseContext` →
+  /// handler → ``LLMCaller``. The suite's other cases construct `LLMCaller`
+  /// directly, so none of them would notice a runner that dropped the seam on
+  /// the floor and fell back to ``NoopEngineLogger``.
+  ///
+  /// Landed as the Swift half of the Kotlin injection-seam PR (the D2d
+  /// Swift-pin-then-Kotlin-twin pairing); the Kotlin twin is
+  /// `SimulationEngineSeamInjectionTests.injectedLoggerReachesTheRunPath` in
+  /// `shared/engine/src/commonTest`. Swift is already wired, so this passes on
+  /// arrival — its job is to be the parity spec that twin mirrors.
+  @Test func runnerInjectedLoggerReachesTheRunPath() async throws {
+    // Alice: attempt 1 unparseable → one `retryCause … parse_failed` line,
+    // attempt 2 valid. Bob: valid on attempt 1. Deterministic, and the only
+    // StreamingDiag emission in the run.
+    let valid = #"{"statement": "a statement"}"#
+    let mock = MockLLMService(responses: ["not json at all", valid, valid])
+    try await mock.loadModel()
+    let spy = SpyEngineLogger()
+
+    let scenario = makeTestScenario(
+      agentNames: ["Alice", "Bob"],
+      language: "en",
+      rounds: 1,
+      phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
+    )
+    let runner = SimulationRunner(logger: spy)
+    let events = await collectAllEvents(
+      runner.run(scenario: scenario, llm: mock, suspendController: SuspendController()))
+
+    #expect(events.contains { if case .simulationCompleted = $0 { true } else { false } })
+    let diag = spy.entries.filter { $0.category == "StreamingDiag" }.map(\.message)
+    #expect(diag.contains("retryCause agent=Alice attempt=1 cause=parse_failed"))
+  }
+
   /// Adapter smoke: every (level, privacy) combination is callable and the
   /// switch is exhaustive. OSLog's actual off-device redaction is
   /// real-device-verifiable only (documented manual `log stream` step in the

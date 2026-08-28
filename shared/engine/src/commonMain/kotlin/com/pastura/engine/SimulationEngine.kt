@@ -44,11 +44,26 @@ import kotlinx.coroutines.launch
  * |---|---|
  * | ~~`ScenarioValidator` preflight + `ScenarioSemanticLinter` (ADR-024)~~ | **No longer absent — wired by D3 (#1591).** Both halves land together, as §4's `Load + validate` row requires; see [preflightGate], called below before the round loop starts. |
  * | Resume (`resumingFrom` seed / `startRound`) | needs the Data layer's persisted state; D2 keeps Data in Swift |
- * | `LanguageDetector` / `EngineLogger` injection | injection is Stage-3 freight — absent from `PhaseContext`. §4 ports both **seams only** (`LanguageDetector` in PR-3, `EngineLogger` in PR-2); the concrete `OSLogEngineLogger` / `NLLanguageDetector` stay in Swift App/ |
+ * | ~~`LanguageDetector` / `EngineLogger` injection~~ | **No longer absent — both are constructor parameters below**, threaded through `RunLoop` into every [PhaseContext]. Only the concrete `OSLogEngineLogger` / `NLLanguageDetector` stay in Swift App/, as §4 intends; a Swift conformer must be `nonisolated` (see each interface's KDoc) |
  *
  * Swift original: `Pastura/Pastura/Engine/SimulationRunner.swift`.
+ *
+ * @property detector Optional language-of-output detector for the ADR-010 Step E
+ *   adherence check. When supplied alongside a `Scenario.engineLanguage`,
+ *   [LLMCaller] retries on language drift inside its existing budget and emits
+ *   `SimulationEvent.LanguageMismatch` on exhaustion. `null` (the default)
+ *   disables the check, so callers that do not feed it keep their pre-Step-E
+ *   behaviour. The concrete impl (`NLLanguageDetector`) stays Swift App-side per
+ *   ADR-010 D8.
+ * @property logger Diagnostic seam forwarded to every [PhaseContext] and from
+ *   there to [LLMCaller] (the `StreamingDiag` channel). Defaults to
+ *   [NoopEngineLogger] so Engine tests and the ADR-013 harness run without
+ *   wiring OSLog; production injects the Swift `OSLogEngineLogger`.
  */
-public class SimulationEngine {
+public class SimulationEngine(
+    private val detector: LanguageDetector? = null,
+    private val logger: EngineLogger = NoopEngineLogger(),
+) {
 
     // Swift's `SimulationRunner.validator`. A stateless value, held as a property
     // for parity with the Swift original rather than out of necessity.
@@ -86,7 +101,7 @@ public class SimulationEngine {
                 // run is emitted, so `run()` still returns its handle immediately
                 // and a rejection arrives via `onEvent` like any other error.
                 if (!preflightGate(scenario, validator, onEvent)) return@launch
-                RunLoop(scenario, backend, relay, gate, onEvent).execute()
+                RunLoop(scenario, backend, relay, gate, onEvent, detector, logger).execute()
             } catch (e: CancellationException) {
                 // Swift's runner checks `Task.isCancelled` at each checkpoint and
                 // emits `.error(.cancelled)`. Kotlin's idiomatic equivalent throws,
@@ -211,6 +226,11 @@ private class RunLoop(
     private val relay: SuspensionRelay,
     private val gate: PauseGate,
     private val onEvent: (SimulationEvent) -> Unit,
+    // Injection seams, run-scoped: fed straight into every PhaseContext below so
+    // the top-level construction site is the ONE place they are supplied. See
+    // SimulationEngine's constructor KDoc.
+    private val detector: LanguageDetector?,
+    private val logger: EngineLogger,
 ) {
 
     private val dispatcher = PhaseDispatcher()
@@ -284,6 +304,8 @@ private class RunLoop(
                         pauseCheck = { nested -> checkPaused(round, nested) },
                         phasePath = phasePath,
                         turnGate = turnGate,
+                        detector = detector,
+                        logger = logger,
                     ),
                     state = state,
                 )

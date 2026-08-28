@@ -109,15 +109,16 @@ internal class PhaseContext(
     val turnGate: TurnFailureGate,
     /**
      * Optional language-of-output detector for the ADR-010 Step E adherence check
-     * (see [LLMCaller.call]). `null` = skip the check — the seam is unwired in the
-     * Kotlin run path today (see § "Knowingly absent"), and the concrete
-     * `NLLanguageDetector` stays Swift App-side per ADR-010 D8. Defaulted so
-     * construction sites that don't feed it stay unchanged.
+     * (see [LLMCaller.call]). `null` = skip the check. Fed from the run path by
+     * `SimulationEngine(detector = …)`; the concrete `NLLanguageDetector` stays
+     * Swift App-side per ADR-010 D8. Defaulted so construction sites that don't
+     * feed it stay unchanged.
      */
     val detector: LanguageDetector? = null,
     /**
-     * Diagnostic seam threaded to [LLMCaller] (the `StreamingDiag` channel). The
-     * concrete `OSLogEngineLogger` stays Swift App-side; [NoopEngineLogger] is the
+     * Diagnostic seam threaded to [LLMCaller] (the `StreamingDiag` channel). Fed
+     * from the run path by `SimulationEngine(logger = …)`; the concrete
+     * `OSLogEngineLogger` stays Swift App-side; [NoopEngineLogger] is the
      * default so the Engine stays OSLog-free and non-App consumers (tests, the
      * ADR-013 harness) need no wiring. Defaulted for the same construction-site
      * reason as [detector].

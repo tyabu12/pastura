@@ -13,13 +13,22 @@ package com.pastura.engine
  * D8, `import NaturalLanguage` is forbidden in Engine / LLM / Models / Data
  * layers — only this abstraction crosses the boundary. The Swift consumer
  * threads a nullable `(any LanguageDetector)?` (nil = skip the check), so there
- * is deliberately **no Noop impl** here; the interface is landed as an unwired
- * seam, mirroring [EngineLogger].
+ * is deliberately **no Noop impl** here; `null` IS the "skip" value, mirroring
+ * [EngineLogger]'s [NoopEngineLogger].
+ *
+ * **Injectable from the run path**: pass an implementation to
+ * `SimulationEngine(detector = …)` and the runner threads it into every
+ * [PhaseContext]; the default `null` keeps the adherence check off.
+ *
+ * **A Swift conformer must be declared `nonisolated`.** K/N exports this as an
+ * unannotated Obj-C protocol and [detect] is called from `Dispatchers.Default`,
+ * so a default-MainActor conformance compiles clean and traps at runtime — the
+ * `LLMBackend` precedent, `.claude/rules/swift-isolation.md` Pattern 7.
  *
  * Swift original: `Pastura/Pastura/LLM/LanguageDetector.swift`.
  * Ported for the ADR-023 §6 Stage-3 Engine migration (#501).
  */
-internal interface LanguageDetector {
+public interface LanguageDetector {
     /**
      * Detect the dominant natural language of [text].
      *
@@ -32,5 +41,5 @@ internal interface LanguageDetector {
      *   threshold. The consumer treats `null` as "skip the adherence check"
      *   rather than "mismatch".
      */
-    fun detect(text: String): String?
+    public fun detect(text: String): String?
 }
