@@ -78,8 +78,8 @@ class ScenarioSerializationTests {
 
     @Test
     fun logWindowFloorIsNotEnforcedByTheType() {
-        // Pins the doc's explicit non-claim. `ScenarioValidator.rejectsZeroLogWindow`
-        // (ScenarioValidatorTests.kt) covers the run-path floor now that the
+        // Pins the doc's explicit non-claim. `ScenarioValidatorTests.rejectsZeroLogWindow`
+        // covers the run-path floor now that the
         // validator is wired via `preflightGate` (D3 #1591); this test pins the
         // separate claim that the *type* itself accepts 0 regardless, so the ported
         // `formatConversationLog` must not assume a positive window.

@@ -94,13 +94,14 @@ class SimulationEnginePreflightTests {
 
     @Test
     fun highInferenceCountWarningSurfacesSummaryBeforeRounds() = runBlockingTest {
-        // The validator's non-fatal band: 2 agents x 30 rounds x speak_all = 60
-        // estimated inferences, inside `> 50` and under the `> 100` throw. The
-        // warning rides the same `⚠️` Summary channel as a lint warning, and the
+        // The validator's non-fatal band: 2 agents x 26 rounds x speak_all = 52
+        // estimated inferences, inside `> 50` and under the `> 100` throw, and
+        // off the `rounds > 30` cap so a cap change cannot flip this into a
+        // validation error. The warning rides the same `⚠️` Summary channel as a lint warning, and the
         // run proceeds to completion.
-        val s = scenario(rounds = 30)
+        val s = scenario(rounds = 26)
         val c = Collector()
-        SimulationEngine().run(s, ScriptedLLMBackend(List(60) { says("a") })) { c.record(it) }
+        SimulationEngine().run(s, ScriptedLLMBackend(List(52) { says("a") })) { c.record(it) }
         awaitTerminal(c)
 
         val events = c.snapshot()

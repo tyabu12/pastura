@@ -573,16 +573,17 @@ struct SimulationRunnerTests {
   @Test func highInferenceCountWarningSurfacesSummaryBeforeRounds() async throws {
     // Swift twin of `highInferenceCountWarningSurfacesSummaryBeforeRounds`
     // (SimulationEnginePreflightTests.kt, #1591). The validator's non-fatal
-    // band: 2 agents x 30 rounds x speak_all = 60 estimated inferences,
-    // inside `> 50` and under the `> 100` throw. The warning rides the same
-    // `⚠️` Summary channel as a lint warning, and the run proceeds to
-    // completion.
-    let mock = MockLLMService(responses: Array(repeating: #"{"statement": "a"}"#, count: 60))
+    // band: 2 agents x 26 rounds x speak_all = 52 estimated inferences,
+    // inside `> 50` and under the `> 100` throw, and off the `rounds > 30`
+    // cap so a cap change cannot flip this into a validation error. The
+    // warning rides the same `⚠️` Summary channel as a lint warning, and the
+    // run proceeds to completion.
+    let mock = MockLLMService(responses: Array(repeating: #"{"statement": "a"}"#, count: 52))
     try await mock.loadModel()
 
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
-      rounds: 30,
+      rounds: 26,
       phases: [Phase(type: .speakAll, prompt: "Speak.", outputSchema: ["statement": "string"])]
     )
 

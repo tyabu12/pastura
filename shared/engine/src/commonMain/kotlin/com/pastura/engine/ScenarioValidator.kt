@@ -49,7 +49,11 @@ import com.pastura.models.SimulationError
  * text — but none is a ledger entry, because validation errors never reach a
  * parity transcript at all: a scenario this gate rejects produces no run to
  * compare, even now that [validate] is wired — the run stops at the rejecting
- * `ErrorEvent`, before any transcript-bearing event.
+ * `ErrorEvent`, before any transcript-bearing event. That holds for the
+ * *error* path only: the wiring made the warning strings transcript-visible
+ * as `Summary("⚠️ …")`, so a future warning that renders a `Double` would
+ * need a ledger row of its own (the linter's `LINT_PREDICATE_DIVERGENCE` is
+ * that shape).
  *
  * 1. **Probability rendering.** Swift `String(probability)` and Kotlin
  *    `Double.toString()` switch to exponent notation at different magnitudes and

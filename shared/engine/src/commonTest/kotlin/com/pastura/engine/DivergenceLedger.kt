@@ -106,7 +106,7 @@ internal object DivergenceLedger {
          * into a run-visible `Summary("⚠️ …")`, so both are transcript
          * divergences now.
          */
-        LINT_PREDICATE_DIVERGENCE("ScenarioSemanticLinter.kt conditionFindings KDoc; ADR-023 §4 D2d"),
+        LINT_PREDICATE_DIVERGENCE("ScenarioSemanticLinter.kt conditionFindings + classifyOperand body comments; ADR-023 §4 D2d"),
 
         /**
          * `formatScoreboard` orders by Unicode scalar and collapses

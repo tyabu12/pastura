@@ -62,7 +62,7 @@ public data class Scenario(
      * Optional cap on how many recent conversation-log entries reach each LLM prompt.
      *
      * `null` (the default, and every current scenario) means the full log is injected.
-     * When set (must be `>= 1`, enforced Swift-side by `ScenarioValidator`), only the
+     * When set (must be `>= 1`, enforced by `ScenarioValidator` on both sides), only the
      * last N [ConversationEntry] values are formatted into a prompt via
      * `PromptBuilder.formatConversationLog(entries, language, window)`. This is a
      * **prompt-side window only** — persistence, replay, and export all keep the

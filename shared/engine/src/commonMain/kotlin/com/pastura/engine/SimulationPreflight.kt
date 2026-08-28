@@ -21,8 +21,12 @@ import kotlinx.coroutines.CancellationException
  * validator's helpers would escape: [SimulationEngine.run]'s `launch` catches
  * only `CancellationException`, `RunLoop`'s `Throwable` catch-all does not cover
  * code placed *before* it, and the scope has no `CoroutineExceptionHandler` — on
- * Kotlin/Native that TERMINATES THE PROCESS. So the whole gate sits inside
- * `RunLoop.executePhases`' three-arm shape instead of just its validator half.
+ * Kotlin/Native that terminates the process. So the gate carries its own copy of
+ * `RunLoop.executePhases`' three-arm catch around the whole body, not just the
+ * validator half: it runs *outside* `RunLoop` and is not covered by its arms.
+ * The arms assume `onEvent` itself does not throw — a throw out of the emitter
+ * inside a catch arm would still escape — which holds for the Swift adapter (a
+ * Swift closure cannot raise a Kotlin `Throwable`) and for every test collector.
  *
  * Swift original: `Pastura/Pastura/Engine/SimulationRunner+SemanticLint.swift`.
  * Ported and wired for the ADR-023 §6 Stage-3 Engine migration (#501, D3 /
