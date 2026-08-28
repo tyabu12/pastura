@@ -26,41 +26,15 @@ import kotlin.test.assertTrue
  * - Schema-aware carve-out: author-defined [OutputSchema.Kind.Choice] fields are
  *   excluded from the detection input.
  *
- * The `SpyEngineLogger` assertions defend the `StreamingDiag` **wire format** the
- * external `scripts/analyze-streaming-diag.sh` parses — the full rendered line, not
- * a substring, so a field-order or `attempt`-index regression fails here.
+ * The [SpyEngineLogger] / [SequencedDetector] doubles are shared, at package
+ * scope, with the other seam suites — see `SeamTestSupport.kt`. The spy's
+ * assertions defend the `StreamingDiag` **wire format** the external
+ * `scripts/analyze-streaming-diag.sh` parses — the full rendered line, not a
+ * substring, so a field-order or `attempt`-index regression fails here.
  *
  * Ported for the ADR-023 §6 Stage-3 Engine migration (#501, B0b).
  */
 class LLMCallerLanguageAdherenceTests {
-
-    /**
-     * A [LanguageDetector] whose verdict is a queue drained one entry per call;
-     * returns null when empty. Mirrors Swift's `StubLanguageDetector`.
-     */
-    private class StubLanguageDetector(verdicts: List<String?>) : LanguageDetector {
-        private val queue = verdicts.toMutableList()
-        override fun detect(text: String): String? =
-            if (queue.isEmpty()) null else queue.removeAt(0)
-    }
-
-    /** Records every rendered log line so tests can assert the wire format exactly. */
-    private class SpyEngineLogger : EngineLogger {
-        data class Entry(
-            val level: EngineLogLevel,
-            val category: String,
-            val message: String,
-            val privacy: EngineLogPrivacy,
-        )
-
-        val entries = mutableListOf<Entry>()
-        override fun log(level: EngineLogLevel, category: String, message: String, privacy: EngineLogPrivacy) {
-            entries += Entry(level, category, message, privacy)
-        }
-
-        /** Rendered messages emitted on the `StreamingDiag` channel, in order. */
-        fun diagLines(): List<String> = entries.filter { it.category == "StreamingDiag" }.map { it.message }
-    }
 
     private fun speakAllSchema() =
         OutputSchema(listOf(OutputSchema.Field("statement", OutputSchema.Kind.StringKind)))
@@ -107,7 +81,7 @@ class LLMCallerLanguageAdherenceTests {
         val spy = SpyEngineLogger()
         val result = call(
             backend,
-            detector = StubLanguageDetector(listOf("ja", "en")),
+            detector = SequencedDetector(listOf("ja", "en")),
             expectedLanguage = "en",
             logger = spy,
             events = events,
@@ -135,7 +109,7 @@ class LLMCallerLanguageAdherenceTests {
         val events = mutableListOf<SimulationEvent>()
         val result = call(
             backend,
-            detector = StubLanguageDetector(listOf("ja", "ja", "ja")),
+            detector = SequencedDetector(listOf("ja", "ja", "ja")),
             expectedLanguage = "en",
             events = events,
         )
@@ -157,7 +131,7 @@ class LLMCallerLanguageAdherenceTests {
         val backend = ScriptedLLMBackend(
             listOf(says("""{"statement": "some ambiguous output that the detector cannot classify"}""")),
         )
-        val result = call(backend, detector = StubLanguageDetector(listOf(null)), expectedLanguage = "en")
+        val result = call(backend, detector = SequencedDetector(listOf(null)), expectedLanguage = "en")
         assertTrue(result.fields["statement"]?.contains("ambiguous") ?: false)
         assertEquals(1, backend.callCount, "detector null → no retry")
     }
@@ -168,7 +142,7 @@ class LLMCallerLanguageAdherenceTests {
         val backend = ScriptedLLMBackend(
             listOf(says("""{"statement": "ja statement that would normally be flagged as wrong"}""")),
         )
-        call(backend, detector = StubLanguageDetector(listOf("ja")), expectedLanguage = null)
+        call(backend, detector = SequencedDetector(listOf("ja")), expectedLanguage = null)
         assertEquals(1, backend.callCount)
     }
 
@@ -191,7 +165,7 @@ class LLMCallerLanguageAdherenceTests {
         val spy = SpyEngineLogger()
         val result = call(
             backend,
-            detector = StubLanguageDetector(listOf("ja")),
+            detector = SequencedDetector(listOf("ja")),
             expectedLanguage = "en",
             schema = voteSchema,
             logger = spy,
@@ -232,7 +206,7 @@ class LLMCallerLanguageAdherenceTests {
         )
         val result = call(
             backend,
-            detector = StubLanguageDetector(listOf("en")),
+            detector = SequencedDetector(listOf("en")),
             expectedLanguage = "en",
             schema = schema,
             events = events,
@@ -255,7 +229,7 @@ class LLMCallerLanguageAdherenceTests {
         // queue + callCount==1 proves it is NOT asked.
         val result = call(
             backend,
-            detector = StubLanguageDetector(emptyList()),
+            detector = SequencedDetector(emptyList()),
             expectedLanguage = "ja",
             schema = chooseSchemaWithChoiceField(),
         )
@@ -279,7 +253,7 @@ class LLMCallerLanguageAdherenceTests {
         val backend = ScriptedLLMBackend(listOf(says("""{"action": "$longAction"}""")))
         val result = call(
             backend,
-            detector = StubLanguageDetector(listOf("en")),
+            detector = SequencedDetector(listOf("en")),
             expectedLanguage = "ja",
             schema = chooseSchemaWithChoiceField(),
         )

@@ -71,8 +71,9 @@ internal class ReflectHandler : PhaseHandler {
         state: SimulationState,
     ): SimulationState {
         // Constructed per turn, matching Swift — a stateless value, cheap. The
-        // logger seam is threaded from the context (Noop by default in the current
-        // run path — see PhaseContext § "Knowingly absent").
+        // logger seam is threaded from the context — whatever
+        // SimulationEngine(logger:) was given, Noop by default (see PhaseContext §
+        // "Knowingly absent").
         val llmCaller = LLMCaller(logger = context.logger)
 
         val systemPrompt = promptBuilder.buildSystemPrompt(

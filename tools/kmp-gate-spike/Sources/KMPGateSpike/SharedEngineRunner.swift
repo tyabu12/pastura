@@ -10,8 +10,23 @@ import Synchronization
 // an immutable value carrier — so `@unchecked` records a checked-by-contract
 // claim rather than a shrug.
 extension SimulationEvent: @retroactive @unchecked Sendable {}
-// `SimulationEngine` is stateless — `run` allocates the coroutine scope it owns
-// per call — so an instance carries nothing to race on.
+// `SimulationEngine` is no longer stateless: it holds a `ScenarioValidator`
+// (D3's preflight gate) plus the constructor-injected detector and logger
+// seams. Every one of them is a Kotlin `val` assigned at init and never
+// mutated, and each implementation is itself thread-safe (the validator is a
+// stateless value), while `run` still allocates the coroutine scope it owns per
+// call. So the claim is all-`val` immutability plus thread-safe members, not
+// "there is no state" — a future `var` field would invalidate it (Pattern 1 of
+// `.claude/rules/kmp-interop.md` says the same for the retroactive
+// conformance).
+//
+// It follows that anything injected into that constructor must be
+// Sendable-safe on the Swift side too: Kotlin calls `LanguageDetector.detect`
+// and `EngineLogger.log` from `Dispatchers.Default`, which is why both
+// interfaces' KDoc requires a Swift conformer to be declared `nonisolated`.
+// `nonisolated` alone is not enough, though: it only removes the actor hop, so
+// the injected instances must themselves be `Sendable` / internally
+// thread-safe, or this conformance launders a real race into a checked claim.
 extension SimulationEngine: @retroactive @unchecked Sendable {}
 
 /// Reconstructs an `AsyncStream<SimulationEvent>` over the KMP engine's
@@ -29,7 +44,14 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// even though the package compiles under default-`MainActor` isolation, so it
 /// keeps the same semantics it will have inside `Engine/`.
 nonisolated public final class SharedEngineRunner: Sendable {
-  private let engine = SimulationEngine()
+  // Both arguments are spelled out because Kotlin default arguments do not
+  // survive the K/N export: the header declares exactly one initializer,
+  // `init(detector:logger:)`, with no no-arg overload. `nil` keeps the
+  // language-adherence check off and `NoopEngineLogger` swallows diagnostics —
+  // the Kotlin defaults, restated here. The spike deliberately injects neither
+  // seam; Stage 5 hands in `NLLanguageDetector` / `OSLogEngineLogger` from the
+  // App layer.
+  private let engine = SimulationEngine(detector: nil, logger: NoopEngineLogger())
   private let suspendController: SuspendController
 
   /// - Parameter suspendController: The controller the platform signals on

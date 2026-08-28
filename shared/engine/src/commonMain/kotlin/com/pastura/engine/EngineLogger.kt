@@ -11,7 +11,7 @@ package com.pastura.engine
  *
  * Swift original: `Pastura/Pastura/Engine/EngineLogger.swift`.
  */
-internal enum class EngineLogLevel {
+public enum class EngineLogLevel {
     DEBUG,
     INFO,
     WARNING,
@@ -25,7 +25,7 @@ internal enum class EngineLogLevel {
  * renders as `<private>` off-device, [PUBLIC] renders verbatim. The Engine
  * classifies each call site; the Swift OSLog adapter applies it.
  */
-internal enum class EngineLogPrivacy {
+public enum class EngineLogPrivacy {
     PUBLIC,
     PRIVATE,
 }
@@ -46,8 +46,18 @@ internal enum class EngineLogPrivacy {
  * an `os.Logger(subsystem:category:)` and applies level + privacy. Callers must
  * NOT pre-redact — they pass the real content and let `privacy` govern
  * off-device exposure.
+ *
+ * **Injectable from the run path**: pass an implementation to
+ * `SimulationEngine(logger = …)` and the runner threads it into every
+ * [PhaseContext]; [NoopEngineLogger] is the default, so the Engine still emits
+ * nothing unless a platform adapter is handed in.
+ *
+ * **A Swift conformer must be declared `nonisolated`.** K/N exports this as an
+ * unannotated Obj-C protocol and [log] is called from `Dispatchers.Default`, so
+ * a default-MainActor conformance compiles clean and traps at runtime — the
+ * `LLMBackend` precedent, `.claude/rules/swift-isolation.md` Pattern 7.
  */
-internal interface EngineLogger {
+public interface EngineLogger {
     /**
      * Emit one diagnostic line.
      *
@@ -59,15 +69,16 @@ internal interface EngineLogger {
      *   governs off-device exposure of the whole line.
      * @param privacy Whether [message] is shown or redacted in Release captures.
      */
-    fun log(level: EngineLogLevel, category: String, message: String, privacy: EngineLogPrivacy)
+    public fun log(level: EngineLogLevel, category: String, message: String, privacy: EngineLogPrivacy)
 }
 
 /**
  * A no-op [EngineLogger] used as the injection default so Engine unit tests and
  * non-App consumers (e.g. the ADR-013 headless harness, which reuses Engine but
- * not App) construct handlers without wiring OSLog. Production injects
- * `OSLogEngineLogger` at the View boundary — see `SimulationView`.
+ * not App) construct handlers without wiring OSLog. It is the default of both
+ * `SimulationEngine(logger = …)` and [PhaseContext.logger]; production injects
+ * `OSLogEngineLogger` at the Swift View boundary — see `SimulationView`.
  */
-internal class NoopEngineLogger : EngineLogger {
+public class NoopEngineLogger : EngineLogger {
     override fun log(level: EngineLogLevel, category: String, message: String, privacy: EngineLogPrivacy) {}
 }

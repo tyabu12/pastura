@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-08-26._
+_Last updated: 2026-08-28._
 
 ## Stages
 
@@ -31,13 +31,13 @@ _Last updated: 2026-08-26._
 | 0 | Pre-port refactors on `main` | ✅ done | #990 #991 #1051 #1000 |
 | 1 | `shared/models` + CI infrastructure | ✅ done | #1052 #1055 #1059 |
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
-| 3 | Bulk port to `commonMain` | 🔄 in progress | ↓ Stage 3 breakdown |
+| 3 | Bulk port to `commonMain` | ✅ done | ↓ Stage 3 breakdown |
 | 4 | Cross-language parity harness | 🔄 in progress | slice 1a landed ([#1387](https://github.com/tyabu12/pastura/issues/1387), closed); 1b next · [#501](https://github.com/tyabu12/pastura/issues/501) |
 | 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · ⚠️ en-only `ScenarioValidationMessage.render()` / `ScenarioLintMessage.render()` block this — [#1464](https://github.com/tyabu12/pastura/issues/1464), [#1562](https://github.com/tyabu12/pastura/issues/1562) |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 
-## Stage 3 — bulk port (in progress)
+## Stage 3 — bulk port (done)
 
 | Slice | Status | Pointer |
 |---|:--:|---|
@@ -45,7 +45,7 @@ Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 | Wave A — non-handler run-path (scoring, mechanisms, prompt/LLM glue) | ✅ done | #1207 #1212 #1217 |
 | Wave B — 14 phase handlers | ✅ 14/14 | checklist ↓ |
 | code-phase track | ✅ done | CP1 #1226 · CP2 #1230 · CP3 #1232 |
-| Loader / validator port + `detector`·`logger` wiring | 🟡 partial | validator prerequisites in ([#1464](https://github.com/tyabu12/pastura/issues/1464)); validator fully ported — run gate + commit gate ([#1552](https://github.com/tyabu12/pastura/issues/1552) B1/B2); loader fully ported — YAML ingest + top-level mapping ([#1558](https://github.com/tyabu12/pastura/issues/1558) C2a) then phase specialisation ([#1560](https://github.com/tyabu12/pastura/issues/1560) C2b), upstream of the run gate on both sides — the Kotlin loader itself still has no caller in `shared/engine`; linter message prep in — `ScenarioLintMessage` Swift + Kotlin mirror ([#1562](https://github.com/tyabu12/pastura/issues/1562) D1a) and `PlaceholderAvailability.kt` ([#1564](https://github.com/tyabu12/pastura/issues/1564) D1b); linter base types + Ordering rules ported as `ScenarioSemanticLinter.kt` ([#1574](https://github.com/tyabu12/pastura/issues/1574) D2a); Config rules R7/R8/R9/R17/R18/R20a/R20b ported and joined into `lint()` ([#1579](https://github.com/tyabu12/pastura/issues/1579) D2b); Placeholders R10/R11/R12 ported and joined ([#1582](https://github.com/tyabu12/pastura/issues/1582) D2c); Conditions R13–R16 ported and joined ([#1587](https://github.com/tyabu12/pastura/issues/1587) D2d) — linter fully ported; **preflight wired** — validator + linter gate `SimulationEngine.run` via `SimulationPreflight.kt`, `VALIDATOR_UNPORTED` retired ([#1591](https://github.com/tyabu12/pastura/issues/1591) D3); `detector`·`logger` injection seams left · [ADR-023](decisions/ADR-023.md) §4 · #501 |
+| Loader / validator port + `detector`·`logger` wiring | ✅ done | #1464 · #1552 (B1/B2) · #1558 (C2a) · #1560 (C2b) · #1562 (D1a) · #1564 (D1b) · #1574 (D2a) · #1579 (D2b) · #1582 (D2c) · #1587 (D2d) · #1591 (D3) · #1603 (seams) · [ADR-023](decisions/ADR-023.md) §4 · #501 |
 
 ### Wave B handler checklist
 
@@ -99,5 +99,6 @@ machine-checked — see the maintenance invariant above.
   deciding which side changes moves shipped Swift behaviour). `SimulationEvent.ErrorEvent`'s
   projection is known to disagree across languages and is unexercised by every fixture — S4 is
   the likely first driver.
-- **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration. See
+- **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration; the ported
+  Kotlin loader still has no caller in `shared/engine`. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.

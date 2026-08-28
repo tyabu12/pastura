@@ -13,9 +13,14 @@ import com.pastura.models.SimulationState
  * (CLAUDE.md § Access Modifiers). Kotlin's equivalent concern is the *exported
  * K/N surface*, and this type must not be on it: §5.1 states `pauseCheck` "stays
  * Kotlin-internal (runner -> handler), never crossing", and no Swift code ever
- * implements a [PhaseHandler]. Keeping the handler contract `internal` keeps the
- * boundary to exactly the §5.1/§5.2 types, which is also what gate measurement
- * (iii) — the K/N shim-budget re-measure — is counting. `commonTest` still sees
+ * implements a [PhaseHandler]. Keeping the handler contract `internal` keeps it
+ * off the exported surface, which is what gate measurement (iii) — the K/N
+ * shim-budget re-measure — was counting. The surface is no longer *exactly* the
+ * §5.1/§5.2 types: the two injection seams below, [LanguageDetector] and
+ * [EngineLogger] (plus `EngineLogLevel` / `EngineLogPrivacy` / [NoopEngineLogger]),
+ * are deliberate additions widened to `public` in #1603 so Swift can constructor-
+ * inject them through `SimulationEngine(detector = …, logger = …)`. The handler
+ * contract itself stays off the surface regardless. `commonTest` still sees
  * these (test source sets are associated with `commonMain`).
  *
  * ## Divergences from the Swift original, all deliberate
@@ -33,15 +38,21 @@ import com.pastura.models.SimulationState
  *
  * ## Knowingly absent — remaining named deferral
  *
- * `detector` / `logger` are now fields below — B0b wired their [LLMCaller]
- * consumers (language-adherence retry + the `StreamingDiag` channel). But being a
- * field is not the same as being fed: the sole production constructor —
- * `SimulationEngine`'s `RunLoop`, `SimulationEngine.kt` — still builds this context
- * with the defaults (`detector = null`, `logger = NoopEngineLogger`). So in the
- * real Kotlin run path the adherence check is **dormant** and `StreamingDiag` emits
- * nowhere; threading the real `NLLanguageDetector` + OSLog adapter across the K/N
- * boundary is later Stage-3 freight (#501). Named here, not a silent gap. (The
- * ADR-021 `turnGate`, once one of these, is now fed by the runner — B0a.)
+ * `detector` / `logger` are fields below, their [LLMCaller] consumers wired by B0b
+ * (language-adherence retry + the `StreamingDiag` channel), and **they are now fed
+ * from the run path**: `SimulationEngine(detector = …, logger = …)` threads both
+ * through `RunLoop` into every top-level context (#1603). The defaults
+ * (`detector = null`, `logger = NoopEngineLogger`) remain, so a caller that supplies
+ * neither still gets a dormant adherence check and a `StreamingDiag` channel that
+ * emits nowhere — that is now a property of the *caller*, not of the run path.
+ *
+ * What is still absent is only the concrete platform side: no Kotlin implementation
+ * of either seam exists or will, and the Swift `NLLanguageDetector` + OSLog adapter
+ * are not yet handed across the K/N boundary by any production consumer — the iOS
+ * app does not construct `SimulationEngine` at all yet, so that is Stage-5 freight
+ * (#501). Named here, not a silent gap. A Swift conformer must be `nonisolated`
+ * (each interface's KDoc says why). (The ADR-021 `turnGate`, once one of these, is
+ * now fed by the runner — B0a.)
  *
  * Swift original: `Pastura/Pastura/Engine/PhaseHandler.swift`.
  * Ported for the ADR-023 §6 Stage-2 gate slice (#501).
@@ -109,15 +120,16 @@ internal class PhaseContext(
     val turnGate: TurnFailureGate,
     /**
      * Optional language-of-output detector for the ADR-010 Step E adherence check
-     * (see [LLMCaller.call]). `null` = skip the check — the seam is unwired in the
-     * Kotlin run path today (see § "Knowingly absent"), and the concrete
-     * `NLLanguageDetector` stays Swift App-side per ADR-010 D8. Defaulted so
-     * construction sites that don't feed it stay unchanged.
+     * (see [LLMCaller.call]). `null` = skip the check. Fed from the run path by
+     * `SimulationEngine(detector = …)`; the concrete `NLLanguageDetector` stays
+     * Swift App-side per ADR-010 D8. Defaulted so construction sites that don't
+     * feed it stay unchanged.
      */
     val detector: LanguageDetector? = null,
     /**
-     * Diagnostic seam threaded to [LLMCaller] (the `StreamingDiag` channel). The
-     * concrete `OSLogEngineLogger` stays Swift App-side; [NoopEngineLogger] is the
+     * Diagnostic seam threaded to [LLMCaller] (the `StreamingDiag` channel). Fed
+     * from the run path by `SimulationEngine(logger = …)`; the concrete
+     * `OSLogEngineLogger` stays Swift App-side; [NoopEngineLogger] is the
      * default so the Engine stays OSLog-free and non-App consumers (tests, the
      * ADR-013 harness) need no wiring. Defaulted for the same construction-site
      * reason as [detector].

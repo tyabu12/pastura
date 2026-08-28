@@ -36,6 +36,14 @@ catch it — fix the conformers in the same PR. Re-grep `@optional` in the regen
 `PasturaSharedEngine.h` after a Kotlin bump: a section appearing flips this rule, and that edit
 loads no rule file. See `LLMBackend.kt`.
 
+**A defaulted Kotlin parameter is not a default in Swift.** K/N drops default arguments and exports
+one full-arity selector, so adding a defaulted constructor / function parameter stays
+source-compatible in Kotlin while breaking **every** Swift construction site — same shape as the
+`@optional` trap above, same nightly-only signal, same remedy: update the Swift callers in the same
+PR. Measured on `SimulationEngine(detector:logger:)` (#1603), where the previously no-arg
+`SimulationEngine()` gained two defaulted seams and each Swift caller had to spell out
+`SimulationEngine(detector: nil, logger: NoopEngineLogger())`.
+
 ## Pattern 4 — traps inside the Kotlin port (`commonMain`, `commonTest`, the port gates)
 
 **Roster completeness is a pin, not a proof.** `KClass.sealedSubclasses` is JVM-only and
