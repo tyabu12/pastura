@@ -11,15 +11,6 @@
   },
   "excerpt": [
     {
-      "agent": "Coach Flex",
-      "round": 1,
-      "phase": "speak_all",
-      "phase_index": 1,
-      "persona_index": 0,
-      "source_field": "statement",
-      "text": "Quit staring at the pudding and run a marathon around the house until your eyes cross!"
-    },
-    {
       "agent": "Madame Mystica",
       "round": 1,
       "phase": "speak_all",
@@ -50,7 +41,7 @@
   "yaml_hook": {
     "kind": "persona",
     "fragment": "  - name: Madame Mystica\n    description: >\n      [Role] A spiritual medium who blames everything on past lives, star signs,\n      and auras.\n      [Goal] Smother the problem in a grand, portentous cosmic worldview.\n      e.g. \"Your past life is whispering to you, even now, in the quiet…\"",
-    "caption": "Madame Mystica has never met a problem that was actually a problem. Whatever a viewer writes in, she has already decided it arrived from somewhere else, and the other three panelists are just as sure it belongs to them."
+    "caption": "Three experts, three diagnoses, zero overlap: a message from a dimension that runs on dairy, a shrug about your life choices, and a protocol involving heavy furniture. Whatever a viewer sends in, Mystica has already decided it came from somewhere else."
   },
   "teaser": "No one on this panel has ever helped anybody, and tonight is no exception — the viewers' next little problem is already in the queue.",
   "window_override": false,
