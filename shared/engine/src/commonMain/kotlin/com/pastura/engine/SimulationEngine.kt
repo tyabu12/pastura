@@ -22,6 +22,8 @@ import kotlinx.coroutines.launch
  * ```kotlin
  * val handle = SimulationEngine().run(scenario, backend) { event -> /* … */ }
  * handle.pause(); handle.resume(); handle.cancel(); handle.notifyLLMResumed()
+ * // Swift: SimulationEngine(detector: nil, logger: NoopEngineLogger())
+ * //        — K/N exports no default arguments, so there is no no-arg init.
  * ```
  *
  * **Plain function + callback, no suspend/Flow** (ADR-023 Decision 2). [run]

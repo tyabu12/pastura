@@ -24,6 +24,9 @@ extension SimulationEvent: @retroactive @unchecked Sendable {}
 // Sendable-safe on the Swift side too: Kotlin calls `LanguageDetector.detect`
 // and `EngineLogger.log` from `Dispatchers.Default`, which is why both
 // interfaces' KDoc requires a Swift conformer to be declared `nonisolated`.
+// `nonisolated` alone is not enough, though: it only removes the actor hop, so
+// the injected instances must themselves be `Sendable` / internally
+// thread-safe, or this conformance launders a real race into a checked claim.
 extension SimulationEngine: @retroactive @unchecked Sendable {}
 
 /// Reconstructs an `AsyncStream<SimulationEvent>` over the KMP engine's

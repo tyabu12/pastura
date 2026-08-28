@@ -8,7 +8,7 @@ import kotlin.test.assertEquals
  *
  * Behavioral parity is deferred to Wave B: the Swift behavioral tests drive the
  * unported `OSLogEngineLogger`. Kotlin `LLMCaller` does consume the seam
- * (`LLMCaller(logger:)`, B0b), and `SimulationEngine(logger = …)` now threads it
+ * (`LLMCaller(logger = …)`, B0b), and `SimulationEngine(logger = …)` now threads it
  * through `RunLoop` into every top-level [PhaseContext] (#1603, pinned end-to-end
  * by [SimulationEngineSeamInjectionTests]). This spec asserts only the seam's
  * shape: the interface records what it is handed, the Noop swallows every
@@ -16,26 +16,12 @@ import kotlin.test.assertEquals
  */
 class EngineLoggerSeamTests {
 
-    private data class Entry(
-        val level: EngineLogLevel,
-        val category: String,
-        val message: String,
-        val privacy: EngineLogPrivacy,
-    )
-
-    private class SpyEngineLogger : EngineLogger {
-        val entries = mutableListOf<Entry>()
-        override fun log(level: EngineLogLevel, category: String, message: String, privacy: EngineLogPrivacy) {
-            entries.add(Entry(level, category, message, privacy))
-        }
-    }
-
     @Test
     fun loggerRecordsWhatItIsHanded() {
         val spy = SpyEngineLogger()
         spy.log(EngineLogLevel.WARNING, "StreamingDiag", "boom", EngineLogPrivacy.PUBLIC)
         assertEquals(
-            Entry(EngineLogLevel.WARNING, "StreamingDiag", "boom", EngineLogPrivacy.PUBLIC),
+            SpyEngineLogger.Entry(EngineLogLevel.WARNING, "StreamingDiag", "boom", EngineLogPrivacy.PUBLIC),
             spy.entries.single(),
         )
     }

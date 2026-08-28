@@ -5,8 +5,6 @@ import com.pastura.models.Phase
 import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
 import com.pastura.models.SimulationEvent
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
@@ -15,7 +13,8 @@ import kotlin.test.assertTrue
 /**
  * Through-runner reach pins for the [LanguageDetector] / [EngineLogger]
  * injection seams: `SimulationEngine(detector = …, logger = …)` → `RunLoop` →
- * the top-level [PhaseContext] → handler → [LLMCaller].
+ * the top-level [PhaseContext] → handler → [LLMCaller], and on into the nested
+ * [PhaseContext] a `conditional` branch builds.
  *
  * ## Why these are distinct from the existing seam suites
  *
@@ -24,13 +23,17 @@ import kotlin.test.assertTrue
  * hand-built argument list. Both stay green against a runner that constructs
  * its contexts with the defaults — which is exactly what `RunLoop` did before
  * this PR. Only a run started from [SimulationEngine] witnesses the wiring.
+ * [ConditionalHandlerTests] does pin the nested sub-context, but from a
+ * hand-built parent [PhaseContext]; only [injectedDetectorReachesANestedPhase]
+ * proves the whole chain from the constructor down.
  *
  * Kotlin twin of Swift's
- * `EngineLoggerSeamTests.runnerInjectedLoggerReachesTheRunPath` and
+ * `EngineLoggerSeamTests.runnerInjectedLoggerReachesTheRunPath`,
  * `SimulationRunnerTests+LanguageMismatch.runnerEmitsLanguageMismatchEventWhenDetectorConfigured`
+ * and `SimulationRunnerTests+LanguageMismatch.runnerWithoutDetectorSkipsAdherenceCheck`
  * (the D2d Swift-pin-then-Kotlin-twin pairing).
  *
- * Real threads, not `runTest` — see [RunBlockingTest][runBlockingTest] and
+ * Real threads, not `runTest` — see [runBlockingTest] and
  * [SimulationEngineTests]' KDoc: [SimulationEngine.run] owns its own
  * `Dispatchers.Default` scope, so a virtual scheduler would measure the
  * scheduler rather than the engine.
@@ -42,14 +45,27 @@ import kotlin.test.assertTrue
  * | a | drop `detector = detector` from `RunLoop`'s top-level `PhaseContext(…)` | [injectedDetectorReachesTheRunPath] |
  * | b | drop `logger = logger` from the same construction site | [injectedLoggerReachesTheRunPath] |
  * | c | thread `NoopEngineLogger()` into `RunLoop` instead of the ctor's `logger` | [injectedLoggerReachesTheRunPath] |
+ * | d | drop `detector = context.detector` from `ConditionalHandler`'s sub-context | [injectedDetectorReachesANestedPhase] |
+ * | e | give `SimulationEngine.detector` a non-null always-`"ja"` default | [defaultConstructorSkipsAdherenceCheck] |
+ *
+ * Row e is what keeps the back-compat pin from being a negative assertion that
+ * nothing can falsify: it is the only mutation that turns the default
+ * constructor's seams *on*.
  *
  * Ported for the ADR-023 §6 Stage-3 Engine migration (#501).
  */
 class SimulationEngineSeamInjectionTests {
 
+    private fun speakAll() = Phase(
+        type = PhaseType.SPEAK_ALL,
+        prompt = "Speak.",
+        outputSchema = mapOf("statement" to "string"),
+    )
+
     private fun scenario(
         agents: List<String> = listOf("Alice", "Bob"),
         language: String = "en",
+        phases: List<Phase> = listOf(speakAll()),
     ) = Scenario(
         id = "t",
         name = "T",
@@ -59,75 +75,28 @@ class SimulationEngineSeamInjectionTests {
         rounds = 1,
         context = "A test.",
         personas = agents.map { Persona(name = it, description = "$it's persona.") },
-        phases = listOf(
-            Phase(type = PhaseType.SPEAK_ALL, prompt = "Speak.", outputSchema = mapOf("statement" to "string")),
-        ),
+        phases = phases,
     )
 
     private fun says(text: String) =
         ScriptedLLMBackend.Script.completing("""{"statement": "$text"}""")
 
-    /**
-     * Thread-safe spy logger.
-     *
-     * The atomics are load-bearing for the same reason [Collector]'s are: the
-     * engine logs from its worker context while the test body reads from
-     * `runBlockingTest`'s thread, and on Kotlin/Native an unsynchronized list
-     * across that edge is undefined behaviour rather than a stale read.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    private class SpyEngineLogger : EngineLogger {
-        data class Entry(
-            val level: EngineLogLevel,
-            val category: String,
-            val message: String,
-            val privacy: EngineLogPrivacy,
-        )
-
-        private val ref = AtomicReference<List<Entry>>(emptyList())
-
-        override fun log(level: EngineLogLevel, category: String, message: String, privacy: EngineLogPrivacy) {
-            val entry = Entry(level, category, message, privacy)
-            while (true) {
-                val current = ref.load()
-                if (ref.compareAndSet(current, current + entry)) return
-            }
-        }
-
-        val entries: List<Entry> get() = ref.load()
-
-        /** Rendered messages emitted on the `StreamingDiag` channel, in order. */
-        fun diagLines(): List<String> = entries.filter { it.category == "StreamingDiag" }.map { it.message }
-    }
-
-    /**
-     * Detector whose verdicts are a queue drained one entry per call, returning
-     * `null` once empty. Atomic for the same cross-thread reason as
-     * [SpyEngineLogger] — here the calls themselves land on the worker context.
-     */
-    @OptIn(ExperimentalAtomicApi::class)
-    private class SequencedDetector(verdicts: List<String?>) : LanguageDetector {
-        private val queue = AtomicReference(verdicts)
-
-        override fun detect(text: String): String? {
-            while (true) {
-                val current = queue.load()
-                if (current.isEmpty()) return null
-                if (queue.compareAndSet(current, current.drop(1))) return current.first()
-            }
-        }
-    }
-
     @Test
     fun injectedLoggerReachesTheRunPath() = runBlockingTest {
-        // Alice's attempt 1 is unparseable → exactly one `retryCause … parse_failed`
-        // line; attempt 2 and Bob's single attempt succeed. The full rendered line is
-        // asserted because scripts/analyze-streaming-diag.sh parses that wire format.
+        // Alice's attempt 1 is unparseable → a `retryCause … parse_failed` line;
+        // attempt 2 and Bob's single attempt succeed. The full rendered line is
+        // asserted because scripts/analyze-streaming-diag.sh parses that wire format
+        // (containment, not "exactly one" — the Swift twin is the same shape).
+        //
+        // One spare script beyond the 3 the run consumes: a retry-budget regression
+        // must redden on the assertion below, not on ScriptedLLMBackend exhausting
+        // first (kmp-interop.md § "exhaustion is a harness fault").
         val backend = ScriptedLLMBackend(
             listOf(
                 ScriptedLLMBackend.Script.completing("not json at all"),
                 says("a"),
                 says("b"),
+                says("spare"),
             ),
         )
         val spy = SpyEngineLogger()
@@ -150,10 +119,13 @@ class SimulationEngineSeamInjectionTests {
         // "en" verdict passes on attempt 1, proving one agent's exhaustion does not
         // poison the next. Twin of Swift's
         // runnerEmitsLanguageMismatchEventWhenDetectorConfigured.
+        //
+        // 5 scripts for 4 expected calls: the spare keeps the callCount assertion
+        // below the detector of a retry-budget regression.
         val wrong = "ja-language statement that is long enough to pass the detector gate"
         val right = "en-language statement that is long enough to pass the detector gate"
         val backend = ScriptedLLMBackend(
-            listOf(says(wrong), says(wrong), says(wrong), says(right)),
+            listOf(says(wrong), says(wrong), says(wrong), says(right), says(right)),
         )
         val c = Collector()
 
@@ -178,13 +150,60 @@ class SimulationEngineSeamInjectionTests {
     }
 
     @Test
-    fun defaultsLeaveBothSeamsOff() {
+    fun injectedDetectorReachesANestedPhase() = runBlockingTest {
+        // Same exhaustion shape, but the `speak_all` sits inside a `conditional`
+        // branch, so the detector must survive the SECOND context construction —
+        // ConditionalHandler's sub-context. `detector` is DEFAULTED on PhaseContext,
+        // so dropping it there compiles clean and unwires nested phases only; the
+        // top-level pins above stay green. One spare script, as above.
+        //
+        // Two agents, not one: `RunLoop` ends a round early once fewer than two
+        // agents are active, so a single-agent scenario never reaches the branch.
+        // Alice burns the 3 "ja" verdicts; Bob's call finds the queue empty →
+        // `null` → check skipped, so the mismatch count stays 1.
+        val wrong = "ja-language statement that is long enough to pass the detector gate"
+        val backend = ScriptedLLMBackend(
+            listOf(says(wrong), says(wrong), says(wrong), says(wrong), says(wrong)),
+        )
+        val nested = scenario(
+            phases = listOf(
+                Phase(
+                    type = PhaseType.CONDITIONAL,
+                    condition = "1 == 1",
+                    thenPhases = listOf(speakAll()),
+                ),
+            ),
+        )
+        val c = Collector()
+
+        SimulationEngine(detector = SequencedDetector(listOf("ja", "ja", "ja")))
+            .run(nested, backend) { c.record(it) }
+        awaitTerminal(c)
+
+        val events = c.snapshot()
+        val mismatches = events.filterIsInstance<SimulationEvent.LanguageMismatch>()
+        assertEquals(1, mismatches.size, "the nested PhaseContext must carry the detector")
+        assertEquals("Alice", mismatches.single().agent)
+        // The sub-phase really did run nested: its path is [0, 0], not [0].
+        assertTrue(
+            events.filterIsInstance<SimulationEvent.PhaseStarted>()
+                .any { it.phaseType == PhaseType.SPEAK_ALL && it.phasePath == listOf(0, 0) },
+            "the speak_all must have executed as a conditional sub-phase",
+        )
+        assertTrue(events.any { it is SimulationEvent.SimulationCompleted })
+    }
+
+    @Test
+    fun defaultConstructorSkipsAdherenceCheck() {
         // Back-compat pin: the no-argument constructor must keep the pre-wiring
-        // behaviour — no detector (no adherence check, hence no retry on
-        // wrong-language output) and a silent logger.
+        // behaviour — no detector, hence no adherence check and no retry on
+        // wrong-language output. The default logger is unobservable by
+        // construction (NoopEngineLogger records nothing), so only the detector
+        // half is assertable here; perturbation row e is what gives this negative
+        // pin something that can falsify it.
         runBlockingTest {
             val wrong = "ja-language statement that is long enough to pass the detector gate"
-            val backend = ScriptedLLMBackend(listOf(says(wrong), says(wrong)))
+            val backend = ScriptedLLMBackend(listOf(says(wrong), says(wrong), says(wrong)))
             val c = Collector()
 
             SimulationEngine().run(scenario(), backend) { c.record(it) }

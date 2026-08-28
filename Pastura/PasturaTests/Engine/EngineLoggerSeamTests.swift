@@ -29,7 +29,9 @@ final class SpyEngineLogger: EngineLogger, @unchecked Sendable {
   var entries: [Entry] { lock.withLock { $0 } }
 }
 
-@Suite(.timeLimit(.minutes(1)))
+// Serialized: SimulationRunner tests create Tasks and AsyncStreams that can
+// interfere with each other when run in parallel on the simulator.
+@Suite(.serialized, .timeLimit(.minutes(1)))
 struct EngineLoggerSeamTests {
   /// Parse failure → the StreamingDiag `retryCause parse_failed` line (the
   /// load-bearing `scripts/analyze-streaming-diag.sh` wire format) and the
@@ -101,8 +103,12 @@ struct EngineLoggerSeamTests {
     // Alice: attempt 1 unparseable → one `retryCause … parse_failed` line,
     // attempt 2 valid. Bob: valid on attempt 1. Deterministic, and the only
     // StreamingDiag emission in the run.
+    //
+    // One spare response beyond the 3 the run consumes: a retry-budget
+    // regression must redden on the seam assertion below, not on the mock
+    // running out of scripts before that assertion is ever reached.
     let valid = #"{"statement": "a statement"}"#
-    let mock = MockLLMService(responses: ["not json at all", valid, valid])
+    let mock = MockLLMService(responses: ["not json at all", valid, valid, valid])
     try await mock.loadModel()
     let spy = SpyEngineLogger()
 

@@ -228,7 +228,7 @@ internal class ChooseHandler : PhaseHandler {
     ): ChooseTurn {
         // Constructed per turn, matching Swift — a stateless value, cheap. The logger
         // seam is threaded from the context — whatever SimulationEngine(logger:) was
-        // given, Noop by default.
+        // given, Noop by default (see PhaseContext § "Knowingly absent").
         val llmCaller = LLMCaller(logger = context.logger)
 
         val systemPrompt = promptBuilder.buildSystemPrompt(
