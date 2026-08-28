@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "shazai_master_v1_en",
+    "yaml_sha256": "b50e9539ef0c5b71332af1fc308fb6a5aff5ad35a62b48427e94d7203f9b91fc"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260828-095506-8e45",
+    "generated_at": "2026-08-28"
+  },
+  "excerpt": [
+    {
+      "agent": "Sidestep Sid",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "We are excited to announce a new line of eco-friendly products launching next Tuesday!"
+    },
+    {
+      "agent": "Blame-Shift Blake",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "This was clearly a lapse in quality control that the external supplier failed to monitor; I was simply trying my best."
+    },
+    {
+      "agent": "Grovel Greg",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "I am eternally sorry for this grievous oversight; my very existence is a stain on the earth."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Grovel Greg\n    description: >\n      [Role] The excessive-groveling type who apologizes so much it gets unsettling.\n      [Goal] Escalate self-abasement to a \"someone like me has no right to exist\" level,\n      overshooting the apology entirely.\n      e.g. \"That someone like me was even breathing is itself an apology owed to all humankind.\"",
+    "caption": "Greg is the only one here who apologizes at all, and he overshoots so far that there is nothing left to forgive. The two beside him have already moved on to product launches and somebody else's paperwork."
+  },
+  "teaser": "Nobody on this stage has said what actually happened. At the end of every round, a vote removes whoever sounded least sincere.",
+  "window_override": false,
+  "content_filter_applied": true
+}
