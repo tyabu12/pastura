@@ -474,9 +474,23 @@ public class ConditionEvaluator {
         return false
     }
 
+    /**
+     * Whether [token] is a numeric operand — the same decimal-literal predicate
+     * the evaluator itself branches on (see the class doc's cross-language
+     * numeric parity note). `internal` so `ScenarioSemanticLinter`'s
+     * `conditionFindings` classifies operands by the evaluator's own rule rather
+     * than a second, divergent parse.
+     */
+    internal fun isNumericOperand(token: String): Boolean = isNumericLiteral(token)
+
     // MARK: - Parser entry point
 
-    private fun parseToAST(expression: String): Node {
+    /**
+     * `internal` rather than `private` (Swift's twin is module-internal too):
+     * `ScenarioSemanticLinter`'s `conditionFindings` reads the AST to classify
+     * condition operands (R13/R14/R15) instead of re-tokenizing.
+     */
+    internal fun parseToAST(expression: String): Node {
         val tokens = tokenize(expression)
         if (tokens.isEmpty()) {
             throw SimulationException(
