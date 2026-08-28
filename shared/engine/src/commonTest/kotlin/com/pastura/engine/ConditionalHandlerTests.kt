@@ -195,6 +195,9 @@ class ConditionalHandlerTests {
     private fun summaries(events: List<SimulationEvent>) =
         events.filterIsInstance<SimulationEvent.Summary>()
 
+    // Deliberately NOT the shared doubles in SeamTestSupport.kt: this suite drives
+    // the handler directly on runTest's single thread, so the unsynchronized shape
+    // is safe and the nested names shadow the package-scope ones on purpose.
     private class SpyLanguageDetector(private val canned: String?) : LanguageDetector {
         val recorded = mutableListOf<String>()
         override fun detect(text: String): String? {

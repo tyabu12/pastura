@@ -5,16 +5,12 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndUpdate
 import kotlin.concurrent.atomics.update
 
-/**
- * Test doubles for the ADR-023 §4 [LanguageDetector] / [EngineLogger] injection
- * seams.
- *
- * At package scope, not nested in one suite, for [Collector]'s reason:
- * [EngineLoggerSeamTests], [LLMCallerLanguageAdherenceTests] and
- * [SimulationEngineSeamInjectionTests] all need these, and three copies of a
- * primitive whose whole point is cross-thread safety would drift — and the
- * drift would present as a flake on the Kotlin/Native rung only.
- */
+// Test doubles for the ADR-023 §4 LanguageDetector / EngineLogger injection
+// seams. At package scope, not nested in one suite, for Collector's reason:
+// EngineLoggerSeamTests, LLMCallerLanguageAdherenceTests and
+// SimulationEngineSeamInjectionTests all need these, and three copies of a
+// primitive whose whole point is cross-thread safety would drift — and the
+// drift would present as a flake on the Kotlin/Native rung only.
 
 /**
  * Thread-safe spy [EngineLogger] recording every line it is handed.
