@@ -15,9 +15,6 @@ context: >
   someone else).
   Then you vote for whoever, other than yourself, you think is "most fit for
   the repair duty".
-  Colony regulations forbid naming again anyone who drew the most nominations —
-  with at least one vote — in the previous round, so no single person can be
-  scapegoated round after round.
   The longer this drags on, the worse things get.
 agents: 5
 rounds: 2
@@ -70,10 +67,11 @@ phases:
     output:
       statement: string
       inner_thought: string
-  # {scoreboard} is the cumulative score. With rounds: 2 it equals the previous
-  # round's tally at vote time (this round's score_calc has not run yet). If
-  # rounds grows, cumulative and "top of the previous round" diverge — revisit
-  # the regulation wording then.
+  # {scoreboard} is the cumulative score; with rounds: 2 its value at vote time
+  # (this round's score_calc has not run yet) equals the previous round's tally.
+  # summarize does not append to conversationLog, so this is the ONLY path by
+  # which the previous round's vote outcome reaches this prompt. If rounds grows,
+  # cumulative and single-round stop coinciding.
   - type: vote
     prompt: >
       What is happening right now: {assigned_topic}
@@ -85,10 +83,6 @@ phases:
 
       Vote for whoever, other than yourself, you think is "most fit for the
       repair duty".
-      Colony regulations forbid naming again anyone who drew the most
-      nominations — with at least one vote — in the previous round; if there is
-      such a person, pick someone else. If no one has been nominated yet (all
-      zero), the regulation does not apply.
       In your reason, refer to what that person just said in their own words.
       Your vote must be exactly one of these names: {candidates}
     output:

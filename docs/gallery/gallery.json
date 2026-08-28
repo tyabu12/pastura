@@ -388,7 +388,7 @@
       ],
       "language": "ja",
       "yaml_url": "kasei_sanso_touban_v1.yaml",
-      "yaml_sha256": "5e3ee4d9cac2167f4634db5887b5d62a245c6cc7d12a87c2ebd451a2b5bb8500",
+      "yaml_sha256": "1ae481796d34e1dadb6078867a3e2c08a767ccd233855dd7de5484e2d7f9ab7a",
       "added_at": "2026-06-28"
     },
     {
@@ -557,7 +557,7 @@
       ],
       "language": "en",
       "yaml_url": "kasei_sanso_touban_v1_en.yaml",
-      "yaml_sha256": "97e767c47a9228462c04b8bc40d74f3b8cd5390b792fa83a3fcf2bc48dc41887",
+      "yaml_sha256": "7ce9c81babe05272f69be7bc94b54344530b542315a0d8a2dcc9ea4311831f02",
       "added_at": "2026-07-01"
     },
     {
