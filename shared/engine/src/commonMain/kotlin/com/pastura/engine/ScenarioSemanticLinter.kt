@@ -73,7 +73,7 @@ public data class LintFinding(
  * `LintSeverity` live here (in `shared/engine`), not `shared/models`, because
  * their Swift originals live in `Engine/`, not `Models/`.
  *
- * ## Scope: Ordering (D2a) + Config (D2b) + Placeholders (D2c)
+ * ## Scope: Ordering (D2a) + Config (D2b) + Placeholders (D2c) + Conditions (D2d)
  *
  * The Swift linter folds four rule groups into [lint]: producer–consumer
  * ordering (R1a/R1b/R2/R3/R4/R5/R6/R19, `+Ordering.swift`), silently-inert
@@ -83,9 +83,10 @@ public data class LintFinding(
  * [LintSeverity]), the shared traversal helpers ([PhaseRef],
  * [producerIndices], [phaseRefs], [branchPhases]) and the Ordering rules
  * ([orderingFindings]); D2b added the Config group ([configFindings]); D2c
- * adds the Placeholders group ([placeholderFindings]). Conditions (D2d) is
- * still missing, so [lint] returns the ordering + config + placeholder union,
- * not the full four-group union the Swift `lint(_:)` returns.
+ * the Placeholders group ([placeholderFindings]); D2d adds the Conditions
+ * group ([conditionFindings]). All four groups are now ported, so [lint]
+ * returns the same four-group union the Swift `lint(_:)` returns, in the same
+ * order.
  *
  * ## Not wired into the engine
  *
@@ -116,7 +117,8 @@ public class ScenarioSemanticLinter {
      *   doc's Scope section).
      */
     public fun lint(scenario: Scenario): List<LintFinding> =
-        orderingFindings(scenario) + configFindings(scenario) + placeholderFindings(scenario)
+        orderingFindings(scenario) + configFindings(scenario) + placeholderFindings(scenario) +
+            conditionFindings(scenario)
 
     // MARK: - Ordering rules (R1a/R1b/R2/R3/R4/R5/R6/R19)
     //
@@ -917,6 +919,254 @@ public class ScenarioSemanticLinter {
          * `ScenarioSemanticLinter.placeholderRegex`.
          */
         val PLACEHOLDER_REGEX = Regex("""\{([A-Za-z_][A-Za-z0-9_]*)\}""")
+
+        /**
+         * The derived read-only variables [ConditionEvaluator] resolves on either
+         * side of a comparison (`resolveAlwaysPresentDerived` +
+         * `resolveMayBeAbsentDerived`). Kept in lockstep with that resolver — a
+         * divergence here false-positives.
+         */
+        val conditionDerivedVariables: Set<String> = setOf(
+            "current_round", "total_rounds", "eliminated_count", "active_count",
+            "max_score", "min_score", "vote_winner",
+        )
+    }
+
+    // ── Conditions (R13/R14/R15, R16 no-op) ──
+    //
+    // Ported from `ScenarioSemanticLinter+Conditions.swift`. Applied to every
+    // `conditional` phase's **parsed** `if:` string ([Phase.condition]) — never raw
+    // YAML, whose scalar quoting (`if: 'current_event != ""'`) is already stripped
+    // by the loader. Every finding anchors to the conditional's top-level
+    // phase-list index (conditionals are depth-1, always top-level).
+    //
+    // The rules reuse [ConditionEvaluator]'s own parser
+    // ([ConditionEvaluator.parseToAST], same module) rather than re-tokenizing, so
+    // operand semantics match the real evaluator exactly. Each comparison node
+    // yields its `lhs` / `rhs` operand strings in source form (identifiers as-is,
+    // dotted access like `scores.Alice` whole, string literals *with* their
+    // surrounding `"`), which is precisely what classification needs. Operands are
+    // deduped per condition, so one token yields at most one finding:
+    //
+    // - **R13 `single-quoted-literal-in-condition`** (error) — an operand wrapped
+    //   in single quotes (`'Alice'`). The evaluator's tokenizer treats only `"` as
+    //   a string delimiter, so `'Alice'` becomes a never-defined identifier and the
+    //   comparison silently yields false.
+    // - **R14 `bare-identifier-looks-like-literal`** (error) — an unquoted `==`/`!=`
+    //   operand that is an unknown identifier AND exactly matches a persona name
+    //   (`vote_winner == Alice`): the author certainly meant a string literal.
+    //   R14 is the persona-name match only.
+    // - **R15 `unknown-condition-identifier`** (warning) — any other identifier not
+    //   in the known set (below) — a typo (`max_scores`) or a stray name
+    //   (`scores.NotAPersona`) — that resolves absent at runtime.
+    // - **R16 `short-circuit-hidden-typo`** (info) — implemented as a **no-op** (see
+    //   [conditionFindings]).
+    //
+    // **Known-identifier set** (getting this wrong false-positives shipped
+    // `word_wolf` — `vote_winner == wolf_name`, `current_event != ""`):
+    // the derived read-only variables [ConditionEvaluator] resolves
+    // (`current_round`, `total_rounds`, `eliminated_count`, `active_count`,
+    // `max_score`, `min_score`, `vote_winner`) ∪ `scores.<PersonaName>` for
+    // declared personas ∪ scenario `extraData` keys ∪ engine-injected reserved
+    // state-variable names (`wolf_name`, `vote_results`, `assigned_topic`, the
+    // per-persona `assigned_<name>` / `notes_<name>` / `whispers_<name>` /
+    // `relationships_<name>` forms, and each `event_inject` event variable —
+    // default `current_event` or a custom `as:` — plus its `__favors` companion).
+    // Prompt-only tokens (`{my_notes}`, `{assigned}`, …) are deliberately absent:
+    // they are never written to `state.variables`, so as condition identifiers they
+    // resolve absent and are correctly R15.
+
+    /**
+     * Condition-expression findings (R13/R14/R15).
+     *
+     * R16 (`short-circuit-hidden-typo`, info) is a deliberate **no-op**: R13–R15
+     * walk the *full* AST, so they already statically resolve BOTH sides of every
+     * `&&`/`||` — unlike the runtime's short-circuit walker, which never asks the
+     * resolver about a skipped sub-expression. A typo in a never-evaluated branch
+     * is therefore already surfaced by R13–R15, delivering R16's value. Firing a
+     * *separate* info finding would require constant-folding operand values to
+     * decide which side the runtime would skip, but those values depend on runtime
+     * state (`current_round`, scores) absent at lint time — so no cheap, clean
+     * derivation exists, and the ADR ships "at most one info rule". Hence R16
+     * emits nothing on its own.
+     *
+     * Like the other ported groups, this is not wired into `SimulationEngine`
+     * yet — D3 wires validator + linter together (see the class doc's "Not wired
+     * into the engine" section).
+     */
+    internal fun conditionFindings(scenario: Scenario): List<LintFinding> {
+        // One evaluator for the whole scan: it is stateless (the parser carries its
+        // state in locals), so a per-phase instance would only allocate.
+        val evaluator = ConditionEvaluator()
+        val known = knownConditionIdentifiers(scenario)
+        val personaNames = scenario.personas.map { it.name }.toSet()
+        val findings = mutableListOf<LintFinding>()
+        // Conditionals are depth-1, so a top-level scan reaches every one.
+        scenario.phases.forEachIndexed { index, phase ->
+            if (phase.type != PhaseType.CONDITIONAL) return@forEachIndexed
+            val condition = phase.condition ?: return@forEachIndexed
+            val ast = try {
+                evaluator.parseToAST(condition)
+            } catch (_: SimulationException) {
+                // A malformed `if:` is ScenarioValidator's gate, not the linter's — skip.
+                // (Swift's `try? parseToAST`: every throw in the Kotlin parser is a
+                // [SimulationException], so this catch is that optional-try's twin.)
+                return@forEachIndexed
+            }
+            val equalityContext = LinkedHashMap<String, Boolean>()
+            operandEqualityContext(ast, equalityContext)
+            // Swift iterates `keys.sorted()`; Kotlin sorts the same keys with
+            // `String.compareTo`. The two orders agree on ASCII / Latin-1 operands
+            // only — Swift's `<` is canonical-equivalence-aware over Unicode
+            // scalars, Kotlin's compares UTF-16 code units with no normalisation —
+            // so the relative order of MULTIPLE findings within one condition is
+            // NOT a parity contract for non-ASCII tokens and must not be pinned by
+            // a test on either side (same caveat as the placeholder dedupe order).
+            for (text in equalityContext.keys.sorted()) {
+                val finding = classifyOperand(
+                    text = text, isEquality = equalityContext[text] ?: false, index = index,
+                    known = known, personaNames = personaNames, evaluator = evaluator,
+                )
+                if (finding != null) findings.add(finding)
+            }
+        }
+        return findings
+    }
+
+    // MARK: - Operand collection
+
+    /**
+     * Walks the parsed AST, recording each distinct operand string and whether
+     * it ever appears as an `==`/`!=` side (R14 applies only in equality context).
+     */
+    private fun operandEqualityContext(
+        node: ConditionEvaluator.Node,
+        context: MutableMap<String, Boolean>,
+    ) {
+        when (node) {
+            is ConditionEvaluator.Node.Comparison -> {
+                val isEquality = node.symbol == "==" || node.symbol == "!="
+                context[node.lhs] = (context[node.lhs] ?: false) || isEquality
+                context[node.rhs] = (context[node.rhs] ?: false) || isEquality
+            }
+            is ConditionEvaluator.Node.LogicalAnd -> {
+                operandEqualityContext(node.lhs, context)
+                operandEqualityContext(node.rhs, context)
+            }
+            is ConditionEvaluator.Node.LogicalOr -> {
+                operandEqualityContext(node.lhs, context)
+                operandEqualityContext(node.rhs, context)
+            }
+        }
+    }
+
+    // MARK: - Classification (single-fire per token)
+
+    /**
+     * Classifies one distinct operand [text] into at most one finding
+     * (R13/R14/R15), or `null` when it is a valid operand (number,
+     * double-quoted literal, or known identifier). Dedup contract: a
+     * persona-name match yields R14 and nothing else; any other unknown yields
+     * R15 — never both.
+     */
+    private fun classifyOperand(
+        text: String,
+        isEquality: Boolean,
+        index: Int,
+        known: Set<String>,
+        personaNames: Set<String>,
+        evaluator: ConditionEvaluator,
+    ): LintFinding? {
+        // Numeric detection goes through the evaluator's own decimal-literal
+        // predicate, never `toDoubleOrNull`. A **stated divergence, not parity**:
+        // Swift's linter uses `Double(text)`, which also accepts `nan` / `inf` /
+        // `infinity` / hex-floats (no finding in Swift; an R15 warning here). That
+        // is the same out-of-domain class `ConditionEvaluator.kt`'s "Cross-language
+        // numeric parity" KDoc records for the evaluator — real operands are
+        // integers or names.
+        if (evaluator.isNumericOperand(text)) return null
+        if (text.startsWith("\"") && text.endsWith("\"") && text.length >= 2) return null
+        if (text.startsWith("'") || text.endsWith("'")) {
+            return conditionFinding(
+                "single-quoted-literal-in-condition", LintSeverity.ERROR, text, index,
+            )
+        }
+        val dotIndex = text.indexOf('.')
+        if (dotIndex >= 0) {
+            val head = text.substring(0, dotIndex)
+            val tail = text.substring(dotIndex + 1)
+            if (head == "scores" && personaNames.contains(tail)) return null
+            return conditionFinding(
+                "unknown-condition-identifier", LintSeverity.WARNING, text, index,
+            )
+        }
+        if (known.contains(text)) return null
+        if (isEquality && personaNames.contains(text)) {
+            return conditionFinding(
+                "bare-identifier-looks-like-literal", LintSeverity.ERROR, text, index,
+            )
+        }
+        return conditionFinding("unknown-condition-identifier", LintSeverity.WARNING, text, index)
+    }
+
+    // MARK: - Known-identifier set
+
+    /**
+     * The bare identifiers that resolve to a runtime value in a condition — the
+     * derived variables ∪ engine-injected reserved `state.variables` names ∪
+     * per-persona reserved forms ∪ `extraData` keys ∪ each `event_inject`
+     * variable and its `__favors` companion. `scores.<persona>` is dotted and
+     * handled in [classifyOperand].
+     */
+    private fun knownConditionIdentifiers(scenario: Scenario): Set<String> {
+        val known = conditionDerivedVariables.toMutableSet()
+        known.add("wolf_name")
+        known.add("vote_results")
+        known.add("assigned_topic")
+        known.addAll(scenario.extraData.keys)
+        for (persona in scenario.personas) {
+            known.add("assigned_${persona.name}")
+            known.add("notes_${persona.name}")
+            known.add("whispers_${persona.name}")
+            known.add("relationships_${persona.name}")
+        }
+        // Deliberately near-duplicates [globallyKnownTokens]'s event-variable block
+        // rather than sharing it — the Swift originals duplicate it across their two
+        // extensions too, and the two universes are free to diverge.
+        for (ref in phaseRefs(scenario.phases) { it.type == PhaseType.EVENT_INJECT }) {
+            val name = ref.phase.eventVariable ?: EventInjectHandler.defaultVariableName
+            known.add(name)
+            known.add(EventInjectHandler.favoredVariableName(name))
+        }
+        return known
+    }
+
+    // MARK: - Findings
+
+    /** Builds a condition finding with its token-interpolated fix-hint message. */
+    private fun conditionFinding(
+        ruleId: String,
+        severity: LintSeverity,
+        token: String,
+        index: Int,
+    ): LintFinding =
+        LintFinding(
+            ruleId = ruleId, severity = severity,
+            message = conditionMessage(ruleId, token), phaseIndex = index,
+        )
+
+    /**
+     * The user-facing fix-hint message for a condition [ruleId], naming the
+     * offending operand, rendered via [ScenarioLintMessage].
+     */
+    private fun conditionMessage(ruleId: String, token: String): String = when (ruleId) {
+        "single-quoted-literal-in-condition" ->
+            ScenarioLintMessage.SingleQuotedLiteralInCondition(token).render()
+        "bare-identifier-looks-like-literal" ->
+            ScenarioLintMessage.BareIdentifierLooksLikeLiteral(token).render()
+        // Falls to `unknown-condition-identifier`: the only other ruleId
+        // `classifyOperand` builds via this helper.
+        else -> ScenarioLintMessage.UnknownConditionIdentifier(token).render()
     }
 
     // MARK: - Traversal helpers

@@ -152,6 +152,37 @@ extension ScenarioSemanticLinterTests {
       ])
     #expect(linter.conditionFindings(in: scenario).isEmpty)
   }
+
+  // MARK: - Gap pins (#1587, Swift-first — #1584/D2c precedent)
+
+  @Test func eventFavorsCompanionIsKnownInCondition() {
+    // The event_inject `__favors` companion (`EventInjectHandler.favoredVariableName`)
+    // must be in the condition known set, not just the placeholder one — no
+    // fixture on either side named a `<event>__favors` token in a *condition*
+    // before this test (ADR-023 §12 condition-4 perturbation row 1 on D2d).
+    // Swift-first close of that gap, same precedent as #1584's placeholder-side
+    // companion pins (D2c / #1586).
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .eventInject),
+        conditionalPhase("current_event__favors == \"A0\"")
+      ])
+    #expect(linter.conditionFindings(in: scenario).isEmpty)
+  }
+
+  @Test func barePersonaNameOutsideEqualityFiresR15NotR14() {
+    // `A0` is a persona name, but `>` is non-equality — R14 applies only in
+    // equality context, so this falls through to R15. Before this test no
+    // fixture separated a non-equality bare persona name from an equality one
+    // (ADR-023 §12 condition-4 perturbation row 3 on D2d).
+    let scenario = makeScenario(
+      agents: 2, rounds: 1, phases: [conditionalPhase("A0 > 3")])
+    let findings = linter.conditionFindings(in: scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "unknown-condition-identifier")
+    #expect(findings.first?.severity == .warning)
+  }
 }
 
 // A depth-1 `conditional` phase carrying `ifExpr`, with a trivial then-branch
