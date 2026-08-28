@@ -83,11 +83,18 @@ internal object DivergenceLedger {
         // licence a later author can attach to with no enum diff at all.
 
         /**
-         * The ADR-010 language-adherence retry is dormant on the Kotlin side:
-         * `SimulationEngine` wires no detector, so `languageMismatch` events
-         * reach the Swift transcript alone.
+         * The ADR-010 language-adherence retry is dormant on the Kotlin side
+         * **of the parity harness**. `SimulationEngine` can be fed a detector
+         * since #1603 (`SimulationEngine(detector = …)`), but the parity harness
+         * constructs `SimulationEngine()` with no detector, so `languageMismatch`
+         * events reach the Swift transcript alone. Retiring this requires feeding
+         * a scripted detector through the parity fixtures — a Stage-4 fixture
+         * change, deliberately not #1603.
          */
-        DETECTOR_UNWIRED("SimulationEngine.kt class KDoc; ADR-023 §4"),
+        DETECTOR_UNINJECTED(
+            "SimulationEngine.kt class KDoc § Knowingly absent (the struck-through " +
+                "`LanguageDetector` / `EngineLogger` injection row); ADR-023 §4",
+        ),
 
         /**
          * The preflight linter's D2d conditions group carries two stated
@@ -321,7 +328,7 @@ internal object DivergenceLedger {
     internal val unreachableClasses: Map<DivergenceClass, String> = mapOf(
         DivergenceClass.CANCELLATION_EVENT_TAIL to
             "needs a mid-run cancellation `ParityFixtureEmitter` never performs (ADR-023 S4)",
-        DivergenceClass.DETECTOR_UNWIRED to
+        DivergenceClass.DETECTOR_UNINJECTED to
             "the emitter deliberately injects no detector — a real one wraps " +
             "NLLanguageRecognizer and would make the golden vary by host " +
             "(`parityRunEmitsNoLanguageMismatch` guards the omission)",
