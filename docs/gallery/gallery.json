@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-27T00:00:00Z",
+  "updated_at": "2026-08-28T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -831,6 +831,8 @@
       "language": "ja",
       "yaml_url": "shazai_master_v1.yaml",
       "yaml_sha256": "241b8b807be66aa4c37e01971cb7b6187e9e2b1d8ce4b3d7928d8d2c5b865058",
+      "highlight_url": "highlights/shazai_master_v1.json",
+      "highlight_sha256": "f368dd0319f5628a70f6fc85468ba4fc620455cb0436493654a7d015fe497403",
       "added_at": "2026-07-03"
     },
     {
