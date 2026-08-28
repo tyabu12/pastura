@@ -376,21 +376,19 @@
       "description": "火星コロニーの酸素装置が故障寸前。誰か一人が命がけの船外修理に出なければ全員が窒息するが、誰もが「自分以外の誰か」が行くことを願う——ボランティアのジレンマを体現する当番決め会議。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 30,
+      "estimated_inferences": 20,
       "agent_count": 5,
       "rounds": 2,
       "phases": [
+        "assign",
         "speak_all",
         "vote",
         "score_calc",
-        "conditional",
-        "summarize",
-        "event_inject",
-        "speak_all"
+        "summarize"
       ],
       "language": "ja",
       "yaml_url": "kasei_sanso_touban_v1.yaml",
-      "yaml_sha256": "75acd176a810ce8a3d11da2dbd28be771f54f88524a8dcd1895fa613f4fef3a4",
+      "yaml_sha256": "5e3ee4d9cac2167f4634db5887b5d62a245c6cc7d12a87c2ebd451a2b5bb8500",
       "added_at": "2026-06-28"
     },
     {
@@ -547,21 +545,19 @@
       "description": "The Mars colony's oxygen unit is failing. Someone must make a deadly spacewalk repair, but everyone hopes it won't be them — a volunteer's-dilemma duty meeting.",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 30,
+      "estimated_inferences": 20,
       "agent_count": 5,
       "rounds": 2,
       "phases": [
+        "assign",
         "speak_all",
         "vote",
         "score_calc",
-        "conditional",
-        "summarize",
-        "event_inject",
-        "speak_all"
+        "summarize"
       ],
       "language": "en",
       "yaml_url": "kasei_sanso_touban_v1_en.yaml",
-      "yaml_sha256": "8c3e61d16a527984c0caf7cd7d720e20c5e3ba56cdf67049bd92fddcb0ef5c3f",
+      "yaml_sha256": "97e767c47a9228462c04b8bc40d74f3b8cd5390b792fa83a3fcf2bc48dc41887",
       "added_at": "2026-07-01"
     },
     {

@@ -5,7 +5,7 @@ description: >
   The Mars colony's oxygen supply unit is about to fail. Unless one person
   goes out for a dangerous repair, everyone suffocates — but whoever goes may
   not survive. Everyone hopes "someone other than me should go" — the classic
-  volunteer's dilemma. If they fail to agree, the oxygen drops further.
+  volunteer's dilemma. The situation worsens with every round.
 context: >
   You are a resident of a Mars colony. The oxygen supply unit is on the verge
   of failure, and unless one person goes out for a dangerous repair, everyone
@@ -15,7 +15,10 @@ context: >
   someone else).
   Then you vote for whoever, other than yourself, you think is "most fit for
   the repair duty".
-  If no agreement is reached, the oxygen drops further and the situation worsens.
+  Colony regulations forbid naming again anyone who drew the most nominations —
+  with at least one vote — in the previous round, so no single person can be
+  scapegoated round after round.
+  The longer this drags on, the worse things get.
 agents: 5
 rounds: 2
 personas:
@@ -51,23 +54,42 @@ personas:
       is the one sacrificed.
       Talks "the good of the whole" while quietly protecting himself.
 phases:
+  - type: assign
+    source: crisis_events
+    target: all
   - type: speak_all
     prompt: >
-      Round {current_round}. The oxygen reserve is dropping.
+      Round {current_round}. What is happening right now: {assigned_topic}
+
       Discussion so far: {conversation_log}
 
-      Argue, from your standpoint in 1-2 sentences, for who should go out to
-      make the repair. You may offer to go yourself, or push for someone else.
+      First, say in one line how this development makes you personally feel,
+      then argue from your standpoint for who should go out to make the repair.
+      Speak from your own reaction — do not simply restate the situation.
+      You may offer to go yourself, or push for someone else.
     output:
       statement: string
       inner_thought: string
+  # {scoreboard} is the cumulative score. With rounds: 2 it equals the previous
+  # round's tally at vote time (this round's score_calc has not run yet). If
+  # rounds grows, cumulative and "top of the previous round" diverge — revisit
+  # the regulation wording then.
   - type: vote
     prompt: >
+      What is happening right now: {assigned_topic}
+
+      Nominations so far: {scoreboard}
+
       Each person's argument:
       {conversation_log}
 
       Vote for whoever, other than yourself, you think is "most fit for the
       repair duty".
+      Colony regulations forbid naming again anyone who drew the most
+      nominations — with at least one vote — in the previous round; if there is
+      such a person, pick someone else. If no one has been nominated yet (all
+      zero), the regulation does not apply.
+      In your reason, refer to what that person just said in their own words.
       Your vote must be exactly one of these names: {candidates}
     output:
       vote: string
@@ -75,29 +97,15 @@ phases:
     exclude_self: true
   - type: score_calc
     logic: vote_tally
-  - type: conditional
-    if: "max_score >= 3"
-    then:
-      - type: summarize
-        template: >
-          Round {current_round}: a majority named a single person for the duty.
-          The colony has barely reached agreement. Nominations: {scoreboard}
-    else:
-      - type: event_inject
-        source: crisis_events
-        as: current_event
-        probability: 1
-      - type: speak_all
-        prompt: >
-          No agreement was reached, and things took a turn for the worse:
-          {current_event}
-
-          In light of this emergency, state your stance in one line from your
-          standpoint.
-        output:
-          statement: string
+  - type: summarize
+    template: >
+      End of round {current_round}. Nominations this round: {vote_results}
+# Keep the number of crisis_events equal to `rounds`. assign(target: all)
+# indexes by (current_round - 1) % count, so a shorter list wraps later
+# rounds back to the opening "there is still time" beat.
 crisis_events:
-  - While the argument dragged on, the oxygen level dropped into the danger
-    zone and the alarm began to sound.
-  - White smoke rose from the unit, and the window for repair shrank to almost
-    nothing.
+  - The oxygen level has fallen into the warning band and the habitat lights
+    have switched to emergency power. There is still time left.
+  - White smoke is pouring from the unit and the alarm will not stop. It will
+    not last until the next round. If the duty is not settled here and now,
+    everyone dies.
