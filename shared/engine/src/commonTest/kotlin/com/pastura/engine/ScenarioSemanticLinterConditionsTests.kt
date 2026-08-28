@@ -15,17 +15,23 @@ import kotlin.test.assertTrue
  * Condition-expression rule tests (R13/R14/R15, R16 no-op) for
  * [ScenarioSemanticLinter], mirroring
  * `Pastura/PasturaTests/Engine/ScenarioSemanticLinterTests+Conditions.swift`
- * 1:1. Every function name below matches its Swift twin exactly — see that
- * file if a name here looks odd.
+ * 1:1 (13 tests — the original 11 plus the two gap pins below), plus
+ * [conditionMessagesMapEachRuleIdToItsLintMessageCase], which mirrors
+ * `ScenarioSemanticLinterTests+ConditionMessages.swift`'s
+ * `conditionMessagesMapEachRuleIDToItsLintMessageCase` in its own split file
+ * — the same reason [ScenarioSemanticLinterPlaceholdersTests]'s message-mapping
+ * test lives apart from `+Placeholders.swift`. Every function name below
+ * matches its Swift twin exactly — see that file if a name here looks odd.
  *
- * 11 mirrored 1:1, plus
- * [conditionMessagesMapEachRuleIdToItsLintMessageCase], which has **no** Swift
- * twin. That one is the deliberate exception to the mirror, on the same
- * grounds as [ScenarioSemanticLinterPlaceholdersTests]'s
- * `placeholderMessagesMapEachRuleIdToItsLintMessageCase`: no mirrored test
- * here asserts `finding.message`, so all three `conditionMessage` arms — the
- * fallthrough `else` especially — would ship green however they were
- * transcribed. Row 6 below is the measurement that says so.
+ * No test here is a deliberate exception to the mirror any more: before this
+ * PR (#1587) the message-mapping test had no Swift twin, on the same grounds
+ * [ScenarioSemanticLinterPlaceholdersTests]'s
+ * `placeholderMessagesMapEachRuleIdToItsLintMessageCase` recorded before
+ * #1586 closed it — no mirrored test asserted `finding.message`, so all three
+ * `conditionMessage` arms, the fallthrough `else` especially, would ship
+ * green however they were transcribed (Row 6 below is the measurement that
+ * says so) — but the Swift twin was added in the same PR as this class's own
+ * pin, so the exception no longer applies.
  *
  * Findings are read through the group entry point
  * [ScenarioSemanticLinter.conditionFindings] rather than `lint`, exactly as
@@ -43,15 +49,18 @@ import kotlin.test.assertTrue
  *
  * ADR-023 §12 condition 4 (perturbation sensitivity). Measured 2026-08-28 with
  * the whole `:shared:engine:jvmTest` suite (952 tests, this class's 12) green
- * before the first mutation and after the last revert. Each mutation was
- * applied to `ScenarioSemanticLinter.kt`'s Conditions section alone and
- * reverted exactly before the next.
+ * before the first mutation and after the last revert, rows 1-3 below. Rows 1
+ * and 3 were re-measured the same day after
+ * [eventFavorsCompanionIsKnownInCondition] and
+ * [barePersonaNameOutsideEqualityFiresR15NotR14] closed them (954 tests, this
+ * class's 14) — same methodology, applied to `ScenarioSemanticLinter.kt`'s
+ * Conditions section alone and reverted exactly before the next mutation.
  *
  * | # | Mutation of `ScenarioSemanticLinter.kt` | Reddened |
  * |---|---|---|
- * | 1 | `knownConditionIdentifiers`: dropped `known.add(EventInjectHandler.favoredVariableName(name))` | **nothing** — uncaught gap, see below |
+ * | 1 | `knownConditionIdentifiers`: dropped `known.add(EventInjectHandler.favoredVariableName(name))` | [eventFavorsCompanionIsKnownInCondition] |
  * | 2 | `classifyOperand`: `evaluator.isNumericOperand(text)` -> `text.toDoubleOrNull() != null` | **nothing** — uncaught gap, see below |
- * | 3 | `classifyOperand`: dropped the `isEquality &&` guard on the R14 arm | **nothing** — uncaught gap, see below |
+ * | 3 | `classifyOperand`: dropped the `isEquality &&` guard on the R14 arm | [barePersonaNameOutsideEqualityFiresR15NotR14] |
  * | 4 | `classifyOperand`: swapped the R13 and R14 `ruleId` + severity pairs | [singleQuotedLiteralFiresR13], [barePersonaNameFiresR14], [personaTokenDedupsToSingleR14], [conditionMessagesMapEachRuleIdToItsLintMessageCase] |
  * | 5 | `classifyOperand`: dropped the `head == "scores"` half of the dotted-access check, so `scores.A0` fires R15 | [knownIdentifiersProduceNoFindings] |
  * | 6 | `conditionMessage`: fallthrough `else` arm swapped to `SingleQuotedLiteralInCondition` | [conditionMessagesMapEachRuleIdToItsLintMessageCase] |
@@ -64,27 +73,21 @@ import kotlin.test.assertTrue
  * ship green — the same gap row 6 of [ScenarioSemanticLinterConfigTests]'s
  * KDoc recorded for the config group.
  *
- * **Rows 1-3 measured insensitive and are recorded, not dropped** (same
- * convention as [ScenarioSemanticLinterPlaceholdersTests]'s notes). Each is an
- * uncaught gap in the *Swift* suite too, since the fixture set is identical on
- * both sides by construction — closing one means adding a fixture on the Swift
- * side first, which is out of this port's scope. Rows 7-8 were measured as the
- * substitutes: they exercise the same known-set mechanism rows 1 and 8 sit in,
- * and both bite.
+ * **Rows 1 and 3 were closed in this same PR (#1587), Swift-first then the
+ * Kotlin twin** — the precedent the placeholder group set for its own
+ * `__favors`-companion gap (#1584, D2c, folded into #1586 rather than filed
+ * separately). [eventFavorsCompanionIsKnownInCondition] and
+ * [barePersonaNameOutsideEqualityFiresR15NotR14] pin them; both mutations were
+ * re-applied and re-verified to redden exactly the new test and nothing else,
+ * then reverted (`git diff --stat` empty afterward).
  *
- * - Row 1: no fixture on either side names a `<event>__favors` token in a
- *   *condition*, so the companion's presence in the condition known set is
- *   unobserved. The placeholder group closed its analogous gap Swift-first
- *   (#1584, its rows 7-8); the condition-side twin is not yet written.
- * - Row 2: every numeric operand in these fixtures (`3`, `5`, `999`) parses
- *   identically under both predicates. The divergence the evaluator predicate
- *   exists for (`nan` / `inf` / hex-floats) is a **stated non-parity** already
- *   recorded in `classifyOperand`'s own comment, and no fixture writes one.
- * - Row 3: R14's arm is reached only after the `known.contains(text)` and
- *   dotted-access returns, and every persona-name fixture here (`A0`) sits in
- *   an equality comparison, so dropping the guard changes no fixture's
- *   outcome. A non-equality bare persona name (`A0 > 3`) is what would
- *   separate them; no Swift twin writes one.
+ * **Row 2 stays an uncaught, documented divergence — not pinned.** Every
+ * numeric operand in these fixtures (`3`, `5`, `999`) parses identically
+ * under both predicates. Closing it would mean asserting the divergence the
+ * evaluator predicate exists for (`nan` / `inf` / hex-floats) — a **stated
+ * non-parity** between the Swift and Kotlin linters already recorded in
+ * `classifyOperand`'s own comment, not a bug either side should converge on —
+ * so a fixture that pinned it would pin the divergence, not close it.
  */
 class ScenarioSemanticLinterConditionsTests {
 
@@ -253,6 +256,41 @@ class ScenarioSemanticLinterConditionsTests {
             ),
         )
         assertTrue(linter.conditionFindings(scenario).isEmpty())
+    }
+
+    // MARK: - Gap pins (#1587, Swift-first — #1584/D2c precedent)
+
+    @Test
+    fun eventFavorsCompanionIsKnownInCondition() {
+        // The event_inject `__favors` companion (`EventInjectHandler.favoredVariableName`)
+        // must be in the condition known set, not just the placeholder one — no
+        // fixture on either side named a `<event>__favors` token in a *condition*
+        // before this test (ADR-023 §12 condition-4 perturbation row 1 on D2d).
+        // Swift-first close of that gap, same precedent as #1584's placeholder-side
+        // companion pins (D2c / #1586).
+        val scenario = makeLinterScenario(
+            agents = 2, rounds = 1,
+            phases = listOf(
+                Phase(type = PhaseType.EVENT_INJECT),
+                conditionalPhase("current_event__favors == \"A0\""),
+            ),
+        )
+        assertTrue(linter.conditionFindings(scenario).isEmpty())
+    }
+
+    @Test
+    fun barePersonaNameOutsideEqualityFiresR15NotR14() {
+        // `A0` is a persona name, but `>` is non-equality — R14 applies only in
+        // equality context, so this falls through to R15. Before this test no
+        // fixture separated a non-equality bare persona name from an equality one
+        // (ADR-023 §12 condition-4 perturbation row 3 on D2d).
+        val scenario = makeLinterScenario(
+            agents = 2, rounds = 1, phases = listOf(conditionalPhase("A0 > 3")),
+        )
+        val findings = linter.conditionFindings(scenario)
+        assertEquals(1, findings.size)
+        assertEquals("unknown-condition-identifier", findings.first().ruleId)
+        assertEquals(LintSeverity.WARNING, findings.first().severity)
     }
 
     // MARK: - Message mapping (deliberate exception to the 1:1 mirror)

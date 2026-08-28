@@ -39,6 +39,17 @@
 /// Prompt-only tokens (`{my_notes}`, `{assigned}`, …) are deliberately absent:
 /// they are never written to `state.variables`, so as condition identifiers they
 /// resolve absent and are correctly R15.
+///
+/// Ported 1:1 to `shared/engine/.../ScenarioSemanticLinter.kt` (ADR-023 D2d);
+/// a rule change here is a hand edit there and in its commonTest mirror. One
+/// **stated divergence**: this file classifies a numeric operand with
+/// `Double(text)`, which also accepts `nan` / `inf` / `infinity` / hex-floats
+/// (no finding), while the Kotlin evaluator's decimal-literal predicate does
+/// not (an R15 warning for those) — see ``classifyOperand(_:isEquality:index:known:personaNames:)``'s
+/// twin, `classifyOperand`'s why-comment in `ScenarioSemanticLinter.kt`. The
+/// twins also differ in finding order for non-ASCII operands: both sort
+/// deduped operands before classifying, but Swift `String <` and Kotlin
+/// `String.compareTo` agree only on ASCII / Latin-1 — not a contract.
 nonisolated extension ScenarioSemanticLinter {
 
   /// The derived read-only variables `ConditionEvaluator` resolves on either
