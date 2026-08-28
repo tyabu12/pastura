@@ -39,11 +39,10 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * ## Not wired into the engine
  *
- * Nothing in `shared/engine` calls this, deliberately — the same posture as
- * [ScenarioValidator]. ADR-023 §4 puts the preflight gate on the validator
- * **and** `ScenarioSemanticLinter` (ADR-024) together, and the linter is
- * unported, so `DivergenceLedger.DivergenceClass.VALIDATOR_UNPORTED` still
- * stands.
+ * Nothing in `shared/engine` calls this. Unlike [ScenarioValidator] (wired via
+ * `preflightGate`, D3 #1591), this is not a preflight-gate omission — the D3
+ * gate takes an already-parsed [Scenario], not raw YAML, so wiring this loader
+ * is a separate concern with no ADR-023 §4 dependency left blocking it.
  *
  * ## Why a hand-written walk over [JsonElement]
  *
@@ -58,7 +57,7 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * All are **documented, not ledgered**, on PR B1's standing reason: a scenario
  * this loader rejects produces no run and therefore no parity transcript to
- * compare (`DivergenceClass.VALIDATOR_UNPORTED`).
+ * compare.
  *
  * 1. **Two YAML-1.1 typed scalars resolve differently.** Measured on both
  *    engines: `12:30:00` (sexagesimal) resolves to `Int 45000` under Yams and

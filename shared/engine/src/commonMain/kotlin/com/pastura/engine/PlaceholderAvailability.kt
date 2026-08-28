@@ -40,9 +40,10 @@ import com.pastura.models.PhaseType
  * asserted in tests so a new handler-supplied placeholder must update this
  * map.
  *
- * Visibility: `internal`, not `public` — no Kotlin consumer exists until the
- * linter port (D2a/D2b), and staying internal keeps the K/N export surface
- * unchanged until one does. The Swift file
+ * Visibility: `internal`, not `public` — [ScenarioSemanticLinter] is now its
+ * Kotlin consumer (D2c onward), and it stays `internal` because nothing
+ * outside `shared/engine` needs to reach it, keeping the K/N export surface
+ * unchanged. The Swift file
  * (`Pastura/Pastura/Engine/PlaceholderAvailability.swift`) is the source of
  * truth: a [PhaseType] or token change is a three-file hand edit — the Swift
  * original, this file, and its commonTest sibling.

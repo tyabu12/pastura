@@ -23,9 +23,11 @@ import kotlinx.serialization.json.JsonElement
  * Swift→K/N decode is NOT on the production iOS graph — YAML → `Scenario`
  * decoding runs Swift-side via `Pastura/Pastura/Engine/ScenarioLoader.swift`
  * in production. A Kotlin `ScenarioLoader` (`shared/engine`) is **fully
- * ported** as of ADR-023 Stage 3 Wave C (PRs C2a + C2b), but it is not wired
- * into anything yet — the §4 preflight gate waits on the ADR-024 linter — so
- * the production graph is unchanged. Adding a decode surface here would be
+ * ported** as of ADR-023 Stage 3 Wave C (PRs C2a + C2b), but nothing in
+ * `shared/engine` calls it yet — the D3 preflight gate (#1591) wires the
+ * validator and linter for an already-parsed [Scenario], not the YAML→Scenario
+ * decode step itself — so the production graph is unchanged. Adding a decode
+ * surface here would be
  * premature — W4 PR-C snakeyaml validation work may need it, in which case
  * it lands then.
  *

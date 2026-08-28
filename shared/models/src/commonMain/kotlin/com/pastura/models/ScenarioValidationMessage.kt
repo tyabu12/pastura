@@ -23,11 +23,11 @@ package com.pastura.models
  *
  * ## Landed as infra
  *
- * There is **no Kotlin consumer yet** — `ScenarioValidator` itself is unported
- * (see `DivergenceLedger.DivergenceClass.VALIDATOR_UNPORTED`). This type, and
- * `InferenceEstimator` in `shared/engine`, are the two dependencies that must
- * exist before the validator port can compile. Ported for the ADR-023 §6
- * Stage-3 Engine migration (#501).
+ * Landed ahead of its consumer — `ScenarioValidator` — as one of the two
+ * dependencies (with `InferenceEstimator` in `shared/engine`) that had to
+ * exist before the validator port could compile. `ScenarioValidator` is now
+ * ported and, since D3 (#1591), wired into `SimulationEngine.run`. Ported for
+ * the ADR-023 §6 Stage-3 Engine migration (#501).
  *
  * ## Naming
  *
@@ -312,10 +312,9 @@ public sealed class ScenarioValidationMessage {
      *
      * ⚠️ **"the parity harness runs in en, so en-only is fine" is NOT the
      * reason, and must not be restored as one.** Validation messages never reach
-     * a transcript at all:
-     * `DivergenceLedger.DivergenceClass.VALIDATOR_UNPORTED` records that a
-     * scenario Swift rejects produces no transcript to compare. The harness is
-     * silent about this type in either language.
+     * a transcript at all, even now that the validator is wired into the run
+     * path (D3 #1591): a scenario Swift rejects produces no transcript to
+     * compare. The harness is silent about this type in either language.
      *
      * ## The Stage-5 debt this creates
      *

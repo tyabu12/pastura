@@ -78,12 +78,11 @@ class ScenarioSerializationTests {
 
     @Test
     fun logWindowFloorIsNotEnforcedByTheType() {
-        // Pins the doc's explicit non-claim. Swift's `ScenarioValidator` rejects
-        // `log_window < 1`, but that validator is a Stage-3 port (ADR-023 §4) —
-        // no Kotlin gate exists yet, so the type accepts 0 and the ported
-        // `formatConversationLog` must not assume a positive window. This test
-        // is the tripwire: when the Kotlin validator lands, the floor belongs
-        // THERE, and this test should be re-pointed at it rather than deleted.
+        // Pins the doc's explicit non-claim. `ScenarioValidator.rejectsZeroLogWindow`
+        // (ScenarioValidatorTests.kt) covers the run-path floor now that the
+        // validator is wired via `preflightGate` (D3 #1591); this test pins the
+        // separate claim that the *type* itself accepts 0 regardless, so the ported
+        // `formatConversationLog` must not assume a positive window.
         val zero = buildScenario(logWindow = 0)
         assertEquals(0, json.decodeFromString<Scenario>(json.encodeToString(zero)).logWindow)
     }

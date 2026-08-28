@@ -90,16 +90,23 @@ internal object DivergenceLedger {
         DETECTOR_UNWIRED("SimulationEngine.kt class KDoc; ADR-023 §4"),
 
         /**
-         * Kotlin's `SimulationEngine` runs no preflight gate, so it behaves
-         * differently for scenarios Swift rejects. `ScenarioValidator` is now
-         * ported in full — the run gate `validate` (#1554) and the commit gate
-         * `validateForCommit` (#1552) — but deliberately unwired: ADR-023 §4
-         * gates the preflight on the validator
-         * and `ScenarioSemanticLinter` together, and the linter is unported. The
-         * class name stays until the wiring lands — it names the gate, not the
-         * port.
+         * The preflight linter's D2d conditions group carries two stated
+         * Kotlin↔Swift divergences that D3 makes run-visible. (1) Swift's
+         * numeric-operand check parses with `Double(text)`, which also
+         * accepts `nan` / `inf` / `infinity` / hex-floats (no finding), while
+         * Kotlin uses the evaluator's decimal-literal regex, so the same
+         * operand fires an R15 `unknown-condition-identifier` warning on the
+         * Kotlin side only. (2) The relative order of two findings within one
+         * condition is not a parity contract for non-ASCII operands: both
+         * sides iterate `keys.sorted()`, but Swift's `String <` is
+         * canonical-equivalence-aware scalar order and Kotlin's `compareTo`
+         * is UTF-16 code-unit order, which agree only on ASCII / Latin-1.
+         * Before D3 (#1591) neither was observable — the linter ran nowhere
+         * on the Kotlin run path; D3's `semanticLintGate` turns a warning
+         * into a run-visible `Summary("⚠️ …")`, so both are transcript
+         * divergences now.
          */
-        VALIDATOR_UNPORTED("LanguageDispatch.kt KDoc; ADR-023 §4"),
+        LINT_PREDICATE_DIVERGENCE("ScenarioSemanticLinter.kt conditionFindings KDoc; ADR-023 §4 D2d"),
 
         /**
          * `formatScoreboard` orders by Unicode scalar and collapses
@@ -318,8 +325,11 @@ internal object DivergenceLedger {
             "the emitter deliberately injects no detector — a real one wraps " +
             "NLLanguageRecognizer and would make the golden vary by host " +
             "(`parityRunEmitsNoLanguageMismatch` guards the omission)",
-        DivergenceClass.VALIDATOR_UNPORTED to
-            "needs a scenario Swift rejects, which produces no transcript to compare",
+        DivergenceClass.LINT_PREDICATE_DIVERGENCE to
+            "needs a condition operand that is non-finite/hex-float or non-ASCII with two " +
+            "findings in one condition; grepped `condition` across ParityGolden.kt and " +
+            "`if:` across tools/harness/Fixtures/*.yaml — every fixture's only condition is " +
+            "the single ASCII decimal comparison `max_score >= 3` (target_score_race)",
         DivergenceClass.SCOREBOARD_ORDERING to
             "reaches the transcript through the summarize template, but needs agent names " +
             "where Unicode-scalar and UTF-16 order disagree, or canonically-equivalent keys; " +

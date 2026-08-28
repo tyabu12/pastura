@@ -31,10 +31,11 @@ package com.pastura.models
  *
  * ## Landed as infra
  *
- * There is **no Kotlin consumer yet** — `ScenarioSemanticLinter` itself is
- * unported. This type is the dependency that must exist before the linter port
- * (D2a / D2b) can compile, and that port is what will consume it. Ported for the
- * ADR-023 §6 Stage-3 Engine migration (#501 / #1562).
+ * Landed ahead of its consumer — `ScenarioSemanticLinter` — as the dependency
+ * that had to exist before the linter port (D2a onward) could compile.
+ * `ScenarioSemanticLinter` is now ported in full and, since D3 (#1591), wired
+ * into `SimulationEngine.run`. Ported for the ADR-023 §6 Stage-3 Engine
+ * migration (#501 / #1562).
  */
 public sealed class ScenarioLintMessage {
 

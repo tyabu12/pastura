@@ -24,8 +24,8 @@ import com.pastura.models.Scenario
  * `ScenarioValidator`'s, not the loader's.
  *
  * Landed as infra for the ADR-023 §6 Stage-3 Engine migration (#501, #1464);
- * its consumer is [ScenarioValidator.validate] (#1552). Neither is wired into
- * [SimulationEngine] yet (`DivergenceLedger.DivergenceClass.VALIDATOR_UNPORTED`).
+ * its consumer is [ScenarioValidator.validate] (#1552), which D3 (#1591) wires
+ * into [SimulationEngine.run] via `preflightGate`.
  */
 internal object InferenceEstimator {
 

@@ -44,10 +44,13 @@ import kotlin.test.assertTrue
  * re-measured here — see note 1).
  *
  * The sweep ran **only** these three suites — [ScenarioValidatorTests],
- * [ConditionalValidatorTests], and [ScenarioValidatorCommitTests]. That is sufficient
- * rather than a shortcut: `grep` confirms no other `shared/engine` code constructs
- * [ScenarioValidator] — the gate is deliberately not wired into the engine yet (see
- * the class KDoc on [ScenarioValidator]), so no other suite could redden.
+ * [ConditionalValidatorTests], and [ScenarioValidatorCommitTests]. That was
+ * sufficient rather than a shortcut at measurement time: `grep` confirmed no
+ * other `shared/engine` code constructed [ScenarioValidator] — the gate was
+ * deliberately not wired into the engine yet — so no other suite could redden.
+ * D3 (#1591) has since wired [ScenarioValidator.validate] into
+ * [SimulationEngine.run]; a re-measurement today would need to grep again
+ * rather than rely on this note.
  *
  * | Mechanism broken | Mutation | Dedicated claimant | Incidental |
  * |---|---|---|---|

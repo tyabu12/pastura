@@ -88,14 +88,13 @@ public data class LintFinding(
  * returns the same four-group union the Swift `lint(_:)` returns, in the same
  * order.
  *
- * ## Not wired into the engine
+ * ## Wired by D3 (#1591)
  *
- * Nothing in `shared/engine` calls this yet, deliberately — same reasoning as
- * [ScenarioValidator]'s "Not wired into the engine" section. ADR-023 §4 has
- * the preflight gate on the validator **and** this linter together; wiring
- * either alone into `SimulationEngine` would split one preflight across two
- * languages, which is exactly the shape ADR-023 §4 rejects. D3 wires
- * validator + linter together once both are complete.
+ * `SimulationEngine.run` calls this via `semanticLintGate` in
+ * `SimulationPreflight.kt`, alongside [ScenarioValidator] — ADR-023 §4 put the
+ * preflight gate on the validator **and** this linter together, so the two
+ * landed in the same PR rather than splitting one preflight across two
+ * languages.
  *
  * ## Visibility
  *
@@ -990,9 +989,8 @@ public class ScenarioSemanticLinter {
      * derivation exists, and the ADR ships "at most one info rule". Hence R16
      * emits nothing on its own.
      *
-     * Like the other ported groups, this is not wired into `SimulationEngine`
-     * yet — D3 wires validator + linter together (see the class doc's "Not wired
-     * into the engine" section).
+     * Like the other ported groups, this reaches `SimulationEngine.run` through
+     * `semanticLintGate` (see the class doc's "Wired by D3 (#1591)" section).
      */
     internal fun conditionFindings(scenario: Scenario): List<LintFinding> {
         // One evaluator for the whole scan: it is stateless (the parser carries its
