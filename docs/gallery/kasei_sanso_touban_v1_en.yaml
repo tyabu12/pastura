@@ -72,6 +72,9 @@ phases:
   # summarize does not append to conversationLog, so this is the ONLY path by
   # which the previous round's vote outcome reaches this prompt. If rounds grows,
   # cumulative and single-round stop coinciding.
+  # {vote_results} cannot be used here: VoteHandler writes that variable AFTER
+  # the vote, so it is undefined at round 1's vote and expandTemplate leaves an
+  # unknown key untouched — the literal `{vote_results}` would reach the LLM.
   - type: vote
     prompt: >
       What is happening right now: {assigned_topic}
@@ -95,11 +98,13 @@ phases:
     template: >
       End of round {current_round}. Nominations this round: {vote_results}
 # Keep the number of crisis_events equal to `rounds`. assign(target: all)
-# indexes by (current_round - 1) % count, so a shorter list wraps later
-# rounds back to the opening "there is still time" beat.
+# indexes by (current_round - 1) % count, so a shorter list wraps later rounds
+# back to the first beat. No beat asserts that time remains, so a wrap degrades
+# into repetition rather than contradiction.
+# Note this comment does not survive a save from the visual editor
+# (ScenarioSerializer hand-builds YAML from the Scenario model and keeps no comments).
 crisis_events:
   - The oxygen level has fallen into the warning band and the habitat lights
-    have switched to emergency power. There is still time left.
-  - White smoke is pouring from the unit and the alarm will not stop. It will
-    not last until the next round. If the duty is not settled here and now,
-    everyone dies.
+    have switched to emergency power.
+  - White smoke is pouring from the unit and the alarm will not stop. There is
+    no margin left. If the duty is not settled, everyone dies.
