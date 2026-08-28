@@ -6,12 +6,13 @@ import kotlin.test.assertEquals
 /**
  * Seam-shape parity spec for [EngineLogger] / [NoopEngineLogger].
  *
- * Behavioral parity is deferred to Wave B: the Swift behavioral tests drive
- * `LLMCaller(logger:)` consumption and the unported `OSLogEngineLogger`, but
- * Kotlin `LLMCaller` does not consume the seam yet (ADR-023 §12 condition-2 seam
- * carve-out, PR0-b precedent). This spec asserts only the seam's shape: the
- * interface records what it is handed, the Noop swallows every combination, and
- * the enum case-sets stay complete.
+ * Behavioral parity is deferred to Wave B: the Swift behavioral tests drive the
+ * unported `OSLogEngineLogger`. Kotlin `LLMCaller` does consume the seam
+ * (`LLMCaller(logger:)`, B0b), and `SimulationEngine(logger = …)` now threads it
+ * through `RunLoop` into every top-level [PhaseContext] (#1603, pinned end-to-end
+ * by [SimulationEngineSeamInjectionTests]). This spec asserts only the seam's
+ * shape: the interface records what it is handed, the Noop swallows every
+ * combination, and the enum case-sets stay complete.
  */
 class EngineLoggerSeamTests {
 
