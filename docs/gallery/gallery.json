@@ -738,6 +738,8 @@
       "language": "en",
       "yaml_url": "chinkaitou_soudan_v1_en.yaml",
       "yaml_sha256": "5167afe4d545a6db738fb1c49603bc91bfe3a9965c65e7f8fa7406129796130d",
+      "highlight_url": "highlights/chinkaitou_soudan_v1_en.json",
+      "highlight_sha256": "7e02059c369750b4fa8632552caa3f8e904a644f6ac7fc8669e303340602c6f8",
       "added_at": "2026-07-01"
     },
     {
