@@ -105,10 +105,10 @@ public data class Phase(
      * length responds bidirectionally to the cap (cap 1/3/6 -> ~1.0/1.4/1.9
      * sentences) while en is near-inert.
      *
-     * **The 1..6 range is not enforced here.** Swift's `ScenarioValidator` owns
-     * that gate and is a Stage-3 port (ADR-023 §4), so no Kotlin gate rejects an
-     * out-of-range value yet — the ported `PromptBuilder` must not assume one.
-     * Re-point this note at the Kotlin validator when it lands.
+     * **The 1..6 range is not enforced here.** `ScenarioValidator.validate` rejects an
+     * out-of-range value on the run path (wired via `preflightGate`, D3 #1591), but
+     * this type stays a plain data holder — a `Phase` built directly can still carry
+     * one — so the ported `PromptBuilder` must not assume one regardless.
      *
      * Slice-path prerequisite for the ADR-023 §6 Stage-2 gate: `buildAnswerRules`
      * reads it on the speak_all path. Swift original:

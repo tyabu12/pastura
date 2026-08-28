@@ -169,16 +169,36 @@ class SimulationEngineTests {
 
     @Test
     fun fewerThanTwoActiveAgentsEndsTheRunEarlyWithASummary() = runBlockingTest {
-        val s = scenario(agents = listOf("Alice"))
+        // Reaches the early-end branch the way Swift's twin `stopsWhenFewerThan2ActiveAgents`
+        // does — vote, then eliminate — rather than by starting with one agent.
+        // A 1-agent scenario no longer reaches the round loop at all: D3 (#1591)
+        // wired `ScenarioValidator` into `run`, and it rejects `agentCount < 2`
+        // before the first event. Same branch, legal fixture.
+        val s = Scenario(
+            id = "t",
+            name = "T",
+            description = "d",
+            language = "en",
+            agentCount = 2,
+            rounds = 3,
+            context = "A test.",
+            personas = listOf("Alice", "Bob").map { Persona(name = it, description = "$it's persona.") },
+            phases = listOf(
+                Phase(type = PhaseType.VOTE, prompt = "Vote!", outputSchema = mapOf("vote" to "string")),
+                Phase(type = PhaseType.ELIMINATE),
+            ),
+        )
         val c = Collector()
-        SimulationEngine().run(s, ScriptedLLMBackend(emptyList())) { c.record(it) }
+        val votesBob = ScriptedLLMBackend.Script.completing("""{"vote": "Bob"}""")
+        SimulationEngine().run(s, ScriptedLLMBackend(listOf(votesBob, votesBob))) { c.record(it) }
         awaitTerminal(c)
 
-        val kinds = c.snapshot().map { it::class.simpleName }
-        assertEquals(listOf("Summary", "SimulationCompleted"), kinds)
+        val events = c.snapshot()
+        assertEquals(1, events.count { it is SimulationEvent.RoundStarted })
         assertTrue(
-            c.snapshot().filterIsInstance<SimulationEvent.Summary>().single().text.contains("fewer than 2"),
+            events.filterIsInstance<SimulationEvent.Summary>().any { it.text.contains("fewer than 2") },
         )
+        assertIs<SimulationEvent.SimulationCompleted>(events.last())
     }
 
     // MARK: - Error propagation

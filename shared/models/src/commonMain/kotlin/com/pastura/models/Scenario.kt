@@ -62,16 +62,17 @@ public data class Scenario(
      * Optional cap on how many recent conversation-log entries reach each LLM prompt.
      *
      * `null` (the default, and every current scenario) means the full log is injected.
-     * When set (must be `>= 1`, enforced Swift-side by `ScenarioValidator`), only the
+     * When set (must be `>= 1`, enforced by `ScenarioValidator` on both sides), only the
      * last N [ConversationEntry] values are formatted into a prompt via
      * `PromptBuilder.formatConversationLog(entries, language, window)`. This is a
      * **prompt-side window only** — persistence, replay, and export all keep the
      * complete log. YAML key: `log_window` (#907).
      *
-     * **The `>= 1` floor is not enforced here.** `ScenarioValidator` is a Stage-3 port
-     * (ADR-023 §4), so no Kotlin gate rejects `logWindow = 0` yet; the ported
-     * `formatConversationLog` therefore must not assume a positive window. Re-point
-     * this note at the Kotlin validator when it lands.
+     * **The `>= 1` floor is not enforced here.** `ScenarioValidator.validate` rejects
+     * `logWindow = 0` on the run path (wired via `preflightGate`, D3 #1591), but this
+     * type stays a plain data holder — a `Scenario` built directly (tests, other
+     * construction paths) can still carry `logWindow = 0` — so the ported
+     * `formatConversationLog` must not assume a positive window regardless.
      *
      * Ported for the ADR-023 §6 Stage-2 gate slice: the speak_all path threads this
      * into `formatConversationLog`, so it is a slice-path prerequisite rather than

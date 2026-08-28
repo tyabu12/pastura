@@ -29,23 +29,17 @@ import com.pastura.models.SimulationError
  * trap on sibling extensions; Kotlin has neither constraint, so the whole gate
  * lives here.
  *
- * ## Scope: both gates, neither wired
+ * ## Scope: both gates, one wired
  *
  * Both halves are ported, under issue #1552: the run gate [validate] (PR #1554,
  * B1) and the commit gate [validateForCommit] with its canonical-field checks
- * (PR B2). What remains unported from ADR-023 §4's "Load + validate" row is
- * `ScenarioLoader` and `ScenarioSemanticLinter` (ADR-024) — see the next
- * section for why the linter's absence keeps even the ported half unwired.
- *
- * ## Not wired into the engine
- *
- * Nothing in `shared/engine` calls this yet, deliberately. ADR-023 §4 has the
- * preflight gate on the validator **and** `ScenarioSemanticLinter` (ADR-024)
- * together — the linter's `.error` findings block a run just as this gate's
- * throws do. The linter is unported, so wiring this half into
- * [SimulationEngine] now would split one preflight across two languages, which
- * is exactly the shape ADR-023 §4 rejects. Wiring happens once both halves
- * exist.
+ * (PR B2). D3 (#1591) wires [validate] into [SimulationEngine.run] via
+ * `preflightGate`, alongside `ScenarioSemanticLinter` (ADR-024) — the linter's
+ * `.error` findings block a run just as this gate's throws do, so the two land
+ * together rather than splitting one preflight across two languages. See the
+ * next section for the divergence class the wiring makes reachable. Neither
+ * that PR nor this one wires [validateForCommit] — it is the editor/commit-time
+ * gate, not a run-path concern.
  *
  * ## Known rendering divergences from Swift
  *
@@ -54,8 +48,12 @@ import com.pastura.models.SimulationError
  * `SCOREBOARD_ORDERING` — cross-language differences in how a value becomes
  * text — but none is a ledger entry, because validation errors never reach a
  * parity transcript at all: a scenario this gate rejects produces no run to
- * compare (the standing reason recorded on
- * `DivergenceClass.VALIDATOR_UNPORTED`).
+ * compare, even now that [validate] is wired — the run stops at the rejecting
+ * `ErrorEvent`, before any transcript-bearing event. That holds for the
+ * *error* path only: the wiring made the warning strings transcript-visible
+ * as `Summary("⚠️ …")`, so a future warning that renders a `Double` would
+ * need a ledger row of its own (the linter's `LINT_PREDICATE_DIVERGENCE` is
+ * that shape).
  *
  * 1. **Probability rendering.** Swift `String(probability)` and Kotlin
  *    `Double.toString()` switch to exponent notation at different magnitudes and
