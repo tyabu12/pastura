@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "shazai_master_v1",
+    "yaml_sha256": "241b8b807be66aa4c37e01971cb7b6187e9e2b1d8ce4b3d7928d8d2c5b865058"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260828-090131-bd17",
+    "generated_at": "2026-08-28"
+  },
+  "excerpt": [
+    {
+      "agent": "論点そらしのソラシ",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "この件で、弊社は品質改善のための新たな取り組みを開始します。"
+    },
+    {
+      "agent": "責任転嫁のテンカ",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "私は何も関与していません。現場の作業員の管理体制が不十分だったのが実情です。"
+    },
+    {
+      "agent": "過剰卑屈のヘコム",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "私のような者が、この汚点を生み出したことに対し、存在そのものが許されぬと心より嘆願いたします。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 責任転嫁のテンカ\n    description: >\n      【立場】自分は一切悪くない体で、原因を必ず他へ押し付ける転嫁の名手。\n      【目的】部下・システム・天候・時代——何にでも罪を着せ、自分は被害者面をする。\n      例:「これは現場の担当者の判断でして、私はむしろ知らされていなかった側でして」",
+    "caption": "この3人、誰ひとり「すみません」を言っていない。前向きな告知にすり替える者、罪を現場に置いてくる者、卑下が謝罪を追い越してしまう者——謝罪会見の体裁だけが残って、中身が全部よそへ行っている。"
+  },
+  "teaser": "不祥事お題は毎ラウンド更新。5つの芸風のうち、最初に『誠意がない』と投票で見切られるのはどれか。",
+  "window_override": false,
+  "content_filter_applied": true
+}

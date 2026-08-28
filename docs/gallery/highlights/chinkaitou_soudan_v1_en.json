@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "chinkaitou_soudan_v1_en",
+    "yaml_sha256": "5167afe4d545a6db738fb1c49603bc91bfe3a9965c65e7f8fa7406129796130d"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260828-091414-714d",
+    "generated_at": "2026-08-28"
+  },
+  "excerpt": [
+    {
+      "agent": "Madame Mystica",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "Your pudding cup is a manifestation of a forgotten soul from a dimension where dairy is eternal, and you must offer it a ritual sacrifice of moonlight."
+    },
+    {
+      "agent": "Burned-Out Bob",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "Stop staring at the pudding; it's probably judging your life choices, so just offer it a tiny, existential sigh."
+    },
+    {
+      "agent": "Assistant AI 2.0",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "To resolve the visual cognitive dissonance with the pudding, initiate a 'Pudding Repositioning Protocol' by rotating the entire refrigerator 90 degrees clockwise. Subsequently, deploy a low-frequency sonic vibration to recalibrate the pudding's gaze vector towards the ceiling."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Madame Mystica\n    description: >\n      [Role] A spiritual medium who blames everything on past lives, star signs,\n      and auras.\n      [Goal] Smother the problem in a grand, portentous cosmic worldview.\n      e.g. \"Your past life is whispering to you, even now, in the quiet…\"",
+    "caption": "Three experts, three diagnoses, zero overlap: a message from a dimension that runs on dairy, a shrug about your life choices, and a protocol involving heavy furniture. Whatever a viewer sends in, Mystica has already decided it came from somewhere else."
+  },
+  "teaser": "No one on this panel has ever helped anybody, and tonight is no exception — the viewers' next little problem is already in the queue.",
+  "window_override": false,
+  "content_filter_applied": true
+}
