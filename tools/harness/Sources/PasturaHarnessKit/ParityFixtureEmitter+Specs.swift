@@ -7,10 +7,11 @@ import PasturaCore
 extension ParityFixtureEmitter {
   /// The fixtures this repo freezes, in emission order.
   ///
-  /// Every scenario here is RNG-free on both engines — neither injects RNG
-  /// today, so a fixture can only be frozen where no handler draws. That rules
-  /// out the presets running `event_inject` or `assign random_one` until the
-  /// S3b RNG seam lands; `target_score_race` is the only admitted one that
+  /// The S3b RNG seam has landed (`RandomSource` on both engines, #1615), so a
+  /// spec may now set `seed:` to admit an RNG-bearing preset. Every spec here
+  /// is still unseeded — `everySpecIsUnseeded` guards that in the tests —
+  /// until S3b-2 adds the first, so a fixture can today only be frozen where
+  /// no handler draws; `target_score_race` is the only admitted one that
   /// exercises `conditional`.
   ///
   /// "Exercises `conditional`" means the **branch**, not merely the node: an
