@@ -102,9 +102,12 @@ class EngineParityTests {
      *
      * The timeout is raised well above `awaitTerminal`'s 5 s default, which was
      * calibrated for the 1–2 round toy runs in `SimulationEngineTests`. A parity
-     * fixture is a full run — 24 inferences for the nominal one — doing prompt
-     * building, streaming callbacks and JSON parsing while polled at `delay(1)`,
-     * and the `macosArm64` rung is the slower of the two. Under the old bound a
+     * fixture is a full run — 24 inferences for `targetScoreRaceNominal`, 38 for
+     * `prisonersDilemmaNominal`, 36 for the three-round `lastFableNominal` —
+     * doing prompt building, streaming callbacks and JSON parsing while polled
+     * at `delay(1)`, and the `macosArm64` rung is the slower of the two (the
+     * whole eight-fixture roster replays in about half a second on the JVM, so
+     * the bound is headroom, not a budget). Under the old bound a
      * loaded runner would fail as a timeout that reads like a hang rather than
      * as the parity diff this suite is for.
      *
@@ -118,12 +121,10 @@ class EngineParityTests {
         val collector = Collector()
         // A seeded fixture must feed both engines the same stream, so the replay
         // rebuilds SplitMix64 from the seed the Swift run used; an unseeded one is
-        // RNG-free by construction, where the source is unobservable.
-        //
-        // The seeded branch ships UNEXERCISED by design until S3b-2 lands the
-        // first seeded fixture: every spec is pinned unseeded today by the Swift
-        // `everySpecIsUnseeded` guard, so `fixture.seed` is always null here.
-        // Recorded rather than left to look like live coverage.
+        // RNG-free by construction, where the source is unobservable. The Swift
+        // `seededSpecsAreExactlyTheDrawingOnes` guard holds both directions, so a
+        // null seed here means the scenario draws nothing, not that the seed was
+        // dropped on the way across.
         val random =
             fixture.seed?.let { SplitMix64RandomSource(it) } ?: SystemRandomSource()
         val handle =
@@ -311,8 +312,8 @@ class EngineParityTests {
         // suffix would drop it from this check while the others kept it green.
         // Raise the floor when a nominal fixture is added; never lower it.
         assertTrue(
-            nominal.size >= 4,
-            "only ${nominal.map { it.name }} end with \"Nominal\" (expected at least 4) — " +
+            nominal.size >= 6,
+            "only ${nominal.map { it.name }} end with \"Nominal\" (expected at least 6) — " +
                 "either a happy-path fixture was lost or the naming convention moved",
         )
         for (fixture in nominal) {
