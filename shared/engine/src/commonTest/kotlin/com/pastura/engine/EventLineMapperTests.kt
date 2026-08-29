@@ -104,11 +104,11 @@ class EventLineMapperTests {
         SimulationEvent.RoundCheckpoint(state = SimulationState.initial(scenario)) to null,
         SimulationEvent.SimulationPaused(round = 1, phasePath = listOf(0)) to
             """{"attempt":0,"event":"simulation_paused","phase_path":[0],"round":1,"t":0,"type":"event"}""",
-        // The case NAME, deliberately: `SimulationError`'s singletons are plain
-        // `object`s, so `toString()` yields an identity hash that changes every
-        // run. See the arm's comment in `EventLineMapper`.
+        // The bare Swift case name (`cancelled`, not `Cancelled`/`toString()`'s
+        // identity hash) — the parity contract with `EventLineMapper.swift`'s
+        // `errorCaseName`. See the arm's comment in `EventLineMapper`.
         SimulationEvent.ErrorEvent(error = SimulationError.Cancelled) to
-            """{"attempt":0,"error":"Cancelled","event":"error","t":0,"type":"event"}""",
+            """{"attempt":0,"error":"cancelled","event":"error","t":0,"type":"event"}""",
         SimulationEvent.InferenceStarted(agent = "a") to
             """{"agent":"a","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
         SimulationEvent.InferenceCompleted(agent = "a", durationSeconds = 0.0, tokenCount = 7) to
@@ -197,6 +197,24 @@ class EventLineMapperTests {
             fractional.contains(""""t":1.5"""),
             "a fractional t lost its decimals — the renderer truncates instead of " +
                 "dropping a trailing .0: $fractional",
+        )
+    }
+
+    // ADR-023 S4 (#1622) — a payload-carrying `SimulationError` drops its
+    // payload just like the singleton cases above; only the bare case name
+    // survives into the `error` field.
+    @Test
+    fun payloadCarryingErrorProjectsToItsBareCaseNameOnly() {
+        val line = assertNotNull(
+            EventLineMapper.map(
+                SimulationEvent.ErrorEvent(
+                    error = SimulationError.LlmGenerationFailed(description = "boom"),
+                ),
+            ),
+        )
+        assertEquals(
+            """{"attempt":0,"error":"llmGenerationFailed","event":"error","t":0,"type":"event"}""",
+            line,
         )
     }
 

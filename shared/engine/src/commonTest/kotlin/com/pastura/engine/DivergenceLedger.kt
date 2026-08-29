@@ -69,11 +69,12 @@ internal object DivergenceLedger {
      * prescribed is unsatisfiable, and that property's KDoc records why.
      */
     internal enum class DivergenceClass(val documentedAt: String) {
-        /**
-         * Swift's early return still emits `phaseCompleted(.conditional)`;
-         * Kotlin unwinds the run instead.
-         */
-        CANCELLATION_EVENT_TAIL("ConditionalHandler.kt class KDoc, § Divergences"),
+        // `CANCELLATION_EVENT_TAIL` lived here — Swift's `ConditionalHandler` returned
+        // silently on cancellation, so its runner emitted `phaseCompleted(.conditional)`
+        // for a branch cut short where Kotlin unwinds. ADR-023 S4 (#1622) fixed Swift
+        // (cancellation now throws, one `.error(.cancelled)` per run) and
+        // `parityCancelConditional` pins the shared tail on both engines, so the case
+        // is DELETED for the same reason `SCHEMA_GUARD_POSITION` below was.
 
         // `SCHEMA_GUARD_POSITION` lived here — Swift returned a present-but-empty
         // canonical field as an `agentOutput` where Kotlin's parser guard exhausted
@@ -326,21 +327,21 @@ internal object DivergenceLedger {
      * [entries] rather than being edited.
      */
     internal val unreachableClasses: Map<DivergenceClass, String> = mapOf(
-        DivergenceClass.CANCELLATION_EVENT_TAIL to
-            "needs a mid-run cancellation `ParityFixtureEmitter` never performs (ADR-023 S4)",
         DivergenceClass.DETECTOR_UNINJECTED to
             "the emitter deliberately injects no detector — a real one wraps " +
             "NLLanguageRecognizer and would make the golden vary by host " +
             "(`parityRunEmitsNoLanguageMismatch` guards the omission)",
         DivergenceClass.LINT_PREDICATE_DIVERGENCE to
             "needs a condition operand that is non-finite/hex-float or non-ASCII with two " +
-            "findings in one condition; re-grepped 2026-08-29 over the six fixtures' five " +
+            "findings in one condition; re-grepped 2026-08-29 (S4) over the nine fixtures' eight " +
             "scenarios — `condition` across ParityGolden.kt, `if:` across " +
-            "tools/harness/Fixtures/*.yaml plus the four presets now used " +
-            "(target_score_race, prisoners_dilemma, bokete, DemoPresets/iiwake_battle_v1) — " +
-            "and target_score_race still holds the only condition in the set, the single " +
-            "ASCII decimal comparison `max_score >= 3`; the four other scenarios declare no " +
-            "conditional at all",
+            "tools/harness/Fixtures/*.yaml plus the six presets now used " +
+            "(target_score_race, prisoners_dilemma, bokete, word_wolf, last_fable, " +
+            "DemoPresets/iiwake_battle_v1) — and every condition in the set is a plain " +
+            "ASCII comparison of identifiers, decimal literals or a quoted ASCII string: " +
+            "target_score_race `max_score >= 3`, parity_cancel `current_round >= 1`, " +
+            "word_wolf `current_event != \"\"` and `vote_winner == wolf_name`; the five " +
+            "other scenarios declare no conditional at all",
         DivergenceClass.SCOREBOARD_ORDERING to
             "reaches the transcript through the summarize template, but needs agent names " +
             "where Unicode-scalar and UTF-16 order disagree, or two scoreboard keys that are " +

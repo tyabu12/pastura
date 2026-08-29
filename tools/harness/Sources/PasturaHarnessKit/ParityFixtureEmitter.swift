@@ -1,5 +1,6 @@
 import Foundation
 import PasturaCore
+import Synchronization
 
 /// Emits the ADR-023 Stage-4 cross-language parity fixtures: for one scenario
 /// and one scripted-response plan, the scenario, the exact model answers, and
@@ -50,16 +51,38 @@ package enum ParityFixtureEmitter {
     /// exercising `assign random_one` / `event_inject` needs, so the Kotlin
     /// replay consumes the identical stream in the identical order.
     package let seed: UInt64?
+    /// Cancel the run the moment a `phaseCompleted` with this `phasePath` is
+    /// emitted. `nil` (the default) never cancels.
+    ///
+    /// **The trigger is an emitted-event position, deliberately not a backend
+    /// call index.** A call-indexed cancel lands at *different logical points*
+    /// on the two engines: Kotlin's `LLMCaller` observes cancellation from
+    /// inside a backend call (`ensureActive()`, `suspendCancellableCoroutine`),
+    /// while the Swift responder does not observe it at all — so "cancel
+    /// before call N" would abort Kotlin mid-turn and Swift only at its next
+    /// poll, and the transcripts would diverge about *where the harness cut*
+    /// rather than about how the engines unwind.
+    ///
+    /// Cancelling on an emitted `phaseCompleted` removes that: both engines are
+    /// at the same place when the event fires — the head of
+    /// `ConditionalHandler`'s sub-phase loop is the next thing either runs, and
+    /// both check there (Swift's `Task.isCancelled` poll, Kotlin's `pauseCheck`
+    /// → `ensureActive()`). The path is therefore the contract; a run that
+    /// never emits it fails loudly with ``ParityFixtureError/cancelTriggerNeverFired``
+    /// rather than silently running to completion and freezing a golden that
+    /// measures nothing.
+    package let cancelAfterPhaseCompleted: [Int]?
 
     package init(
       name: String, scenarioPath: String, purpose: String, overrides: [Int: String] = [:],
-      seed: UInt64? = nil
+      seed: UInt64? = nil, cancelAfterPhaseCompleted: [Int]? = nil
     ) {
       self.name = name
       self.scenarioPath = scenarioPath
       self.purpose = purpose
       self.overrides = overrides
       self.seed = seed
+      self.cancelAfterPhaseCompleted = cancelAfterPhaseCompleted
     }
   }
 
@@ -100,12 +123,19 @@ package enum ParityFixtureEmitter {
     /// the replay can rebuild the same stream. `nil` for an RNG-free fixture —
     /// see ``FixtureSpec/seed``.
     package let seed: UInt64?
+    /// The `phaseCompleted` path the Swift run was cancelled on, carried into
+    /// the generated Kotlin so the replay cuts at the identical event. `nil`
+    /// for a fixture that runs to completion — see
+    /// ``FixtureSpec/cancelAfterPhaseCompleted`` for why the trigger is an
+    /// event position rather than a call index.
+    package let cancelAfterPhaseCompleted: [Int]?
 
     /// Explicit because the implicit memberwise init is `internal`, and the
     /// raw-string safety guard is tested from the sibling test module.
     package init(
       name: String, purpose: String, scenarioJSON: String,
-      responses: [String], transcript: [String], callCount: Int, seed: UInt64? = nil
+      responses: [String], transcript: [String], callCount: Int, seed: UInt64? = nil,
+      cancelAfterPhaseCompleted: [Int]? = nil
     ) {
       self.name = name
       self.purpose = purpose
@@ -114,6 +144,7 @@ package enum ParityFixtureEmitter {
       self.transcript = transcript
       self.callCount = callCount
       self.seed = seed
+      self.cancelAfterPhaseCompleted = cancelAfterPhaseCompleted
     }
   }
 
@@ -147,7 +178,6 @@ package enum ParityFixtureEmitter {
       choiceOptions: try choiceOptions(in: scenario),
       overrides: spec.overrides)
 
-    var transcript: [String] = []
     // No `detector:` — deliberate, and the inverse of what `HarnessRunner` does
     // eleven files away (it injects one precisely so `language_mismatch` is not
     // 0 by construction, #1234). Two reasons it must stay omitted here:
@@ -161,11 +191,45 @@ package enum ParityFixtureEmitter {
     // system source is unobservable and stays the default.
     let random: any RandomSource =
       spec.seed.map { SplitMix64RandomSource(seed: $0) as any RandomSource } ?? SystemRandomSource()
-    let stream = SimulationRunner(random: random).run(
-      scenario: scenario, llm: responder, suspendController: SuspendController())
-    for await event in stream {
-      guard let line = EventLineMapper.map(normalize(event), t: 0, attempt: 0) else { continue }
-      transcript.append(try JSONL.encode(line))
+    let sink = Mutex(CancelSink())
+    // Both the cancelling and the non-cancelling path run through the
+    // `emitter:` overload, so nothing about a nominal fixture's transcript
+    // depends on which arm was taken — verified by `parity-emit --check`
+    // reporting no drift on the seven pre-existing fixtures when this landed.
+    // The `AsyncStream` overload cannot serve the cancelling arm at all: its
+    // only cancel path terminates the stream, which drops the very
+    // `.error(.cancelled)` tail this fixture exists to freeze.
+    let emitter: @Sendable (SimulationEvent) -> Void = { event in
+      let pending = sink.withLock { $0.record(event, cancelPath: spec.cancelAfterPhaseCompleted) }
+      // Cancelled outside the lock (lock discipline: `Task.cancel` runs
+      // arbitrary cancellation handlers, including the runner's pause-gate
+      // one, which takes a lock of its own).
+      pending?.cancel()
+    }
+
+    let runner = SimulationRunner(random: random)
+    if spec.cancelAfterPhaseCompleted == nil {
+      await runner.run(
+        scenario: scenario, llm: responder, suspendController: SuspendController(),
+        emitter: emitter)
+    } else {
+      let task = Task {
+        await runner.run(
+          scenario: scenario, llm: responder, suspendController: SuspendController(),
+          emitter: emitter)
+      }
+      // The emitter may fire before this assignment — `Task` starts running
+      // immediately — so the sink records a *request* when it has no handle
+      // yet and hands it back here. Without this arm a fixture whose trigger
+      // is the run's first event would never be cancelled.
+      let pending = sink.withLock { $0.adopt(task) }
+      pending?.cancel()
+      await task.value
+    }
+
+    let (recordedLines, triggerFired) = sink.withLock { ($0.lines, $0.triggerFired) }
+    if let path = spec.cancelAfterPhaseCompleted, !triggerFired {
+      throw ParityFixtureError.cancelTriggerNeverFired(spec.name, path)
     }
 
     let fixture = Fixture(
@@ -173,10 +237,54 @@ package enum ParityFixtureEmitter {
       purpose: spec.purpose,
       scenarioJSON: try encodeScenario(scenario),
       responses: responder.recordedResponses,
-      transcript: transcript,
+      transcript: try recordedLines.map { try JSONL.encode($0) },
       callCount: responder.callCount,
-      seed: spec.seed)
+      seed: spec.seed,
+      cancelAfterPhaseCompleted: spec.cancelAfterPhaseCompleted)
     return Run(fixture: fixture, answeredFields: responder.recordedSchemaFields)
+  }
+
+  /// Transcript accumulator plus the cancel trigger's one-shot latch.
+  ///
+  /// One `Mutex`-guarded value rather than two, because the decision to cancel
+  /// is made *while* appending the event that triggers it: two locks would
+  /// admit an ordering where a second `phaseCompleted` slips between the
+  /// append and the latch and cancels twice.
+  ///
+  /// Lines are kept as ``EventLine`` and encoded after the run: `JSONL.encode`
+  /// throws, and the emitter is a non-throwing `@Sendable` closure. Mapping
+  /// stays inside the emitter so the transcript order is the emission order
+  /// even on the cancelling arm.
+  private struct CancelSink {
+    var lines: [EventLine] = []
+    private var task: Task<Void, Never>?
+    private var cancelRequested = false
+    /// Whether the trigger path was ever seen — the guard against a spec whose
+    /// path no run emits.
+    private(set) var triggerFired = false
+
+    /// Maps and appends `event`, returning the task to cancel when it is the
+    /// trigger and a handle is already available.
+    mutating func record(_ event: SimulationEvent, cancelPath: [Int]?) -> Task<Void, Never>? {
+      if let line = EventLineMapper.map(ParityFixtureEmitter.normalize(event), t: 0, attempt: 0) {
+        lines.append(line)
+      }
+      guard let cancelPath, !triggerFired,
+        case .phaseCompleted(_, let path) = event, path == cancelPath
+      else { return nil }
+      triggerFired = true
+      guard let task else {
+        cancelRequested = true
+        return nil
+      }
+      return task
+    }
+
+    /// Stores the run's handle, returning it when the trigger already fired.
+    mutating func adopt(_ task: Task<Void, Never>) -> Task<Void, Never>? {
+      self.task = task
+      return cancelRequested ? task : nil
+    }
   }
 
   /// The option menu a scenario's `choose` phases offer, for the responder to
@@ -280,31 +388,5 @@ package enum ParityFixtureEmitter {
       throw ParityFixtureError.notUTF8(scenario.id)
     }
     return json
-  }
-}
-
-/// Why a parity fixture could not be produced.
-package enum ParityFixtureError: Error, CustomStringConvertible {
-  /// A scenario encoded to bytes that are not valid UTF-8.
-  case notUTF8(String)
-  /// A fixture contains bytes a Kotlin raw string cannot carry verbatim.
-  case rawStringUnsafe(String, String)
-  /// A scenario declares more than one distinct `choose` option menu, which
-  /// the schema-only ``RecordingResponder`` cannot disambiguate.
-  case ambiguousChoiceOptions(String, [[String]])
-
-  package var description: String {
-    switch self {
-    case .notUTF8(let name):
-      return "parity fixture '\(name)' encoded to non-UTF-8 bytes"
-    case .rawStringUnsafe(let name, let reason):
-      return
-        "parity fixture '\(name)' cannot be embedded in a Kotlin raw string: it contains \(reason)"
-    case .ambiguousChoiceOptions(let scenarioID, let menus):
-      let rendered = menus.map { "[\($0.joined(separator: ", "))]" }.joined(separator: " vs ")
-      return
-        "scenario '\(scenarioID)' declares \(menus.count) distinct choose option menus (\(rendered)); "
-        + "the parity responder reads only the schema, so it cannot tell which phase is calling"
-    }
   }
 }

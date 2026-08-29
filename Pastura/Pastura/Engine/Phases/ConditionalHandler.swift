@@ -87,13 +87,20 @@ nonisolated struct ConditionalHandler: PhaseHandler {
     _ phases: [Phase], context: PhaseContext, state: inout SimulationState
   ) async throws {
     for (innerIndex, subPhase) in phases.enumerated() {
+      // Cancellation aborts by THROWING, never by returning. A silent return
+      // here read to the runner as "the conditional finished", so it emitted
+      // `.phaseCompleted(.conditional)` for a branch that was cut short and
+      // only then noticed the cancellation — on the pause path that also cost
+      // a second `.error(.cancelled)`, since `checkPaused` used to emit one
+      // itself. Throwing routes both paths through the runner's single
+      // `.error(.cancelled)` (ADR-023 S4, #1622).
       if Task.isCancelled {
-        return
+        throw SimulationError.cancelled
       }
 
       let innerPath = context.phasePath + [innerIndex]
       if await context.pauseCheck(innerPath) {
-        return
+        throw SimulationError.cancelled
       }
 
       // Resolve the handler BEFORE emitting `phaseStarted` so a

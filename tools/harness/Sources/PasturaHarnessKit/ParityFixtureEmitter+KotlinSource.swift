@@ -50,6 +50,11 @@ extension ParityFixtureEmitter {
       "// `seed` is present only on a fixture whose scenario draws: the replay",
       "// builds `SplitMix64RandomSource(seed)` so both engines consume the same",
       "// stream. Absent means RNG-free, where the source is unobservable.",
+      "//",
+      "// `cancelAfterPhaseCompleted` is present only on a fixture the harness cut",
+      "// short: the replay cancels its `RunHandle` the moment it records a",
+      "// `PhaseCompleted` with that `phasePath`, which is where the Swift run was",
+      "// cancelled too. Absent means the run went to `SimulationCompleted`.",
       "",
       "package com.pastura.engine",
       "",
@@ -63,6 +68,7 @@ extension ParityFixtureEmitter {
       "        val transcript: List<String>,",
       "        val callCount: Int,",
       "        val seed: ULong? = null,",
+      "        val cancelAfterPhaseCompleted: List<Int>? = null,",
       "    )"
     ]
   }
@@ -90,6 +96,13 @@ extension ParityFixtureEmitter {
     // to what it was before the seam landed and the field's default carries it.
     if let seed = fixture.seed {
       lines.append("        seed = \(seed)uL,")
+    }
+    // Same rule as `seed`: emitted only when set, so every run-to-completion
+    // fixture's block stays byte-identical to what it was before the seam
+    // landed and the field's default carries it.
+    if let path = fixture.cancelAfterPhaseCompleted {
+      let rendered = path.map(String.init).joined(separator: ", ")
+      lines.append("        cancelAfterPhaseCompleted = listOf(\(rendered)),")
     }
     lines.append("    )")
     return lines

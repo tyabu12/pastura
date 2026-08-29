@@ -211,13 +211,18 @@ struct ConditionalHandlerTests {
     let mock = MockLLMService(responses: [])
     let collector = EventCollector()
 
-    // pauseCheck returns true on the second sub-phase → handler returns
-    // early before executing sub1.
+    // pauseCheck returns true on the second sub-phase → the handler aborts
+    // before executing sub1. It throws rather than returning, so the runner
+    // does not mistake the cut-short branch for a completed one (ADR-023 S4,
+    // #1622) — the tail semantics are pinned in
+    // `ConditionalHandlerTests+Cancellation.swift`.
     let context = makeContext(
       scenario: scenario, phase: conditional, llm: mock, collector: collector,
       pauseCheck: { path in path == [0, 1] }
     )
-    try await handler.execute(context: context, state: &state)
+    await #expect(throws: SimulationError.cancelled) {
+      try await handler.execute(context: context, state: &state)
+    }
 
     let summaries = collector.events.compactMap { event -> String? in
       if case .summary(let text) = event { return text }

@@ -63,6 +63,23 @@ struct RunLogTests {
     #expect(line.error?.isEmpty == false)
   }
 
+  // ADR-023 S4 (#1622) — the `error` field projects the bare SimulationError
+  // case name (no payload) so it compares across engines against the Kotlin
+  // mirror's `when (event.error)` projection in `EventLineMapper.kt`.
+  @Test func mapsErrorToBareCaseName() throws {
+    let event = SimulationEvent.error(.cancelled)
+    let line = try #require(EventLineMapper.map(event, t: 3.0, attempt: 1))
+    #expect(line.event == "error")
+    #expect(line.error == "cancelled")
+  }
+
+  @Test func mapsPayloadCarryingErrorToBareCaseNameOnly() throws {
+    let event = SimulationEvent.error(.llmGenerationFailed(description: "Model load failed: oom"))
+    let line = try #require(EventLineMapper.map(event, t: 3.0, attempt: 1))
+    #expect(line.event == "error")
+    #expect(line.error == "llmGenerationFailed")
+  }
+
   @Test func mapsScoresAndVotes() throws {
     let scores = try #require(
       EventLineMapper.map(

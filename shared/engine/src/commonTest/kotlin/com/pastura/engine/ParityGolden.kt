@@ -12,6 +12,11 @@
 // `seed` is present only on a fixture whose scenario draws: the replay
 // builds `SplitMix64RandomSource(seed)` so both engines consume the same
 // stream. Absent means RNG-free, where the source is unobservable.
+//
+// `cancelAfterPhaseCompleted` is present only on a fixture the harness cut
+// short: the replay cancels its `RunHandle` the moment it records a
+// `PhaseCompleted` with that `phasePath`, which is where the Swift run was
+// cancelled too. Absent means the run went to `SimulationCompleted`.
 
 package com.pastura.engine
 
@@ -25,6 +30,7 @@ internal object ParityGolden {
         val transcript: List<String>,
         val callCount: Int,
         val seed: ULong? = null,
+        val cancelAfterPhaseCompleted: List<Int>? = null,
     )
 
     /**
@@ -1281,6 +1287,60 @@ internal object ParityGolden {
     )
 
     /**
+     * Cancellation control (ADR-023 S4, #1622). The only fixture whose run does NOT reach `simulation_completed`: the harness cancels it the moment `phase_completed [1, 0]` — the conditional branch's first sub-phase — is emitted, and what it freezes is the event tail both engines produce from there.
+     *
+     * **What it witnesses.** Swift used to exit `ConditionalHandler`'s sub-phase loop by RETURNING on cancellation, so the runner read the branch as finished and emitted `phase_completed [1]` for work that had been cut short — and on the pause path a second `error cancelled` on top. #1622 made both paths throw, so the tail is now exactly what Kotlin has always produced: `phase_completed [1, 0]` then `error cancelled` as the LAST line, with no `phase_completed` for the outer `[1]` and no `simulation_completed` at all. The branch's second sub-phase — a template `summarize` at `[1, 1]` — never starts, which is visible as an absent `phase_started` rather than only as a call count.
+     *
+     * **Why its own scenario.** No bundled preset has a conditional branch with two sub-phases: `target_score_race` and `word_wolf` each branch into a single `summarize`, so the cancel would have had nowhere to land between sub-phases and the fixture would have measured the branch's exit rather than its interruption.
+     *
+     * **Why the trigger is an event position and not a call index** is `FixtureSpec.cancelAfterPhaseCompleted`'s own doc: Kotlin observes cancellation inside a backend call and Swift's responder does not, so a call-indexed cut lands at different logical points on the two engines and the diff would be about the harness.
+     */
+    internal val parityCancelConditional: Fixture = Fixture(
+        name = "parityCancelConditional",
+        scenarioJson = """
+{"agentCount":3,"context":"A fixture scenario for cross-language parity testing. Content is irrelevant to the measurement; the responder never reads this.\n","description":"One round, one conditional whose taken branch holds two sub-phases. The parity harness cancels the run the moment the first sub-phase completes, so the cancellation event tail is what this fixture measures.\n","extraData":{},"id":"parity_cancel","language":"en","name":"Parity Cancellation Control","personas":[{"description":"A parity fixture participant. Speaks in one short sentence.\n","name":"Ada"},{"description":"A parity fixture participant. Speaks in one short sentence.\n","name":"Bo"},{"description":"A parity fixture participant. Speaks in one short sentence.\n","name":"Cy"}],"phases":[{"outputSchema":{"inner_thought":"string","statement":"string"},"prompt":"Say one short sentence about round {current_round}.\n","type":"speak_all"},{"condition":"current_round >= 1","thenPhases":[{"outputSchema":{"inner_thought":"string","statement":"string"},"prompt":"Say one more short sentence.\n","type":"speak_all"},{"template":"Round {current_round} wrap-up. This line must never appear in the cancellation fixture's transcript.\n","type":"summarize"}],"type":"conditional"}],"rounds":1}
+""".trimIndent(),
+        responses = listOf(
+            """{"statement": "statement 0", "inner_thought": "inner_thought 0"}""",
+            """{"statement": "statement 1", "inner_thought": "inner_thought 1"}""",
+            """{"statement": "statement 2", "inner_thought": "inner_thought 2"}""",
+            """{"statement": "statement 3", "inner_thought": "inner_thought 3"}""",
+            """{"statement": "statement 4", "inner_thought": "inner_thought 4"}""",
+            """{"statement": "statement 5", "inner_thought": "inner_thought 5"}""",
+        ),
+        transcript = listOf(
+            """{"attempt":0,"event":"round_started","round":1,"t":0,"total_rounds":1,"type":"event"}""",
+            """{"attempt":0,"event":"phase_started","phase_path":[0],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 0","statement":"statement 0"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 1","statement":"statement 1"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Cy","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Cy","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Cy","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 2","statement":"statement 2"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_completed","phase_path":[0],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_started","phase_path":[1],"phase_type":"conditional","t":0,"type":"event"}""",
+            """{"attempt":0,"condition":"current_round >= 1","event":"conditional_evaluated","result":true,"t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_started","phase_path":[1,0],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 3","statement":"statement 3"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 4","statement":"statement 4"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Cy","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Cy","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Cy","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 5","statement":"statement 5"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_completed","phase_path":[1,0],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"error":"cancelled","event":"error","t":0,"type":"event"}""",
+        ),
+        callCount = 6,
+        cancelAfterPhaseCompleted = listOf(1, 0),
+    )
+
+    /**
      * Every fixture, so a consumer cannot silently scope itself to one.
      *
      * The named properties above are the readable handles; this is what
@@ -1296,5 +1356,6 @@ internal object ParityGolden {
         parityStructuralControl,
         wordWolfNominal,
         lastFableNominal,
+        parityCancelConditional,
     )
 }

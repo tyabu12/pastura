@@ -66,15 +66,14 @@ import com.pastura.models.SimulationState
  *
  * ## Divergences from the Swift original, all deliberate
  *
- * - **No `Task.isCancelled` poll.** Swift checks it at the loop head and returns
- *   early. Kotlin cancellation *throws*, and [PhaseContext.pauseCheck] — called at
- *   the same loop position — raises it as part of its documented contract, so a
- *   redundant `ensureActive()` here would assert that contract cannot be trusted.
- * - **Cancellation has an observably different event tail.** Swift's two early
- *   returns exit `execute` *normally*, so the runner goes on to emit
- *   `phaseCompleted(.conditional)`; Kotlin unwinds the run instead. A Stage-4 parity
- *   harness comparing transcripts will see this — it is a divergence, not an
- *   implementation detail.
+ * - **No `Task.isCancelled` poll.** Swift checks it at the loop head and throws
+ *   `SimulationError.cancelled`. Kotlin cancellation *throws* natively, and
+ *   [PhaseContext.pauseCheck] — called at the same loop position — raises it as part
+ *   of its documented contract, so a redundant `ensureActive()` here would assert
+ *   that contract cannot be trusted. The event tail is the same on both engines —
+ *   the inner `phaseCompleted`, no outer `phaseCompleted(.conditional)`, then one
+ *   `error(cancelled)` — since ADR-023 S4 (#1622) turned Swift's former silent
+ *   early returns into throws; `parityCancelConditional` pins it.
  * - **The `catch` is `Throwable`, wider than a typical port.** [NarrateHandler]
  *   narrowed *its* catch because that catch **absorbs** the error; this one rethrows
  *   unconditionally, so nothing is swallowed at any breadth. Narrower here would let

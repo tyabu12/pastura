@@ -149,7 +149,7 @@ class TranscriptComparatorTests {
         expectedLine = line,
         // Any structural class serves — this fixture data is synthetic and the
         // comparator never reads the class, only the entry shape.
-        divergenceClass = DivergenceClass.CANCELLATION_EVENT_TAIL,
+        divergenceClass = DivergenceClass.MULTI_OBJECT_SALVAGE,
     )
 
     @Test

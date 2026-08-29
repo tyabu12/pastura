@@ -15,7 +15,12 @@ import Foundation
 /// pause request is honored at sub-phase granularity. `.simulationPaused`
 /// is emitted by the runner through this hook — handlers must not emit it
 /// themselves. The returned `Bool` is `true` when the task was cancelled
-/// while paused, in which case the handler should return early.
+/// while paused, in which case the handler MUST abort the phase by throwing
+/// ``SimulationError/cancelled``. It must not return normally — the runner
+/// reads a normal return as "the phase finished" and emits that phase's
+/// `.phaseCompleted` for work that never ran — and it must not emit
+/// `.error(.cancelled)` itself: the runner emits it exactly once, on every
+/// cancellation path (ADR-023 S4, #1622).
 nonisolated public struct PhaseContext: Sendable {
   public let scenario: Scenario
   public let phase: Phase

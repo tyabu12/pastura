@@ -1,3 +1,10 @@
+// The round loop, the pause gate, and the phase loop share the private
+// `ExecutionContext`, so splitting them into sibling files would have to widen
+// its access. Kept in one file past the 400-line cap instead.
+// `SimulationRunner+SemanticLint.swift` could split off because it never
+// touches a `private` type-scope member of `SimulationRunner`; the round
+// loop, pause gate, and phase loop all read `ExecutionContext`, so they can't.
+// swiftlint:disable file_length
 import Foundation
 import Synchronization
 
@@ -107,6 +114,11 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// agent outputs, score updates, and completion/error events. The stream finishes
   /// when the simulation completes, is cancelled, or encounters a fatal error.
   ///
+  /// Cancellation arrives here only by terminating the stream, so the run's
+  /// final `.error(.cancelled)` is yielded to an already-terminated
+  /// continuation and dropped. A caller that must observe the cancellation
+  /// tail uses the `emitter:` overload below instead.
+  ///
   /// - Parameters:
   ///   - scenario: The scenario to execute.
   ///   - llm: The LLM service for inference.
@@ -130,25 +142,19 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     resumingFrom seed: SimulationState? = nil,
     startRound: Int = 1
   ) -> AsyncStream<SimulationEvent> {
-    // Capture needed values to avoid retaining self in the Task
-    let dispatcher = self.dispatcher
-    let validator = self.validator
-    let pauseState = self.pauseState
-    let detector = self.detector
-    let logger = self.logger
-    let random = self.random
-
-    return AsyncStream { continuation in
+    AsyncStream { continuation in
+      // Delegates to the emitter overload so both entry points share one
+      // execution path. The Task retains `self` for the run's duration;
+      // `onTermination` (stream finished, or the continuation deallocated)
+      // cancels it, so a consumer that stops iterating but still holds the
+      // stream keeps the runner alive until the run ends or the stream is
+      // dropped. An earlier version captured individual fields instead of
+      // `self` to avoid this retain; the emitter overload below now owns the
+      // execution path, so retaining `self` here is accepted.
       let task = Task {
-        await Self.executeSimulation(
-          scenario: scenario, llm: llm,
-          dispatcher: dispatcher, validator: validator,
-          pauseState: pauseState,
-          suspendController: suspendController,
-          detector: detector,
-          logger: logger,
-          random: random,
-          seed: seed, startRound: startRound,
+        await self.run(
+          scenario: scenario, llm: llm, suspendController: suspendController,
+          resumingFrom: seed, startRound: startRound,
           emitter: { continuation.yield($0) }
         )
         continuation.finish()
@@ -158,6 +164,44 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
         task.cancel()
       }
     }
+  }
+
+  /// Runs a simulation to completion in the CALLER's task, delivering every
+  /// event through `emitter` — including the terminal `.error(.cancelled)`
+  /// after the caller cancels its own task. The `AsyncStream` overload cannot
+  /// observe that tail: its only cancel path is terminating the stream, which
+  /// drops everything emitted afterwards. (ADR-023 S4, #1622)
+  ///
+  /// Runs on the global concurrent executor regardless of caller (`@concurrent`),
+  /// so a MainActor caller does not run inference on the main thread (swift-isolation.md
+  /// Pattern 6).
+  ///
+  /// Parameters otherwise match
+  /// ``run(scenario:llm:suspendController:resumingFrom:startRound:)``.
+  ///
+  /// - Parameter emitter: Receives every ``SimulationEvent`` in emission order.
+  ///   `@Sendable` because the closure escapes across an isolation boundary
+  ///   (this method's body runs on the global executor, not the caller's).
+  @concurrent
+  public func run(
+    scenario: Scenario,
+    llm: LLMService,
+    suspendController: SuspendController,
+    resumingFrom seed: SimulationState? = nil,
+    startRound: Int = 1,
+    emitter: @escaping @Sendable (SimulationEvent) -> Void
+  ) async {
+    await Self.executeSimulation(
+      scenario: scenario, llm: llm,
+      dispatcher: dispatcher, validator: validator,
+      pauseState: pauseState,
+      suspendController: suspendController,
+      detector: detector,
+      logger: logger,
+      random: random,
+      seed: seed, startRound: startRound,
+      emitter: emitter
+    )
   }
 
   // MARK: - Private
@@ -223,7 +267,13 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           return
         }
 
-        if await checkPaused(ctx: ctx, round: round) { return }
+        // `checkPaused` reports cancellation but no longer emits it — every
+        // cancellation path funnels through exactly one `.error(.cancelled)`
+        // emitted by its caller (ADR-023 S4, #1622).
+        if await checkPaused(ctx: ctx, round: round) {
+          ctx.emitter(.error(.cancelled))
+          return
+        }
 
         let activeCount = state.eliminated.values.filter { !$0 }.count
         if activeCount < 2 {
@@ -255,6 +305,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   }
 
   /// Returns `true` if the task was cancelled while waiting for resume.
+  ///
+  /// Deliberately does **not** emit `.error(.cancelled)` itself: the nested
+  /// `pauseCheck` hook routes handler-side pauses through here too, and a
+  /// handler that then aborts its phase would produce a second error at the
+  /// runner's next cancellation check. Each caller emits the single
+  /// `.error(.cancelled)` for its own abort path instead (ADR-023 S4, #1622).
   ///
   /// Emits `.simulationPaused` exactly once, then suspends via
   /// `CheckedContinuation` until `isPaused` is set to `false` or the
@@ -319,11 +375,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       cont?.resume()
     }
 
-    if Task.isCancelled {
-      ctx.emitter(.error(.cancelled))
-      return true
-    }
-    return false
+    return Task.isCancelled
   }
 
   /// Returns `true` if an error occurred and the simulation should stop.
@@ -344,6 +396,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
       // Check pause between phases so background switching can take effect
       // without waiting for the entire round to complete.
       if await checkPaused(ctx: ctx, round: currentRound, phasePath: phasePath) {
+        ctx.emitter(.error(.cancelled))
         return true
       }
 
@@ -364,6 +417,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
             // this between sub-phases so user pause requests are honored at
             // sub-phase granularity. Routes through the single `checkPaused`
             // so there's exactly one `.simulationPaused` emitter.
+            //
+            // A `true` result means cancelled: the handler must abort by
+            // throwing `SimulationError.cancelled`, which the `catch` below
+            // turns into the run's single `.error(.cancelled)`. Returning
+            // normally instead would let this phase's `.phaseCompleted` fire
+            // for work that never ran (ADR-023 S4, #1622).
             await checkPaused(ctx: ctx, round: currentRound, phasePath: nestedPath)
           },
           phasePath: phasePath,

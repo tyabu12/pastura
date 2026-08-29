@@ -2,7 +2,11 @@ package com.pastura.engine
 
 import com.pastura.engine.DivergenceLedger.LedgerEntry
 import com.pastura.models.Scenario
+import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -44,6 +48,7 @@ import kotlinx.serialization.json.Json
  * diverging call is the run's last the run *completes*, so the overrun surfaces
  * as extra `turn_skipped` / `inference_started` lines instead.
  */
+@OptIn(ExperimentalAtomicApi::class)
 class EngineParityTests {
 
     /**
@@ -106,7 +111,7 @@ class EngineParityTests {
      * `prisonersDilemmaNominal`, 36 for the three-round `lastFableNominal` —
      * doing prompt building, streaming callbacks and JSON parsing while polled
      * at `delay(1)`, and the `macosArm64` rung was the slower of the two when
-     * the bound was set (measured 2026-08-29 with eight fixtures: 0.15 s for
+     * the bound was set (measured 2026-08-29 with nine fixtures: 0.15 s for
      * the whole roster on `macosArm64`, 0.48 s on the JVM — so the bound is
      * headroom, not a budget). Under the old bound a
      * loaded runner would fail as a timeout that reads like a hang rather than
@@ -120,6 +125,9 @@ class EngineParityTests {
     private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
         val backend = ScriptedLLMBackend(scriptsFor(fixture))
         val collector = Collector()
+        // Null for every fixture that runs to completion, so the callback below
+        // is exactly what it was before the cancelling arm landed.
+        val cutter = fixture.cancelAfterPhaseCompleted?.let { CancelOnPhaseCompleted(it) }
         // A seeded fixture must feed both engines the same stream, so the replay
         // rebuilds SplitMix64 from the seed the Swift run used; an unseeded one is
         // RNG-free by construction, where the source is unobservable. The Swift
@@ -130,14 +138,78 @@ class EngineParityTests {
             fixture.seed?.let { SplitMix64RandomSource(it) } ?: SystemRandomSource()
         val handle =
             SimulationEngine(random = random).run(scenarioOf(fixture), backend) {
+                // Recorded BEFORE the cut is requested, so the triggering event is
+                // itself in the transcript — it is the Swift golden's second-to-last
+                // line, not something the cancellation swallows.
                 collector.record(it)
+                cutter?.observe(it)
             }
+        // `run` installs the callback and only then returns the handle, so the
+        // trigger can fire before this line. [CancelOnPhaseCompleted] latches that
+        // case and cancels here instead of dropping it.
+        cutter?.adopt(handle)
         try {
             awaitTerminal(collector, timeoutMillis = 30_000)
         } finally {
             handle.cancel()
         }
+        if (cutter != null && !cutter.fired) {
+            throw AssertionError(
+                "${fixture.name}: the replay never emitted phase_completed " +
+                    "${fixture.cancelAfterPhaseCompleted}, so the run was never cancelled and " +
+                    "this fixture compared a completed run against a cancelled golden. The " +
+                    "Swift emitter raises `cancelTriggerNeverFired` on the same condition.",
+            )
+        }
         return collector.snapshot() to backend.callCount
+    }
+
+    /**
+     * Cancels the run the moment a `PhaseCompleted` with [path] is recorded.
+     *
+     * **The trigger is an emitted-event position, not a backend call index** —
+     * `ParityFixtureEmitter.FixtureSpec.cancelAfterPhaseCompleted` carries the
+     * reasoning, and this class is its Kotlin half: Kotlin's [LLMCaller] observes
+     * cancellation from *inside* a backend call while the Swift responder does
+     * not, so a call-indexed cut would land at different logical points on the two
+     * engines and the transcript diff would be about where the harness cut rather
+     * than about how the engines unwind. On the event position both are at the head
+     * of `ConditionalHandler`'s sub-phase loop, where Swift polls `Task.isCancelled`
+     * and Kotlin's `pauseCheck` raises.
+     *
+     * Atomics rather than plain fields because `onEvent` fires from
+     * `Dispatchers.Default` while [adopt] runs on the test's thread — the same
+     * reason [Collector] uses one — and because the latch must fire exactly once:
+     * a fixture whose path repeats across rounds would otherwise cancel twice,
+     * which is harmless today only by accident.
+     *
+     * No pending-cancel flag: [observe]'s `compareAndSet` on [triggered] runs
+     * BEFORE its `handle.load()`, and [adopt]'s `handle.store` runs BEFORE its
+     * `triggered.load()`, so every interleaving of the two leaves at least one
+     * side seeing the other's write — either [observe] sees the stored handle
+     * and cancels directly, or [adopt] sees `triggered == true` and cancels
+     * directly. The two calling a redundant `cancel()` on the same run is safe
+     * because `RunHandleImpl` documents every method as idempotent.
+     */
+    private class CancelOnPhaseCompleted(private val path: List<Int>) {
+        private val handle = AtomicReference<RunHandle?>(null)
+        private val triggered = AtomicBoolean(false)
+
+        /** Whether the trigger event was ever seen. */
+        val fired: Boolean get() = triggered.load()
+
+        /** Stores the run's handle, cancelling now when the trigger already fired. */
+        fun adopt(runHandle: RunHandle) {
+            handle.store(runHandle)
+            if (triggered.load()) runHandle.cancel()
+        }
+
+        /** Cancels the run when [event] is the trigger; ignores everything else. */
+        fun observe(event: SimulationEvent) {
+            if (event !is SimulationEvent.PhaseCompleted || event.phasePath != path) return
+            if (!triggered.compareAndSet(false, true)) return
+            handle.load()?.cancel()
+        }
     }
 
     /**
@@ -149,7 +221,12 @@ class EngineParityTests {
      */
     private fun assertRunCompleted(fixture: ParityGolden.Fixture, events: List<SimulationEvent>) {
         val terminal = events.lastOrNull()
+        val cancelling = fixture.cancelAfterPhaseCompleted != null
         if (terminal is SimulationEvent.ErrorEvent) {
+            // A cancelling fixture's whole point is that `ErrorEvent(Cancelled)` IS
+            // the terminal event — checked before the overrun arm, which would
+            // otherwise report the expected tail as a failure.
+            if (cancelling && terminal.error == SimulationError.Cancelled) return
             val error = terminal.error.toString()
             val overran = "ScriptedLLMBackend exhausted" in error
             throw AssertionError(
@@ -161,6 +238,16 @@ class EngineParityTests {
                 } else {
                     "${fixture.name}: the run ended with an error rather than completing: $error"
                 },
+            )
+        }
+        // A cancelled run must NOT complete: `SimulationCompleted` here means the
+        // cut never took effect, which is the failure the Swift fix (#1622) exists
+        // to prevent — the branch would have gone on to run its second sub-phase.
+        if (cancelling) {
+            throw AssertionError(
+                "${fixture.name}: cancelled after phase_completed " +
+                    "${fixture.cancelAfterPhaseCompleted}, so the terminal event must be " +
+                    "ErrorEvent(Cancelled) — it was $terminal",
             )
         }
         assertTrue(
