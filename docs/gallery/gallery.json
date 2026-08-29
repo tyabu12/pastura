@@ -493,6 +493,8 @@
       "language": "en",
       "yaml_url": "asch_conformity_v1_en.yaml",
       "yaml_sha256": "444d0bd5f66e17b84268fb38ed92696f407335491301d3eadad664e2a6ff0fa5",
+      "highlight_url": "highlights/asch_conformity_v1_en.json",
+      "highlight_sha256": "c45b9daa0070d343b065fd03eb5e1aaa5851f1023d72d2797a6b4cd0cd51a194",
       "added_at": "2026-07-01"
     },
     {
