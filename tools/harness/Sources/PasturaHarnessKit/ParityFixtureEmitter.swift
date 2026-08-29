@@ -207,7 +207,9 @@ package enum ParityFixtureEmitter {
     let yaml = try String(contentsOfFile: spec.scenarioPath, encoding: .utf8)
     let scenario = try ScenarioLoader().load(yaml: yaml)
     let responder = RecordingResponder(
-      personas: scenario.personas.map(\.name), overrides: spec.overrides)
+      personas: scenario.personas.map(\.name),
+      choiceOptions: try choiceOptions(in: scenario),
+      overrides: spec.overrides)
 
     var transcript: [String] = []
     // No `detector:` — deliberate, and the inverse of what `HarnessRunner` does
@@ -232,6 +234,43 @@ package enum ParityFixtureEmitter {
       responses: responder.recordedResponses,
       transcript: transcript,
       callCount: responder.callCount)
+  }
+
+  /// The option menu a scenario's `choose` phases offer, for the responder to
+  /// answer `.choice` fields from.
+  ///
+  /// **Why it must be unambiguous.** ``RecordingResponder`` reads the schema
+  /// and nothing else — it cannot see which phase is calling — so a scenario
+  /// declaring two different menus has no single right answer, and picking one
+  /// would silently answer the other phase off-menu, where
+  /// `ChooseHandler.validateAction` drops the pairing. Throwing here turns that
+  /// into a generation-time failure with the scenario named, rather than a
+  /// fixture that runs and scores nothing.
+  ///
+  /// Nested branches are walked because a `conditional`'s `thenPhases` /
+  /// `elsePhases` may hold a `choose`; an options-less `choose` contributes
+  /// nothing, matching `OutputSchema.from`, which only marks a field `.choice`
+  /// when the phase has options.
+  ///
+  /// `package` rather than `private` so the ambiguity guard is testable without
+  /// authoring a throwaway scenario file on disk.
+  package static func choiceOptions(in scenario: Scenario) throws -> [String] {
+    var menus: [[String]] = []
+    func walk(_ phases: [Phase]) {
+      for phase in phases {
+        if phase.type == .choose, let options = phase.options, !options.isEmpty,
+          !menus.contains(options) {
+          menus.append(options)
+        }
+        walk(phase.thenPhases ?? [])
+        walk(phase.elsePhases ?? [])
+      }
+    }
+    walk(scenario.phases)
+    guard menus.count <= 1 else {
+      throw ParityFixtureError.ambiguousChoiceOptions(scenario.id, menus)
+    }
+    return menus.first ?? []
   }
 
   /// Drops the payload fields no cross-language comparison could survive.
@@ -307,6 +346,9 @@ package enum ParityFixtureError: Error, CustomStringConvertible {
   case notUTF8(String)
   /// A fixture contains bytes a Kotlin raw string cannot carry verbatim.
   case rawStringUnsafe(String, String)
+  /// A scenario declares more than one distinct `choose` option menu, which
+  /// the schema-only ``RecordingResponder`` cannot disambiguate.
+  case ambiguousChoiceOptions(String, [[String]])
 
   package var description: String {
     switch self {
@@ -315,6 +357,11 @@ package enum ParityFixtureError: Error, CustomStringConvertible {
     case .rawStringUnsafe(let name, let reason):
       return
         "parity fixture '\(name)' cannot be embedded in a Kotlin raw string: it contains \(reason)"
+    case .ambiguousChoiceOptions(let scenarioID, let menus):
+      let rendered = menus.map { "[\($0.joined(separator: ", "))]" }.joined(separator: " vs ")
+      return
+        "scenario '\(scenarioID)' declares \(menus.count) distinct choose option menus (\(rendered)); "
+        + "the parity responder reads only the schema, so it cannot tell which phase is calling"
     }
   }
 }
