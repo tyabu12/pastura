@@ -294,22 +294,18 @@ public class ConditionEvaluator {
             resolveScoreExtremum(state.scores.values.minOrNull(), "min_score", warnings)
 
         "vote_winner" -> {
-            // Deterministic tie-break mirrors EliminateHandler: sort by
-            // (count desc, name desc) and take the first. Kotlin string order
+            // Shared canonical tie-break (count desc, name desc) via VoteTally,
+            // matching Swift. The inline copy this replaced was a second
+            // definition of the comparator VoteTally exists to hold — exactly
+            // the per-launch divergence #1056/#1057 fixed. Kotlin string order
             // (UTF-16) matches Swift scalar order across the BMP (agent names);
             // see the port's numeric/ordering-parity doc note and
-            // ConditionEvaluatorParityTests. Future parity with a ported
-            // EliminateHandler is a Stage-3 concern.
-            val top = state.voteResults.entries
-                .sortedWith(
-                    compareByDescending<Map.Entry<String, Int>> { it.value }
-                        .thenByDescending { it.key },
-                )
-                .firstOrNull()
+            // ConditionEvaluatorParityTests.
+            val top = VoteTally.winner(state.voteResults)
             if (top != null) {
-                DerivedResolution.Value(top.key)
+                DerivedResolution.Value(top.first)
             } else {
-                warnings.add("vote_winner has no value (no vote phase has run this round)")
+                warnings.add("vote_winner has no value (no vote phase has run yet)")
                 DerivedResolution.Absent
             }
         }
@@ -319,16 +315,11 @@ public class ConditionEvaluator {
             // `state.voteResults` is never cleared at a round boundary, so this
             // reads the most recent vote phase's count, not necessarily the
             // current round's — same staleness as `vote_winner` (ADR-020 §11).
-            val top = state.voteResults.entries
-                .sortedWith(
-                    compareByDescending<Map.Entry<String, Int>> { it.value }
-                        .thenByDescending { it.key },
-                )
-                .firstOrNull()
+            val top = VoteTally.winner(state.voteResults)
             if (top != null) {
-                DerivedResolution.Value(top.value.toString())
+                DerivedResolution.Value(top.second.toString())
             } else {
-                warnings.add("vote_winner_count has no value (no vote phase has run this round)")
+                warnings.add("vote_winner_count has no value (no vote phase has run yet)")
                 DerivedResolution.Absent
             }
         }

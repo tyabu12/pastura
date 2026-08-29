@@ -286,7 +286,7 @@ nonisolated public struct ConditionEvaluator: Sendable {
       if let winner = VoteTally.winner(state.voteResults) {
         return .value(winner.key)
       }
-      warnings.append("vote_winner has no value (no vote phase has run this round)")
+      warnings.append("vote_winner has no value (no vote phase has run yet)")
       return .absent
     case "vote_winner_count":
       // Same tie-break as `vote_winner`. Deliberately NOT round-scoped:
@@ -296,7 +296,7 @@ nonisolated public struct ConditionEvaluator: Sendable {
       if let winner = VoteTally.winner(state.voteResults) {
         return .value(String(winner.value))
       }
-      warnings.append("vote_winner_count has no value (no vote phase has run this round)")
+      warnings.append("vote_winner_count has no value (no vote phase has run yet)")
       return .absent
     default:
       return .notDerived
