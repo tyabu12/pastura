@@ -190,8 +190,8 @@ phases:                       # 必須。何が起きるかを順に並べたリ
 
 比較演算子は `==`、`!=`、`<`、`<=`、`>`、`>=` です。参照できる変数には
 `current_round`、`total_rounds`、`max_score`、`min_score`、
-`eliminated_count`、`active_count`、`vote_winner`、特定のエージェントを
-指す `scores.<Name>` があります。スコアリングロジックはシナリオ固有の追加変数を
+`eliminated_count`、`active_count`、`vote_winner`、`vote_winner_count`、
+特定のエージェントを指す `scores.<Name>` があります。スコアリングロジックはシナリオ固有の追加変数を
 公開することがあります。例えば `wordwolf_judge` は少数派の単語を持つエージェントを
 `wolf_name` に設定し、下のワードウルフの例は最後の `conditional` でこれを使います。
 
@@ -221,6 +221,13 @@ phases:                       # 必須。何が起きるかを順に並べたリ
 - 条件式ではテキストをダブルクォートで比較し、`==` の両辺の裸の単語が
   クォートし忘れたペルソナ名ではなく、実在する変数であることを確認して
   ください。
+- `max_score` と `min_score` は**累積**スコアを読みます。`vote_tally` は
+  毎ラウンドの得票をこれに加算するため、`max_score >= 3` のような条件は
+  一度 true になるとその後ずっと true のままになり、「このラウンドで
+  誰かが 3 票集めたか」を表現できません。1 回の集計を読むには
+  `vote_winner_count` を使ってください。なお `vote_winner_count` と
+  `vote_winner` はどちらも直近の `vote` フェーズの結果を返すため、
+  自身の `vote` を持たないラウンドには前ラウンドの値が引き継がれます。
 
 ## 完全な例
 

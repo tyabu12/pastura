@@ -68,8 +68,15 @@ are not violations of it.
    tally, the branch takes `else` forever and `{vote_winner}` leaks. Frame
    votes as endorsing ANOTHER's plan, or gate on something else. (07-04; 06-26)
 6. **[validated]** A per-round branch must not test a CUMULATIVE score —
-   `max_score >= N` goes true early and never flips. Use a `rounds: 1` tally,
-   tie, or `active_count` condition. (06-28 failure → 07-01 confirmed recipe)
+   `max_score >= N` goes true early and never flips. Since #1599 the direct
+   term exists: `vote_winner_count` is the winning count of the most recent
+   `vote` tally, so `vote_winner_count >= N` is the per-round reading
+   `max_score` cannot express. Two caveats — it needs
+   `min_engine_version: 6` before a gallery scenario may use it (ADR-020 §11),
+   and it carries the last tally forward into a round that runs no `vote` of
+   its own. The pre-#1599 workarounds (a `rounds: 1` tally, tie, or
+   `active_count` condition) still apply where the floor is not yet safe.
+   (06-28 failure → 07-01 confirmed recipe; #1598 hit it in gallery kasei)
 7. **[validated]** In `summarize` templates: `{scoreboard}` always resolves
    (safe); `{vote_winner}` / `{vote_results}` inside a conditional branch leak
    unrendered. (06-26 → confirmed fixed 06-28/07-01)
