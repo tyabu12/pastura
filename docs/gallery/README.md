@@ -496,7 +496,16 @@ call, and these are what the batches so far have taught.
   hardest for a `yaml_hook` persona slice, since the excerpt and the example
   would then render on the same screen — so for a hooked persona, also reject
   a pick that merely reuses the example's sentence frame (the same closing
-  phrase with the nouns swapped), which the gate cannot see. A concrete
+  phrase with the nouns swapped), which the gate cannot see. One carve-out,
+  applied by batch 5 (#1588): when the persona's own 【目的】 / `[Goal]`
+  mandates a fixed frame — `hissatsu_naming_v1`'s command notation plus
+  startup-frame count, 「我が一族相伝『…』」, the en `passed down …` lineage
+  — the frame is the persona, not the example, so exempt the mandated frame
+  and judge what the line adds *outside* frame-plus-name. A line that is
+  nothing but the frame with the name swapped (`翻訳調の刺客`, `The FGC
+  Grinder`) still fails the hook bar; one that adds a clause of its own
+  (`格ゲー脳`'s 「これで世界は再び目覚めるのだ！」, `古武術師範`'s opener and
+  「血脈の証」) passes it. A concrete
   example inside 【目的】 is the same trap under a different label: #1570's
   `kinoko_takenoko_v1` fix first replaced the 【目的】 anchor with another
   quotable phrase (「NASAが牛乳を白く塗っている」) and a draw promptly borrowed
