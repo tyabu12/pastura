@@ -502,7 +502,12 @@ call, and these are what the batches so far have taught.
   quotable phrase (「NASAが牛乳を白く塗っている」) and a draw promptly borrowed
   it as a simile inside an otherwise original line — so describe the
   *property* the persona shows (「桁まで具体的な捏造数字」) and keep any
-  quotable, complete phrase out of 【目的】 too. The one carve-out is a
+  quotable, complete phrase out of 【目的】 too. A persona whose gimmick *is*
+  the non-sequitur (`seriffu_knockout_v1`'s `天然のんき子`) cannot carry a
+  quotable example at all: an off-topic domestic remark is an ideal answer to
+  every topic, so swapping the line for another one only moves the
+  reproduction. #1592 replaced hers with a property description and she kept
+  the gimmick in both check draws. The one carve-out is a
   scripted speaker who is *not* the hook: `asch_conformity_v1` / `_en` quote
   the confederates' literal lines (「答えはCです」, `It's C, no doubt.`) because
   the verbatim repetition *is* the phenomenon, and only the subject is hooked
