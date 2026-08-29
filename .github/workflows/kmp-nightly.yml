@@ -189,18 +189,23 @@ jobs:
       #                                     parity harness, which still lands at
       #                                     Stage 4 (the target registration was
       #                                     pulled forward; the harness was not).
-      #   :shared:models:assemblePasturaSharedXCFramework .. links + bundles the
-      #                                     models-only umbrella across all three
-      #                                     iOS targets (so iosArm64 device +
-      #                                     iosX64 are compiled and linked here
-      #                                     even though only arm64-sim is
-      #                                     test-run). No macOS slice by design —
-      #                                     see shared/models/build.gradle.kts.
-      #   :shared:engine:assemblePasturaSharedEngineXCFramework .. the engine
-      #                                     umbrella, BOTH configs (the per-PR
-      #                                     path builds debug only). This is the
-      #                                     artifact the Stage-2-gate spike
-      #                                     consumer binary-targets.
+      #   :shared:engine:assemblePasturaSharedEngineXCFramework .. THE umbrella —
+      #                                     the only one, since ADR-023 §6
+      #                                     Stage-5 ruling (b) dropped the
+      #                                     models-only `PasturaShared` export.
+      #                                     BOTH configs (the per-PR path builds
+      #                                     debug only). Links + bundles all
+      #                                     three iOS targets plus macosArm64, so
+      #                                     iosArm64 device + iosX64 are compiled
+      #                                     and linked here even though only
+      #                                     arm64-sim is test-run; its
+      #                                     `export(project(":shared:models"))`
+      #                                     carries every models symbol, so
+      #                                     models gets the same native-link
+      #                                     coverage its own umbrella used to
+      #                                     give. This is the artifact the
+      #                                     Stage-2-gate spike consumer
+      #                                     binary-targets.
       #
       # `iosX64Test` is deliberately NOT invoked: on this arm64 runner it would
       # execute an x86_64 test binary on the x86_64 iOS simulator under Rosetta
@@ -215,7 +220,6 @@ jobs:
           :shared:models:jvmTest
           :shared:models:iosSimulatorArm64Test
           :shared:models:macosArm64Test
-          :shared:models:assemblePasturaSharedXCFramework
           :shared:engine:assemblePasturaSharedEngineXCFramework
           --no-daemon --stacktrace
 
@@ -294,15 +298,19 @@ jobs:
           set -euo pipefail
           ./gradlew :shared:models:clean :shared:engine:clean --no-daemon
           START=$(date +%s)
+          # Single umbrella since ADR-023 §6 Stage-5 ruling (b) — the
+          # models-only assembly that used to be timed alongside it is gone.
+          # ⚠️ The 5m19s figure cited in ADR-023 §6(a) and #1633 was measured
+          # with BOTH umbrellas; the next workflow_dispatch's number supersedes
+          # it. Do not compare the two as a regression signal.
           ./gradlew \
-            :shared:models:assemblePasturaSharedXCFramework \
             :shared:engine:assemblePasturaSharedEngineXCFramework \
             --no-daemon
           ASSEMBLE=$(( $(date +%s) - START ))
           {
             printf '## Stage-5 sizing probe (#1135)\n\n'
             printf '| Measurement | Seconds |\n|---|---|\n'
-            printf '| Warm-cache assembly (both umbrellas) | %s |\n' "$ASSEMBLE"
+            printf '| Warm-cache assembly (PasturaSharedEngine umbrella) | %s |\n' "$ASSEMBLE"
             printf '| Cache restore (~/.konan + ~/.gradle) | %s |\n\n' "${CACHE_RESTORE_SECONDS:-unknown}"
             printf '**The assembly figure is a LOWER BOUND on per-PR cost.** It excludes:\n\n'
             printf -- '- Cache-restore wall time (listed separately above; a per-PR job pays it too).\n'

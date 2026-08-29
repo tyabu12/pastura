@@ -943,17 +943,24 @@ jobs:
         # the compile-only step above — if a genuinely konan-cold run trips it,
         # that is a first-run artifact, not a budget regression.
         timeout-minutes: 18
-        # Both umbrellas assemble here since #1135 gave `:shared:engine` its own
-        # export. A build-config PR is exactly the PR that can break a framework
-        # link, and this step is the only per-PR path that links at all — a PR
-        # adding the export must not merge with the export unverified.
+        # ONE umbrella assembles here. ADR-023 §6 Stage-5 ruling (b) dropped
+        # `:shared:models`' models-only `PasturaShared` export, so the engine
+        # umbrella is the only framework link left. A build-config PR is exactly
+        # the PR that can break a framework link, and this step is the only
+        # per-PR path that links at all — a PR touching the export must not
+        # merge with the export unverified.
         #
-        # DEBUG-only for the engine umbrella (`…EngineDebugXCFramework`), while
-        # models keeps the both-config `assemblePasturaSharedXCFramework` it has
-        # always run: K/N release links run full LLVM optimization and dominate
-        # the step's cost, and the `export`/API-dependency errors this step
-        # exists to catch fire identically on debug. The both-config engine
-        # umbrella runs nightly, off the critical path.
+        # Dropping the models umbrella loses NO per-PR device-link coverage of
+        # models: `:shared:engine`'s `export(project(":shared:models"))` links
+        # every models symbol into this umbrella for the same iosArm64 /
+        # iosSimulatorArm64 / iosX64 triples the deleted task covered (and adds
+        # macosArm64). A models-side native link regression still reddens here —
+        # it is subsumed, not skipped.
+        #
+        # DEBUG-only (`…EngineDebugXCFramework`): K/N release links run full LLVM
+        # optimization and dominate the step's cost, and the `export`/API-
+        # dependency errors this step exists to catch fire identically on debug.
+        # The both-config engine umbrella runs nightly, off the critical path.
         #
         # Task name has the config infix AFTER the umbrella name — verified via
         # `./gradlew :shared:engine:tasks --all`, not inferred. The intuitive
@@ -968,7 +975,7 @@ jobs:
         # this step too — breaking the strict-superset invariant that the
         # full-native step covers everything the compile-only step does. Both
         # task tokens verified present via `:shared:{models,engine}:tasks --all`.
-        run: ./gradlew :shared:models:assemblePasturaSharedXCFramework :shared:engine:assemblePasturaSharedEngineDebugXCFramework :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
+        run: ./gradlew :shared:engine:assemblePasturaSharedEngineDebugXCFramework :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
 
       - name: Upload Gradle reports (on failure)
         if: failure()

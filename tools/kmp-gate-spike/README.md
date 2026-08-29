@@ -228,5 +228,9 @@ the K/N framework is modelled as a new layer, folded into `Models`, or given its
 own row is a Stage-5 decision that needs the ADR and the table updated together.
 Flagging it, not answering it.
 
-See also the Stage-5 two-umbrella landmine in ADR-023 §6: `PasturaShared`
-(models-only) and `PasturaSharedEngine` must never link into one binary.
+The Stage-5 two-umbrella landmine recorded in ADR-023 §9.7 — `PasturaShared`
+(models-only) and `PasturaSharedEngine` must never link into one binary — is
+**disarmed mechanically** as of S5-1: ADR-023 §6 ruling (b) deleted the
+models-only umbrella rather than retargeting it, so there is no second framework
+left to co-link. `shared/models` now ships to Swift only through
+`PasturaSharedEngine`'s `export(project(":shared:models"))`.

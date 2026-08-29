@@ -1,17 +1,14 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.plugin.mpp.apple.XCFramework
 
 // `shared/models` — Kotlin Multiplatform port of Pastura's `Models/` Swift
 // layer (Issue #220 — KMP Models Layer Validation Spike).
 //
 // W1 establishes the module skeleton:
-//   - iOS targets (arm64 device + simulator-arm64 + x64) for XCFramework
-//     consumption by the iOS app (W3+ scope; W1 only validates the toolchain).
+//   - iOS targets (arm64 device + simulator-arm64 + x64), consumed by the iOS
+//     app through `shared/engine`'s `PasturaSharedEngine` umbrella — this
+//     module builds no framework of its own (see the targets below).
 //   - JVM target for simulator-free Models tests on `./gradlew jvmTest`
 //     (per the parallel motivation in the issue body).
-//
-// XCFramework export config is added in W1 Item 3.
-// Pilot types (Persona, Pairing) and roundtrip tests land in W1 Item 4.
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -31,38 +28,17 @@ kotlin {
         }
     }
 
-    // Umbrella XCFramework export (D6 in #220). The three iOS targets each
-    // produce a framework binary named `PasturaShared`; the aggregate
-    // `XCFramework("PasturaShared")` task bundles them into
-    // `PasturaShared.xcframework`. Task names (verified against
-    // `./gradlew :shared:models:tasks --all`, #1135): both-config
-    // `assemblePasturaSharedXCFramework`, single-config
-    // `assemblePasturaShared<Debug|Release>XCFramework` — the config infix goes
-    // AFTER the umbrella name, not before it. (This comment previously claimed
-    // `assemble<Debug|Release>PasturaSharedXCFramework`, which does not exist:
-    // Gradle rejects it as an ambiguous abbreviation of the per-platform
-    // `assemble<Config><Platform>FatFrameworkFor…` tasks.)
-    // Swift consumption (`import PasturaShared`) lands in W3 (H8); W1 only
-    // validates that the toolchain produces a valid XCFramework directory.
-    val xcf = XCFramework("PasturaShared")
-    iosArm64 {
-        binaries.framework {
-            baseName = "PasturaShared"
-            xcf.add(this)
-        }
-    }
-    iosSimulatorArm64 {
-        binaries.framework {
-            baseName = "PasturaShared"
-            xcf.add(this)
-        }
-    }
-    iosX64 {
-        binaries.framework {
-            baseName = "PasturaShared"
-            xcf.add(this)
-        }
-    }
+    // iOS targets. NO framework binaries and NO umbrella of this module's own:
+    // ADR-023 §6 Stage-5 ruling (b) dropped the models-only `PasturaShared`
+    // XCFramework rather than retargeting it, which disarms the §9.7
+    // two-umbrella landmine mechanically (there is no second umbrella left to
+    // co-link). These targets stay because `shared/engine` needs their klibs:
+    // its `export(project(":shared:models"))` links every models symbol into
+    // `PasturaSharedEngine`, so Models still ships to Swift — through the one
+    // engine umbrella, on the same three iOS triples.
+    iosArm64()
+    iosSimulatorArm64()
+    iosX64()
 
     // macOS host target (#501 Stage 2-gate). Registered here — one stage ahead
     // of the ADR-023 §6 Stage-4 parity harness that names `macosArm64` as its
@@ -71,11 +47,11 @@ kotlin {
     // TARGET does not move the Stage-4 parity harness itself; that lands on
     // schedule.
     //
-    // Deliberately NOT added to the `PasturaShared` umbrella above: nothing
-    // consumes a macOS `PasturaShared`. The spike links the engine module's
-    // `PasturaSharedEngine` umbrella, which re-exports this module. Adding a
-    // macOS slice here would cost a fourth link target in the nightly and buy
-    // nothing until some Swift consumer wants Models alone. `macosArm64Test`
+    // Like the iOS targets above, this one declares no framework binary: since
+    // ADR-023 §6 Stage-5 ruling (b) this module has no umbrella of its own and
+    // ships to Swift only inside `PasturaSharedEngine`, which re-exports it.
+    // Nothing consumes a macOS models-only framework, and building one would
+    // buy nothing until some Swift consumer wants Models alone. `macosArm64Test`
     // still runs the shared `commonTest` suite on the K/N host runtime — the
     // point of the target at this stage.
     macosArm64()
