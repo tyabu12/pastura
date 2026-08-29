@@ -281,7 +281,7 @@
       ],
       "language": "ja",
       "yaml_url": "hissatsu_naming_v1.yaml",
-      "yaml_sha256": "2a96a740912f789d7446a9fff326dafab4d2fb1c867106e2b7b51c797e931342",
+      "yaml_sha256": "85ab46895c23dbade22e0850f9775df82cc72295f78989be866eac686110b99a",
       "added_at": "2026-06-20"
     },
     {
@@ -434,7 +434,7 @@
       ],
       "language": "ja",
       "yaml_url": "seriffu_knockout_v1.yaml",
-      "yaml_sha256": "6a97cb3827ace77ad7629de5fa4646fa78bfd424bee80068eb0ceee3cfd27d02",
+      "yaml_sha256": "9433bfd83fe998b6429a8570ffea970096c52ad0ef5094dd119802b865853856",
       "added_at": "2026-06-29"
     },
     {
@@ -669,7 +669,7 @@
       ],
       "language": "en",
       "yaml_url": "hissatsu_naming_v1_en.yaml",
-      "yaml_sha256": "98aa8d52d9e1ba685d6806aefaeb3da29f9b40f4b5cdd4f5443d17798249619b",
+      "yaml_sha256": "2cab9d9498fcfe433af1b880ad80c0beb5b8cad4632ab010ea3dc33c2749dc76",
       "added_at": "2026-07-01"
     },
     {

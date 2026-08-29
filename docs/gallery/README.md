@@ -502,7 +502,25 @@ call, and these are what the batches so far have taught.
   quotable phrase (「NASAが牛乳を白く塗っている」) and a draw promptly borrowed
   it as a simile inside an otherwise original line — so describe the
   *property* the persona shows (「桁まで具体的な捏造数字」) and keep any
-  quotable, complete phrase out of 【目的】 too. The one carve-out is a
+  quotable, complete phrase out of 【目的】 too. A persona whose gimmick *is*
+  the non-sequitur (`seriffu_knockout_v1`'s `天然のんき子`) cannot carry a
+  quotable example at all: an off-topic domestic remark is an ideal answer to
+  every topic, so swapping the line for another one only moves the
+  reproduction. #1592 replaced hers with a property description and she kept
+  the gimmick in both check draws. The lead-in of an example is quotable too:
+  #1589's first rewrite moved `中二の覇王`'s subject off the topic but kept a
+  catchphrase opener (「闇に還れ……」), and 3 of 4 draws opened with it — the
+  fix names the *kind* of opener and says it must differ every time.
+  Frames the check draws left behind, to reject at pick time for a hooked
+  persona: `hissatsu_naming_v1`'s `翻訳調の刺客` opens 「くらえ、これがオレ流の
+  “X”だ」 in every draw (his 【目的】 asks for exactly that voice, so it is
+  the persona, not a defect); `seriffu_knockout_v1`'s `大袈裟役者ガラ` closes
+  on 「〜のだァァ！」, which his new `例:` also uses. Note that `assign` with
+  `target: all` hands out `topics:` in file order, one per round
+  (`AssignHandler`), not at random — so an example that shadows a later topic
+  (`熱血真面目バン`'s 二度寝 against `seriffu_knockout_v1` topic 4) is outside
+  the window and safe, and a round-1 collision cannot be re-drawn away.
+  The one carve-out is a
   scripted speaker who is *not* the hook: `asch_conformity_v1` / `_en` quote
   the confederates' literal lines (「答えはCです」, `It's C, no doubt.`) because
   the verbatim repetition *is* the phenomenon, and only the subject is hooked
