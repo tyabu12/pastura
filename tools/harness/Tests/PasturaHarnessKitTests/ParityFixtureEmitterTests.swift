@@ -23,57 +23,59 @@ import Testing
 @Suite(.serialized, .timeLimit(.minutes(1)))
 struct ParityFixtureEmitterTests {
 
-  // MARK: - RecordingResponder
+  // MARK: - Choice-option derivation
 
-  @Test("answers are derived from the schema, never from the prompt")
-  func responderIgnoresPrompt() async throws {
-    let schema = OutputSchema(fields: [OutputSchema.Field(name: "statement", kind: .string)])
-    let shortPrompted = RecordingResponder(personas: ["Alice"])
-    let longPrompted = RecordingResponder(personas: ["Alice"])
+  @Test("two distinct choose menus are rejected rather than silently halved")
+  func choiceOptionDerivationRejectsAmbiguity() throws {
+    // The responder reads the schema and nothing else, so it cannot tell which
+    // `choose` phase is calling. Picking either menu would answer the other
+    // phase off-menu and drop every one of its pairings — a fixture that runs
+    // and scores nothing. Generation-time failure is the honest outcome.
+    let scenario = makeScenario(phases: [
+      Phase(type: .choose, options: ["cooperate", "betray"]),
+      Phase(
+        type: .conditional, condition: "round >= 1",
+        thenPhases: [Phase(type: .choose, options: ["rock", "paper"])])
+    ])
 
-    let fromShortPrompt = try await shortPrompted.generate(system: "s", user: "u", schema: schema)
-    let fromLongPrompt = try await longPrompted.generate(
-      system: "a much longer system prompt", user: "a much longer user prompt", schema: schema)
-
-    // The guard this defends: `PromptBuilder.formatScoreboard` orders and
-    // collapses keys differently in the two engines, so a prompt-keyed
-    // responder would hand them different scripts and report the difference as
-    // an engine divergence.
-    #expect(fromShortPrompt == fromLongPrompt)
+    #expect(throws: ParityFixtureError.self) {
+      _ = try ParityFixtureEmitter.choiceOptions(in: scenario)
+    }
   }
 
-  @Test("a vote field resolves to a persona the tally can count")
-  func responderResolvesVoteToPersona() async throws {
-    let schema = OutputSchema(fields: [OutputSchema.Field(name: "vote", kind: .string)])
-    let responder = RecordingResponder(personas: ["アオイ", "ハルト", "リオ"])
+  @Test("a repeated menu, including one nested in a branch, is not ambiguity")
+  func choiceOptionDerivationAcceptsARepeatedMenu() throws {
+    // The guard is on DISTINCT menus: a scenario reusing one menu across a
+    // top-level phase and a conditional branch has a single right answer, and
+    // rejecting it would rule out a shape nothing forbids. This also pins that
+    // the walk descends into `elsePhases`, which the ambiguity case above would
+    // pass even if it did not.
+    let scenario = makeScenario(phases: [
+      Phase(type: .choose, options: ["cooperate", "betray"]),
+      Phase(
+        type: .conditional, condition: "round >= 1",
+        elsePhases: [Phase(type: .choose, options: ["cooperate", "betray"])])
+    ])
 
-    let first = try await responder.generate(system: "", user: "", schema: schema)
-    let second = try await responder.generate(system: "", user: "", schema: schema)
-
-    // Offset by one (see `RecordingResponder.value(for:)`), so call 0 votes for
-    // persona 1 rather than persona 0 — which for a real scenario is the
-    // difference between a counted vote and a self-vote `exclude_self` drops.
-    #expect(first.contains("ハルト"))
-    #expect(second.contains("リオ"))
+    #expect(try ParityFixtureEmitter.choiceOptions(in: scenario) == ["cooperate", "betray"])
   }
 
-  @Test("an override replaces the derived answer at exactly its call index")
-  func responderHonoursOverrideIndex() async throws {
-    let schema = OutputSchema(fields: [OutputSchema.Field(name: "statement", kind: .string)])
-    let responder = RecordingResponder(personas: ["Alice"], overrides: [1: #"{"statement": ""}"#])
+  @Test("a scenario with no choose phase derives an empty menu")
+  func choiceOptionDerivationIsEmptyWithoutAChoosePhase() throws {
+    // The fallback branch every non-`choose` fixture takes — the two
+    // `target_score_race` fixtures, `boketeNominal`, `iiwakeBattleNominal` and
+    // the structural control are its live users.
+    let scenario = makeScenario(phases: [Phase(type: .speakAll, prompt: "hi")])
 
-    _ = try await responder.generate(system: "", user: "", schema: schema)
-    let overridden = try await responder.generate(system: "", user: "", schema: schema)
-    let after = try await responder.generate(system: "", user: "", schema: schema)
+    #expect(try ParityFixtureEmitter.choiceOptions(in: scenario).isEmpty)
+  }
 
-    #expect(overridden == #"{"statement": ""}"#)
-    // Asserted as the exact value, not as "not empty": the latter passes for any
-    // non-empty payload, including a wrongly-indexed one, and would pass
-    // vacuously if `derive` changed shape. This pins that the override applied
-    // at exactly index 1 and the derivation resumed at call index 2.
-    #expect(after == #"{"statement": "statement 2"}"#)
-    #expect(responder.callCount == 3)
-    #expect(responder.recordedResponses.count == 3)
+  /// A minimal scenario carrying only the phases under test — the derivation
+  /// reads nothing else.
+  private func makeScenario(phases: [Phase]) -> Scenario {
+    Scenario(
+      id: "derivation-probe", name: "probe", description: "probe", language: "en",
+      agentCount: 0, rounds: 1, context: "probe", personas: [], phases: phases)
   }
 
   // MARK: - Determinism
@@ -207,90 +209,6 @@ struct ParityFixtureEmitterTests {
     #expect(
       divergentRun.responses[4].contains("\"statement\""),
       "call 4 should still be a speak_all turn once the retry window shifts it")
-  }
-
-  @Test("every fixture exercises voting, not just its shape")
-  func everyFixtureExercisesVotingNotJustItsShape() async throws {
-    // The contract `RecordingResponder.value(for:)`'s rotation cannot state for
-    // itself: the responder never sees which agent is calling, so it cannot
-    // exclude a self-vote by construction. A bare `callIndex % count` made EVERY
-    // vote a self-vote for this scenario — all tallies empty, all scores 0,
-    // `max_score >= 3` false in all four evaluations — while the run kept the
-    // right shape and the right event count, so nothing else here caught it.
-    //
-    // **Every spec, not `specs.first`.** Scoping this to one fixture is how the
-    // second instance survived: `+ 1` repaired the nominal run and left the
-    // divergent one on the diagonal, because its retry window shifts the global
-    // call stream by two.
-    #expect(!ParityFixtureEmitter.specs.isEmpty, "no fixture specs declared")
-    var votingFixtures = 0
-    var scoringFixtures = 0
-    var branchingFixtures = 0
-    for spec in ParityFixtureEmitter.specs {
-      let fixture = try await ParityFixtureEmitter.run(spec)
-
-      // Not every fixture scores: `parityStructuralControl` is a single
-      // `speak_all` turn pair with no vote, no `score_calc` and no
-      // `conditional`, so the assertions below would fail there for the right
-      // shape and the wrong reason.
-      //
-      // **Derived from the run, never hand-listed by name** — a name-based skip
-      // silently stops covering any fixture added later, the same shape as the
-      // `specs.first` scoping above.
-      //
-      // **One predicate per assertion, not one for all three.** A single
-      // vote-keyed guard would skip a fixture running `score_calc` and
-      // `conditional` without a `vote` — a shape nothing forbids — while the
-      // counter stayed positive on the two `target_score_race` fixtures, so the
-      // loss would be silent: the same defect displaced onto one phase type
-      // rather than removed.
-      func runsPhase(_ type: String) -> Bool {
-        fixture.transcript.contains {
-          $0.contains("\"event\":\"phase_started\"") && $0.contains("\"phase_type\":\"\(type)\"")
-        }
-      }
-
-      if runsPhase("vote") {
-        votingFixtures += 1
-        #expect(
-          fixture.transcript.contains {
-            $0.contains("\"vote_results\"") && !$0.contains("\"tallies\":{}")
-          },
-          "\(spec.name): every tally is empty — the votes are dropped, probably as self-votes")
-      }
-
-      // Scoped to the `scores` object, and rejecting an empty one. Searching the
-      // whole line for `:0,` could never pass (every EventLine carries
-      // `"attempt":0,`); and `!contains(":0")` alone passes vacuously on
-      // `"scores":{}`, which is a shape this golden demonstrably produces.
-      if runsPhase("score_calc") {
-        scoringFixtures += 1
-        #expect(
-          fixture.transcript.contains { line in
-            guard line.contains("\"score_update\""),
-              let scores = line.range(of: "\"scores\":{").map({ line[$0.upperBound...] }),
-              let end = scores.firstIndex(of: "}")
-            else { return false }
-            let payload = scores[..<end]
-            return !payload.isEmpty && !payload.contains(":0")
-          },
-          "\(spec.name): no score ever moved off zero")
-      }
-
-      if runsPhase("conditional") {
-        branchingFixtures += 1
-        #expect(
-          fixture.transcript.contains { $0.contains("\"conditional_evaluated\",\"result\":true") },
-          "\(spec.name): the then-branch is never taken — the node runs but decides nothing")
-      }
-    }
-    // One counter per assertion: a shared one would let a surviving fixture mask
-    // the case where some other phase type stopped being exercised anywhere.
-    #expect(votingFixtures > 0, "no fixture ran a vote phase — that assertion passed vacuously")
-    #expect(
-      scoringFixtures > 0, "no fixture ran a score_calc phase — that assertion passed vacuously")
-    #expect(
-      branchingFixtures > 0, "no fixture ran a conditional phase — that assertion passed vacuously")
   }
 
   // MARK: - Raw-string safety guard

@@ -101,113 +101,14 @@ package enum ParityFixtureEmitter {
     }
   }
 
-  /// The fixtures this repo freezes, in emission order.
-  ///
-  /// `target_score_race` is one of three bundled presets that are fully
-  /// deterministic — neither engine injects RNG, and both rely on degenerate
-  /// inputs rather than seeding — and it is the only one of those three that
-  /// exercises `conditional`.
-  ///
-  /// "Exercises `conditional`" means the **branch**, not merely the node: an
-  /// earlier draft of the responder made every vote a self-vote, so every tally
-  /// was empty, every score stayed 0, and `max_score >= 3` was false in all four
-  /// evaluations — the phase ran and decided nothing. A fixture can look like a
-  /// full run while its whole scoring half is frozen, so
-  /// `nominalRunExercisesVotingNotJustItsShape` asserts the non-degenerate
-  /// outcome rather than leaving it to the responder's arithmetic.
-  package static let specs: [FixtureSpec] = [
-    FixtureSpec(
-      name: "targetScoreRaceNominal",
-      scenarioPath: "Pastura/Pastura/Resources/Presets/target_score_race.yaml",
-      purpose: """
-        Happy path. Every answer is well-formed and non-empty, so a green \
-        comparison here means the two engines agree with an empty divergence \
-        ledger — which is Stage 4's actual goal, not merely that the harness runs.
-        """
-    ),
-    FixtureSpec(
-      name: "targetScoreRaceDivergent",
-      scenarioPath: "Pastura/Pastura/Resources/Presets/target_score_race.yaml",
-      purpose: """
-        Negative control. A ledger whose entries never fire ships unexercised, \
-        so this fixture drives documented divergences on purpose and the parity \
-        suite fails if one stops firing.
-
-        **It drives a VALUE divergence only, by design rather than by loss.** \
-        It used to drive one of each entry kind: calls 0-2 answer the first \
-        agent's schema-declaring `speak_all` turn with present-but-empty \
-        canonical fields across the whole retry window, which Swift returned as \
-        an `agentOutput` while Kotlin's parser guard exhausted retries into a \
-        `turnSkipped`. ADR-021 § Amendment 2026-08-06 resolved that — both \
-        engines now skip — retiring `SCHEMA_GUARD_POSITION`. The empty-field \
-        overrides are kept because they still exercise the retry window \
-        identically on both sides.
-
-        The structural arm was re-armed in `parityStructuralControl` instead, \
-        because the surviving scriptable divergence costs Kotlin two extra \
-        backend calls and `responses` is positional — the surplus has to land \
-        on the run's LAST call, which here is a `vote` whose loss cascades \
-        through the tally. So do not read a clean structural comparison here as \
-        evidence the structural path is exercised; \
-        `someFixtureDrivesBothEntryKinds` is what keeps that honest.
-
-        The float-valued key below is this fixture's arm. Swift normalizes \
-        `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin \
-        preserves the literal as "1.0" — the VALUE divergence \
-        `JSONResponseParser.kt` routes to Stage 4 to rule on.
-        """,
-      overrides: [
-        0: #"{"statement": "", "inner_thought": ""}"#,
-        1: #"{"statement": "", "inner_thought": ""}"#,
-        2: #"{"statement": "", "inner_thought": ""}"#,
-        3: #"{"statement": "s", "inner_thought": "t", "confidence": 1.0}"#
-      ]
-    ),
-    FixtureSpec(
-      name: "parityStructuralControl",
-      scenarioPath: "tools/harness/Fixtures/parity_structural.yaml",
-      purpose: """
-        Structural negative control. The sibling divergent fixture drives a \
-        VALUE divergence only; this one exists so the ledger's kind-coverage \
-        guard has a `Structural` entry to hold, and so a divergence class and \
-        its entries cannot be deleted together unnoticed — the way ADR-021 \
-        § Amendment 2026-08-06 retired `SCHEMA_GUARD_POSITION` and silently \
-        cost the control its only structural arm.
-
-        Call 1 drives it. Swift's schema-guarded multi-object salvage (#907) \
-        accepts the first object when every expected key is present and \
-        non-empty, returning an `agentOutput` after ONE backend call. Kotlin's \
-        `extractFirstJsonObject` returns object-like residue unchanged, so the \
-        parse fails and the turn exhausts its retry budget into a `turnSkipped` \
-        after THREE. Paired parser tests fed byte-identical input pin both \
-        behaviours, so neither can drift silently.
-
-        **Why its own scenario rather than an override on the sibling.** \
-        `Fixture.responses` is positional, so Kotlin's two surplus calls \
-        consume whatever answers follow; placed mid-run they shift every later \
-        turn and the diff becomes noise about alignment rather than about the \
-        engines. Here the divergent turn is the run's LAST, so the surplus \
-        falls into the parity suite's padding. The cost is pinned instead of \
-        hidden: the two engines issue different call counts, and that is \
-        asserted rather than excused.
-
-        Call 0 carries the float-valued key as well, so this fixture drives one \
-        divergence of EACH entry kind by itself — kind coverage then holds \
-        per-fixture rather than only across the set, for one extra override.
-        """,
-      overrides: [
-        0: #"{"statement": "s", "inner_thought": "t", "confidence": 1.0}"#,
-        1: #"{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}"#
-      ]
-    )
-  ]
-
   /// Runs one spec through the Swift Engine.
   package static func run(_ spec: FixtureSpec) async throws -> Fixture {
     let yaml = try String(contentsOfFile: spec.scenarioPath, encoding: .utf8)
     let scenario = try ScenarioLoader().load(yaml: yaml)
     let responder = RecordingResponder(
-      personas: scenario.personas.map(\.name), overrides: spec.overrides)
+      personas: scenario.personas.map(\.name),
+      choiceOptions: try choiceOptions(in: scenario),
+      overrides: spec.overrides)
 
     var transcript: [String] = []
     // No `detector:` — deliberate, and the inverse of what `HarnessRunner` does
@@ -232,6 +133,43 @@ package enum ParityFixtureEmitter {
       responses: responder.recordedResponses,
       transcript: transcript,
       callCount: responder.callCount)
+  }
+
+  /// The option menu a scenario's `choose` phases offer, for the responder to
+  /// answer `.choice` fields from.
+  ///
+  /// **Why it must be unambiguous.** ``RecordingResponder`` reads the schema
+  /// and nothing else — it cannot see which phase is calling — so a scenario
+  /// declaring two different menus has no single right answer, and picking one
+  /// would silently answer the other phase off-menu, where
+  /// `ChooseHandler.validateAction` drops the pairing. Throwing here turns that
+  /// into a generation-time failure with the scenario named, rather than a
+  /// fixture that runs and scores nothing.
+  ///
+  /// Nested branches are walked because a `conditional`'s `thenPhases` /
+  /// `elsePhases` may hold a `choose`; an options-less `choose` contributes
+  /// nothing, matching `OutputSchema.from`, which only marks a field `.choice`
+  /// when the phase has options.
+  ///
+  /// `package` rather than `private` so the ambiguity guard is testable without
+  /// authoring a throwaway scenario file on disk.
+  package static func choiceOptions(in scenario: Scenario) throws -> [String] {
+    var menus: [[String]] = []
+    func walk(_ phases: [Phase]) {
+      for phase in phases {
+        if phase.type == .choose, let options = phase.options, !options.isEmpty,
+          !menus.contains(options) {
+          menus.append(options)
+        }
+        walk(phase.thenPhases ?? [])
+        walk(phase.elsePhases ?? [])
+      }
+    }
+    walk(scenario.phases)
+    guard menus.count <= 1 else {
+      throw ParityFixtureError.ambiguousChoiceOptions(scenario.id, menus)
+    }
+    return menus.first ?? []
   }
 
   /// Drops the payload fields no cross-language comparison could survive.
@@ -307,6 +245,9 @@ package enum ParityFixtureError: Error, CustomStringConvertible {
   case notUTF8(String)
   /// A fixture contains bytes a Kotlin raw string cannot carry verbatim.
   case rawStringUnsafe(String, String)
+  /// A scenario declares more than one distinct `choose` option menu, which
+  /// the schema-only ``RecordingResponder`` cannot disambiguate.
+  case ambiguousChoiceOptions(String, [[String]])
 
   package var description: String {
     switch self {
@@ -315,6 +256,11 @@ package enum ParityFixtureError: Error, CustomStringConvertible {
     case .rawStringUnsafe(let name, let reason):
       return
         "parity fixture '\(name)' cannot be embedded in a Kotlin raw string: it contains \(reason)"
+    case .ambiguousChoiceOptions(let scenarioID, let menus):
+      let rendered = menus.map { "[\($0.joined(separator: ", "))]" }.joined(separator: " vs ")
+      return
+        "scenario '\(scenarioID)' declares \(menus.count) distinct choose option menus (\(rendered)); "
+        + "the parity responder reads only the schema, so it cannot tell which phase is calling"
     }
   }
 }
