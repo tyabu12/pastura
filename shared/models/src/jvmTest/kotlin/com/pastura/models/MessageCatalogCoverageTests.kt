@@ -26,6 +26,20 @@ import kotlin.test.assertTrue
  * (`.claude/rules/kmp-interop.md` § Pattern 4), and the commonTest roster pins
  * compare Kotlin against a hand-transcribed expectation, not against the catalog.
  *
+ * ## What it cannot see (the honest boundary — the docs that cite this test
+ * point here)
+ *
+ * - A Swift reword is detected only **once `xcstringstool sync` has retired the
+ *   old key**. The pre-commit hook skips that sync, so a reword committed with
+ *   the catalog un-synced leaves the old key live, non-stale and `translated`;
+ *   the Kotlin twin still resolves it and this suite stays green while the two
+ *   sides have diverged. The next synced build retires the key and reddens it.
+ * - A Kotlin format that happens to be a live, translated key **of some other
+ *   surface** passes every check below.
+ * - Only specifiers are compared, never meaning: a `ja` value that still fits
+ *   the key's `%@` / `%lld` multiset but says something else passes. An
+ *   explicit `en` block whose value drifted from the key is not compared either.
+ *
  * ## What is checked, per case
  *
  * a. the format exists as a catalog key;
@@ -37,6 +51,9 @@ import kotlin.test.assertTrue
  *    argument) at runtime, and (c) alone would pass it. Positional forms
  *    (`%N$@` / `%N$lld`) are normalised to their bare counterparts first, since
  *    a Japanese translation legitimately reorders arguments.
+ * e. neither the key nor the `ja` value carries a `%` outside those four forms.
+ *    `substitute` copies `%%` through literally where Foundation collapses it to
+ *    `%`, so a translator writing `100%%` would render `100%%` on Kotlin only.
  *
  * Failures are collected and reported together: a Swift-side reword typically
  * breaks a whole family of keys at once, and a first-failure abort would hide
@@ -46,8 +63,8 @@ import kotlin.test.assertTrue
  *
  * The case lists are the commonTest rosters (`rosterWithExpectedRenderings()`),
  * reused rather than duplicated — jvmTest and commonTest are one test
- * compilation. [rosterIsComplete] pins the totals so a roster that shrinks makes
- * this file loud rather than quietly narrowing its own coverage.
+ * compilation. [rosterIsComplete] pins each roster's size so a roster that shrinks
+ * makes this file loud rather than quietly narrowing its own coverage.
  */
 class MessageCatalogCoverageTests {
 
@@ -102,15 +119,22 @@ class MessageCatalogCoverageTests {
             .sorted()
             .toList()
 
+    /** True when [text] has a `%` that is not part of a recognised specifier. */
+    private fun strayPercent(text: String): Boolean =
+        text.count { it == '%' } != SPECIFIER_PATTERN.findAll(text).count()
+
     @Test
     fun rosterIsComplete() {
-        val all = entries()
+        // Pinned per roster, not as a sum: a shrink in one offset by growth in the
+        // other must not pass.
+        val hint = "Roster size changed — this suite's coverage is only as wide as the " +
+            "commonTest rosters it reuses. Update the pinned counts together with the roster."
         assertEquals(
-            VALIDATION_CASE_COUNT + LINT_CASE_COUNT,
-            all.size,
-            "Roster size changed — this suite's coverage is only as wide as the commonTest rosters " +
-                "it reuses. Update the pinned counts together with the roster.",
+            VALIDATION_CASE_COUNT,
+            ScenarioValidationMessageTests().rosterWithExpectedRenderings().size,
+            hint,
         )
+        assertEquals(LINT_CASE_COUNT, ScenarioLintMessageTests().rosterWithExpectedRenderings().size, hint)
     }
 
     @Test
@@ -130,8 +154,16 @@ class MessageCatalogCoverageTests {
                     "`xcstringstool sync`; the app falls back to English) — $format"
                 continue
             }
-            val japanese = entry["localizations"]?.jsonObject?.get("ja")?.jsonObject
-                ?.get("stringUnit")?.jsonObject
+            val jaLocalization = entry["localizations"]?.jsonObject?.get("ja")?.jsonObject
+            if (jaLocalization != null && "variations" in jaLocalization) {
+                // Plural / device variations are a sanctioned catalog shape, but no
+                // message here uses one and this test does not walk them — say so
+                // instead of reporting a translation that exists as "absent".
+                failures += "$label: `ja` uses a `variations` block, which this test does not " +
+                    "support — $format"
+                continue
+            }
+            val japanese = jaLocalization?.get("stringUnit")?.jsonObject
             val state = japanese?.get("state")?.jsonPrimitive?.content
             if (state != "translated") {
                 failures += "$label: `ja` localization is ${state ?: "absent"}, expected `translated` — $format"
@@ -143,6 +175,13 @@ class MessageCatalogCoverageTests {
             if (actual != expected) {
                 failures += "$label: `ja` specifiers $actual do not match the key's $expected — " +
                     "key=$format ja=$value"
+            }
+            if (strayPercent(format)) {
+                failures += "$label: key carries a `%` outside the %@ / %lld / %N\$… forms — $format"
+            }
+            if (strayPercent(value)) {
+                failures += "$label: `ja` value carries a `%` outside the %@ / %lld / %N\$… forms " +
+                    "(`substitute` does not collapse `%%`) — ja=$value"
             }
         }
 

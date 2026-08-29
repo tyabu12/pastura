@@ -29,7 +29,8 @@ import Foundation
 /// catalog `ja` value (the normal `xcstringstool` sync), the Kotlin
 /// `rendering()` format, and the commonTest expected string. Leaving the
 /// Kotlin side behind reddens `MessageCatalogCoverageTests`
-/// (`:shared:models:jvmTest`), run per-PR via the `ci.yml` `kmp` filter.
+/// (`:shared:models:jvmTest`), run per-PR via the `ci.yml` `kmp` filter —
+/// once the catalog sync has retired the old key (its KDoc states the boundary).
 nonisolated public enum ScenarioValidationMessage: Sendable {
   // MARK: Language membership (shared: ScenarioValidator + ScenarioLoader)
   case languageNotAccepted(allowed: String, got: String)

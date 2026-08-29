@@ -136,10 +136,14 @@ must touch, so a PR that dodges the per-PR run has not changed any of the four e
 `kmp-nightly.yml` is the backstop. `check-prompt-literal-parity.py` still never scans `Models/`.
 The Swift literal remains the source of truth and a reword is a **four-place** edit:
 Swift literal → catalog `ja` value (via the normal sync) → Kotlin `rendering()` format → commonTest
-expected string. What stays unchecked: whether the `ja` value still *means* the English key (only
-its specifiers are compared), and roster completeness — the coverage test reuses the commonTest
-rosters (`rosterWithExpectedRenderings()`, now `internal`), so a Kotlin case added without a
-roster entry reddens the existing count pins, not this test. The same class, with a sharper edge:
+expected string. The test sees the reword only **once `xcstringstool sync` has retired the old
+key** — the pre-commit hook skips that sync, so a reword committed un-synced leaves the old key live
+and the suite green until the next synced build; the full boundary is on the test's KDoc. Also
+unchecked: whether the `ja` value still *means* the English key (only its specifiers are compared),
+a Kotlin format that is a live key of some *other* surface, and roster completeness — the test
+reuses the commonTest rosters (`rosterWithExpectedRenderings()`, now `internal`), whose count pins
+redden only if the hand transcription was updated too; the `else`-free `when` in `swiftCaseNameOf`
+is the sole compile-time completeness guard. The same class, with a sharper edge:
 `Engine/PlaceholderAvailability.swift`
 → `shared/engine/.../PlaceholderAvailability.kt` is a data map the Swift linter and two editor views
 **consume today**, so it keeps moving — a new `PhaseType` or handler-supplied token is a three-file

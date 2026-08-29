@@ -33,7 +33,7 @@ _Last updated: 2026-08-30._
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | ✅ done | ↓ Stage 3 breakdown |
 | 4 | Cross-language parity harness | 🔄 in progress | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) [#1615](https://github.com/tyabu12/pastura/issues/1615) landed; S3b-2 (seeded fixtures) [#1618](https://github.com/tyabu12/pastura/issues/1618) landed; S4 (cancellation tail) [#1622](https://github.com/tyabu12/pastura/issues/1622) landed; S5 (suspend parity) [#1625](https://github.com/tyabu12/pastura/issues/1625) landed; S6 (divergence-6 ruling) [#1629](https://github.com/tyabu12/pastura/issues/1629) landed — Stage-4 residue cleared · [#501](https://github.com/tyabu12/pastura/issues/501) |
-| 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · message localization leaf landed [#1631](https://github.com/tyabu12/pastura/issues/1631) |
+| 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · message localization leaf landed [#1631](https://github.com/tyabu12/pastura/issues/1631) (Apple actual: in-app `ja` check pending) |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 

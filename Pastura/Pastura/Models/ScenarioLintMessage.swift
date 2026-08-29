@@ -14,7 +14,8 @@ import Foundation
 /// This is the message-model split for the KMP Engine port (ADR-023 Stage 3):
 /// the cases moved to Kotlin `commonMain` 1:1 as a sealed class
 /// (`shared/models/.../ScenarioLintMessage.kt`, landed in the same PR), and
-/// `localized` removed `CVarArg` and `String(format:)` from the Engine files.
+/// `localized` is what removed `CVarArg`, `String(format:)` and
+/// `String(localized:)` from the Engine files.
 ///
 /// Deliberately a **separate** type from ``ScenarioValidationMessage`` rather
 /// than folded into it: the two model different surfaces — a lint finding
@@ -35,7 +36,8 @@ import Foundation
 /// catalog `ja` value (the normal `xcstringstool` sync), the Kotlin
 /// `rendering()` format, and the commonTest expected string. Leaving the
 /// Kotlin side behind reddens `MessageCatalogCoverageTests`
-/// (`:shared:models:jvmTest`), run per-PR via the `ci.yml` `kmp` filter.
+/// (`:shared:models:jvmTest`), run per-PR via the `ci.yml` `kmp` filter —
+/// once the catalog sync has retired the old key (its KDoc states the boundary).
 nonisolated public enum ScenarioLintMessage: Sendable {
   // MARK: Ordering (ScenarioSemanticLinter+Ordering.swift, R1–R6/R19)
   case eliminateNeedsVote
