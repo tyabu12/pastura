@@ -72,10 +72,16 @@ package enum ParityFixtureEmitter {
     /// rather than silently running to completion and freezing a golden that
     /// measures nothing.
     package let cancelAfterPhaseCompleted: [Int]?
+    /// Suspend cycles to schedule before a given response index — see
+    /// ``RecordingResponder``. Not yet threaded into `run(_:)` or the Kotlin
+    /// emission (item 2, #1625); declared now so the signature does not
+    /// change twice.
+    package let suspendBeforeResponse: [Int: Int]
 
     package init(
       name: String, scenarioPath: String, purpose: String, overrides: [Int: String] = [:],
-      seed: UInt64? = nil, cancelAfterPhaseCompleted: [Int]? = nil
+      seed: UInt64? = nil, cancelAfterPhaseCompleted: [Int]? = nil,
+      suspendBeforeResponse: [Int: Int] = [:]
     ) {
       self.name = name
       self.scenarioPath = scenarioPath
@@ -83,6 +89,7 @@ package enum ParityFixtureEmitter {
       self.overrides = overrides
       self.seed = seed
       self.cancelAfterPhaseCompleted = cancelAfterPhaseCompleted
+      self.suspendBeforeResponse = suspendBeforeResponse
     }
   }
 

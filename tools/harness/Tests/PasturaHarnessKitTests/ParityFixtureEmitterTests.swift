@@ -125,7 +125,13 @@ struct ParityFixtureEmitterTests {
     for spec in ParityFixtureEmitter.specs {
       let fixture = try await ParityFixtureEmitter.run(spec)
 
-      #expect(fixture.callCount == fixture.responses.count, "\(spec.name)")
+      // `callCount` includes suspend re-issues (`RecordingResponder`), so the
+      // no-suspends-scheduled equality holds only up to the spec's own
+      // scheduled total — currently always 0, since `suspendBeforeResponse`
+      // is not yet threaded into `run(_:)` (item 2, #1625).
+      let scheduledSuspends = spec.suspendBeforeResponse.values.reduce(0, +)
+      #expect(
+        fixture.callCount == fixture.responses.count + scheduledSuspends, "\(spec.name)")
       // "End to end" means *reaching its own terminal event*, which is not the
       // same event for every spec: a cancelling fixture ends at
       // `error cancelled` by construction, and asserting `simulation_completed`
