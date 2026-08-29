@@ -88,6 +88,8 @@
       "language": "ja",
       "yaml_url": "kinoko_takenoko_v1.yaml",
       "yaml_sha256": "84eceaff5af19c40f09a298b39854310b8e90883d79fd26b347cda1e58a311be",
+      "highlight_url": "highlights/kinoko_takenoko_v1.json",
+      "highlight_sha256": "d24351b4c30443868f08d2af0d4da03c66b7ebb6b8b6c68b77a0b8bd1c3c2752",
       "added_at": "2026-04-29"
     },
     {
