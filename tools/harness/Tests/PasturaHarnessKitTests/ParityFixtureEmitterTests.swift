@@ -290,10 +290,9 @@ struct ParityFixtureEmitterTests {
 
   @Test("seeding an RNG-free spec is inert: same transcript, seed carried through")
   func seedingAnRNGFreeSpecIsInert() async throws {
-    // Covers the `SimulationRunner(random:)` construction in `run` — the only
-    // production caller of the seeded path until S3b-2 — and the claim on
-    // `FixtureSpec.seed` that seeding a fixture whose scenario draws nothing
-    // changes nothing. If the transcripts diverged, either the scenario is not
+    // Covers the claim on `FixtureSpec.seed` that seeding a fixture whose
+    // scenario draws nothing changes nothing (the seeded specs themselves cover
+    // the other direction). If the transcripts diverged, either the scenario is not
     // RNG-free after all or the seam leaked into a handler that should not draw.
     guard
       let nominal = ParityFixtureEmitter.specs.first(where: { $0.name == "targetScoreRaceNominal" })
@@ -311,18 +310,5 @@ struct ParityFixtureEmitterTests {
     #expect(seededRun.seed == 7)
     #expect(unseededRun.seed == nil)
     #expect(seededRun.transcript == unseededRun.transcript)
-  }
-
-  /// Guards the "every scenario here is RNG-free" claim in `+Specs.swift`'s
-  /// doc: it holds only while no spec seeds, and nothing else checks it.
-  ///
-  /// **S3b-2 flips this** when the first seeded fixture lands — replace it with
-  /// an assertion that the seeded specs are exactly the intended ones, rather
-  /// than deleting it.
-  @Test("every spec is unseeded today, matching the roster's RNG-free claim")
-  func everySpecIsUnseeded() {
-    for spec in ParityFixtureEmitter.specs {
-      #expect(spec.seed == nil, "\(spec.name) is seeded; see S3b-2 before relaxing this")
-    }
   }
 }

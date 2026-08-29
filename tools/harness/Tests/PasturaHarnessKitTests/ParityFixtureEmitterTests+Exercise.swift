@@ -52,16 +52,18 @@ extension ParityFixtureEmitterTests {
 
       if runsPhase("vote") {
         votingFixtures += 1
-        #expect(
-          fixture.transcript.contains(where: aNonEmptyTally),
-          "\(spec.name): every tally is empty — the votes are dropped, probably as self-votes")
+        expectEveryTallyCounts(in: fixture, label: spec.name)
       }
 
       if runsPhase("score_calc") {
         scoringFixtures += 1
+        // `wordwolf_judge` moves no score: its whole output is the verdict
+        // `summary` inside the phase, so for it the non-degenerate outcome is
+        // that verdict rather than a `score_update`.
         #expect(
-          fixture.transcript.contains(where: aScoreOffZero),
-          "\(spec.name): no score ever moved off zero")
+          fixture.transcript.contains(where: aScoreOffZero)
+            || aJudgeVerdictInsideScoreCalc(fixture),
+          "\(spec.name): no score ever moved off zero and no judge verdict was given")
       }
 
       if runsPhase("choose") {
@@ -71,9 +73,7 @@ extension ParityFixtureEmitterTests {
 
       if runsPhase("assign") {
         assigningFixtures += 1
-        #expect(
-          fixture.transcript.contains(where: aResolvedSharedAssignment),
-          "\(spec.name): every shared_assignment carries an empty value — the topic never resolved")
+        expectAssignmentResolved(in: fixture, label: spec.name)
       }
 
       if runsPhase("conditional") {
@@ -113,6 +113,68 @@ extension ParityFixtureEmitterTests {
   private func aResolvedSharedAssignment(_ line: String) -> Bool {
     line.contains("\"event\":\"shared_assignment\"") && line.contains("\"value\":")
       && !line.contains("\"value\":\"\"")
+  }
+
+  /// Every `vote_results` counted something — every vote, not some: a fixture
+  /// whose roster shrinks (`last_fable` eliminates one agent a round) can count
+  /// round 1 and drop every vote of round 2 as a self-vote, and "some tally is
+  /// non-empty" is true of that run.
+  private func expectEveryTallyCounts(in fixture: ParityFixtureEmitter.Fixture, label: String) {
+    let tallies = fixture.transcript.filter { $0.contains("\"vote_results\"") }
+    #expect(!tallies.isEmpty, "\(label): vote ran and no vote_results was emitted")
+    #expect(
+      tallies.allSatisfy(aNonEmptyTally),
+      "\(label): a tally is empty — the votes are dropped, probably as self-votes")
+  }
+
+  /// The assignment head resolved, in whichever of its two shapes the fixture
+  /// ran: `target: all` emits one `shared_assignment` per round, `target:
+  /// random_one` one `assignment` per agent with the minority word on exactly
+  /// one of them. The shape is read off the transcript, so neither arm is
+  /// hand-listed by spec name.
+  private func expectAssignmentResolved(in fixture: ParityFixtureEmitter.Fixture, label: String) {
+    let perAgent = fixture.transcript.filter { $0.contains("\"event\":\"assignment\"") }
+    if perAgent.isEmpty {
+      #expect(
+        fixture.transcript.contains(where: aResolvedSharedAssignment),
+        "\(label): every shared_assignment carries an empty value — the topic never resolved")
+    } else {
+      #expect(
+        aSingleMinorityAssignment(perAgent),
+        "\(label): the per-agent assignments do not hold exactly one minority word: \(perAgent)")
+    }
+  }
+
+  /// Whether the per-agent `assignment` lines resolve every agent and put the
+  /// minority word on exactly one of them — `AssignHandler.assignRandomOne`'s
+  /// contract, read off the transcript.
+  private func aSingleMinorityAssignment(_ lines: [String]) -> Bool {
+    let values = lines.compactMap { line -> String? in
+      guard let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+        let value = object["value"] as? String, !value.isEmpty
+      else { return nil }
+      return value
+    }
+    guard values.count == lines.count, values.count > 1 else { return false }
+    let counts = Dictionary(grouping: values, by: { $0 }).mapValues(\.count)
+    return counts.count == 2 && counts.values.contains(1)
+  }
+
+  /// Whether a `score_calc` phase emitted its verdict `summary` inside its own
+  /// span — the `wordwolf_judge` outcome, which is a summary rather than a
+  /// score.
+  private func aJudgeVerdictInsideScoreCalc(_ fixture: ParityFixtureEmitter.Fixture) -> Bool {
+    var inside = false
+    for line in fixture.transcript {
+      if line.contains("\"phase_started\""), line.contains("\"phase_type\":\"score_calc\"") {
+        inside = true
+      } else if line.contains("\"phase_completed\""), line.contains("\"phase_type\":\"score_calc\"") {
+        inside = false
+      } else if inside, line.contains("\"event\":\"summary\""), !line.contains("\"value\":\"\"") {
+        return true
+      }
+    }
+    return false
   }
 
   /// Whether one transcript line is a `conditional_evaluated` that took the

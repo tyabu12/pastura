@@ -117,8 +117,28 @@ package enum ParityFixtureEmitter {
     }
   }
 
+  /// A completed run plus what the frozen ``Fixture`` deliberately leaves
+  /// out: the schema each backend call declared.
+  ///
+  /// Kept beside the fixture rather than inside it because the golden freezes
+  /// *inputs and outputs* — the schemas are an Engine-internal detail the
+  /// Kotlin replay derives for itself from the same `Phase`. The tests need
+  /// them to check that a hand-pinned override landed on the turn its payload
+  /// answers; nothing else does.
+  package struct Run: Sendable {
+    package let fixture: Fixture
+    /// Field names of the schema at each call index — see
+    /// `RecordingResponder.recordedSchemaFields`.
+    package let answeredFields: [[String]]
+  }
+
   /// Runs one spec through the Swift Engine.
   package static func run(_ spec: FixtureSpec) async throws -> Fixture {
+    try await exercise(spec).fixture
+  }
+
+  /// Runs one spec through the Swift Engine, keeping the per-call schemas.
+  package static func exercise(_ spec: FixtureSpec) async throws -> Run {
     let yaml = try String(contentsOfFile: spec.scenarioPath, encoding: .utf8)
     let scenario = try ScenarioLoader().load(yaml: yaml)
     let responder = RecordingResponder(
@@ -147,7 +167,7 @@ package enum ParityFixtureEmitter {
       transcript.append(try JSONL.encode(line))
     }
 
-    return Fixture(
+    let fixture = Fixture(
       name: spec.name,
       purpose: spec.purpose,
       scenarioJSON: try encodeScenario(scenario),
@@ -155,6 +175,7 @@ package enum ParityFixtureEmitter {
       transcript: transcript,
       callCount: responder.callCount,
       seed: spec.seed)
+    return Run(fixture: fixture, answeredFields: responder.recordedSchemaFields)
   }
 
   /// The option menu a scenario's `choose` phases offer, for the responder to

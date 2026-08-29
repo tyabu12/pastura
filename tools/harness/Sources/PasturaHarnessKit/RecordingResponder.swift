@@ -36,6 +36,15 @@ package final class RecordingResponder: LLMService, Sendable {
   /// Answers recorded so far, in call order.
   private struct State {
     var responses: [String] = []
+    /// The field names each call's schema declared, in call order (empty for
+    /// a schema-less call).
+    ///
+    /// Recorded so a fixture's hand-pinned `overrides` can be checked against
+    /// the turn they actually landed on: an override index is positional, and
+    /// a vote answer that lands on a `reflect` call is accepted by the parser
+    /// and silently dropped by the phase, so nothing downstream would name the
+    /// misalignment.
+    var schemaFields: [[String]] = []
     /// How many `vote`-schema calls have been answered.
     ///
     /// Tracked separately from `responses.count` because the vote rotation must
@@ -109,6 +118,12 @@ package final class RecordingResponder: LLMService, Sendable {
     state.withLock { $0.responses.count }
   }
 
+  /// The field names each call's schema declared, in call order — see
+  /// `State.schemaFields`.
+  package var recordedSchemaFields: [[String]] {
+    state.withLock { $0.schemaFields }
+  }
+
   package func loadModel() async throws {}
   package func unloadModel() async throws {}
   package var isModelLoaded: Bool { true }
@@ -143,6 +158,7 @@ package final class RecordingResponder: LLMService, Sendable {
       // shifts for every pair after it.
       if Self.declaresChoice(schema) { state.choiceCallCount += 1 }
       state.responses.append(response)
+      state.schemaFields.append(schema?.fields.map(\.name) ?? [])
       return response
     }
   }

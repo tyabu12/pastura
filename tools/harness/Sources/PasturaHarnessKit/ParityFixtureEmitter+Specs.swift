@@ -7,12 +7,13 @@ import PasturaCore
 extension ParityFixtureEmitter {
   /// The fixtures this repo freezes, in emission order.
   ///
-  /// The S3b RNG seam has landed (`RandomSource` on both engines, #1615), so a
-  /// spec may now set `seed:` to admit an RNG-bearing preset. Every spec here
-  /// is still unseeded — `everySpecIsUnseeded` guards that in the tests —
-  /// until S3b-2 adds the first, so a fixture can today only be frozen where
-  /// no handler draws; `target_score_race` is the only admitted one that
-  /// exercises `conditional`.
+  /// A spec whose scenario draws from the `RandomSource` (`assign random_one`,
+  /// `event_inject`) sets `seed:`, and one that draws nothing must not —
+  /// `seededSpecsAreExactlyTheDrawingOnes` holds both directions, derived from
+  /// the loaded scenario rather than from a name list. The six unseeded specs
+  /// are RNG-free by construction (S3a); `wordWolfNominal` and
+  /// `lastFableNominal` are the seeded ones (S3b-2, #1618), and between them
+  /// they witness every handler the unseeded roster could not reach.
   ///
   /// "Exercises `conditional`" means the **branch**, not merely the node: an
   /// earlier draft of the responder made every vote a self-vote, so every tally
@@ -176,6 +177,88 @@ extension ParityFixtureEmitter {
         0: #"{"statement": "s", "inner_thought": "t", "confidence": 1.0}"#,
         1: #"{"statement": "hello", "inner_thought": "thinking"}{"stray": 1}"#
       ]
+    ),
+    FixtureSpec(
+      name: "wordWolfNominal",
+      scenarioPath: "Pastura/Pastura/Resources/Presets/word_wolf.yaml",
+      purpose: """
+        Happy path, and the first **seeded** fixture (ADR-023 S3b-2): the first \
+        witness of `assign` with `target: random_one`, `event_inject` with a \
+        `probability:`, `narrate`, `reflect`, `eliminate`, and `score_calc` with \
+        `logic: wordwolf_judge` — five of the six handlers no unseeded fixture \
+        could reach, in one 26-call run.
+
+        **The seed is chosen for the draw sequence, and the sequence is the \
+        contract.** `assignRandomOne` draws twice — `index(below: 1)` for the \
+        topic (degenerate: `words:` has one entry, so the draw is consumed and \
+        cannot be observed) and `index(below: 5)` for the wolf — then \
+        `event_inject` rolls `unit() < 0.5` and, on a hit, `index(below: 3)` \
+        for the announcement. Seed 6 puts the minority word on アオイ and makes \
+        the roll a hit (0.056), so both the `current_event != ""` branch and \
+        the second `speak_each`'s `{current_event}` are exercised; seeds 1-4 \
+        all miss, which is what the first draft froze. A Kotlin replay that \
+        consumes the stream in any other order lands a different wolf or a \
+        miss, and the transcript names which.
+
+        **Why two overrides.** The responder's vote rotation gives every agent \
+        exactly one vote, so the tally is a five-way tie and `eliminate`, \
+        `vote_winner` and the judge are all decided by `RankingOrder`'s name \
+        tie-break rather than by the votes — the run would look like a full \
+        game while measuring nothing but string ordering. Calls 22 (サクラ) and \
+        25 (レン) vote アオイ instead, so the wolf takes 3 of 5 and the \
+        `vote_winner == wolf_name` branch is taken on the votes' own account. \
+        `everyOverrideAnswersTheSchemaItLandsOn` pins both indices to `vote` \
+        calls.
+        """,
+      overrides: [
+        22: #"{"vote": "アオイ", "reason": "reason 22"}"#,
+        25: #"{"vote": "アオイ", "reason": "reason 25"}"#
+      ],
+      seed: 6
+    ),
+    FixtureSpec(
+      name: "lastFableNominal",
+      scenarioPath: "Pastura/Pastura/Resources/Presets/last_fable.yaml",
+      purpose: """
+        Happy path, seeded, and the first witness of `relationship_update` and \
+        of `event_inject` with `no_repeat: true` — three rounds drawing from a \
+        six-entry pool without replacement — plus a roster that shrinks by one \
+        agent a round, which is what makes `eliminate` here a different \
+        measurement from `wordWolfNominal`'s single round: every later phase \
+        must skip the eliminated agent on both engines, and a vote cast *for* \
+        one must be dropped from the tally while `relationship_update` still \
+        reads it.
+
+        **Draw sequence.** One `index(below: remaining.count)` per round, with \
+        `remaining` shrinking 6 → 5 → 4; seed 1 yields 『オオカミ少年』, \
+        『アリとキリギリス』, 『ウサギとカメ』.
+
+        **Why seven overrides, all on votes.** `RecordingResponder` is handed \
+        the full roster and cannot see the survivor set — it reads the schema \
+        only — so from round 2 its rotation lands every surviving voter on \
+        itself (hand-traced in review, then reproduced: round 2's tally was \
+        `{}` and nobody was eliminated). Rounds 2 and 3 are therefore scripted \
+        by hand. Round 1 is left to the rotation on purpose: its five-way tie \
+        is the one place in the roster where `RankingOrder`'s name-descending \
+        tie-break decides an elimination, so the Japanese-name ordering the two \
+        engines implement independently (Swift on Unicode scalars, Kotlin on \
+        UTF-16 code units — identical for these BMP names) is pinned by a \
+        fixture rather than assumed. Round 2 (calls 23-26, survivors オオカミ \
+        アリ カラス ウサギ) votes アリ, カラス, アリ, キツネ — a decisive アリ, \
+        with ウサギ's vote for the eliminated キツネ as the dropped-vote witness \
+        above. Round 3 (calls 33-35, survivors オオカミ カラス ウサギ) votes \
+        カラス, ウサギ, カラス.
+        """,
+      overrides: [
+        23: #"{"vote": "アリ", "reason": "reason 23"}"#,
+        24: #"{"vote": "カラス", "reason": "reason 24"}"#,
+        25: #"{"vote": "アリ", "reason": "reason 25"}"#,
+        26: #"{"vote": "キツネ", "reason": "reason 26"}"#,
+        33: #"{"vote": "カラス", "reason": "reason 33"}"#,
+        34: #"{"vote": "ウサギ", "reason": "reason 34"}"#,
+        35: #"{"vote": "カラス", "reason": "reason 35"}"#
+      ],
+      seed: 1
     )
   ]
 }
