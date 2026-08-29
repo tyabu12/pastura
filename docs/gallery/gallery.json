@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-28T00:00:00Z",
+  "updated_at": "2026-08-29T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -87,7 +87,7 @@
       ],
       "language": "ja",
       "yaml_url": "kinoko_takenoko_v1.yaml",
-      "yaml_sha256": "801bcf5bcf268d2164858b10a2d07d5ea4810bd02ea621c6a2170bab30df49b8",
+      "yaml_sha256": "316db237783682606c5cf88a6d9ea4183d90360792690da24636c165cdd09e50",
       "added_at": "2026-04-29"
     },
     {
