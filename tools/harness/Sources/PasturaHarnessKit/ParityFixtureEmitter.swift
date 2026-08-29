@@ -164,6 +164,29 @@ package enum ParityFixtureEmitter {
       ]
     ),
     FixtureSpec(
+      name: "prisonersDilemmaNominal",
+      scenarioPath: "Pastura/Pastura/Resources/Presets/prisoners_dilemma.yaml",
+      purpose: """
+        Happy path, and the first witness of three surfaces no other fixture \
+        reaches: `choose` with `pairing: round_robin`, `whisper`, and \
+        `score_calc` with `logic: pairwise_payoff`. The sibling nominal fixture \
+        covers `speak_all` / `vote` / `conditional`, so a green comparison here \
+        with an empty ledger widens Stage 4's agreement to the pairing and \
+        payoff half of the Engine rather than deepening the half already met.
+
+        **Why the responder's odometer schedule matters specifically here.** \
+        5 agents round-robin to 5 pairings per round over 2 rounds, and \
+        `ChooseHandler.executeRoundRobin` issues a pairing's two members as \
+        consecutive backend calls — so a `k % n` answer schedule would give \
+        the two members a fixed offset every time and only the two \
+        off-diagonal payoff rows ([協力, 裏切り] and [裏切り, 協力]) would ever \
+        fire. The \
+        pair-indexed odometer walks all four `when:` rows instead, which is \
+        what makes this fixture a real `pairwise_payoff` measurement rather \
+        than a two-row one; `expectEveryPayoffRowFires` holds that Swift-side.
+        """
+    ),
+    FixtureSpec(
       name: "parityStructuralControl",
       scenarioPath: "tools/harness/Fixtures/parity_structural.yaml",
       purpose: """

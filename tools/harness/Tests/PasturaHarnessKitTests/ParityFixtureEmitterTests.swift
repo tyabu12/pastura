@@ -287,15 +287,8 @@ struct ParityFixtureEmitterTests {
       scoringFixtures > 0, "no fixture ran a score_calc phase — that assertion passed vacuously")
     #expect(
       branchingFixtures > 0, "no fixture ran a conditional phase — that assertion passed vacuously")
-    // A tripwire, deliberately `== 0` rather than `> 0`: no spec runs `choose`
-    // yet — the round-robin fixture is the next step of this ADR-023 Stage-4
-    // series — so `> 0` would redden today for the right reason at the wrong
-    // time, while `RecordingResponderTests` covers the schedule meanwhile. This
-    // fires the moment that fixture lands, which is when the guard must flip, so
-    // the arm above cannot ship silently vacuous.
     #expect(
-      choosingFixtures == 0,
-      "a choose fixture landed — flip this guard to `> 0` now that the arm is live")
+      choosingFixtures > 0, "no fixture ran a choose phase — that assertion passed vacuously")
   }
 
   /// Whether one transcript line is a `score_update` carrying a non-zero score.

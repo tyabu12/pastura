@@ -249,8 +249,8 @@ class EngineParityTests {
      *
      * A green run means the two engines agree event for event and field for
      * field on every fixture, with only the ledger's own entries excused — for
-     * the nominal one that is nothing at all, which
-     * [theNominalFixtureExcusesNothing] asserts separately.
+     * the nominal ones that is nothing at all, which
+     * [theNominalFixturesExcuseNothing] asserts separately.
      *
      * **The green was falsified before it was believed.** Without [normalize]
      * this reported 24 uncovered differences, one per `inference_completed`,
@@ -273,25 +273,39 @@ class EngineParityTests {
     }
 
     /**
-     * The happy path excuses **nothing** — asserted rather than implied.
+     * The happy paths excuse **nothing** — asserted rather than implied.
      *
      * A property of the ledger's contents rather than of a run, so it needs no
      * replay of its own:
      * [everyGoldenFixtureAgreesWithExactlyItsLedgeredDivergences] does the
-     * comparison with the full ledger. Replaying this fixture against
+     * comparison with the full ledger. Replaying these fixtures against
      * `emptyList()` instead would look stronger and be weaker — a
      * nominal-scoped entry added later would simply never run, so the ledger's
      * "an entry that stops firing fails" property would not cover it. This is
-     * the other half: nothing may be scoped to the nominal fixture at all.
+     * the other half: nothing may be scoped to a nominal fixture at all.
+     *
+     * **Derived from [ParityGolden.all] by name suffix, not hand-listed.** A
+     * second nominal fixture named as a property here would have been the
+     * obvious edit and the silent one: the next happy path added would keep
+     * passing without ever being checked. The suffix convention is what the
+     * emitter's spec names already follow, and the roster guard below stops it
+     * from going vacuous if that convention is ever dropped.
      */
     @Test
-    fun theNominalFixtureExcusesNothing() {
-        val fixture = ParityGolden.targetScoreRaceNominal
-        val scoped = DivergenceLedger.entries.filter { it.fixture == fixture.name }
+    fun theNominalFixturesExcuseNothing() {
+        val nominal = ParityGolden.all.filter { it.name.endsWith("Nominal") }
         assertTrue(
-            scoped.isEmpty(),
-            "the happy-path fixture is excusing ${scoped.size} divergence(s), which defeats " +
-                "the point of it being the happy path: $scoped",
+            nominal.isNotEmpty(),
+            "no fixture name ends with \"Nominal\" — this assertion passed vacuously; " +
+                "either a happy-path fixture was lost or the naming convention moved",
         )
+        for (fixture in nominal) {
+            val scoped = DivergenceLedger.entries.filter { it.fixture == fixture.name }
+            assertTrue(
+                scoped.isEmpty(),
+                "${fixture.name}: the happy-path fixture is excusing ${scoped.size} " +
+                    "divergence(s), which defeats the point of it being the happy path: $scoped",
+            )
+        }
     }
 }
