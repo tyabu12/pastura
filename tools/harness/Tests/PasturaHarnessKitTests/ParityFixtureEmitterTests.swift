@@ -247,4 +247,46 @@ struct ParityFixtureEmitterTests {
     #expect(source.contains("internal val safe: Fixture"))
     #expect(source.contains("callCount = 1"))
   }
+
+  // MARK: - Seed plumbing (ADR-023 S3b)
+
+  @Test("an unseeded fixture emits no seed line")
+  func unseededFixtureEmitsNoSeedLine() throws {
+    // The generated `seed` property is defaulted precisely so an RNG-free
+    // fixture's block stays byte-identical to its pre-seam form; if a `seed =`
+    // line appeared here, regenerating would rewrite all six existing blocks.
+    let unseeded = ParityFixtureEmitter.Fixture(
+      name: "unseeded", purpose: "control", scenarioJSON: "{}",
+      responses: [], transcript: [], callCount: 0)
+
+    let source = try ParityFixtureEmitter.kotlinSource(from: [unseeded])
+    #expect(!source.contains("seed = "))
+    // The declaration's defaulted property is what makes the omission compile.
+    #expect(source.contains("val seed: ULong? = null,"))
+  }
+
+  @Test("a seeded fixture emits its seed as a Kotlin ULong literal")
+  func seededFixtureEmitsAULongLiteral() throws {
+    let seeded = ParityFixtureEmitter.Fixture(
+      name: "seeded", purpose: "control", scenarioJSON: "{}",
+      responses: [], transcript: [], callCount: 0, seed: 42)
+
+    let source = try ParityFixtureEmitter.kotlinSource(from: [seeded])
+    // `uL`, not a bare integer: Kotlin infers `Int` otherwise and the
+    // `ULong?` property would not typecheck.
+    #expect(source.contains("seed = 42uL,"))
+  }
+
+  /// Guards the "every scenario here is RNG-free" claim in `+Specs.swift`'s
+  /// doc: it holds only while no spec seeds, and nothing else checks it.
+  ///
+  /// **S3b-2 flips this** when the first seeded fixture lands — replace it with
+  /// an assertion that the seeded specs are exactly the intended ones, rather
+  /// than deleting it.
+  @Test("every spec is unseeded today, matching the roster's RNG-free claim")
+  func everySpecIsUnseeded() {
+    for spec in ParityFixtureEmitter.specs {
+      #expect(spec.seed == nil, "\(spec.name) is seeded; see S3b-2 before relaxing this")
+    }
+  }
 }

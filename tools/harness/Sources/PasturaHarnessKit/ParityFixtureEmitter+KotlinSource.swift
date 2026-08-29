@@ -46,6 +46,10 @@ extension ParityFixtureEmitter {
       "// The transcript is `EventLineMapper`'s projection with `t` and `attempt`",
       "// pinned to 0 — see `ParityFixtureEmitter` for why that projection and not",
       "// a `SimulationEvent` encoding.",
+      "//",
+      "// `seed` is present only on a fixture whose scenario draws: the replay",
+      "// builds `SplitMix64RandomSource(seed)` so both engines consume the same",
+      "// stream. Absent means RNG-free, where the source is unobservable.",
       "",
       "package com.pastura.engine",
       "",
@@ -58,6 +62,7 @@ extension ParityFixtureEmitter {
       "        val responses: List<String>,",
       "        val transcript: List<String>,",
       "        val callCount: Int,",
+      "        val seed: ULong? = null,",
       "    )"
     ]
   }
@@ -81,6 +86,11 @@ extension ParityFixtureEmitter {
     lines.append(contentsOf: stringList("responses", fixture.responses))
     lines.append(contentsOf: stringList("transcript", fixture.transcript))
     lines.append("        callCount = \(fixture.callCount),")
+    // Emitted only when seeded, so every RNG-free fixture's block is byte-identical
+    // to what it was before the seam landed and the field's default carries it.
+    if let seed = fixture.seed {
+      lines.append("        seed = \(seed)uL,")
+    }
     lines.append("    )")
     return lines
   }

@@ -41,14 +41,25 @@ package enum ParityFixtureEmitter {
     /// Answers replacing the derived one at a given 0-based call index — see
     /// ``RecordingResponder``. Empty for a nominal run.
     package let overrides: [Int: String]
+    /// The SplitMix64 seed both engines are given (ADR-023 S3b).
+    ///
+    /// `nil` means the fixture draws nothing and runs on the system source,
+    /// which is what every RNG-free fixture asserts by construction: with no
+    /// handler drawing, the source is unobservable, so seeding it would freeze
+    /// a claim the transcript cannot check. A non-`nil` seed is what a fixture
+    /// exercising `assign random_one` / `event_inject` needs, so the Kotlin
+    /// replay consumes the identical stream in the identical order.
+    package let seed: UInt64?
 
     package init(
-      name: String, scenarioPath: String, purpose: String, overrides: [Int: String] = [:]
+      name: String, scenarioPath: String, purpose: String, overrides: [Int: String] = [:],
+      seed: UInt64? = nil
     ) {
       self.name = name
       self.scenarioPath = scenarioPath
       self.purpose = purpose
       self.overrides = overrides
+      self.seed = seed
     }
   }
 
@@ -85,12 +96,16 @@ package enum ParityFixtureEmitter {
     /// retry-count divergence the transcript alone cannot show — today the
     /// multi-object salvage, before ADR-021's Amendment the schema guard.
     package let callCount: Int
+    /// The seed the Swift run was given, carried into the generated Kotlin so
+    /// the replay can rebuild the same stream. `nil` for an RNG-free fixture —
+    /// see ``FixtureSpec/seed``.
+    package let seed: UInt64?
 
     /// Explicit because the implicit memberwise init is `internal`, and the
     /// raw-string safety guard is tested from the sibling test module.
     package init(
       name: String, purpose: String, scenarioJSON: String,
-      responses: [String], transcript: [String], callCount: Int
+      responses: [String], transcript: [String], callCount: Int, seed: UInt64? = nil
     ) {
       self.name = name
       self.purpose = purpose
@@ -98,6 +113,7 @@ package enum ParityFixtureEmitter {
       self.responses = responses
       self.transcript = transcript
       self.callCount = callCount
+      self.seed = seed
     }
   }
 
@@ -119,7 +135,12 @@ package enum ParityFixtureEmitter {
     // no Kotlin counterpart yet, so any event it produced would be a divergence
     // about the harness rather than about the engines. `parityRunEmitsNoLanguageMismatch`
     // guards the omission.
-    let stream = SimulationRunner().run(
+    // A seeded spec must hand the Swift run the exact stream the Kotlin replay
+    // rebuilds from `Fixture.seed`; an unseeded one draws nothing, so the
+    // system source is unobservable and stays the default.
+    let random: any RandomSource =
+      spec.seed.map { SplitMix64RandomSource(seed: $0) as any RandomSource } ?? SystemRandomSource()
+    let stream = SimulationRunner(random: random).run(
       scenario: scenario, llm: responder, suspendController: SuspendController())
     for await event in stream {
       guard let line = EventLineMapper.map(normalize(event), t: 0, attempt: 0) else { continue }
@@ -132,7 +153,8 @@ package enum ParityFixtureEmitter {
       scenarioJSON: try encodeScenario(scenario),
       responses: responder.recordedResponses,
       transcript: transcript,
-      callCount: responder.callCount)
+      callCount: responder.callCount,
+      seed: spec.seed)
   }
 
   /// The option menu a scenario's `choose` phases offer, for the responder to

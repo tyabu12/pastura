@@ -8,6 +8,10 @@
 // The transcript is `EventLineMapper`'s projection with `t` and `attempt`
 // pinned to 0 — see `ParityFixtureEmitter` for why that projection and not
 // a `SimulationEvent` encoding.
+//
+// `seed` is present only on a fixture whose scenario draws: the replay
+// builds `SplitMix64RandomSource(seed)` so both engines consume the same
+// stream. Absent means RNG-free, where the source is unobservable.
 
 package com.pastura.engine
 
@@ -20,6 +24,7 @@ internal object ParityGolden {
         val responses: List<String>,
         val transcript: List<String>,
         val callCount: Int,
+        val seed: ULong? = null,
     )
 
     /**

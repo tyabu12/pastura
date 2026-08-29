@@ -116,7 +116,15 @@ class EngineParityTests {
     private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
         val backend = ScriptedLLMBackend(scriptsFor(fixture))
         val collector = Collector()
-        val handle = SimulationEngine().run(scenarioOf(fixture), backend) { collector.record(it) }
+        // A seeded fixture must feed both engines the same stream, so the replay
+        // rebuilds SplitMix64 from the seed the Swift run used; an unseeded one is
+        // RNG-free by construction, where the source is unobservable.
+        val random =
+            fixture.seed?.let { SplitMix64RandomSource(it) } ?: SystemRandomSource()
+        val handle =
+            SimulationEngine(random = random).run(scenarioOf(fixture), backend) {
+                collector.record(it)
+            }
         try {
             awaitTerminal(collector, timeoutMillis = 30_000)
         } finally {
