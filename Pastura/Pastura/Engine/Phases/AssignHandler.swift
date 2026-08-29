@@ -20,7 +20,8 @@ nonisolated struct AssignHandler: PhaseHandler {
     switch context.phase.target ?? .all {
     case .randomOne:
       assignRandomOne(
-        active: active, sourceData: sourceData, state: &state, emitter: context.emitter
+        active: active, sourceData: sourceData, state: &state, emitter: context.emitter,
+        random: context.random
       )
     case .all:
       assignAll(
@@ -39,23 +40,29 @@ nonisolated struct AssignHandler: PhaseHandler {
   /// Empty `active` (every persona eliminated before this phase) is handled
   /// as a clean no-op — the `!active.isEmpty` guard prevents an uncatchable
   /// `Int.random(in: 0..<0)` trap (#1287).
+  ///
+  /// Both draws go through the injected ``RandomSource`` rather than the
+  /// stdlib: see that protocol's doc comment — `randomElement()` /
+  /// `Int.random(in:)` reduce the raw bits differently from Kotlin's, so the
+  /// ADR-023 parity fixtures could never agree on a pick.
   private func assignRandomOne(
     active: [Persona],
     sourceData: AnyCodableValue?,
     state: inout SimulationState,
-    emitter: @Sendable (SimulationEvent) -> Void
+    emitter: @Sendable (SimulationEvent) -> Void,
+    random: any RandomSource
   ) {
     guard case .arrayOfDictionaries(let topics) = sourceData, !topics.isEmpty else {
       return
     }
 
-    guard let topic = topics.randomElement() else { return }
+    let topic = topics[random.index(below: topics.count)]
     // An empty active set means there is no agent to receive the minority
     // value — return a clean no-op rather than trapping on the uncatchable
     // `Int.random(in: 0..<0)` precondition failure (#1287). Mirrors the
     // active-count guards in sibling per-active-agent handlers (WhisperHandler).
     guard !active.isEmpty else { return }
-    let wolfIdx = Int.random(in: 0..<active.count)
+    let wolfIdx = random.index(below: active.count)
 
     for (index, persona) in active.enumerated() {
       if index == wolfIdx {

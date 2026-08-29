@@ -23,6 +23,11 @@ nonisolated public protocol RandomSource: Sendable {
   func nextUInt64() -> UInt64
 }
 
+/// `nonisolated` on each member, not just on the extension's types: under
+/// `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` a protocol extension's members
+/// infer MainActor even when the protocol itself is `nonisolated`, and the
+/// handlers calling them are synchronous `nonisolated` contexts
+/// (`docs/swift-isolation-compile-time-patterns.md`).
 extension RandomSource {
   /// A uniform index in `0..<n`, reduced as `nextUInt64() % n`.
   ///
@@ -35,14 +40,14 @@ extension RandomSource {
   ///   `EventInjectHandler` resets `remaining` before drawing), so a zero here
   ///   is a handler bug, not a runtime condition to absorb. Swift traps on
   ///   `% 0`; Kotlin throws — the contract is the same either way.
-  public func index(below count: Int) -> Int {
+  nonisolated public func index(below count: Int) -> Int {
     precondition(count > 0, "RandomSource.index(below:) requires a non-empty pool")
     return Int(nextUInt64() % UInt64(count))
   }
 
   /// A uniform `Double` in `[0, 1)`, built from the top 53 bits so the value
   /// is exact and identical to Kotlin's `(bits ushr 11) * 2^-53`.
-  public func unit() -> Double {
+  nonisolated public func unit() -> Double {
     Double(nextUInt64() >> 11) * 0x1.0p-53
   }
 }
