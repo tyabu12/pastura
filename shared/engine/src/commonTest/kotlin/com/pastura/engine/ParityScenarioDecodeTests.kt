@@ -6,6 +6,7 @@ import com.pastura.models.ScenarioCodec
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
@@ -131,12 +132,12 @@ class ParityScenarioDecodeTests {
         for (fixture in ParityGolden.all) {
             val topics = decode(fixture.scenarioJson).extraData["topics"] ?: continue
             carriers += 1
-            val array = topics as? AnyCodableValue.ArrayValue
-                ?: error(
-                    "${fixture.name}: `topics` decoded as ${topics::class.simpleName}, " +
-                        "not ArrayValue — the Swift encoder writes a bare JSON array of " +
-                        "strings, so a different arm means the disambiguation order drifted",
-                )
+            val array = assertIs<AnyCodableValue.ArrayValue>(
+                topics,
+                "${fixture.name}: `topics` decoded as ${topics::class.simpleName}, " +
+                    "not ArrayValue — the Swift encoder writes a bare JSON array of " +
+                    "strings, so a different arm means the disambiguation order drifted",
+            )
             assertTrue(
                 array.value.isNotEmpty() && array.value.all { it.isNotEmpty() },
                 "${fixture.name}: `topics` decoded to ${array.value} — an empty array or " +

@@ -62,8 +62,9 @@ struct ParityFixtureEmitterTests {
 
   @Test("a scenario with no choose phase derives an empty menu")
   func choiceOptionDerivationIsEmptyWithoutAChoosePhase() throws {
-    // Both existing specs take this path, so it is the branch that keeps the
-    // three frozen fixtures byte-identical across this change.
+    // The fallback branch every non-`choose` fixture takes — the two
+    // `target_score_race` fixtures, `boketeNominal`, `iiwakeBattleNominal` and
+    // the structural control are its live users.
     let scenario = makeScenario(phases: [Phase(type: .speakAll, prompt: "hi")])
 
     #expect(try ParityFixtureEmitter.choiceOptions(in: scenario).isEmpty)

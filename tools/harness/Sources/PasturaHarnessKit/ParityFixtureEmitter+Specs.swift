@@ -7,9 +7,10 @@ import PasturaCore
 extension ParityFixtureEmitter {
   /// The fixtures this repo freezes, in emission order.
   ///
-  /// `target_score_race` is one of three bundled presets that are fully
-  /// deterministic — neither engine injects RNG, and both rely on degenerate
-  /// inputs rather than seeding — and it is the only one of those three that
+  /// Every scenario here is RNG-free on both engines — neither injects RNG
+  /// today, so a fixture can only be frozen where no handler draws. That rules
+  /// out the presets running `event_inject` or `assign random_one` until the
+  /// S3b RNG seam lands; `target_score_race` is the only admitted one that
   /// exercises `conditional`.
   ///
   /// "Exercises `conditional`" means the **branch**, not merely the node: an
@@ -17,7 +18,7 @@ extension ParityFixtureEmitter {
   /// was empty, every score stayed 0, and `max_score >= 3` was false in all four
   /// evaluations — the phase ran and decided nothing. A fixture can look like a
   /// full run while its whole scoring half is frozen, so
-  /// `nominalRunExercisesVotingNotJustItsShape` asserts the non-degenerate
+  /// `everyFixtureExercisesVotingNotJustItsShape` asserts the non-degenerate
   /// outcome rather than leaving it to the responder's arithmetic.
   package static let specs: [FixtureSpec] = [
     FixtureSpec(

@@ -8,7 +8,7 @@ import Testing
 /// that file crossed SwiftLint's `file_length` — these cases construct no
 /// `SimulationRunner`, so they need neither `.serialized` nor a repo-root
 /// working directory, unlike every case left in the emitter suite.
-@Suite
+@Suite(.timeLimit(.minutes(1)))
 struct RecordingResponderTests {
 
   @Test("answers are derived from the schema, never from the prompt")
@@ -64,8 +64,10 @@ struct RecordingResponderTests {
 
   @Test("the choice schedule covers every ordered option pair within n² pairs")
   func responderChoiceScheduleCoversEveryCombination() async throws {
-    // Direct rather than via a fixture: no spec runs `choose` yet, so this is
-    // the only live cover for the schedule until the round-robin fixture lands.
+    // The unit-level cover for the schedule. The fixture-level one is
+    // `expectEveryPayoffRowFires` on `prisonersDilemmaNominal`, which only sees
+    // the combinations that scenario's pair count reaches; this one pins the
+    // enumeration itself, independent of any scenario.
     //
     // The contract, stated where the responder cannot state it for itself:
     // `ChooseHandler.executeRoundRobin` issues a pairing's two members as two

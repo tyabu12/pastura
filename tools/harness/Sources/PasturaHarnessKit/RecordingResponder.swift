@@ -136,7 +136,11 @@ package final class RecordingResponder: LLMService, Sendable {
       // Same rule for the choose schedule, and the cost of getting it wrong is
       // higher: a pairing's two members are consecutive calls, so an override
       // that did not advance the counter would split one pair across two
-      // schedule slots and shift every pair after it.
+      // schedule slots and shift every pair after it. The same holds for a
+      // retry: the counter is phase-local, not turn-local, so a fixture must
+      // not put a retry window on a `.choice` call — or place it on the run's
+      // last call, as the structural control does — or the pair alignment
+      // shifts for every pair after it.
       if Self.declaresChoice(schema) { state.choiceCallCount += 1 }
       state.responses.append(response)
       return response

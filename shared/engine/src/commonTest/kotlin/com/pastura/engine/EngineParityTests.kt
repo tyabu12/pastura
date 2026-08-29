@@ -294,9 +294,12 @@ class EngineParityTests {
     @Test
     fun theNominalFixturesExcuseNothing() {
         val nominal = ParityGolden.all.filter { it.name.endsWith("Nominal") }
+        // A floor, not just non-emptiness: renaming one happy path off the
+        // suffix would drop it from this check while the others kept it green.
+        // Raise the floor when a nominal fixture is added; never lower it.
         assertTrue(
-            nominal.isNotEmpty(),
-            "no fixture name ends with \"Nominal\" — this assertion passed vacuously; " +
+            nominal.size >= 4,
+            "only ${nominal.map { it.name }} end with \"Nominal\" (expected at least 4) — " +
                 "either a happy-path fixture was lost or the naming convention moved",
         )
         for (fixture in nominal) {
