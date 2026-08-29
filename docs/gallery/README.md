@@ -507,6 +507,18 @@ call, and these are what the batches so far have taught.
   the confederates' literal lines (「答えはCです」, `It's C, no doubt.`) because
   the verbatim repetition *is* the phenomenon, and only the subject is hooked
   (#1593).
+  **A prompt that quotes the phrase it forbids primes it.** `kyoyu_gyojo_v1`'s
+  first #1595 rewrite banned 「〜さんの言うように」 by quoting it, and the tic
+  left `statement` only to saturate `inner_thought` — the field the ban's
+  wording did not obviously cover — with one draw producing the mangled
+  「みんなが言うようにても」. State the ban as a property (「最初の一文は
+  自分の事情から書く」), say which output fields it binds, and check every
+  field the excerpt can quote, not just `statement`.
+  **`zenin_sansei_ryokou_v1` excerpts are round 1 only.** After #1595 its
+  round-1 lines are distinct, but in round 2 a member still copies the
+  detail the previous speaker just raised (run6: リン's BGM list, echoed
+  by タク next turn), and the model's own 絆／結束 opener returns without
+  any seed in the YAML. Nothing gates this; pick from round 1.
   **Whether a draw trips this is partly luck, so re-check it per draw rather
   than per scenario.** An `event_inject` scenario picks its twist at random,
   and a draw that happens to inject the very situation a persona's `例:`

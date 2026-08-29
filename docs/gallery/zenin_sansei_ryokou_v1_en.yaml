@@ -39,7 +39,8 @@ personas:
       [Role] A practical mid-level who worries about logistics.
       [Goal] Notices the snags, but talks herself out of each one the moment she
       raises it as a "concern".
-      e.g. (aloud) "A rest stop every two hours and... yes, it'll probably be fine."
+      e.g. raises the length of the ride as a "concern", then talks herself out
+      of it in the same breath by listing rest stops.
       (inside) "My back is going to die."
   - name: Tad the Salesman
     description: >
@@ -66,9 +67,11 @@ phases:
       Give your outward remark (statement) about this company-trip plan, in one
       line. If there is any remark above in "the committee's remarks so far",
       name that speaker and acknowledge them in a few words — but do not echo
-      their wording or their praise; always add one new concrete detail you have
-      noticed yourself (travel logistics, cost, dates, packing, an extra
-      activity, etc.). If you are
+      their wording or their praise, and do not repeat a concrete idea someone
+      has already raised. Then add one new concrete detail that only your
+      [Role] would bring up (the logistics of the ride or the dates if you worry
+      about planning, an extra activity if you are the cheerleader, and so on —
+      a different kind of detail for each person). If you are
       the first speaker and no one has spoken yet, open with a line of your own
       without referring to anyone (never write a non-existent name or a placeholder
       like "Mr. So-and-so").

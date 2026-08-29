@@ -58,10 +58,11 @@ phases:
 
       Speak about the ground's future in 1-2 sentences, starting from your own
       circumstances (debt, family, next year's catch, your standing in the
-      village). Do not repeat or rephrase what anyone else said, and never open
-      with "as X said" or "X is right". If you disagree with someone, name them
-      and say plainly "I can't go along with X"; if you agree, give your own
-      reasons, drawn from your own situation.
+      village). Your first sentence must come from your own situation — never
+      open by summarizing or echoing what someone else said. This applies to
+      your inner voice (inner_thought) as much as to your statement. If you
+      disagree with someone, name them and reject their view without hedging;
+      if you agree, give reasons drawn from your own situation.
     output:
       statement: string
       inner_thought: string
