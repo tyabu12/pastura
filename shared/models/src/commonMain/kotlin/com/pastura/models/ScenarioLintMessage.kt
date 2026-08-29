@@ -147,102 +147,183 @@ public sealed class ScenarioLintMessage {
      * `Models/`. The mitigation is procedural only — the Swift file is the source
      * of truth, and a reword there is a two-file edit by hand.
      */
-    public fun render(): String = when (this) {
+    public fun render(): String = rendering().render()
+
+    /**
+     * Maps the case to its [Rendering] — English format string plus positional
+     * args, in the order the format consumes them.
+     *
+     * The format strings are byte-identical to the `String(localized:)` /
+     * `String(format:)` base values in Swift's `ScenarioLintMessage.localized`,
+     * with `%@` left in place as a catalog placeholder rather than substituted
+     * here — [Rendering.render] resolves the platform catalog and substitutes.
+     */
+    internal fun rendering(): Rendering = when (this) {
         // ── Ordering ────────────────────────────────────────────────────────
         is EliminateNeedsVote ->
-            "eliminate-needs-vote: an 'eliminate' phase does nothing without a 'vote' phase " +
-                "in the same round — add a 'vote' phase before it."
+            Rendering(
+                "eliminate-needs-vote: an 'eliminate' phase does nothing without a 'vote' " +
+                    "phase in the same round — add a 'vote' phase before it.",
+                emptyList(),
+            )
         is EliminateAfterVote ->
-            "eliminate-after-vote: this 'eliminate' runs before every 'vote' phase, so it " +
-                "acts on the previous round's stale tally — move it after the 'vote' phase."
+            Rendering(
+                "eliminate-after-vote: this 'eliminate' runs before every 'vote' phase, so it " +
+                    "acts on the previous round's stale tally — move it after the 'vote' phase.",
+                emptyList(),
+            )
         is PdNeedsRoundRobinChoose ->
-            "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a round-robin " +
-                "'choose' phase earlier in the round to populate pairings, or scores never " +
-                "change — add one before this 'score_calc'."
+            Rendering(
+                "pd-needs-round-robin-choose: 'prisoners_dilemma' scoring needs a " +
+                    "round-robin 'choose' phase earlier in the round to populate pairings, or " +
+                    "scores never change — add one before this 'score_calc'.",
+                emptyList(),
+            )
         is PairwisePayoffNeedsRoundRobinChoose ->
-            "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a " +
-                "round-robin 'choose' phase earlier in the round to populate pairings, or " +
-                "scores never change — add one before this 'score_calc'."
+            Rendering(
+                "pairwise-payoff-needs-round-robin-choose: 'pairwise_payoff' scoring needs a " +
+                    "round-robin 'choose' phase earlier in the round to populate pairings, or " +
+                    "scores never change — add one before this 'score_calc'.",
+                emptyList(),
+            )
         is WordwolfNeedsAssignAndVote ->
-            "wordwolf-needs-assign-and-vote: 'wordwolf_judge' scoring needs both an 'assign' " +
-                "phase with target 'random_one' and a 'vote' phase earlier in the round, or it " +
-                "judges nothing — add the missing phase(s) before this 'score_calc'."
+            Rendering(
+                "wordwolf-needs-assign-and-vote: 'wordwolf_judge' scoring needs both an " +
+                    "'assign' phase with target 'random_one' and a 'vote' phase earlier in the " +
+                    "round, or it judges nothing — add the missing phase(s) before this " +
+                    "'score_calc'.",
+                emptyList(),
+            )
         is EventReactiveNeedsEventInject ->
-            "event-reactive-needs-event-inject: 'event_reactive' scoring needs an earlier " +
-                "'event_inject' phase with a dictionary event source and the default " +
-                "'as: current_event', or the favored action is never scored — fix the " +
-                "'event_inject' before this 'score_calc'."
+            Rendering(
+                "event-reactive-needs-event-inject: 'event_reactive' scoring needs an " +
+                    "earlier 'event_inject' phase with a dictionary event source and the " +
+                    "default 'as: current_event', or the favored action is never scored — fix " +
+                    "the 'event_inject' before this 'score_calc'.",
+                emptyList(),
+            )
         is RelationshipUpdatePlacement ->
-            "relationship-update-placement: this 'relationship_update' cannot see its " +
-                "vote/choose signals — place it after the producing 'vote'/'choose' phase and " +
-                "before any 'prisoners_dilemma' 'score_calc', with no 'speak'/'choose' phase " +
-                "between the vote and it."
+            Rendering(
+                "relationship-update-placement: this 'relationship_update' cannot see its " +
+                    "vote/choose signals — place it after the producing 'vote'/'choose' phase " +
+                    "and before any 'prisoners_dilemma' 'score_calc', with no " +
+                    "'speak'/'choose' phase between the vote and it.",
+                emptyList(),
+            )
         is VoteTallyNeedsVote ->
-            "vote-tally-needs-vote: 'vote_tally' scoring has no 'vote' phase earlier in the " +
-                "round, so it scores nothing or re-adds a stale tally — add a 'vote' phase " +
-                "before this 'score_calc'."
+            Rendering(
+                "vote-tally-needs-vote: 'vote_tally' scoring has no 'vote' phase earlier in " +
+                    "the round, so it scores nothing or re-adds a stale tally — add a 'vote' " +
+                    "phase before this 'score_calc'.",
+                emptyList(),
+            )
         // ── Config ──────────────────────────────────────────────────────────
         is ChooseShouldDeclareOptions ->
-            "choose-should-declare-options: this 'choose' phase has no 'options' list, so " +
-                "the agent's action is unconstrained free text — add an 'options' list to steer " +
-                "the choice."
+            Rendering(
+                "choose-should-declare-options: this 'choose' phase has no 'options' list, " +
+                    "so the agent's action is unconstrained free text — add an 'options' list " +
+                    "to steer the choice.",
+                emptyList(),
+            )
         is AssignSourceNonempty ->
-            "assign-source-nonempty: this 'assign' phase's source resolves to an empty list, " +
-                "so nothing is assigned (or every agent gets an empty value) — add at least one " +
-                "entry to the referenced source data."
+            Rendering(
+                "assign-source-nonempty: this 'assign' phase's source resolves to an empty " +
+                    "list, so nothing is assigned (or every agent gets an empty value) — add " +
+                    "at least one entry to the referenced source data.",
+                emptyList(),
+            )
         is SummarizePairingPlaceholders ->
-            "summarize-pairing-placeholders: this 'summarize' template references " +
-                "{agent1}-family placeholders, but no round-robin 'choose' phase runs earlier " +
-                "in the round, so the placeholders leak literally into the summary — add a " +
-                "round-robin 'choose' phase before this 'summarize', or remove the pairing " +
-                "placeholders."
+            Rendering(
+                "summarize-pairing-placeholders: this 'summarize' template references " +
+                    "{agent1}-family placeholders, but no round-robin 'choose' phase runs " +
+                    "earlier in the round, so the placeholders leak literally into the " +
+                    "summary — add a round-robin 'choose' phase before this 'summarize', or " +
+                    "remove the pairing placeholders.",
+                emptyList(),
+            )
         is MaxSentencesNoOp ->
-            "max-sentences-no-op: this phase emits no LLM statement, so its 'max_sentences' " +
-                "cap never reaches a prompt and has no effect — remove it, or move it to a " +
-                "phase that emits a statement (speak_all / speak_each / whisper)."
+            Rendering(
+                "max-sentences-no-op: this phase emits no LLM statement, so its " +
+                    "'max_sentences' cap never reaches a prompt and has no effect — remove " +
+                    "it, or move it to a phase that emits a statement (speak_all / " +
+                    "speak_each / whisper).",
+                emptyList(),
+            )
         is PairwisePayoffNoScorableRow ->
-            "pairwise-payoff-no-scorable-row: no 'payoff' row's 'when' tokens match the " +
-                "round-robin 'choose' options, so no pairing is ever scored — add a 'payoff' " +
-                "table whose 'when' rows use the 'choose' option tokens."
+            Rendering(
+                "pairwise-payoff-no-scorable-row: no 'payoff' row's 'when' tokens match the " +
+                    "round-robin 'choose' options, so no pairing is ever scored — add a " +
+                    "'payoff' table whose 'when' rows use the 'choose' option tokens.",
+                emptyList(),
+            )
         is PairwisePayoffDeadRow ->
-            "pairwise-payoff-dead-row: one or more 'payoff' rows use 'when' tokens that " +
-                "aren't in the round-robin 'choose' options, so those rows never fire — fix the " +
-                "tokens to match the 'choose' options, or remove the unused rows."
+            Rendering(
+                "pairwise-payoff-dead-row: one or more 'payoff' rows use 'when' tokens that " +
+                    "aren't in the round-robin 'choose' options, so those rows never fire — " +
+                    "fix the tokens to match the 'choose' options, or remove the unused rows.",
+                emptyList(),
+            )
         is LogWindowBelowAgentCount ->
-            "log-window-below-agent-count: 'log_window' is smaller than the agent count " +
-                "while a 'speak_each' phase is present, so same-round earlier speakers vanish " +
-                "from the addressee pool — raise 'log_window' to at least the agent count."
+            Rendering(
+                "log-window-below-agent-count: 'log_window' is smaller than the agent count " +
+                    "while a 'speak_each' phase is present, so same-round earlier speakers " +
+                    "vanish from the addressee pool — raise 'log_window' to at least the " +
+                    "agent count.",
+                emptyList(),
+            )
         is AssignAllSourceShorterThanRounds ->
-            "assign-all-source-shorter-than-rounds: this 'assign' phase has fewer source " +
-                "entries than the scenario's 'rounds', so the later rounds wrap back around to " +
-                "the first entry and repeat it — add one entry per round, or lower 'rounds'."
+            Rendering(
+                "assign-all-source-shorter-than-rounds: this 'assign' phase has fewer " +
+                    "source entries than the scenario's 'rounds', so the later rounds wrap " +
+                    "back around to the first entry and repeat it — add one entry per round, " +
+                    "or lower 'rounds'.",
+                emptyList(),
+            )
         // ── Placeholders ────────────────────────────────────────────────────
         is UnresolvablePlaceholder ->
-            "unresolvable-placeholder: the placeholder '{$token}' is supplied by no " +
-                "phase, so it leaks into the LLM prompt verbatim — check for a typo or remove it."
+            Rendering(
+                "unresolvable-placeholder: the placeholder '{%@}' is supplied by no phase, " +
+                    "so it leaks into the LLM prompt verbatim — check for a typo or remove it.",
+                listOf(token),
+            )
         is PlaceholderPhaseAvailability ->
-            "placeholder-phase-availability: the placeholder '{$token}' is only " +
-                "populated by a producing phase, but none runs earlier in the phase list, so it " +
-                "resolves to an empty value — move the producing phase before this one."
+            Rendering(
+                "placeholder-phase-availability: the placeholder '{%@}' is only populated " +
+                    "by a producing phase, but none runs earlier in the phase list, so it " +
+                    "resolves to an empty value — move the producing phase before this one.",
+                listOf(token),
+            )
         is PerPersonaPlaceholderInSummarize ->
-            "per-persona-placeholder-in-summarize: the per-persona placeholder " +
-                "'{$token}' is never populated in a 'summarize' phase (summaries aren't " +
-                "per-agent), so it leaks literally — remove it or move it to an LLM phase."
+            Rendering(
+                "per-persona-placeholder-in-summarize: the per-persona placeholder " +
+                    "'{%@}' is never populated in a 'summarize' phase (summaries aren't " +
+                    "per-agent), so it leaks literally — remove it or move it to an LLM phase.",
+                listOf(token),
+            )
         // ── Conditions ──────────────────────────────────────────────────────
         is SingleQuotedLiteralInCondition ->
-            "single-quoted-literal-in-condition: the operand $token is single-quoted, " +
-                "but the condition evaluator treats only double quotes as string literals — it " +
-                "is read as an undefined identifier and the comparison is always false. Use " +
-                "double quotes instead."
+            Rendering(
+                "single-quoted-literal-in-condition: the operand %@ is single-quoted, but " +
+                    "the condition evaluator treats only double quotes as string literals — " +
+                    "it is read as an undefined identifier and the comparison is always " +
+                    "false. Use double quotes instead.",
+                listOf(token),
+            )
         is BareIdentifierLooksLikeLiteral ->
-            "bare-identifier-looks-like-literal: the operand '$token' matches a persona " +
-                "name but is unquoted, so the condition evaluator reads it as an undefined " +
-                "identifier and the comparison is always false — wrap it in double quotes to " +
-                "compare against the name."
+            Rendering(
+                "bare-identifier-looks-like-literal: the operand '%@' matches a persona " +
+                    "name but is unquoted, so the condition evaluator reads it as an " +
+                    "undefined identifier and the comparison is always false — wrap it in " +
+                    "double quotes to compare against the name.",
+                listOf(token),
+            )
         is UnknownConditionIdentifier ->
-            "unknown-condition-identifier: '$token' is not a known condition " +
-                "variable (a derived variable, score, persona, extraData key, or " +
-                "engine-injected name), so it resolves to no value at runtime — check for a typo."
+            Rendering(
+                "unknown-condition-identifier: '%@' is not a known condition variable (a " +
+                    "derived variable, score, persona, extraData key, or engine-injected " +
+                    "name), so it resolves to no value at runtime — check for a typo.",
+                listOf(token),
+            )
     }
 
     public companion object {
