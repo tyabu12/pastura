@@ -203,7 +203,17 @@ jobs:
           #
           # Over-inclusive in the safe direction either way — it costs one
           # compile-only run (#1148 is the one real instance in 40 merges).
-          if printf '%s\n' "$FILES" | grep -qE '^(shared/|gradle/|gradlew|gradle\.properties$)|\.gradle\.kts$|^\.github/workflows/(ci|kmp-nightly)\.yml$'; then
+          #
+          # The last two tokens are Swift/resource paths, not Kotlin ones. The
+          # Kotlin message twins carry the Swift `String(localized:)` literals
+          # verbatim as catalog keys, and `MessageCatalogCoverageTests`
+          # (`:shared:models:jvmTest`) is the only per-PR signal that a Swift
+          # reword or an `xcstringstool sync` broke that resolution — the Apple
+          # `localizedFormat` falls back to the key, so the app just loses its
+          # ja translation. Without these the check would run nightly only.
+          # It sees a reword only once the sync has retired the old key; the
+          # test's KDoc states that boundary.
+          if printf '%s\n' "$FILES" | grep -qE '^(shared/|gradle/|gradlew|gradle\.properties$)|\.gradle\.kts$|^\.github/workflows/(ci|kmp-nightly)\.yml$|^Pastura/Pastura/Resources/Localizable\.xcstrings$|^Pastura/Pastura/Models/Scenario(Validation|Lint)Message\.swift$'; then
             echo "kmp=true" >> "$GITHUB_OUTPUT"
           else
             echo "kmp=false" >> "$GITHUB_OUTPUT"

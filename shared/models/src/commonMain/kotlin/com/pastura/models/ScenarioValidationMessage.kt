@@ -12,7 +12,7 @@ package com.pastura.models
  *
  * These 53 cases come from `ScenarioValidator` (+ its extensions) and
  * `ScenarioLoader` **only**. The ADR-024 semantic linter is a *separate* surface
- * with its own 21 messages (Ordering 8 / Config 7 / Placeholders 3 /
+ * with its own 22 messages (Ordering 8 / Config 8 / Placeholders 3 /
  * Conditions 3), and they live in their own type — [ScenarioLintMessage],
  * mirroring `Pastura/Pastura/Models/ScenarioLintMessage.swift`. That split is a
  * decision (#1562), not a staging accident: a lint finding carries a severity
@@ -296,172 +296,306 @@ public sealed class ScenarioValidationMessage {
     ) : ScenarioValidationMessage()
 
     /**
-     * Renders the case to its display string, in **English only**.
+     * Renders the case to its display string, localized on Apple hosts that
+     * carry the app's string catalog.
      *
-     * The literals are byte-identical to the `String(localized:)` base values in
-     * Swift's `ScenarioValidationMessage.localized`, with `%@` / `%lld`
-     * substituted positionally.
+     * The format strings are byte-identical to the `String(localized:)` base
+     * values in Swift's `ScenarioValidationMessage.localized`. Rendering goes
+     * through the platform catalog leaf — [localizedFormat] in
+     * `MessageRendering.kt` — an `expect`/`actual` with one `jvmMain` actual
+     * (identity: returns the English key unchanged) and one `appleMain` actual
+     * (`NSBundle.mainBundle.localizedStringForKey`). So the JVM and catalog-less
+     * Apple hosts (macOS harness, `tools/kmp-gate-spike`) get the English key
+     * back — the commonTest pins below are still the detector on both rungs —
+     * while the iOS app resolves the same `Localizable.xcstrings` `ja` value
+     * Swift does, because the format string doubles as the catalog key.
      *
-     * ## Why en-only, and why that is not a shortcut
+     * ⚠️ **"the parity harness runs in en, so en-only is fine" was never the
+     * reason this stayed en-only, and must not be restored as one now that it
+     * isn't.** Validation messages never reach a transcript at all, even now
+     * that the validator is wired into the run path (D3 #1591): a scenario
+     * Swift rejects produces no transcript to compare. The harness is silent
+     * about this type in either language — the localization leaf below exists
+     * for the iOS app, not for parity.
      *
-     * `commonMain` has no string catalog, and Kotlin/Native has no path to
-     * `Localizable.xcstrings`. ADR-023 §5 defines no boundary for this type, and
-     * nothing consumes it in production until Stage 5 — so there is no
-     * localization contract to satisfy yet, and inventing one here would be
-     * guessing at Stage-5's design.
+     * ## The Stage-5 debt this discharges
      *
-     * ⚠️ **"the parity harness runs in en, so en-only is fine" is NOT the
-     * reason, and must not be restored as one.** Validation messages never reach
-     * a transcript at all, even now that the validator is wired into the run
-     * path (D3 #1591): a scenario Swift rejects produces no transcript to
-     * compare. The harness is silent about this type in either language.
+     * Every one of these 53 literals has a `ja` translation in
+     * `Pastura/Pastura/Resources/Localizable.xcstrings`. Before this leaf
+     * landed (#1631), a Stage-5 iOS app consuming the Kotlin engine would have
+     * shown Japanese users English validation errors with no compiler or test
+     * signal — recorded on the Stage-5 row of `docs/kmp-migration-status.md`.
+     * That debt is discharged: `MessageCatalogCoverageTests`
+     * (`:shared:models:jvmTest`) is now the catalog-drift signal, failing
+     * whenever a [rendering] format is stale or its `%@`/`%lld` multiset
+     * disagrees with the catalog's `ja` value.
      *
-     * ## The Stage-5 debt this creates
-     *
-     * Every one of these 53 literals **already has a `ja` translation** in
-     * `Pastura/Pastura/Resources/Localizable.xcstrings`. If iOS starts consuming
-     * the Kotlin engine (Stage 5) while this is still en-only, Japanese users get
-     * English validation errors — a user-visible regression with **no compiler
-     * and no test signal**, since the Kotlin side would be internally consistent
-     * and the pins below would stay green. A KDoc is only read by someone already
-     * in this file, which is the wrong audience for a debt that fires at Stage 5,
-     * so it is also recorded on the Stage-5 row of `docs/kmp-migration-status.md`.
-     *
-     * The Stage-5 fix is to make the rendering an `expect`/`actual` leaf. Member
-     * naming here is chosen so that lands without moving callers: `render()`
-     * keeps its name and signature, and only its body delegates to the platform
-     * leaf.
-     *
-     * When budgeting that, count **source sets, not targets**. `shared/models`
-     * declares five targets (`jvm`, `iosArm64`, `iosSimulatorArm64`, `iosX64`,
-     * `macosArm64`), but the four Apple ones share a parent source set under the
-     * default hierarchy template, so the `actual`s land in far fewer places than
-     * there are targets. Re-derive from `shared/models/build.gradle.kts` rather
-     * than from this sentence — an earlier revision asserted "four targets, so
-     * four `actual`s", which was wrong in both halves at once.
+     * A Swift literal reword is therefore a **four-place edit**: the Swift
+     * `String(localized:)` literal, the catalog `ja` value (via the normal
+     * `xcstringstool` sync), this file's [rendering] format, and the
+     * commonTest expected string. Miss the Kotlin side and
+     * `MessageCatalogCoverageTests` reddens per-PR (`ci.yml`'s `kmp` filter
+     * fires on `Localizable.xcstrings` and the two Swift `*Message.swift`
+     * files); miss the catalog sync and the same test catches the stale key.
      */
-    public fun render(): String = when (this) {
+    public fun render(): String = rendering().render()
+
+    /**
+     * Maps the case to its [Rendering] — English format string plus positional
+     * args, in the order the format consumes them.
+     *
+     * The format strings are byte-identical to the `String(localized:)` base
+     * values in Swift's `ScenarioValidationMessage.localized`, with `%@` / `%lld`
+     * left in place as catalog placeholders rather than substituted here —
+     * [Rendering.render] resolves the platform catalog and substitutes.
+     */
+    internal fun rendering(): Rendering = when (this) {
         is LanguageNotAccepted ->
-            "Scenario: field 'language' must be one of {$allowed}, got '$got'"
+            Rendering(
+                "Scenario: field 'language' must be one of {%@}, got '%@'",
+                listOf(allowed, got),
+            )
         is SimulationLanguageNotAccepted ->
-            "Scenario: field 'simulationLanguage' must be one of {$allowed} or nil, got '$got'"
+            Rendering(
+                "Scenario: field 'simulationLanguage' must be one of {%@} or nil, got '%@'",
+                listOf(allowed, got),
+            )
         is SimulationLanguageYAMLNotAccepted ->
-            "Scenario: field 'simulation_language' must be one of {$allowed} or absent, got '$got'"
+            Rendering(
+                "Scenario: field 'simulation_language' must be one of {%@} or absent, got '%@'",
+                listOf(allowed, got),
+            )
         is AgentCountBelowMinimum ->
-            "Agent count ($count) is below minimum of 2"
+            Rendering("Agent count (%lld) is below minimum of 2", listOf(count))
         is AgentCountExceedsMaximum ->
-            "Agent count ($count) exceeds maximum of 10"
+            Rendering("Agent count (%lld) exceeds maximum of 10", listOf(count))
         is PersonaCountMismatch ->
-            "Persona count ($personaCount) does not match agent count ($agentCount)"
+            Rendering(
+                "Persona count (%lld) does not match agent count (%lld)",
+                listOf(personaCount, agentCount),
+            )
         is RoundCountExceedsMaximum ->
-            "Round count ($rounds) exceeds maximum of 30"
+            Rendering("Round count (%lld) exceeds maximum of 30", listOf(rounds))
         is LogWindowBelowMinimum ->
-            "Log window ($window) must be at least 1"
+            Rendering("Log window (%lld) must be at least 1", listOf(window))
         is EstimatedInferencesExceedsMaximum ->
-            "Estimated inferences ($estimated) exceeds maximum of 100"
+            Rendering("Estimated inferences (%lld) exceeds maximum of 100", listOf(estimated))
         is HighInferenceCount ->
-            "High inference count ($estimated). Simulation may take several minutes."
+            Rendering(
+                "High inference count (%lld). Simulation may take several minutes.",
+                listOf(estimated),
+            )
         is ConditionalMissingIf ->
-            "$label: missing or empty 'if' expression."
+            Rendering("%@: missing or empty 'if' expression.", listOf(label))
         is ConditionalEmptyBranches ->
-            "$label: must have at least one sub-phase in 'then' or 'else'."
+            Rendering(
+                "%@: must have at least one sub-phase in 'then' or 'else'.",
+                listOf(label),
+            )
         is NestedConditionalNotAllowed ->
-            "$label: nested 'conditional' inside another conditional is not allowed (depth-1 rule)."
+            Rendering(
+                "%@: nested 'conditional' inside another conditional is not allowed (depth-1 rule).",
+                listOf(label),
+            )
         is BranchNestedConditional ->
-            "$label is another conditional, which is not allowed (depth-1 rule)."
+            Rendering(
+                "%@ is another conditional, which is not allowed (depth-1 rule).",
+                listOf(label),
+            )
         is BranchReflectNotAllowed ->
-            "$label is a reflect phase, which is not allowed inside a conditional."
+            Rendering(
+                "%@ is a reflect phase, which is not allowed inside a conditional.",
+                listOf(label),
+            )
         is BranchWhisperNotAllowed ->
-            "$label is a whisper phase, which is not allowed inside a conditional."
+            Rendering(
+                "%@ is a whisper phase, which is not allowed inside a conditional.",
+                listOf(label),
+            )
         is BranchRelationshipUpdateNotAllowed ->
-            "$label is a relationship_update phase, which is not allowed inside a conditional."
+            Rendering(
+                "%@ is a relationship_update phase, which is not allowed inside a conditional.",
+                listOf(label),
+            )
         is BranchNarrateNotAllowed ->
-            "$label is a narrate phase, which is not allowed inside a conditional."
+            Rendering(
+                "%@ is a narrate phase, which is not allowed inside a conditional.",
+                listOf(label),
+            )
         is RequiresOutputField ->
-            "$label ($type) requires field '${field}' in output."
+            Rendering(
+                "%@ (%@) requires field '%@' in output.",
+                listOf(label, type, field),
+            )
         is SecondaryFieldMismatch ->
-            "$label ($type) secondary field must be '$canonical', not '$key'."
+            Rendering(
+                "%@ (%@) secondary field must be '%@', not '%@'.",
+                listOf(label, type, canonical, key),
+            )
         is RelationshipUpdateMissingRule ->
-            "$label ($type) requires at least one affinity rule: " +
-                "'vote_against' and/or 'action_deltas'."
+            Rendering(
+                "%@ (%@) requires at least one affinity rule: 'vote_against' and/or 'action_deltas'.",
+                listOf(label, type),
+            )
         is SourceNotFound ->
-            "$label: source '$source' not found in scenario data. " +
-                "Add a top-level '$source' field to the scenario YAML."
+            Rendering(
+                "%@: source '%@' not found in scenario data. " +
+                    "Add a top-level '%@' field to the scenario YAML.",
+                listOf(label, source, source),
+            )
         is AssignSourceGroupedForAll ->
-            "$label: source '$source' contains grouped values (e.g., majority/minority pairs). " +
-                "Use target: random_one to distribute these. " +
-                "Use target: all only for a flat list of strings or a single string."
+            Rendering(
+                "%@: source '%@' contains grouped values (e.g., majority/minority pairs). " +
+                    "Use target: random_one to distribute these. " +
+                    "Use target: all only for a flat list of strings or a single string.",
+                listOf(label, source),
+            )
         is AssignSourceNotGroupedForRandomOne ->
-            "$label: source '$source' must be a list of grouped values " +
-                "(e.g., majority/minority pairs) when target is random_one."
+            Rendering(
+                "%@: source '%@' must be a list of grouped values " +
+                    "(e.g., majority/minority pairs) when target is random_one.",
+                listOf(label, source),
+            )
         is InvalidYAMLFormat ->
-            "Invalid YAML format"
+            Rendering("Invalid YAML format", emptyList())
         is MissingRequiredField ->
-            "$label: missing required field '$key'"
+            Rendering("%@: missing required field '%@'", listOf(label, key))
         is FieldWrongType ->
-            "$label: field '$key' must be $expected, got $got"
+            Rendering(
+                "%@: field '%@' must be %@, got %@",
+                listOf(label, key, expected, got),
+            )
         is FieldNotDoubleOrInt ->
-            "$label: field '$key' must be Double or Int, got $got"
+            Rendering(
+                "%@: field '%@' must be Double or Int, got %@",
+                listOf(label, key, got),
+            )
         is AgentsPersonasCountMismatch ->
-            "agents ($agentCount) does not match personas count ($personaCount)"
+            Rendering(
+                "agents (%lld) does not match personas count (%lld)",
+                listOf(agentCount, personaCount),
+            )
         is InvalidTarget ->
-            "$label has invalid target: '$value'. Use 'all' or 'random_one'."
+            Rendering(
+                "%@ has invalid target: '%@'. Use 'all' or 'random_one'.",
+                listOf(label, value),
+            )
         is InvalidPairing ->
-            "$label has invalid pairing: '$value'. Use 'round_robin'."
+            Rendering(
+                "%@ has invalid pairing: '%@'. Use 'round_robin'.",
+                listOf(label, value),
+            )
         is InvalidLogic ->
-            "$label has invalid logic: '$value'. Expected one of: $allowed."
+            Rendering(
+                "%@ has invalid logic: '%@'. Expected one of: %@.",
+                listOf(label, value, allowed),
+            )
         is ActionDeltasNotDict ->
-            "$label: field 'action_deltas' must be a dictionary of Int values, got $got"
+            Rendering(
+                "%@: field 'action_deltas' must be a dictionary of Int values, got %@",
+                listOf(label, got),
+            )
         is ActionDeltasValueNotInt ->
-            "$label: action_deltas value for '$key' must be Int, got $got"
+            Rendering(
+                "%@: action_deltas value for '%@' must be Int, got %@",
+                listOf(label, key, got),
+            )
         is PayoffNotList ->
-            "$label: field 'payoff' must be a list of {when, points} rows, got $got"
+            Rendering(
+                "%@: field 'payoff' must be a list of {when, points} rows, got %@",
+                listOf(label, got),
+            )
         is PayoffRowInvalid ->
-            "$label: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — $detail"
+            Rendering(
+                "%@: each 'payoff' row needs 'when' (2 strings) and 'points' (2 ints) — %@",
+                listOf(label, detail),
+            )
         is PhaseMissingType ->
-            "$label missing 'type'"
+            Rendering("%@ missing 'type'", listOf(label))
         is PhaseInvalidType ->
-            "$label has invalid type: '$value'"
+            Rendering("%@ has invalid type: '%@'", listOf(label, value))
         is OutputNotDict ->
-            "$label: field 'output' must be a dictionary of String values, got $got"
+            Rendering(
+                "%@: field 'output' must be a dictionary of String values, got %@",
+                listOf(label, got),
+            )
         is OutputValueNotString ->
-            "$label: output schema value for '$key' must be String, got $got"
+            Rendering(
+                "%@: output schema value for '%@' must be String, got %@",
+                listOf(label, key, got),
+            )
         is BranchNotArray ->
-            "$label: '$branch' must be an array of phase objects"
+            Rendering("%@: '%@' must be an array of phase objects", listOf(label, branch))
         is ExtraDataArrayOfDictNotString ->
-            "Top-level field '$key': array-of-dict values must all be String. " +
-                "Quote non-string values (e.g. `majority: \"1\"`)."
+            Rendering(
+                "Top-level field '%@': array-of-dict values must all be String. " +
+                    "Quote non-string values (e.g. `majority: \"1\"`).",
+                listOf(key),
+            )
         is ExtraDataMixedArray ->
-            "Top-level field '$key': mixed-type arrays are not supported. " +
-                "Use a pure [String] or [[String: String]]."
+            Rendering(
+                "Top-level field '%@': mixed-type arrays are not supported. " +
+                    "Use a pure [String] or [[String: String]].",
+                listOf(key),
+            )
         is ExtraDataDictNotString ->
-            "Top-level field '$key': dictionary values must all be String. " +
-                "Quote non-string values."
+            Rendering(
+                "Top-level field '%@': dictionary values must all be String. " +
+                    "Quote non-string values.",
+                listOf(key),
+            )
         is ExtraDataUnsupportedType ->
-            "Top-level field '$key' has unsupported type $got. Supported shapes: $shapes."
+            Rendering(
+                "Top-level field '%@' has unsupported type %@. Supported shapes: %@.",
+                listOf(key, got, shapes),
+            )
         is EventInjectMissingSource ->
-            "$label: missing 'source'. event_inject requires a 'source' key naming a " +
-                "top-level YAML field that lists the event strings."
+            Rendering(
+                "%@: missing 'source'. event_inject requires a 'source' key naming a " +
+                    "top-level YAML field that lists the event strings.",
+                listOf(label),
+            )
         is EventInjectSourceEmptyStrings ->
-            "$label: source '$source' is empty. event_inject requires at least one string " +
-                "in the list; for a single fixed event use ['only_event']."
+            Rendering(
+                "%@: source '%@' is empty. event_inject requires at least one string " +
+                    "in the list; for a single fixed event use ['only_event'].",
+                listOf(label, source),
+            )
         is EventInjectSourceWrongShape ->
-            "$label: source '$source' must be a list of event strings or {text, favors} " +
-                "mappings; for a single fixed event use ['only_event']."
+            Rendering(
+                "%@: source '%@' must be a list of event strings or {text, favors} " +
+                    "mappings; for a single fixed event use ['only_event'].",
+                listOf(label, source),
+            )
         is EventInjectSourceEmptyEvents ->
-            "$label: source '$source' is empty. event_inject requires at least one event " +
-                "in the list; for a single fixed event use ['only_event']."
+            Rendering(
+                "%@: source '%@' is empty. event_inject requires at least one event " +
+                    "in the list; for a single fixed event use ['only_event'].",
+                listOf(label, source),
+            )
         is EventInjectEntryMissingText ->
-            "$label: source '$source' has an event entry missing a non-empty 'text'. " +
-                "Dict-shaped events require 'text' (and may add 'favors')."
+            Rendering(
+                "%@: source '%@' has an event entry missing a non-empty 'text'. " +
+                    "Dict-shaped events require 'text' (and may add 'favors').",
+                listOf(label, source),
+            )
         is EventInjectProbabilityOutOfRange ->
-            "$label: probability $probability is out of range. " +
-                "Must be between 0.0 and 1.0 inclusive."
+            Rendering(
+                "%@: probability %@ is out of range. " +
+                    "Must be between 0.0 and 1.0 inclusive.",
+                listOf(label, probability),
+            )
         is OutputFieldNameInvalid ->
-            "$label: output field name '$name' must be an ASCII identifier " +
-                "(letters, digits, and underscore, not starting with a digit or underscore). " +
-                "Agent text values may be any language."
+            Rendering(
+                "%@: output field name '%@' must be an ASCII identifier " +
+                    "(letters, digits, and underscore, not starting with a digit or underscore). " +
+                    "Agent text values may be any language.",
+                listOf(label, name),
+            )
         is MaxSentencesOutOfRange ->
-            "$label: max_sentences ($value) must be between 1 and 6"
+            Rendering(
+                "%@: max_sentences (%lld) must be between 1 and 6",
+                listOf(label, value),
+            )
     }
 }

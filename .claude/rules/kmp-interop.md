@@ -122,13 +122,21 @@ integral `Double` drops its `.0`. The third bites silently: `TranscriptComparato
 never the fixtures' observed lines: a field no fixture populates is the one that bites later.
 `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that measurement.
 
-**A Models-layer message type is dual-landed, and no gate compares the two sides.**
-`check-prompt-literal-parity.py` only scans `Engine/` + `LLM/` files containing `pickLanguage`, so
-it never reaches `Models/`. Reword a literal in `Pastura/Pastura/Models/*Message.swift` and the
-Kotlin twin plus its commonTest pins stay stale *and agree with each other* — nothing reddens on
-either side. The Swift file is the source of truth; a reword is a three-file hand edit (Swift, the
-`.kt`, the commonTest expected string). Applies to `ScenarioValidationMessage` (53) and
-`ScenarioLintMessage` (21). The same class, with a sharper edge: `Engine/PlaceholderAvailability.swift`
+**A Models-layer message type is dual-landed, and the Kotlin format string is a *catalog key*.**
+`ScenarioValidationMessage` (53) and `ScenarioLintMessage` (22) carry the Swift `String(localized:)`
+literal verbatim as the key `rendering()` hands to the `expect` `localizedFormat`
+(`MessageRendering.kt`); the Apple actual **falls back to the key**, so a Kotlin format that is no
+longer a live catalog key renders English in the app with no runtime signal. A reword is a
+**four-place** edit — Swift literal (source of truth) → catalog `ja` value via the normal sync →
+Kotlin `rendering()` format → commonTest expected string. The detector is
+`MessageCatalogCoverageTests` (`:shared:models:jvmTest`, run per-PR because `ci.yml`'s `kmp` filter
+covers the catalog and both `*Message.swift`), with two blind spots stated on its KDoc:
+it sees a reword only once `xcstringstool sync` has retired the old key (the
+pre-commit hook skips that sync), and it compares specifiers, not meaning. Roster completeness is not
+its job either — the commonTest count pins redden only if the hand transcription was updated too;
+the `else`-free `when` in `swiftCaseNameOf` is the sole compile-time guard.
+`check-prompt-literal-parity.py` still never scans `Models/`. The same class, with a sharper edge:
+`Engine/PlaceholderAvailability.swift`
 → `shared/engine/.../PlaceholderAvailability.kt` is a data map the Swift linter and two editor views
 **consume today**, so it keeps moving — a new `PhaseType` or handler-supplied token is a three-file
 hand edit (Swift, the `.kt`, its commonTest), and only the Swift union-guard test notices a Swift-side

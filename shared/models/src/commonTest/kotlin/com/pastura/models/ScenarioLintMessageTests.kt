@@ -266,8 +266,12 @@ class ScenarioLintMessageTests {
      * exactly one `String`, so there is no argument-order hazard of the kind the
      * validation-message suite guards against, but a positional call still pins
      * that the parameter exists and is the first one.
+     *
+     * `internal` rather than `private` on purpose: `MessageCatalogCoverageTests`
+     * (jvmTest, same test compilation) reuses this roster so the catalog check
+     * covers every case without a second hand-maintained copy.
      */
-    private fun rosterWithExpectedRenderings(): List<Pair<ScenarioLintMessage, String>> = listOf(
+    internal fun rosterWithExpectedRenderings(): List<Pair<ScenarioLintMessage, String>> = listOf(
         // ── Ordering ────────────────────────────────────────────────────────
         ScenarioLintMessage.EliminateNeedsVote to
             "eliminate-needs-vote: an 'eliminate' phase does nothing without a 'vote' phase " +
