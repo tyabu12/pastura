@@ -496,7 +496,13 @@ call, and these are what the batches so far have taught.
   hardest for a `yaml_hook` persona slice, since the excerpt and the example
   would then render on the same screen — so for a hooked persona, also reject
   a pick that merely reuses the example's sentence frame (the same closing
-  phrase with the nouns swapped), which the gate cannot see.
+  phrase with the nouns swapped), which the gate cannot see. A concrete
+  example inside 【目的】 is the same trap under a different label: #1570's
+  `kinoko_takenoko_v1` fix first replaced the 【目的】 anchor with another
+  quotable phrase (「NASAが牛乳を白く塗っている」) and a draw promptly borrowed
+  it as a simile inside an otherwise original line — so describe the
+  *property* the persona shows (「桁まで具体的な捏造数字」) and keep any
+  quotable, complete phrase out of 【目的】 too.
   **Whether a draw trips this is partly luck, so re-check it per draw rather
   than per scenario.** An `event_inject` scenario picks its twist at random,
   and a draw that happens to inject the very situation a persona's `例:`
