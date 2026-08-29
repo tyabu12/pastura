@@ -50,10 +50,6 @@ extension ScenarioSemanticLinterTests {
   private var configMessageCasesR18ToR21: [ConfigMessageCase] {
     [
       ConfigMessageCase(
-        ruleID: "assign-all-source-shorter-than-rounds",
-        scenario: makeAssignRoundsScenario(rounds: 4, source: .array(["one", "two"])),
-        expected: .assignAllSourceShorterThanRounds),
-      ConfigMessageCase(
         ruleID: "max-sentences-no-op",
         scenario: makeScenario(
           agents: 2, rounds: 1,
@@ -83,7 +79,11 @@ extension ScenarioSemanticLinterTests {
                 PayoffRule(when: ["unclear", "unclear"], points: [0, 0])
               ])
           ]),
-        expected: .pairwisePayoffDeadRow)
+        expected: .pairwisePayoffDeadRow),
+      ConfigMessageCase(
+        ruleID: "assign-all-source-shorter-than-rounds",
+        scenario: makeAssignRoundsScenario(rounds: 4, source: .array(["one", "two"])),
+        expected: .assignAllSourceShorterThanRounds)
     ]
   }
 

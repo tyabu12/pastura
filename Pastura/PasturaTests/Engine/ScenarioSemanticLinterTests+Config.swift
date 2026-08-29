@@ -205,6 +205,16 @@ extension ScenarioSemanticLinterTests {
     #expect(findings.first?.phaseIndex == 0)
   }
 
+  @Test func assignOmittedTargetFiresWarning() {
+    // `target` omitted means `all` (`AssignHandler` carries the why-comment on
+    // that default), so the rule's `?? .all` must fire the same as an explicit
+    // `target: all` — otherwise the commonest authoring shape goes unlinted.
+    let scenario = makeAssignRoundsScenario(rounds: 4, source: .array(["one", "two"]), target: nil)
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "assign-all-source-shorter-than-rounds")
+  }
+
   @Test func assignAllSourceMatchingRoundsPasses() {
     let scenario = makeAssignRoundsScenario(rounds: 2, source: .array(["one", "two"]))
     #expect(linter.lint(scenario).isEmpty)
@@ -254,7 +264,7 @@ extension ScenarioSemanticLinterTests {
   // Internal factory for `assign`-source scenarios needing a `rounds` other
   // than 1 (R21); `makeEventScenario` pins `rounds: 1`.
   func makeAssignRoundsScenario(
-    rounds: Int, source: AnyCodableValue, target: AssignTarget = .all
+    rounds: Int, source: AnyCodableValue, target: AssignTarget? = .all
   ) -> Scenario {
     Scenario(
       id: "test", name: "Test", description: "Test",

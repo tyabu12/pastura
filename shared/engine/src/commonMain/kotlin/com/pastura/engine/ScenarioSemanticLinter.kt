@@ -506,6 +506,13 @@ public class ScenarioSemanticLinter {
      * `items.count > rounds` (unreached trailing entries) is a **separate
      * reading** and out of this rule's scope, the way R8 leaves shape errors to
      * `ScenarioValidator`.
+     *
+     * Known imprecision, shared with the ordering rules: an `assign` nested in a
+     * `conditional` branch is compared against the scenario's declared `rounds`
+     * regardless of how often its branch is actually taken, and is reported at
+     * the conditional's `topLevelIndex`. A branch that runs in only some rounds
+     * can therefore be flagged for a wrap-around it never reaches — accepted as
+     * an over-approximation, the same trade the ordering rules take.
      */
     private fun assignSourceRoundsFindings(phases: List<Phase>, scenario: Scenario): List<LintFinding> =
         phaseRefs(phases) { it.type == PhaseType.ASSIGN && isAssignSourceShorterThanRounds(it, scenario) }

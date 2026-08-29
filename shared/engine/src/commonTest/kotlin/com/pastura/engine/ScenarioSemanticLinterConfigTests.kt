@@ -17,7 +17,7 @@ import kotlin.test.assertTrue
  * 1:1. Every function name below matches its Swift twin exactly — see that
  * file if a name here looks odd.
  *
- * 26 tests mirrored 1:1. R20a/R20b (`pairwise-payoff-no-scorable-row` /
+ * 27 tests mirrored 1:1. R20a/R20b (`pairwise-payoff-no-scorable-row` /
  * `pairwise-payoff-dead-row`) live in [ScenarioSemanticLinterPayoffTests],
  * mirroring the Swift split across `…Tests+Config.swift` / `…Tests+Payoff.swift`.
  *
@@ -343,6 +343,21 @@ class ScenarioSemanticLinterConfigTests {
     }
 
     @Test
+    fun assignOmittedTargetFiresWarning() {
+        // `target` omitted means `all` (`AssignHandler` carries the why-comment on
+        // that default), so the rule's `?: ALL` must fire the same as an explicit
+        // `target: all` — otherwise the commonest authoring shape goes unlinted.
+        val scenario = makeAssignRoundsScenario(
+            rounds = 4,
+            source = AnyCodableValue.ArrayValue(listOf("one", "two")),
+            target = null,
+        )
+        val findings = linter.lint(scenario)
+        assertEquals(1, findings.size)
+        assertEquals("assign-all-source-shorter-than-rounds", findings.first().ruleId)
+    }
+
+    @Test
     fun assignAllSourceMatchingRoundsPasses() {
         val scenario = makeAssignRoundsScenario(rounds = 2, source = AnyCodableValue.ArrayValue(listOf("one", "two")))
         assertTrue(linter.lint(scenario).isEmpty())
@@ -412,7 +427,7 @@ class ScenarioSemanticLinterConfigTests {
     private fun makeAssignRoundsScenario(
         rounds: Int,
         source: AnyCodableValue,
-        target: AssignTarget = AssignTarget.ALL,
+        target: AssignTarget? = AssignTarget.ALL,
     ): Scenario = makeLinterScenario(
         agents = 2,
         rounds = rounds,
