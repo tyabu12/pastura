@@ -56,9 +56,12 @@ phases:
       Round {current_round}. The fish in the ground are visibly fewer.
       The discussion so far: {conversation_log}
 
-      Speak about the ground's future from your standpoint, in 1-2 sentences. You
-      may agree with or push back on the previous speaker — make it clear whose
-      words you are responding to.
+      Speak about the ground's future in 1-2 sentences, starting from your own
+      circumstances (debt, family, next year's catch, your standing in the
+      village). Do not repeat or rephrase what anyone else said, and never open
+      with "as X said" or "X is right". If you disagree with someone, name them
+      and say plainly "I can't go along with X"; if you agree, give your own
+      reasons, drawn from your own situation.
     output:
       statement: string
       inner_thought: string

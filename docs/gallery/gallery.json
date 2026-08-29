@@ -473,7 +473,7 @@
       ],
       "language": "ja",
       "yaml_url": "kyoyu_gyojo_v1.yaml",
-      "yaml_sha256": "a5793670872fca129637c088cf643ea92cf2dd0ca5b2c19dae1e69e39898da77",
+      "yaml_sha256": "7962e47d5c08068d394c1a67e4adf2b21b7b1cbf6b632eccaed3875123e82bbf",
       "added_at": "2026-06-30"
     },
     {
@@ -643,7 +643,7 @@
       ],
       "language": "en",
       "yaml_url": "kyoyu_gyojo_v1_en.yaml",
-      "yaml_sha256": "f79f78bb38132cdbcf0e6ed61fdf559b71528540f5551b398d77bc6eddbbf2c3",
+      "yaml_sha256": "2485f6a207f21057fbc3cc0bc2f7712cbf3aa96baf02390a9808a298e232b544",
       "added_at": "2026-07-01"
     },
     {
