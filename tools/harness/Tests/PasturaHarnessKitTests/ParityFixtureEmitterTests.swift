@@ -126,9 +126,8 @@ struct ParityFixtureEmitterTests {
       let fixture = try await ParityFixtureEmitter.run(spec)
 
       // `callCount` includes suspend re-issues (`RecordingResponder`), so the
-      // no-suspends-scheduled equality holds only up to the spec's own
-      // scheduled total — currently always 0, since `suspendBeforeResponse`
-      // is not yet threaded into `run(_:)` (item 2, #1625).
+      // equality only holds once the spec's own scheduled suspends are added
+      // back in — 0 for every spec but `paritySuspendPreservesRetryBudget`.
       let scheduledSuspends = spec.suspendBeforeResponse.values.reduce(0, +)
       #expect(
         fixture.callCount == fixture.responses.count + scheduledSuspends, "\(spec.name)")

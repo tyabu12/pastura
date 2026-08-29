@@ -297,6 +297,48 @@ extension ParityFixtureEmitter {
         engines and the diff would be about the harness.
         """,
       cancelAfterPhaseCompleted: [1, 0]
+    ),
+    FixtureSpec(
+      name: "paritySuspendPreservesRetryBudget",
+      scenarioPath: "tools/harness/Fixtures/parity_suspend.yaml",
+      purpose: """
+        Suspend control (ADR-023 §5.2 invariant 1, S5 #1625). A positive \
+        control expected green with an empty ledger: suspend re-issues are \
+        invisible in BOTH transcripts (no `SimulationEvent` marks them), so \
+        `callCount` and the absence of a `turn_skipped` line are the only \
+        observables that could catch the budget being charged.
+
+        **Call order.** Index 0 is Ada's phase-0 turn. Index 1 is Bo's \
+        phase-0 turn, attempt 1: suspended once, then answered "garbage" — \
+        non-JSON, so both parsers fail identically and the turn retries. \
+        Index 2 is attempt 2, suspended once, "garbage" again. Index 3 is \
+        attempt 3, suspended once, then a derived valid answer accepted on \
+        the LAST budgeted try (`LLMCaller.maxRetries == 2`, three attempts \
+        total). Indices 4-5 are phase 1's two turns. If either engine had \
+        charged a suspend to the retry budget, Bo's turn would exhaust it \
+        one attempt early and `turn_skipped` would appear in place of the \
+        accepted answer; `callCount` (9 = 6 answers + 3 suspends) would also \
+        shift. Neither the yaml nor the spec authors that outcome, so it can \
+        only be the seam's own behaviour.
+
+        **Why not on a vote or choice call.** `RecordingResponder`'s \
+        `voteCallCount` / `choiceCallCount` are phase-local, so a retry \
+        window on a vote or choice call shifts the rotation — or splits a \
+        pairing across two schedule slots — for every call after it, which \
+        is why the responder's own comment allows one only on the run's \
+        last call. Two plain `speak_all` phases have neither counter, so the \
+        schedule exercises only the retry seam.
+
+        **What is deliberately untouched.** The Kotlin replay's structural \
+        padding (`MAX_RETRIES + 1 == 3`, of which `parityStructuralControl` \
+        consumes two) is a different mechanism from this fixture's suspend \
+        cycles — a suspend re-issue is not a retry attempt, and this fixture \
+        consumes none of that padding. Nor is the multi-object salvage \
+        divergence in play: `"garbage"` fails both parsers the same way, so \
+        there is nothing for the schema guard to salvage.
+        """,
+      overrides: [1: "garbage", 2: "garbage"],
+      suspendBeforeResponse: [1: 1, 2: 1, 3: 1]
     )
   ]
 }
