@@ -12,7 +12,7 @@ package com.pastura.models
  *
  * These 53 cases come from `ScenarioValidator` (+ its extensions) and
  * `ScenarioLoader` **only**. The ADR-024 semantic linter is a *separate* surface
- * with its own 21 messages (Ordering 8 / Config 7 / Placeholders 3 /
+ * with its own 22 messages (Ordering 8 / Config 8 / Placeholders 3 /
  * Conditions 3), and they live in their own type — [ScenarioLintMessage],
  * mirroring `Pastura/Pastura/Models/ScenarioLintMessage.swift`. That split is a
  * decision (#1562), not a staging accident: a lint finding carries a severity
@@ -296,49 +296,47 @@ public sealed class ScenarioValidationMessage {
     ) : ScenarioValidationMessage()
 
     /**
-     * Renders the case to its display string, in **English only**.
+     * Renders the case to its display string, localized on Apple hosts that
+     * carry the app's string catalog.
      *
-     * The literals are byte-identical to the `String(localized:)` base values in
-     * Swift's `ScenarioValidationMessage.localized`, with `%@` / `%lld`
-     * substituted positionally.
+     * The format strings are byte-identical to the `String(localized:)` base
+     * values in Swift's `ScenarioValidationMessage.localized`. Rendering goes
+     * through the platform catalog leaf — [localizedFormat] in
+     * `MessageRendering.kt` — an `expect`/`actual` with one `jvmMain` actual
+     * (identity: returns the English key unchanged) and one `appleMain` actual
+     * (`NSBundle.mainBundle.localizedStringForKey`). So the JVM and catalog-less
+     * Apple hosts (macOS harness, `tools/kmp-gate-spike`) get the English key
+     * back — the commonTest pins below are still the detector on both rungs —
+     * while the iOS app resolves the same `Localizable.xcstrings` `ja` value
+     * Swift does, because the format string doubles as the catalog key.
      *
-     * ## Why en-only, and why that is not a shortcut
+     * ⚠️ **"the parity harness runs in en, so en-only is fine" was never the
+     * reason this stayed en-only, and must not be restored as one now that it
+     * isn't.** Validation messages never reach a transcript at all, even now
+     * that the validator is wired into the run path (D3 #1591): a scenario
+     * Swift rejects produces no transcript to compare. The harness is silent
+     * about this type in either language — the localization leaf below exists
+     * for the iOS app, not for parity.
      *
-     * `commonMain` has no string catalog, and Kotlin/Native has no path to
-     * `Localizable.xcstrings`. ADR-023 §5 defines no boundary for this type, and
-     * nothing consumes it in production until Stage 5 — so there is no
-     * localization contract to satisfy yet, and inventing one here would be
-     * guessing at Stage-5's design.
+     * ## The Stage-5 debt this discharges
      *
-     * ⚠️ **"the parity harness runs in en, so en-only is fine" is NOT the
-     * reason, and must not be restored as one.** Validation messages never reach
-     * a transcript at all, even now that the validator is wired into the run
-     * path (D3 #1591): a scenario Swift rejects produces no transcript to
-     * compare. The harness is silent about this type in either language.
+     * Every one of these 53 literals has a `ja` translation in
+     * `Pastura/Pastura/Resources/Localizable.xcstrings`. Before this leaf
+     * landed (#1631), a Stage-5 iOS app consuming the Kotlin engine would have
+     * shown Japanese users English validation errors with no compiler or test
+     * signal — recorded on the Stage-5 row of `docs/kmp-migration-status.md`.
+     * That debt is discharged: `MessageCatalogCoverageTests`
+     * (`:shared:models:jvmTest`) is now the catalog-drift signal, failing
+     * whenever a [rendering] format is stale or its `%@`/`%lld` multiset
+     * disagrees with the catalog's `ja` value.
      *
-     * ## The Stage-5 debt this creates
-     *
-     * Every one of these 53 literals **already has a `ja` translation** in
-     * `Pastura/Pastura/Resources/Localizable.xcstrings`. If iOS starts consuming
-     * the Kotlin engine (Stage 5) while this is still en-only, Japanese users get
-     * English validation errors — a user-visible regression with **no compiler
-     * and no test signal**, since the Kotlin side would be internally consistent
-     * and the pins below would stay green. A KDoc is only read by someone already
-     * in this file, which is the wrong audience for a debt that fires at Stage 5,
-     * so it is also recorded on the Stage-5 row of `docs/kmp-migration-status.md`.
-     *
-     * The Stage-5 fix is to make the rendering an `expect`/`actual` leaf. Member
-     * naming here is chosen so that lands without moving callers: `render()`
-     * keeps its name and signature, and only its body delegates to the platform
-     * leaf.
-     *
-     * When budgeting that, count **source sets, not targets**. `shared/models`
-     * declares five targets (`jvm`, `iosArm64`, `iosSimulatorArm64`, `iosX64`,
-     * `macosArm64`), but the four Apple ones share a parent source set under the
-     * default hierarchy template, so the `actual`s land in far fewer places than
-     * there are targets. Re-derive from `shared/models/build.gradle.kts` rather
-     * than from this sentence — an earlier revision asserted "four targets, so
-     * four `actual`s", which was wrong in both halves at once.
+     * A Swift literal reword is therefore a **four-place edit**: the Swift
+     * `String(localized:)` literal, the catalog `ja` value (via the normal
+     * `xcstringstool` sync), this file's [rendering] format, and the
+     * commonTest expected string. Miss the Kotlin side and
+     * `MessageCatalogCoverageTests` reddens per-PR (`ci.yml`'s `kmp` filter
+     * fires on `Localizable.xcstrings` and the two Swift `*Message.swift`
+     * files); miss the catalog sync and the same test catches the stale key.
      */
     public fun render(): String = rendering().render()
 

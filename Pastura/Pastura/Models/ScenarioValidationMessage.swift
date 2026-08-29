@@ -9,16 +9,27 @@ import Foundation
 /// case into the display string.
 ///
 /// This is the message-model split for the KMP Phase 3.0 Engine port (issue
-/// #501, Stage 0 / S0.1): the cases move to Kotlin `commonMain` 1:1 as a sealed
-/// class, while `localized` becomes an `expect`/`actual` leaf. Concretely it
-/// removes `CVarArg` **and** `String(format:)` **and** `String(localized:)` —
-/// all Foundation/ObjC-isms — from the Engine files, which is the real
-/// portability delta, not merely relocating the `String(localized:)` token.
+/// #501, Stage 0 / S0.1): the cases moved to Kotlin `commonMain` 1:1 as a
+/// sealed class, and `localized` removed `CVarArg` **and** `String(format:)`
+/// **and** `String(localized:)` — all Foundation/ObjC-isms — from the Engine
+/// files, which was the real portability delta, not merely relocating the
+/// `String(localized:)` token.
 ///
 /// The rendered text is byte-identical to the pre-refactor Engine literals so
 /// `Localizable.xcstrings` keys are unchanged. Callers wrap the rendered string
 /// in ``SimulationError/scenarioValidationFailed(_:)`` (unchanged payload type —
 /// it is shared by many out-of-scope plain-literal throwers).
+///
+/// The Kotlin twin (`shared/models/.../ScenarioValidationMessage.kt`) now
+/// resolves each of these literals through its own `expect`/`actual`
+/// `localizedFormat` leaf, so on iOS the Kotlin engine reads the same
+/// `Localizable.xcstrings` `ja` value this file's `String(localized:)`
+/// literal does (#1631). Each literal here **is** the Kotlin twin's catalog
+/// key, so rewording one is a four-place edit: this Swift literal, the
+/// catalog `ja` value (the normal `xcstringstool` sync), the Kotlin
+/// `rendering()` format, and the commonTest expected string. Leaving the
+/// Kotlin side behind reddens `MessageCatalogCoverageTests`
+/// (`:shared:models:jvmTest`), run per-PR via the `ci.yml` `kmp` filter.
 nonisolated public enum ScenarioValidationMessage: Sendable {
   // MARK: Language membership (shared: ScenarioValidator + ScenarioLoader)
   case languageNotAccepted(allowed: String, got: String)

@@ -98,54 +98,38 @@ public sealed class ScenarioLintMessage {
     public data class UnknownConditionIdentifier(public val token: String) : ScenarioLintMessage()
 
     /**
-     * Renders the case to its display string, in **English only**.
+     * Renders the case to its display string, localized on Apple hosts that
+     * carry the app's string catalog.
      *
-     * The literals are byte-identical to the `String(localized:)` base values in
-     * Swift's `ScenarioLintMessage.localized`, with each `%@` replaced by the
-     * case's `token`. Swift substitutes through `String(format:)` with exactly
-     * one argument, which interpolates the token **verbatim** — no quoting, no
-     * escaping, and no second format pass over the result — so a plain Kotlin
-     * string template is the faithful port, and a token containing a quote or a
-     * `%` must survive untouched (the commonTest roster pins exactly that).
+     * The format strings are byte-identical to the `String(localized:)` base
+     * values in Swift's `ScenarioLintMessage.localized`, with each `%@` bound to
+     * the case's `token`. Swift substitutes through `String(format:)` with
+     * exactly one argument, which interpolates the token **verbatim** — no
+     * quoting, no escaping, and no second format pass over the result — so
+     * [substitute]'s plain scan is the faithful port, and a token containing a
+     * quote or a `%` must survive untouched (the commonTest roster pins exactly
+     * that).
      *
-     * ## Why en-only, and the Stage-5 debt it creates
-     *
-     * `commonMain` has no string catalog, and Kotlin/Native has no path to
-     * `Localizable.xcstrings`. ADR-023 §5 defines no boundary for this type and
-     * nothing consumes it in production until the linter port, so there is no
-     * localization contract to satisfy yet, and inventing one here would be
-     * guessing at Stage-5's design.
-     *
-     * Every one of these 22 literals **already has a `ja` translation** in
-     * `Pastura/Pastura/Resources/Localizable.xcstrings`. Lint findings are more
+     * Rendering goes through the same platform catalog leaf as
+     * [ScenarioValidationMessage.render] — see that KDoc for the full
+     * `expect`/`actual` shape, the four-place reword rule, and how
+     * `MessageCatalogCoverageTests` catches a stale side. Lint findings are more
      * exposed than validation messages: they surface in the scenario **editor
      * UI**, one row per finding, as ordinary browsing output rather than as a
-     * rare failure. If iOS starts consuming the Kotlin engine (Stage 5) while
-     * this is still en-only, Japanese users read English lint findings in the
-     * editor — a user-visible regression with **no compiler and no test signal**,
-     * since the Kotlin side would be internally consistent and the commonTest
-     * pins would stay green. A KDoc is only read by someone already in this file,
-     * which is the wrong audience for a debt that fires at Stage 5, so it is also
-     * recorded on the Stage-5 row of `docs/kmp-migration-status.md`.
+     * rare failure, so the debt that leaf discharges (#1631) mattered here
+     * first.
      *
-     * The Stage-5 fix is to make the rendering an `expect`/`actual` leaf, or to
-     * route the Apple side back through the Swift `localized`. Member naming here
-     * is chosen so either lands without moving callers: `render()` keeps its name
-     * and signature, and only its body delegates to the platform leaf. When
-     * budgeting that, count **source sets, not targets** — re-derive from
-     * `shared/models/build.gradle.kts`, whose four Apple targets share a parent
-     * source set under the default hierarchy template.
-     *
-     * ## No gate covers the dual landing of these 22 literals
+     * ## No gate covers the dual landing of these 22 literals beyond the catalog
      *
      * These literals are dual-landed with Swift's `ScenarioLintMessage.localized`
      * (that property's own doc comment says the same from the other side).
-     * Reword one there and the twin here, plus this module's expected-string
-     * pins, stay stale *and agree with each other* — so nothing reddens on either
-     * side. `check-prompt-literal-parity.py` does not close it: it only looks at
-     * `Engine/` + `LLM/` files containing `pickLanguage`, which never reaches
-     * `Models/`. The mitigation is procedural only — the Swift file is the source
-     * of truth, and a reword there is a two-file edit by hand.
+     * `check-prompt-literal-parity.py` does not cover this file: it only looks
+     * at `Engine/` + `LLM/` files containing `pickLanguage`, which never reaches
+     * `Models/`. `MessageCatalogCoverageTests` catches a Kotlin [rendering]
+     * format that no longer matches a catalog key or whose `%@` token count
+     * disagrees with the `ja` value, but it cannot catch a Swift-only reword
+     * that never touches the catalog at all — the Swift file stays the source
+     * of truth, and a reword there is still a four-place edit by hand.
      */
     public fun render(): String = rendering().render()
 

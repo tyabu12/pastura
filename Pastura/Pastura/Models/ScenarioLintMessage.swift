@@ -12,9 +12,9 @@ import Foundation
 /// string embedded in a ``LintFinding/message``.
 ///
 /// This is the message-model split for the KMP Engine port (ADR-023 Stage 3):
-/// the cases move to Kotlin `commonMain` 1:1 as a sealed class
-/// (`shared/models/.../ScenarioLintMessage.kt`, landing in the same PR), while
-/// `localized` becomes an `expect`/`actual` leaf.
+/// the cases moved to Kotlin `commonMain` 1:1 as a sealed class
+/// (`shared/models/.../ScenarioLintMessage.kt`, landed in the same PR), and
+/// `localized` removed `CVarArg` and `String(format:)` from the Engine files.
 ///
 /// Deliberately a **separate** type from ``ScenarioValidationMessage`` rather
 /// than folded into it: the two model different surfaces — a lint finding
@@ -25,6 +25,17 @@ import Foundation
 ///
 /// The rendered text is byte-identical to the pre-refactor Engine literals so
 /// `Localizable.xcstrings` keys are unchanged.
+///
+/// The Kotlin twin now resolves each of these literals through the same
+/// `expect`/`actual` `localizedFormat` leaf as ``ScenarioValidationMessage``'s
+/// Kotlin twin, so on iOS the Kotlin engine reads the same
+/// `Localizable.xcstrings` `ja` value this file's `String(localized:)`
+/// literal does (#1631). Each literal here **is** the Kotlin twin's catalog
+/// key, so rewording one is a four-place edit: this Swift literal, the
+/// catalog `ja` value (the normal `xcstringstool` sync), the Kotlin
+/// `rendering()` format, and the commonTest expected string. Leaving the
+/// Kotlin side behind reddens `MessageCatalogCoverageTests`
+/// (`:shared:models:jvmTest`), run per-PR via the `ci.yml` `kmp` filter.
 nonisolated public enum ScenarioLintMessage: Sendable {
   // MARK: Ordering (ScenarioSemanticLinter+Ordering.swift, R1–R6/R19)
   case eliminateNeedsVote
