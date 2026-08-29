@@ -13,8 +13,11 @@
 #   --dest     directory to stage into (default: `Pastura/Frameworks` under the
 #              repo root). The staged bundle is always named
 #              `PasturaSharedEngine.xcframework`.
-#   --if-missing  suppress success chatter; behaviour is otherwise identical
-#              (see "no mtime short-circuit" below).
+#   --if-missing  the wrapper-facing form (ADR-023 §6 (a) names this flag): passes
+#              `--quiet` to Gradle and drops the trailing size line, so an
+#              UP-TO-DATE run prints only the two `==>` progress lines. It does
+#              NOT skip Gradle when the bundle already exists — see "no mtime
+#              short-circuit" below.
 #
 # Exit codes:
 #   0 — success (assembled, or already UP-TO-DATE); also the no-op when
@@ -60,9 +63,12 @@
 #   explicitly and exits 1 — it must never fail silently (ADR-023 §6 (a),
 #   "dev iOS lane").
 #
-# Atomic staging: the Gradle output is copied to a sibling temp directory and
-# `mv`'d over the destination (same filesystem ⇒ atomic), so a Ctrl-C never
-# leaves a half-copied `.xcframework` in place. Copy-then-swap rather than a
+# Atomic staging: the Gradle output is copied to a sibling temp directory, the
+# old bundle is moved aside, and the new one is `mv`'d into place (same
+# filesystem ⇒ each rename is atomic), so a Ctrl-C leaves either the previous
+# bundle or the new one — never a half-copied `.xcframework`, and never a
+# deleted destination. The temp and aside names end in `.xcframework` so the
+# `Pastura/Frameworks/*.xcframework` gitignore glob covers an aborted run. Copy-then-swap rather than a
 # bare `mv` from the build dir keeps the staged copy independent of Gradle's
 # rebuild-then-delete cycle.
 
@@ -74,7 +80,8 @@ Usage: scripts/kmp/assemble-xcframework.sh [options]
 
   --config debug|release   build configuration (default: debug)
   --dest <dir>             staging directory (default: <repo>/Pastura/Frameworks)
-  --if-missing             quiet success; relies on Gradle's UP-TO-DATE fast path
+  --if-missing             quiet mode (Gradle --quiet, no size line); still runs
+                           Gradle and relies on its UP-TO-DATE fast path
   -h, --help               show this help
 
 Exit codes: 0 ok · 1 missing tool · 2 Gradle failure · 3 copy/rename failure · 64 usage
@@ -144,11 +151,23 @@ if ! command -v java >/dev/null 2>&1; then
   exit 1
 fi
 
-# `java -version` writes to stderr, as `openjdk version "17.0.x" ...` or
-# `openjdk version "21" ...`.
-JAVA_VERSION="$(java -version 2>&1 | head -1 | sed -E 's/.*version "([0-9]+)(\.[0-9]+)?.*/\1/')"
+# `java -version` writes to stderr, as `openjdk version "17.0.x" ...`,
+# `openjdk version "21" ...`, or legacy `java version "1.8.0_x"`. Two traps:
+# (1) macOS ships a `/usr/bin/java` stub that satisfies `command -v` but exits
+#     1 with "Unable to locate a Java Runtime" — under `pipefail` that status
+#     would abort the script before the diagnostic below, so the status is
+#     neutralized with `|| true` and the raw output is kept for the message.
+# (2) `JAVA_TOOL_OPTIONS` / `_JAVA_OPTIONS` prepend a "Picked up ..." line, so
+#     the version line is selected by content, not by position.
+JAVA_RAW="$(java -version 2>&1 || true)"
+JAVA_VERSION="$(printf '%s\n' "$JAVA_RAW" | grep -m1 -E 'version "' | sed -E 's/.*version "([0-9]+)(\.[0-9]+)?.*/\1/' || true)"
+if [ "${JAVA_VERSION:-}" = "1" ]; then
+  # Legacy `1.8.0_x` scheme: report the JDK the user actually has.
+  JAVA_VERSION="$(printf '%s\n' "$JAVA_RAW" | grep -m1 -E 'version "' | sed -E 's/.*version "1\.([0-9]+).*/\1/' || true)"
+fi
 if ! [[ "${JAVA_VERSION:-}" =~ ^[0-9]+$ ]] || [ "$JAVA_VERSION" -lt 17 ]; then
   echo "error: JDK 17 or newer required, found JDK ${JAVA_VERSION:-unknown}." >&2
+  echo "       java -version said: $(printf '%s\n' "$JAVA_RAW" | head -1)" >&2
   echo "       Install: brew install --cask temurin@17" >&2
   echo "       Or set JAVA_HOME: export JAVA_HOME=\$(/usr/libexec/java_home -v 17)" >&2
   exit 1
@@ -159,8 +178,11 @@ if [ ! -x "$REPO_ROOT/gradlew" ]; then
   exit 1
 fi
 
+GRADLE_FLAGS=(--no-daemon)
+[ "$IF_MISSING" -eq 1 ] && GRADLE_FLAGS+=(--quiet)
+
 echo "==> Assembling $GRADLE_TASK"
-if ! (cd "$REPO_ROOT" && ./gradlew "$GRADLE_TASK" --no-daemon); then
+if ! (cd "$REPO_ROOT" && ./gradlew "$GRADLE_TASK" "${GRADLE_FLAGS[@]}"); then
   echo "error: Gradle assemble failed. Re-run with --stacktrace for diagnostics:" >&2
   echo "       ./gradlew $GRADLE_TASK --no-daemon --stacktrace" >&2
   exit 2
@@ -175,14 +197,22 @@ fi
 
 echo "==> Staging into $DEST"
 mkdir -p "$DEST_DIR"
-TEMP_DEST="$DEST_DIR/.PasturaSharedEngine.xcframework.tmp.$$"
-trap 'rm -rf "$TEMP_DEST"' EXIT
+TEMP_DEST="$DEST_DIR/.PasturaSharedEngine.tmp.$$.xcframework"
+ASIDE="$DEST_DIR/.PasturaSharedEngine.old.$$.xcframework"
+trap 'rm -rf "$TEMP_DEST" "$ASIDE"' EXIT INT TERM
 
-rm -rf "$TEMP_DEST"
+rm -rf "$TEMP_DEST" "$ASIDE"
 cp -R "$SOURCE" "$TEMP_DEST" || { echo "error: copy failed" >&2; exit 3; }
-rm -rf "$DEST"
-mv "$TEMP_DEST" "$DEST" || { echo "error: atomic rename failed" >&2; exit 3; }
-trap - EXIT
+if [ -e "$DEST" ]; then
+  mv "$DEST" "$ASIDE" || { echo "error: could not move the previous bundle aside" >&2; exit 3; }
+fi
+if ! mv "$TEMP_DEST" "$DEST"; then
+  echo "error: atomic rename failed — restoring the previous bundle" >&2
+  [ -e "$ASIDE" ] && mv "$ASIDE" "$DEST"
+  exit 3
+fi
+rm -rf "$ASIDE"
+trap - EXIT INT TERM
 
 if [ "$IF_MISSING" -eq 1 ]; then
   exit 0

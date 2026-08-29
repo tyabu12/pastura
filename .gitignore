@@ -180,7 +180,8 @@ local.properties
 # Staged KMP umbrella (ADR-023 §6 Stage 5). Built on demand by
 # `scripts/kmp/assemble-xcframework.sh`, never tracked — the B′ guard
 # (`tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh` check 4) fails the
-# build if an `.xcframework` under `Pastura/` is ever committed. The gate-spike
-# package ignores its own copy via `tools/kmp-gate-spike/.gitignore`.
+# build if an `.xcframework` under `Pastura/` is ever committed. Covers the
+# script's DEFAULT `--dest` only — a custom dest is guarded by check 4 alone.
+# The gate-spike package ignores its own copy via `tools/kmp-gate-spike/.gitignore`.
 Pastura/Frameworks/*.xcframework
 

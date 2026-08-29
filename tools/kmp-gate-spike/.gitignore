@@ -1,1 +1,5 @@
-Frameworks/
+# The staged umbrella only, not the directory: `scripts/prune-stale-worktrees.sh`
+# matches ignored paths on their final component, and a bare `Frameworks/`
+# collapses the listing to a component it does not recognise (fails toward
+# KEEP). Mirrors the root `.gitignore`'s `Pastura/Frameworks/*.xcframework`.
+Frameworks/*.xcframework

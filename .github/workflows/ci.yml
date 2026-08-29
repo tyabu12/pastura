@@ -942,6 +942,10 @@ jobs:
         # the added assembly did not warrant a raise. Same tripwire posture as
         # the compile-only step above — if a genuinely konan-cold run trips it,
         # that is a first-run artifact, not a budget regression.
+        # ⚠️ That 5m19s was measured with BOTH umbrellas (models both-config +
+        # engine debug); since ADR-023 §6 (b) dropped the models umbrella the
+        # dominant release-link cost is gone and 18 is mostly slack. Re-baseline
+        # from the nightly sizing probe's next dispatch before tightening.
         timeout-minutes: 18
         # ONE umbrella assembles here. ADR-023 §6 Stage-5 ruling (b) dropped
         # `:shared:models`' models-only `PasturaShared` export, so the engine
@@ -950,12 +954,15 @@ jobs:
         # per-PR path that links at all — a PR touching the export must not
         # merge with the export unverified.
         #
-        # Dropping the models umbrella loses NO per-PR device-link coverage of
-        # models: `:shared:engine`'s `export(project(":shared:models"))` links
-        # every models symbol into this umbrella for the same iosArm64 /
+        # Dropping the models umbrella loses no per-PR DEBUG-config link
+        # coverage of models: `:shared:engine`'s `export(project(":shared:models"))`
+        # links every models symbol into this umbrella for the same iosArm64 /
         # iosSimulatorArm64 / iosX64 triples the deleted task covered (and adds
         # macosArm64). A models-side native link regression still reddens here —
-        # it is subsumed, not skipped.
+        # it is subsumed, not skipped. What IS dropped is per-PR RELEASE-config
+        # linking (the deleted task was both-config): deliberate, on the same
+        # reasoning that keeps the engine umbrella debug-only here, with the
+        # nightly both-config engine umbrella as the release backstop.
         #
         # DEBUG-only (`…EngineDebugXCFramework`): K/N release links run full LLVM
         # optimization and dominate the step's cost, and the `export`/API-

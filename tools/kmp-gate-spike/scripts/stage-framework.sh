@@ -21,6 +21,9 @@
 #
 # Usage:
 #   tools/kmp-gate-spike/scripts/stage-framework.sh [debug|release]   # default: debug
+#
+# Exit codes are the delegate's (see its header): 0 ok · 1 missing tool ·
+# 2 Gradle failure · 3 copy/rename failure · 64 usage.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
