@@ -122,28 +122,20 @@ integral `Double` drops its `.0`. The third bites silently: `TranscriptComparato
 never the fixtures' observed lines: a field no fixture populates is the one that bites later.
 `RunLogTests.fullyPopulatedLinePinsTheWireShape` is that measurement.
 
-**A Models-layer message type is dual-landed, and the Kotlin format string is now a *catalog key*.**
-`ScenarioValidationMessage` (53) and `ScenarioLintMessage` (22) render through `MessageRendering.kt`:
-`rendering()` carries the Swift `String(localized:)` literal verbatim as the key, and
-`localizedFormat` is an `expect` — JVM identity actual, `appleMain` actual
-`NSBundle.mainBundle.localizedStringForKey`. Apple lookup **falls back to the key**, so a Kotlin
-format that is no longer a live catalog key renders English in the app with no runtime signal.
-`MessageCatalogCoverageTests` (`shared/models/src/jvmTest/…`) is the detector: key present, not
-`extractionState: stale`, `ja` state `translated`, specifier multiset matching. It reddens only when
-the PR's changed paths trip `ci.yml`'s `kmp` filter, which now covers `Localizable.xcstrings` and
-`Models/Scenario{Validation,Lint}Message.swift` on top of `shared/**` — i.e. every file a reword
-must touch, so a PR that dodges the per-PR run has not changed any of the four either;
-`kmp-nightly.yml` is the backstop. `check-prompt-literal-parity.py` still never scans `Models/`.
-The Swift literal remains the source of truth and a reword is a **four-place** edit:
-Swift literal → catalog `ja` value (via the normal sync) → Kotlin `rendering()` format → commonTest
-expected string. The test sees the reword only **once `xcstringstool sync` has retired the old
-key** — the pre-commit hook skips that sync, so a reword committed un-synced leaves the old key live
-and the suite green until the next synced build; the full boundary is on the test's KDoc. Also
-unchecked: whether the `ja` value still *means* the English key (only its specifiers are compared),
-a Kotlin format that is a live key of some *other* surface, and roster completeness — the test
-reuses the commonTest rosters (`rosterWithExpectedRenderings()`, now `internal`), whose count pins
-redden only if the hand transcription was updated too; the `else`-free `when` in `swiftCaseNameOf`
-is the sole compile-time completeness guard. The same class, with a sharper edge:
+**A Models-layer message type is dual-landed, and the Kotlin format string is a *catalog key*.**
+`ScenarioValidationMessage` (53) and `ScenarioLintMessage` (22) carry the Swift `String(localized:)`
+literal verbatim as the key `rendering()` hands to the `expect` `localizedFormat`
+(`MessageRendering.kt`); the Apple actual **falls back to the key**, so a Kotlin format that is no
+longer a live catalog key renders English in the app with no runtime signal. A reword is a
+**four-place** edit — Swift literal (source of truth) → catalog `ja` value via the normal sync →
+Kotlin `rendering()` format → commonTest expected string. The detector is
+`MessageCatalogCoverageTests` (`:shared:models:jvmTest`, run per-PR because `ci.yml`'s `kmp` filter
+covers the catalog and both `*Message.swift`), with two blind spots stated on its KDoc:
+it sees a reword only once `xcstringstool sync` has retired the old key (the
+pre-commit hook skips that sync), and it compares specifiers, not meaning. Roster completeness is not
+its job either — the commonTest count pins redden only if the hand transcription was updated too;
+the `else`-free `when` in `swiftCaseNameOf` is the sole compile-time guard.
+`check-prompt-literal-parity.py` still never scans `Models/`. The same class, with a sharper edge:
 `Engine/PlaceholderAvailability.swift`
 → `shared/engine/.../PlaceholderAvailability.kt` is a data map the Swift linter and two editor views
 **consume today**, so it keeps moving — a new `PhaseType` or handler-supplied token is a three-file
