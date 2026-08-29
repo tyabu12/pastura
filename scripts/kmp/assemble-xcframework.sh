@@ -65,11 +65,13 @@
 #
 # Atomic staging: the Gradle output is copied to a sibling temp directory, the
 # old bundle is moved aside, and the new one is `mv`'d into place (same
-# filesystem ⇒ each rename is atomic), so a Ctrl-C leaves either the previous
-# bundle or the new one — never a half-copied `.xcframework`, and never a
-# deleted destination. The temp and aside names end in `.xcframework` so the
-# `Pastura/Frameworks/*.xcframework` gitignore glob covers an aborted run. Copy-then-swap rather than a
-# bare `mv` from the build dir keeps the staged copy independent of Gradle's
+# filesystem ⇒ each rename is atomic). The trap is restore-aware: on any exit,
+# signal included, it puts the aside copy back if the destination is missing,
+# so an abort leaves either the previous bundle or the new one — never a
+# half-copied `.xcframework`, and never a deleted destination. The temp and
+# aside names end in `.xcframework` so the `Pastura/Frameworks/*.xcframework`
+# gitignore glob covers an aborted run. Copy-then-swap rather than a bare `mv`
+# from the build dir keeps the staged copy independent of Gradle's
 # rebuild-then-delete cycle.
 
 set -euo pipefail
@@ -199,7 +201,25 @@ echo "==> Staging into $DEST"
 mkdir -p "$DEST_DIR"
 TEMP_DEST="$DEST_DIR/.PasturaSharedEngine.tmp.$$.xcframework"
 ASIDE="$DEST_DIR/.PasturaSharedEngine.old.$$.xcframework"
-trap 'rm -rf "$TEMP_DEST" "$ASIDE"' EXIT INT TERM
+# Restore-aware cleanup. Between "move aside" and "rename into place" the aside
+# copy is the ONLY previous bundle, so the handler must put it back before
+# deleting anything; if that restore itself fails, the aside is left in place
+# and named, never removed. INT/TERM re-raise the conventional exit codes.
+cleanup_staging() {
+  rm -rf "$TEMP_DEST"
+  if [ -e "$ASIDE" ]; then
+    if [ ! -e "$DEST" ]; then
+      if ! mv "$ASIDE" "$DEST"; then
+        echo "error: could not restore the previous bundle — it is at $ASIDE" >&2
+        return 0
+      fi
+    fi
+    rm -rf "$ASIDE"
+  fi
+}
+trap 'cleanup_staging' EXIT
+trap 'cleanup_staging; trap - EXIT; exit 130' INT
+trap 'cleanup_staging; trap - EXIT; exit 143' TERM
 
 rm -rf "$TEMP_DEST" "$ASIDE"
 cp -R "$SOURCE" "$TEMP_DEST" || { echo "error: copy failed" >&2; exit 3; }
@@ -208,7 +228,6 @@ if [ -e "$DEST" ]; then
 fi
 if ! mv "$TEMP_DEST" "$DEST"; then
   echo "error: atomic rename failed — restoring the previous bundle" >&2
-  [ -e "$ASIDE" ] && mv "$ASIDE" "$DEST"
   exit 3
 fi
 rm -rf "$ASIDE"

@@ -182,6 +182,10 @@ local.properties
 # (`tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh` check 4) fails the
 # build if an `.xcframework` under `Pastura/` is ever committed. Covers the
 # script's DEFAULT `--dest` only — a custom dest is guarded by check 4 alone.
+# `Pastura/Frameworks/.gitkeep` is tracked on purpose: git collapses a wholly
+# ignored UNTRACKED directory to `!! Pastura/Frameworks/`, and
+# `scripts/prune-stale-worktrees.sh` matches the final component, so without
+# the anchor the staged bundle never reaches its disposable list.
 # The gate-spike package ignores its own copy via `tools/kmp-gate-spike/.gitignore`.
 Pastura/Frameworks/*.xcframework
 
