@@ -607,7 +607,9 @@ call, and these are what the batches so far have taught.
   the failure condition (natural Japanese = failed), and topic 1 grew from a
   four-word shout to a two-sentence line with enough words to mangle. Under
   that wording he held the gimmick in 2 draws of 2, as did all four personas
-  — the six-of-six count above is the old wording's record and stays.
+  in round 1 of both draws — the pickable window; `ネタバレ女王` dropped hers
+  in run 2's round 2, outside it. The six-of-six count above is the old
+  wording's record and stays.
   Check the transcript, not the YAML. Dropping one speaker costs nothing —
   outside an `eliminate` scenario, a partial speaker set leaks no outcome (see
   the `eliminate` norm above).
@@ -621,7 +623,7 @@ call, and these are what the batches so far have taught.
   line that itself only half-kept his 【目的】 — thin enough that deleting the
   highlight (§ "Updating a scenario that has a highlight", second route) beat
   publishing it. #1581's persona rewrite earned it back two days later: all
-  four held their 【目的】 in both check draws, and the re-published hook
+  four held their 【目的】 in round 1 of both check draws, and the re-published hook
   quotes `直訳マシーンのボブ` and `余計な情報のスズキ` — `ネタバレ女王` stays
   excerpt-only, because she opened her parenthetical with her `例:`'s 「(なお、」
   in both draws (see the frame list above).
