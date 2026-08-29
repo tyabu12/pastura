@@ -529,7 +529,10 @@ call, and these are what the batches so far have taught.
   persona: `hissatsu_naming_v1`'s `翻訳調の刺客` opens 「くらえ、これがオレ流の
   “X”だ」 in every draw (his 【目的】 asks for exactly that voice, so it is
   the persona, not a defect); `seriffu_knockout_v1`'s `大袈裟役者ガラ` closes
-  on 「〜のだァァ！」, which his new `例:` also uses. Note that `assign` with
+  on 「〜のだァァ！」, which his new `例:` also uses; `chin_jimaku_v1`'s
+  `ネタバレ女王` opens her spoiler parenthetical with 「(なお、」 in every
+  draw, borrowed from her `例:` (the parenthetical itself is what her 【目的】
+  mandates, the 「なお」 is not). Note that `assign` with
   `target: all` hands out `topics:` in file order, one per round
   (`AssignHandler`), not at random — so an example that shadows a later topic
   (`熱血真面目バン`'s 二度寝 against `seriffu_knockout_v1` topic 4) is outside
@@ -598,6 +601,15 @@ call, and these are what the batches so far have taught.
   the model quietly ignores is a scenario-design problem, not a draw problem,
   so **an emphatic instruction is not evidence that it lands** — `Trivia Todd`
   carries the most forceful wording in either file and honours it least.
+  What did land for `直訳マシーンのボブ` (#1581) was not more emphasis: his
+  【目的】 now describes the *property* of the output (English word order,
+  subjects and possessives never elided, idioms split word by word) and names
+  the failure condition (natural Japanese = failed), and topic 1 grew from a
+  four-word shout to a two-sentence line with enough words to mangle. Under
+  that wording he held the gimmick in 2 draws of 2, as did all four personas
+  in round 1 of both draws — the pickable window; `ネタバレ女王` dropped hers
+  in run 2's round 2, outside it. The six-of-six count above is the old
+  wording's record and stays.
   Check the transcript, not the YAML. Dropping one speaker costs nothing —
   outside an `eliminate` scenario, a partial speaker set leaks no outcome (see
   the `eliminate` norm above).
@@ -610,7 +622,11 @@ call, and these are what the batches so far have taught.
   her. What was left was a two-persona slice resting on a `余計な情報のスズキ`
   line that itself only half-kept his 【目的】 — thin enough that deleting the
   highlight (§ "Updating a scenario that has a highlight", second route) beat
-  publishing it, with #1581 tracking the persona rewrite that earns it back.
+  publishing it. #1581's persona rewrite earned it back two days later: all
+  four held their 【目的】 in round 1 of both check draws, and the re-published hook
+  quotes `直訳マシーンのボブ` and `余計な情報のスズキ` — `ネタバレ女王` stays
+  excerpt-only, because she opened her parenthetical with her `例:`'s 「(なお、」
+  in both draws (see the frame list above).
   Count the *surviving* slices before spending draws: one persona out can
   eliminate every legal one.
 
