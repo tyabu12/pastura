@@ -171,6 +171,9 @@ internal class ConditionalHandler : PhaseHandler {
             // reset the run-scoped consecutive-skip counter inside branches. Note
             // `detector` and `logger` are DEFAULTED on `PhaseContext`, so omitting
             // either would compile clean and silently unwire them for nested phases.
+            // `random` threads the parent source for the same reason (ADR-023 S3b):
+            // omitting it defaults to `SystemRandomSource`, and a branch-nested
+            // `event_inject` would silently ignore a parity fixture's seed.
             val subContext = PhaseContext(
                 scenario = context.scenario,
                 phase = subPhase,
@@ -182,6 +185,7 @@ internal class ConditionalHandler : PhaseHandler {
                 turnGate = context.turnGate,
                 detector = context.detector,
                 logger = context.logger,
+                random = context.random,
             )
 
             current = try {

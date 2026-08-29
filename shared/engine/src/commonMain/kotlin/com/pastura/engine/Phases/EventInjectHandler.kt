@@ -3,7 +3,6 @@ package com.pastura.engine
 import com.pastura.models.AnyCodableValue
 import com.pastura.models.SimulationEvent
 import com.pastura.models.SimulationState
-import kotlin.random.Random
 
 /**
  * Handles `event_inject` phases — probabilistically injects a random
@@ -19,17 +18,18 @@ import kotlin.random.Random
  *   are surfaced as a [SimulationEvent.Summary] warning so curators can fix the
  *   YAML; the variable is still written as the empty string so subsequent prompt
  *   expansion never hits a missing key.
- * - Rolls `Random.nextDouble() < probability`. Strict `<` against the half-open
- *   range gives the boundary semantics curators expect: `probability = 0.0`
- *   never fires, `probability = 1.0` always fires (since `nextDouble()` can
- *   return 0.0 but never 1.0).
+ * - Rolls `context.random.unit() < probability`. Strict `<` against the half-open
+ *   `[0, 1)` range gives the boundary semantics curators expect:
+ *   `probability = 0.0` never fires, `probability = 1.0` always fires (since
+ *   [unit] can return 0.0 but never 1.0).
  * - On miss (roll failed, source missing, or source empty), writes the empty
  *   string to `state.variables[as]` and emits [SimulationEvent.EventInjected]
  *   with `event = null`. The empty-string write — rather than leaving the key
  *   absent — prevents a previous round's value from "ghosting" into the next
  *   prompt and keeps `PromptBuilder`'s substitution well-defined.
- * - On hit, picks a random element and writes it to `state.variables[as]`,
- *   emitting [SimulationEvent.EventInjected] with the chosen text.
+ * - On hit, picks an element by index from the injected [RandomSource] and writes
+ *   it to `state.variables[as]`, emitting [SimulationEvent.EventInjected] with the
+ *   chosen text.
  * - `no_repeat: true` (#1006) draws **without replacement** across the run:
  *   already-drawn events are tracked per variable in [SimulationState.drawnEvents]
  *   and the pick is taken from the remainder, resetting to the full pool once
@@ -37,11 +37,11 @@ import kotlin.random.Random
  *   consumes the pool. Identical-text entries collapse in the drawn `Set`, so a
  *   curator relying on strict no-repeat should keep event texts distinct.
  *
- * RNG is not injected. The probability boundaries (0.0 / 1.0) make the fire/miss
- * decision deterministically testable, and a single-element `source` makes the
- * `random()` pick deterministic too — matching the project's pattern in
- * `AssignHandler` (which also uses `random()` / `Random.nextInt` directly without
- * injection).
+ * Every draw goes through [PhaseContext.random] (ADR-023 Stage 4, S3b) so a parity
+ * fixture can seed both engines identically; see [RandomSource] for why the
+ * stdlib's reductions cannot be used here. The probability boundaries (0.0 / 1.0)
+ * and single-element sources still make most tests deterministic without a seed,
+ * as they did before the seam.
  *
  * A code phase — it never touches [PhaseContext.turnGate] (no LLM turn), matching
  * Swift, where the code phases ignore it too.
@@ -128,23 +128,26 @@ internal class EventInjectHandler : PhaseHandler {
         //   probability = 1.0 → roll < 1.0 is always true  → always fires
         // (`<=` would allow `probability = 0.0` to occasionally fire when
         // RNG returns exactly 0.0.)
-        val roll = Random.nextDouble()
+        //
+        // The draw goes through the injected seam, not `Random.nextDouble()` —
+        // see [RandomSource]: the stdlib's reduction of the raw bits differs from
+        // Swift's, so the ADR-023 parity fixtures would diverge here.
+        val roll = context.random.unit()
         if (roll >= probability) {
             return miss(context, state, variableName, favoredName, carriesFavors)
         }
 
         // `no_repeat` (#1006) draws from the not-yet-drawn remainder and records
         // the pick; the default path keeps plain with-replacement selection.
-        // `List.random()` on a non-empty list always returns an element — the
-        // guard above guarantees `events.isNotEmpty()`. Both branches funnel the
-        // chosen entry through the SAME variable / favored-var writes below, so
-        // dict-shaped `{text,favors}` scoring (#931) is preserved regardless of
-        // draw mode.
+        // The `events.isNotEmpty()` guard above is what keeps `index(below =)`'s
+        // non-empty precondition satisfied. Both branches funnel the chosen entry
+        // through the SAME variable / favored-var writes below, so dict-shaped
+        // `{text,favors}` scoring (#931) is preserved regardless of draw mode.
         val (chosen, afterPick) =
             if (context.phase.noRepeat == true) {
-                pickWithoutRepeat(events, variableName, state)
+                pickWithoutRepeat(events, variableName, state, context.random)
             } else {
-                events.random() to state
+                events[context.random.index(below = events.size)] to state
             }
 
         var variables = afterPick.variables + (variableName to chosen.text)
@@ -183,7 +186,9 @@ internal class EventInjectHandler : PhaseHandler {
      * `state.drawnEvents[variableName]`. When every entry has already been drawn
      * the pool is reset and a fresh full draw is taken — a late repeat is
      * preferable to blanking the variable mid-scenario (#1006). `events` is
-     * guaranteed non-empty by the caller.
+     * guaranteed non-empty by the caller and the reset below restores that for
+     * `remaining`, so [RandomSource.index]'s non-empty precondition holds on every
+     * path.
      *
      * Because [SimulationState] is immutable, this returns BOTH the chosen entry
      * and the state carrying the updated `drawnEvents` — a caller that keeps the
@@ -194,6 +199,7 @@ internal class EventInjectHandler : PhaseHandler {
         events: List<ChosenEntry>,
         variableName: String,
         state: SimulationState,
+        random: RandomSource,
     ): Pair<ChosenEntry, SimulationState> {
         var drawn = state.drawnEvents[variableName] ?: emptySet()
         var remaining = events.filter { it.text !in drawn }
@@ -202,7 +208,7 @@ internal class EventInjectHandler : PhaseHandler {
             drawn = emptySet()
             remaining = events
         }
-        val chosen = remaining.random()
+        val chosen = remaining[random.index(below = remaining.size)]
         val updatedDrawn = state.drawnEvents + (variableName to (drawn + chosen.text))
         return chosen to state.copy(drawnEvents = updatedDrawn)
     }
