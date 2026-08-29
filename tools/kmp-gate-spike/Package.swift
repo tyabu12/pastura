@@ -48,7 +48,9 @@ let package = Package(
   name: "kmp-gate-spike",
   platforms: [.macOS(.v15)],
   targets: [
-    // Staged by `scripts/stage-framework.sh` into `Frameworks/` (gitignored).
+    // Staged by `scripts/stage-framework.sh` into `Frameworks/` (gitignored);
+    // that script is a thin wrapper over the repo-wide
+    // `scripts/kmp/assemble-xcframework.sh`.
     // A local-path binary target is resolved when the package GRAPH loads, not
     // when the manifest is evaluated: `Package.swift` itself compiles fine on a
     // checkout that never ran the staging script, and `swift build` is what then

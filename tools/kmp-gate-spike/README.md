@@ -93,9 +93,10 @@ That wraps the Gradle task and copies the result into `Frameworks/`:
 # → shared/engine/build/XCFrameworks/debug/PasturaSharedEngine.xcframework
 ```
 
-(There is no `scripts/kmp/` helper on `main` — the `assemble-xcframework.sh`
-that ADR-023 §6 mentions lives on the retained `feature/kmp-spike-models`
-branch and is Stage-5 salvage, not a `main` tool.)
+`stage-framework.sh` is a thin wrapper: since ADR-023 §6 Stage 5 slice S5-1 the
+Gradle invocation, JDK probe and atomic staging live in
+`scripts/kmp/assemble-xcframework.sh`, the single assembler shared with the app
+tree, and this script only supplies `--dest Frameworks/`.
 
 Then, from the repository root:
 

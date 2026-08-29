@@ -187,7 +187,11 @@ LOG_FILE=""
 # Directories, matched on the final path component, mirroring the bare-pattern
 # semantics of .gitignore's own `build/`, `DerivedData/` and `.build/` rules
 # (which match at any depth).
-DISPOSABLE_COMPONENTS="build DerivedData .build .gradle node_modules PasturaShared.xcframework"
+# `PasturaSharedEngine.xcframework` replaced a stale `PasturaShared.xcframework`
+# entry (ADR-023 §6 (b) dropped the models-only umbrella): the old name matched
+# nothing the gate spike ever staged, so a worktree holding the staged engine
+# umbrella failed toward KEEP and never pruned.
+DISPOSABLE_COMPONENTS="build DerivedData .build .gradle node_modules PasturaSharedEngine.xcframework"
 # Files, matched on the full repo-relative path. Deliberately not by basename:
 # a copy of this filename somewhere else in the tree is not the same file and
 # must keep blocking. See § "WHY .claude/settings.local.json IS DISPOSABLE".
