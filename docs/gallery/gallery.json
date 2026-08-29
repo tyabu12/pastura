@@ -281,7 +281,7 @@
       ],
       "language": "ja",
       "yaml_url": "hissatsu_naming_v1.yaml",
-      "yaml_sha256": "2a96a740912f789d7446a9fff326dafab4d2fb1c867106e2b7b51c797e931342",
+      "yaml_sha256": "e1be24e6db3782c779c85867b64aab5bd42501d97573c0d898d9851d9e2bd3f0",
       "added_at": "2026-06-20"
     },
     {
@@ -669,7 +669,7 @@
       ],
       "language": "en",
       "yaml_url": "hissatsu_naming_v1_en.yaml",
-      "yaml_sha256": "98aa8d52d9e1ba685d6806aefaeb3da29f9b40f4b5cdd4f5443d17798249619b",
+      "yaml_sha256": "76ff3e6c29f370a3d8b3665ade472073f2fce6cb0e694a23f0f8d525bedd166c",
       "added_at": "2026-07-01"
     },
     {
