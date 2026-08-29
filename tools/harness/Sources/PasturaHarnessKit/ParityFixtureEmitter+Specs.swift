@@ -183,10 +183,12 @@ extension ParityFixtureEmitter {
       scenarioPath: "Pastura/Pastura/Resources/Presets/word_wolf.yaml",
       purpose: """
         Happy path, and the first **seeded** fixture (ADR-023 S3b-2): the first \
-        witness of `assign` with `target: random_one`, `event_inject` with a \
-        `probability:`, `narrate`, `reflect`, `eliminate`, and `score_calc` with \
-        `logic: wordwolf_judge` — five of the six handlers no unseeded fixture \
-        could reach, in one 26-call run.
+        witness of four of the five handlers no unseeded fixture could reach — \
+        `event_inject` (with a `probability:`), `narrate`, `reflect`, \
+        `eliminate` — plus two variants of already-witnessed handlers, `assign` \
+        with `target: random_one` and `score_calc` with `logic: wordwolf_judge`, \
+        in one 26-call run. The fifth, `relationship_update`, is \
+        `lastFableNominal`'s.
 
         **The seed is chosen for the draw sequence, and the sequence is the \
         contract.** `assignRandomOne` draws twice — `index(below: 1)` for the \

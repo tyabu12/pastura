@@ -115,8 +115,19 @@ extension ParityFixtureEmitterTests {
         )
         guard
           let object = try? JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any]
-        else { continue }
+        else {
+          // The only unparseable override a fixture may carry is a multi-object
+          // structural arm; a dropped brace or a smart quote in a hand-typed
+          // vote payload must not slip through as "not checkable".
+          #expect(
+            payload.contains("}{"),
+            "\(spec.name): override \(index) is not parseable JSON and not a multi-object arm")
+          continue
+        }
         let declared = Set(run.answeredFields[index])
+        // Subset, not equality: `targetScoreRaceDivergent`'s override 3 adds a
+        // `confidence` key on purpose (the float-normalization arm), and any
+        // negative control may answer more than the schema asks.
         #expect(
           declared.isSubset(of: Set(object.keys)),
           "\(spec.name): override \(index) answers \(object.keys.sorted()) but the call declared \(declared.sorted())"
@@ -166,12 +177,16 @@ extension ParityFixtureEmitterTests {
   private func expectEveryReflectionHasContent(
     in fixture: ParityFixtureEmitter.Fixture, label: String
   ) {
-    let notes = fixture.transcript.filter {
-      $0.contains("\"phase_type\":\"reflect\"") && $0.contains("\"agent_output\"")
+    let notes = fixture.transcript.compactMap { line -> [String: String]? in
+      guard line.contains("\"event\":\"agent_output\""),
+        let object = try? JSONSerialization.jsonObject(with: Data(line.utf8)) as? [String: Any],
+        object["phase_type"] as? String == PhaseType.reflect.rawValue
+      else { return nil }
+      return object["fields"] as? [String: String]
     }
     #expect(!notes.isEmpty, "\(label): reflect ran and no agent produced a note")
     #expect(
-      notes.allSatisfy { !$0.contains(":\"\"") },
+      notes.allSatisfy { fields in !fields.isEmpty && fields.values.allSatisfy { !$0.isEmpty } },
       "\(label): a reflect output carries an empty field")
   }
 

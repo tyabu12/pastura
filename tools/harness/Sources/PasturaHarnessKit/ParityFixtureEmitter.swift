@@ -126,6 +126,7 @@ package enum ParityFixtureEmitter {
   /// them to check that a hand-pinned override landed on the turn its payload
   /// answers; nothing else does.
   package struct Run: Sendable {
+    /// What `parity-emit` freezes — identical to what ``run(_:)`` returns.
     package let fixture: Fixture
     /// Field names of the schema at each call index — see
     /// `RecordingResponder.recordedSchemaFields`.

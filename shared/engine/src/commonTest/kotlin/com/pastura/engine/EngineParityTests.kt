@@ -105,9 +105,10 @@ class EngineParityTests {
      * fixture is a full run — 24 inferences for `targetScoreRaceNominal`, 38 for
      * `prisonersDilemmaNominal`, 36 for the three-round `lastFableNominal` —
      * doing prompt building, streaming callbacks and JSON parsing while polled
-     * at `delay(1)`, and the `macosArm64` rung is the slower of the two (the
-     * whole eight-fixture roster replays in about half a second on the JVM, so
-     * the bound is headroom, not a budget). Under the old bound a
+     * at `delay(1)`, and the `macosArm64` rung was the slower of the two when
+     * the bound was set (measured 2026-08-29 with eight fixtures: 0.15 s for
+     * the whole roster on `macosArm64`, 0.48 s on the JVM — so the bound is
+     * headroom, not a budget). Under the old bound a
      * loaded runner would fail as a timeout that reads like a hang rather than
      * as the parity diff this suite is for.
      *

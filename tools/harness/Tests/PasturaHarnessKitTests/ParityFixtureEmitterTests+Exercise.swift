@@ -127,18 +127,23 @@ extension ParityFixtureEmitterTests {
       "\(label): a tally is empty — the votes are dropped, probably as self-votes")
   }
 
-  /// The assignment head resolved, in whichever of its two shapes the fixture
-  /// ran: `target: all` emits one `shared_assignment` per round, `target:
-  /// random_one` one `assignment` per agent with the minority word on exactly
-  /// one of them. The shape is read off the transcript, so neither arm is
-  /// hand-listed by spec name.
+  /// The assignment head resolved, in every shape the fixture ran: `target:
+  /// all` emits one `shared_assignment` per round, `target: random_one` one
+  /// `assignment` per agent with the minority word on exactly one of them.
+  /// Each arm is gated on its own line kind being present — not on the other's
+  /// absence, since nothing forbids a scenario running both — and at least one
+  /// must be, so neither is hand-listed by spec name and neither passes
+  /// vacuously.
   private func expectAssignmentResolved(in fixture: ParityFixtureEmitter.Fixture, label: String) {
     let perAgent = fixture.transcript.filter { $0.contains("\"event\":\"assignment\"") }
-    if perAgent.isEmpty {
+    let shared = fixture.transcript.filter { $0.contains("\"event\":\"shared_assignment\"") }
+    #expect(!perAgent.isEmpty || !shared.isEmpty, "\(label): assign ran and emitted no assignment")
+    if !shared.isEmpty {
       #expect(
-        fixture.transcript.contains(where: aResolvedSharedAssignment),
+        shared.contains(where: aResolvedSharedAssignment),
         "\(label): every shared_assignment carries an empty value — the topic never resolved")
-    } else {
+    }
+    if !perAgent.isEmpty {
       #expect(
         aSingleMinorityAssignment(perAgent),
         "\(label): the per-agent assignments do not hold exactly one minority word: \(perAgent)")
