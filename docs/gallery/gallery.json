@@ -437,6 +437,8 @@
       "language": "ja",
       "yaml_url": "seriffu_knockout_v1.yaml",
       "yaml_sha256": "9433bfd83fe998b6429a8570ffea970096c52ad0ef5094dd119802b865853856",
+      "highlight_url": "highlights/seriffu_knockout_v1.json",
+      "highlight_sha256": "0b72fafa90c58a476656a82a5bbe68f07963048cfa901f220f8758b1e49d566f",
       "added_at": "2026-06-29"
     },
     {
