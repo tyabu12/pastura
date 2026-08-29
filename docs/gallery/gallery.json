@@ -208,6 +208,8 @@
       "language": "ja",
       "yaml_url": "chin_jimaku_v1.yaml",
       "yaml_sha256": "c22ae2b6db74a45f499d51b5c9eaee04cdcbd7e2fcee0d02787f3e265c3ddd47",
+      "highlight_url": "highlights/chin_jimaku_v1.json",
+      "highlight_sha256": "3958872539c93fc08342217b6082845fec35413847640cbfacacc2539e8cf125",
       "added_at": "2026-06-13"
     },
     {
