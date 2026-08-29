@@ -334,14 +334,24 @@ internal object DivergenceLedger {
             "(`parityRunEmitsNoLanguageMismatch` guards the omission)",
         DivergenceClass.LINT_PREDICATE_DIVERGENCE to
             "needs a condition operand that is non-finite/hex-float or non-ASCII with two " +
-            "findings in one condition; grepped `condition` across ParityGolden.kt and " +
-            "`if:` across tools/harness/Fixtures/*.yaml — every fixture's only condition is " +
-            "the single ASCII decimal comparison `max_score >= 3` (target_score_race)",
+            "findings in one condition; re-grepped 2026-08-29 over the six fixtures' five " +
+            "scenarios — `condition` across ParityGolden.kt, `if:` across " +
+            "tools/harness/Fixtures/*.yaml plus the four presets now used " +
+            "(target_score_race, prisoners_dilemma, bokete, DemoPresets/iiwake_battle_v1) — " +
+            "and target_score_race still holds the only condition in the set, the single " +
+            "ASCII decimal comparison `max_score >= 3`; the four other scenarios declare no " +
+            "conditional at all",
         DivergenceClass.SCOREBOARD_ORDERING to
             "reaches the transcript through the summarize template, but needs agent names " +
-            "where Unicode-scalar and UTF-16 order disagree, or canonically-equivalent keys; " +
-            "every fixture's agent names are BMP (katakana or ASCII), where the two orders " +
-            "coincide",
+            "where Unicode-scalar and UTF-16 order disagree, or two scoreboard keys that are " +
+            "canonically equivalent while differing byte-wise. Re-verified 2026-08-29 across " +
+            "all six fixtures: bokete and iiwake_battle_v1 widened the set from ASCII and " +
+            "katakana to kanji and hiragana (ツッコミ太郎, あるある先生, 国際派ジョージ, " +
+            "浪花節たけし, …), and every name is still BMP, where scalar and UTF-16 order " +
+            "coincide. The second arm is closed by a separate property: several names carry a " +
+            "decomposable dakuten (ジ / ブ / ボ), but each YAML stores only the precomposed " +
+            "NFC form, so no two keys are canonically equivalent and Swift's collapse has " +
+            "nothing to collapse",
     )
 
     /** Which engine emits an event the other does not. */

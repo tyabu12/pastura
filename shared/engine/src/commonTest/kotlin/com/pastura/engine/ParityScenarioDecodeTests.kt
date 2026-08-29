@@ -1,5 +1,6 @@
 package com.pastura.engine
 
+import com.pastura.models.AnyCodableValue
 import com.pastura.models.Scenario
 import com.pastura.models.ScenarioCodec
 import kotlin.test.Test
@@ -106,6 +107,47 @@ class ParityScenarioDecodeTests {
                 "${fixture.name}: a field was lost or invented in decode -> encode -> decode",
             )
         }
+    }
+
+    /**
+     * `extraData` is the one scenario field whose Swift wire shape is not a
+     * `Codable`-synthesized struct but a hand-written `singleValueContainer`
+     * union (`AnyCodableValue.encode(to:)`), decoded on the Kotlin side by a
+     * hand-written `JsonElement`-inspecting serializer. Two independent
+     * hand-written codecs is exactly where a crossing breaks silently, and
+     * until a fixture whose scenario declares `topics:` exists, every other
+     * test in this file crosses an EMPTY map — so the union is asserted by
+     * nothing.
+     *
+     * Asserted as an `any` over the roster rather than per fixture: carrying
+     * `extraData` is a property of the scenario a fixture picked, not a
+     * contract every fixture owes. The vacuity guard is what stops that `any`
+     * from passing on an empty roster of carriers — without it, deleting the
+     * only such fixture would silently retire the gate.
+     */
+    @Test
+    fun someGoldenScenarioCarriesAnArrayValuedExtraDataEntry() {
+        var carriers = 0
+        for (fixture in ParityGolden.all) {
+            val topics = decode(fixture.scenarioJson).extraData["topics"] ?: continue
+            carriers += 1
+            val array = topics as? AnyCodableValue.ArrayValue
+                ?: error(
+                    "${fixture.name}: `topics` decoded as ${topics::class.simpleName}, " +
+                        "not ArrayValue — the Swift encoder writes a bare JSON array of " +
+                        "strings, so a different arm means the disambiguation order drifted",
+                )
+            assertTrue(
+                array.value.isNotEmpty() && array.value.all { it.isNotEmpty() },
+                "${fixture.name}: `topics` decoded to ${array.value} — an empty array or " +
+                    "an empty element would satisfy the type check while losing the payload",
+            )
+        }
+        assertTrue(
+            carriers > 0,
+            "no fixture's scenario carries a `topics` extraData entry — the non-empty " +
+                "`extraData` crossing is asserted by nothing, and this test passed vacuously",
+        )
     }
 
     /**
