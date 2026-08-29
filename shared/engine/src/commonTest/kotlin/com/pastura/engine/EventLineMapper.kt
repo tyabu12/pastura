@@ -1,5 +1,6 @@
 package com.pastura.engine
 
+import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import kotlin.math.floor
 import kotlinx.serialization.json.JsonArray
@@ -156,23 +157,30 @@ internal object EventLineMapper {
                 "round" to JsonPrimitive(event.round),
                 "phase_path" to path(event.phasePath),
             )
-            // ⚠️ KNOWN TO DISAGREE WITH SWIFT, AND UNEXERCISED — but DETERMINISTIC,
-            // which `toString()` was not: `SimulationError`'s singletons are
-            // plain `object`s, so `toString()` falls through to `Any.toString()`
-            // and yields `…SimulationError$Cancelled@7ceb3185`, whose identity
-            // hash changes every run. No fixture reaches an error path today, so
-            // nothing was red; the first one that does would have made the
-            // golden drift against itself.
-            //
-            // `simpleName` still will not match Swift, which projects via
-            // `String(describing: error)` and yields the lowercase case
-            // (`cancelled` vs `Cancelled`); and a payload-carrying case loses
-            // its payload here where Swift keeps it. Whoever first drives an
-            // error path — S4's cancellation tail is the likely trigger — must
-            // close that with a ledger entry or a shared spelling.
+            // The `error` field projects the bare Swift `SimulationError` case
+            // name (never `simpleName`'s PascalCase, never a payload) so the
+            // `error` line compares across engines — see
+            // `EventLineMapper.swift`'s `errorCaseName`, the Swift twin of this
+            // `when`. Payloads are dropped on both sides on purpose: they carry
+            // localized / free text (an LLM failure description, a raw JSON
+            // parse snippet) that is not a parity contract. `when (event.error)`
+            // is exhaustive with no `else` (ADR-022) for the same reason as the
+            // outer `when` — a new `SimulationError` case must fail to compile
+            // here rather than silently reach neither engine's transcript. ADR-023
+            // S4 (#1622) is the first fixture to drive an error line.
             is SimulationEvent.ErrorEvent -> fields(
                 "event" to JsonPrimitive("error"),
-                "error" to JsonPrimitive(event.error::class.simpleName ?: "unknown"),
+                "error" to JsonPrimitive(
+                    when (event.error) {
+                        is SimulationError.ScenarioValidationFailed -> "scenarioValidationFailed"
+                        is SimulationError.LlmGenerationFailed -> "llmGenerationFailed"
+                        is SimulationError.JsonParseFailed -> "jsonParseFailed"
+                        is SimulationError.RetriesExhausted -> "retriesExhausted"
+                        is SimulationError.ModelNotLoaded -> "modelNotLoaded"
+                        is SimulationError.Cancelled -> "cancelled"
+                        is SimulationError.TurnFailureLimitReached -> "turnFailureLimitReached"
+                    },
+                ),
             )
             is SimulationEvent.InferenceStarted -> fields(
                 "event" to JsonPrimitive("inference_started"),

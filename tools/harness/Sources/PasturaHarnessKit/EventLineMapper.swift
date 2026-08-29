@@ -103,7 +103,7 @@ package enum EventLineMapper {
         phasePath: phasePath)
     case .error(let error):
       return EventLine(
-        t: t, attempt: attempt, event: "error", error: String(describing: error))
+        t: t, attempt: attempt, event: "error", error: errorCaseName(error))
     case .inferenceStarted(let agent):
       return EventLine(t: t, attempt: attempt, event: "inference_started", agent: agent)
     case .inferenceCompleted(let agent, let durationSeconds, let tokenCount):
@@ -146,6 +146,32 @@ package enum EventLineMapper {
       // this switch — the compile-time canary the upstream tiers' `default:`
       // forwarding would otherwise lose.
       return nil
+    }
+  }
+
+  /// Bare `SimulationError` case name, dropping any payload. This is the
+  /// parity contract with the Kotlin mapper (`EventLineMapper.kt`) for the
+  /// `error` field: payload strings carry localized / free text that is not
+  /// worth cross-engine comparison, so both sides project the case name only
+  /// (e.g. `cancelled`, `llmGenerationFailed`). No `default:` (ADR-022) so a
+  /// new `SimulationError` case fails to compile here instead of silently
+  /// falling through `String(describing:)`.
+  private static func errorCaseName(_ error: SimulationError) -> String {
+    switch error {
+    case .scenarioValidationFailed:
+      return "scenarioValidationFailed"
+    case .llmGenerationFailed:
+      return "llmGenerationFailed"
+    case .jsonParseFailed:
+      return "jsonParseFailed"
+    case .retriesExhausted:
+      return "retriesExhausted"
+    case .modelNotLoaded:
+      return "modelNotLoaded"
+    case .cancelled:
+      return "cancelled"
+    case .turnFailureLimitReached:
+      return "turnFailureLimitReached"
     }
   }
 }
