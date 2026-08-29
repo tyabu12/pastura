@@ -32,7 +32,7 @@ _Last updated: 2026-08-29._
 | 1 | `shared/models` + CI infrastructure | ✅ done | #1052 #1055 #1059 |
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | ✅ done | ↓ Stage 3 breakdown |
-| 4 | Cross-language parity harness | 🔄 in progress | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) [#1615](https://github.com/tyabu12/pastura/issues/1615) landed; S3b-2 (seeded fixtures) [#1618](https://github.com/tyabu12/pastura/issues/1618) landed; S4 (cancellation tail) [#1622](https://github.com/tyabu12/pastura/issues/1622) landed; S5 next · [#501](https://github.com/tyabu12/pastura/issues/501) |
+| 4 | Cross-language parity harness | 🔄 in progress | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) [#1615](https://github.com/tyabu12/pastura/issues/1615) landed; S3b-2 (seeded fixtures) [#1618](https://github.com/tyabu12/pastura/issues/1618) landed; S4 (cancellation tail) [#1622](https://github.com/tyabu12/pastura/issues/1622) landed; S5 (suspend parity) [#1625](https://github.com/tyabu12/pastura/issues/1625) landed; S6 next · [#501](https://github.com/tyabu12/pastura/issues/501) |
 | 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · ⚠️ en-only `ScenarioValidationMessage.render()` / `ScenarioLintMessage.render()` block this — [#1464](https://github.com/tyabu12/pastura/issues/1464), [#1562](https://github.com/tyabu12/pastura/issues/1562) |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
@@ -89,10 +89,11 @@ machine-checked — see the maintenance invariant above.
   `t` and `attempt` are pinned to 0 by the emitter — which is why a `Structural` ledger entry has
   byte-identical lines to tell apart and keys on an ordinal.
 
-  Of the eight fixtures the six nominal ones carry the real-scenario parity claim (every handler
+  Of the ten fixtures the six nominal ones carry the real-scenario parity claim (every handler
   is now witnessed by at least one fixture — "witnessed" here means replayed through a golden,
-  distinct from the machine-checked *ported* checklist above); the two controls exist so the
-  ledger's own mechanisms stay provably reachable, with
+  distinct from the machine-checked *ported* checklist above); the four controls exist so the
+  ledger's own mechanisms — and the two §5.2 contract clauses the transcript alone cannot
+  show, cancellation and suspension — stay provably reachable, with
   `someFixtureDrivesBothEntryKinds` keeping the structural one armed. Why each is shaped as it
   is: the `purpose` strings on `ParityFixtureEmitter.specs`.
 
@@ -108,9 +109,16 @@ machine-checked — see the maintenance invariant above.
   `phaseCompleted` (an event position, not a call index — Kotlin's `LLMCaller` observes
   cancellation inside a backend call, the Swift responder does not) and both `EventLineMapper`s
   now project the `error` line as the bare Swift case name.
-  Residue, all scope rather than mechanism: **S5** ADR-023 §5.2 invariant 1's
-  suspend-then-succeed assertion, **S6** the divergence-6 ruling (pinned as a ledger entry;
-  deciding which side changes moves shipped Swift behaviour).
+  **S5** ([#1625](https://github.com/tyabu12/pastura/issues/1625)) froze ADR-023 §5.2
+  invariant 1 — suspend re-issues stay off the retry budget — as
+  `paritySuspendPreservesRetryBudget`: one turn takes exactly the three budgeted attempts
+  interleaved with three suspend cycles, so either engine charging a suspend would skip the
+  turn. Suspension is invisible in both transcripts (no `SimulationEvent` marks it), so
+  `callCount` now counts suspend re-issues on both sides and each side guards its schedule
+  loudly (`suspendNeverFired` / the delivered-suspend assertion). Green on both rungs with an
+  empty ledger; no engine code changed.
+  Residue, scope rather than mechanism: **S6** the divergence-6 ruling (pinned as a ledger
+  entry; deciding which side changes moves shipped Swift behaviour).
 - **Stage 5** (iOS switch + code-merge): ⬜ not started — the remaining iOS integration; the ported
   Kotlin loader still has no caller in `shared/engine`. See
   [ADR-023](decisions/ADR-023.md) §6 Stage 5.
