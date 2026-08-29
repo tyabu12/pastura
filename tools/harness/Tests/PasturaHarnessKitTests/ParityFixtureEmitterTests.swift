@@ -126,8 +126,17 @@ struct ParityFixtureEmitterTests {
       let fixture = try await ParityFixtureEmitter.run(spec)
 
       #expect(fixture.callCount == fixture.responses.count, "\(spec.name)")
-      #expect(
-        fixture.transcript.contains { $0.contains("\"simulation_completed\"") }, "\(spec.name)")
+      // "End to end" means *reaching its own terminal event*, which is not the
+      // same event for every spec: a cancelling fixture ends at
+      // `error cancelled` by construction, and asserting `simulation_completed`
+      // for it would demand the run keep going past the cut it exists to
+      // freeze. Both arms are asserted, so neither spec kind gets a pass —
+      // `ParityFixtureEmitterTests+Cancel.swift` then pins the cancelled tail
+      // in detail.
+      let terminal =
+        spec.cancelAfterPhaseCompleted == nil
+        ? "\"simulation_completed\"" : "\"error\":\"cancelled\""
+      #expect(fixture.transcript.contains { $0.contains(terminal) }, "\(spec.name)")
       // Keyed on the spec's own scenario path rather than a hard-coded preset
       // id, which was only ever true of the two `target_score_race` fixtures.
       // `#require`, not `?? ""`: `String.contains("")` is `true`, so an empty

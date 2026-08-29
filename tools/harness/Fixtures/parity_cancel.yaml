@@ -1,0 +1,73 @@
+# ADR-023 Stage-4 parity fixture — NOT a shipped preset.
+#
+# Sibling of parity_structural.yaml, and here for the same reason: it is
+# machinery coverage, not content. `PresetLoader` never sees it,
+# `pastura-harness lint` does not glob this directory, and nothing bundles it
+# into the app.
+#
+# Shape is load-bearing and minimal on purpose:
+# - one round, three agents;
+# - phase 0 is a plain `speak_all`, so the run has a head that must survive
+#   intact whatever the cancellation does later;
+# - phase 1 is a `conditional` whose branch holds TWO sub-phases. No bundled
+#   preset has that: `target_score_race` and `word_wolf` each branch into a
+#   single template `summarize`, so a cancel landing between sub-phases had
+#   nowhere to land. Here `[1, 0]` runs and `[1, 1]` must never start.
+# - the branch's second sub-phase is a template `summarize`, which issues no
+#   backend call — so "it never ran" is visible in the transcript rather than
+#   only in `callCount`.
+#
+# `if: "current_round >= 1"` is variable-free in the sense that matters: both
+# operands are always present (`current_round` is written by the round loop
+# before any phase runs, and `1` is a literal), so the then-branch is taken on
+# every engine without depending on a score, a vote, or a draw. An
+# always-present operand also keeps the semantic linter (ADR-024 R13-R15)
+# silent, which a persona name or a `scores.<Name>` operand would not.
+#
+# Deterministic: the responder answers from the schema, never the prompt, and
+# no phase here injects RNG.
+id: parity_cancel
+language: en
+name: Parity Cancellation Control
+description: >
+  One round, one conditional whose taken branch holds two sub-phases. The
+  parity harness cancels the run the moment the first sub-phase completes, so
+  the cancellation event tail is what this fixture measures.
+agents: 3
+rounds: 1
+context: >
+  A fixture scenario for cross-language parity testing. Content is irrelevant
+  to the measurement; the responder never reads this.
+
+personas:
+  - name: Ada
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+  - name: Bo
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+  - name: Cy
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+
+phases:
+  - type: speak_all
+    prompt: >
+      Say one short sentence about round {current_round}.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: conditional
+    if: "current_round >= 1"
+    then:
+      - type: speak_all
+        prompt: >
+          Say one more short sentence.
+        output:
+          statement: string
+          inner_thought: string
+      - type: summarize
+        template: >
+          Round {current_round} wrap-up. This line must never appear in the
+          cancellation fixture's transcript.

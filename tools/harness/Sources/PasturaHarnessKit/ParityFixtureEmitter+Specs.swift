@@ -10,7 +10,7 @@ extension ParityFixtureEmitter {
   /// A spec whose scenario draws from the `RandomSource` (`assign random_one`,
   /// `event_inject`) sets `seed:`, and one that draws nothing must not —
   /// `seededSpecsAreExactlyTheDrawingOnes` holds both directions, derived from
-  /// the loaded scenario rather than from a name list. The six unseeded specs
+  /// the loaded scenario rather than from a name list. The seven unseeded specs
   /// are RNG-free by construction (S3a); `wordWolfNominal` and
   /// `lastFableNominal` are the seeded ones (S3b-2, #1618), and between them
   /// they witness every handler the unseeded roster could not reach.
@@ -261,6 +261,42 @@ extension ParityFixtureEmitter {
         35: #"{"vote": "カラス", "reason": "reason 35"}"#
       ],
       seed: 1
+    ),
+    FixtureSpec(
+      name: "parityCancelConditional",
+      scenarioPath: "tools/harness/Fixtures/parity_cancel.yaml",
+      purpose: """
+        Cancellation control (ADR-023 S4, #1622). The only fixture whose run \
+        does NOT reach `simulation_completed`: the harness cancels it the \
+        moment `phase_completed [1, 0]` — the conditional branch's first \
+        sub-phase — is emitted, and what it freezes is the event tail both \
+        engines produce from there.
+
+        **What it witnesses.** Swift used to exit `ConditionalHandler`'s \
+        sub-phase loop by RETURNING on cancellation, so the runner read the \
+        branch as finished and emitted `phase_completed [1]` for work that had \
+        been cut short — and on the pause path a second `error cancelled` on \
+        top. #1622 made both paths throw, so the tail is now exactly what \
+        Kotlin has always produced: `phase_completed [1, 0]` then \
+        `error cancelled` as the LAST line, with no `phase_completed` for the \
+        outer `[1]` and no `simulation_completed` at all. The branch's second \
+        sub-phase — a template `summarize` at `[1, 1]` — never starts, which \
+        is visible as an absent `phase_started` rather than only as a call \
+        count.
+
+        **Why its own scenario.** No bundled preset has a conditional branch \
+        with two sub-phases: `target_score_race` and `word_wolf` each branch \
+        into a single `summarize`, so the cancel would have had nowhere to \
+        land between sub-phases and the fixture would have measured the \
+        branch's exit rather than its interruption.
+
+        **Why the trigger is an event position and not a call index** is \
+        `FixtureSpec.cancelAfterPhaseCompleted`'s own doc: Kotlin observes \
+        cancellation inside a backend call and Swift's responder does not, so \
+        a call-indexed cut lands at different logical points on the two \
+        engines and the diff would be about the harness.
+        """,
+      cancelAfterPhaseCompleted: [1, 0]
     )
   ]
 }
