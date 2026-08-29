@@ -100,6 +100,42 @@ struct ConditionEvaluatorTests {
     #expect(result.value)
   }
 
+  @Test func voteWinnerCountGTE() throws {
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"])
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 1]
+    #expect(
+      try evaluator.evaluate("vote_winner_count >= 2", state: state, scenario: scenario).value)
+    #expect(
+      !(try evaluator.evaluate("vote_winner_count >= 3", state: state, scenario: scenario).value))
+  }
+
+  @Test func voteWinnerCountTiePinsTiedCount() throws {
+    // Same tie-break as `vote_winner` (count desc, name desc) — Bob wins the
+    // Alice/Bob tie, and vote_winner_count is the tied count itself (2), not
+    // some other value.
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"])
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 2]
+    #expect(
+      try evaluator.evaluate("vote_winner_count == 2", state: state, scenario: scenario).value)
+  }
+
+  @Test func voteWinnerCountCarriesOverAcrossRounds() throws {
+    // Pins ADR-020 §11's stated semantics DELIBERATELY, not accidentally:
+    // `state.voteResults` is never cleared at a round boundary, so
+    // `vote_winner_count` (like `vote_winner`) keeps resolving the most recent
+    // vote phase's count even after `currentRound` advances past it. Do NOT
+    // "fix" this by round-scoping — that would contradict the documented
+    // staleness this test exists to lock in.
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 5)
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 1]
+    state.currentRound = 4
+    #expect(
+      try evaluator.evaluate("vote_winner_count == 2", state: state, scenario: scenario).value)
+  }
+
   // MARK: - Template-variable side (state.variables)
 
   @Test func stateVariableAccess() throws {
@@ -118,6 +154,15 @@ struct ConditionEvaluatorTests {
     let state = SimulationState.initial(for: scenario)  // empty voteResults
     let result = try evaluator.evaluate(
       "vote_winner == \"Alice\"", state: state, scenario: scenario)
+    #expect(!result.value)
+    #expect(!result.warnings.isEmpty)
+  }
+
+  @Test func voteWinnerCountPreVoteReturnsFalseWithWarning() throws {
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"])
+    let state = SimulationState.initial(for: scenario)  // empty voteResults
+    let result = try evaluator.evaluate(
+      "vote_winner_count >= 1", state: state, scenario: scenario)
     #expect(!result.value)
     #expect(!result.warnings.isEmpty)
   }
