@@ -22,7 +22,7 @@ import kotlinx.coroutines.launch
  * ```kotlin
  * val handle = SimulationEngine().run(scenario, backend) { event -> /* … */ }
  * handle.pause(); handle.resume(); handle.cancel(); handle.notifyLLMResumed()
- * // Swift: SimulationEngine(detector: nil, logger: NoopEngineLogger())
+ * // Swift: SimulationEngine(detector: nil, logger: NoopEngineLogger(), random: SystemRandomSource())
  * //        — K/N exports no default arguments, so there is no no-arg init.
  * ```
  *
@@ -61,10 +61,20 @@ import kotlinx.coroutines.launch
  *   there to [LLMCaller] (the `StreamingDiag` channel). Defaults to
  *   [NoopEngineLogger] so Engine tests and the ADR-013 harness run without
  *   wiring OSLog; production injects the Swift `OSLogEngineLogger`.
+ * @property random Injected randomness seam (ADR-023 Stage 4, S3b) forwarded to
+ *   every [PhaseContext], so `assign random_one` and `event_inject` draw from a
+ *   stream the caller controls. Defaults to [SystemRandomSource] — shipped
+ *   behaviour is unchanged; a cross-language parity fixture passes a
+ *   [SplitMix64RandomSource] and gets the same picks out of the Swift engine on
+ *   the same seed. The source lives for the engine's lifetime, not the run's, so
+ *   a second [run] on the same instance CONTINUES the stream rather than
+ *   restarting it — reproducibility needs a fresh engine per seeded run, which is
+ *   what the parity replay builds (one per fixture).
  */
 public class SimulationEngine(
     private val detector: LanguageDetector? = null,
     private val logger: EngineLogger = NoopEngineLogger(),
+    private val random: RandomSource = SystemRandomSource(),
 ) {
 
     // Swift's `SimulationRunner.validator`. A stateless value, held as a property
@@ -103,7 +113,7 @@ public class SimulationEngine(
                 // run is emitted, so `run()` still returns its handle immediately
                 // and a rejection arrives via `onEvent` like any other error.
                 if (!preflightGate(scenario, validator, onEvent)) return@launch
-                RunLoop(scenario, backend, relay, gate, onEvent, detector, logger).execute()
+                RunLoop(scenario, backend, relay, gate, onEvent, detector, logger, random).execute()
             } catch (e: CancellationException) {
                 // Swift's runner checks `Task.isCancelled` at each checkpoint and
                 // emits `.error(.cancelled)`. Kotlin's idiomatic equivalent throws,
@@ -233,6 +243,7 @@ private class RunLoop(
     // SimulationEngine's constructor KDoc.
     private val detector: LanguageDetector?,
     private val logger: EngineLogger,
+    private val random: RandomSource,
 ) {
 
     private val dispatcher = PhaseDispatcher()
@@ -308,6 +319,7 @@ private class RunLoop(
                         turnGate = turnGate,
                         detector = detector,
                         logger = logger,
+                        random = random,
                     ),
                     state = state,
                 )

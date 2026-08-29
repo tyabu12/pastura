@@ -19,7 +19,8 @@ import com.pastura.models.SimulationState
  * §5.1/§5.2 types: the two injection seams below, [LanguageDetector] and
  * [EngineLogger] (plus `EngineLogLevel` / `EngineLogPrivacy` / [NoopEngineLogger]),
  * are deliberate additions widened to `public` in #1603 so Swift can constructor-
- * inject them through `SimulationEngine(detector = …, logger = …)`. The handler
+ * inject them through `SimulationEngine(detector = …, logger = …)`, joined by
+ * [RandomSource] in #1615 (`SimulationEngine(random = …)`). The handler
  * contract itself stays off the surface regardless. `commonTest` still sees
  * these (test source sets are associated with `commonMain`).
  *
@@ -135,6 +136,19 @@ internal class PhaseContext(
      * reason as [detector].
      */
     val logger: EngineLogger = NoopEngineLogger(),
+    /**
+     * Injected randomness seam (ADR-023 Stage 4, S3b). Handlers draw through
+     * [RandomSource.index] / [RandomSource.unit] instead of the stdlib's ranged
+     * draws, whose reductions disagree with Swift's on the same seed. Injected
+     * from `SimulationEngine(random = …)`; cross-language parity fixtures pass a
+     * [SplitMix64RandomSource] so both engines consume the same stream, and the
+     * default is the production [SystemRandomSource] so shipped behaviour is
+     * unchanged. Like [turnGate] / [logger], a sub-context that omits it
+     * silently reverts to the system RNG — [ConditionalHandler] must thread the
+     * parent context's source into every sub-phase, or a nested `event_inject`
+     * ignores the fixture's seed.
+     */
+    val random: RandomSource = SystemRandomSource(),
 )
 
 /**

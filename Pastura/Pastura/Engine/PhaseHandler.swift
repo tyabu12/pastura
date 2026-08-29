@@ -57,6 +57,18 @@ nonisolated public struct PhaseContext: Sendable {
   /// (`ConditionalHandler`) thread the parent context's gate.
   public let turnGate: TurnFailureGate
 
+  /// Injected randomness seam (ADR-023 Stage 4, S3b). Handlers draw through
+  /// ``RandomSource/index(below:)`` / ``RandomSource/unit()`` instead of the
+  /// stdlib's ranged draws, whose reductions disagree with Kotlin's on the
+  /// same seed. Injected from ``SimulationRunner/init(detector:logger:random:)``;
+  /// cross-language parity fixtures pass a ``SplitMix64RandomSource`` so both
+  /// engines consume the same stream, and the default is the production
+  /// ``SystemRandomSource`` so shipped behaviour is unchanged. Like `turnGate`
+  /// / `logger`, a sub-context that omits it silently reverts to the system
+  /// RNG — `ConditionalHandler` must thread the parent context's source into
+  /// every sub-phase, or a nested `event_inject` ignores the fixture's seed.
+  public let random: any RandomSource
+
   public init(
     scenario: Scenario, phase: Phase,
     llm: LLMService,
@@ -66,7 +78,8 @@ nonisolated public struct PhaseContext: Sendable {
     phasePath: [Int],
     turnGate: TurnFailureGate,
     detector: (any LanguageDetector)? = nil,
-    logger: any EngineLogger = NoopEngineLogger()
+    logger: any EngineLogger = NoopEngineLogger(),
+    random: any RandomSource = SystemRandomSource()
   ) {
     self.scenario = scenario
     self.phase = phase
@@ -78,6 +91,7 @@ nonisolated public struct PhaseContext: Sendable {
     self.turnGate = turnGate
     self.detector = detector
     self.logger = logger
+    self.random = random
   }
 }
 

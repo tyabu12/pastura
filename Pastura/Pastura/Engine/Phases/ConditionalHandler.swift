@@ -118,6 +118,9 @@ nonisolated struct ConditionalHandler: PhaseHandler {
       // the nested path as its own `phasePath`. `turnGate` threads the
       // PARENT gate (ADR-021 D4): a fresh gate here would reset the
       // run-scoped consecutive-skip counter inside conditional branches.
+      // `random` threads the parent source for the same reason (ADR-023 S3b):
+      // omitting it defaults to `SystemRandomSource`, and a branch-nested
+      // `event_inject` would silently ignore a parity fixture's seed.
       let subContext = PhaseContext(
         scenario: context.scenario,
         phase: subPhase,
@@ -128,7 +131,8 @@ nonisolated struct ConditionalHandler: PhaseHandler {
         phasePath: innerPath,
         turnGate: context.turnGate,
         detector: context.detector,
-        logger: context.logger
+        logger: context.logger,
+        random: context.random
       )
 
       do {

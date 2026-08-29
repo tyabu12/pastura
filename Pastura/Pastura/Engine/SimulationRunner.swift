@@ -15,6 +15,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   private let validator = ScenarioValidator()
   private let detector: (any LanguageDetector)?
   private let logger: any EngineLogger
+  private let random: any RandomSource
 
   /// Creates a runner.
   ///
@@ -30,12 +31,26 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   ///     Defaults to ``NoopEngineLogger`` (silent) so tests and the ADR-013
   ///     harness run without wiring OSLog; production injects
   ///     ``OSLogEngineLogger`` at the View boundary (see `SimulationView`).
+  ///   - random: Injected randomness seam (ADR-023 Stage 4, S3b) forwarded to
+  ///     every ``PhaseContext``, so `assign random_one` and `event_inject`
+  ///     draw from a stream the caller controls. Defaults to
+  ///     ``SystemRandomSource`` — shipped behaviour is unchanged; a
+  ///     cross-language parity fixture passes ``SplitMix64RandomSource`` and
+  ///     gets the same picks out of the Kotlin engine on the same seed.
+  ///
+  ///     **Runner-scoped, not run-scoped**: this is a stored `let`, so a second
+  ///     ``run(scenario:llm:suspendController:)`` — or a resume via
+  ///     `startRound:` — CONTINUES the stream rather than restarting it.
+  ///     Same-seed reproducibility therefore needs a fresh `SimulationRunner`
+  ///     per run, which is what `ParityFixtureEmitter` and the seam tests do.
   public init(
     detector: (any LanguageDetector)? = nil,
-    logger: any EngineLogger = NoopEngineLogger()
+    logger: any EngineLogger = NoopEngineLogger(),
+    random: any RandomSource = SystemRandomSource()
   ) {
     self.detector = detector
     self.logger = logger
+    self.random = random
   }
 
   /// Whether the simulation is currently paused.
@@ -121,6 +136,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let pauseState = self.pauseState
     let detector = self.detector
     let logger = self.logger
+    let random = self.random
 
     return AsyncStream { continuation in
       let task = Task {
@@ -131,6 +147,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           suspendController: suspendController,
           detector: detector,
           logger: logger,
+          random: random,
           seed: seed, startRound: startRound,
           emitter: { continuation.yield($0) }
         )
@@ -154,6 +171,9 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let suspendController: SuspendController
     let detector: (any LanguageDetector)?
     let logger: any EngineLogger
+    /// The runner-scoped randomness seam (ADR-023 S3b), threaded into every
+    /// `PhaseContext` so one injected stream drives the whole run.
+    let random: any RandomSource
     /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).
     let startRound: Int
     let emitter: @Sendable (SimulationEvent) -> Void
@@ -169,6 +189,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     suspendController: SuspendController,
     detector: (any LanguageDetector)?,
     logger: any EngineLogger,
+    random: any RandomSource,
     seed: SimulationState?, startRound: Int,
     emitter: @escaping @Sendable (SimulationEvent) -> Void
   ) async {
@@ -181,7 +202,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let ctx = ExecutionContext(
       scenario: scenario, llm: llm, dispatcher: dispatcher,
       pauseState: pauseState, suspendController: suspendController,
-      detector: detector, logger: logger, startRound: startRound, emitter: emitter,
+      detector: detector, logger: logger, random: random, startRound: startRound,
+      emitter: emitter,
       turnGate: TurnFailureGate()
     )
 
@@ -347,7 +369,8 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
           phasePath: phasePath,
           turnGate: ctx.turnGate,
           detector: ctx.detector,
-          logger: ctx.logger
+          logger: ctx.logger,
+          random: ctx.random
         )
         try await handler.execute(context: phaseContext, state: &state)
       } catch {

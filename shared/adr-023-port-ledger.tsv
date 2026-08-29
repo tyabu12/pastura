@@ -53,6 +53,7 @@ Pastura/Pastura/Engine/PromptBuilder.swift	PORT
 Pastura/Pastura/Engine/PromptBuilder+Injection.swift	PORT
 Pastura/Pastura/Engine/PromptBuilder+PrivateSections.swift	PORT
 Pastura/Pastura/Engine/PromptPlaceholders.swift	PORT
+Pastura/Pastura/Engine/RandomSource.swift	PORT
 Pastura/Pastura/Engine/RelationshipVerbalizer.swift	PORT
 Pastura/Pastura/Engine/ScenarioLoader.swift	SPLIT	shared/engine/src/commonMain/kotlin/com/pastura/engine/InferenceEstimator.kt,shared/engine/src/commonMain/kotlin/com/pastura/engine/ScenarioLoader.kt
 Pastura/Pastura/Engine/ScenarioSemanticLinter.swift	PORT

@@ -44,14 +44,17 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// even though the package compiles under default-`MainActor` isolation, so it
 /// keeps the same semantics it will have inside `Engine/`.
 nonisolated public final class SharedEngineRunner: Sendable {
-  // Both arguments are spelled out because Kotlin default arguments do not
-  // survive the K/N export: the header declares exactly one initializer,
-  // `init(detector:logger:)`, with no no-arg overload. `nil` keeps the
-  // language-adherence check off and `NoopEngineLogger` swallows diagnostics —
-  // the Kotlin defaults, restated here. The spike deliberately injects neither
-  // seam; Stage 5 hands in `NLLanguageDetector` / `OSLogEngineLogger` from the
-  // App layer.
-  private let engine = SimulationEngine(detector: nil, logger: NoopEngineLogger())
+  // All three arguments are spelled out because Kotlin default arguments do not
+  // survive the K/N export (`.claude/rules/kmp-interop.md` Pattern 3): the
+  // header declares exactly one initializer,
+  // `init(detector:logger:random:)`, with no no-arg overload. `nil` keeps the
+  // language-adherence check off, `NoopEngineLogger` swallows diagnostics, and
+  // `SystemRandomSource` is the production RNG — the Kotlin defaults, restated
+  // here. The spike deliberately injects none of the three seams; Stage 5 hands
+  // in `NLLanguageDetector` / `OSLogEngineLogger` from the App layer, and a
+  // parity fixture would hand in a `SplitMix64RandomSource` (ADR-023 S3b).
+  private let engine = SimulationEngine(
+    detector: nil, logger: NoopEngineLogger(), random: SystemRandomSource())
   private let suspendController: SuspendController
 
   /// - Parameter suspendController: The controller the platform signals on

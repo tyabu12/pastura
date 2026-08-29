@@ -1,3 +1,4 @@
+import Synchronization
 import Testing
 
 @testable import Pastura
@@ -169,7 +170,9 @@ struct AssignHandlerTests {
     }
     let collector = EventCollector()
 
-    let context = makePhaseContext(scenario: scenario, llm: mock, collector: collector)
+    let counter = CountingRandomSource(inner: SplitMix64RandomSource(seed: 0))
+    let context = makePhaseContext(
+      scenario: scenario, llm: mock, collector: collector, random: counter)
     try await handler.execute(context: context, state: &state)
 
     // Clean no-op: no wolf chosen, no assignment events.
@@ -179,5 +182,32 @@ struct AssignHandlerTests {
       return false
     }
     #expect(assignments.isEmpty)
+
+    // The parity half, mirrored from the Kotlin twin: the topic is drawn
+    // BEFORE the guard on both engines, so the everyone-eliminated path
+    // consumes exactly one draw and the next value is seed 0's second word.
+    // Moving the guard above the topic draw keeps the no-op assertions green
+    // while silently desynchronizing the two streams — this pins it.
+    #expect(counter.draws == 1)
+    #expect(counter.nextUInt64() == 0x6E78_9E6A_A1B9_65F4)
+  }
+}
+
+/// Counts every raw draw taken from the wrapped source. `index(below:)` /
+/// `unit()` are protocol extensions over `nextUInt64()`, so reduced draws are
+/// counted too.
+private final class CountingRandomSource: RandomSource, @unchecked Sendable {
+  private let inner: any RandomSource
+  private let count = Mutex(0)
+
+  init(inner: any RandomSource) {
+    self.inner = inner
+  }
+
+  var draws: Int { count.withLock { $0 } }
+
+  func nextUInt64() -> UInt64 {
+    count.withLock { $0 += 1 }
+    return inner.nextUInt64()
   }
 }

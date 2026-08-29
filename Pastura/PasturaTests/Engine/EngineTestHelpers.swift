@@ -34,6 +34,10 @@ final class EventCollector: @unchecked Sendable {
 /// `detector` defaults to `nil` so existing handler tests retain their
 /// pre-Step E PR2 behaviour. Tests exercising the adherence path
 /// (ADR-010 Step E PR2 item 4) pass an explicit detector.
+///
+/// `random` defaults to ``SystemRandomSource`` — the production default — so
+/// tests relying on probability boundaries stay as they were. Tests pinning a
+/// specific draw pass a ``SplitMix64RandomSource`` (ADR-023 S3b).
 func makePhaseContext(
   scenario: Scenario,
   phaseIndex: Int = 0,
@@ -42,7 +46,8 @@ func makePhaseContext(
   collector: EventCollector,
   pauseCheck: @escaping @Sendable (_ phasePath: [Int]) async -> Bool = { _ in false },
   turnGate: TurnFailureGate = TurnFailureGate(),
-  detector: (any LanguageDetector)? = nil
+  detector: (any LanguageDetector)? = nil,
+  random: any RandomSource = SystemRandomSource()
 ) -> PhaseContext {
   PhaseContext(
     scenario: scenario,
@@ -53,7 +58,8 @@ func makePhaseContext(
     pauseCheck: pauseCheck,
     phasePath: [phaseIndex],
     turnGate: turnGate,
-    detector: detector
+    detector: detector,
+    random: random
   )
 }
 

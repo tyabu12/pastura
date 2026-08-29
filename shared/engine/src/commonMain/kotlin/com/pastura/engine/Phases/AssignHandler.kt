@@ -5,7 +5,6 @@ import com.pastura.models.AssignTarget
 import com.pastura.models.Persona
 import com.pastura.models.SimulationEvent
 import com.pastura.models.SimulationState
-import kotlin.random.Random
 
 /**
  * Handles `assign` phases that distribute information to agents.
@@ -40,7 +39,7 @@ internal class AssignHandler : PhaseHandler {
         // null target → ALL matches the documented default at the type's doc comment.
         return when (context.phase.target ?: AssignTarget.ALL) {
             AssignTarget.RANDOM_ONE ->
-                assignRandomOne(active, sourceData, state, context.emitter)
+                assignRandomOne(active, sourceData, state, context.emitter, context.random)
             AssignTarget.ALL ->
                 assignAll(active, sourceData, state, context.emitter)
         }
@@ -53,22 +52,32 @@ internal class AssignHandler : PhaseHandler {
      * `ScenarioValidator` rejects mismatched shapes upstream — the `!is` /
      * empty fall-through is a no-op safety net for scenarios constructed in tests
      * or future code paths that bypass validation.
+     *
+     * Both draws go through the injected [RandomSource] rather than the stdlib:
+     * see that interface's doc comment — `List.random()` / `Random.nextInt` reduce
+     * the raw bits differently from Swift's, so the ADR-023 parity fixtures could
+     * never agree on a pick.
      */
     private fun assignRandomOne(
         active: List<Persona>,
         sourceData: AnyCodableValue?,
         state: SimulationState,
         emitter: (SimulationEvent) -> Unit,
+        random: RandomSource,
     ): SimulationState {
         if (sourceData !is AnyCodableValue.ArrayOfDictionariesValue || sourceData.value.isEmpty()) {
             return state
         }
         val topics = sourceData.value
 
-        val topic = topics.random()
-        // Mirrors Swift `Int.random(in: 0..<active.count)`; `nextInt(0)` throws on
-        // empty `active`, exactly as Swift's range trap does — no guard Swift lacks.
-        val wolfIdx = Random.nextInt(active.size)
+        val topic = topics[random.index(below = topics.size)]
+        // The topic is drawn BEFORE this guard by design, not by accident: Swift
+        // draws in the same order, so on the everyone-eliminated path both
+        // engines consume exactly one draw, assign no wolf, and return a clean
+        // no-op (#1287) — the streams stay aligned for whatever the next phase
+        // draws. Reordering either engine's guard would desynchronize them.
+        if (active.isEmpty()) return state
+        val wolfIdx = random.index(below = active.size)
 
         val variables = state.variables.toMutableMap()
         for ((index, persona) in active.withIndex()) {

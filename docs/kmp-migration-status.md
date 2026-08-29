@@ -32,7 +32,7 @@ _Last updated: 2026-08-29._
 | 1 | `shared/models` + CI infrastructure | ✅ done | #1052 #1055 #1059 |
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | ✅ done | ↓ Stage 3 breakdown |
-| 4 | Cross-language parity harness | 🔄 in progress | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) next · [#501](https://github.com/tyabu12/pastura/issues/501) |
+| 4 | Cross-language parity harness | 🔄 in progress | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) [#1615](https://github.com/tyabu12/pastura/issues/1615) landed; S3b-2 (seeded fixtures) next · [#501](https://github.com/tyabu12/pastura/issues/501) |
 | 5 | iOS consumption switch + code-merge | ⬜ not started | the remaining integration · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · ⚠️ en-only `ScenarioValidationMessage.render()` / `ScenarioLintMessage.render()` block this — [#1464](https://github.com/tyabu12/pastura/issues/1464), [#1562](https://github.com/tyabu12/pastura/issues/1562) |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
@@ -95,8 +95,11 @@ machine-checked — see the maintenance invariant above.
   `someFixtureDrivesBothEntryKinds` keeping the structural one armed. Why each is shaped as it
   is: the `purpose` strings on `ParityFixtureEmitter.specs`.
 
-  Residue, all scope rather than mechanism: **S3b** RNG-bearing presets, the remaining 5
-  handlers and `assign random_one` · #501, **S4** the cancellation event tail, **S5** ADR-023 §5.2 invariant 1's
+  **S3b** landed the `RandomSource` seam on both engines
+  ([#1615](https://github.com/tyabu12/pastura/issues/1615)) — parity fixtures can now carry a
+  seed, but none does yet. Residue, all scope rather than mechanism: **S3b-2** seeded fixtures
+  for the RNG-bearing presets witnessing the remaining 5 handlers and `assign random_one` ·
+  #501, **S4** the cancellation event tail, **S5** ADR-023 §5.2 invariant 1's
   suspend-then-succeed assertion, **S6** the divergence-6 ruling (pinned as a ledger entry;
   deciding which side changes moves shipped Swift behaviour). `SimulationEvent.ErrorEvent`'s
   projection is known to disagree across languages and is unexercised by every fixture — S4 is

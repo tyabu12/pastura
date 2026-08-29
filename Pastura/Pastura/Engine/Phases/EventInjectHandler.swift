@@ -11,18 +11,18 @@ import Foundation
 ///   `EventReactivePayoffLogic`. Other shapes are surfaced as a `.summary`
 ///   warning so curators can fix the YAML; the variable is still written as
 ///   the empty string so subsequent prompt expansion never hits a missing key.
-/// - Rolls `Double.random(in: 0..<1) < probability`. Strict `<` against
-///   the half-open range gives the boundary semantics curators expect:
+/// - Rolls `context.random.unit() < probability`. Strict `<` against the
+///   half-open `[0, 1)` range gives the boundary semantics curators expect:
 ///   `probability = 0.0` never fires, `probability = 1.0` always fires
-///   (since `random(in: 0..<1)` can return 0.0 but never 1.0).
+///   (since `unit()` can return 0.0 but never 1.0).
 /// - On miss (roll failed, source missing, or source empty), writes the
 ///   empty string to `state.variables[as]` and emits
 ///   `.eventInjected(nil)`. The empty-string write — rather than leaving
 ///   the key absent — prevents a previous round's value from "ghosting"
 ///   into the next prompt and keeps `PromptBuilder.expandTemplate`'s
 ///   substitution well-defined.
-/// - On hit, picks a random element via `randomElement()` and writes it
-///   to `state.variables[as]`, emitting `.eventInjected(event)`.
+/// - On hit, picks an element by index from the injected ``RandomSource``
+///   and writes it to `state.variables[as]`, emitting `.eventInjected(event)`.
 /// - `no_repeat: true` (#1006) draws **without replacement** across the run:
 ///   already-drawn events are tracked per variable in `state.drawnEvents` and
 ///   the pick is taken from the remainder, resetting to the full pool once
@@ -30,11 +30,11 @@ import Foundation
 ///   consumes the pool. Identical-text entries collapse in the drawn `Set`, so
 ///   a curator relying on strict no-repeat should keep event texts distinct.
 ///
-/// RNG is not injected. The probability boundaries (0.0 / 1.0) make the
-/// fire/miss decision deterministically testable, and a single-element
-/// `source` makes the `randomElement()` pick deterministic too —
-/// matching the project's pattern in `AssignHandler` (which also uses
-/// `randomElement()` and `Int.random(in:)` directly without injection).
+/// Every draw goes through `context.random` (ADR-023 Stage 4, S3b) so a
+/// parity fixture can seed both engines identically; see ``RandomSource``
+/// for why the stdlib's reductions cannot be used here. The probability
+/// boundaries (0.0 / 1.0) and single-element sources still make most tests
+/// deterministic without a seed, as they did before the seam.
 nonisolated struct EventInjectHandler: PhaseHandler {
 
   /// Default variable name written when `Phase.eventVariable` is `nil`.
@@ -111,7 +111,11 @@ nonisolated struct EventInjectHandler: PhaseHandler {
     //   probability = 1.0 → roll < 1.0 is always true  → always fires
     // (`<=` would allow `probability = 0.0` to occasionally fire when
     // RNG returns exactly 0.0.)
-    let roll = Double.random(in: 0..<1)
+    //
+    // The draw goes through the injected seam, not `Double.random(in:)` —
+    // see ``RandomSource``: the stdlib's reduction of the raw bits differs
+    // from Kotlin's, so the ADR-023 parity fixtures would diverge here.
+    let roll = context.random.unit()
     guard roll < probability else {
       miss()
       return
@@ -119,15 +123,17 @@ nonisolated struct EventInjectHandler: PhaseHandler {
 
     // `no_repeat` (#1006) draws from the not-yet-drawn remainder and records
     // the pick; the default path keeps plain with-replacement selection.
-    // randomElement() on a non-empty array always returns Some — the guard
-    // above guarantees `events.isEmpty == false` — so the `??` is a no-op
-    // safety net. Both branches funnel the chosen tuple through the SAME
-    // variable / favored-var writes below, so dict-shaped `{text,favors}`
-    // scoring (#931) is preserved regardless of draw mode.
+    // The `!events.isEmpty` guard above is what keeps `index(below:)`'s
+    // non-empty precondition satisfied — no `??` fallback is needed once the
+    // pick is an index rather than an Optional-returning `randomElement()`.
+    // Both branches funnel the chosen tuple through the SAME variable /
+    // favored-var writes below, so dict-shaped `{text,favors}` scoring (#931)
+    // is preserved regardless of draw mode.
     let chosen: (text: String, favors: String?) =
       context.phase.noRepeat == true
-      ? pickWithoutRepeat(events, variableName: variableName, state: &state)
-      : (events.randomElement() ?? (text: "", favors: nil))
+      ? pickWithoutRepeat(
+        events, variableName: variableName, state: &state, random: context.random)
+      : events[context.random.index(below: events.count)]
 
     state.variables[variableName] = chosen.text
     // Write "" (not absent) for a dict entry with no `favors` tag, so an
@@ -140,12 +146,20 @@ nonisolated struct EventInjectHandler: PhaseHandler {
   /// in `state.drawnEvents[variableName]`. When every entry has already been
   /// drawn the pool is reset and a fresh full draw is taken — a late repeat is
   /// preferable to blanking the variable mid-scenario (#1006). `events` is
-  /// guaranteed non-empty by the caller, so the `??` is an unreachable safety
-  /// net mirroring the default path.
+  /// guaranteed non-empty by the caller and the reset below restores that for
+  /// `remaining`, so ``RandomSource/index(below:)``'s non-empty precondition
+  /// holds on every path.
+  ///
+  /// An empty pool now **traps** here (matching Kotlin's throw) instead of
+  /// falling through the old `randomElement() ?? …` to a ghost empty event.
+  /// Preferred deliberately: a trap localises the handler bug to this line,
+  /// where the silent fallback surfaced rounds later as a blank
+  /// `{current_event}` with no indication of where it came from.
   private func pickWithoutRepeat(
     _ events: [(text: String, favors: String?)],
     variableName: String,
-    state: inout SimulationState
+    state: inout SimulationState,
+    random: any RandomSource
   ) -> (text: String, favors: String?) {
     let drawn = state.drawnEvents[variableName] ?? []
     var remaining = events.filter { !drawn.contains($0.text) }
@@ -154,7 +168,7 @@ nonisolated struct EventInjectHandler: PhaseHandler {
       state.drawnEvents[variableName] = []
       remaining = events
     }
-    let chosen = remaining.randomElement() ?? (text: "", favors: nil)
+    let chosen = remaining[random.index(below: remaining.count)]
     state.drawnEvents[variableName, default: []].insert(chosen.text)
     return chosen
   }

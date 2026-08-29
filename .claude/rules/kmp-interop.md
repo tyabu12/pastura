@@ -42,7 +42,12 @@ source-compatible in Kotlin while breaking **every** Swift construction site —
 `@optional` trap above, same nightly-only signal, same remedy: update the Swift callers in the same
 PR. Measured on `SimulationEngine(detector:logger:)` (#1603), where the previously no-arg
 `SimulationEngine()` gained two defaulted seams and each Swift caller had to spell out
-`SimulationEngine(detector: nil, logger: NoopEngineLogger())`.
+`SimulationEngine(detector: nil, logger: NoopEngineLogger())`. Re-measured on `random:` (#1615): the
+third seam moved the same gate-spike call site again, to
+`SimulationEngine(detector:logger:random:)`. The same export shape also decides where a Kotlin
+*top-level extension function* lands: it exports on a `<File>Kt` file facade rather than on the
+protocol it extends, so a Swift conformer owes only the declared members — measured on
+`RandomSource.index` / `unit`, which reach Swift as `RandomSourceKt` (#1615).
 
 ## Pattern 4 — traps inside the Kotlin port (`commonMain`, `commonTest`, the port gates)
 
