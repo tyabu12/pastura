@@ -453,7 +453,7 @@
       ],
       "language": "ja",
       "yaml_url": "zenin_sansei_ryokou_v1.yaml",
-      "yaml_sha256": "b74d110e5b22385194208d5a9a0e531adf65d82b7dcfdf07041ad7bc85041d3b",
+      "yaml_sha256": "fccc3e2516bfc70bceb0ab4d3935f709366489ef90676f84f9453cccb9c32a58",
       "added_at": "2026-06-29"
     },
     {
@@ -623,7 +623,7 @@
       ],
       "language": "en",
       "yaml_url": "zenin_sansei_ryokou_v1_en.yaml",
-      "yaml_sha256": "9544b7c72b33f794dcc7e6f870559748b7ca7d80c7f42e9c767be07ac21d2fbb",
+      "yaml_sha256": "2a2b7ebf5dab289c5f0d073bf315fbefecabaff906627df409012b076dcf02b0",
       "added_at": "2026-07-01"
     },
     {
