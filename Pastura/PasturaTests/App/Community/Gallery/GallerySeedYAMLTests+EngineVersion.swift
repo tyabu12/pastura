@@ -17,8 +17,10 @@ extension GallerySeedYAMLTests {
   /// prevent; the App Store ID is not yet minted). The safe floor every
   /// installed app can still run is therefore the pre-`no_repeat` baseline:
   /// `1`. This is a **literal, deliberately decoupled from
-  /// `EngineSchemaVersion.current`** (= 2) — tying it to `current` would
-  /// auto-raise it on the next bump and silently defeat this tripwire.
+  /// `EngineSchemaVersion.current`** — whatever that constant currently is,
+  /// tying this to it would auto-raise the cap on the next bump and silently
+  /// defeat the tripwire. (Deliberately not restated as a number here: the
+  /// earlier parenthetical said "= 2" and went stale across three bumps.)
   static let maxGalleryFloorWithoutDeepLink = 1
 
   /// Tripwire enforcing ADR-020 §8 item-4: **no gallery scenario may declare

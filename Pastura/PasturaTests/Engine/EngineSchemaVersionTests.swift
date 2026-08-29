@@ -8,14 +8,16 @@ struct EngineSchemaVersionTests {
 
   // MARK: - Current version constant
 
-  @Test func currentVersionIsFive() {
+  @Test func currentVersionIsSix() {
     // Bumped 1→2 for event_inject no_repeat (#1006, ADR-020 §8); 2→3 for the
     // narrate phase (#909, ADR-020 §9); 3→4 for Persona.secret (#914 — an old
     // app silently drops the key and runs every agent without its hidden
     // agenda); 4→5 for ScoreCalcLogic.pairwise_payoff (ADR-027 — a new
-    // by-name-parsed score_calc logic, an old app throws on it via D5). Update
-    // in lockstep with any further EngineSchemaVersion.current bump.
-    #expect(EngineSchemaVersion.current == 5)
+    // by-name-parsed score_calc logic, an old app throws on it via D5); 5→6 for
+    // the vote_winner_count condition variable (#1599, ADR-020 §11 — a new
+    // `if:` token an old app resolves as absent, silently evaluating false).
+    // Update in lockstep with any further EngineSchemaVersion.current bump.
+    #expect(EngineSchemaVersion.current == 6)
   }
 
   // MARK: - D2 (phase-capability) branch
