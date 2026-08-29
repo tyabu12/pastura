@@ -347,10 +347,15 @@ internal class JSONResponseParser {
      * Swift returns `"1"` / `"0"` as well, because `NSNumber.stringValue` drops the
      * `.0`, so those two only changed divergence class: from the Bool bridge to
      * exponent/float FORMATTING, which also covers `1e3` -> Swift `"1000"` vs
-     * Kotlin `"1e3"`. That class is a formatting choice with no correct side; see
+     * Kotlin `"1e3"`. That class is accepted as a permanent cross-language
+     * divergence — neither side changes (ADR-023 §15, 2026-08-29, #1629): the
+     * text parses to the same `Double` on both sides wherever a field is read
+     * numerically, via `ConditionEvaluator.compare` on `state.variables`, and
+     * nothing else reads a field numerically. Pinned by
+     * `DivergenceLedger.NUMBER_LITERAL_FORMATTING` and
      * `JSONResponseParserParityTests` § "Known Kotlin-side literal-preservation
-     * differences", and ADR-023 Stage 4 to decide the rule once for both engines.
-     * The same applies to numbers nested inside [canonicalJson].
+     * differences". The same applies to numbers nested inside [canonicalJson] —
+     * do not "fix" this side.
      *
      * ## Nested values
      *

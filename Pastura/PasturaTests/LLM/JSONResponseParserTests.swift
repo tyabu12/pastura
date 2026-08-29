@@ -76,7 +76,9 @@ struct JSONResponseParserTests {
   /// so ordering `as? Bool` ahead of `as? NSNumber` swallowed these into
   /// "false"/"true" (#1150). `1.0` / `0.0` render without the `.0` because
   /// `NSNumber.stringValue` normalizes the literal — that formatting difference
-  /// from the Kotlin port is a separate divergence, deferred to ADR-023 Stage 4.
+  /// from the Kotlin port is a separate divergence, accepted permanently
+  /// (ADR-023 §15, 2026-08-29): the Kotlin port keeps the literal and neither
+  /// side changes.
   @Test func normalizesNumbersInsideTheBoolBridgeWindow() throws {
     let input = #"{"zero": 0, "one": 1, "floatZero": 0.0, "floatOne": 1.0}"#
     let output = try parser.parse(input)

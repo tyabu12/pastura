@@ -126,7 +126,9 @@ internal object DivergenceLedger {
         /**
          * Swift's `NSNumber.stringValue` drops a trailing `.0` and expands
          * exponents (`1.0` -> `"1"`, `1e3` -> `"1000"`); Kotlin preserves the
-         * literal. ADR-023 Stage 4 is asked to rule on which side changes.
+         * literal. Ruled permanent 2026-08-29 (ADR-023 §15, #1629): neither
+         * side changes — the text parses to the same Double wherever a field
+         * is read numerically (`ConditionEvaluator.compare`).
          */
         NUMBER_LITERAL_FORMATTING("JSONResponseParser.kt normalizeValues KDoc"),
 
