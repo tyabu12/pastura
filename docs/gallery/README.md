@@ -531,6 +531,13 @@ call, and these are what the batches so far have taught.
   re-hashes it, so it forces a re-extract and a fresh sign-off
   (§ "Updating a scenario that has a highlight") — budget that before
   starting, not after the gate rejects the commit.
+  **Moving the hook to another persona re-opens the example check for the
+  new hookee.** A hook change does not touch the excerpt, so nothing forces a
+  re-extract, and a line that passed the loose bar for an un-hooked speaker
+  (verbatim reproduction only) is now on the strict hooked side (sentence
+  frame too) without anyone having looked. When review re-points a hook,
+  re-read the new hookee's excerpt lines against that persona's `例:` /
+  `e.g.` before accepting the change (#1595).
 - **Captions and teasers render verbatim — no Markdown.** The app draws both
   with `Text(verbatim:)` and the landing pages interpolate them as text, so
   backticks, asterisks and brackets ship as literal characters. Write
