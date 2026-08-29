@@ -453,7 +453,7 @@
       ],
       "language": "ja",
       "yaml_url": "zenin_sansei_ryokou_v1.yaml",
-      "yaml_sha256": "b74d110e5b22385194208d5a9a0e531adf65d82b7dcfdf07041ad7bc85041d3b",
+      "yaml_sha256": "6307b3292bcb8e4e5c61865dc1ae7fcddc919c0aaac8dc6f0be46275fdcd623a",
       "added_at": "2026-06-29"
     },
     {
@@ -473,7 +473,7 @@
       ],
       "language": "ja",
       "yaml_url": "kyoyu_gyojo_v1.yaml",
-      "yaml_sha256": "a5793670872fca129637c088cf643ea92cf2dd0ca5b2c19dae1e69e39898da77",
+      "yaml_sha256": "32a1b9fe8d720f4969227e684134bb4de8be1100c23f840e14a49444b5bcd8a4",
       "added_at": "2026-06-30"
     },
     {
@@ -623,7 +623,7 @@
       ],
       "language": "en",
       "yaml_url": "zenin_sansei_ryokou_v1_en.yaml",
-      "yaml_sha256": "9544b7c72b33f794dcc7e6f870559748b7ca7d80c7f42e9c767be07ac21d2fbb",
+      "yaml_sha256": "7c4923333c1978b25cf56f273035fbb64b2884cf6fe678cd78d245db6f489822",
       "added_at": "2026-07-01"
     },
     {
@@ -643,7 +643,7 @@
       ],
       "language": "en",
       "yaml_url": "kyoyu_gyojo_v1_en.yaml",
-      "yaml_sha256": "f79f78bb38132cdbcf0e6ed61fdf559b71528540f5551b398d77bc6eddbbf2c3",
+      "yaml_sha256": "a49b0d7349c6cf5b8975b6a46c912e61dcf945df0c63a22d7a51f3be2cd6ad29",
       "added_at": "2026-07-01"
     },
     {
@@ -928,7 +928,7 @@
       ],
       "language": "ja",
       "yaml_url": "tsuhan_jiko_v1.yaml",
-      "yaml_sha256": "0e547becdf10665276fa89e3c88998aef493af6b6a4d8a08ddf68cd20b27780c",
+      "yaml_sha256": "66ac3439a14a7446b1ddb6fda02f3503532550f6534c3c1ca4a6c242ce6c504b",
       "added_at": "2026-07-10"
     },
     {
