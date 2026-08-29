@@ -75,6 +75,14 @@ git check-ignore fastlane/.env    # → prints "fastlane/.env" (ignored)
 
 ### 4. Set up code signing in Xcode
 
+`release.sh`'s export step uses the `app-store-connect` export method
+(`xcodebuild`'s current name for what the older, now-deprecated `app-store`
+also refers to), so this machine's Xcode must be new enough to recognize it:
+
+```bash
+xcodebuild -help | grep -c app-store-connect  # → non-zero means this Xcode supports it
+```
+
 `scripts/release.sh` archives and exports headlessly with automatic signing,
 passing `-allowProvisioningUpdates` so it resolves the App Store provisioning
 profile and the **cloud-managed** distribution certificate from the Developer

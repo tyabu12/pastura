@@ -15,7 +15,7 @@
 #                CURRENT_PROJECT_VERSION override (no pbxproj edit)
 #   symbol     → re-run the ADR-005 §8.5 Ollama-symbol guard on the
 #                ARCHIVED binary (CI only checks the unsigned build product)
-#   export     → xcodebuild -exportArchive, method app-store, with an
+#   export     → xcodebuild -exportArchive, method app-store-connect, with an
 #                exportOptions.plist generated at cut time (never committed)
 #   upload     → fastlane upload_to_testflight
 #   tag        → annotated tag v<version>+<build>, pushed ONLY after the
@@ -258,7 +258,7 @@ cat > "$PLIST" <<PLIST_EOF
 <plist version="1.0">
 <dict>
 	<key>method</key>
-	<string>app-store</string>
+	<string>app-store-connect</string>
 	<key>teamID</key>
 	<string>$TEAM_ID</string>
 	<key>destination</key>
@@ -269,7 +269,7 @@ cat > "$PLIST" <<PLIST_EOF
 </plist>
 PLIST_EOF
 
-log "Exporting .ipa (method app-store)"
+log "Exporting .ipa (method app-store-connect)"
 # -allowProvisioningUpdates: same reason as the archive step — the export
 # re-signs with the cloud-managed distribution cert, which headless xcodebuild
 # can only resolve when allowed to contact the portal.
