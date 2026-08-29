@@ -222,7 +222,7 @@ internal object ParityGolden {
      *
      * The structural arm was re-armed in `parityStructuralControl` instead, because the surviving scriptable divergence costs Kotlin two extra backend calls and `responses` is positional — the surplus has to land on the run's LAST call, which here is a `vote` whose loss cascades through the tally. So do not read a clean structural comparison here as evidence the structural path is exercised; `someFixtureDrivesBothEntryKinds` is what keeps that honest.
      *
-     * The float-valued key below is this fixture's arm. Swift normalizes `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the literal as "1.0" — the VALUE divergence `JSONResponseParser.kt` routes to Stage 4 to rule on.
+     * The float-valued key below is this fixture's arm. Swift normalizes `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin preserves the literal as "1.0" — the VALUE divergence ruled permanent 2026-08-29 (ADR-023 §15); it stays pinned here rather than fixed on either side.
      */
     internal val targetScoreRaceDivergent: Fixture = Fixture(
         name = "targetScoreRaceDivergent",

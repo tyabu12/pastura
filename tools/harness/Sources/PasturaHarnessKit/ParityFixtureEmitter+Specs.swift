@@ -67,8 +67,9 @@ extension ParityFixtureEmitter {
 
         The float-valued key below is this fixture's arm. Swift normalizes \
         `1.0` to "1" because `NSNumber.stringValue` drops the `.0`; Kotlin \
-        preserves the literal as "1.0" — the VALUE divergence \
-        `JSONResponseParser.kt` routes to Stage 4 to rule on.
+        preserves the literal as "1.0" — the VALUE divergence ruled permanent \
+        2026-08-29 (ADR-023 §15); it stays pinned here rather than fixed on \
+        either side.
         """,
       overrides: [
         0: #"{"statement": "", "inner_thought": ""}"#,

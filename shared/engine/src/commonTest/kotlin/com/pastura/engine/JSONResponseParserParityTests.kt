@@ -21,7 +21,7 @@ import kotlin.test.assertEquals
  * on cast success), so the integer cases agree now and are pinned on both
  * sides — this file is no longer their only coverage.
  *
- * ## The residual divergence — float formatting, still open
+ * ## The residual divergence — float formatting, accepted permanently
  *
  * The fix did NOT make `1.0` / `0.0` agree: Swift yields `"1"` / `"0"` because
  * `NSNumber.stringValue` normalizes the literal, while kotlinx's
@@ -29,8 +29,8 @@ import kotlin.test.assertEquals
  * `fields` is a `[String: String]`, so the text is what ships. Those two cases
  * only changed divergence *class*, from the Bool bridge to formatting; they
  * live under "Known Kotlin-side literal-preservation differences" below,
- * alongside `1e3`. Out of #1150's scope — ADR-023 Stage 4 should decide the
- * formatting rule once, for both engines.
+ * alongside `1e3`. Out of #1150's scope — ADR-023 §15 (2026-08-29, #1629)
+ * rules the formatting divergence permanent: neither engine changes.
  *
  * ## Reachability
  *
@@ -113,7 +113,7 @@ class JSONResponseParserParityTests {
         // Pinned as an accepted divergence rather than normalized: parsing to a
         // number and re-rendering would introduce float-formatting drift of its own
         // (Swift measured `1.0e-7` -> "1e-07"), trading one divergence for a subtler
-        // one. Stage 4 should decide the rule once, for both engines.
+        // one. Ruled permanent 2026-08-29 (ADR-023 §15) — neither side changes.
         assertEquals("1e3", field("1e3"))
     }
 
