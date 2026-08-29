@@ -155,8 +155,9 @@ all, so an `internal` implementation of a `public` interface needs nothing — b
 inherit the annotation, so one that later goes `public` needs its own. `YamlCodec.decode` carries
 the annotation on the interface for exactly this reason.
 
-`shared/models` is in scope even when a task names only `shared/engine`: it builds its own iOS
-frameworks *and* is re-exported through the engine umbrella, so its throws are the same crash class.
+`shared/models` is in scope even when a task names only `shared/engine`: it builds no framework of
+its own since ADR-023 §6 (b), but every one of its symbols is re-exported through the engine
+umbrella, so its throws are the same crash class.
 
 The gate is `verifyExportedThrowsAnnotations` in `shared/engine/build.gradle.kts` — it pins the
 throwing entry points by `swift_name` and asserts each exports `error:` in the generated header

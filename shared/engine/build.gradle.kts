@@ -70,19 +70,17 @@ kotlin {
     // the §5.2 adapter — "a Kotlin-side mock alone does NOT satisfy the gate" —
     // so Swift must link a real framework before the GO/NO-GO call, not after.
     //
-    // `export(project(":shared:models"))` makes this a single umbrella: Models
-    // types cross both §5 boundaries (`SimulationEvent`, `Scenario`), so the
-    // Swift consumer must see them through this framework rather than linking a
-    // second one.
+    // THE umbrella — the only one in this repo. ADR-023 §6 Stage-5 ruling (b)
+    // dropped `shared/models`' models-only `PasturaShared` export rather than
+    // retargeting it, so every Kotlin symbol Swift sees arrives through here.
     //
-    // ⚠️ INVARIANT: `PasturaShared` (models-only) and `PasturaSharedEngine` must
-    // never be linked into the same binary — this umbrella statically embeds
-    // every models symbol, so the pair means duplicate symbols and two copies of
-    // the K/N runtime. Safe today (nothing on `main` links either), but the
-    // retained `feature/kmp-spike-models` branch embeds `PasturaShared` into the
-    // app target, and ADR-023 §6 Stage 5 merges that wiring back — it must be
-    // retargeted to this umbrella or dropped at merge-back. Recorded as a §9.7
-    // landmine in ADR-023 §6.
+    // `export(project(":shared:models"))` below is the mechanism: Models types
+    // cross both §5 boundaries (`SimulationEvent`, `Scenario`), and the export
+    // statically embeds every models symbol into this framework. That is also
+    // why a second models-only umbrella was never safe — two frameworks each
+    // carrying the models symbols means duplicate symbols and two copies of the
+    // K/N runtime if both link into one binary (the §9.7 landmine). Deleting
+    // the other umbrella disarms it mechanically; do not reintroduce one.
     val xcf = XCFramework("PasturaSharedEngine")
 
     // iOS target triple mirrors `shared/models` so the umbrella covers the same
@@ -115,10 +113,10 @@ kotlin {
     // package (host decision B′, #1135) and binary-targets this slice. Only the
     // TARGET registration moves — the Stage-4 parity harness lands on schedule.
     //
-    // This is the one slice with a live Swift consumer, which is why the macOS
-    // framework lives in THIS umbrella and `shared/models` deliberately keeps
-    // macosArm64 out of its own `PasturaShared` (nothing consumes a macOS
-    // models-only framework — see that file's comment).
+    // This is the one slice with a live Swift consumer, and since ADR-023 §6
+    // Stage-5 ruling (b) it is the only place a macOS framework could live at
+    // all: `shared/models` builds no framework of its own (see that file's
+    // comment). The export carries the models symbols into this slice too.
     macosArm64 {
         binaries.framework {
             baseName = "PasturaSharedEngine"

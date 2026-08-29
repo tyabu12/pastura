@@ -33,7 +33,7 @@ fail=0
 pass_count=0
 # Decremented by any branch that legitimately skips a case; see the check at
 # the end of the file.
-EXPECTED_PASSES=26
+EXPECTED_PASSES=27
 
 ok() {
   pass_count=$((pass_count + 1))
@@ -59,7 +59,7 @@ REPO="$(cd "$TMP" && pwd -P)/repo"
 # --- fixture repository -------------------------------------------------------
 mkdir -p "$REPO"
 sgit init -q -b main "$REPO"
-printf 'DerivedData/\nbuild/\n.gradle/\nnode_modules/\nkeepme.local\n' > "$REPO/.gitignore"
+printf 'DerivedData/\nbuild/\n.gradle/\nnode_modules/\nkeepme.local\nPastura/Frameworks/*.xcframework\n' > "$REPO/.gitignore"
 # Ignore patterns the FILE arm is tested against. `*.bak` and the nested/`data/`
 # paths are ignored on purpose: an entry that is merely untracked would be
 # stopped by condition (d) and the case would silently be testing (d) instead
@@ -74,8 +74,12 @@ echo seed > "$REPO/a.txt"
 # applies to `.claude/`, `sub/.claude/` and `data/queue/`: without an anchor
 # there, every file-arm case below would pass by construction because
 # is_disposable would never see the path it is supposed to match.
-mkdir -p "$REPO/Pastura" "$REPO/shared/models" "$REPO/.claude/rules" "$REPO/.claude/skills" "$REPO/sub/.claude" "$REPO/data/queue"
+mkdir -p "$REPO/Pastura/Frameworks" "$REPO/shared/models" "$REPO/.claude/rules" "$REPO/.claude/skills" "$REPO/sub/.claude" "$REPO/data/queue"
 echo anchor > "$REPO/Pastura/tracked.txt"
+# Mirrors the real `Pastura/Frameworks/.gitkeep`: the staged KMP umbrella is
+# ignored by a glob, not a directory rule, and the anchor is what makes git
+# report the bundle itself rather than `!! Pastura/Frameworks/`.
+: > "$REPO/Pastura/Frameworks/.gitkeep"
 echo anchor > "$REPO/shared/models/tracked.txt"
 echo anchor > "$REPO/.claude/rules/anchor.md"
 # `.claude/skills/` needs its own anchor: the real repo tracks skill files
@@ -402,6 +406,23 @@ if exists "goofy-hypatia-62c51e"; then
   bad "(e) build output alone blocked removal — the pruner would never fire on a real worktree: $out"
 else
   ok "(e) nested build output alone does not block removal"
+fi
+
+# (e) the staged KMP umbrella (ADR-023 S5-1) is build output too. Asserts the
+# exact entry first: a collapsed `!! Pastura/Frameworks/` would pass
+# is_disposable by never reaching it, which is the regression this guards.
+make_wt "brave-noether-5a1c9d"
+BN="$REPO/.claude/worktrees/brave-noether-5a1c9d"
+mkdir -p "$BN/Pastura/Frameworks/PasturaSharedEngine.xcframework/ios-arm64"
+echo x > "$BN/Pastura/Frameworks/PasturaSharedEngine.xcframework/Info.plist"
+age_wt "brave-noether-5a1c9d"
+assert_aged "brave-noether-5a1c9d"
+assert_ignored_entry "$BN" "Pastura/Frameworks/PasturaSharedEngine.xcframework/"
+out="$(run_prune)"
+if exists "brave-noether-5a1c9d"; then
+  bad "(e) a staged PasturaSharedEngine.xcframework blocked removal: $out"
+else
+  ok "(e) a staged KMP umbrella alone does not block removal"
 fi
 
 # --- file arm ------------------------------------------------------------------

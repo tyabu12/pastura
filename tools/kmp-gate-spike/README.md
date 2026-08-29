@@ -93,9 +93,10 @@ That wraps the Gradle task and copies the result into `Frameworks/`:
 # → shared/engine/build/XCFrameworks/debug/PasturaSharedEngine.xcframework
 ```
 
-(There is no `scripts/kmp/` helper on `main` — the `assemble-xcframework.sh`
-that ADR-023 §6 mentions lives on the retained `feature/kmp-spike-models`
-branch and is Stage-5 salvage, not a `main` tool.)
+`stage-framework.sh` is a thin wrapper: since ADR-023 §6 Stage 5 slice S5-1 the
+Gradle invocation, JDK probe and atomic staging live in
+`scripts/kmp/assemble-xcframework.sh`, the single assembler shared with the app
+tree, and this script only supplies `--dest Frameworks/`.
 
 Then, from the repository root:
 
@@ -227,5 +228,9 @@ the K/N framework is modelled as a new layer, folded into `Models`, or given its
 own row is a Stage-5 decision that needs the ADR and the table updated together.
 Flagging it, not answering it.
 
-See also the Stage-5 two-umbrella landmine in ADR-023 §6: `PasturaShared`
-(models-only) and `PasturaSharedEngine` must never link into one binary.
+The Stage-5 two-umbrella landmine recorded in ADR-004 §9.7 — `PasturaShared`
+(models-only) and `PasturaSharedEngine` must never link into one binary — is
+**disarmed mechanically** as of S5-1: ADR-023 §6 ruling (b) deleted the
+models-only umbrella rather than retargeting it, so there is no second framework
+left to co-link. `shared/models` now ships to Swift only through
+`PasturaSharedEngine`'s `export(project(":shared:models"))`.
