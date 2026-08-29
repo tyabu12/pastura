@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "tsuhan_jiko_v1",
+    "yaml_sha256": "66ac3439a14a7446b1ddb6fda02f3503532550f6534c3c1ca4a6c242ce6c504b"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260829-162429-8ba6",
+    "generated_at": "2026-08-29"
+  },
+  "excerpt": [
+    {
+      "agent": "ベテラン司会・大黒",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "あら、今日は特別ゲストの清掃スタッフさんがいらっしゃいますね！皆さんの清潔感が伝わってきますよ。"
+    },
+    {
+      "agent": "開発者・堀田",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "これは現場の動線設計が完璧に機能している証拠です。掃除スタッフさんの存在感さえも、我々のシミュレーションには組み込まれています。"
+    },
+    {
+      "agent": "天然リポーター・のどか",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "わあ、掃除のおばちゃんも生放送のゲストみたいですね！その颯爽とした横顔、まるでスポットライトを浴びているようです。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 開発者・堀田\n    description: >\n      【立場】この商品を作った開発担当ゲスト。何が壊れても自社商品を擁護。\n      【目的】どんな不具合も「仕様」「想定内」と言い張り必死に持ち上げる。\n      例: 商品の色が写真と違うと指摘されても「照明との相性まで計算した色です」と言い張る。\n  - name: 天然リポーター・のどか\n    description: >\n      【立場】現場中継担当だが状況把握がいつも半歩ズレている天然。\n      【目的】事故を的外れに実況し、悪気なく笑いを増幅する。\n      例: 司会が商品を紹介している最中に、スタジオの観葉植物の元気さを中継してしまう。",
+    "caption": "何が壊れても「仕様」、何が起きても「中継」。背後を横切っただけの人影を、開発者は動線設計の成果に、リポーターはスポットライトの主役に仕立て直す。司会の笑顔が持ちこたえているあいだに、番組はもう別の番組になっている。"
+  },
+  "teaser": "トラブルは毎ラウンド抽選で1つ。その回だけの審査基準は、全員が反応し終えてから発表される。同じ一言が次の回でも評価されるとは限らない。",
+  "window_override": false,
+  "content_filter_applied": true
+}

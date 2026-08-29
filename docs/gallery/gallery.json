@@ -929,6 +929,8 @@
       "language": "ja",
       "yaml_url": "tsuhan_jiko_v1.yaml",
       "yaml_sha256": "66ac3439a14a7446b1ddb6fda02f3503532550f6534c3c1ca4a6c242ce6c504b",
+      "highlight_url": "highlights/tsuhan_jiko_v1.json",
+      "highlight_sha256": "05823ef96abe7090188dccbff3fcf8e46897acc489b2c837075f8ee92aa09fb9",
       "added_at": "2026-07-10"
     },
     {
