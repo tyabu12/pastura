@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "hissatsu_naming_v1_en",
+    "yaml_sha256": "2cab9d9498fcfe433af1b880ad80c0beb5b8cad4632ab010ea3dc33c2749dc76"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260829-173550-9ee9",
+    "generated_at": "2026-08-29"
+  },
+  "excerpt": [
+    {
+      "agent": "The FGC Grinder",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 5,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "←↓↘→＋P 'AURORA OF THE DAWN SHUTDOWN' — 1-frame startup."
+    },
+    {
+      "agent": "The Ancient Sensei",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 5,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "The Ancient Sensei's lineage technique, inherited from the first dawn-strike generation—'ALARM-SILENCE ASCENSION!' Hah!"
+    },
+    {
+      "agent": "The Dub Actor",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 5,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "Prepare yourselves for the ultimate cinematic maneuver, the 'DAWN OF THE SILENCE,' and scream, 'WAKE UP, MORTALS!'"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: The Ancient Sensei\n    description: >\n      [Role] An old master who turns everything into a secret family art.\n      [Goal] ALWAYS name your clan and its generations of tradition — invoke\n      bloodline and lineage with grave exaggeration, every single time.\n      e.g. \"My clan's forbidden art, passed down ten generations — 'FRIDGE-OPENING STANCE.'\"\n  - name: The Dub Actor\n    description: >\n      [Role] A voice booming like an over-acted movie dub.\n      [Goal] Name it with needlessly grandiose, faux-dramatic delivery.\n      e.g. \"Taste it — THIS is my way... the 'GROCERY-BAG REJECTION.'\"",
+    "caption": "The action is turning off an alarm. One of them is already citing the first generation of his lineage; the other is narrating a cinematic maneuver and ordering the mortals awake. Neither [Goal] says what to be loud about — only how, and that the tic must never be dropped."
+  },
+  "teaser": "Round two is sudden death: a packed-train handrail and a drive-thru fries order, fused into one ultimate finishing move. A vote decides whose name lands hardest.",
+  "window_override": false,
+  "content_filter_applied": true
+}
