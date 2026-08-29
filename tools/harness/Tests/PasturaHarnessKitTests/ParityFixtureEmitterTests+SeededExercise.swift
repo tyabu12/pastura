@@ -103,7 +103,8 @@ extension ParityFixtureEmitterTests {
   /// round), not on an unoverridden replay.
   ///
   /// Only a parseable object is checked: the structural control's multi-object
-  /// payload is unparseable by construction, and that is its point.
+  /// payload and the suspend control's `"garbage"` retry probe are both
+  /// unparseable by construction, and that is each one's point.
   @Test("every override answers the schema of the call it lands on")
   func everyOverrideAnswersTheSchemaItLandsOn() async throws {
     for spec in ParityFixtureEmitter.specs where !spec.overrides.isEmpty {
@@ -116,12 +117,17 @@ extension ParityFixtureEmitterTests {
         guard
           let object = try? JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any]
         else {
-          // The only unparseable override a fixture may carry is a multi-object
-          // structural arm; a dropped brace or a smart quote in a hand-typed
-          // vote payload must not slip through as "not checkable".
+          // Two shapes of deliberately-unparseable override are known: the
+          // structural control's multi-object salvage arm, and the suspend
+          // control's plain non-JSON string, which drives a parse-failure
+          // retry without exercising the multi-object path at all (its
+          // `purpose` says so explicitly). Anything else — a dropped brace or
+          // a smart quote in a hand-typed vote payload — must not slip
+          // through as "not checkable".
           #expect(
-            payload.contains("}{"),
-            "\(spec.name): override \(index) is not parseable JSON and not a multi-object arm")
+            payload.contains("}{") || payload == ParityFixtureEmitter.unparseableProbe,
+            "\(spec.name): override \(index) is not parseable JSON and not a known unparseable arm"
+          )
           continue
         }
         let declared = Set(run.answeredFields[index])

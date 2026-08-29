@@ -5,11 +5,13 @@ import com.pastura.models.Scenario
 import com.pastura.models.SimulationError
 import com.pastura.models.SimulationEvent
 import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.json.Json
 
 /**
@@ -95,9 +97,23 @@ class EngineParityTests {
     private fun padScript() =
         ScriptedLLMBackend.Script.completing("""{"__padding__": "unscripted extra call"}""")
 
+    /**
+     * The fixture's answers, each preceded by its scheduled suspend cycles.
+     *
+     * `suspendBeforeResponse[i]` is how many `TerminalStatus.Suspended` calls the
+     * Swift responder delivered before serving `responses[i]`, so the same count
+     * is scripted here — a suspended script consumes a script entry and
+     * increments [ScriptedLLMBackend.callCount] without consuming an answer,
+     * which is exactly what the Swift `RecordingResponder` counts. Getting the
+     * count wrong therefore surfaces as a `callCount` diff rather than as a
+     * silently shifted transcript.
+     */
     private fun scriptsFor(fixture: ParityGolden.Fixture): List<ScriptedLLMBackend.Script> =
-        fixture.responses.map { ScriptedLLMBackend.Script.completing(it) } +
-            List(padding) { padScript() }
+        fixture.responses.flatMapIndexed { index, response ->
+            List(fixture.suspendBeforeResponse[index] ?: 0) {
+                ScriptedLLMBackend.Script(terminal = TerminalStatus.Suspended)
+            } + ScriptedLLMBackend.Script.completing(response)
+        } + List(padding) { padScript() }
 
     private fun scenarioOf(fixture: ParityGolden.Fixture): Scenario =
         json.decodeFromString(Scenario.serializer(), fixture.scenarioJson)
@@ -123,7 +139,15 @@ class EngineParityTests {
      * iteration.
      */
     private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
-        val backend = ScriptedLLMBackend(scriptsFor(fixture))
+        // Wired only for a fixture that actually schedules suspends. The hook
+        // would be a no-op elsewhere (nothing ever calls it), but leaving the
+        // parameter null on those fixtures keeps their replay exactly what it was
+        // before this arm landed.
+        val resumer = if (fixture.suspendBeforeResponse.isEmpty()) null else ResumeOnSuspend()
+        val backend = ScriptedLLMBackend(
+            scriptsFor(fixture),
+            onSuspended = resumer?.let { it::observeSuspend },
+        )
         val collector = Collector()
         // Null for every fixture that runs to completion, so the callback below
         // is exactly what it was before the cancelling arm landed.
@@ -148,8 +172,25 @@ class EngineParityTests {
         // trigger can fire before this line. [CancelOnPhaseCompleted] latches that
         // case and cancels here instead of dropping it.
         cutter?.adopt(handle)
+        resumer?.adopt(handle)
         try {
             awaitTerminal(collector, timeoutMillis = 30_000)
+        } catch (e: TimeoutCancellationException) {
+            // A suspending fixture has a second way to stall that reads exactly
+            // like a hang: a call parked in `awaitResume()` that never got its
+            // resume. Named here so the timeout is not misread as the engine
+            // grinding through a parity diff.
+            if (resumer != null) {
+                throw AssertionError(
+                    "${fixture.name}: the replay never reached a terminal event. This fixture " +
+                        "schedules ${fixture.suspendBeforeResponse.values.sum()} suspend " +
+                        "cycle(s), of which ${resumer.observed} reached the backend, so the " +
+                        "likely cause is a call parked in SuspensionRelay.awaitResume() whose " +
+                        "resume never reached the relay — not a slow run.",
+                    e,
+                )
+            }
+            throw e
         } finally {
             handle.cancel()
         }
@@ -161,7 +202,82 @@ class EngineParityTests {
                     "Swift emitter raises `cancelTriggerNeverFired` on the same condition.",
             )
         }
+        if (resumer != null) {
+            val scheduled = fixture.suspendBeforeResponse.values.sum()
+            assertEquals(
+                scheduled,
+                resumer.observed,
+                "${fixture.name}: the backend delivered ${resumer.observed} suspend cycle(s) " +
+                    "where the fixture schedules $scheduled. The Kotlin twin of the Swift " +
+                    "emitter's `suspendNeverFired`: a schedule that does not reach the backend " +
+                    "compares a never-suspending run against a suspending golden. (A backend " +
+                    "exhaustion that also perturbs this count reports here first — read the " +
+                    "`ScriptedLLMBackend exhausted` cause if one is attached.)",
+            )
+        }
         return collector.snapshot() to backend.callCount
+    }
+
+    /**
+     * Resumes the run every time the scripted backend reports a suspension.
+     *
+     * `SimulationEngine` drives itself, so unlike `LLMCallerTests` nothing here
+     * can step the run and call `notifyResumed()` between cycles — the resume
+     * edge has to be generated by the suspension itself, which is what
+     * [ScriptedLLMBackend]'s `onSuspended` hook is for.
+     *
+     * **Per suspend, not a one-shot latch.** [SuspensionRelay.notifyResumed] is
+     * a no-op when nothing is armed and `awaitResume()` disarms on the way out,
+     * so a single resume does not carry across cycles: each of the fixture's
+     * suspends needs its own [RunHandle.notifyLLMResumed]. [observed] counts
+     * the `Suspended` terminals the backend delivered, so the caller can assert
+     * the whole schedule actually ran.
+     *
+     * **Why one pending flag suffices for the adopt race.** `run` installs the
+     * callback and can issue a backend call before returning the handle, so a
+     * suspend may be observed here before [adopt] stores it. Two separate facts
+     * make a boolean enough. What bounds the outstanding count to **one** is
+     * that the run issues its calls sequentially and the suspended coroutine
+     * parks in `awaitResume()`, so it cannot issue again until resumed. What
+     * makes a pre-adopt resume *latch* rather than get lost is that `LLMCaller`
+     * arms the relay before every issue. Neither is "the relay is sticky across
+     * cycles" — it is not, which is the whole reason the hook fires per suspend.
+     *
+     * Atomics for the same reason as [CancelOnPhaseCompleted]: the hook runs on
+     * `Dispatchers.Default` inside the backend call while [adopt] runs on the
+     * test's thread.
+     */
+    private class ResumeOnSuspend {
+        private val handle = AtomicReference<RunHandle?>(null)
+        private val pending = AtomicBoolean(false)
+        private val count = AtomicInt(0)
+
+        /** How many `Suspended` terminals the backend delivered to this driver. */
+        val observed: Int get() = count.load()
+
+        /** Stores the run's handle, flushing a suspend that arrived before it. */
+        fun adopt(runHandle: RunHandle) {
+            handle.store(runHandle)
+            if (pending.compareAndSet(true, false)) runHandle.notifyLLMResumed()
+        }
+
+        /** Resumes the parked call, or records it for [adopt] to flush. */
+        fun observeSuspend() {
+            count.fetchAndAdd(1)
+            val runHandle = handle.load()
+            if (runHandle != null) {
+                runHandle.notifyLLMResumed()
+                return
+            }
+            pending.store(true)
+            // Re-check after publishing the flag: [adopt] may have stored the
+            // handle and run its compareAndSet between the load above and the
+            // store, in which case nobody would flush the flag and the run
+            // would park forever. Whichever side wins the CAS delivers exactly
+            // one resume.
+            val adopted = handle.load()
+            if (adopted != null && pending.compareAndSet(true, false)) adopted.notifyLLMResumed()
+        }
     }
 
     /**

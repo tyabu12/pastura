@@ -1,0 +1,62 @@
+# ADR-023 Stage-4 parity fixture — NOT a shipped preset.
+#
+# Sibling of parity_cancel.yaml, and here for the same reason: it is
+# machinery coverage, not content. `PresetLoader` never sees it,
+# `pastura-harness lint` does not glob this directory, and nothing bundles it
+# into the app.
+#
+# `id: parity_suspend` is load-bearing: `emitterProducesACompleteRun` matches
+# `scenarioJSON` against this file's basename.
+#
+# Shape is load-bearing and minimal on purpose:
+# - two agents, one round, TWO plain `speak_all` phases with the same
+#   `{statement, inner_thought}` schema `parity_cancel.yaml`'s phase 0 uses —
+#   no conditional, no vote, no RNG, so the only thing varying across the run
+#   is the suspend schedule under test;
+# - the retry window this fixture drives (`paritySuspendPreservesRetryBudget`
+#   in `ParityFixtureEmitter+Specs.swift`) sits on Bo's phase-0 turn, which is
+#   NEITHER the run's first call NOR its last: a call after it (phase 1) must
+#   still be answered at the right index for the fixture to prove the suspend
+#   cycles did not shift the stream, and a call before it (Ada's phase-0 turn)
+#   must survive untouched;
+# - the window must NOT land on a `vote` or `.choice` call —
+#   `RecordingResponder`'s `voteCallCount` / `choiceCallCount` are phase-local
+#   counters, so a retry window on a vote shifts the rotation for every later
+#   vote in the phase, and one on a choice splits a pairing — the responder's
+#   choice-counter comment allows one only on the run's last call. Two plain
+#   `speak_all` phases sidestep that.
+id: parity_suspend
+language: en
+name: Parity Suspend Control
+description: >
+  Two agents, two speak_all phases, no branching. The parity harness schedules
+  suspend cycles mid-run on one agent's turn, so this fixture measures whether
+  a suspend re-issue is kept off the LLMCaller retry budget.
+agents: 2
+rounds: 1
+context: >
+  A fixture scenario for cross-language parity testing. Content is irrelevant
+  to the measurement; the responder never reads this.
+
+personas:
+  - name: Ada
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+  - name: Bo
+    description: >
+      A parity fixture participant. Speaks in one short sentence.
+
+phases:
+  - type: speak_all
+    prompt: >
+      Say one short sentence about round {current_round}.
+    output:
+      statement: string
+      inner_thought: string
+
+  - type: speak_all
+    prompt: >
+      Say one more short sentence.
+    output:
+      statement: string
+      inner_thought: string

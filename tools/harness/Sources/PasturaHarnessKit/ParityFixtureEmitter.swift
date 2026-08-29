@@ -72,10 +72,22 @@ package enum ParityFixtureEmitter {
     /// rather than silently running to completion and freezing a golden that
     /// measures nothing.
     package let cancelAfterPhaseCompleted: [Int]?
+    /// Suspend cycles to schedule before a given response index — keyed the
+    /// same way as ``overrides``, the 0-based index into ``Fixture/responses``
+    /// rather than a raw backend-call index.
+    ///
+    /// **Why a response index.** A suspend re-issue is counted in
+    /// ``RecordingResponder/callCount`` but never answered, so a raw call
+    /// index would drift out of step with `overrides` the moment any index
+    /// scheduled a suspend. Carried into the generated Kotlin so
+    /// `EngineParityTests` scripts a `TerminalStatus.Suspended` cycle before
+    /// the matching answer.
+    package let suspendBeforeResponse: [Int: Int]
 
     package init(
       name: String, scenarioPath: String, purpose: String, overrides: [Int: String] = [:],
-      seed: UInt64? = nil, cancelAfterPhaseCompleted: [Int]? = nil
+      seed: UInt64? = nil, cancelAfterPhaseCompleted: [Int]? = nil,
+      suspendBeforeResponse: [Int: Int] = [:]
     ) {
       self.name = name
       self.scenarioPath = scenarioPath
@@ -83,6 +95,7 @@ package enum ParityFixtureEmitter {
       self.overrides = overrides
       self.seed = seed
       self.cancelAfterPhaseCompleted = cancelAfterPhaseCompleted
+      self.suspendBeforeResponse = suspendBeforeResponse
     }
   }
 
@@ -129,13 +142,18 @@ package enum ParityFixtureEmitter {
     /// ``FixtureSpec/cancelAfterPhaseCompleted`` for why the trigger is an
     /// event position rather than a call index.
     package let cancelAfterPhaseCompleted: [Int]?
+    /// Suspend cycles delivered before a given response index, carried into
+    /// the generated Kotlin so the replay scripts the same cycles at the
+    /// same indices — see ``FixtureSpec/suspendBeforeResponse``. Empty for a
+    /// fixture that never suspends.
+    package let suspendBeforeResponse: [Int: Int]
 
     /// Explicit because the implicit memberwise init is `internal`, and the
     /// raw-string safety guard is tested from the sibling test module.
     package init(
       name: String, purpose: String, scenarioJSON: String,
       responses: [String], transcript: [String], callCount: Int, seed: UInt64? = nil,
-      cancelAfterPhaseCompleted: [Int]? = nil
+      cancelAfterPhaseCompleted: [Int]? = nil, suspendBeforeResponse: [Int: Int] = [:]
     ) {
       self.name = name
       self.purpose = purpose
@@ -145,6 +163,7 @@ package enum ParityFixtureEmitter {
       self.callCount = callCount
       self.seed = seed
       self.cancelAfterPhaseCompleted = cancelAfterPhaseCompleted
+      self.suspendBeforeResponse = suspendBeforeResponse
     }
   }
 
@@ -176,7 +195,8 @@ package enum ParityFixtureEmitter {
     let responder = RecordingResponder(
       personas: scenario.personas.map(\.name),
       choiceOptions: try choiceOptions(in: scenario),
-      overrides: spec.overrides)
+      overrides: spec.overrides,
+      suspendBeforeResponse: spec.suspendBeforeResponse)
 
     // No `detector:` — deliberate, and the inverse of what `HarnessRunner` does
     // eleven files away (it injects one precisely so `language_mismatch` is not
@@ -231,6 +251,13 @@ package enum ParityFixtureEmitter {
     if let path = spec.cancelAfterPhaseCompleted, !triggerFired {
       throw ParityFixtureError.cancelTriggerNeverFired(spec.name, path)
     }
+    // Same failure shape as the cancel-trigger guard above: an unreached
+    // schedule entry would otherwise pass silently and freeze a golden that
+    // measures no suspend at all.
+    let remainingSuspends = responder.remainingSuspends
+    if remainingSuspends > 0 {
+      throw ParityFixtureError.suspendNeverFired(name: spec.name, remaining: remainingSuspends)
+    }
 
     let fixture = Fixture(
       name: spec.name,
@@ -240,7 +267,8 @@ package enum ParityFixtureEmitter {
       transcript: try recordedLines.map { try JSONL.encode($0) },
       callCount: responder.callCount,
       seed: spec.seed,
-      cancelAfterPhaseCompleted: spec.cancelAfterPhaseCompleted)
+      cancelAfterPhaseCompleted: spec.cancelAfterPhaseCompleted,
+      suspendBeforeResponse: spec.suspendBeforeResponse)
     return Run(fixture: fixture, answeredFields: responder.recordedSchemaFields)
   }
 
@@ -322,51 +350,6 @@ package enum ParityFixtureEmitter {
       throw ParityFixtureError.ambiguousChoiceOptions(scenario.id, menus)
     }
     return menus.first ?? []
-  }
-
-  /// Drops the payload fields no cross-language comparison could survive.
-  ///
-  /// Pinning `EventLineMapper`'s `t` and `attempt` removes the harness's own
-  /// clock reads, but two payload-internal fields remain, for different
-  /// reasons — one non-deterministic, one structurally absent on the far side:
-  ///
-  /// - **`inferenceCompleted.durationSeconds`** is measured per call. Left
-  ///   alone it changes on every run, so `--check` would report drift against
-  ///   itself and the two engines could never agree. `tokenCount` needs no arm:
-  ///   this responder reports none, and the Kotlin fixtures script none either
-  ///   — if that ever changes, the mismatch surfaces as a parity diff rather
-  ///   than as flakiness.
-  /// - **`agentOutput.rawText`** has no Kotlin counterpart at all;
-  ///   `TurnOutput.kt`'s class KDoc records the omission as a deliberate
-  ///   Engine-port decision, not a Stage-4 one. Keeping it would put a
-  ///   `raw_text` diff on **every** `agent_output` — 24 in the nominal
-  ///   fixture — each pinning a string `responses` already freezes verbatim, so
-  ///   the ledger would carry two dozen entries measuring a documented
-  ///   model-port decision in place of engine behaviour.
-  ///
-  ///   What it costs, rather than "nothing is lost": `responses` is the
-  ///   authority on what the model **offered**, not on which offer a turn
-  ///   **accepted**, and `attempt` is pinned to 0 on every line — so `rawText`
-  ///   was the last per-event record of retry outcome. What compensates is
-  ///   `callCount` (a whole-run aggregate two offsetting changes could cancel)
-  ///   and the paired `JSONResponseParser` tests in both languages. That is
-  ///   weaker than a per-event record, and is the price of comparing a field
-  ///   one side does not model.
-  ///
-  /// Deliberately an `if case` chain rather than an exhaustive `switch`: this
-  /// is a narrow denylist, and a new case is normalization-free until someone
-  /// shows otherwise. The exhaustiveness obligation belongs to
-  /// `EventLineMapper`, which already carries it.
-  private static func normalize(_ event: SimulationEvent) -> SimulationEvent {
-    if case .inferenceCompleted(let agent, _, let tokenCount) = event {
-      return .inferenceCompleted(agent: agent, durationSeconds: 0, tokenCount: tokenCount)
-    }
-    if case .agentOutput(let agent, let output, let phaseType) = event {
-      return .agentOutput(
-        agent: agent, output: TurnOutput(fields: output.fields, rawText: nil),
-        phaseType: phaseType)
-    }
-    return event
   }
 
   /// Repo-relative path of the generated Kotlin file, named once so the CLI,

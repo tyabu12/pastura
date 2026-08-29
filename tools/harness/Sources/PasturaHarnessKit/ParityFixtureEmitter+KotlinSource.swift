@@ -55,6 +55,11 @@ extension ParityFixtureEmitter {
       "// short: the replay cancels its `RunHandle` the moment it records a",
       "// `PhaseCompleted` with that `phasePath`, which is where the Swift run was",
       "// cancelled too. Absent means the run went to `SimulationCompleted`.",
+      "//",
+      "// `suspendBeforeResponse` is present only on a fixture whose Swift run",
+      "// scheduled `LLMError.suspended` cycles: the replay scripts the same",
+      "// `TerminalStatus.Suspended` cycles before the matching response index.",
+      "// Absent (the default `emptyMap()`) means the fixture never suspends.",
       "",
       "package com.pastura.engine",
       "",
@@ -69,6 +74,7 @@ extension ParityFixtureEmitter {
       "        val callCount: Int,",
       "        val seed: ULong? = null,",
       "        val cancelAfterPhaseCompleted: List<Int>? = null,",
+      "        val suspendBeforeResponse: Map<Int, Int> = emptyMap(),",
       "    )"
     ]
   }
@@ -103,6 +109,15 @@ extension ParityFixtureEmitter {
     if let path = fixture.cancelAfterPhaseCompleted {
       let rendered = path.map(String.init).joined(separator: ", ")
       lines.append("        cancelAfterPhaseCompleted = listOf(\(rendered)),")
+    }
+    // Same rule again: emitted only when non-empty, so every non-suspending
+    // fixture's block stays byte-identical to what it was before this seam
+    // landed and the field's default `emptyMap()` carries it.
+    if !fixture.suspendBeforeResponse.isEmpty {
+      let rendered = fixture.suspendBeforeResponse.sorted { $0.key < $1.key }
+        .map { "\($0.key) to \($0.value)" }
+        .joined(separator: ", ")
+      lines.append("        suspendBeforeResponse = mapOf(\(rendered)),")
     }
     lines.append("    )")
     return lines

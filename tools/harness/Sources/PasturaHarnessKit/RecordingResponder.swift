@@ -59,6 +59,13 @@ package final class RecordingResponder: LLMService, Sendable {
     /// schedule is keyed on the *pair* index, so a retry anywhere else in the
     /// run must not shift which option a pairing's two members pick.
     var choiceCallCount: Int = 0
+    /// Remaining suspend cycles to deliver before each scheduled response
+    /// index, keyed the same way as ``RecordingResponder/init(personas:choiceOptions:overrides:suspendBeforeResponse:)``'s
+    /// `suspendBeforeResponse` parameter — mutable so each `generate` call can
+    /// decrement its own entry down to zero.
+    var remainingSuspends: [Int: Int] = [:]
+    /// Every backend call, suspend re-issues included — see ``callCount``.
+    var rawCallCount: Int = 0
   }
 
   /// Everything one answer is derived from, bundled so ``derive`` and ``value``
@@ -72,7 +79,7 @@ package final class RecordingResponder: LLMService, Sendable {
     let choiceOptions: [String]
   }
 
-  private let state = Mutex(State())
+  private let state: Mutex<State>
   private let personas: [String]
   private let choiceOptions: [String]
   private let overrides: [Int: String]
@@ -92,15 +99,29 @@ package final class RecordingResponder: LLMService, Sendable {
   ///     declares no options: `validateAction` passes those through unchanged,
   ///     and `OutputSchema.from` never marks such a field `.choice` anyway.
   ///   - overrides: Answers that replace the derived one at a given 0-based
-  ///     call index. This is how a negative-control fixture drives a known
+  ///     response index — not the backend-call index, which a scheduled
+  ///     suspend advances without answering (see `suspendBeforeResponse`).
+  ///     This is how a negative-control fixture drives a known
   ///     divergence — an empty canonical field, or a float-valued key — without
   ///     the derivation itself having to model the divergence.
+  ///   - suspendBeforeResponse: How many `LLMError.suspended` throws to deliver
+  ///     before answering the response at a given 0-based index, keyed the
+  ///     same way as `overrides`. This is the Swift half of the ADR-023 §5.2
+  ///     suspend seam: `LLMCaller.consumeStreamWithSuspendRetry` catches
+  ///     `.suspended` OUTSIDE its retry-budget loop and re-issues after
+  ///     `SuspendController.awaitResume()` (a no-op on an idle controller), so
+  ///     scheduling a throw here exercises invariant 1 — "suspend re-issues
+  ///     stay off the retry budget" — without a real suspend source.
   package init(
-    personas: [String], choiceOptions: [String] = [], overrides: [Int: String] = [:]
+    personas: [String], choiceOptions: [String] = [], overrides: [Int: String] = [:],
+    suspendBeforeResponse: [Int: Int] = [:]
   ) {
     self.personas = personas
     self.choiceOptions = choiceOptions
     self.overrides = overrides
+    var initialState = State()
+    initialState.remainingSuspends = suspendBeforeResponse
+    self.state = Mutex(initialState)
   }
 
   /// Every answer this responder produced, in call order.
@@ -108,14 +129,28 @@ package final class RecordingResponder: LLMService, Sendable {
     state.withLock { $0.responses }
   }
 
-  /// How many generate calls the engine issued.
+  /// How many backend calls the engine issued, including a suspend re-issue.
   ///
   /// Recorded as a first-class fixture field rather than inferred from the
   /// transcript: the schema-guard divergence (`.claude/rules/kmp-interop.md`
   /// Pattern 4) is a *retry-count* divergence, and the transcript alone cannot
-  /// distinguish "one call that succeeded" from "three that exhausted".
+  /// distinguish "one call that succeeded" from "three that exhausted". A call
+  /// answered with `LLMError.suspended` counts here too, matching Kotlin's
+  /// `ScriptedLLMBackend.callCount` (which counts a `Suspended` response the
+  /// same way) — with no suspends scheduled this still equals
+  /// `responses.count`, since every call then reaches an answer.
   package var callCount: Int {
-    state.withLock { $0.responses.count }
+    state.withLock { $0.rawCallCount }
+  }
+
+  /// Suspend cycles still owed before their scheduled response index is
+  /// answered, summed across every scheduled index.
+  ///
+  /// Lets a fixture assert every scheduled suspend actually fired: a schedule
+  /// entry for a response index the run never reaches would otherwise pass
+  /// silently, freezing a golden that measures nothing.
+  package var remainingSuspends: Int {
+    state.withLock { $0.remainingSuspends.values.reduce(0, +) }
   }
 
   /// The field names each call's schema declared, in call order — see
@@ -134,8 +169,19 @@ package final class RecordingResponder: LLMService, Sendable {
     system: String, user: String, schema: OutputSchema?,
     antiRepetitionSeeds: [String]
   ) async throws -> String {
-    state.withLock { state in
+    try state.withLock { state in
       let index = state.responses.count
+      // Checked before anything else advances: a suspended call must not
+      // touch `responses` / `schemaFields` / the vote or choice counters, or
+      // the re-issue that follows would answer at a shifted index. The two
+      // writes below land on the lock's `inout` storage and survive the
+      // throw — if they did not, the schedule would never drain and
+      // `consumeStreamWithSuspendRetry`'s `while true` would spin forever.
+      if let remaining = state.remainingSuspends[index], remaining > 0 {
+        state.remainingSuspends[index] = remaining - 1
+        state.rawCallCount += 1
+        throw LLMError.suspended
+      }
       let response =
         overrides[index]
         ?? Self.derive(
@@ -159,6 +205,7 @@ package final class RecordingResponder: LLMService, Sendable {
       if Self.declaresChoice(schema) { state.choiceCallCount += 1 }
       state.responses.append(response)
       state.schemaFields.append(schema?.fields.map(\.name) ?? [])
+      state.rawCallCount += 1
       return response
     }
   }

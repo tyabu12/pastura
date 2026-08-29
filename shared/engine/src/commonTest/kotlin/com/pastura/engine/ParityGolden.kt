@@ -17,6 +17,11 @@
 // short: the replay cancels its `RunHandle` the moment it records a
 // `PhaseCompleted` with that `phasePath`, which is where the Swift run was
 // cancelled too. Absent means the run went to `SimulationCompleted`.
+//
+// `suspendBeforeResponse` is present only on a fixture whose Swift run
+// scheduled `LLMError.suspended` cycles: the replay scripts the same
+// `TerminalStatus.Suspended` cycles before the matching response index.
+// Absent (the default `emptyMap()`) means the fixture never suspends.
 
 package com.pastura.engine
 
@@ -31,6 +36,7 @@ internal object ParityGolden {
         val callCount: Int,
         val seed: ULong? = null,
         val cancelAfterPhaseCompleted: List<Int>? = null,
+        val suspendBeforeResponse: Map<Int, Int> = emptyMap(),
     )
 
     /**
@@ -1341,6 +1347,57 @@ internal object ParityGolden {
     )
 
     /**
+     * Suspend control (ADR-023 §5.2 invariant 1, S5 #1625). A positive control expected green with an empty ledger: suspend re-issues are invisible in BOTH transcripts (no `SimulationEvent` marks them), so `callCount` and the absence of a `turn_skipped` line are the only observables that could catch the budget being charged.
+     *
+     * **Call order.** Index 0 is Ada's phase-0 turn. Index 1 is Bo's phase-0 turn, attempt 1: suspended once, then answered "garbage" — non-JSON, so both parsers fail identically and the turn retries. Index 2 is attempt 2, suspended once, "garbage" again. Index 3 is attempt 3, suspended once, then a derived valid answer accepted on the LAST budgeted try (`LLMCaller.maxRetries == 2`, three attempts total). Indices 4-5 are phase 1's two turns. If either engine had charged a suspend to the retry budget, Bo's turn would exhaust it one attempt early and `turn_skipped` would appear in place of the accepted answer; `callCount` (9 = 6 answers + 3 suspends) would also shift. Neither the yaml nor the spec authors that outcome, so it can only be the seam's own behaviour.
+     *
+     * **Why not on a vote or choice call.** `RecordingResponder`'s `voteCallCount` / `choiceCallCount` are phase-local, so a retry window on a vote call shifts the rotation for every later vote in the phase, and one on a choice call splits a pairing across two schedule slots — the responder's choice-counter comment allows one only on the run's last call. Two plain `speak_all` phases have neither counter, so the schedule exercises only the retry seam.
+     *
+     * **What is deliberately untouched.** The Kotlin replay's structural padding (`MAX_RETRIES + 1 == 3`, of which `parityStructuralControl` consumes two) is a different mechanism from this fixture's suspend cycles — a suspend re-issue is not a retry attempt, and this fixture consumes none of that padding. Nor is the multi-object salvage divergence in play: `"garbage"` fails both parsers the same way, so there is nothing for the schema guard to salvage. And the Swift run's `SuspendController` is idle — never `requestSuspend()`-ed — so `awaitResume()` returns synchronously: this golden measures invariant 1 only; invariants 2 and 3 (one deferred per cycle, lost-wakeup safety) are untested here and need a real suspend source.
+     */
+    internal val paritySuspendPreservesRetryBudget: Fixture = Fixture(
+        name = "paritySuspendPreservesRetryBudget",
+        scenarioJson = """
+{"agentCount":2,"context":"A fixture scenario for cross-language parity testing. Content is irrelevant to the measurement; the responder never reads this.\n","description":"Two agents, two speak_all phases, no branching. The parity harness schedules suspend cycles mid-run on one agent's turn, so this fixture measures whether a suspend re-issue is kept off the LLMCaller retry budget.\n","extraData":{},"id":"parity_suspend","language":"en","name":"Parity Suspend Control","personas":[{"description":"A parity fixture participant. Speaks in one short sentence.\n","name":"Ada"},{"description":"A parity fixture participant. Speaks in one short sentence.\n","name":"Bo"}],"phases":[{"outputSchema":{"inner_thought":"string","statement":"string"},"prompt":"Say one short sentence about round {current_round}.\n","type":"speak_all"},{"outputSchema":{"inner_thought":"string","statement":"string"},"prompt":"Say one more short sentence.\n","type":"speak_all"}],"rounds":1}
+""".trimIndent(),
+        responses = listOf(
+            """{"statement": "statement 0", "inner_thought": "inner_thought 0"}""",
+            """garbage""",
+            """garbage""",
+            """{"statement": "statement 3", "inner_thought": "inner_thought 3"}""",
+            """{"statement": "statement 4", "inner_thought": "inner_thought 4"}""",
+            """{"statement": "statement 5", "inner_thought": "inner_thought 5"}""",
+        ),
+        transcript = listOf(
+            """{"attempt":0,"event":"round_started","round":1,"t":0,"total_rounds":1,"type":"event"}""",
+            """{"attempt":0,"event":"phase_started","phase_path":[0],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 0","statement":"statement 0"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 3","statement":"statement 3"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_completed","phase_path":[0],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_started","phase_path":[1],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Ada","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 4","statement":"statement 4"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"inference_started","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"duration_seconds":0,"event":"inference_completed","t":0,"type":"event"}""",
+            """{"agent":"Bo","attempt":0,"event":"agent_output","fields":{"inner_thought":"inner_thought 5","statement":"statement 5"},"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"phase_completed","phase_path":[1],"phase_type":"speak_all","t":0,"type":"event"}""",
+            """{"attempt":0,"event":"round_completed","round":1,"scores":{"Ada":0,"Bo":0},"t":0,"type":"event"}""",
+            """{"attempt":0,"event":"simulation_completed","t":0,"type":"event"}""",
+        ),
+        callCount = 9,
+        suspendBeforeResponse = mapOf(1 to 1, 2 to 1, 3 to 1),
+    )
+
+    /**
      * Every fixture, so a consumer cannot silently scope itself to one.
      *
      * The named properties above are the readable handles; this is what
@@ -1357,5 +1414,6 @@ internal object ParityGolden {
         wordWolfNominal,
         lastFableNominal,
         parityCancelConditional,
+        paritySuspendPreservesRetryBudget,
     )
 }

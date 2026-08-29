@@ -22,6 +22,14 @@ package enum ParityFixtureError: Error, CustomStringConvertible {
   /// `simulation_completed` tail that looks like a healthy fixture while
   /// measuring no cancellation at all.
   case cancelTriggerNeverFired(String, [Int])
+  /// A spec scheduled a suspend cycle before a response index the run never
+  /// answered.
+  ///
+  /// Loud for the same reason as ``cancelTriggerNeverFired``: an unreached
+  /// schedule entry is invisible in the artefact otherwise, since the run
+  /// simply completes and the generated golden freezes a transcript that
+  /// looks healthy while measuring no suspend at all.
+  case suspendNeverFired(name: String, remaining: Int)
 
   package var description: String {
     switch self {
@@ -40,6 +48,11 @@ package enum ParityFixtureError: Error, CustomStringConvertible {
         "parity fixture '\(name)' asked to cancel after phase_completed "
         + "[\(path.map(String.init).joined(separator: ", "))], but the run never emitted that "
         + "event — the fixture would freeze a completed run instead of a cancellation tail"
+    case .suspendNeverFired(let name, let remaining):
+      return
+        "parity fixture '\(name)' scheduled \(remaining) suspend cycle(s) before a response "
+        + "index the run never answered — the fixture would freeze a golden that measures no "
+        + "suspend at all"
     }
   }
 }
