@@ -65,8 +65,8 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// Fire probability for `event_inject` phases, in `[0.0, 1.0]`.
   ///
   /// `nil` defaults to `1.0` (always fires). The handler uses strict `<`
-  /// against `Double.random(in: 0..<1)`, so `0.0` never fires and `1.0`
-  /// always fires. The first `Double?`-typed field on `Phase`; the YAML
+  /// against the injected ``RandomSource``'s `unit()` draw — a `Double` in
+  /// `[0, 1)` — so `0.0` never fires and `1.0` always fires. The first `Double?`-typed field on `Phase`; the YAML
   /// loader accepts either `0.5` (Double) or `1` (Int) by intentional
   /// coercion — see `ScenarioLoader.parseOptionalDoubleAcceptingInt`.
   public let probability: Double?
@@ -117,9 +117,9 @@ nonisolated public struct Phase: Codable, Sendable, Equatable {
   /// Whether `event_inject` draws **without replacement** across a run (the
   /// YAML `no_repeat:` key).
   ///
-  /// `nil` / `false` keeps the default with-replacement behavior
-  /// (`randomElement()` each round, so a multi-round scenario can re-draw the
-  /// same event). `true` tracks already-drawn events per event variable in
+  /// `nil` / `false` keeps the default with-replacement behavior (one
+  /// ``RandomSource/index(below:)`` draw over the whole pool each round, so a
+  /// multi-round scenario can re-draw the same event). `true` tracks already-drawn events per event variable in
   /// ``SimulationState/drawnEvents`` and draws from the remainder, resetting to
   /// the full pool once every entry has been drawn — a late repeat after
   /// exhaustion beats silently blanking `{current_event}` mid-scenario.

@@ -59,6 +59,7 @@ class AssignHandlerTests {
     private fun context(
         scenario: Scenario,
         events: MutableList<SimulationEvent> = mutableListOf(),
+        random: RandomSource = SystemRandomSource(),
     ) = PhaseContext(
         scenario = scenario,
         phase = scenario.phases[0],
@@ -68,7 +69,57 @@ class AssignHandlerTests {
         pauseCheck = { },
         phasePath = listOf(0),
         turnGate = TurnFailureGate(),
+        random = random,
     )
+
+    /** Counts draws so a test can assert how much of the stream a path consumed. */
+    private class CountingRandomSource(private val inner: RandomSource) : RandomSource {
+        var draws: Int = 0
+            private set
+
+        override fun nextUInt64(): ULong {
+            draws += 1
+            return inner.nextUInt64()
+        }
+    }
+
+    @Test
+    fun assignRandomOneWithEmptyActiveSetIsNoOp() = runTest {
+        // Every persona eliminated → `active` is empty. `assignRandomOne` must NOT
+        // fail `index(below:)`'s non-empty precondition (#1287); it returns cleanly,
+        // setting no `wolf_name` and emitting no Assignment. Swift twin:
+        // `AssignHandlerTests.assignRandomOneWithEmptyActiveSetIsNoOp`.
+        //
+        // The draw count is the parity half: the topic is drawn BEFORE the guard on
+        // both engines, so this path consumes EXACTLY ONE draw and leaves the
+        // stream where the other engine leaves it. Seed 0's second value is
+        // `0x6E789E6AA1B965F4` (the KAT vector in `RandomSourceTests`), so a
+        // handler that drew twice — or not at all — reddens the last assertion.
+        val s = scenario(
+            agents = listOf("Alice", "Bob", "Charlie"),
+            target = AssignTarget.RANDOM_ONE,
+            source = "words",
+            extraData = mapOf(
+                "words" to AnyCodableValue.ArrayOfDictionariesValue(
+                    listOf(mapOf("majority" to "りんご", "minority" to "みかん")),
+                ),
+            ),
+        )
+        val events = mutableListOf<SimulationEvent>()
+        val random = CountingRandomSource(SplitMix64RandomSource(seed = 0uL))
+        val state = SimulationState.initial(s).copy(
+            currentRound = 1,
+            eliminated = mapOf("Alice" to true, "Bob" to true, "Charlie" to true),
+        )
+
+        val returned = handler.execute(context(s, events, random), state)
+
+        assertEquals(state, returned, "an empty active set must be a clean no-op")
+        assertTrue(events.filterIsInstance<SimulationEvent.Assignment>().isEmpty())
+        assertEquals(null, returned.variables["wolf_name"])
+        assertEquals(1, random.draws, "the topic draw happens before the guard")
+        assertEquals(0x6E789E6AA1B965F4uL, random.nextUInt64(), "stream left after one draw")
+    }
 
     @Test
     fun assignsToAllAgents() = runTest {

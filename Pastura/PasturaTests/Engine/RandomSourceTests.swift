@@ -7,6 +7,11 @@ import Testing
 /// `shared/engine/src/commonTest/.../RandomSourceTests.kt`. A change to either
 /// side that breaks a vector here is a parity break, whatever the Swift-only
 /// tests say.
+///
+/// A time limit but no `.serialized`: every case is a pure generator call with
+/// no `Task` / `AsyncStream` scaffolding, so parallel execution is safe here —
+/// unlike `RandomSourceSeamTests`, which drives whole runs.
+@Suite(.timeLimit(.minutes(1)))
 struct RandomSourceTests {
   /// Reference SplitMix64 output for seed 0 (matches Vigna's reference
   /// implementation) and for an arbitrary non-zero seed.

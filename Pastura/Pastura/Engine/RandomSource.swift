@@ -1,4 +1,3 @@
-import Foundation
 import Synchronization
 
 /// Source of raw 64-bit randomness for every draw the Engine makes.
@@ -58,6 +57,10 @@ nonisolated public struct SystemRandomSource: RandomSource {
   public init() {}
 
   public func nextUInt64() -> UInt64 {
+    // A stateless facade over the system entropy source: `SystemRandomNumberGenerator`
+    // holds no seed of its own, so constructing one per draw is not a reset bug —
+    // a stored instance would buy nothing and would only make the struct look
+    // stateful.
     var generator = SystemRandomNumberGenerator()
     return generator.next()
   }

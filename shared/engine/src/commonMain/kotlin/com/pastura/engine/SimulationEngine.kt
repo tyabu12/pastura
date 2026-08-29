@@ -66,7 +66,10 @@ import kotlinx.coroutines.launch
  *   stream the caller controls. Defaults to [SystemRandomSource] — shipped
  *   behaviour is unchanged; a cross-language parity fixture passes a
  *   [SplitMix64RandomSource] and gets the same picks out of the Swift engine on
- *   the same seed.
+ *   the same seed. The source lives for the engine's lifetime, not the run's, so
+ *   a second [run] on the same instance CONTINUES the stream rather than
+ *   restarting it — reproducibility needs a fresh engine per seeded run, which is
+ *   what the parity replay builds (one per fixture).
  */
 public class SimulationEngine(
     private val detector: LanguageDetector? = null,

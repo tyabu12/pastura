@@ -149,6 +149,12 @@ nonisolated struct EventInjectHandler: PhaseHandler {
   /// guaranteed non-empty by the caller and the reset below restores that for
   /// `remaining`, so ``RandomSource/index(below:)``'s non-empty precondition
   /// holds on every path.
+  ///
+  /// An empty pool now **traps** here (matching Kotlin's throw) instead of
+  /// falling through the old `randomElement() ?? …` to a ghost empty event.
+  /// Preferred deliberately: a trap localises the handler bug to this line,
+  /// where the silent fallback surfaced rounds later as a blank
+  /// `{current_event}` with no indication of where it came from.
   private func pickWithoutRepeat(
     _ events: [(text: String, favors: String?)],
     variableName: String,

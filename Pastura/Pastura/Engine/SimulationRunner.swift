@@ -37,6 +37,12 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   ///     ``SystemRandomSource`` — shipped behaviour is unchanged; a
   ///     cross-language parity fixture passes ``SplitMix64RandomSource`` and
   ///     gets the same picks out of the Kotlin engine on the same seed.
+  ///
+  ///     **Runner-scoped, not run-scoped**: this is a stored `let`, so a second
+  ///     ``run(scenario:llm:suspendController:)`` — or a resume via
+  ///     `startRound:` — CONTINUES the stream rather than restarting it.
+  ///     Same-seed reproducibility therefore needs a fresh `SimulationRunner`
+  ///     per run, which is what `ParityFixtureEmitter` and the seam tests do.
   public init(
     detector: (any LanguageDetector)? = nil,
     logger: any EngineLogger = NoopEngineLogger(),
@@ -165,7 +171,7 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
     let suspendController: SuspendController
     let detector: (any LanguageDetector)?
     let logger: any EngineLogger
-    /// Run-scoped randomness seam (ADR-023 S3b), threaded into every
+    /// The runner-scoped randomness seam (ADR-023 S3b), threaded into every
     /// `PhaseContext` so one injected stream drives the whole run.
     let random: any RandomSource
     /// 1-based round the loop begins at (`1` for a fresh run, `K+1` on resume).

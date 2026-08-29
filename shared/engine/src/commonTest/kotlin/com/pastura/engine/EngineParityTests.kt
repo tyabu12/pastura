@@ -119,6 +119,11 @@ class EngineParityTests {
         // A seeded fixture must feed both engines the same stream, so the replay
         // rebuilds SplitMix64 from the seed the Swift run used; an unseeded one is
         // RNG-free by construction, where the source is unobservable.
+        //
+        // The seeded branch ships UNEXERCISED by design until S3b-2 lands the
+        // first seeded fixture: every spec is pinned unseeded today by the Swift
+        // `everySpecIsUnseeded` guard, so `fixture.seed` is always null here.
+        // Recorded rather than left to look like live coverage.
         val random =
             fixture.seed?.let { SplitMix64RandomSource(it) } ?: SystemRandomSource()
         val handle =

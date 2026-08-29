@@ -17,11 +17,21 @@ package com.pastura.engine
  * a run, so two engines given the same seed consume the same stream in the same
  * order.
  *
+ * [index] and [unit] are top-level **extension** functions, not members, so K/N
+ * exports them on the `RandomSourceKt` file facade rather than on the protocol: a
+ * Swift conformer owes only [nextUInt64], and the Kotlin engine always applies its
+ * own reduction to whatever stream it is handed. That asymmetry is deliberate —
+ * one reduction per engine, so neither can be bypassed by a conformer overriding
+ * it (`.claude/rules/kmp-interop.md` Pattern 3).
+ *
  * **A Swift conformer must be declared `nonisolated`.** K/N exports this as an
  * unannotated Obj-C protocol and a Stage-5 adapter's [nextUInt64] is called from
- * the Engine's `Dispatchers.Default` context, so a default-MainActor
- * conformance compiles clean and traps at runtime — the [LLMBackend] /
- * [EngineLogger] precedent, `.claude/rules/swift-isolation.md` Pattern 7.
+ * the Engine's `Dispatchers.Default` context, so a default-MainActor conformance
+ * would compile clean and trap at runtime — `.claude/rules/swift-isolation.md`
+ * Pattern 7. **Inferred, not measured**: this is stated from the export shape and
+ * from the [LLMBackend] / [EngineLogger] precedent, whose own KDoc carries the
+ * same hedge — the Pattern 7 probe has not been run against the staged framework
+ * for this protocol. Run it before relying on the claim.
  */
 public interface RandomSource {
     /** The next 64 raw bits of the stream, uniformly distributed. */
@@ -60,6 +70,12 @@ public fun RandomSource.unit(): Double =
 /**
  * The production [RandomSource]: the platform's default generator, so injecting
  * the seam changes nothing about shipped behaviour.
+ *
+ * Deliberately NOT the same generator as Swift's `SystemRandomSource`, which
+ * wraps `SystemRandomNumberGenerator`: this uses `Random.Default`. There is no
+ * parity impact because an unseeded run is never compared — every cross-language
+ * comparison goes through a seeded [SplitMix64RandomSource] — so do not "fix"
+ * either side to match the other.
  */
 public class SystemRandomSource : RandomSource {
     override fun nextUInt64(): ULong = kotlin.random.Random.Default.nextLong().toULong()
@@ -77,9 +93,14 @@ public class SystemRandomSource : RandomSource {
  *   engines.
  */
 public class SplitMix64RandomSource(seed: ULong) : RandomSource {
-    // A plain `var` with no lock: draws are sequential within a run (the parity
-    // precondition stated on RandomSource), so the state is never contended.
-    // The Swift twin's `Mutex` exists only to make the class honestly
+    // A plain `var` with no lock. Sequencing alone would not be enough — phases
+    // can resume on different carrier threads of `Dispatchers.Default`, so a
+    // write here and the next read are genuinely cross-thread. What makes the
+    // unsynchronized `var` safe is the dispatcher's happens-before edge on
+    // suspension/resumption: phases run sequentially in coroutine order, and each
+    // resumption publishes everything written before the suspend. So the state is
+    // never concurrently accessed, only sequentially on possibly-different
+    // threads. The Swift twin's `Mutex` exists only to make the class honestly
     // `Sendable`, not because concurrent draws are expected.
     private var state: ULong = seed
 

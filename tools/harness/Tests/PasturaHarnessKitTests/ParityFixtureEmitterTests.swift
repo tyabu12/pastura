@@ -275,6 +275,42 @@ struct ParityFixtureEmitterTests {
     // `uL`, not a bare integer: Kotlin infers `Int` otherwise and the
     // `ULong?` property would not typecheck.
     #expect(source.contains("seed = 42uL,"))
+
+    // The upper bound too: `UInt64.max` exceeds `Long.MAX_VALUE`, so a
+    // formatter that round-tripped through a signed type would emit a negative
+    // literal here and the generated file would not compile.
+    let maxSeeded = ParityFixtureEmitter.Fixture(
+      name: "seeded", purpose: "control", scenarioJSON: "{}",
+      responses: [], transcript: [], callCount: 0, seed: UInt64.max)
+
+    #expect(
+      try ParityFixtureEmitter.kotlinSource(from: [maxSeeded])
+        .contains("seed = 18446744073709551615uL,"))
+  }
+
+  @Test("seeding an RNG-free spec is inert: same transcript, seed carried through")
+  func seedingAnRNGFreeSpecIsInert() async throws {
+    // Covers the `SimulationRunner(random:)` construction in `run` — the only
+    // production caller of the seeded path until S3b-2 — and the claim on
+    // `FixtureSpec.seed` that seeding a fixture whose scenario draws nothing
+    // changes nothing. If the transcripts diverged, either the scenario is not
+    // RNG-free after all or the seam leaked into a handler that should not draw.
+    guard
+      let nominal = ParityFixtureEmitter.specs.first(where: { $0.name == "targetScoreRaceNominal" })
+    else {
+      Issue.record("expected the nominal spec to exist by name")
+      return
+    }
+    let seededSpec = ParityFixtureEmitter.FixtureSpec(
+      name: nominal.name, scenarioPath: nominal.scenarioPath, purpose: nominal.purpose,
+      overrides: nominal.overrides, seed: 7)
+
+    let unseededRun = try await ParityFixtureEmitter.run(nominal)
+    let seededRun = try await ParityFixtureEmitter.run(seededSpec)
+
+    #expect(seededRun.seed == 7)
+    #expect(unseededRun.seed == nil)
+    #expect(seededRun.transcript == unseededRun.transcript)
   }
 
   /// Guards the "every scenario here is RNG-free" claim in `+Specs.swift`'s

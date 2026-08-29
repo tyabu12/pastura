@@ -95,9 +95,11 @@ machine-checked — see the maintenance invariant above.
   `someFixtureDrivesBothEntryKinds` keeping the structural one armed. Why each is shaped as it
   is: the `purpose` strings on `ParityFixtureEmitter.specs`.
 
-  **S3b** landed the `RandomSource` seam on both engines ([#1615](https://github.com/tyabu12/pastura/issues/1615)) — parity fixtures can now carry a seed, but none does yet.
-  Residue, all scope rather than mechanism: **S3b-2** seeded fixtures for the RNG-bearing presets
-  witnessing the remaining 5 handlers and `assign random_one` · #501, **S4** the cancellation event tail, **S5** ADR-023 §5.2 invariant 1's
+  **S3b** landed the `RandomSource` seam on both engines
+  ([#1615](https://github.com/tyabu12/pastura/issues/1615)) — parity fixtures can now carry a
+  seed, but none does yet. Residue, all scope rather than mechanism: **S3b-2** seeded fixtures
+  for the RNG-bearing presets witnessing the remaining 5 handlers and `assign random_one` ·
+  #501, **S4** the cancellation event tail, **S5** ADR-023 §5.2 invariant 1's
   suspend-then-succeed assertion, **S6** the divergence-6 ruling (pinned as a ledger entry;
   deciding which side changes moves shipped Swift behaviour). `SimulationEvent.ErrorEvent`'s
   projection is known to disagree across languages and is unexercised by every fixture — S4 is

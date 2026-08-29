@@ -45,7 +45,8 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// keeps the same semantics it will have inside `Engine/`.
 nonisolated public final class SharedEngineRunner: Sendable {
   // All three arguments are spelled out because Kotlin default arguments do not
-  // survive the K/N export: the header declares exactly one initializer,
+  // survive the K/N export (`.claude/rules/kmp-interop.md` Pattern 3): the
+  // header declares exactly one initializer,
   // `init(detector:logger:random:)`, with no no-arg overload. `nil` keeps the
   // language-adherence check off, `NoopEngineLogger` swallows diagnostics, and
   // `SystemRandomSource` is the production RNG — the Kotlin defaults, restated

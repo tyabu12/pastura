@@ -71,9 +71,12 @@ internal class AssignHandler : PhaseHandler {
         val topics = sourceData.value
 
         val topic = topics[random.index(below = topics.size)]
-        // Mirrors Swift `random.index(below: active.count)`; an empty `active`
-        // fails `index`'s non-empty precondition, exactly as Swift's does — no
-        // guard Swift lacks.
+        // The topic is drawn BEFORE this guard by design, not by accident: Swift
+        // draws in the same order, so on the everyone-eliminated path both
+        // engines consume exactly one draw, assign no wolf, and return a clean
+        // no-op (#1287) — the streams stay aligned for whatever the next phase
+        // draws. Reordering either engine's guard would desynchronize them.
+        if (active.isEmpty()) return state
         val wolfIdx = random.index(below = active.size)
 
         val variables = state.variables.toMutableMap()
