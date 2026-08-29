@@ -117,4 +117,15 @@ tasks.named<Test>("jvmTest") {
             .dir("Pastura/Pastura/Resources/Presets")
             .asFile.absolutePath,
     )
+    // Inject the LIVE string catalog for `MessageCatalogCoverageTests` — the only
+    // check that a Models-layer message's `Rendering.format` is still a live,
+    // translated catalog key. On Apple targets `localizedFormat` falls back to the
+    // key itself when the lookup misses, so drift loses the ja translation silently.
+    // Absolute path, same reason as `pastura.presetsDir` above.
+    systemProperty(
+        "pastura.xcstringsPath",
+        rootProject.layout.projectDirectory
+            .file("Pastura/Pastura/Resources/Localizable.xcstrings")
+            .asFile.absolutePath,
+    )
 }

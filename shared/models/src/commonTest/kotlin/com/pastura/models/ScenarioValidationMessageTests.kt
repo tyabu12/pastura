@@ -304,8 +304,12 @@ class ScenarioValidationMessageTests {
      * `personaCountMismatch` (both Ints ordered), `secondaryFieldMismatch` (all
      * four Strings ordered), and `sourceNotFound` (one argument rendered twice
      * in one literal).
+     *
+     * `internal` rather than `private` on purpose: `MessageCatalogCoverageTests`
+     * (jvmTest, same test compilation) reuses this roster so the catalog check
+     * covers every case without a second hand-maintained copy.
      */
-    private fun rosterWithExpectedRenderings(): List<Pair<ScenarioValidationMessage, String>> = listOf(
+    internal fun rosterWithExpectedRenderings(): List<Pair<ScenarioValidationMessage, String>> = listOf(
         // POSITIONAL on purpose — see the note on this function. Swift order is
         // (allowed, got).
         ScenarioValidationMessage.LanguageNotAccepted("en, ja", "fr") to
