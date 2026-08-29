@@ -5,6 +5,13 @@ import PasturaCore
 // stays under SwiftLint's file / type-body caps as fixtures accumulate; the
 // mechanism (run, normalize, encode) is unchanged by adding a spec here.
 extension ParityFixtureEmitter {
+  /// The one non-JSON answer a spec may use to drive a parse-failure retry.
+  ///
+  /// Named once so `everyOverrideAnswersTheSchemaItLandsOn` can exempt exactly
+  /// this literal: a future spec typing a *different* non-JSON probe is forced
+  /// through that test instead of being silently exempt.
+  package static let unparseableProbe = "garbage"
+
   /// The fixtures this repo freezes, in emission order.
   ///
   /// A spec whose scenario draws from the `RandomSource` (`assign random_one`,
@@ -323,11 +330,11 @@ extension ParityFixtureEmitter {
 
         **Why not on a vote or choice call.** `RecordingResponder`'s \
         `voteCallCount` / `choiceCallCount` are phase-local, so a retry \
-        window on a vote or choice call shifts the rotation — or splits a \
-        pairing across two schedule slots — for every call after it, which \
-        is why the responder's own comment allows one only on the run's \
-        last call. Two plain `speak_all` phases have neither counter, so the \
-        schedule exercises only the retry seam.
+        window on a vote call shifts the rotation for every later vote in \
+        the phase, and one on a choice call splits a pairing across two \
+        schedule slots — the responder's choice-counter comment allows one \
+        only on the run's last call. Two plain `speak_all` phases have \
+        neither counter, so the schedule exercises only the retry seam.
 
         **What is deliberately untouched.** The Kotlin replay's structural \
         padding (`MAX_RETRIES + 1 == 3`, of which `parityStructuralControl` \
@@ -335,9 +342,13 @@ extension ParityFixtureEmitter {
         cycles — a suspend re-issue is not a retry attempt, and this fixture \
         consumes none of that padding. Nor is the multi-object salvage \
         divergence in play: `"garbage"` fails both parsers the same way, so \
-        there is nothing for the schema guard to salvage.
+        there is nothing for the schema guard to salvage. And the Swift run's \
+        `SuspendController` is idle — never `requestSuspend()`-ed — so \
+        `awaitResume()` returns synchronously: this golden measures invariant \
+        1 only; invariants 2 and 3 (one deferred per cycle, lost-wakeup \
+        safety) are untested here and need a real suspend source.
         """,
-      overrides: [1: "garbage", 2: "garbage"],
+      overrides: [1: unparseableProbe, 2: unparseableProbe],
       suspendBeforeResponse: [1: 1, 2: 1, 3: 1]
     )
   ]

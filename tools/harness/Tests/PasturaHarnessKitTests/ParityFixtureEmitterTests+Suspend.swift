@@ -34,9 +34,11 @@ extension ParityFixtureEmitterTests {
     // exhaust its budget one attempt early and never reach the accepted
     // answer, which would also change this total.
     #expect(fixture.callCount == 9)
-    #expect(fixture.responses.count == 6)
-    #expect(fixture.responses[1] == "garbage")
-    #expect(fixture.responses[2] == "garbage")
+    // `#require`, not `#expect`: a shortened `responses` must report, not trap
+    // on the subscripts below and take the serialized suite's results with it.
+    try #require(fixture.responses.count == 6)
+    #expect(fixture.responses[1] == ParityFixtureEmitter.unparseableProbe)
+    #expect(fixture.responses[2] == ParityFixtureEmitter.unparseableProbe)
 
     // The turn that would have been skipped had a suspend consumed the
     // budget. Its absence is the direct claim; `callCount` above is the
@@ -48,16 +50,15 @@ extension ParityFixtureEmitterTests {
       fixture.transcript.last?.contains(#""event":"simulation_completed""#) == true,
       "the run did not reach its normal terminal event")
 
-    // Every phase-0 `agent_output` line — one per agent, since the retried
-    // attempts on Bo's turn are invisible in the transcript (only the
-    // accepted answer is mapped) — appears exactly once. Confirms the retry
-    // window did not fork Bo's turn into more than one committed output.
-    let bosPhase0Output = fixture.transcript.filter {
+    // Bo's committed outputs across BOTH `speak_all` phases — one each. The
+    // retried attempts on his phase-0 turn are invisible here (only the
+    // accepted answer is mapped), so a fork of that turn into more than one
+    // committed output would push this above 2.
+    let bosOutputs = fixture.transcript.filter {
       $0.contains(#""event":"agent_output""#) && $0.contains(#""agent":"Bo""#)
         && $0.contains(#""phase_type":"speak_all""#)
     }
-    #expect(
-      bosPhase0Output.count == 2, "Bo speaks in both speak_all phases; expected one line each")
+    #expect(bosOutputs.count == 2, "Bo speaks in both speak_all phases; expected one line each")
   }
 
   @Test("a suspend scheduled on an unreachable response index fails loudly")
@@ -87,14 +88,14 @@ extension ParityFixtureEmitterTests {
     "the suspending fixture's generated Kotlin carries its schedule; a nominal fixture's does not")
   func suspendScheduleAppearsOnlyOnTheSuspendingFixturesKotlinBlock() async throws {
     let suspending = try await ParityFixtureEmitter.run(try suspendSpec())
-    guard
-      let nominal = ParityFixtureEmitter.specs.first(where: { $0.name == "targetScoreRaceNominal" })
-    else {
-      Issue.record("expected the nominal spec to exist by name")
-      return
-    }
+    let nominal = try #require(
+      ParityFixtureEmitter.specs.first(where: { $0.name == "targetScoreRaceNominal" }))
     let nominalFixture = try await ParityFixtureEmitter.run(nominal)
 
+    // Order-dependent: the nominal fixture must be LAST — the block scoping
+    // below falls back to "everything after the suspending block", which
+    // would swallow it if the order were reversed (red, not green, but for
+    // the wrong reason).
     let source = try ParityFixtureEmitter.kotlinSource(from: [suspending, nominalFixture])
     #expect(source.contains("suspendBeforeResponse = mapOf(1 to 1, 2 to 1, 3 to 1),"))
 

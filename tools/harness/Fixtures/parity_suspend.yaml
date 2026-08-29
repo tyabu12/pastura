@@ -21,9 +21,10 @@
 #   must survive untouched;
 # - the window must NOT land on a `vote` or `.choice` call —
 #   `RecordingResponder`'s `voteCallCount` / `choiceCallCount` are phase-local
-#   counters, so a retry window there shifts the rotation (or splits a
-#   pairing) for every later call — the responder's own comment allows one
-#   only on the run's last call. Two plain `speak_all` phases sidestep that.
+#   counters, so a retry window on a vote shifts the rotation for every later
+#   vote in the phase, and one on a choice splits a pairing — the responder's
+#   choice-counter comment allows one only on the run's last call. Two plain
+#   `speak_all` phases sidestep that.
 id: parity_suspend
 language: en
 name: Parity Suspend Control

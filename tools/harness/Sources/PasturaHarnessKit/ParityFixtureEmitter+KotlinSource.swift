@@ -114,9 +114,8 @@ extension ParityFixtureEmitter {
     // fixture's block stays byte-identical to what it was before this seam
     // landed and the field's default `emptyMap()` carries it.
     if !fixture.suspendBeforeResponse.isEmpty {
-      let schedule = fixture.suspendBeforeResponse
-      let rendered = schedule.keys.sorted()
-        .compactMap { key in schedule[key].map { "\(key) to \($0)" } }
+      let rendered = fixture.suspendBeforeResponse.sorted { $0.key < $1.key }
+        .map { "\($0.key) to \($0.value)" }
         .joined(separator: ", ")
       lines.append("        suspendBeforeResponse = mapOf(\(rendered)),")
     }

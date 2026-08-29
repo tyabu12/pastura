@@ -146,7 +146,7 @@ class EngineParityTests {
         val resumer = if (fixture.suspendBeforeResponse.isEmpty()) null else ResumeOnSuspend()
         val backend = ScriptedLLMBackend(
             scriptsFor(fixture),
-            onSuspended = resumer?.let { r -> { r.observeSuspend() } },
+            onSuspended = resumer?.let { it::observeSuspend },
         )
         val collector = Collector()
         // Null for every fixture that runs to completion, so the callback below
@@ -184,9 +184,9 @@ class EngineParityTests {
                 throw AssertionError(
                     "${fixture.name}: the replay never reached a terminal event. This fixture " +
                         "schedules ${fixture.suspendBeforeResponse.values.sum()} suspend " +
-                        "cycle(s) and ${resumer.delivered} were signalled a resume, so the " +
-                        "likely cause is a call parked in SuspensionRelay.awaitResume() that " +
-                        "was never resumed — not a slow run.",
+                        "cycle(s), of which ${resumer.observed} reached the backend, so the " +
+                        "likely cause is a call parked in SuspensionRelay.awaitResume() whose " +
+                        "resume never reached the relay — not a slow run.",
                     e,
                 )
             }
@@ -206,11 +206,13 @@ class EngineParityTests {
             val scheduled = fixture.suspendBeforeResponse.values.sum()
             assertEquals(
                 scheduled,
-                resumer.delivered,
-                "${fixture.name}: the replay delivered ${resumer.delivered} suspend cycle(s) " +
+                resumer.observed,
+                "${fixture.name}: the backend delivered ${resumer.observed} suspend cycle(s) " +
                     "where the fixture schedules $scheduled. The Kotlin twin of the Swift " +
                     "emitter's `suspendNeverFired`: a schedule that does not reach the backend " +
-                    "compares a never-suspending run against a suspending golden.",
+                    "compares a never-suspending run against a suspending golden. (A backend " +
+                    "exhaustion that also perturbs this count reports here first — read the " +
+                    "`ScriptedLLMBackend exhausted` cause if one is attached.)",
             )
         }
         return collector.snapshot() to backend.callCount
@@ -227,18 +229,19 @@ class EngineParityTests {
      * **Per suspend, not a one-shot latch.** [SuspensionRelay.notifyResumed] is
      * a no-op when nothing is armed and `awaitResume()` disarms on the way out,
      * so a single resume does not carry across cycles: each of the fixture's
-     * suspends needs its own [RunHandle.notifyLLMResumed]. [delivered] counts
-     * them, so the caller can assert the whole schedule actually ran.
+     * suspends needs its own [RunHandle.notifyLLMResumed]. [observed] counts
+     * the `Suspended` terminals the backend delivered, so the caller can assert
+     * the whole schedule actually ran.
      *
      * **Why one pending flag suffices for the adopt race.** `run` installs the
      * callback and can issue a backend call before returning the handle, so a
-     * suspend may be observed here before [adopt] stores it. At most **one**
-     * such suspend can ever be outstanding: `LLMCaller` arms the relay before
-     * every issue and the coroutine then parks in `awaitResume()`, so it cannot
-     * issue a further call until this one is resumed. A boolean therefore loses
-     * nothing a counter would keep — and specifically **not** because the relay
-     * is sticky across cycles: it is not, which is the whole reason the hook
-     * fires per suspend.
+     * suspend may be observed here before [adopt] stores it. Two separate facts
+     * make a boolean enough. What bounds the outstanding count to **one** is
+     * that the run issues its calls sequentially and the suspended coroutine
+     * parks in `awaitResume()`, so it cannot issue again until resumed. What
+     * makes a pre-adopt resume *latch* rather than get lost is that `LLMCaller`
+     * arms the relay before every issue. Neither is "the relay is sticky across
+     * cycles" — it is not, which is the whole reason the hook fires per suspend.
      *
      * Atomics for the same reason as [CancelOnPhaseCompleted]: the hook runs on
      * `Dispatchers.Default` inside the backend call while [adopt] runs on the
@@ -249,8 +252,8 @@ class EngineParityTests {
         private val pending = AtomicBoolean(false)
         private val count = AtomicInt(0)
 
-        /** How many suspensions were signalled a resume. */
-        val delivered: Int get() = count.load()
+        /** How many `Suspended` terminals the backend delivered to this driver. */
+        val observed: Int get() = count.load()
 
         /** Stores the run's handle, flushing a suspend that arrived before it. */
         fun adopt(runHandle: RunHandle) {

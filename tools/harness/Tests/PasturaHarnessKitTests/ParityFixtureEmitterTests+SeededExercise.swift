@@ -125,7 +125,7 @@ extension ParityFixtureEmitterTests {
           // a smart quote in a hand-typed vote payload — must not slip
           // through as "not checkable".
           #expect(
-            payload.contains("}{") || payload == "garbage",
+            payload.contains("}{") || payload == ParityFixtureEmitter.unparseableProbe,
             "\(spec.name): override \(index) is not parseable JSON and not a known unparseable arm"
           )
           continue

@@ -92,8 +92,8 @@ machine-checked — see the maintenance invariant above.
   Of the ten fixtures the six nominal ones carry the real-scenario parity claim (every handler
   is now witnessed by at least one fixture — "witnessed" here means replayed through a golden,
   distinct from the machine-checked *ported* checklist above); the four controls exist so the
-  ledger's own mechanisms — and the two §5.2 contract clauses the transcript alone cannot
-  show, cancellation and suspension — stay provably reachable, with
+  ledger's own mechanisms — and the two §5.2 contract clauses no nominal run reaches,
+  cancellation and suspension — stay provably reachable, with
   `someFixtureDrivesBothEntryKinds` keeping the structural one armed. Why each is shaped as it
   is: the `purpose` strings on `ParityFixtureEmitter.specs`.
 

@@ -99,7 +99,9 @@ package final class RecordingResponder: LLMService, Sendable {
   ///     declares no options: `validateAction` passes those through unchanged,
   ///     and `OutputSchema.from` never marks such a field `.choice` anyway.
   ///   - overrides: Answers that replace the derived one at a given 0-based
-  ///     call index. This is how a negative-control fixture drives a known
+  ///     response index — not the backend-call index, which a scheduled
+  ///     suspend advances without answering (see `suspendBeforeResponse`).
+  ///     This is how a negative-control fixture drives a known
   ///     divergence — an empty canonical field, or a float-valued key — without
   ///     the derivation itself having to model the divergence.
   ///   - suspendBeforeResponse: How many `LLMError.suspended` throws to deliver
@@ -171,7 +173,10 @@ package final class RecordingResponder: LLMService, Sendable {
       let index = state.responses.count
       // Checked before anything else advances: a suspended call must not
       // touch `responses` / `schemaFields` / the vote or choice counters, or
-      // the re-issue that follows would answer at a shifted index.
+      // the re-issue that follows would answer at a shifted index. The two
+      // writes below land on the lock's `inout` storage and survive the
+      // throw — if they did not, the schedule would never drain and
+      // `consumeStreamWithSuspendRetry`'s `while true` would spin forever.
       if let remaining = state.remainingSuspends[index], remaining > 0 {
         state.remainingSuspends[index] = remaining - 1
         state.rawCallCount += 1
