@@ -1,4 +1,4 @@
-/// Silently-inert configuration rules R7/R8/R9/R17/R18/R20a/R20b (ADR-024 D3).
+/// Silently-inert configuration rules R7/R8/R9/R17/R18/R20a/R20b/R21 (ADR-024 D3).
 ///
 /// Unlike the ordering rules (`ScenarioSemanticLinter+Ordering.swift`), these
 /// rules don't compare producer/consumer phase indices — each phase (or the
@@ -14,10 +14,11 @@
 /// a rule change here is a hand edit there and in its commonTest mirror.
 nonisolated extension ScenarioSemanticLinter {
 
-  /// Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b).
+  /// Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b/R21).
   func configFindings(in scenario: Scenario) -> [LintFinding] {
     chooseOptionsFindings(in: scenario.phases)
       + assignSourceFindings(in: scenario.phases, scenario: scenario)
+      + assignSourceRoundsFindings(in: scenario.phases, scenario: scenario)
       + summarizePairingFindings(in: scenario.phases)
       + logWindowFindings(in: scenario)
       + maxSentencesNoOpFindings(in: scenario.phases)
@@ -80,6 +81,52 @@ nonisolated extension ScenarioSemanticLinter {
         return false
       }
     }
+  }
+
+  // MARK: - R21 assign-all-source-shorter-than-rounds (warning)
+
+  /// A `target: all` `assign` phase whose source array holds fewer entries than
+  /// the scenario's `rounds`: `AssignHandler.assignAll` indexes the source with
+  /// `(state.currentRound - 1) % items.count`, so once the round number passes
+  /// the entry count the assignment silently wraps back to the first entry and
+  /// repeats it for the remaining rounds — no error, no log, just a scenario
+  /// that quietly stops varying.
+  ///
+  /// The lint banner is the only surface that can say so. A YAML comment cannot:
+  /// `ScenarioSerializer` rebuilds the YAML from the comment-less `Scenario`
+  /// model, and the visual editor exposes a free `rounds` slider while `assign`
+  /// sources ride along invisibly in `extraData` — so a visual-editor user can
+  /// raise `rounds` past the source length without ever seeing the source.
+  ///
+  /// Two counts are deliberately excluded:
+  /// - `items.isEmpty` is R8 `assign-source-nonempty`'s `.error` lane; firing
+  ///   here too would double-report the same phase.
+  /// - `items.count == 1` is semantically a constant value for every round —
+  ///   the same legitimate authoring shape as a `.string` source, which this
+  ///   rule already excludes — so it is not a wrap-around defect.
+  ///
+  /// `items.count > rounds` (unreached trailing entries) is a **separate
+  /// reading** and out of this rule's scope, the way R8 leaves shape errors to
+  /// `ScenarioValidator`.
+  private func assignSourceRoundsFindings(
+    in phases: [Phase], scenario: Scenario
+  ) -> [LintFinding] {
+    phaseRefs(
+      in: phases,
+      where: { $0.type == .assign && isAssignSourceShorterThanRounds($0, scenario: scenario) }
+    )
+    .map { configFinding("assign-all-source-shorter-than-rounds", .warning, at: $0.topLevelIndex) }
+  }
+
+  /// Whether a `target: all` `assign` phase's resolved source is an array of
+  /// 2..<`rounds` entries — the wrap-around window described above. Every other
+  /// shape (`.string`, `.arrayOfDictionaries`, `.dictionary`, a missing source
+  /// key) and `target: random_one` return `false`.
+  private func isAssignSourceShorterThanRounds(_ phase: Phase, scenario: Scenario) -> Bool {
+    guard let sourceKey = phase.source, let sourceValue = scenario.extraData[sourceKey],
+      (phase.target ?? .all) == .all, case .array(let items) = sourceValue
+    else { return false }
+    return items.count >= 2 && items.count < scenario.rounds
   }
 
   // MARK: - R9 summarize-pairing-placeholders (warning)
@@ -245,9 +292,14 @@ nonisolated extension ScenarioSemanticLinter {
       return ScenarioLintMessage.pairwisePayoffNoScorableRow.localized
     case "pairwise-payoff-dead-row":
       return ScenarioLintMessage.pairwisePayoffDeadRow.localized
+    case "assign-all-source-shorter-than-rounds":
+      return ScenarioLintMessage.assignAllSourceShorterThanRounds.localized
     default:
-      // Falls to `log-window-below-agent-count`: `logWindowFindings` is the
-      // only other caller of `configMessage`, always with this ruleID.
+      // Falls to `log-window-below-agent-count`: every other config rule has an
+      // explicit `case` above, so `logWindowFindings` — which builds its
+      // finding directly rather than via `configFinding` — is the only caller
+      // that reaches this arm. A new rule needs its own `case`, or it silently
+      // renders the log-window message.
       return ScenarioLintMessage.logWindowBelowAgentCount.localized
     }
   }

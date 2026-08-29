@@ -36,7 +36,7 @@ nonisolated public enum ScenarioLintMessage: Sendable {
   case relationshipUpdatePlacement
   case voteTallyNeedsVote
 
-  // MARK: Config (ScenarioSemanticLinter+Config.swift, R7/R8/R9/R17/R18/R20a/R20b)
+  // MARK: Config (ScenarioSemanticLinter+Config.swift, R7/R8/R9/R17/R18/R20a/R20b/R21)
   case chooseShouldDeclareOptions
   case assignSourceNonempty
   case summarizePairingPlaceholders
@@ -44,6 +44,7 @@ nonisolated public enum ScenarioLintMessage: Sendable {
   case pairwisePayoffNoScorableRow
   case pairwisePayoffDeadRow
   case logWindowBelowAgentCount
+  case assignAllSourceShorterThanRounds
 
   // MARK: Placeholders (ScenarioSemanticLinter+Placeholders.swift, R10/R11/R12)
   case unresolvablePlaceholder(token: String)
@@ -74,6 +75,7 @@ nonisolated public enum ScenarioLintMessage: Sendable {
     "pairwise-payoff-no-scorable-row",
     "pairwise-payoff-dead-row",
     "log-window-below-agent-count",
+    "assign-all-source-shorter-than-rounds",
     "unresolvable-placeholder",
     "placeholder-phase-availability",
     "per-persona-placeholder-in-summarize",
@@ -180,6 +182,11 @@ nonisolated extension ScenarioLintMessage {
       return String(
         localized:
           "log-window-below-agent-count: 'log_window' is smaller than the agent count while a 'speak_each' phase is present, so same-round earlier speakers vanish from the addressee pool — raise 'log_window' to at least the agent count."
+      )
+    case .assignAllSourceShorterThanRounds:
+      return String(
+        localized:
+          "assign-all-source-shorter-than-rounds: this 'assign' phase has fewer source entries than the scenario's 'rounds', so the later rounds wrap back around to the first entry and repeat it — add one entry per round, or lower 'rounds'."
       )
     case .unresolvablePlaceholder(let token):
       return String(

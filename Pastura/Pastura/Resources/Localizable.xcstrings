@@ -8220,6 +8220,16 @@
         }
       }
     },
+    "assign-all-source-shorter-than-rounds: this 'assign' phase has fewer source entries than the scenario's 'rounds', so the later rounds wrap back around to the first entry and repeat it — add one entry per round, or lower 'rounds'." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "assign-all-source-shorter-than-rounds: この 'assign' フェーズのソース件数がシナリオの 'rounds' より少ないため、後半のラウンドは先頭の項目に巻き戻って繰り返されます — ラウンド数ぶんの項目を追加するか、'rounds' を減らしてください。"
+          }
+        }
+      }
+    },
     "assign-source-nonempty: this 'assign' phase's source resolves to an empty list, so nothing is assigned (or every agent gets an empty value) — add at least one entry to the referenced source data." : {
       "localizations" : {
         "ja" : {

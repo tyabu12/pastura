@@ -91,9 +91,9 @@ struct ScenarioLintMessageTests {
 
   // MARK: ruleIDs coverage
 
-  @Test func ruleIDsHasExactlyTwentyOneEntries() {
-    #expect(ScenarioLintMessage.ruleIDs.count == 21)
-    #expect(Set(ScenarioLintMessage.ruleIDs).count == 21)
+  @Test func ruleIDsHasExactlyTwentyTwoEntries() {
+    #expect(ScenarioLintMessage.ruleIDs.count == 22)
+    #expect(Set(ScenarioLintMessage.ruleIDs).count == 22)
   }
 
   /// Pins the declaration order the doc comment promises — the Kotlin twin
@@ -117,6 +117,7 @@ struct ScenarioLintMessageTests {
         "pairwise-payoff-no-scorable-row",
         "pairwise-payoff-dead-row",
         "log-window-below-agent-count",
+        "assign-all-source-shorter-than-rounds",
         "unresolvable-placeholder",
         "placeholder-phase-availability",
         "per-persona-placeholder-in-summarize",
@@ -143,6 +144,7 @@ struct ScenarioLintMessageTests {
       "pairwise-payoff-no-scorable-row": .pairwisePayoffNoScorableRow,
       "pairwise-payoff-dead-row": .pairwisePayoffDeadRow,
       "log-window-below-agent-count": .logWindowBelowAgentCount,
+      "assign-all-source-shorter-than-rounds": .assignAllSourceShorterThanRounds,
       "unresolvable-placeholder": .unresolvablePlaceholder(token: "t"),
       "placeholder-phase-availability": .placeholderPhaseAvailability(token: "t"),
       "per-persona-placeholder-in-summarize": .perPersonaPlaceholderInSummarize(token: "t"),
@@ -150,7 +152,7 @@ struct ScenarioLintMessageTests {
       "bare-identifier-looks-like-literal": .bareIdentifierLooksLikeLiteral(token: "t"),
       "unknown-condition-identifier": .unknownConditionIdentifier(token: "t")
     ]
-    #expect(byRuleID.count == 21)
+    #expect(byRuleID.count == 22)
     for ruleID in ScenarioLintMessage.ruleIDs {
       let message = byRuleID[ruleID]
       #expect(message?.localized.hasPrefix("\(ruleID): ") == true)
