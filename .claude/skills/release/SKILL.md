@@ -273,7 +273,7 @@ scripts/release.sh --version X.Y --notes-file /REPLACE-WITH-NOTES-PATH
 ```
 
 The script archives, re-checks the ADR-005 §8.5 Ollama-symbol guard on
-the signed binary, exports an `app-store` `.ipa`, uploads via fastlane
+the signed binary, exports an `app-store-connect` `.ipa`, uploads via fastlane
 (waiting for ASC processing), and — only on a successful upload —
 creates and pushes the annotated tag `v<version>+<build>`. Report the result
 and that the build is processing on TestFlight.
