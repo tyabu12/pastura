@@ -37,9 +37,24 @@ import kotlin.concurrent.atomics.update
  * @param scripts One entry per expected call, in order. Re-issues after a
  *   [TerminalStatus.Suspended] consume the next entry — that is how a
  *   suspend-then-succeed cycle is scripted.
+ * @param onSuspended Invoked right after a [TerminalStatus.Suspended] terminal has
+ *   been delivered, so a `SimulationEngine`-driven test can signal the resume the
+ *   parked call is waiting for (`RunHandle.notifyLLMResumed`). Unlike `LLMCaller`
+ *   tests, such a test cannot step the run by hand — the engine drives itself —
+ *   so the resume edge has to come from the suspension itself.
+ *
+ *   **Fires once per suspend, not once per run.** A run may suspend N times and
+ *   [SuspensionRelay] arms a *fresh* deferred per cycle ([LLMCaller] calls
+ *   `arm()` before every issue) while `awaitResume()` disarms on exit, so a
+ *   resume signalled once does not carry over to the next cycle: every suspend
+ *   needs its own. Delivered on whatever context issued the call
+ *   (`Dispatchers.Default` under `SimulationEngine`), and re-entrantly — the
+ *   caller is still inside [generateStream] — so the handler must be
+ *   thread-safe and must not block.
  */
 internal class ScriptedLLMBackend(
     private val scripts: List<Script>,
+    private val onSuspended: (() -> Unit)? = null,
 ) : LLMBackend {
 
     /**
@@ -129,6 +144,10 @@ internal class ScriptedLLMBackend(
             )
         }
         callbacks.onTerminal(script.terminal)
+        // After the terminal, never before: the relay is armed by `LLMCaller`
+        // ahead of this call, so a resume signalled here is latched by the
+        // already-armed deferred and `awaitResume()` returns without parking.
+        if (script.terminal is TerminalStatus.Suspended) onSuspended?.invoke()
         return object : StreamHandle {
             override fun cancel() {
                 cancels.fetchAndAdd(1)
