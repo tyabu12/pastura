@@ -1,6 +1,9 @@
 // The round loop, the pause gate, and the phase loop share the private
 // `ExecutionContext`, so splitting them into sibling files would have to widen
 // its access. Kept in one file past the 400-line cap instead.
+// `SimulationRunner+SemanticLint.swift` could split off because it never
+// touches a `private` type-scope member of `SimulationRunner`; the round
+// loop, pause gate, and phase loop all read `ExecutionContext`, so they can't.
 // swiftlint:disable file_length
 import Foundation
 import Synchronization
@@ -141,8 +144,13 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   ) -> AsyncStream<SimulationEvent> {
     AsyncStream { continuation in
       // Delegates to the emitter overload so both entry points share one
-      // execution path. The Task holds `self` for the run's duration only —
-      // `onTermination` below cancels it, and nothing outlives the run.
+      // execution path. The Task retains `self` for the run's duration;
+      // `onTermination` (stream finished, or the continuation deallocated)
+      // cancels it, so a consumer that stops iterating but still holds the
+      // stream keeps the runner alive until the run ends or the stream is
+      // dropped. An earlier version captured individual fields instead of
+      // `self` to avoid this retain; the emitter overload below now owns the
+      // execution path, so retaining `self` here is accepted.
       let task = Task {
         await self.run(
           scenario: scenario, llm: llm, suspendController: suspendController,
@@ -164,11 +172,17 @@ nonisolated public final class SimulationRunner: @unchecked Sendable {
   /// observe that tail: its only cancel path is terminating the stream, which
   /// drops everything emitted afterwards. (ADR-023 S4, #1622)
   ///
+  /// Runs on the global concurrent executor regardless of caller (`@concurrent`),
+  /// so a MainActor caller does not run inference on the main thread (swift-isolation.md
+  /// Pattern 6).
+  ///
   /// Parameters otherwise match
   /// ``run(scenario:llm:suspendController:resumingFrom:startRound:)``.
   ///
   /// - Parameter emitter: Receives every ``SimulationEvent`` in emission order.
-  ///   Called synchronously from the run's own task, hence `@Sendable`.
+  ///   `@Sendable` because the closure escapes across an isolation boundary
+  ///   (this method's body runs on the global executor, not the caller's).
+  @concurrent
   public func run(
     scenario: Scenario,
     llm: LLMService,

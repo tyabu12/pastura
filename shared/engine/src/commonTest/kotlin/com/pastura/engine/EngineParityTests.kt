@@ -111,7 +111,7 @@ class EngineParityTests {
      * `prisonersDilemmaNominal`, 36 for the three-round `lastFableNominal` —
      * doing prompt building, streaming callbacks and JSON parsing while polled
      * at `delay(1)`, and the `macosArm64` rung was the slower of the two when
-     * the bound was set (measured 2026-08-29 with eight fixtures: 0.15 s for
+     * the bound was set (measured 2026-08-29 with nine fixtures: 0.15 s for
      * the whole roster on `macosArm64`, 0.48 s on the JVM — so the bound is
      * headroom, not a budget). Under the old bound a
      * loaded runner would fail as a timeout that reads like a hang rather than
@@ -182,10 +182,17 @@ class EngineParityTests {
      * reason [Collector] uses one — and because the latch must fire exactly once:
      * a fixture whose path repeats across rounds would otherwise cancel twice,
      * which is harmless today only by accident.
+     *
+     * No pending-cancel flag: [observe]'s `compareAndSet` on [triggered] runs
+     * BEFORE its `handle.load()`, and [adopt]'s `handle.store` runs BEFORE its
+     * `triggered.load()`, so every interleaving of the two leaves at least one
+     * side seeing the other's write — either [observe] sees the stored handle
+     * and cancels directly, or [adopt] sees `triggered == true` and cancels
+     * directly. The two calling a redundant `cancel()` on the same run is safe
+     * because `RunHandleImpl` documents every method as idempotent.
      */
     private class CancelOnPhaseCompleted(private val path: List<Int>) {
         private val handle = AtomicReference<RunHandle?>(null)
-        private val pendingCancel = AtomicBoolean(false)
         private val triggered = AtomicBoolean(false)
 
         /** Whether the trigger event was ever seen. */
@@ -194,15 +201,14 @@ class EngineParityTests {
         /** Stores the run's handle, cancelling now when the trigger already fired. */
         fun adopt(runHandle: RunHandle) {
             handle.store(runHandle)
-            if (pendingCancel.load()) runHandle.cancel()
+            if (triggered.load()) runHandle.cancel()
         }
 
         /** Cancels the run when [event] is the trigger; ignores everything else. */
         fun observe(event: SimulationEvent) {
             if (event !is SimulationEvent.PhaseCompleted || event.phasePath != path) return
             if (!triggered.compareAndSet(false, true)) return
-            val runHandle = handle.load()
-            if (runHandle == null) pendingCancel.store(true) else runHandle.cancel()
+            handle.load()?.cancel()
         }
     }
 

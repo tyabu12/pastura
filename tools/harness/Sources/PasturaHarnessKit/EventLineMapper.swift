@@ -155,7 +155,11 @@ package enum EventLineMapper {
   /// worth cross-engine comparison, so both sides project the case name only
   /// (e.g. `cancelled`, `llmGenerationFailed`). No `default:` (ADR-022) so a
   /// new `SimulationError` case fails to compile here instead of silently
-  /// falling through `String(describing:)`.
+  /// falling through `String(describing:)`. The per-event run-log line
+  /// therefore loses the error payload for every mapper consumer
+  /// (`HarnessRunner` included) — accepted, since the message still survives
+  /// in the `run_end` line's `error` field and in `HarnessRunner`'s
+  /// `.failed(String(describing:))` outcome.
   private static func errorCaseName(_ error: SimulationError) -> String {
     switch error {
     case .scenarioValidationFailed:

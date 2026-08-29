@@ -213,7 +213,7 @@ extension SimulationRunnerTests {
 /// can cancel it. `arm` is called synchronously right after `Task { }` returns,
 /// before the test task ever suspends, so the box is always populated by the
 /// time the run emits anything.
-private final class RunTaskBox: @unchecked Sendable {
+private final class RunTaskBox: Sendable {
   private let stored = OSAllocatedUnfairLock(initialState: Task<Void, Never>?.none)
 
   func arm(_ task: Task<Void, Never>) {

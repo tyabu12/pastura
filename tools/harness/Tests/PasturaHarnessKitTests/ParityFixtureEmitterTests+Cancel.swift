@@ -90,8 +90,14 @@ extension ParityFixtureEmitterTests {
       purpose: "test-only: a phase path this scenario has no phase at",
       cancelAfterPhaseCompleted: [9, 9])
 
-    await #expect(throws: ParityFixtureError.self) {
+    await #expect {
       _ = try await ParityFixtureEmitter.run(spec)
+    } throws: { error in
+      if case ParityFixtureError.cancelTriggerNeverFired = error {
+        return true
+      } else {
+        return false
+      }
     }
   }
 

@@ -167,7 +167,10 @@ internal object EventLineMapper {
             // is exhaustive with no `else` (ADR-022) for the same reason as the
             // outer `when` — a new `SimulationError` case must fail to compile
             // here rather than silently reach neither engine's transcript. ADR-023
-            // S4 (#1622) is the first fixture to drive an error line.
+            // S4 (#1622) is the first fixture to drive an error line. Each string
+            // literal below is kept in step with its case's `@SerialName` in
+            // `SimulationEvent.kt` by hand — the else-less `when` catches a new
+            // case, but nothing gates a rename of an existing one.
             is SimulationEvent.ErrorEvent -> fields(
                 "event" to JsonPrimitive("error"),
                 "error" to JsonPrimitive(

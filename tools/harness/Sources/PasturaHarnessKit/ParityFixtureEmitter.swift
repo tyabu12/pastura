@@ -227,8 +227,8 @@ package enum ParityFixtureEmitter {
       await task.value
     }
 
-    let recorded = sink.withLock { ($0.lines, $0.didCancel) }
-    if let path = spec.cancelAfterPhaseCompleted, !recorded.1 {
+    let (recordedLines, triggerFired) = sink.withLock { ($0.lines, $0.triggerFired) }
+    if let path = spec.cancelAfterPhaseCompleted, !triggerFired {
       throw ParityFixtureError.cancelTriggerNeverFired(spec.name, path)
     }
 
@@ -237,7 +237,7 @@ package enum ParityFixtureEmitter {
       purpose: spec.purpose,
       scenarioJSON: try encodeScenario(scenario),
       responses: responder.recordedResponses,
-      transcript: try recorded.0.map { try JSONL.encode($0) },
+      transcript: try recordedLines.map { try JSONL.encode($0) },
       callCount: responder.callCount,
       seed: spec.seed,
       cancelAfterPhaseCompleted: spec.cancelAfterPhaseCompleted)
@@ -261,7 +261,7 @@ package enum ParityFixtureEmitter {
     private var cancelRequested = false
     /// Whether the trigger path was ever seen — the guard against a spec whose
     /// path no run emits.
-    private(set) var didCancel = false
+    private(set) var triggerFired = false
 
     /// Maps and appends `event`, returning the task to cancel when it is the
     /// trigger and a handle is already available.
@@ -269,10 +269,10 @@ package enum ParityFixtureEmitter {
       if let line = EventLineMapper.map(ParityFixtureEmitter.normalize(event), t: 0, attempt: 0) {
         lines.append(line)
       }
-      guard let cancelPath, !didCancel,
+      guard let cancelPath, !triggerFired,
         case .phaseCompleted(_, let path) = event, path == cancelPath
       else { return nil }
-      didCancel = true
+      triggerFired = true
       guard let task else {
         cancelRequested = true
         return nil

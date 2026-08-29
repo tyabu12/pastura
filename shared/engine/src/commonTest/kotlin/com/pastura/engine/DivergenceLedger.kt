@@ -340,7 +340,7 @@ internal object DivergenceLedger {
             "DemoPresets/iiwake_battle_v1) — and every condition in the set is a plain " +
             "ASCII comparison of identifiers, decimal literals or a quoted ASCII string: " +
             "target_score_race `max_score >= 3`, parity_cancel `current_round >= 1`, " +
-            "word_wolf `current_event != \"\"` and `vote_winner == wolf_name`; the four " +
+            "word_wolf `current_event != \"\"` and `vote_winner == wolf_name`; the five " +
             "other scenarios declare no conditional at all",
         DivergenceClass.SCOREBOARD_ORDERING to
             "reaches the transcript through the summarize template, but needs agent names " +
