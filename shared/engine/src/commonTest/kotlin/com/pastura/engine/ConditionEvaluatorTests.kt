@@ -117,6 +117,38 @@ class ConditionEvaluatorTests {
         assertTrue(result.value)
     }
 
+    @Test
+    fun voteWinnerCountGTE() {
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
+        val state = SimulationState.initial(scenario).copy(voteResults = mapOf("Alice" to 2, "Bob" to 1))
+        assertTrue(evaluator.evaluate("vote_winner_count >= 2", state, scenario).value)
+        assertFalse(evaluator.evaluate("vote_winner_count >= 3", state, scenario).value)
+    }
+
+    @Test
+    fun voteWinnerCountTiePinsTiedCount() {
+        // Same tie-break as `vote_winner` (count desc, name desc) — Bob wins the
+        // Alice/Bob tie, and vote_winner_count is the tied count itself (2), not
+        // some other value.
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
+        val state = SimulationState.initial(scenario).copy(voteResults = mapOf("Alice" to 2, "Bob" to 2))
+        assertTrue(evaluator.evaluate("vote_winner_count == 2", state, scenario).value)
+    }
+
+    @Test
+    fun voteWinnerCountCarriesOverAcrossRounds() {
+        // Pins ADR-020 §11's stated semantics DELIBERATELY, not accidentally:
+        // `state.voteResults` is never cleared at a round boundary, so
+        // `vote_winner_count` (like `vote_winner`) keeps resolving the most recent
+        // vote phase's count even after `currentRound` advances past it. Do NOT
+        // "fix" this by round-scoping — that would contradict the documented
+        // staleness this test exists to lock in.
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"), rounds = 5)
+        val state = SimulationState.initial(scenario)
+            .copy(voteResults = mapOf("Alice" to 2, "Bob" to 1), currentRound = 4)
+        assertTrue(evaluator.evaluate("vote_winner_count == 2", state, scenario).value)
+    }
+
     // MARK: - Template-variable side (state.variables)
 
     @Test
@@ -134,6 +166,15 @@ class ConditionEvaluatorTests {
         val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
         val state = SimulationState.initial(scenario) // empty voteResults
         val result = evaluator.evaluate("vote_winner == \"Alice\"", state, scenario)
+        assertFalse(result.value)
+        assertTrue(result.warnings.isNotEmpty())
+    }
+
+    @Test
+    fun voteWinnerCountPreVoteReturnsFalseWithWarning() {
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
+        val state = SimulationState.initial(scenario) // empty voteResults
+        val result = evaluator.evaluate("vote_winner_count >= 1", state, scenario)
         assertFalse(result.value)
         assertTrue(result.warnings.isNotEmpty())
     }

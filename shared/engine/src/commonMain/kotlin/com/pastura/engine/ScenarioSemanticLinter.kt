@@ -987,7 +987,7 @@ public class ScenarioSemanticLinter {
          */
         val conditionDerivedVariables: Set<String> = setOf(
             "current_round", "total_rounds", "eliminated_count", "active_count",
-            "max_score", "min_score", "vote_winner",
+            "max_score", "min_score", "vote_winner", "vote_winner_count",
         )
     }
 
@@ -1025,7 +1025,7 @@ public class ScenarioSemanticLinter {
     // `word_wolf` — `vote_winner == wolf_name`, `current_event != ""`):
     // the derived read-only variables [ConditionEvaluator] resolves
     // (`current_round`, `total_rounds`, `eliminated_count`, `active_count`,
-    // `max_score`, `min_score`, `vote_winner`) ∪ `scores.<PersonaName>` for
+    // `max_score`, `min_score`, `vote_winner`, `vote_winner_count`) ∪ `scores.<PersonaName>` for
     // declared personas ∪ scenario `extraData` keys ∪ engine-injected reserved
     // state-variable names (`wolf_name`, `vote_results`, `assigned_topic`, the
     // per-persona `assigned_<name>` / `notes_<name>` / `whispers_<name>` /

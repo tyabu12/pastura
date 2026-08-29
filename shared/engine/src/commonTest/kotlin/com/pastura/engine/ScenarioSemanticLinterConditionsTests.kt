@@ -176,6 +176,16 @@ class ScenarioSemanticLinterConditionsTests {
     }
 
     @Test
+    fun voteWinnerCountIsKnownIdentifier() {
+        // `vote_winner_count` is a derived read-only variable (ADR-020 §11) and
+        // must not fire R15 unknown-condition-identifier.
+        val scenario = makeLinterScenario(
+            agents = 2, rounds = 1, phases = listOf(conditionalPhase("vote_winner_count >= 2")),
+        )
+        assertTrue(linter.conditionFindings(scenario).isEmpty())
+    }
+
+    @Test
     fun knownIdentifiersProduceNoFindings() {
         // Derived vars, extraData key (`events`), scores.<persona>, engine-injected
         // reserved names (wolf_name), and a custom `event_inject` `as:` name (storm)

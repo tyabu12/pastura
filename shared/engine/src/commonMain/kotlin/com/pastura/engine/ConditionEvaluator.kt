@@ -41,6 +41,7 @@ import com.pastura.models.SimulationState
  * Derived read-only variables (either side of a comparison): `current_round`,
  * `total_rounds`, `max_score`, `min_score`, `eliminated_count`, `active_count`,
  * `vote_winner` (most-voted name, ties broken like `EliminateHandler`),
+ * `vote_winner_count` (winning vote count, same tie-break as `vote_winner`),
  * `scores.<Name>`. Any other identifier resolves from `state.variables`.
  *
  * **Parse-time errors** (missing operator, empty operand, mismatched/empty
@@ -309,6 +310,25 @@ public class ConditionEvaluator {
                 DerivedResolution.Value(top.key)
             } else {
                 warnings.add("vote_winner has no value (no vote phase has run this round)")
+                DerivedResolution.Absent
+            }
+        }
+
+        "vote_winner_count" -> {
+            // Same tie-break as `vote_winner`. Deliberately NOT round-scoped:
+            // `state.voteResults` is never cleared at a round boundary, so this
+            // reads the most recent vote phase's count, not necessarily the
+            // current round's — same staleness as `vote_winner` (ADR-020 §11).
+            val top = state.voteResults.entries
+                .sortedWith(
+                    compareByDescending<Map.Entry<String, Int>> { it.value }
+                        .thenByDescending { it.key },
+                )
+                .firstOrNull()
+            if (top != null) {
+                DerivedResolution.Value(top.value.toString())
+            } else {
+                warnings.add("vote_winner_count has no value (no vote phase has run this round)")
                 DerivedResolution.Absent
             }
         }
