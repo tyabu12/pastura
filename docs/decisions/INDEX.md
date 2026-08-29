@@ -115,7 +115,7 @@ KMP Engine migration architecture (Phase 3.0) — run-path Engine port to `commo
 
 ## ADR-024 — Scenario semantic lint layer
 
-Scenario semantic lint layer — `ScenarioSemanticLinter` (Engine) fires silent-no-op DSL traps at load time as findings (error blocks commit/run, warning never blocks; rule catalog R1–R20; linter-owned `PlaceholderAvailability` map absorbs #920's model; `pastura-harness lint` batch gate, shipped preset+gallery inventory zero-FP; warn-first promotion policy for post-v1 error rules) (Status: Accepted; #994)
+Scenario semantic lint layer — `ScenarioSemanticLinter` (Engine) fires silent-no-op DSL traps at load time as findings (error blocks commit/run, warning never blocks; rule catalog R1–R21; linter-owned `PlaceholderAvailability` map absorbs #920's model; `pastura-harness lint` batch gate, shipped preset+gallery inventory zero-FP; warn-first promotion policy for post-v1 error rules) (Status: Accepted; #994)
 
 ## ADR-025 — Gallery scenario ordering
 

@@ -46,8 +46,8 @@ extension ScenarioSemanticLinterTests {
     ]
   }
 
-  /// R18/R20a/R20b — the remaining three.
-  private var configMessageCasesR18ToR20b: [ConfigMessageCase] {
+  /// R18/R20a/R20b/R21 — the remaining four.
+  private var configMessageCasesR18ToR21: [ConfigMessageCase] {
     [
       ConfigMessageCase(
         ruleID: "max-sentences-no-op",
@@ -79,7 +79,11 @@ extension ScenarioSemanticLinterTests {
                 PayoffRule(when: ["unclear", "unclear"], points: [0, 0])
               ])
           ]),
-        expected: .pairwisePayoffDeadRow)
+        expected: .pairwisePayoffDeadRow),
+      ConfigMessageCase(
+        ruleID: "assign-all-source-shorter-than-rounds",
+        scenario: makeAssignRoundsScenario(rounds: 4, source: .array(["one", "two"])),
+        expected: .assignAllSourceShorterThanRounds)
     ]
   }
 
@@ -95,15 +99,15 @@ extension ScenarioSemanticLinterTests {
   /// fixtures cannot silently change what is measured. Mirrors
   /// `ScenarioSemanticLinterPayoffTests.configMessagesMapEachRuleIdToItsLintMessageCase`.
   ///
-  /// Two limits, stated so nobody reads them as proofs: (1) the 7-entry list
-  /// is a hand-maintained pin — an eighth config rule must be added here by
+  /// Two limits, stated so nobody reads them as proofs: (1) the 8-entry list
+  /// is a hand-maintained pin — a ninth config rule must be added here by
   /// hand, nothing reddens otherwise; (2) `log-window-below-agent-count` has
   /// no explicit `configMessage` arm (Swift `default:` / Kotlin `else`), so
   /// its row cannot tell "arm correct" from "fell through".
   @Test func configMessagesMapEachRuleIDToItsLintMessageCase() {
-    let cases = configMessageCasesR7ToR17 + configMessageCasesR18ToR20b
+    let cases = configMessageCasesR7ToR17 + configMessageCasesR18ToR21
     // Pin, not proof: a new config rule must be added to `cases` by hand.
-    #expect(cases.count == 7)
+    #expect(cases.count == 8)
     for testCase in cases {
       let findings = linter.lint(testCase.scenario)
       #expect(findings.count == 1, "\(testCase.ruleID)")

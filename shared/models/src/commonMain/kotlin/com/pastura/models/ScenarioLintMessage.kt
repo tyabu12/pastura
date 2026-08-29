@@ -4,14 +4,14 @@ package com.pastura.models
  * A parameter-carrying description of an ADR-024 semantic-lint finding message.
  *
  * Kotlin port of `Pastura/Pastura/Models/ScenarioLintMessage.swift`, **1:1
- * across all 21 cases** — the Swift enum is the single source of truth for the
+ * across all 22 cases** — the Swift enum is the single source of truth for the
  * set, the declaration order, and every literal. Each subtype is a portable
  * structured payload (name + typed args); [render] is the single rendering leaf
  * that turns one into a display string.
  *
  * ## Deliberately separate from [ScenarioValidationMessage]
  *
- * The two model different surfaces, and folding the 21 cases into
+ * The two model different surfaces, and folding the 22 cases into
  * [ScenarioValidationMessage] was considered and rejected (issue #1562): a lint
  * finding carries a severity and is collected alongside other findings for the
  * same scenario, while a validation message is thrown as the sole reason a load
@@ -57,7 +57,7 @@ public sealed class ScenarioLintMessage {
 
     public object VoteTallyNeedsVote : ScenarioLintMessage()
 
-    // ── Config (ScenarioSemanticLinter+Config.swift, R7/R8/R9/R17/R18/R20a/R20b) ──
+    // ── Config (ScenarioSemanticLinter+Config.swift, R7/R8/R9/R17/R18/R20a/R20b/R21) ──
 
     public object ChooseShouldDeclareOptions : ScenarioLintMessage()
 
@@ -72,6 +72,8 @@ public sealed class ScenarioLintMessage {
     public object PairwisePayoffDeadRow : ScenarioLintMessage()
 
     public object LogWindowBelowAgentCount : ScenarioLintMessage()
+
+    public object AssignAllSourceShorterThanRounds : ScenarioLintMessage()
 
     // ── Placeholders (ScenarioSemanticLinter+Placeholders.swift, R10/R11/R12) ──
 
@@ -114,7 +116,7 @@ public sealed class ScenarioLintMessage {
      * localization contract to satisfy yet, and inventing one here would be
      * guessing at Stage-5's design.
      *
-     * Every one of these 21 literals **already has a `ja` translation** in
+     * Every one of these 22 literals **already has a `ja` translation** in
      * `Pastura/Pastura/Resources/Localizable.xcstrings`. Lint findings are more
      * exposed than validation messages: they surface in the scenario **editor
      * UI**, one row per finding, as ordinary browsing output rather than as a
@@ -134,7 +136,7 @@ public sealed class ScenarioLintMessage {
      * `shared/models/build.gradle.kts`, whose four Apple targets share a parent
      * source set under the default hierarchy template.
      *
-     * ## No gate covers the dual landing of these 21 literals
+     * ## No gate covers the dual landing of these 22 literals
      *
      * These literals are dual-landed with Swift's `ScenarioLintMessage.localized`
      * (that property's own doc comment says the same from the other side).
@@ -210,6 +212,10 @@ public sealed class ScenarioLintMessage {
             "log-window-below-agent-count: 'log_window' is smaller than the agent count " +
                 "while a 'speak_each' phase is present, so same-round earlier speakers vanish " +
                 "from the addressee pool — raise 'log_window' to at least the agent count."
+        is AssignAllSourceShorterThanRounds ->
+            "assign-all-source-shorter-than-rounds: this 'assign' phase has fewer source " +
+                "entries than the scenario's 'rounds', so the later rounds wrap back around to " +
+                "the first entry and repeat it — add one entry per round, or lower 'rounds'."
         // ── Placeholders ────────────────────────────────────────────────────
         is UnresolvablePlaceholder ->
             "unresolvable-placeholder: the placeholder '{$token}' is supplied by no " +
@@ -249,7 +255,7 @@ public sealed class ScenarioLintMessage {
          * The order is part of the contract, not incidental: it is what lets the
          * commonTest suite zip this list against the roster and assert that each
          * rendering starts with its own rule ID. Add a subtype and this list, the
-         * roster, and the `21` pins all move together.
+         * roster, and the `22` pins all move together.
          */
         public val ruleIDs: List<String> = listOf(
             "eliminate-needs-vote",
@@ -267,6 +273,7 @@ public sealed class ScenarioLintMessage {
             "pairwise-payoff-no-scorable-row",
             "pairwise-payoff-dead-row",
             "log-window-below-agent-count",
+            "assign-all-source-shorter-than-rounds",
             "unresolvable-placeholder",
             "placeholder-phase-availability",
             "per-persona-placeholder-in-summarize",

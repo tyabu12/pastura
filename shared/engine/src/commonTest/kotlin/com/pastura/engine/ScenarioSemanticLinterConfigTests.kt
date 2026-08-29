@@ -11,13 +11,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Silently-inert configuration-rule tests (R7/R8/R9/R17/R18) for
+ * Silently-inert configuration-rule tests (R7/R8/R9/R17/R18/R21) for
  * [ScenarioSemanticLinter], mirroring
  * `Pastura/PasturaTests/Engine/ScenarioSemanticLinterTests+Config.swift`
  * 1:1. Every function name below matches its Swift twin exactly — see that
  * file if a name here looks odd.
  *
- * 19 tests mirrored 1:1. R20a/R20b (`pairwise-payoff-no-scorable-row` /
+ * 27 tests mirrored 1:1. R20a/R20b (`pairwise-payoff-no-scorable-row` /
  * `pairwise-payoff-dead-row`) live in [ScenarioSemanticLinterPayoffTests],
  * mirroring the Swift split across `…Tests+Config.swift` / `…Tests+Payoff.swift`.
  *
@@ -330,6 +330,85 @@ class ScenarioSemanticLinterConfigTests {
         assertEquals(1, findings.first().phaseIndex)
     }
 
+    // MARK: - R21 assign-all-source-shorter-than-rounds (warning)
+
+    @Test
+    fun assignAllSourceShorterThanRoundsFiresWarning() {
+        val scenario = makeAssignRoundsScenario(rounds = 4, source = AnyCodableValue.ArrayValue(listOf("one", "two")))
+        val findings = linter.lint(scenario)
+        assertEquals(1, findings.size)
+        assertEquals("assign-all-source-shorter-than-rounds", findings.first().ruleId)
+        assertEquals(LintSeverity.WARNING, findings.first().severity)
+        assertEquals(0, findings.first().phaseIndex)
+    }
+
+    @Test
+    fun assignOmittedTargetFiresWarning() {
+        // `target` omitted means `all` (`AssignHandler` carries the why-comment on
+        // that default), so the rule's `?: ALL` must fire the same as an explicit
+        // `target: all` — otherwise the commonest authoring shape goes unlinted.
+        val scenario = makeAssignRoundsScenario(
+            rounds = 4,
+            source = AnyCodableValue.ArrayValue(listOf("one", "two")),
+            target = null,
+        )
+        val findings = linter.lint(scenario)
+        assertEquals(1, findings.size)
+        assertEquals("assign-all-source-shorter-than-rounds", findings.first().ruleId)
+    }
+
+    @Test
+    fun assignAllSourceMatchingRoundsPasses() {
+        val scenario = makeAssignRoundsScenario(rounds = 2, source = AnyCodableValue.ArrayValue(listOf("one", "two")))
+        assertTrue(linter.lint(scenario).isEmpty())
+    }
+
+    @Test
+    fun assignAllSourceLongerThanRoundsPasses() {
+        // Unreached trailing entries are a separate reading, deliberately out of
+        // this rule's scope.
+        val scenario = makeAssignRoundsScenario(
+            rounds = 2,
+            source = AnyCodableValue.ArrayValue(listOf("one", "two", "three")),
+        )
+        assertTrue(linter.lint(scenario).isEmpty())
+    }
+
+    @Test
+    fun assignAllSingleEntrySourceDoesNotFire() {
+        // A one-entry array is semantically a constant for every round — the same
+        // legitimate authoring shape as a `.string` source, which the rule excludes.
+        val scenario = makeAssignRoundsScenario(rounds = 5, source = AnyCodableValue.ArrayValue(listOf("only")))
+        assertTrue(linter.lint(scenario).none { it.ruleId == "assign-all-source-shorter-than-rounds" })
+    }
+
+    @Test
+    fun assignAllEmptySourceFiresR8Only() {
+        // Emptiness is R8's `.error` lane; R21 must not double-report.
+        val scenario = makeAssignRoundsScenario(rounds = 5, source = AnyCodableValue.ArrayValue(emptyList()))
+        val findings = linter.lint(scenario)
+        assertEquals(1, findings.size)
+        assertEquals("assign-source-nonempty", findings.first().ruleId)
+    }
+
+    @Test
+    fun assignAllStringSourceShorterThanRoundsDoesNotFire() {
+        val scenario = makeAssignRoundsScenario(rounds = 5, source = AnyCodableValue.StringValue("the one topic"))
+        assertTrue(linter.lint(scenario).isEmpty())
+    }
+
+    @Test
+    fun assignRandomOneShorterThanRoundsDoesNotFire() {
+        // `random_one` draws per round from the whole list; the wrap-around
+        // indexing R21 models is `AssignHandler.assignAll`-only.
+        val scenario = makeAssignRoundsScenario(
+            rounds = 5,
+            source = AnyCodableValue.ArrayOfDictionariesValue(listOf(mapOf("majority" to "a", "minority" to "b"))),
+            target = AssignTarget.RANDOM_ONE,
+        )
+        assertTrue(linter.lint(scenario).none { it.ruleId == "assign-all-source-shorter-than-rounds" })
+    }
+
     // MARK: - Helpers
 
     // Internal factory for scenarios needing `extraData` (R8); `makeLinterScenario`
@@ -342,4 +421,17 @@ class ScenarioSemanticLinterConfigTests {
     // `makeLogWindowScenario`, folded onto `makeLinterScenario`'s named parameter.
     private fun makeLogWindowScenario(agents: Int, logWindow: Int, phases: List<Phase>): Scenario =
         makeLinterScenario(agents = agents, rounds = 1, phases = phases, logWindow = logWindow)
+
+    // Internal factory for `assign`-source scenarios needing a `rounds` other
+    // than 1 (R21); `makeEventScenario` pins `rounds: 1`.
+    private fun makeAssignRoundsScenario(
+        rounds: Int,
+        source: AnyCodableValue,
+        target: AssignTarget? = AssignTarget.ALL,
+    ): Scenario = makeLinterScenario(
+        agents = 2,
+        rounds = rounds,
+        phases = listOf(Phase(type = PhaseType.ASSIGN, source = "events", target = target)),
+        extraData = mapOf("events" to source),
+    )
 }

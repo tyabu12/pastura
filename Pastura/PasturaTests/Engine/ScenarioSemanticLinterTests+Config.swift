@@ -194,7 +194,87 @@ extension ScenarioSemanticLinterTests {
     #expect(findings.first?.phaseIndex == 1)
   }
 
+  // MARK: - R21 assign-all-source-shorter-than-rounds (warning)
+
+  @Test func assignAllSourceShorterThanRoundsFiresWarning() {
+    let scenario = makeAssignRoundsScenario(rounds: 4, source: .array(["one", "two"]))
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "assign-all-source-shorter-than-rounds")
+    #expect(findings.first?.severity == .warning)
+    #expect(findings.first?.phaseIndex == 0)
+  }
+
+  @Test func assignOmittedTargetFiresWarning() {
+    // `target` omitted means `all` (`AssignHandler` carries the why-comment on
+    // that default), so the rule's `?? .all` must fire the same as an explicit
+    // `target: all` — otherwise the commonest authoring shape goes unlinted.
+    let scenario = makeAssignRoundsScenario(rounds: 4, source: .array(["one", "two"]), target: nil)
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "assign-all-source-shorter-than-rounds")
+  }
+
+  @Test func assignAllSourceMatchingRoundsPasses() {
+    let scenario = makeAssignRoundsScenario(rounds: 2, source: .array(["one", "two"]))
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func assignAllSourceLongerThanRoundsPasses() {
+    // Unreached trailing entries are a separate reading, deliberately out of
+    // this rule's scope.
+    let scenario = makeAssignRoundsScenario(rounds: 2, source: .array(["one", "two", "three"]))
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func assignAllSingleEntrySourceDoesNotFire() {
+    // A one-entry array is semantically a constant for every round — the same
+    // legitimate authoring shape as a `.string` source, which the rule excludes.
+    let scenario = makeAssignRoundsScenario(rounds: 5, source: .array(["only"]))
+    #expect(
+      !linter.lint(scenario).contains { $0.ruleID == "assign-all-source-shorter-than-rounds" })
+  }
+
+  @Test func assignAllEmptySourceFiresR8Only() {
+    // Emptiness is R8's `.error` lane; R21 must not double-report.
+    let scenario = makeAssignRoundsScenario(rounds: 5, source: .array([]))
+    let findings = linter.lint(scenario)
+    #expect(findings.count == 1)
+    #expect(findings.first?.ruleID == "assign-source-nonempty")
+  }
+
+  @Test func assignAllStringSourceShorterThanRoundsDoesNotFire() {
+    let scenario = makeAssignRoundsScenario(rounds: 5, source: .string("the one topic"))
+    #expect(linter.lint(scenario).isEmpty)
+  }
+
+  @Test func assignRandomOneShorterThanRoundsDoesNotFire() {
+    // `random_one` draws per round from the whole list; the wrap-around
+    // indexing R21 models is `AssignHandler.assignAll`-only.
+    let scenario = makeAssignRoundsScenario(
+      rounds: 5,
+      source: .arrayOfDictionaries([["majority": "a", "minority": "b"]]),
+      target: .randomOne)
+    #expect(
+      !linter.lint(scenario).contains { $0.ruleID == "assign-all-source-shorter-than-rounds" })
+  }
+
   // MARK: - Helper
+
+  // Internal factory for `assign`-source scenarios needing a `rounds` other
+  // than 1 (R21); `makeEventScenario` pins `rounds: 1`.
+  func makeAssignRoundsScenario(
+    rounds: Int, source: AnyCodableValue, target: AssignTarget? = .all
+  ) -> Scenario {
+    Scenario(
+      id: "test", name: "Test", description: "Test",
+      language: "ja",
+      agentCount: 2, rounds: rounds, context: "Context",
+      personas: [Persona(name: "A0", description: "D"), Persona(name: "A1", description: "D")],
+      phases: [Phase(type: .assign, source: "events", target: target)],
+      extraData: ["events": source]
+    )
+  }
 
   // Internal factory for scenarios needing `logWindow` (R17); the base
   // `makeScenario` doesn't take it.

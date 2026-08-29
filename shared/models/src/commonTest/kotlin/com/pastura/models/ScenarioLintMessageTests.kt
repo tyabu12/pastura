@@ -14,12 +14,12 @@ import kotlin.test.assertTrue
  * Four parts, per issue #1562 / ADR-023 §12, mirroring
  * [ScenarioValidationMessageTests] — the precedent for this shape:
  *
- * (a) [caseSetMatchesSwiftEnumBidirectionally] — the 21 hand-transcribed Swift
+ * (a) [caseSetMatchesSwiftEnumBidirectionally] — the 22 hand-transcribed Swift
  *     case names vs. the Kotlin subtype names, both directions.
- * (b) [rosterAndSwiftTranscriptionAgreeOn21Cases] — a count pin plus an
+ * (b) [rosterAndSwiftTranscriptionAgreeOn22Cases] — a count pin plus an
  *     else-free `when` roster ([swiftCaseNameOf]).
- * (c) [rendersAllTwentyOneCasesWithTokenInterpolationIntact] and
- *     [ruleIDsMatchRosterOrderAndPrefixEveryRendering] — every one of the 21
+ * (c) [rendersAllTwentyTwoCasesWithTokenInterpolationIntact] and
+ *     [ruleIDsMatchRosterOrderAndPrefixEveryRendering] — every one of the 22
  *     cases rendered and asserted by full-string equality, seeded from the
  *     Swift `String(localized:)` base literals; plus the `ruleIDs` order pin.
  * (d) this KDoc's perturbation-record table, below.
@@ -57,8 +57,8 @@ import kotlin.test.assertTrue
  *
  * | # | Mutation applied to `ScenarioLintMessage.kt` | Test that reddened | Other tests reddened |
  * |---|---|---|---|
- * | 1 | swapped the render arms of `EliminateNeedsVote` and `EliminateAfterVote` | [rendersAllTwentyOneCasesWithTokenInterpolationIntact] (eliminateNeedsVote entry) and [ruleIDsMatchRosterOrderAndPrefixEveryRendering] | 0 |
- * | 2 | dropped the token interpolation from `UnknownConditionIdentifier` (rendered the literal word `token` instead) | [rendersAllTwentyOneCasesWithTokenInterpolationIntact] (unknownConditionIdentifier entry) | 0 |
+ * | 1 | swapped the render arms of `EliminateNeedsVote` and `EliminateAfterVote` | [rendersAllTwentyTwoCasesWithTokenInterpolationIntact] (eliminateNeedsVote entry) and [ruleIDsMatchRosterOrderAndPrefixEveryRendering] | 0 |
+ * | 2 | dropped the token interpolation from `UnknownConditionIdentifier` (rendered the literal word `token` instead) | [rendersAllTwentyTwoCasesWithTokenInterpolationIntact] (unknownConditionIdentifier entry) | 0 |
  * | 3 | reordered `ruleIDs` — swapped `"choose-should-declare-options"` and `"assign-source-nonempty"` | [ruleIDsMatchRosterOrderAndPrefixEveryRendering] | 0 |
  *
  * Mutation 1 reddens two tests because the rule-ID prefix is part of every
@@ -96,6 +96,7 @@ class ScenarioLintMessageTests {
         "pairwisePayoffNoScorableRow",
         "pairwisePayoffDeadRow",
         "logWindowBelowAgentCount",
+        "assignAllSourceShorterThanRounds",
         // Placeholders
         "unresolvablePlaceholder",
         "placeholderPhaseAvailability",
@@ -110,7 +111,7 @@ class ScenarioLintMessageTests {
 
     @Test
     fun caseSetMatchesSwiftEnumBidirectionally() {
-        assertEquals(21, swiftCaseNames.size, "swiftCaseNames transcription itself must list 21")
+        assertEquals(22, swiftCaseNames.size, "swiftCaseNames transcription itself must list 22")
         val expectedKotlinNames = swiftCaseNames.map { it.replaceFirstChar(Char::uppercaseChar) }.toSet()
         val actualKotlinNames = roster().map { it::class.simpleName }.toSet()
         val missingInKotlin = expectedKotlinNames - actualKotlinNames
@@ -135,21 +136,21 @@ class ScenarioLintMessageTests {
      *
      * **The residual hole, stated so the name cannot be read as covering it.**
      * [roster] is derived from the hand-written [rosterWithExpectedRenderings],
-     * so nothing ties `21` to the number of sealed subtypes. Add a 22nd subtype
+     * so nothing ties `22` to the number of sealed subtypes. Add a 23rd subtype
      * *and* its [swiftCaseNameOf] arm (which the compiler forces) but forget the
      * roster entry and the [swiftCaseNames] entry, and the case-set and roster
-     * tests still pass. (Unlike the validation-message precedent, a 22nd
+     * tests still pass. (Unlike the validation-message precedent, a 23rd
      * `ruleIDs` entry would then redden
      * [ruleIDsMatchRosterOrderAndPrefixEveryRendering] on the size check — but
      * only if the author remembered `ruleIDs`, so that is a partial backstop,
      * not a guard.) The compile-time `when` is the only real hierarchy guard.
-     * The `21`s here and in `ScenarioLintMessage.ruleIDs` are hand-maintained in
+     * The `22`s here and in `ScenarioLintMessage.ruleIDs` are hand-maintained in
      * lockstep — treat them as one edit.
      */
     @Test
-    fun rosterAndSwiftTranscriptionAgreeOn21Cases() {
+    fun rosterAndSwiftTranscriptionAgreeOn22Cases() {
         val entries = roster()
-        assertEquals(21, entries.size, "Roster size pin — see kmp-interop.md Pattern 4")
+        assertEquals(22, entries.size, "Roster size pin — see kmp-interop.md Pattern 4")
         val caseNames = entries.map(::swiftCaseNameOf)
         assertEquals(
             caseNames.size,
@@ -163,7 +164,7 @@ class ScenarioLintMessageTests {
      * Deliberately has **no `else` branch** — a Kotlin subtype added to
      * [ScenarioLintMessage] without an arm here fails the build, which is the
      * compile-time half of the "pin, not proof" substitute described on
-     * [rosterAndSwiftTranscriptionAgreeOn21Cases].
+     * [rosterAndSwiftTranscriptionAgreeOn22Cases].
      */
     private fun swiftCaseNameOf(msg: ScenarioLintMessage): String = when (msg) {
         is ScenarioLintMessage.EliminateNeedsVote -> "eliminateNeedsVote"
@@ -181,6 +182,7 @@ class ScenarioLintMessageTests {
         is ScenarioLintMessage.PairwisePayoffNoScorableRow -> "pairwisePayoffNoScorableRow"
         is ScenarioLintMessage.PairwisePayoffDeadRow -> "pairwisePayoffDeadRow"
         is ScenarioLintMessage.LogWindowBelowAgentCount -> "logWindowBelowAgentCount"
+        is ScenarioLintMessage.AssignAllSourceShorterThanRounds -> "assignAllSourceShorterThanRounds"
         is ScenarioLintMessage.UnresolvablePlaceholder -> "unresolvablePlaceholder"
         is ScenarioLintMessage.PlaceholderPhaseAvailability -> "placeholderPhaseAvailability"
         is ScenarioLintMessage.PerPersonaPlaceholderInSummarize -> "perPersonaPlaceholderInSummarize"
@@ -192,7 +194,7 @@ class ScenarioLintMessageTests {
     // ── (c) Rendering assertions ────────────────────────────────────────────
 
     @Test
-    fun rendersAllTwentyOneCasesWithTokenInterpolationIntact() {
+    fun rendersAllTwentyTwoCasesWithTokenInterpolationIntact() {
         rosterWithExpectedRenderings().forEach { (msg, expected) ->
             assertEquals(expected, msg.render(), "Render mismatch for ${swiftCaseNameOf(msg)}")
         }
@@ -202,13 +204,13 @@ class ScenarioLintMessageTests {
      * `ruleIDs` stands in for `CaseIterable` on the Swift side, so its **order**
      * is load-bearing in a way the render pins cannot see: they assert literals,
      * not the list. This asserts both halves of the contract Swift's
-     * `everyMessageStartsWithItsOwnRuleID` asserts — 21 IDs, in the declaration
+     * `everyMessageStartsWithItsOwnRuleID` asserts — 22 IDs, in the declaration
      * order the roster walks, each one prefixing its own case's rendering.
      */
     @Test
     fun ruleIDsMatchRosterOrderAndPrefixEveryRendering() {
         val ruleIDs = ScenarioLintMessage.ruleIDs
-        assertEquals(21, ruleIDs.size, "ruleIDs must carry one entry per case")
+        assertEquals(22, ruleIDs.size, "ruleIDs must carry one entry per case")
         assertEquals(ruleIDs.size, ruleIDs.toSet().size, "ruleIDs has a duplicate: $ruleIDs")
         assertEquals(expectedRuleIDsInSwiftOrder, ruleIDs, "ruleIDs order drifted from Swift")
         val messages = roster()
@@ -242,6 +244,7 @@ class ScenarioLintMessageTests {
         "pairwise-payoff-no-scorable-row",
         "pairwise-payoff-dead-row",
         "log-window-below-agent-count",
+        "assign-all-source-shorter-than-rounds",
         "unresolvable-placeholder",
         "placeholder-phase-availability",
         "per-persona-placeholder-in-summarize",
@@ -254,7 +257,7 @@ class ScenarioLintMessageTests {
         rosterWithExpectedRenderings().map { it.first }
 
     /**
-     * Every one of the 21 cases, in Swift declaration order, paired with its
+     * Every one of the 22 cases, in Swift declaration order, paired with its
      * expected rendered string transcribed from `ScenarioLintMessage.swift`'s
      * `String(localized:)` base literals with `%@` replaced by the token —
      * never copied from `ScenarioLintMessage.kt`.
@@ -329,6 +332,10 @@ class ScenarioLintMessageTests {
             "log-window-below-agent-count: 'log_window' is smaller than the agent count " +
             "while a 'speak_each' phase is present, so same-round earlier speakers vanish " +
             "from the addressee pool — raise 'log_window' to at least the agent count.",
+        ScenarioLintMessage.AssignAllSourceShorterThanRounds to
+            "assign-all-source-shorter-than-rounds: this 'assign' phase has fewer source " +
+            "entries than the scenario's 'rounds', so the later rounds wrap back around to " +
+            "the first entry and repeat it — add one entry per round, or lower 'rounds'.",
         // ── Placeholders (token-bearing) ────────────────────────────────────
         ScenarioLintMessage.UnresolvablePlaceholder("typo'token%1") to
             "unresolvable-placeholder: the placeholder '{typo'token%1}' is supplied by no " +
