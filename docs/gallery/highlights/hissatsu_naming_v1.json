@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "hissatsu_naming_v1",
+    "yaml_sha256": "85ab46895c23dbade22e0850f9775df82cc72295f78989be866eac686110b99a"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260829-173307-fdb4",
+    "generated_at": "2026-08-29"
+  },
+  "excerpt": [
+    {
+      "agent": "格ゲー脳",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 5,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "↓↘→＋P『目覚まし鎮魂の波動』、発生五フレーム。これで世界は再び目覚めるのだ！"
+    },
+    {
+      "agent": "古武術師範",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 5,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "朝の目覚ましを止める動作に、我が一族相伝『暁光開闢ノ鎮静之舞』！これこそ我が血脈の証である！"
+    },
+    {
+      "agent": "翻訳調の刺客",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 5,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "くらえ、これがオレ流の“モーニング・ディスアウェイク”だ！"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 格ゲー脳\n    description: >\n      【立場】格闘ゲームのコマンド表で生きる男\n      【目的】技名にコマンド入力と発生フレームをつける。\n      例:「↓↘→＋P『歯磨き烈震脚』、発生三フレーム」\n  - name: 古武術師範\n    description: >\n      【立場】何でも一族相伝の奥義にしてしまう老師\n      【目的】伝統と血脈を大げさに語る。\n      例:「これぞ我が一族相伝『冷蔵庫開眼ノ構エ』」",
+    "caption": "お題は「朝、目覚ましを止める」だけ。片方はそこに入力コマンドと発生フレームを添え、もう片方は一族相伝の血脈を背負わせる。動作の地味さは一切救われないまま字面だけが強くなっていく——この二人の【目的】が、その落差を毎回つくり出す。"
+  },
+  "teaser": "2 ラウンド目はサドンデス。「満員電車で吊り革を掴む」と「コンビニで肉まんを注文する」を一つの究極奥義に合体させ、誰の字面が一番笑わせたかを投票で決める。",
+  "window_override": false,
+  "content_filter_applied": true
+}
