@@ -282,6 +282,8 @@
       "language": "ja",
       "yaml_url": "hissatsu_naming_v1.yaml",
       "yaml_sha256": "85ab46895c23dbade22e0850f9775df82cc72295f78989be866eac686110b99a",
+      "highlight_url": "highlights/hissatsu_naming_v1.json",
+      "highlight_sha256": "92375e7ea2022f6759507fcb41829bc8ed13a047cc141c60c7daaafd6b7f1bf7",
       "added_at": "2026-06-20"
     },
     {
