@@ -2367,12 +2367,12 @@
         }
       }
     },
-    "Comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Combine with && (AND) and || (OR); && binds tighter than ||. Use parentheses to group. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes." : {
+    "Comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Combine with && (AND) and || (OR); && binds tighter than ||. Use parentheses to group. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, vote_winner_count, scores.<Name>, or any template variable. Wrap string literals in double quotes." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "比較: lhs OP rhs（OP は ==, !=, <, <=, >, >= のいずれか）。&&（AND）と ||（OR）で組み合わせ可能で、&& の方が優先順位が高い。括弧でグループ化できます。識別子: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>、またはテンプレート変数。文字列リテラルはダブルクォートで囲んでください。"
+            "value" : "比較: lhs OP rhs（OP は ==, !=, <, <=, >, >= のいずれか）。&&（AND）と ||（OR）で組み合わせ可能で、&& の方が優先順位が高い。括弧でグループ化できます。識別子: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, vote_winner_count, scores.<Name>、またはテンプレート変数。文字列リテラルはダブルクォートで囲んでください。"
           }
         }
       }

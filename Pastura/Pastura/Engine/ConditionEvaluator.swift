@@ -38,6 +38,7 @@ import Foundation
 /// | `eliminated_count` | count of `state.eliminated.values == true`  |
 /// | `active_count`     | count of `state.eliminated.values == false` |
 /// | `vote_winner`      | most-voted name in `state.voteResults` (ties broken by count desc, name desc) |
+/// | `vote_winner_count` | winning vote count in `state.voteResults` (same tie-break as `vote_winner`) |
 /// | `scores.<Name>`    | `state.scores["<Name>"]`                    |
 ///
 /// Any other identifier is resolved from `state.variables`.
@@ -285,7 +286,17 @@ nonisolated public struct ConditionEvaluator: Sendable {
       if let winner = VoteTally.winner(state.voteResults) {
         return .value(winner.key)
       }
-      warnings.append("vote_winner has no value (no vote phase has run this round)")
+      warnings.append("vote_winner has no value (no vote phase has run yet)")
+      return .absent
+    case "vote_winner_count":
+      // Same tie-break as `vote_winner`. Deliberately NOT round-scoped:
+      // `state.voteResults` is never cleared at a round boundary, so this
+      // reads the most recent vote phase's count, not necessarily the
+      // current round's — same staleness as `vote_winner` (ADR-020 §11).
+      if let winner = VoteTally.winner(state.voteResults) {
+        return .value(String(winner.value))
+      }
+      warnings.append("vote_winner_count has no value (no vote phase has run yet)")
       return .absent
     default:
       return .notDerived

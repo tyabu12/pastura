@@ -58,8 +58,15 @@ internal object EngineSchemaVersion {
      * does not fire (no new [PhaseType]), so D3 (`min_engine_version`) is the only
      * proactive gate and D5's parse-throw is the backstop when a shared scenario
      * omits the declaration. See ADR-027 § "Blast radius".
+     *
+     * `6` — the `vote_winner_count` condition variable (#1599), a new
+     * `conditional` `if:` token. §4's trigger fires directly: an app predating the
+     * token does not resolve it as derived, falls through to `state.variables`,
+     * finds nothing, and evaluates the comparison `false` with a warning — a
+     * silently *different* run. D2's phase gate is blind to it (no new
+     * [PhaseType]), so D3 is the only proactive gate. See ADR-020 §11.
      */
-    const val current: Int = 5
+    const val current: Int = 6
 
     /**
      * Whether a gallery scenario described by its index metadata can be executed

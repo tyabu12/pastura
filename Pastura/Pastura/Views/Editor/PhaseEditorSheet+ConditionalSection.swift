@@ -28,7 +28,7 @@ extension PhaseEditorSheet {
           Text(
             String(
               localized:
-                "Comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Combine with && (AND) and || (OR); && binds tighter than ||. Use parentheses to group. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, scores.<Name>, or any template variable. Wrap string literals in double quotes."
+                "Comparison: lhs OP rhs where OP is one of ==, !=, <, <=, >, >=. Combine with && (AND) and || (OR); && binds tighter than ||. Use parentheses to group. Identifiers: current_round, total_rounds, max_score, min_score, eliminated_count, active_count, vote_winner, vote_winner_count, scores.<Name>, or any template variable. Wrap string literals in double quotes."
             )
           )
           .font(.caption)

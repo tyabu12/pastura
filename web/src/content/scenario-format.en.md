@@ -187,10 +187,11 @@ comparisons with `&&`, `||`, and parentheses.
 
 Comparison operators are `==`, `!=`, `<`, `<=`, `>`, `>=`. Variables you can
 reference include `current_round`, `total_rounds`, `max_score`, `min_score`,
-`eliminated_count`, `active_count`, `vote_winner`, and `scores.<Name>` for a
-named agent. Scoring logics can expose extra scenario-specific variables. For
-example, `wordwolf_judge` sets `wolf_name` to the agent holding the minority
-word, which the Word Wolf example below uses in its final `conditional`.
+`eliminated_count`, `active_count`, `vote_winner`, `vote_winner_count`, and
+`scores.<Name>` for a named agent. Scoring logics can expose extra
+scenario-specific variables. For example, `wordwolf_judge` sets `wolf_name` to
+the agent holding the minority word, which the Word Wolf example below uses in
+its final `conditional`.
 
 **Quote string values with double quotes.** `name == "Alex"` compares against
 the text `Alex`. A single-quoted `'Alex'` is read as an undefined identifier, so
@@ -215,6 +216,12 @@ blocking ones, but it is easier to get them right the first time.
 - `assign` needs a non-empty `source`. An empty list distributes nothing.
 - In a condition, compare text with double quotes, and make sure a bare word on
   either side of `==` is a real variable, not a persona name you meant to quote.
+- `max_score` and `min_score` read the **cumulative** score, which `vote_tally`
+  adds to every round. A condition like `max_score >= 3` therefore stays true
+  once it first goes true, so it cannot express "did anyone clear 3 votes this
+  round". Use `vote_winner_count` for the per-tally reading. Note that
+  `vote_winner_count` and `vote_winner` both report the most recent `vote`
+  phase, which carries over into a round that runs no `vote` of its own.
 
 ## A complete example
 

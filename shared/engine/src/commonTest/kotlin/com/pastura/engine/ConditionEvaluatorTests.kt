@@ -117,6 +117,51 @@ class ConditionEvaluatorTests {
         assertTrue(result.value)
     }
 
+    @Test
+    fun voteWinnerCountGTE() {
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
+        val state = SimulationState.initial(scenario).copy(voteResults = mapOf("Alice" to 2, "Bob" to 1))
+        assertTrue(evaluator.evaluate("vote_winner_count >= 2", state, scenario).value)
+        assertFalse(evaluator.evaluate("vote_winner_count >= 3", state, scenario).value)
+    }
+
+    @Test
+    fun voteWinnerCountTiePinsTheSameTallyAsVoteWinner() {
+        // The winning COUNT is tie-break-independent by construction: VoteTally
+        // orders by count desc first, so `winner.second` is always the max count
+        // whatever the name-side comparator does. Asserting the count alone would
+        // therefore stay green even if the two variables stopped sharing a tally.
+        // What is worth pinning is the coupling — both must describe the SAME
+        // winner — so assert them together on a tie, where the name side is
+        // comparator-sensitive (count desc, name desc ⇒ Bob).
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
+        val state = SimulationState.initial(scenario).copy(voteResults = mapOf("Alice" to 2, "Bob" to 2))
+        assertTrue(
+            evaluator.evaluate(
+                "vote_winner == \"Bob\" && vote_winner_count == 2", state, scenario,
+            ).value,
+        )
+    }
+
+    @Test
+    fun voteWinnerCountCarriesOverAcrossRounds() {
+        // Pins ADR-020 §11's stated semantics DELIBERATELY, not accidentally:
+        // `state.voteResults` is never cleared at a round boundary, so
+        // `vote_winner_count` (like `vote_winner`) keeps resolving the most recent
+        // vote phase's count even after `currentRound` advances past it. Do NOT
+        // "fix" this by round-scoping — that would contradict the documented
+        // staleness this test exists to lock in.
+        //
+        // Bounded scope: this pins the EVALUATOR half only. The staleness itself
+        // originates in state lifetime (`VoteHandler` is the sole writer and no
+        // round boundary clears it), so round-scoping via a clear in the round
+        // loop rather than in `ConditionEvaluator` would leave this test green.
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"), rounds = 5)
+        val state = SimulationState.initial(scenario)
+            .copy(voteResults = mapOf("Alice" to 2, "Bob" to 1), currentRound = 4)
+        assertTrue(evaluator.evaluate("vote_winner_count == 2", state, scenario).value)
+    }
+
     // MARK: - Template-variable side (state.variables)
 
     @Test
@@ -134,6 +179,15 @@ class ConditionEvaluatorTests {
         val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
         val state = SimulationState.initial(scenario) // empty voteResults
         val result = evaluator.evaluate("vote_winner == \"Alice\"", state, scenario)
+        assertFalse(result.value)
+        assertTrue(result.warnings.isNotEmpty())
+    }
+
+    @Test
+    fun voteWinnerCountPreVoteReturnsFalseWithWarning() {
+        val scenario = makeTestScenario(agentNames = listOf("Alice", "Bob"))
+        val state = SimulationState.initial(scenario) // empty voteResults
+        val result = evaluator.evaluate("vote_winner_count >= 1", state, scenario)
         assertFalse(result.value)
         assertTrue(result.warnings.isNotEmpty())
     }

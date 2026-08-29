@@ -69,6 +69,30 @@ Both run and produce output; the lint layer only warns.
 
 Reference: `Engine/ScenarioSemanticLinter+Ordering.swift` (R4), `+Config.swift` (R17).
 
+## Condition variables are not round-scoped, and two of them lie about it
+
+`ConditionEvaluator`'s derived variables read live `SimulationState`, which the
+round loop does **not** reset. Two consequences a new derived variable inherits
+unless you handle it:
+
+- **`state.voteResults` is written only by `VoteHandler` and never cleared.** So
+  `vote_winner` / `vote_winner_count` resolve *the most recent vote phase's*
+  tally, which carries into a round running no `vote` (a `vote` inside an untaken
+  `conditional` branch included). `.absent` means "no vote has **ever** run", not
+  "none this round" — the warning strings say "yet" for that reason. ADR-020 §11
+  records why round-scoping was deferred rather than bolted onto one variable.
+- **`state.scores` accumulates** (`VoteTallyLogic` adds each round's tally), so
+  `max_score` / `min_score` are cumulative extrema that latch. Authors reaching
+  for a per-round test want `vote_winner_count`; a lint rule cannot separate the
+  two readings, because a cumulative threshold is legitimate (shipped preset
+  `target_score_race.yaml`).
+
+Adding a derived variable is an `EngineSchemaVersion` bump (ADR-020 §4's
+semantics bullet — an old app resolves it as absent and runs differently, with no
+throw and no grey-out), and owes edits to `ScenarioSemanticLinter`'s
+`conditionDerivedVariables` (or R15 false-positives), the Kotlin twin, the editor
+hint literal, and both `web/src/content/scenario-format.*.md`.
+
 ## Read the event's own `phaseType`, not `currentPhaseType`
 
 `SimulationViewModel.currentPhaseType` is set from `.phaseStarted`, so a nested

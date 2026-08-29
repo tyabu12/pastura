@@ -100,6 +100,53 @@ struct ConditionEvaluatorTests {
     #expect(result.value)
   }
 
+  @Test func voteWinnerCountGTE() throws {
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"])
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 1]
+    #expect(
+      try evaluator.evaluate("vote_winner_count >= 2", state: state, scenario: scenario).value)
+    #expect(
+      !(try evaluator.evaluate("vote_winner_count >= 3", state: state, scenario: scenario).value))
+  }
+
+  @Test func voteWinnerCountTiePinsTheSameTallyAsVoteWinner() throws {
+    // The winning COUNT is tie-break-independent by construction: VoteTally
+    // orders by count desc first, so `winner.value` is always the max count
+    // whatever the name-side comparator does. Asserting the count alone would
+    // therefore stay green even if the two variables stopped sharing a tally.
+    // What is worth pinning is the coupling — both must describe the SAME
+    // winner — so assert them together on a tie, where the name side is
+    // comparator-sensitive (count desc, name desc ⇒ Bob).
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"])
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 2]
+    #expect(
+      try evaluator.evaluate(
+        "vote_winner == \"Bob\" && vote_winner_count == 2", state: state, scenario: scenario
+      ).value)
+  }
+
+  @Test func voteWinnerCountCarriesOverAcrossRounds() throws {
+    // Pins ADR-020 §11's stated semantics DELIBERATELY, not accidentally:
+    // `state.voteResults` is never cleared at a round boundary, so
+    // `vote_winner_count` (like `vote_winner`) keeps resolving the most recent
+    // vote phase's count even after `currentRound` advances past it. Do NOT
+    // "fix" this by round-scoping — that would contradict the documented
+    // staleness this test exists to lock in.
+    //
+    // Bounded scope: this pins the EVALUATOR half only. The staleness itself
+    // originates in state lifetime (`VoteHandler` is the sole writer and no
+    // round boundary clears it), so round-scoping via a clear in the round
+    // loop rather than in `ConditionEvaluator` would leave this test green.
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 5)
+    var state = SimulationState.initial(for: scenario)
+    state.voteResults = ["Alice": 2, "Bob": 1]
+    state.currentRound = 4
+    #expect(
+      try evaluator.evaluate("vote_winner_count == 2", state: state, scenario: scenario).value)
+  }
+
   // MARK: - Template-variable side (state.variables)
 
   @Test func stateVariableAccess() throws {
@@ -118,6 +165,15 @@ struct ConditionEvaluatorTests {
     let state = SimulationState.initial(for: scenario)  // empty voteResults
     let result = try evaluator.evaluate(
       "vote_winner == \"Alice\"", state: state, scenario: scenario)
+    #expect(!result.value)
+    #expect(!result.warnings.isEmpty)
+  }
+
+  @Test func voteWinnerCountPreVoteReturnsFalseWithWarning() throws {
+    let scenario = makeTestScenario(agentNames: ["Alice", "Bob"])
+    let state = SimulationState.initial(for: scenario)  // empty voteResults
+    let result = try evaluator.evaluate(
+      "vote_winner_count >= 1", state: state, scenario: scenario)
     #expect(!result.value)
     #expect(!result.warnings.isEmpty)
   }

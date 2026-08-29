@@ -98,6 +98,14 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.conditionFindings(in: scenario).isEmpty)
   }
 
+  @Test func voteWinnerCountIsKnownIdentifier() {
+    // `vote_winner_count` is a derived read-only variable (ADR-020 §11) and
+    // must not fire R15 unknown-condition-identifier.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1, phases: [conditionalPhase("vote_winner_count >= 2")])
+    #expect(linter.conditionFindings(in: scenario).isEmpty)
+  }
+
   // MARK: - Dedup: one token → one finding
 
   @Test func repeatedUnknownTokenFiresOnce() {
