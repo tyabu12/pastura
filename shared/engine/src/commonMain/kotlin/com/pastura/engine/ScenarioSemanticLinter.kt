@@ -77,7 +77,7 @@ public data class LintFinding(
  *
  * The Swift linter folds four rule groups into [lint]: producer–consumer
  * ordering (R1a/R1b/R2/R3/R4/R5/R6/R19, `+Ordering.swift`), silently-inert
- * configuration (R7/R8/R9/R17/R18/R20a/R20b, `+Config.swift`), placeholder
+ * configuration (R7/R8/R9/R17/R18/R20a/R20b/R21, `+Config.swift`), placeholder
  * resolution (R10–R12, `+Placeholders.swift`) and condition expressions
  * (R13–R16, `+Conditions.swift`). D2a ported the base types ([LintFinding],
  * [LintSeverity]), the shared traversal helpers ([PhaseRef],
@@ -391,7 +391,7 @@ public class ScenarioSemanticLinter {
             phase.source != null &&
             scenario.extraData[phase.source] is AnyCodableValue.ArrayOfDictionariesValue
 
-    // MARK: - Config rules (R7/R8/R9/R17/R18/R20a/R20b)
+    // MARK: - Config rules (R7/R8/R9/R17/R18/R20a/R20b/R21)
     //
     // Ported from `ScenarioSemanticLinter+Config.swift`. Unlike the ordering
     // rules above, these rules don't compare producer/consumer phase indices —
@@ -403,10 +403,11 @@ public class ScenarioSemanticLinter {
     // inside a `conditional` branch counts as present at the conditional's
     // index" imprecision documented on the ordering rules.
 
-    /** Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b). */
+    /** Silently-inert-configuration findings (R7/R8/R9/R17/R18/R20a/R20b/R21). */
     internal fun configFindings(scenario: Scenario): List<LintFinding> =
         chooseOptionsFindings(scenario.phases) +
             assignSourceFindings(scenario.phases, scenario) +
+            assignSourceRoundsFindings(scenario.phases, scenario) +
             summarizePairingFindings(scenario.phases) +
             logWindowFindings(scenario) +
             maxSentencesNoOpFindings(scenario.phases) +
@@ -477,6 +478,51 @@ public class ScenarioSemanticLinter {
                 -> false
             }
         }
+    }
+
+    // MARK: - R21 assign-all-source-shorter-than-rounds (warning)
+
+    /**
+     * A `target: all` `assign` phase whose source array holds fewer entries than
+     * the scenario's `rounds`: `AssignHandler.assignAll` indexes the source with
+     * `(state.currentRound - 1) % items.count`, so once the round number passes
+     * the entry count the assignment silently wraps back to the first entry and
+     * repeats it for the remaining rounds — no error, no log, just a scenario
+     * that quietly stops varying.
+     *
+     * The lint banner is the only surface that can say so. A YAML comment cannot:
+     * `ScenarioSerializer` rebuilds the YAML from the comment-less `Scenario`
+     * model, and the visual editor exposes a free `rounds` slider while `assign`
+     * sources ride along invisibly in `extraData` — so a visual-editor user can
+     * raise `rounds` past the source length without ever seeing the source.
+     *
+     * Two counts are deliberately excluded:
+     * - `items.isEmpty` is R8 `assign-source-nonempty`'s `.error` lane; firing
+     *   here too would double-report the same phase.
+     * - `items.count == 1` is semantically a constant value for every round —
+     *   the same legitimate authoring shape as a `.string` source, which this
+     *   rule already excludes — so it is not a wrap-around defect.
+     *
+     * `items.count > rounds` (unreached trailing entries) is a **separate
+     * reading** and out of this rule's scope, the way R8 leaves shape errors to
+     * `ScenarioValidator`.
+     */
+    private fun assignSourceRoundsFindings(phases: List<Phase>, scenario: Scenario): List<LintFinding> =
+        phaseRefs(phases) { it.type == PhaseType.ASSIGN && isAssignSourceShorterThanRounds(it, scenario) }
+            .map { configFinding("assign-all-source-shorter-than-rounds", LintSeverity.WARNING, it.topLevelIndex) }
+
+    /**
+     * Whether a `target: all` `assign` phase's resolved source is an array of
+     * 2..<`rounds` entries — the wrap-around window described above. Every other
+     * shape (`.string`, `.arrayOfDictionaries`, `.dictionary`, a missing source
+     * key) and `target: random_one` return `false`.
+     */
+    private fun isAssignSourceShorterThanRounds(phase: Phase, scenario: Scenario): Boolean {
+        val sourceKey = phase.source ?: return false
+        val sourceValue = scenario.extraData[sourceKey] ?: return false
+        if ((phase.target ?: AssignTarget.ALL) != AssignTarget.ALL) return false
+        val items = (sourceValue as? AnyCodableValue.ArrayValue)?.value ?: return false
+        return items.size >= 2 && items.size < scenario.rounds
     }
 
     // MARK: - R9 summarize-pairing-placeholders (warning)
@@ -670,8 +716,12 @@ public class ScenarioSemanticLinter {
         "max-sentences-no-op" -> ScenarioLintMessage.MaxSentencesNoOp.render()
         "pairwise-payoff-no-scorable-row" -> ScenarioLintMessage.PairwisePayoffNoScorableRow.render()
         "pairwise-payoff-dead-row" -> ScenarioLintMessage.PairwisePayoffDeadRow.render()
-        // Falls to `log-window-below-agent-count`: `logWindowFindings` is the
-        // only other caller of `configMessage`, always with this ruleId.
+        "assign-all-source-shorter-than-rounds" -> ScenarioLintMessage.AssignAllSourceShorterThanRounds.render()
+        // Falls to `log-window-below-agent-count`: every other config rule has
+        // an explicit branch above, so `logWindowFindings` — which builds its
+        // finding directly rather than via `configFinding` — is the only caller
+        // that reaches this arm. A new rule needs its own branch, or it
+        // silently renders the log-window message.
         else -> ScenarioLintMessage.LogWindowBelowAgentCount.render()
     }
 

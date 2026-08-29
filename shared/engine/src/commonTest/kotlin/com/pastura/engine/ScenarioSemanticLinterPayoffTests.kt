@@ -253,6 +253,17 @@ class ScenarioSemanticLinterPayoffTests {
                 ScenarioLintMessage.LogWindowBelowAgentCount,
             ),
             Triple(
+                "assign-all-source-shorter-than-rounds",
+                makeLinterScenario(
+                    agents = 2, rounds = 4,
+                    phases = listOf(
+                        Phase(type = PhaseType.ASSIGN, source = "events", target = AssignTarget.ALL),
+                    ),
+                    extraData = mapOf("events" to AnyCodableValue.ArrayValue(listOf("one", "two"))),
+                ),
+                ScenarioLintMessage.AssignAllSourceShorterThanRounds,
+            ),
+            Triple(
                 "max-sentences-no-op",
                 makeLinterScenario(
                     agents = 2, rounds = 1,
@@ -295,7 +306,7 @@ class ScenarioSemanticLinterPayoffTests {
             ),
         )
         // Pin, not proof: a new config rule must be added to `cases` by hand.
-        assertEquals(7, cases.size)
+        assertEquals(8, cases.size)
         for ((ruleId, scenario, expected) in cases) {
             val findings = linter.lint(scenario)
             assertEquals(1, findings.size, ruleId)
