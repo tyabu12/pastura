@@ -502,7 +502,11 @@ call, and these are what the batches so far have taught.
   quotable phrase (「NASAが牛乳を白く塗っている」) and a draw promptly borrowed
   it as a simile inside an otherwise original line — so describe the
   *property* the persona shows (「桁まで具体的な捏造数字」) and keep any
-  quotable, complete phrase out of 【目的】 too.
+  quotable, complete phrase out of 【目的】 too. The one carve-out is a
+  scripted speaker who is *not* the hook: `asch_conformity_v1` / `_en` quote
+  the confederates' literal lines (「答えはCです」, `It's C, no doubt.`) because
+  the verbatim repetition *is* the phenomenon, and only the subject is hooked
+  (#1593).
   **Whether a draw trips this is partly luck, so re-check it per draw rather
   than per scenario.** An `event_inject` scenario picks its twist at random,
   and a draw that happens to inject the very situation a persona's `例:`
