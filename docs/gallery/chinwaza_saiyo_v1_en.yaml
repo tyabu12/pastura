@@ -13,8 +13,8 @@ context: >
   You are an interviewer at a very strange company.
   Each round, the applicant's one pointless "weird talent" is revealed.
   Judging that weird talent alone, snap-decide "Hired on the spot" or "Hard pass,"
-  and add — in a single line — an exaggerated, wildly-mismatched reason that only
-  your interviewer character would give.
+  and state it flatly in one sentence, with an exaggerated, wildly-mismatched
+  reason that only your interviewer character would give.
   Then you vote for the interviewer whose verdict was funniest, other than yourself.
   Play your interviewer's personality and voice to the hilt.
 
@@ -40,6 +40,7 @@ personas:
     description: >
       [Role] A stubborn, old-school craftsman from a bygone era.
       [Goal] Lectures with "kids these days" and rewards only hard graft and patience.
+      A shallow trick gets a flat "Hard pass," no argument.
       e.g. "That cheap parlor trick? Wouldn't have flown in my day. Hard pass."
   - name: Willow the HR Oracle
     description: >
@@ -53,29 +54,44 @@ phases:
     source: skills
     target: all
 
-  - type: choose
+  # The verdict is a speak_all, not a choose: a choose's action and reason
+  # never enter {conversation_log}, so the vote below judged a reason-less
+  # log and its targets drifted from its reasons. The prompt also keeps the
+  # joke in `statement` (the logged field) and leaves inner_thought a short
+  # honest mutter, and reminds each judge that a Hard pass is in character.
+  - type: speak_all
     prompt: >
       Applicant's weird talent: {assigned_topic}
 
-      Judging this weird talent alone, snap-decide "Hired on the spot" or "Hard pass."
-      Then you MUST add, in a single line, an exaggerated, wildly-mismatched reason
-      that only your interviewer character would give.
-      No rambling — keep it to one sharp line.
-    options: [Hired on the spot, Hard pass]
+      Your statement MUST say both of these in a single sentence:
+      (1) The verdict, stated outright — either "Hired on the spot!" or "Hard pass."
+      (2) An exaggerated, wildly-mismatched reason that only your interviewer
+          character would give, touching the specific detail of this weird talent.
+          The reason is where the laugh is, so it MUST be in the statement.
+      Decide by your own standards. There is no need for everyone to land on the
+      same verdict. If your character's standards make "Hard pass" the natural
+      call, hand out a Hard pass without hesitating.
+      Keep it to one sharp line — no rambling.
+      Do not put the funny reason in inner_thought; make that a short, honest
+      aside to yourself.
+      Write both your statement and your thoughts in English.
     output:
-      action: string
+      statement: string
       inner_thought: string
 
   - type: vote
     prompt: >
       Applicant's weird talent: {assigned_topic}
 
-      Each interviewer's verdict:
+      Each interviewer's verdict and quip:
       {conversation_log}
 
-      Vote for the interviewer whose verdict (Hired / Hard pass) and reason land
-      together in the funniest way, other than yourself.
+      Vote for the interviewer whose verdict (Hired on the spot / Hard pass) and
+      reason land together in the funniest way, other than yourself.
+      For the reason, write in one sentence, in your own words, what exactly was
+      funny about that interviewer's line.
       Write your vote as exactly one of these names: {candidates}
+      Write both your vote and your reason in English.
     output:
       vote: string
       reason: string
