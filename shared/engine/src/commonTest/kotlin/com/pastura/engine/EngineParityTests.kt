@@ -82,6 +82,15 @@ class EngineParityTests {
     private val padding = LLMCaller.MAX_RETRIES + 1
 
     /**
+     * How long [cancelLandsWhenAdoptTrailsTheTrigger] withholds `adopt` once the
+     * trigger has fired, when no event arrives to release it sooner. Pure wall
+     * time under the fix (nothing is recorded while the engine is held), so it
+     * is set well above the few ms the scripted remainder takes, not tuned to
+     * it — a bound the remainder could outlast would retire the arm silently.
+     */
+    private val ADOPT_HOLD_MILLIS = 1_000L
+
+    /**
      * A payload no fixture would produce, so consuming one is visible.
      *
      * Deliberately not a copy of the last real answer: that would let an
@@ -178,7 +187,16 @@ class EngineParityTests {
         // A seam for [cancelLandsWhenAdoptTrailsTheTrigger] only: it widens the
         // window between `run` returning and `adopt` that a descheduled test
         // thread opens by accident on a loaded runner (#1637).
-        if (beforeAdopt != null && cutter != null) beforeAdopt(cutter, collector)
+        // Guarded like the `finally` below: a seam that throws (its `await` can
+        // time out) must not orphan a run that would overlap the next fixture.
+        if (beforeAdopt != null && cutter != null) {
+            try {
+                beforeAdopt(cutter, collector)
+            } catch (t: Throwable) {
+                handle.cancel()
+                throw t
+            }
+        }
         // `run` installs the callback and only then returns the handle, so the
         // trigger can fire before this line. [CancelOnPhaseCompleted] latches that
         // case and cancels here instead of dropping it.
@@ -332,8 +350,10 @@ class EngineParityTests {
      * the run is a few ms — shorter than a descheduled test thread's gap on a
      * loaded runner, which is how #1637 surfaced. `onEvent` is invoked
      * synchronously inside the engine coroutine, so spinning here holds the
-     * engine at exactly the checkpoint the cut is meant to precede (the next
-     * statement after the emit is `pauseCheck`, where the cancel is observed).
+     * engine at exactly the checkpoint the cut is meant to precede (in
+     * `ConditionalHandler`'s sub-phase loop, where every fixture's trigger sits
+     * today, the next statement after the emit is `pauseCheck`, where the
+     * cancel is observed).
      * A busy spin rather than a sleep because `commonTest` has no portable
      * `Thread.sleep` / `yield`, and the wait is microseconds outside the
      * regression arm that widens it on purpose. [ADOPT_WAIT] bounds it so a
@@ -574,34 +594,47 @@ class EngineParityTests {
      * remainder.
      *
      * The seam withholds `adopt` until the trigger has fired and then for
-     * whichever comes first — the run reaching a terminal event, or a bound of
-     * 200 ms. The detector is **not** the terminal event alone, which would
-     * only redden if the run finished inside the bound: it is that the last
-     * recorded event is still the trigger when `adopt` is finally called. The
-     * fix holds the engine at the checkpoint until the cancel is issued, so
-     * *any* forward progress past it reddens, however fast or slow the runner.
-     * The terminal-event arm is kept as the second, outcome-level check.
+     * whichever comes first — **any** further event being recorded, or a bound
+     * of [ADOPT_HOLD_MILLIS]. Event-driven rather than "wait for the terminal"
+     * so the arm's sensitivity does not depend on the run finishing inside the
+     * bound: with the fix reverted, the first event past the checkpoint
+     * releases the hold at once and reddens below; with the fix in place
+     * nothing is ever recorded, so the bound is only wall time. The detector is
+     * therefore that the last recorded event is still the trigger when `adopt`
+     * is finally called; the terminal-event arm is kept as the second,
+     * outcome-level check.
      *
      * Derived from [ParityGolden.all] by `cancelAfterPhaseCompleted`, not by
-     * name, so a second cancelling fixture is covered without an edit here.
+     * name, so a second cancelling fixture is covered without an edit here —
+     * unless it also suspends. The seam sits before *both* adopts, and a
+     * suspend that precedes the trigger would park the run before `fired` ever
+     * flips, so that shape is refused by name rather than left to stall.
      */
     @Test
     fun cancelLandsWhenAdoptTrailsTheTrigger() {
-        val cancelling = ParityGolden.all.filter { it.cancelAfterPhaseCompleted != null }
+        val (cancelling, unsupported) = ParityGolden.all
+            .filter { it.cancelAfterPhaseCompleted != null }
+            .partition { it.suspendBeforeResponse.isEmpty() }
+        assertTrue(
+            unsupported.isEmpty(),
+            "${unsupported.map { it.name }} both cancel and suspend, which this arm cannot " +
+                "drive: its seam withholds the resumer's adopt too (see the cutter-before-" +
+                "resumer note in `replay`). Give such a fixture its own arm.",
+        )
         assertTrue(cancelling.isNotEmpty(), "no fixture in the roster cancels — the arm is vacuous")
 
         for (fixture in cancelling) {
             val trigger = requireNotNull(fixture.cancelAfterPhaseCompleted)
-            // Captured inside the seam and asserted outside it: throwing from the
-            // seam would skip `replay`'s `finally { handle.cancel() }`, leaving the
-            // run to overlap the next fixture.
+            // Captured inside the seam and asserted outside it, so an assertion
+            // failure is reported after `replay` has torn the run down.
             var lastBeforeAdopt: SimulationEvent? = null
             var result: Pair<List<SimulationEvent>, Int>? = null
             runBlockingTest {
                 result = replay(fixture) { cutter, collector ->
                     await { cutter.fired }
-                    withTimeoutOrNull(200) {
-                        while (!collector.isTerminal) delay(1)
+                    val recordedAtTrigger = collector.snapshot().size
+                    withTimeoutOrNull(ADOPT_HOLD_MILLIS) {
+                        while (collector.snapshot().size == recordedAtTrigger) delay(1)
                     }
                     lastBeforeAdopt = collector.snapshot().lastOrNull()
                 }
