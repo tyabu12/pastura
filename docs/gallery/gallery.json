@@ -255,9 +255,10 @@
       ],
       "language": "ja",
       "yaml_url": "hapning_ranyu_v1.yaml",
-      "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
+      "yaml_sha256": "856abdcd88e3a861c459197de40edfb9a783ba0e0e11d0000ce94ffcb771c32f",
       "highlight_url": "highlights/hapning_ranyu_v1.json",
-      "highlight_sha256": "c381ca4b8cc920852c2683017e08e5970ebc074e13cfb87395856477340acf06",
+      "highlight_sha256": "0108b79818bda5b3602aa568638bc7bb53dbcab828f5a9eb12984dcf90e11833",
+      "min_engine_version": 2,
       "added_at": "2026-06-20"
     },
     {
