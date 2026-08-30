@@ -11,7 +11,7 @@ context: >
   あなたは風変わりな会社の採用面接官です。
   毎ラウンド、応募者のどうでもいい「珍特技」が一つ提示されます。
   その珍特技だけを見て、「即採用」か「お祈り」（不採用）かを即決し、
-  あなたの面接官キャラならではの、大げさで不釣り合いな理由を一文で添えてください。
+  あなたの面接官キャラならではの、大げさで不釣り合いな理由を一文で言い切ってください。
   その後、自分以外で一番面白い判定をした面接官に投票します。
   あなたの面接官としての個性と語り口を全開にしてください。
 
@@ -36,6 +36,7 @@ personas:
     description: >
       【立場】昭和の頑固一徹なものづくり職人
       【目的】「最近の若いもんは」と説教し、手仕事と忍耐だけを評価する。
+      小手先の器用さは断固「お祈り」にする。
       例:「そんな小手先の技、ワシの時代には通用せん、お祈りじゃ」。
   - name: 人事のレイ
     description: >
@@ -48,28 +49,41 @@ phases:
     source: skills
     target: all
 
-  - type: choose
+  # The verdict is a speak_all, not a choose: a choose's action and reason
+  # never enter {conversation_log}, so the vote below judged a reason-less
+  # log and its targets drifted from its reasons. The prompt also keeps the
+  # joke in `statement` (the logged field) and leaves inner_thought a short
+  # honest mutter, and reminds each judge that お祈り is in character.
+  - type: speak_all
     prompt: >
       応募者の珍特技: {assigned_topic}
 
-      この珍特技だけを見て、「即採用」か「お祈り」かを即決してください。
-      そして、あなたの面接官キャラならではの、大げさで不釣り合いな理由を必ず一文で添えること。
-      長々と説明せず、キレのある一文に収めること。
-    options: [即採用, お祈り]
+      発言(statement)は、必ず一つの文の中で次の両方を言い切ること:
+      (1) 判定を明言する ―― 「即採用！」か「お祈り」のどちらか。
+      (2) その珍特技の具体的な中身に触れた、あなたのキャラならではの大げさで
+          不釣り合いな理由。理由こそが笑いどころなので、必ず statement に書くこと。
+      判定はあなた自身の基準で決めること。全員が同じ判定になる必要はまったくない。
+      あなたのキャラなら「お祈り」が自然ならためらわずお祈りにすること
+      （例: 頑固職人は小手先の技を断固お祈りにする）。
+      キレのある一文に収め、長々と説明しないこと。
+      inner_thought には面白い理由を書かず、本音のひとことだけを短く書くこと。
+      発言・思考ともに必ず日本語で書くこと。
     output:
-      action: string
+      statement: string
       inner_thought: string
 
   - type: vote
     prompt: >
       応募者の珍特技: {assigned_topic}
 
-      各面接官の判定:
+      各面接官の判定と寸評:
       {conversation_log}
 
       自分以外で、判定（即採用／お祈り）と理由のかみ合わせが一番面白い面接官に
-      投票してください。
+      投票してください。理由(reason)には、その面接官の寸評の"どこが"面白かったかを
+      あなた自身の言葉で一文で書くこと。
       投票先は必ず以下の名前のいずれかを正確に書くこと: {candidates}
+      投票先・理由ともに必ず日本語で書くこと。
     output:
       vote: string
       reason: string

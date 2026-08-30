@@ -322,14 +322,14 @@
       "rounds": 2,
       "phases": [
         "assign",
-        "choose",
+        "speak_all",
         "vote",
         "score_calc",
         "summarize"
       ],
       "language": "ja",
       "yaml_url": "chinwaza_saiyo_v1.yaml",
-      "yaml_sha256": "f9b817d272b26bb10ff0a28e30df6ec00847f7912de96b96f811e5b7d861d08e",
+      "yaml_sha256": "34899b3df48184fa20ad9c694d1470b6e31701c059918e69eecb7ab81dea3eac",
       "added_at": "2026-06-21"
     },
     {
