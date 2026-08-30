@@ -50,8 +50,8 @@ case "$rc" in
     echo "✓ PasturaSharedEngine.xcframework ready"
     ;;
   1)
-    echo "⚠️  JDK 17+ not found — KMP build skipped." >&2
-    echo "   Required to stage PasturaSharedEngine.xcframework; the" >&2
+    echo "⚠️  KMP prerequisite missing (see the error above) — KMP build skipped." >&2
+    echo "   Usually JDK 17+. Required to stage PasturaSharedEngine.xcframework; the" >&2
     echo "   pre-commit hook and scripts/xcodebuild.sh will need it once" >&2
     echo "   PR-B2 links the framework into the Pastura.app build:" >&2
     echo "     brew install --cask temurin@17" >&2

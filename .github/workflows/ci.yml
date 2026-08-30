@@ -854,7 +854,8 @@ jobs:
       # hashed into it — `shared/**` sources (minus Gradle's own `build/`
       # output, which is a product of those sources, not an input), `gradle/**`
       # (the version catalog, hence the K/N toolchain version, and the wrapper),
-      # and every `*.gradle.kts`. So a HIT can never be stale.
+      # every `*.gradle.kts`, and `scripts/kmp/**` (the staging script picks the
+      # Gradle task, config and dest path). So a HIT can never be stale.
       #
       # NO `restore-keys`, deliberately — a content key must never fall back.
       # A prefix fallback would restore an umbrella built from DIFFERENT sources
@@ -876,7 +877,7 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: Pastura/Frameworks/PasturaSharedEngine.xcframework
-          key: kmp-umbrella-${{ runner.os }}-${{ runner.arch }}-debug-${{ hashFiles('shared/**', '!shared/**/build/**', 'gradle/**', '**/*.gradle.kts') }}
+          key: kmp-umbrella-${{ runner.os }}-${{ runner.arch }}-debug-${{ hashFiles('shared/**', '!shared/**/build/**', 'gradle/**', '**/*.gradle.kts', 'scripts/kmp/**') }}
 
       # Step-level path promotion (#501 D-B), widened by ADR-023 §6 Stage-5
       # ruling (a) (#1635 PR-B) from one promoter to three. The step below runs
@@ -886,6 +887,9 @@ jobs:
       #         version catalog / wrapper / a cinterop `.def`. Link and
       #         XCFramework breakage is localized to those files and the
       #         compile-only default would miss it. (#501 D-B, unchanged.)
+      #         Every such touch also changes the content hash, so (ii) now
+      #         subsumes (i) in practice; (i) is kept as the documented
+      #         intent, not as an independent trigger.
       #   (ii)  umbrella cache MISS — `steps.kmp-umbrella-cache.outputs.cache-hit
       #         != 'true'`. This job is the PRODUCER for the content-keyed cache
       #         the iOS lanes restore from; an unfilled key must be filled here,
@@ -921,6 +925,11 @@ jobs:
         id: kmp-changes
         env:
           GH_TOKEN: ${{ github.token }}
+          # Read via env, never interpolated into the script body: a ref name
+          # may contain `"`, `;` or `$`, which `${{ github.ref }}` inside `run:`
+          # would execute (GHA script-injection shape).
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
           # The three promoters are OR-ed HERE, in the single `full_native`
           # output, not in the consuming step's `if:` — the compile-only step
@@ -954,12 +963,12 @@ jobs:
           # exists, not that it is restorable at the moment the next PR reads it.
           # If merge-time wall clock becomes the complaint, that is the ruling's
           # documented re-open trigger, not a local tweak.
-          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF" = "refs/heads/main" ]; then
             echo "full_native=true" >> "$GITHUB_OUTPUT"
             echo "Push to main → full native build + XCFramework (publish the umbrella cache entry)."
             exit 0
           fi
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
+          if [ "$EVENT_NAME" != "pull_request" ]; then
             # Remaining non-PR shapes (schedule / workflow_dispatch / a push to
             # a non-main ref) with the key already warm: compile-only. Nothing
             # here needs an assembly the cache does not already hold.
