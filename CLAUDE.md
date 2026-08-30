@@ -38,6 +38,8 @@ Views/, App/ → may depend on everything
 Utilities/   → depends on nothing
 ```
 
+`PasturaSharedEngine` (the KMP umbrella, ADR-023) is imported from `App/` only — never from `LLM/` or `Engine/`. Not a new edge: the K/N boundary adapters live under `App/KMP/`.
+
 ## Access Modifiers
 
 Protocol definitions and every type in `Models/` are `public`; everything else stays `internal`.
