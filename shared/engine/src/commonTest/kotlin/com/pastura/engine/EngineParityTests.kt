@@ -11,7 +11,11 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 
 /**
@@ -78,6 +82,15 @@ class EngineParityTests {
     private val padding = LLMCaller.MAX_RETRIES + 1
 
     /**
+     * How long [cancelLandsWhenAdoptTrailsTheTrigger] withholds `adopt` once the
+     * trigger has fired, when no event arrives to release it sooner. Pure wall
+     * time under the fix (nothing is recorded while the engine is held), so it
+     * is set well above the few ms the scripted remainder takes, not tuned to
+     * it — a bound the remainder could outlast would retire the arm silently.
+     */
+    private val ADOPT_HOLD_MILLIS = 1_000L
+
+    /**
      * A payload no fixture would produce, so consuming one is visible.
      *
      * Deliberately not a copy of the last real answer: that would let an
@@ -138,7 +151,10 @@ class EngineParityTests {
      * every fixture is replayed from one loop the orphan can overlap the next
      * iteration.
      */
-    private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
+    private suspend fun replay(
+        fixture: ParityGolden.Fixture,
+        beforeAdopt: (suspend (cutter: CancelOnPhaseCompleted, collector: Collector) -> Unit)? = null,
+    ): Pair<List<SimulationEvent>, Int> {
         // Wired only for a fixture that actually schedules suspends. The hook
         // would be a no-op elsewhere (nothing ever calls it), but leaving the
         // parameter null on those fixtures keeps their replay exactly what it was
@@ -168,9 +184,26 @@ class EngineParityTests {
                 collector.record(it)
                 cutter?.observe(it)
             }
+        // A seam for [cancelLandsWhenAdoptTrailsTheTrigger] only: it widens the
+        // window between `run` returning and `adopt` that a descheduled test
+        // thread opens by accident on a loaded runner (#1637).
+        // Guarded like the `finally` below: a seam that throws (its `await` can
+        // time out) must not orphan a run that would overlap the next fixture.
+        if (beforeAdopt != null && cutter != null) {
+            try {
+                beforeAdopt(cutter, collector)
+            } catch (t: Throwable) {
+                handle.cancel()
+                throw t
+            }
+        }
         // `run` installs the callback and only then returns the handle, so the
         // trigger can fire before this line. [CancelOnPhaseCompleted] latches that
         // case and cancels here instead of dropping it.
+        // Cutter first, and load-bearing: [CancelOnPhaseCompleted.observe] blocks
+        // the engine thread until this adopt lands, so a fixture that both cancels
+        // and suspends (none does today) would deadlock if the resumer's adopt —
+        // whose flush needs the engine to be running — came first.
         cutter?.adopt(handle)
         resumer?.adopt(handle)
         try {
@@ -200,6 +233,16 @@ class EngineParityTests {
                     "${fixture.cancelAfterPhaseCompleted}, so the run was never cancelled and " +
                     "this fixture compared a completed run against a cancelled golden. The " +
                     "Swift emitter raises `cancelTriggerNeverFired` on the same condition.",
+            )
+        }
+        // Named so #1637's shape never again presents as the terminal-event
+        // mismatch below, which is what cost that diagnosis.
+        if (cutter != null && cutter.adoptTimedOut) {
+            throw AssertionError(
+                "${fixture.name}: the cutter waited ${CancelOnPhaseCompleted.ADOPT_WAIT} at " +
+                    "phase_completed ${fixture.cancelAfterPhaseCompleted} for adopt(handle) and " +
+                    "gave up, so the cancel adopt then issued may have been a no-op on an " +
+                    "already-completed run (#1637) — a harness stall, not a parity diff.",
             )
         }
         if (resumer != null) {
@@ -299,20 +342,41 @@ class EngineParityTests {
      * a fixture whose path repeats across rounds would otherwise cancel twice,
      * which is harmless today only by accident.
      *
-     * No pending-cancel flag: [observe]'s `compareAndSet` on [triggered] runs
-     * BEFORE its `handle.load()`, and [adopt]'s `handle.store` runs BEFORE its
-     * `triggered.load()`, so every interleaving of the two leaves at least one
-     * side seeing the other's write — either [observe] sees the stored handle
-     * and cancels directly, or [adopt] sees `triggered == true` and cancels
-     * directly. The two calling a redundant `cancel()` on the same run is safe
+     * **[observe] blocks the engine until [adopt] has landed.** `run` launches on
+     * `Dispatchers.Default` and returns the handle at once, so the trigger can
+     * fire before the test thread reaches `adopt`. A latch that merely records
+     * the miss and lets [adopt] cancel later is not enough: `cancel()` on a job
+     * that already completed is a no-op, and with a scripted backend the rest of
+     * the run is a few ms — shorter than a descheduled test thread's gap on a
+     * loaded runner, which is how #1637 surfaced. `onEvent` is invoked
+     * synchronously inside the engine coroutine, so spinning here holds the
+     * engine at exactly the checkpoint the cut is meant to precede (in
+     * `ConditionalHandler`'s sub-phase loop, where every fixture's trigger sits
+     * today, the next statement after the emit is `pauseCheck`, where the
+     * cancel is observed).
+     * A busy spin rather than a sleep because `commonTest` has no portable
+     * `Thread.sleep` / `yield`, and the wait is microseconds outside the
+     * regression arm that widens it on purpose. [ADOPT_WAIT] bounds it so a
+     * harness bug cannot hang the suite; the timeout is reported by name via
+     * [adoptTimedOut] rather than allowed to fall through into the misleading
+     * terminal-event assertion.
+     *
+     * [adopt] still cancels when it sees `triggered == true`, for the
+     * interleaving where [observe]'s `compareAndSet` wins but its first
+     * `handle.load()` runs before `handle.store` — the spin then sees the store
+     * on its next iteration, and the two redundant `cancel()` calls are safe
      * because `RunHandleImpl` documents every method as idempotent.
      */
     private class CancelOnPhaseCompleted(private val path: List<Int>) {
         private val handle = AtomicReference<RunHandle?>(null)
         private val triggered = AtomicBoolean(false)
+        private val timedOut = AtomicBoolean(false)
 
         /** Whether the trigger event was ever seen. */
         val fired: Boolean get() = triggered.load()
+
+        /** Whether [observe] gave up waiting for [adopt] — a harness stall, reported by name. */
+        val adoptTimedOut: Boolean get() = timedOut.load()
 
         /** Stores the run's handle, cancelling now when the trigger already fired. */
         fun adopt(runHandle: RunHandle) {
@@ -320,11 +384,37 @@ class EngineParityTests {
             if (triggered.load()) runHandle.cancel()
         }
 
-        /** Cancels the run when [event] is the trigger; ignores everything else. */
+        /**
+         * Cancels the run when [event] is the trigger; ignores everything else.
+         *
+         * Runs on the engine's thread and does not return until the handle is
+         * adopted (or [ADOPT_WAIT] passes), so the engine cannot advance past
+         * the checkpoint before the cancel has been issued.
+         */
         fun observe(event: SimulationEvent) {
             if (event !is SimulationEvent.PhaseCompleted || event.phasePath != path) return
             if (!triggered.compareAndSet(false, true)) return
-            handle.load()?.cancel()
+            val started = TimeSource.Monotonic.markNow()
+            while (true) {
+                val runHandle = handle.load()
+                if (runHandle != null) {
+                    runHandle.cancel()
+                    return
+                }
+                if (started.elapsedNow() >= ADOPT_WAIT) {
+                    timedOut.store(true)
+                    return
+                }
+            }
+        }
+
+        companion object {
+            /**
+             * Far above the normal wait (microseconds) and the regression arm's
+             * deliberate 200 ms — generous so a loaded runner never trips it
+             * while an actual stall still fails within the replay timeout.
+             */
+            val ADOPT_WAIT = 5.seconds
         }
     }
 
@@ -487,6 +577,77 @@ class EngineParityTests {
 
         for (fixture in ParityGolden.all) {
             assertParity(fixture, DivergenceLedger.entries)
+        }
+    }
+
+    /**
+     * The adopt race of #1637, forced rather than waited for.
+     *
+     * `run` launches on `Dispatchers.Default` and returns the handle at once,
+     * while `onEvent` runs synchronously inside the engine coroutine. So when
+     * the trigger fires before `adopt`, the cutter can only latch — and a latch
+     * is worthless if the scripted run (a few ms with [ScriptedLLMBackend])
+     * finishes before the test thread gets round to `adopt`: `cancel()` on a
+     * completed job is a no-op and the run ends in `SimulationCompleted`. CI
+     * hit that interleaving once (#1636's run); it never reproduces locally
+     * because the test thread has to be descheduled for longer than the run's
+     * remainder.
+     *
+     * The seam withholds `adopt` until the trigger has fired and then for
+     * whichever comes first — **any** further event being recorded, or a bound
+     * of [ADOPT_HOLD_MILLIS]. Event-driven rather than "wait for the terminal"
+     * so the arm's sensitivity does not depend on the run finishing inside the
+     * bound: with the fix reverted, the first event past the checkpoint
+     * releases the hold at once and reddens below; with the fix in place
+     * nothing is ever recorded, so the bound is only wall time. The detector is
+     * therefore that the last recorded event is still the trigger when `adopt`
+     * is finally called; the terminal-event arm is kept as the second,
+     * outcome-level check.
+     *
+     * Derived from [ParityGolden.all] by `cancelAfterPhaseCompleted`, not by
+     * name, so a second cancelling fixture is covered without an edit here —
+     * unless it also suspends. The seam sits before *both* adopts, and a
+     * suspend that precedes the trigger would park the run before `fired` ever
+     * flips, so that shape is refused by name rather than left to stall.
+     */
+    @Test
+    fun cancelLandsWhenAdoptTrailsTheTrigger() {
+        val (cancelling, unsupported) = ParityGolden.all
+            .filter { it.cancelAfterPhaseCompleted != null }
+            .partition { it.suspendBeforeResponse.isEmpty() }
+        assertTrue(
+            unsupported.isEmpty(),
+            "${unsupported.map { it.name }} both cancel and suspend, which this arm cannot " +
+                "drive: its seam withholds the resumer's adopt too (see the cutter-before-" +
+                "resumer note in `replay`). Give such a fixture its own arm.",
+        )
+        assertTrue(cancelling.isNotEmpty(), "no fixture in the roster cancels — the arm is vacuous")
+
+        for (fixture in cancelling) {
+            val trigger = requireNotNull(fixture.cancelAfterPhaseCompleted)
+            // Captured inside the seam and asserted outside it, so an assertion
+            // failure is reported after `replay` has torn the run down.
+            var lastBeforeAdopt: SimulationEvent? = null
+            var result: Pair<List<SimulationEvent>, Int>? = null
+            runBlockingTest {
+                result = replay(fixture) { cutter, collector ->
+                    await { cutter.fired }
+                    val recordedAtTrigger = collector.snapshot().size
+                    withTimeoutOrNull(ADOPT_HOLD_MILLIS) {
+                        while (collector.snapshot().size == recordedAtTrigger) delay(1)
+                    }
+                    lastBeforeAdopt = collector.snapshot().lastOrNull()
+                }
+            }
+            val (events, _) = requireNotNull(result) { "${fixture.name}: the replay produced no result" }
+            val last = lastBeforeAdopt
+            assertTrue(
+                last is SimulationEvent.PhaseCompleted && last.phasePath == trigger,
+                "${fixture.name}: the engine advanced past phase_completed $trigger while " +
+                    "adopt(handle) was withheld — the last recorded event was $last. The cut " +
+                    "must hold the engine at the checkpoint until the handle arrives.",
+            )
+            assertRunCompleted(fixture, events)
         }
     }
 
