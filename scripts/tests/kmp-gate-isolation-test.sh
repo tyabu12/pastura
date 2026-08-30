@@ -10,12 +10,21 @@
 # not have, so nothing here may invoke `swift build` to validate a manifest.
 #
 # Why perturbation rather than a "the real files are clean" assertion: the real
-# files ARE clean (0 hits today), so a vacuous guard — one whose regex matches
-# nothing that could ever appear — passes identically to a working one. Only a
-# positive control proves the guard fires. Every case below therefore states
-# which lane it stands for, and the NEGATIVE cases matter as much as the
+# files ARE clean (the manifest has 0 hits; the pbxproj references exactly the
+# one ruled umbrella since S5-1, #1635), so a vacuous guard — one whose regex
+# matches nothing that could ever appear — passes identically to a working one.
+# Only a positive control proves the guard fires. Every case below therefore
+# states which lane it stands for, and the NEGATIVE cases matter as much as the
 # positive ones: this guard's failure mode of record (#1171) was a false
 # POSITIVE on a comment that merely mentioned the forbidden token.
+#
+# Every positive case also names WHICH check it expects to fire (the
+# `expect_msg` argument to `run_case`). Since check (3) was inverted at S5-1 to
+# "exactly one umbrella", a pbxproj fixture with no umbrella is itself a
+# violation — so a positive aimed at check (4) that only asserted "some
+# violation" would pass on check (3)'s annotation, and check (4) could be
+# deleted from the guard with this suite still green. The message fragment is
+# what stops that.
 #
 # IMPORTANT — this test must never mutate the checkout. The shell-tests job runs
 # all scripts/tests/*-test.sh sequentially in ONE shared clone under `bash -e`;
@@ -58,18 +67,32 @@ let package = Package(
 )
 SWIFT
 
+# The pbxproj baseline carries the S5-1 umbrella reference in the exact shape
+# the real project uses (commit 9f89bc3e's entry, retargeted) — including the
+# `lastKnownFileType = wrapper.xcframework` file-type token the guard has to
+# blank before extracting basenames. It is the `--pbxproj` input of every case
+# that perturbs the manifest or the app dir, so it MUST pass check (3) on its
+# own or every one of those cases reports the wrong check.
 cat >"$CLEAN_PBXPROJ" <<'PBX'
 // !$*UTF8*$!
 {
 	objects = {
 		E0BCA4BB2F83E7DF0025BAE6 /* PasturaApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PasturaApp.swift; sourceTree = "<group>"; };
+		E0F1A1F12001A1F100A1F100 /* PasturaSharedEngine.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = PasturaSharedEngine.xcframework; path = Frameworks/PasturaSharedEngine.xcframework; sourceTree = "<group>"; };
+		E0F1A1F12001A1F100A1F101 /* PasturaSharedEngine.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = E0F1A1F12001A1F100A1F100 /* PasturaSharedEngine.xcframework */; };
 	};
 }
 PBX
 
 mkdir -p "$CLEAN_APPDIR/Pastura"
 
-# run_case <expect:yes|no|unparseable> <label> <manifest> <pbxproj> <app-dir>
+# run_case <expect:yes|no|unparseable> <label> <manifest> <pbxproj> <app-dir> [expect_msg]
+#
+# `expect_msg` is REQUIRED for `yes`: a fragment unique to the check that
+# should fire — "declares a .binaryTarget" (1), "references tools/kmp-gate-spike"
+# (2), "references no .xcframework" / "other than (or in addition to)" (3),
+# "tracked .xcframework is committed" (4). See the header for why "some
+# violation" is not enough.
 #
 # Exit codes are checked EXACTLY, not just for non-zero. The guard exits 1 on a
 # violation, 2 on bad inputs (missing file, unknown flag) and 3 when it cannot
@@ -79,7 +102,7 @@ mkdir -p "$CLEAN_APPDIR/Pastura"
 # level up. Positives additionally must carry the violation marker, so an
 # unrelated error cannot masquerade as a detection.
 run_case() {
-  local expect="$1" label="$2" manifest="$3" pbxproj="$4" appdir="$5"
+  local expect="$1" label="$2" manifest="$3" pbxproj="$4" appdir="$5" expect_msg="${6:-}"
   local out rc
   set +e
   out="$("$GUARD" --manifest "$manifest" --pbxproj "$pbxproj" --app-dir "$appdir" 2>&1)"
@@ -98,6 +121,20 @@ run_case() {
         *"decision B' violated"*) ;;
         *)
           echo "FAIL [$label]: exit 1 without a violation message — wrong cause?" >&2
+          echo "  guard output: $out" >&2
+          fail=1
+          return
+          ;;
+      esac
+      if [ -z "$expect_msg" ]; then
+        echo "FAIL [$label]: positive case names no expected check fragment" >&2
+        fail=1
+        return
+      fi
+      case "$out" in
+        *"$expect_msg"*) ;;
+        *)
+          echo "FAIL [$label]: violation fired, but not the expected check (wanted '$expect_msg')" >&2
           echo "  guard output: $out" >&2
           fail=1
           return
@@ -173,11 +210,13 @@ run_case no "multi-line block comment naming both tokens" "$m" "$CLEAN_PBXPROJ" 
 
 m="$TMP/p-binarytarget.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .binaryTarget(name: "PasturaShared", path: "Frameworks/PasturaShared.xcframework"),' >>"$m"
-run_case yes "root manifest declares .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+run_case yes "root manifest declares .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR" \
+  "declares a .binaryTarget"
 
 m="$TMP/p-binarytarget-trailing.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .binaryTarget(name: "X", path: "X.xcframework"),  // staged by CI' >>"$m"
-run_case yes "declaration carrying a trailing comment" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+run_case yes "declaration carrying a trailing comment" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR" \
+  "declares a .binaryTarget"
 
 # THE case that discriminates a quote-aware stripper from a naive `s|//.*||`.
 # A naive strip truncates this line at the URL's `//`, deleting the
@@ -185,7 +224,8 @@ run_case yes "declaration carrying a trailing comment" "$m" "$CLEAN_PBXPROJ" "$C
 # This is the false-NEGATIVE risk #1171 item 1 warns tightening would create.
 m="$TMP/p-url-then-binarytarget.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .package(url: "https://example.com/pkg"), .binaryTarget(name: "Leak", path: "L.xcframework"),' >>"$m"
-run_case yes "//-bearing string literal preceding .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+run_case yes "//-bearing string literal preceding .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR" \
+  "declares a .binaryTarget"
 
 # ------------------------------------------------------- fail-closed parses --
 # The stripper models single-line string literals only. Two independent
@@ -226,18 +266,49 @@ run_case unparseable "multi-line string with no /* inside (lost-flag control)" \
 
 m="$TMP/p-spike-reference.swift"; cp "$CLEAN_MANIFEST" "$m"
 echo '    .target(name: "Consumer", path: "tools/kmp-gate-spike/Sources/KMPGateSpike"),' >>"$m"
-run_case yes "root manifest reaches into tools/kmp-gate-spike" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+run_case yes "root manifest reaches into tools/kmp-gate-spike" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR" \
+  "references tools/kmp-gate-spike"
 
-# iOS xcodebuild lane, explicit-reference form. Fixture provenance: these lines
-# are the shape commit 9f89bc3e wired into this same project. They were
-# hand-authored there (its message records "all UUIDs prefixed E0F1A1F1..."),
-# NOT emitted by Xcode — but that commit build-verified them (`xcodebuild build`
-# SUCCEEDED, framework embedded and codesigned), which is the property the grep
-# leans on: Xcode accepted and acted on exactly this text.
-p="$TMP/p-pbxproj-xcframework.pbxproj"
-sed 's|^	};|	E0F1A1F12001A1F100A1F100 /* PasturaShared.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = PasturaShared.xcframework; path = Frameworks/PasturaShared.xcframework; sourceTree = "<group>"; };\n	};|' \
+# iOS xcodebuild lane, explicit-reference form — check (3), inverted at S5-1
+# to "exactly one `.xcframework`, named PasturaSharedEngine". Three ways to
+# break it, each a different real-world event, each its own case:
+#
+#   stripped  — the link was lost (a pbxproj regeneration, a revert): zero
+#               references. Before the inversion this was the CLEAN shape.
+#   second    — the ADR-023 §9.7 two-umbrella landmine: a models-only
+#               `PasturaShared.xcframework` alongside the engine umbrella. Its
+#               entry is commit 9f89bc3e's, verbatim.
+#   renamed   — the one reference points at some other bundle. Also covers a
+#               case-variant of the umbrella's own name: the comparison is
+#               exact, so `pasturasharedengine.xcframework` is "other".
+p="$TMP/p-pbxproj-stripped.pbxproj"
+grep -v 'PasturaSharedEngine.xcframework' "$CLEAN_PBXPROJ" >"$p"
+run_case yes "pbxproj references no .xcframework (umbrella link lost)" \
+  "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR" "references no .xcframework"
+
+p="$TMP/p-pbxproj-second.pbxproj"
+sed 's|^	};|	E0F1A1F12001A1F100A1F1FF /* PasturaShared.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = PasturaShared.xcframework; path = Frameworks/PasturaShared.xcframework; sourceTree = "<group>"; };\n	};|' \
   "$CLEAN_PBXPROJ" >"$p"
-run_case yes "pbxproj references an .xcframework" "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR"
+run_case yes "pbxproj references a second .xcframework (two-umbrella landmine)" \
+  "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR" "other than (or in addition to)"
+
+p="$TMP/p-pbxproj-renamed.pbxproj"
+sed 's|PasturaSharedEngine\.xcframework|PasturaSharedEngin.xcframework|g' "$CLEAN_PBXPROJ" >"$p"
+run_case yes "pbxproj's only .xcframework is not the umbrella" \
+  "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR" "other than (or in addition to)"
+
+# The file-type token control: `lastKnownFileType = wrapper.xcframework` sits on
+# every legitimate entry, and a guard that counted it as a bundle name would
+# fail the clean baseline. The baseline case above already exercises this, but
+# a fixture whose ONLY `.xcframework`-bearing text is that token must read as
+# "no umbrella", not as a bundle called `wrapper` — pinning the exclusion to
+# the phrase rather than to the token.
+p="$TMP/p-pbxproj-filetype-only.pbxproj"
+printf '%s\n' '// !$*UTF8*$!' '{' '	objects = {' \
+  '		X /* stub */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; path = stub; sourceTree = "<group>"; };' \
+  '	};' '}' >"$p"
+run_case yes "file-type token alone is not an umbrella reference" \
+  "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR" "references no .xcframework"
 
 # iOS xcodebuild lane, synchronized-group form — the path the pbxproj grep
 # structurally cannot see, because the sweep leaves no project-file entry.
@@ -261,7 +332,7 @@ git -C "$a" add -A
 # shell test.
 git -C "$a" -c commit.gpgsign=false -c core.hooksPath=/dev/null commit -qm "tracked framework"
 run_case yes "tracked framework swept in via PBXFileSystemSynchronizedRootGroup" \
-  "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$a"
+  "$CLEAN_MANIFEST" "$CLEAN_PBXPROJ" "$a" "tracked .xcframework is committed"
 
 # The same tree with the framework UNtracked — build output, not a violation.
 u="$TMP/n-appdir-untracked"

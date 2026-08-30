@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 #
-# ADR-023 §6 decision B′: "No per-PR lane acquires an XCFramework dependency —
-# not the iOS xcodebuild, not the root Package.swift harness build, not a dev
-# `swift build`."
+# ADR-023 §6 decision B′, as amended by the Stage-5 rulings (2026-08-30,
+# #1633 / #1635 S5-1): the root Package.swift harness build and a dev
+# `swift build` acquire NO XCFramework dependency — and the iOS xcodebuild
+# lane acquires EXACTLY ONE, the `PasturaSharedEngine` umbrella, restored from
+# a content-keyed cache (ruling (a)) with the models-only `PasturaShared`
+# export dropped (ruling (b)). Before S5-1 the third clause read "not the iOS
+# xcodebuild" either; check (3) below is the inverted form.
 #
 # This is the gate LOGIC. The perturbation tests that exercise it against
 # synthetic fixtures + the real files live in
@@ -23,13 +27,21 @@
 #                 iOS-touching PR for an assembled XCFramework.
 #   COVERED (2) root manifest does not reference the gate spike — the same two
 #                 lanes, via a path dependency rather than a binary one.
-#   COVERED (3) pbxproj declares no `.xcframework`          — the iOS xcodebuild
+#   COVERED (3) pbxproj references EXACTLY ONE `.xcframework` basename and it
+#                 is `PasturaSharedEngine.xcframework` — the iOS xcodebuild
 #                 lane, for a framework added the way Xcode's UI adds one.
+#                 Zero means the S5-1 link was lost; any other or additional
+#                 name is the ADR-023 §9.7 two-umbrella landmine (a second
+#                 K/N runtime linked into the same binary) or an unruled
+#                 binary dependency. INVERTED at S5-1 from "declares none".
 #   COVERED (4) no TRACKED `*.xcframework` under the app directory — the iOS
 #                 lane again, for the path (3) structurally cannot see: the
 #                 project uses `PBXFileSystemSynchronizedRootGroup`, so a
 #                 framework committed inside a synchronized directory is swept
-#                 into the target with NO pbxproj diff at all.
+#                 into the target with NO pbxproj diff at all. Unchanged by
+#                 the inversion: the one legitimate umbrella is STAGED
+#                 (gitignored, `Pastura/Frameworks/*.xcframework`), never
+#                 tracked, so a tracked bundle is still a violation.
 #
 #   NOT COVERED  an SPM *remote* package that itself declares a `.binaryTarget`.
 #                 Resolving one leaves no `.xcframework` text in the pbxproj —
@@ -43,9 +55,13 @@
 #
 # Which is also what B′ actually means, since the invariant as worded reads
 # wider than it is: the cost it protects against is ASSEMBLING the KMP
-# XCFramework (~6m32s cold), not depending on any binary artifact. llama.swift
-# does not violate B′ — it is downloaded, not built. Read every check here as
-# "no lane acquires a dependency on the KMP-assembled framework".
+# XCFramework (~6m32s cold) on a per-PR lane, not depending on any binary
+# artifact. llama.swift does not violate B′ — it is downloaded, not built.
+# Post-S5-1 the iOS lane's umbrella is likewise RESTORED (content-keyed cache;
+# the in-lane assembly is the cache-miss fallback, `.github/workflows/ci.yml`),
+# so read checks (1)/(2) as "no SwiftPM lane acquires a dependency on the
+# KMP-assembled framework" and (3)/(4) as "the iOS lane acquires exactly the
+# one ruled umbrella, and only by staging".
 #
 # Checks (1) and (2) strip comments from the manifest first: a comment
 # EXPLAINING that the root deliberately has no binary target must not trip the
@@ -226,30 +242,59 @@ tools/kmp-gate-spike. Depend on it from nowhere — the gate spike is consumed \
 only by its own nested manifest."
 fi
 
-# (3) — the iOS xcodebuild lane, explicit-reference form.
+# (3) — the iOS xcodebuild lane, explicit-reference form. INVERTED at S5-1:
+# the pbxproj must reference exactly one `.xcframework` basename, and it must
+# be `PasturaSharedEngine.xcframework`.
 #
 # NOT comment-stripped, deliberately: Xcode writes its own `/* … */` annotations
-# containing the file name (`… /* PasturaShared.xcframework in Frameworks */ …`),
+# containing the file name (`… /* PasturaSharedEngine.xcframework in Frameworks */ …`),
 # so stripping would DISCARD evidence here rather than avoid a false positive.
 # The pbxproj has no hand-written prose comments for a stripper to protect.
 #
-# Fixture provenance for the perturbation test: the tokens matched here were
-# taken from commit 9f89bc3e ("W3 PR-A — XCFramework Local Drop integration"),
-# which wired a real `PasturaShared.xcframework` into this same project. Those
-# lines were hand-authored in that commit (its message records "all UUIDs
-# prefixed E0F1A1F1... to avoid collision"), NOT emitted by Xcode — but they
-# were build-verified there (`xcodebuild build` SUCCEEDED, framework embedded
+# Fixture provenance for the perturbation test: the entry shape matched here
+# was taken from commit 9f89bc3e ("W3 PR-A — XCFramework Local Drop
+# integration"), which wired a real `PasturaShared.xcframework` into this same
+# project, and is what S5-1 (#1635) restored under the `PasturaSharedEngine`
+# name. Those lines were hand-authored (that commit's message records "all
+# UUIDs prefixed E0F1A1F1... to avoid collision"), NOT emitted by Xcode — but
+# they were build-verified (`xcodebuild build` SUCCEEDED, framework embedded
 # and codesigned), which is the property this grep depends on: Xcode accepted
 # and acted on exactly this text.
-# `-i`: a framework named `Foo.XCFramework` on disk would otherwise slip past,
-# and the extra matches a case-fold admits are all fail-closed.
-hits="$(grep -in 'xcframework' "$PBXPROJ" || true)"
-if [ -n "$hits" ]; then
+#
+# Basename extraction: `-o` over `[A-Za-z0-9_.-]*\.xcframework` stops at `/`,
+# so `path = Frameworks/Foo.xcframework` and `/* Foo.xcframework in … */` both
+# yield `Foo.xcframework`. `-i` on the extension only: a bundle spelled
+# `Foo.XCFramework` on disk would otherwise slip past, and the comparison
+# below is exact, so a case-variant of the umbrella name is a *different* name
+# and fails closed. The distinct set is compared as a whole rather than
+# counted: "exactly one distinct name, equal to the umbrella" is one string
+# comparison, and it rejects zero, a rename, and an extra name alike.
+#
+# `lastKnownFileType = wrapper.xcframework` is Xcode's FILE-TYPE identifier for
+# the reference, not a bundle name, and every legitimate entry carries it — so
+# that exact phrase is blanked before extraction. Only the phrase: a bundle
+# actually named `wrapper.xcframework` would still surface through its `path =`
+# and `/* … */` mentions, so the exclusion cannot hide a real second framework.
+# `sed` emits one line per input line, so the `grep -n` numbers stay the
+# pbxproj's. `|| [ $? -eq 1 ]` keeps grep's "no match" from aborting under
+# errexit while a real grep error (exit >= 2) still does.
+hits="$(sed 's/lastKnownFileType = wrapper\.xcframework//g' "$PBXPROJ" \
+  | { grep -ion '[A-Za-z0-9_.-]*\.xcframework' || [ $? -eq 1 ]; })"
+if [ -z "$hits" ]; then
+  fail "$PBXPROJ" "" "the Xcode project references no .xcframework, so the \
+S5-1 PasturaSharedEngine umbrella link is gone (ADR-023 §6 Stage 5). Restore \
+the Frameworks + Embed Frameworks entries, or if the link is being removed on \
+purpose, reopen ADR-023 decision B' rather than relaxing this gate."
+fi
+names="$(printf '%s\n' "$hits" | sed 's/^[0-9]*://' | sort -u)"
+if [ "$names" != "PasturaSharedEngine.xcframework" ]; then
   echo "$hits"
-  fail "$PBXPROJ" "${hits%%:*}" "the Xcode project references an .xcframework, \
-so the iOS xcodebuild lane now requires an assembled XCFramework. Remove the \
-reference, or if it is genuinely needed, reopen ADR-023 decision B' rather than \
-relaxing this gate."
+  fail "$PBXPROJ" "${hits%%:*}" "the Xcode project references an .xcframework \
+other than (or in addition to) PasturaSharedEngine.xcframework, so the iOS \
+xcodebuild lane now links a second binary framework — the ADR-023 §9.7 \
+two-umbrella landmine if it is a K/N export. Distinct names found: \
+$(printf '%s' "$names" | tr '\n' ' '). Remove the reference, or if it is \
+genuinely needed, reopen ADR-023 decision B' rather than relaxing this gate."
 fi
 
 # (4) — the iOS xcodebuild lane, synchronized-group form.
@@ -289,4 +334,4 @@ else
        "tracked-framework check (4)." >&2
 fi
 
-echo "B' isolation holds: no XCFramework dependency on any per-PR lane."
+echo "B' isolation holds: no XCFramework dependency on the SwiftPM lanes; the iOS lane links exactly PasturaSharedEngine.xcframework."
