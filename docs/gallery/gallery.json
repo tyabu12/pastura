@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-30T00:00:00Z",
+  "updated_at": "2026-08-31T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -438,9 +438,9 @@
       ],
       "language": "ja",
       "yaml_url": "seriffu_knockout_v1.yaml",
-      "yaml_sha256": "9433bfd83fe998b6429a8570ffea970096c52ad0ef5094dd119802b865853856",
+      "yaml_sha256": "7d903273cf70a8225928902ceae2889a6c56ed1b9670823b67d8bf44cb577782",
       "highlight_url": "highlights/seriffu_knockout_v1.json",
-      "highlight_sha256": "0b72fafa90c58a476656a82a5bbe68f07963048cfa901f220f8758b1e49d566f",
+      "highlight_sha256": "37ef4f4fab43ea65db4018c0e3ecba62b64fbd25c01d8af902b7f380d7025036",
       "added_at": "2026-06-29"
     },
     {
