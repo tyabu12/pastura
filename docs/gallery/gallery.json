@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-29T00:00:00Z",
+  "updated_at": "2026-08-30T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -65,7 +65,7 @@
       ],
       "language": "ja",
       "yaml_url": "detective_scene_v1.yaml",
-      "yaml_sha256": "950f625307b8c65ae2a57e93da126340c39a227437b1788bc8573f34827979f3",
+      "yaml_sha256": "f3f9c64b41bf9d33765a45c914f03c7f3d46b36f62014a3a5d2b21cd94bb2ee0",
       "added_at": "2026-04-15"
     },
     {
@@ -255,9 +255,9 @@
       ],
       "language": "ja",
       "yaml_url": "hapning_ranyu_v1.yaml",
-      "yaml_sha256": "9374e147027c04fbe806fb67f497e5f2b24bd56240b5bc25aaed2e959aff0089",
+      "yaml_sha256": "0d59374ae324164b4668d8852b31185dafff3f8f60b623455e841ba17b1023dd",
       "highlight_url": "highlights/hapning_ranyu_v1.json",
-      "highlight_sha256": "c381ca4b8cc920852c2683017e08e5970ebc074e13cfb87395856477340acf06",
+      "highlight_sha256": "903a0d948e859d16b37ab8631dea1f208a1b81d468d085755973101c930be4da",
       "added_at": "2026-06-20"
     },
     {
@@ -322,14 +322,14 @@
       "rounds": 2,
       "phases": [
         "assign",
-        "choose",
+        "speak_all",
         "vote",
         "score_calc",
         "summarize"
       ],
       "language": "ja",
       "yaml_url": "chinwaza_saiyo_v1.yaml",
-      "yaml_sha256": "f9b817d272b26bb10ff0a28e30df6ec00847f7912de96b96f811e5b7d861d08e",
+      "yaml_sha256": "d41b1587ee39bde843af5fd921f1dff967c50e9de20bae8f2c5b42ebcae6560a",
       "added_at": "2026-06-21"
     },
     {
@@ -415,7 +415,7 @@
       ],
       "language": "ja",
       "yaml_url": "anchoring_kantei_v1.yaml",
-      "yaml_sha256": "928c584aa251be7334f94e5bb1860cf9d4ec2c92424b9ecede2ed14a958ece6d",
+      "yaml_sha256": "ec07d7f374dd72e8096d294ab439d94a8197848e8142be17aa53309e1b76552e",
       "added_at": "2026-06-29"
     },
     {

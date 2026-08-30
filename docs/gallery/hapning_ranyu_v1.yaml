@@ -9,6 +9,7 @@ context: >
   あなたはハプニング即興番組の出演者です。毎ラウンド、会場に突然の
   ハプニングが発生します。その異常事態を一文で笑いに変えてください。
   状況をなかったことにせず、全力で乗っかるほど面白くなります。
+  【審査の掟】自分の一言には投票できません。他の出演者の一言だけを評価します。
 
 agents: 4
 rounds: 2
@@ -43,6 +44,9 @@ personas:
       例:「赤ちゃん!? じゃあ今夜のギャラは離乳食ですか?」
 
 phases:
+  # Draws are with replacement on purpose for now: `no_repeat: true` would
+  # raise the entry's min_engine_version to 2, and ADR-020 §8 item 4 holds
+  # that back until the App Store deep-link lands (#976).
   - type: event_inject
     source: events
     as: current_event
@@ -54,9 +58,13 @@ phases:
 
       この異常事態を一文で笑いに変える、とっておきの一言をどうぞ。
       状況に全力で乗っかってください。長くせず、一文で簡潔に。
+      発言はすべて日本語で書くこと。
     output:
       statement: string
 
+  # The 15-character cap on the reason is structural: it cannot hold a copied
+  # one-sentence statement, so the judge has to paraphrase. The in-world
+  # self-vote ban backs up exclude_self, whose discard is silent.
   - type: vote
     prompt: >
       今ラウンドのハプニング: {current_event}
@@ -65,6 +73,9 @@ phases:
       {conversation_log}
 
       自分以外で、この状況を一番面白く料理した一言に投票してください。
+      【厳守】自分の一言には投票できません。
+      理由は、相手の一言をそのまま引用せず、なぜ面白いと感じたかを
+      あなた自身の言葉で15字以内・日本語で短く書くこと。
       投票先は必ず以下の名前のいずれかを正確に書くこと: {candidates}
     output:
       vote: string
