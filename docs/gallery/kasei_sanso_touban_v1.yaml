@@ -67,6 +67,8 @@ phases:
   # {vote_results} はここでは使えない。VoteHandler が投票後に書く変数なので、
   # ラウンド1の vote 時点では未定義であり、expandTemplate は未知のキーを
   # 置換せずリテラルのまま LLM に渡してしまう。
+  # {scoreboard} は下の「前ラウンド最多指名者を続けて指名しない」規定の唯一の
+  # 情報源。08-28 の v2 候補はこれを外していたが、外すと規定が遵守不能になる。
   - type: vote
     prompt: >
       いま起きていること: {assigned_topic}

@@ -96,6 +96,10 @@ phases:
       止めて、ぽつりとこぼした——「…たまには、誰か気づいてくれると、
       うれしいんだけどな」。リビングに、小さな沈黙が落ちる。
 
+  # speak_each iterates all five, リク included, so リク's own turn receives
+  # "speak to リク" too. Left as is on purpose: this is the A/B-winning wording
+  # (08-29, +5) and リク's turn reads as him restating his own confession, not
+  # as self-address. Making the target conditional would be an untested variant.
   - type: speak_each
     max_sentences: 2
     prompt: >

@@ -394,7 +394,7 @@
       ],
       "language": "ja",
       "yaml_url": "kasei_sanso_touban_v1.yaml",
-      "yaml_sha256": "2b2d192c5cc888c31817d1af35de5e40655bad8e214fd6d9e711d0c7725358ba",
+      "yaml_sha256": "4f3bee74de1bf1bbfbf2afce902b10bd50bab142a6c6be7734a26ffc12a0171e",
       "added_at": "2026-06-28"
     },
     {
@@ -1009,7 +1009,7 @@
       ],
       "language": "ja",
       "yaml_url": "share_house_v1.yaml",
-      "yaml_sha256": "61f7b3880afb2e6770bff08e12a7349255881ee904e758d4c02d23545704b848",
+      "yaml_sha256": "ab4eef81772fa63f70e4c6e05e6fa952c38befc03b047be890202e9dba92696f",
       "added_at": "2026-07-15"
     },
     {
