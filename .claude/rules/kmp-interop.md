@@ -8,19 +8,42 @@ paths:
 # KMP Interop Rules
 
 Traps of the ADR-023 KMP Engine migration at the Kotlin/Native (K/N) ↔ Swift boundary and inside
-the Kotlin port. Since S5-1 (#1635) the iOS app links and embeds the `PasturaSharedEngine`
-umbrella, and `App/KMP/` is the only place it may be imported (CLAUDE.md § Dependency Rules) — so
-a Swift-side export break now reddens every per-PR iOS lane, not only the nightly gate-spike build
-(`tools/kmp-gate-spike/**`, which keeps its own copy of the adapters until S5-5). Nothing under
-`App/KMP/` is on the app's run path until S5-4 flips the switch. The Wave B checklist in
-`docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage table and pointers are
-hand-maintained and are not.
+the Kotlin port. Since S5-1 the iOS app links and embeds the `PasturaSharedEngine` umbrella;
+`Pastura/Pastura/App/KMP/` is the home of the K/N boundary adapters (ADR-023 §6 ruling (c)) and the
+only place the umbrella may be imported (CLAUDE.md § Dependency Rules), so a Swift-side export break
+reddens every per-PR iOS lane. `tools/kmp-gate-spike/**` keeps a twin of each adapter for the
+nightly rung until S5-5: **a change to the §5.2 relay contract or an adapter's export-facing shape
+lands in both copies in the same PR** — only `SuspendController` has a drift guard
+(`tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh`); for the rest this sentence is
+the detector. Nothing under `App/KMP/` is on the app's run path until S5-4 flips the switch. The
+Wave B checklist in `docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage
+table and pointers are hand-maintained and are not.
 
 ## Pattern 1 — K/N exports carry no Swift `Sendable` conformance
 
 The fix is Kotlin-side (upstream the conformance to `commonMain`). A retroactive
 `extension Foo: @retroactive @unchecked Sendable` is sound **only** when every Kotlin field is
-`val`, and exactly one such declaration may exist per module.
+`val`, and exactly one declaration **per type** may exist per module (`App/KMP/SharedEngineRunner.swift`
+carries the app module's two). Spell it on the qualified Kotlin type when a Swift twin exists, or
+the conformance lands on the twin — Pattern 1b.
+
+## Pattern 1b — a Kotlin type with a Swift twin is shadowed inside the app module
+
+An in-module declaration shadows an imported one, so inside the `Pastura` module a bare
+`SimulationEvent` binds to the **Swift** enum. 42 exported names collide (2026-08-30); re-derive
+after a Kotlin bump:
+
+```bash
+grep -rhoE "^(public |sealed |data |abstract |open |value |expect |actual )*(class|interface|object|enum class) [A-Za-z]+" shared/models/src/commonMain shared/engine/src/commonMain shared/models/src/appleMain | awk '{print $NF}' | sort -u > /tmp/kn.txt
+find Pastura/Pastura -name '*.swift' -print0 | xargs -0 grep -hoE "^(public |nonisolated |final |indirect |private |fileprivate )*(struct|class|enum|protocol|actor|typealias) [A-Za-z]+" | awk '{print $NF}' | sort -u > /tmp/sw.txt
+comm -12 /tmp/kn.txt /tmp/sw.txt
+```
+
+Write `PasturaSharedEngine.X` at **every** use in `App/KMP/`, no typealias (an alias hides the
+shadowing). Failure modes: a type-mismatch / redundant-conformance error at the call site (measured
+on the retroactive extension in `App/KMP/SharedEngineRunner.swift`), or — the dangerous half — a
+silent compile against the wrong type where the shapes coincide. The gate spike never hits this
+(`KMPGateSpike` declares no twins), so a green nightly proves nothing about the app module.
 
 ## Pattern 2 — `swift_name("Parent.Child")` does not reach Swift nested-type lookup
 

@@ -15,6 +15,9 @@ import PasturaSharedEngine
 ///    reference, not the class. That is what `objcRuntimeNames` pins, so a
 ///    change to the export prefix fails loudly here rather than surfacing as a
 ///    confusing symbol mismatch at Stage 5.
+///
+/// Twin of `Pastura/Pastura/App/KMP/SharedEngineLinkage.swift` (rehomed at
+/// S5-1 per ADR-023 §6 ruling (c)); this copy stays until S5-5.
 nonisolated public enum SharedEngineLinkage {
   /// Objective-C runtime names of the §5.1 entry point and a §5.2 payload
   /// type. Referencing the metatypes is the linkage check — it does not run

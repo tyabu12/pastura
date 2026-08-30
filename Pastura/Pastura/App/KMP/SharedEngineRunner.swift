@@ -2,6 +2,17 @@ import Foundation
 import PasturaSharedEngine
 import Synchronization
 
+// Every Kotlin type below that also has a Swift twin declared in this module —
+// `Scenario`, `SimulationEvent`, `NoopEngineLogger`, `SystemRandomSource`,
+// `ChatTurnMarkers` — is spelled `PasturaSharedEngine.X`. An in-module
+// declaration shadows the import, so a bare name binds to the *Swift* type and
+// the file either fails to build or, worse, builds against the wrong one. No
+// typealias: a bare alias would hide the shadowing from the next reader. The
+// bare names (`SimulationEngine`, `LLMBackend`, `RunHandle`, `StreamCallbacks`,
+// …) are bare only because Kotlin exports no twin for them today — a Kotlin
+// bump that adds one rebinds silently, so re-run the count in
+// `.claude/rules/kmp-interop.md` Pattern 1b after each bump.
+
 // Kotlin/Native does not emit Swift `Sendable` conformances, but these types
 // cross threads by design: `onEvent` fires from a Kotlin worker context
 // (ADR-023 §5.1 threading clause) and the relay task touches the handle from a
@@ -9,7 +20,7 @@ import Synchronization
 // methods are idempotent and internally synchronized, and `SimulationEvent` is
 // an immutable value carrier — so `@unchecked` records a checked-by-contract
 // claim rather than a shrug.
-extension SimulationEvent: @retroactive @unchecked Sendable {}
+extension PasturaSharedEngine.SimulationEvent: @retroactive @unchecked Sendable {}
 // `SimulationEngine` is no longer stateless: it holds a `ScenarioValidator`
 // (D3's preflight gate) plus the constructor-injected detector and logger
 // seams. Every one of them is a Kotlin `val` assigned at init and never
@@ -33,20 +44,21 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// callback boundary, and owns the suspension relay — the two responsibilities
 /// ADR-023 §5.1 assigns to this adapter.
 ///
-/// This is one of the two §10 *permanent* adapters, written here for the
-/// Stage-2 gate. Its home is `Pastura/Pastura/App/KMP/SharedEngineRunner.swift`
-/// (ADR-023 §6 ruling (c) — `App/KMP/`, not `Engine/`), rehomed at S5-1; that
-/// copy replaces the shell role of `Engine/SimulationRunner.swift` at S5-4/S5-5,
-/// keeping the App-facing surface (`SimulationViewModel`) unchanged. This copy
-/// stays until S5-5 for the nightly rung, so a change to the §5.2 relay
-/// contract must land in both — there is no drift guard between the two.
+/// This is one of the two §10 *permanent* adapters. It lives under `App/KMP/`
+/// per ADR-023 §6 ruling (c): bridging Engine ↔ App is the App layer's job by
+/// ADR-001, so no new dependency edge is created. At S5-4/S5-5 it replaces the
+/// shell role of `Pastura/Pastura/Engine/SimulationRunner.swift`, keeping the
+/// App-facing surface (`SimulationViewModel`) unchanged.
+///
+/// `tools/kmp-gate-spike/Sources/KMPGateSpike/SharedEngineRunner.swift` is this
+/// file's twin, still built by the nightly gate-spike rung until S5-5 — a
+/// change to the §5.2 relay contract must land in both.
 ///
 /// **Threading.** `onEvent` fires from a Kotlin worker context. Nothing here may
 /// assume `MainActor` — `continuation.yield` is thread-agnostic, which is why
 /// the reconstruction costs nothing. This type is deliberately `nonisolated`
-/// even though the package compiles under default-`MainActor` isolation, so it
-/// keeps the same semantics as its `App/KMP/` twin.
-nonisolated public final class SharedEngineRunner: Sendable {
+/// even though the target compiles under default-`MainActor` isolation.
+nonisolated final class SharedEngineRunner: Sendable {
   // All three arguments are spelled out because Kotlin default arguments do not
   // survive the K/N export (`.claude/rules/kmp-interop.md` Pattern 3): the
   // header declares exactly one initializer,
@@ -57,14 +69,15 @@ nonisolated public final class SharedEngineRunner: Sendable {
   // in `NLLanguageDetector` / `OSLogEngineLogger` from the App layer, and a
   // parity fixture would hand in a `SplitMix64RandomSource` (ADR-023 S3b).
   private let engine = SimulationEngine(
-    detector: nil, logger: NoopEngineLogger(), random: SystemRandomSource())
+    detector: nil, logger: PasturaSharedEngine.NoopEngineLogger(),
+    random: PasturaSharedEngine.SystemRandomSource())
   private let suspendController: SuspendController
 
   /// - Parameter suspendController: The controller the platform signals on
   ///   app-lifecycle suspend/resume. Ownership sits on the Swift side per
   ///   ADR-023 §5.2 invariant 4 — post-port it is created here rather than
   ///   reaching the engine through `PhaseContext`.
-  public init(suspendController: SuspendController = SuspendController()) {
+  init(suspendController: SuspendController = SuspendController()) {
     self.suspendController = suspendController
   }
 
@@ -73,10 +86,10 @@ nonisolated public final class SharedEngineRunner: Sendable {
   /// The stream finishes on the terminal event (`SimulationCompleted` or
   /// `ErrorEvent`). Terminating the stream early — a consumer breaking out of
   /// its `for await` — cancels the Kotlin run through `RunHandle.cancel()`.
-  public func run(
-    scenario: Scenario,
+  func run(
+    scenario: PasturaSharedEngine.Scenario,
     backend: any LLMBackend
-  ) -> AsyncStream<SimulationEvent> {
+  ) -> AsyncStream<PasturaSharedEngine.SimulationEvent> {
     AsyncStream { continuation in
       let handleBox = RunHandleBox()
       let relayBox = RelayTaskBox()
@@ -132,6 +145,11 @@ nonisolated public final class SharedEngineRunner: Sendable {
   }
 }
 
+// Internal rather than private so the latch can be tested directly: the window
+// it closes is a genuine thread race that a black-box test cannot force
+// deterministically, and an untested latch is indistinguishable from a comment.
+// (Placed above the doc comment, not between it and the declaration, or
+// SwiftLint's `orphaned_doc_comment` fires — `.claude/rules/build-traps.md`.)
 /// Holds the `RunHandle` the engine returns, so the relay and the termination
 /// handler can reach it from other threads — **and latches signals that arrive
 /// before it exists.**
@@ -144,9 +162,6 @@ nonisolated public final class SharedEngineRunner: Sendable {
 ///
 /// `@unchecked Sendable`: all state is guarded by the mutex, and the Kotlin
 /// handle's own methods are documented idempotent and thread-safe.
-// Internal rather than private so the latch can be tested directly: the window
-// it closes is a genuine thread race that a black-box test cannot force
-// deterministically, and an untested latch is indistinguishable from a comment.
 nonisolated final class RunHandleBox: @unchecked Sendable {
   // Boxed rather than stored bare: `Mutex.withLock` takes an `inout sending`
   // parameter, and `any RunHandle` is a Kotlin/Native protocol with no Swift
@@ -229,9 +244,15 @@ nonisolated private final class RelayTaskBox: @unchecked Sendable {
 
   private let storage = Mutex(State())
 
+  // Named rather than spelled inline so the `withLock` closure's parameter
+  // still fits on the opening-brace line: swift-format rewraps the inline
+  // annotation onto a `state in` continuation, which SwiftLint's
+  // `closure_parameter_position` then rejects. The gate-spike twin escapes
+  // this only because it runs neither check.
+  private typealias ReplaceOutcome = (previous: Task<Void, Never>?, alreadyTerminated: Bool)
+
   func replace(with task: Task<Void, Never>) {
-    let outcome: (previous: Task<Void, Never>?, alreadyTerminated: Bool) = storage.withLock {
-      state in
+    let outcome: ReplaceOutcome = storage.withLock { state in
       let previous = state.task
       // Do not retain a task that is about to be cancelled — otherwise a
       // terminated box holds a dead task forever.
@@ -290,7 +311,7 @@ nonisolated private final class SuspensionRelayingBackend: LLMBackend, @unchecke
   /// `BoundaryContractTests.kotlinTruncatesOnForwardedTurnMarkers`: Kotlin
   /// reads this property off *this* object on every inference, so a ChatML
   /// hardcode here reaches #1422 truncation and reddens there.
-  var knownTurnMarkers: [ChatTurnMarkers] { wrapped.knownTurnMarkers }
+  var knownTurnMarkers: [PasturaSharedEngine.ChatTurnMarkers] { wrapped.knownTurnMarkers }
 
   func generateStream(
     request: GenerationRequest,
