@@ -189,7 +189,10 @@ phases:
     output:
       note: string
 
-  - type: speak_all
+  # v2 lever: speak_all -> speak_each. Each heir now sees the prior
+  # accusations, so duplicate targeting of one heir (4/5 identical lines
+  # on 08-29) can be forbidden structurally.
+  - type: speak_each
     max_sentences: 4
     prompt: >
       {current_event}
@@ -200,7 +203,11 @@ phases:
       Now it is time to press. Pick one of the other heirs by name and
       sharply question the contradictions in their argument, or whatever they
       seem to be hiding. Open your statement by addressing that person by
-      name. But keep your composure — raise your voice and you lose votes.
+      name.
+      Important: do not pick someone another heir has already pressed
+      tonight. Choose an heir nobody has questioned yet, and ask in your
+      own words. Do not repeat the previous speaker's question.
+      But keep your composure — raise your voice and you lose votes.
     output:
       statement: string
       inner_thought: string

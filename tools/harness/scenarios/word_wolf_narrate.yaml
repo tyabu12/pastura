@@ -10,6 +10,12 @@
 # noisy {conversation_log} production emits, so the Go verdict is reproducible.
 # EN sibling: word_wolf_narrate_en.yaml. Verified 3 ja + 3 en runs on
 # gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary.
+#
+# As of #1643 the shipped word_wolf.yaml no longer has a `reflect` phase
+# (scenario-refine promotion after three consecutive A/B wins). This fixture is
+# intentionally frozen at the pre-#1643 flow so the recorded Go verdict above
+# stays interpretable against the flow it was measured on. Re-verifying narrate
+# on the current production flow requires a fresh harness run.
 id: word_wolf_narrate
 language: ja
 name: ワードウルフ（実況・本番フロー検証）

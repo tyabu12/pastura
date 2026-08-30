@@ -6,6 +6,12 @@
 # vote — the exact flow a real EN user gets. Committed so the ja→en
 # non-transfer risk is covered by a reproducible EN run, not just the ja fixture.
 # Verified 3 EN runs on gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary.
+#
+# As of #1643 the shipped word_wolf_en.yaml no longer has a `reflect` phase
+# (scenario-refine promotion after three consecutive A/B wins). This fixture is
+# intentionally frozen at the pre-#1643 flow so the recorded Go verdict above
+# stays interpretable against the flow it was measured on. Re-verifying narrate
+# on the current production flow requires a fresh harness run.
 id: word_wolf_narrate_en
 language: en
 name: Word Wolf (narrate, production-flow verification)
