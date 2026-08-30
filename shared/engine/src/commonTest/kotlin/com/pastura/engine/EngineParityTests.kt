@@ -12,6 +12,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.Json
 
 /**
@@ -138,7 +140,10 @@ class EngineParityTests {
      * every fixture is replayed from one loop the orphan can overlap the next
      * iteration.
      */
-    private suspend fun replay(fixture: ParityGolden.Fixture): Pair<List<SimulationEvent>, Int> {
+    private suspend fun replay(
+        fixture: ParityGolden.Fixture,
+        beforeAdopt: (suspend (cutter: CancelOnPhaseCompleted, collector: Collector) -> Unit)? = null,
+    ): Pair<List<SimulationEvent>, Int> {
         // Wired only for a fixture that actually schedules suspends. The hook
         // would be a no-op elsewhere (nothing ever calls it), but leaving the
         // parameter null on those fixtures keeps their replay exactly what it was
@@ -168,6 +173,10 @@ class EngineParityTests {
                 collector.record(it)
                 cutter?.observe(it)
             }
+        // A seam for [cancelLandsWhenAdoptTrailsTheTrigger] only: it widens the
+        // window between `run` returning and `adopt` that a descheduled test
+        // thread opens by accident on a loaded runner (#1637).
+        if (beforeAdopt != null && cutter != null) beforeAdopt(cutter, collector)
         // `run` installs the callback and only then returns the handle, so the
         // trigger can fire before this line. [CancelOnPhaseCompleted] latches that
         // case and cancels here instead of dropping it.
@@ -487,6 +496,64 @@ class EngineParityTests {
 
         for (fixture in ParityGolden.all) {
             assertParity(fixture, DivergenceLedger.entries)
+        }
+    }
+
+    /**
+     * The adopt race of #1637, forced rather than waited for.
+     *
+     * `run` launches on `Dispatchers.Default` and returns the handle at once,
+     * while `onEvent` runs synchronously inside the engine coroutine. So when
+     * the trigger fires before `adopt`, the cutter can only latch — and a latch
+     * is worthless if the scripted run (a few ms with [ScriptedLLMBackend])
+     * finishes before the test thread gets round to `adopt`: `cancel()` on a
+     * completed job is a no-op and the run ends in `SimulationCompleted`. CI
+     * hit that interleaving once (#1636's run); it never reproduces locally
+     * because the test thread has to be descheduled for longer than the run's
+     * remainder.
+     *
+     * The seam withholds `adopt` until the trigger has fired and then for
+     * whichever comes first — the run reaching a terminal event, or a bound of
+     * 200 ms. The detector is **not** the terminal event alone, which would
+     * only redden if the run finished inside the bound: it is that the last
+     * recorded event is still the trigger when `adopt` is finally called. The
+     * fix holds the engine at the checkpoint until the cancel is issued, so
+     * *any* forward progress past it reddens, however fast or slow the runner.
+     * The terminal-event arm is kept as the second, outcome-level check.
+     *
+     * Derived from [ParityGolden.all] by `cancelAfterPhaseCompleted`, not by
+     * name, so a second cancelling fixture is covered without an edit here.
+     */
+    @Test
+    fun cancelLandsWhenAdoptTrailsTheTrigger() {
+        val cancelling = ParityGolden.all.filter { it.cancelAfterPhaseCompleted != null }
+        assertTrue(cancelling.isNotEmpty(), "no fixture in the roster cancels — the arm is vacuous")
+
+        for (fixture in cancelling) {
+            val trigger = requireNotNull(fixture.cancelAfterPhaseCompleted)
+            // Captured inside the seam and asserted outside it: throwing from the
+            // seam would skip `replay`'s `finally { handle.cancel() }`, leaving the
+            // run to overlap the next fixture.
+            var lastBeforeAdopt: SimulationEvent? = null
+            var result: Pair<List<SimulationEvent>, Int>? = null
+            runBlockingTest {
+                result = replay(fixture) { cutter, collector ->
+                    await { cutter.fired }
+                    withTimeoutOrNull(200) {
+                        while (!collector.isTerminal) delay(1)
+                    }
+                    lastBeforeAdopt = collector.snapshot().lastOrNull()
+                }
+            }
+            val (events, _) = requireNotNull(result) { "${fixture.name}: the replay produced no result" }
+            val last = lastBeforeAdopt
+            assertTrue(
+                last is SimulationEvent.PhaseCompleted && last.phasePath == trigger,
+                "${fixture.name}: the engine advanced past phase_completed $trigger while " +
+                    "adopt(handle) was withheld — the last recorded event was $last. The cut " +
+                    "must hold the engine at the checkpoint until the handle arrives.",
+            )
+            assertRunCompleted(fixture, events)
         }
     }
 
