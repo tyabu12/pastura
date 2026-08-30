@@ -77,6 +77,14 @@ phases:
     source: words
     target: random_one
 
+  # No reflect phase between the clue rounds and the vote (#1643): the
+  # scenario-refine v2 without it beat the reflect version (#949) in three
+  # consecutive A/Bs — the memo turned the later speak_each into abstract
+  # meta-talk. Re-adding it shifts every later LLM call index; see
+  # `wordWolfNominal` in ParityFixtureEmitter+Specs.swift. The in-world
+  # self-vote ban below is prose on purpose: `exclude_self` only drops a
+  # self-vote from the tally after the model writes it (#524), and two such
+  # ballots vanished silently on 2026-08-08.
   - type: speak_each
     prompt: >
       Your topic: {assigned_word}
@@ -134,7 +142,8 @@ phases:
   # Live commentary before the vote (#909). The narrator sees the full round
   # of clues + the final remarks and calls the round's highlight. Factuality
   # was harness-verified on this exact placement (3 ja + 3 en runs on
-  # gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary).
+  # gemma-4-E2B-it-Q4_K_M, 0 hallucinated commentary) — pre-#1643; the flow
+  # around it changed in #1643 and has not been re-run.
   - type: narrate
     narrator: an enthusiastic play-by-play commentator
     prompt: >
