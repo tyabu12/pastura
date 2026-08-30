@@ -458,8 +458,11 @@ jobs:
     # observed 24-min tail: a timeout produces a `timed_out` conclusion, which
     # ci-retry.yml deliberately does NOT retry, so the ceiling must clear the
     # worst legitimate run. The per-test execution-time cap in the test step
-    # bounds a first-clone infra-flake stall on top of that.
-    timeout-minutes: 30
+    # bounds a first-clone infra-flake stall on top of that. 37 (was 30): the
+    # KMP umbrella cache-miss fallback below adds a measured 6m11s lower bound
+    # (ADR-023 §6 ruling (a)) on top of the 24-min tail — same bump as
+    # lint-and-test / release-build, one decision.
+    timeout-minutes: 37
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
@@ -835,6 +838,9 @@ jobs:
             exit 1
           fi
           FW="${FWS[0]}"
+          # Informational only — no `set -o pipefail` needed here, unlike the
+          # Release build step above: a failed `du` degrades the size line,
+          # not the verdict (the count check already passed).
           SIZE=$(du -sh "$FW" | cut -f1)
           echo "$FW"
           echo "OK: exactly one PasturaSharedEngine.framework embedded ($SIZE)"

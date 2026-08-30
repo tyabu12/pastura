@@ -76,7 +76,7 @@ struct StructuralBoundaryTests {
   /// Matches the exact token `import PasturaSharedEngine`, not just the
   /// module name, so prose mentioning the umbrella (this file's doc comment
   /// included) does not false-positive.
-  @Test func sharedEngineNotImportedOutsideApp() throws {
+  @Test func sharedEngineNotImportedOutsideApp() {
     let restrictedDirs = ["Models", "LLM", "Engine", "Data", "Views", "Utilities"].map {
       SourceTreeProbe.appSourceRoot.appending(path: $0)
     }

@@ -310,6 +310,16 @@ printf '%s\n' '// !$*UTF8*$!' '{' '	objects = {' \
 run_case yes "file-type token alone is not an umbrella reference" \
   "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR" "references no .xcframework"
 
+# Xcode's GUI rewrites a reference's `lastKnownFileType` as `explicitFileType`
+# when it re-derives it. Same token, second spelling — a guard that blanked
+# only the first would read a routine GUI save as a second umbrella and fail
+# closed on a false positive, the guard's failure mode of record (#1171).
+p="$TMP/n-pbxproj-explicit-filetype.pbxproj"
+sed 's/lastKnownFileType = wrapper\.xcframework/explicitFileType = wrapper.xcframework/' \
+  "$CLEAN_PBXPROJ" >"$p"
+run_case no "umbrella reference spelled with explicitFileType" \
+  "$CLEAN_MANIFEST" "$p" "$CLEAN_APPDIR"
+
 # iOS xcodebuild lane, synchronized-group form — the path the pbxproj grep
 # structurally cannot see, because the sweep leaves no project-file entry.
 #

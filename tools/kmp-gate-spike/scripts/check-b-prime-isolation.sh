@@ -270,15 +270,16 @@ fi
 # counted: "exactly one distinct name, equal to the umbrella" is one string
 # comparison, and it rejects zero, a rename, and an extra name alike.
 #
-# `lastKnownFileType = wrapper.xcframework` is Xcode's FILE-TYPE identifier for
-# the reference, not a bundle name, and every legitimate entry carries it — so
-# that exact phrase is blanked before extraction. Only the phrase: a bundle
-# actually named `wrapper.xcframework` would still surface through its `path =`
-# and `/* … */` mentions, so the exclusion cannot hide a real second framework.
-# `sed` emits one line per input line, so the `grep -n` numbers stay the
-# pbxproj's. `|| [ $? -eq 1 ]` keeps grep's "no match" from aborting under
-# errexit while a real grep error (exit >= 2) still does.
-hits="$(sed 's/lastKnownFileType = wrapper\.xcframework//g' "$PBXPROJ" \
+# `lastKnownFileType = wrapper.xcframework` (and the `explicitFileType`
+# spelling Xcode's GUI writes when it re-derives a reference) is the FILE-TYPE
+# identifier for the entry, not a bundle name, and every legitimate entry
+# carries one — so those exact phrases are blanked before extraction. Only the
+# phrases: a bundle actually named `wrapper.xcframework` would still surface
+# through its `path =` and `/* … */` mentions, so the exclusion cannot hide a
+# real second framework. `sed` emits one line per input line, so the `grep -n`
+# numbers stay the pbxproj's. `|| [ $? -eq 1 ]` keeps grep's "no match" from
+# aborting under errexit while a real grep error (exit >= 2) still does.
+hits="$(sed -E 's/(lastKnownFileType|explicitFileType) = wrapper\.xcframework//g' "$PBXPROJ" \
   | { grep -ion '[A-Za-z0-9_.-]*\.xcframework' || [ $? -eq 1 ]; })"
 if [ -z "$hits" ]; then
   fail "$PBXPROJ" "" "the Xcode project references no .xcframework, so the \
@@ -289,7 +290,11 @@ fi
 names="$(printf '%s\n' "$hits" | sed 's/^[0-9]*://' | sort -u)"
 if [ "$names" != "PasturaSharedEngine.xcframework" ]; then
   echo "$hits"
-  fail "$PBXPROJ" "${hits%%:*}" "the Xcode project references an .xcframework \
+  # Annotate the first line naming something OTHER than the umbrella — the
+  # first `.xcframework` line overall is usually the legitimate entry, and an
+  # annotation pointing at the line to keep sends the reader the wrong way.
+  offender="$(printf '%s\n' "$hits" | { grep -v ':PasturaSharedEngine\.xcframework$' || [ $? -eq 1 ]; })"
+  fail "$PBXPROJ" "${offender%%:*}" "the Xcode project references an .xcframework \
 other than (or in addition to) PasturaSharedEngine.xcframework, so the iOS \
 xcodebuild lane now links a second binary framework — the ADR-023 §9.7 \
 two-umbrella landmine if it is a K/N export. Distinct names found: \
