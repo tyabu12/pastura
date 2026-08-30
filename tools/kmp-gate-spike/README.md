@@ -210,23 +210,20 @@ recorded as macOS-host; iOS-device absolutes belong to Stage-5 QA.
 
 ADR-023 §10 calls `SharedEngineRunner` and the backend adapter **permanent** —
 §6 rejects the throwaway-branch option *(C)* precisely because it would discard
-them. They are written here to survive, so their destination is worth recording
-now rather than deciding under merge pressure at Stage 5:
+them. §6 ruling (c) settled their destination: both permanent adapters live
+under `App/KMP/`, not `Engine/` for the runner and not `LLM/` for the backend
+actual. Bridging Engine ↔ App is the App layer's job (ADR-001), and `App/` may
+already depend on everything, so the dependency matrix gains no new edge —
+CLAUDE.md § Dependency Rules carries the one-line consequence: `PasturaSharedEngine`
+is imported from `App/` only.
 
-- **`SharedEngineRunner`** replaces the shell role of today's
-  `Pastura/Pastura/Engine/SimulationRunner.swift`, so `Engine/` is its natural
-  home.
-- **The `LLMBackend` actual** wraps `LlamaCppService`, so `LLM/` is its natural
-  home. `ScriptedStreamingBackend` here is the *scripted* stand-in for it; the
-  real adapter is Stage-5 work.
-
-**Open Stage-5 input, deliberately not resolved here.** Putting
-`SharedEngineRunner` in `Engine/` creates an `Engine/ → PasturaSharedEngine`
-edge that CLAUDE.md's Dependency Rules table does not currently describe (it
-reads `Engine/ → depends on LLM and Models. NEVER depends on Data.`). Whether
-the K/N framework is modelled as a new layer, folded into `Models`, or given its
-own row is a Stage-5 decision that needs the ADR and the table updated together.
-Flagging it, not answering it.
+- **`SharedEngineRunner`** is rehomed as of S5-1 (#1635, PR-C):
+  `Pastura/Pastura/App/KMP/SharedEngineRunner.swift` is the app-side twin. This
+  package's copy stays until S5-5 and is still what the nightly gate-spike rung
+  builds, so a change to the §5.2 relay contract must land in both.
+- **The `LLMBackend` actual** wraps `LLMService` and lands under `App/KMP/`
+  at S5-2; `ScriptedStreamingBackend` here remains its scripted stand-in until
+  then.
 
 The Stage-5 two-umbrella landmine recorded in ADR-004 §9.7 — `PasturaShared`
 (models-only) and `PasturaSharedEngine` must never link into one binary — is

@@ -263,10 +263,12 @@ nonisolated public enum SimulationEvent: Sendable, Equatable {
   /// remove, and a newly added terminal case would go unnoticed.
   ///
   /// **No Swift consumer today** — stated rather than left to be inferred. The
-  /// live consumer is the Kotlin side (`SharedEngineRunner` in the ADR-023 gate
-  /// spike); this exists so the two Models mirrors declare terminality the same
-  /// way, and so the Stage-5 Swift consumer that replaces `SimulationRunner`
-  /// finds a declaration to use instead of writing a fresh predicate chain.
+  /// live consumer is `App/KMP/SharedEngineRunner` (rehomed at S5-1; the gate
+  /// spike keeps a twin), which reads the *Kotlin* `SimulationEvent.isTerminal`
+  /// — so this Swift predicate still has none; it exists so the two Models
+  /// mirrors declare terminality the same way, and so the S5-4/S5-5 Swift
+  /// consumer that replaces `SimulationRunner` finds a declaration to use
+  /// instead of writing a fresh predicate chain.
   public var isTerminal: Bool {
     switch self {
     case .simulationCompleted, .error:
