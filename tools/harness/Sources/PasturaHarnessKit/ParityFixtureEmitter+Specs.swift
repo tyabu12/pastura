@@ -191,12 +191,14 @@ extension ParityFixtureEmitter {
       scenarioPath: "Pastura/Pastura/Resources/Presets/word_wolf.yaml",
       purpose: """
         Happy path, and the first **seeded** fixture (ADR-023 S3b-2): the first \
-        witness of four of the five handlers no unseeded fixture could reach — \
-        `event_inject` (with a `probability:`), `narrate`, `reflect`, \
-        `eliminate` — plus two variants of already-witnessed handlers, `assign` \
+        witness of three of the five handlers no unseeded fixture could reach — \
+        `event_inject` (with a `probability:`), `narrate`, `eliminate` — plus \
+        two variants of already-witnessed handlers, `assign` \
         with `target: random_one` and `score_calc` with `logic: wordwolf_judge`, \
-        in one 26-call run. The fifth, `relationship_update`, is \
-        `lastFableNominal`'s.
+        in one 21-call run. The other two, `reflect` and \
+        `relationship_update`, are `lastFableNominal`'s: #1643 promoted the \
+        scenario-refine v2 `word_wolf` preset, which drops the `reflect` \
+        phase (5 calls, one per agent), so this fixture no longer runs it.
 
         **The seed is chosen for the draw sequence, and the sequence is the \
         contract.** `assignRandomOne` draws twice — `index(below: 1)` for the \
@@ -214,15 +216,15 @@ extension ParityFixtureEmitter {
         exactly one vote, so the tally is a five-way tie and `eliminate`, \
         `vote_winner` and the judge are all decided by `RankingOrder`'s name \
         tie-break rather than by the votes — the run would look like a full \
-        game while measuring nothing but string ordering. Calls 22 (サクラ) and \
-        25 (レン) vote アオイ instead, so the wolf takes 3 of 5 and the \
+        game while measuring nothing but string ordering. Calls 17 (サクラ) and \
+        20 (レン) vote アオイ instead, so the wolf takes 3 of 5 and the \
         `vote_winner == wolf_name` branch is taken on the votes' own account. \
         `everyOverrideAnswersTheSchemaItLandsOn` pins both indices to `vote` \
         calls.
         """,
       overrides: [
-        22: #"{"vote": "アオイ", "reason": "reason 22"}"#,
-        25: #"{"vote": "アオイ", "reason": "reason 25"}"#
+        17: #"{"vote": "アオイ", "reason": "reason 17"}"#,
+        20: #"{"vote": "アオイ", "reason": "reason 20"}"#
       ],
       seed: 6
     ),
@@ -238,6 +240,11 @@ extension ParityFixtureEmitter {
         must skip the eliminated agent on both engines, and a vote cast *for* \
         one must be dropped from the tally while `relationship_update` still \
         reads it.
+
+        Since #1643 dropped `reflect` from the `word_wolf` preset it is also \
+        the roster's ONLY witness of that handler, so \
+        `everyFixtureExercisesTheHandlersItDraws`' `reflect` arm now rests on \
+        this fixture alone.
 
         **Draw sequence.** One `index(below: remaining.count)` per round, with \
         `remaining` shrinking 6 → 5 → 4; seed 1 yields 『オオカミ少年』, \
