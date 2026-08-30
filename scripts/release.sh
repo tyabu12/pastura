@@ -210,6 +210,11 @@ ARCHIVE="$WORK/$APP_NAME.xcarchive"
 log "Staging PasturaSharedEngine.xcframework (release config)"
 scripts/kmp/assemble-xcframework.sh --config release \
   || die "KMP umbrella staging failed — see the script's output above (exit 1 = JDK 17+ / gradlew missing)."
+# The staging script exits 0 as a deliberate no-op on a ref with no
+# `shared/engine/build.gradle.kts`; on such a ref the archive would still die
+# at link, so assert the bundle rather than trust the exit code.
+[ -d "Pastura/Frameworks/PasturaSharedEngine.xcframework" ] \
+  || die "staging reported success but Pastura/Frameworks/PasturaSharedEngine.xcframework is absent — is this ref pre-ADR-023 Stage 5?"
 
 log "Archiving (Release, build $BUILD)"
 # -allowProvisioningUpdates: distribution signing is cloud-managed (the cert's
