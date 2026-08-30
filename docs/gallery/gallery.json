@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-08-29T00:00:00Z",
+  "updated_at": "2026-08-30T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -415,7 +415,7 @@
       ],
       "language": "ja",
       "yaml_url": "anchoring_kantei_v1.yaml",
-      "yaml_sha256": "928c584aa251be7334f94e5bb1860cf9d4ec2c92424b9ecede2ed14a958ece6d",
+      "yaml_sha256": "ec07d7f374dd72e8096d294ab439d94a8197848e8142be17aa53309e1b76552e",
       "added_at": "2026-06-29"
     },
     {
