@@ -129,6 +129,8 @@ phases:
       yourself. You may follow your own wish — whom to keep, and whom to
       send away — but your vote must be exactly one of these names:
       {candidates}
+      Give your reason in one sentence, in your own words — do not echo
+      another speaker's plea.
     output:
       vote: string
       reason: string
