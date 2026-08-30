@@ -149,6 +149,39 @@ struct LLMServiceBackendTests {
     #expect(mock.capturedAntiRepetitionSeeds.first == ["prior"])
   }
 
+  @Test("a non-LLMError failure maps to the unmapped code with its type name")
+  func unmappedErrorCode() async throws {
+    struct Boom: Error {}
+    let stub = StubTurnMarkerService(markers: [.chatML], streamError: Boom())
+    let backend = LLMServiceBackend(service: stub)
+    let recorder = RecordingBackendCallbacks()
+
+    _ = backend.generateStream(request: .probe, callbacks: recorder)
+    try await recorder.waitForTerminal()
+
+    let failed = try #require(recorder.terminals.first as? TerminalStatusFailed)
+    #expect(failed.errorCode == "llm.unmapped.Boom")
+  }
+
+  @Test("completionTokens crosses as a boxed KotlinInt, nil stays nil")
+  func completionTokensAreBoxed() async throws {
+    // `MockLLMService` never reports token counts on either stream path, so
+    // the boxing `.map` is only exercised through a stub that does.
+    let stub = StubTurnMarkerService(
+      markers: [.chatML],
+      streamChunks: [
+        LLMStreamChunk(delta: "a", isFinal: false, completionTokens: nil),
+        LLMStreamChunk(delta: "", isFinal: true, completionTokens: 7)
+      ])
+    let backend = LLMServiceBackend(service: stub)
+    let recorder = RecordingBackendCallbacks()
+
+    _ = backend.generateStream(request: .probe, callbacks: recorder)
+    try await recorder.waitForTerminal()
+
+    #expect(recorder.chunks.map(\.completionTokens) == [nil, 7])
+  }
+
   // MARK: - knownTurnMarkers (Pattern 3 — the Kotlin default does not cross)
 
   @Test("knownTurnMarkers forwards the service's pairs, not a ChatML hardcode")
@@ -238,7 +271,9 @@ nonisolated final class RecordingBackendCallbacks: StreamCallbacks, @unchecked S
 /// the honest primitive. Named distinctly from the gate spike's `pollUntil`
 /// because the app test target is one module.
 func pollUntilBackendCondition(
-  timeout: Duration = .seconds(10),
+  // ≥30 s: CI + coverage runs ~20× slower (`testing.md`); the suite's
+  // `.timeLimit` is the real hang diagnostic.
+  timeout: Duration = .seconds(30),
   interval: Duration = .milliseconds(5),
   _ condition: @Sendable () -> Bool,
   sourceLocation: SourceLocation = #_sourceLocation
@@ -261,9 +296,35 @@ func pollUntilBackendCondition(
 /// (`kmp-interop.md` Pattern 1b, seen from the other side).
 nonisolated final class StubTurnMarkerService: LLMService, @unchecked Sendable {
   let knownTurnMarkers: [Pastura.ChatTurnMarkers]
+  /// When set, `generateStream` yields these instead of the wrap-mode default.
+  private let streamChunks: [LLMStreamChunk]?
+  /// When set, `generateStream` finishes throwing this after zero chunks.
+  private let streamError: (any Error)?
 
-  init(markers: [Pastura.ChatTurnMarkers]) {
+  init(
+    markers: [Pastura.ChatTurnMarkers],
+    streamChunks: [LLMStreamChunk]? = nil,
+    streamError: (any Error)? = nil
+  ) {
     self.knownTurnMarkers = markers
+    self.streamChunks = streamChunks
+    self.streamError = streamError
+  }
+
+  func generateStream(
+    system: String, user: String, schema: Pastura.OutputSchema?,
+    antiRepetitionSeeds: [String]
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    AsyncThrowingStream { continuation in
+      if let streamError {
+        continuation.finish(throwing: streamError)
+        return
+      }
+      for chunk in streamChunks ?? [LLMStreamChunk(delta: "{}", isFinal: true, completionTokens: nil)] {
+        continuation.yield(chunk)
+      }
+      continuation.finish()
+    }
   }
 
   var isModelLoaded: Bool { true }

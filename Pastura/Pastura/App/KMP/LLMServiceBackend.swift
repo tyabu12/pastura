@@ -25,7 +25,12 @@ import PasturaSharedEngine
 /// every other `LLMService` consumer — as `LLMError.suspended` thrown into the
 /// stream — and leaves as `TerminalStatus.Suspended`. `SharedEngineRunner`'s
 /// `SuspensionRelayingBackend` wraps this one to drive the resume relay; the
-/// controller itself stays on the Swift side of the seam.
+/// controller itself stays on the Swift side of the seam. **Open edge until
+/// S5-4:** nothing yet calls `service.attachSuspendController(_:)`, so today no
+/// `.suspended` can reach this stream. Whoever constructs this adapter for a
+/// real run must attach the *same* `SuspendController` instance
+/// `SharedEngineRunner` holds — two controllers would make the ADR-003 relay
+/// inert without any diagnostic.
 ///
 /// **How the four `LLMBackend.generateStream` clauses are satisfied:**
 ///
@@ -55,7 +60,13 @@ import PasturaSharedEngine
 /// plain getter. A `Task`'s body does not inherit the caller's executor, so
 /// there is no `nonisolated async` body here that could run blocking work on a
 /// MainActor caller.
-nonisolated final class LLMServiceBackend: LLMBackend, @unchecked Sendable {
+///
+/// **Plain `Sendable`, not `@unchecked`.** The only stored member is an
+/// immutable `any LLMService` (itself `Sendable`), so a later `var` fails the
+/// build rather than quietly re-opening a race (`swift-isolation.md` Pattern
+/// 7). The spike's twin needs `@unchecked` only because it stores a K/N
+/// `[ChatTurnMarkers]`.
+nonisolated final class LLMServiceBackend: LLMBackend, Sendable {
   private let service: any LLMService
 
   init(service: any LLMService) {
@@ -115,7 +126,9 @@ nonisolated final class LLMServiceBackend: LLMBackend, @unchecked Sendable {
         callbacks.onChunk(
           delta: chunk.delta,
           isFinal: chunk.isFinal,
-          completionTokens: chunk.completionTokens.map { KotlinInt(int: Int32($0)) })
+          // `clamping:` rather than the spike's trapping `Int32(_:)` — unreachable in
+          // practice, but the only trapping conversion in this file otherwise.
+          completionTokens: chunk.completionTokens.map { KotlinInt(int: Int32(clamping: $0)) })
       }
       // The loop ran out of elements. Distinguish a genuine end-of-stream from
       // a cancelled one: cancellation reaches this drain by TWO paths, and only
@@ -192,7 +205,7 @@ nonisolated private struct CallbacksBox: @unchecked Sendable {
 ///
 /// This is what stops an abandoned inference from running on after
 /// `RunHandle.cancel()`.
-nonisolated private final class TaskStreamHandle: StreamHandle, @unchecked Sendable {
+nonisolated private final class TaskStreamHandle: StreamHandle, Sendable {
   private let task: Task<Void, Never>
 
   init(task: Task<Void, Never>) {
