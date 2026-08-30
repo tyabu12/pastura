@@ -255,10 +255,9 @@
       ],
       "language": "ja",
       "yaml_url": "hapning_ranyu_v1.yaml",
-      "yaml_sha256": "856abdcd88e3a861c459197de40edfb9a783ba0e0e11d0000ce94ffcb771c32f",
+      "yaml_sha256": "0d59374ae324164b4668d8852b31185dafff3f8f60b623455e841ba17b1023dd",
       "highlight_url": "highlights/hapning_ranyu_v1.json",
-      "highlight_sha256": "0108b79818bda5b3602aa568638bc7bb53dbcab828f5a9eb12984dcf90e11833",
-      "min_engine_version": 2,
+      "highlight_sha256": "903a0d948e859d16b37ab8631dea1f208a1b81d468d085755973101c930be4da",
       "added_at": "2026-06-20"
     },
     {
@@ -330,7 +329,7 @@
       ],
       "language": "ja",
       "yaml_url": "chinwaza_saiyo_v1.yaml",
-      "yaml_sha256": "34899b3df48184fa20ad9c694d1470b6e31701c059918e69eecb7ab81dea3eac",
+      "yaml_sha256": "d41b1587ee39bde843af5fd921f1dff967c50e9de20bae8f2c5b42ebcae6560a",
       "added_at": "2026-06-21"
     },
     {

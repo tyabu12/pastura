@@ -44,14 +44,13 @@ personas:
       例:「赤ちゃん!? じゃあ今夜のギャラは離乳食ですか?」
 
 phases:
-  # no_repeat keeps the two rounds on different events; a repeated draw made
-  # round 2 replay round 1. It needs engine schema 2 (gallery.json declares
-  # min_engine_version accordingly).
+  # Draws are with replacement on purpose for now: `no_repeat: true` would
+  # raise the entry's min_engine_version to 2, and ADR-020 §8 item 4 holds
+  # that back until the App Store deep-link lands (#976).
   - type: event_inject
     source: events
     as: current_event
     probability: 1
-    no_repeat: true
 
   - type: speak_all
     prompt: >
