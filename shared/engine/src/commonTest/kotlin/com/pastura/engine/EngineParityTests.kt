@@ -11,6 +11,8 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
@@ -180,6 +182,10 @@ class EngineParityTests {
         // `run` installs the callback and only then returns the handle, so the
         // trigger can fire before this line. [CancelOnPhaseCompleted] latches that
         // case and cancels here instead of dropping it.
+        // Cutter first, and load-bearing: [CancelOnPhaseCompleted.observe] blocks
+        // the engine thread until this adopt lands, so a fixture that both cancels
+        // and suspends (none does today) would deadlock if the resumer's adopt —
+        // whose flush needs the engine to be running — came first.
         cutter?.adopt(handle)
         resumer?.adopt(handle)
         try {
@@ -209,6 +215,16 @@ class EngineParityTests {
                     "${fixture.cancelAfterPhaseCompleted}, so the run was never cancelled and " +
                     "this fixture compared a completed run against a cancelled golden. The " +
                     "Swift emitter raises `cancelTriggerNeverFired` on the same condition.",
+            )
+        }
+        // Named so #1637's shape never again presents as the terminal-event
+        // mismatch below, which is what cost that diagnosis.
+        if (cutter != null && cutter.adoptTimedOut) {
+            throw AssertionError(
+                "${fixture.name}: the cutter waited ${CancelOnPhaseCompleted.ADOPT_WAIT} at " +
+                    "phase_completed ${fixture.cancelAfterPhaseCompleted} for adopt(handle) and " +
+                    "gave up, so the cancel adopt then issued may have been a no-op on an " +
+                    "already-completed run (#1637) — a harness stall, not a parity diff.",
             )
         }
         if (resumer != null) {
@@ -308,20 +324,39 @@ class EngineParityTests {
      * a fixture whose path repeats across rounds would otherwise cancel twice,
      * which is harmless today only by accident.
      *
-     * No pending-cancel flag: [observe]'s `compareAndSet` on [triggered] runs
-     * BEFORE its `handle.load()`, and [adopt]'s `handle.store` runs BEFORE its
-     * `triggered.load()`, so every interleaving of the two leaves at least one
-     * side seeing the other's write — either [observe] sees the stored handle
-     * and cancels directly, or [adopt] sees `triggered == true` and cancels
-     * directly. The two calling a redundant `cancel()` on the same run is safe
+     * **[observe] blocks the engine until [adopt] has landed.** `run` launches on
+     * `Dispatchers.Default` and returns the handle at once, so the trigger can
+     * fire before the test thread reaches `adopt`. A latch that merely records
+     * the miss and lets [adopt] cancel later is not enough: `cancel()` on a job
+     * that already completed is a no-op, and with a scripted backend the rest of
+     * the run is a few ms — shorter than a descheduled test thread's gap on a
+     * loaded runner, which is how #1637 surfaced. `onEvent` is invoked
+     * synchronously inside the engine coroutine, so spinning here holds the
+     * engine at exactly the checkpoint the cut is meant to precede (the next
+     * statement after the emit is `pauseCheck`, where the cancel is observed).
+     * A busy spin rather than a sleep because `commonTest` has no portable
+     * `Thread.sleep` / `yield`, and the wait is microseconds outside the
+     * regression arm that widens it on purpose. [ADOPT_WAIT] bounds it so a
+     * harness bug cannot hang the suite; the timeout is reported by name via
+     * [adoptTimedOut] rather than allowed to fall through into the misleading
+     * terminal-event assertion.
+     *
+     * [adopt] still cancels when it sees `triggered == true`, for the
+     * interleaving where [observe]'s `compareAndSet` wins but its first
+     * `handle.load()` runs before `handle.store` — the spin then sees the store
+     * on its next iteration, and the two redundant `cancel()` calls are safe
      * because `RunHandleImpl` documents every method as idempotent.
      */
     private class CancelOnPhaseCompleted(private val path: List<Int>) {
         private val handle = AtomicReference<RunHandle?>(null)
         private val triggered = AtomicBoolean(false)
+        private val timedOut = AtomicBoolean(false)
 
         /** Whether the trigger event was ever seen. */
         val fired: Boolean get() = triggered.load()
+
+        /** Whether [observe] gave up waiting for [adopt] — a harness stall, reported by name. */
+        val adoptTimedOut: Boolean get() = timedOut.load()
 
         /** Stores the run's handle, cancelling now when the trigger already fired. */
         fun adopt(runHandle: RunHandle) {
@@ -329,11 +364,37 @@ class EngineParityTests {
             if (triggered.load()) runHandle.cancel()
         }
 
-        /** Cancels the run when [event] is the trigger; ignores everything else. */
+        /**
+         * Cancels the run when [event] is the trigger; ignores everything else.
+         *
+         * Runs on the engine's thread and does not return until the handle is
+         * adopted (or [ADOPT_WAIT] passes), so the engine cannot advance past
+         * the checkpoint before the cancel has been issued.
+         */
         fun observe(event: SimulationEvent) {
             if (event !is SimulationEvent.PhaseCompleted || event.phasePath != path) return
             if (!triggered.compareAndSet(false, true)) return
-            handle.load()?.cancel()
+            val started = TimeSource.Monotonic.markNow()
+            while (true) {
+                val runHandle = handle.load()
+                if (runHandle != null) {
+                    runHandle.cancel()
+                    return
+                }
+                if (started.elapsedNow() >= ADOPT_WAIT) {
+                    timedOut.store(true)
+                    return
+                }
+            }
+        }
+
+        companion object {
+            /**
+             * Far above the normal wait (microseconds) and the regression arm's
+             * deliberate 200 ms — generous so a loaded runner never trips it
+             * while an actual stall still fails within the replay timeout.
+             */
+            val ADOPT_WAIT = 5.seconds
         }
     }
 
