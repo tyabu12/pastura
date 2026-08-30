@@ -221,9 +221,11 @@ is imported from `App/` only.
   `Pastura/Pastura/App/KMP/SharedEngineRunner.swift` is the app-side twin. This
   package's copy stays until S5-5 and is still what the nightly gate-spike rung
   builds, so a change to the §5.2 relay contract must land in both.
-- **The `LLMBackend` actual** wraps `LLMService` and lands under `App/KMP/`
-  at S5-2; `ScriptedStreamingBackend` here remains its scripted stand-in until
-  then.
+- **The `LLMBackend` actual** is `Pastura/Pastura/App/KMP/LLMServiceBackend.swift`
+  (S5-2 PR-A, #1647), wrapping `LLMService`. It has no twin here — `LLMService`
+  has no spike counterpart, so there is no export-facing shape to mirror —
+  and `ScriptedStreamingBackend` remains this package's scripted stand-in
+  until S5-5.
 
 The Stage-5 two-umbrella landmine recorded in ADR-004 §9.7 — `PasturaShared`
 (models-only) and `PasturaSharedEngine` must never link into one binary — is
