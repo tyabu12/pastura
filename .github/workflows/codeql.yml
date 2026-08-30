@@ -63,6 +63,46 @@ jobs:
           languages: swift
           build-mode: manual
 
+      # KMP umbrella prerequisites (ADR-023 §6 Stage-5 ruling (a), #1635 PR-B).
+      # Once PR-B2 links `PasturaSharedEngine.xcframework` into the app, the
+      # wrapper below stages it via `scripts/kmp/assemble-xcframework.sh`, which
+      # needs a JDK — so this job carries the same JDK + Gradle/konan caches as
+      # `kmp-build-test` in ci.yml (keys copied verbatim so a scheduled run
+      # restores what the PR lanes saved). This deliberately does NOT set
+      # `PASTURA_SKIP_KMP_STAGE=1` (the shape #1635's text first proposed): the
+      # only build here is the wrapper's, and a pbxproj that references the
+      # framework fails at link when nothing staged it — a skipped stage is a
+      # red nightly, not a faster one. Cold-cache cost lands inside the 60-min
+      # job budget; the daily cadence makes it affordable. Verify after PR-B2
+      # merges with one manual `workflow_dispatch` — nothing else exercises
+      # this workflow before the next schedule.
+      - name: Setup JDK 17
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Cache Kotlin/Native (~/.konan)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
       - name: Build Pastura
         # CodeQL traces this xcodebuild invocation to populate its Swift
         # database. The wrapper handles DerivedData pinning, matching

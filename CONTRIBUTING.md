@@ -21,7 +21,8 @@ authoritative rules live in [`CLAUDE.md`](CLAUDE.md).
   Engine to Data dependency ban, and required doc comments on public
   types.
 - [Dependency Rules](CLAUDE.md#dependency-rules-strict) describe the
-  allowed import direction between layers.
+  allowed import direction between layers. The KMP umbrella
+  `PasturaSharedEngine` (ADR-023) is imported from `App/` only.
 - [Swift Coding Conventions](CLAUDE.md#swift-coding-conventions) cover
   actor isolation, error types, logger privacy, and the i18n workflow.
 
@@ -91,7 +92,12 @@ them up front saves a round-trip.
 Run **`./scripts/setup.sh`** once after your first clone. It points
 git's `core.hooksPath` at `scripts/git-hooks/`, activating the
 repo-tracked `pre-commit` hook for every `git commit` (no per-clone
-hand-config needed).
+hand-config needed). It also stages the KMP umbrella
+`PasturaSharedEngine.xcframework` (ADR-023), which needs a **JDK 17+**
+(`brew install --cask temurin@17`); without one it warns and continues,
+since hooks alone need no JDK. The first staging on a machine downloads
+the Kotlin/Native toolchain into `~/.konan` — several minutes and a few
+GB; later runs take seconds.
 
 `git commit` then runs, in fail-fast order, `swiftlint lint --strict`,
 `xcodebuild build`, and a set of self-gating content/consistency checks

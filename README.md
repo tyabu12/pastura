@@ -40,6 +40,8 @@ Views → App / ViewModel → Engine + Data → LLM → Models
 - **Data** persists turn records into SQLite via GRDB.
 - **LLM** abstracts the inference backend behind `LLMService`.
 - **Views** and **App** are SwiftUI.
+- **`PasturaSharedEngine`** (the KMP umbrella, ADR-023) is imported from
+  **App** only — never from **LLM** or **Engine**.
 
 The full layer diagram and rationale live in
 [`docs/decisions/ADR-001.md`](docs/decisions/ADR-001.md). The strict

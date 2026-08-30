@@ -766,10 +766,12 @@ jobs:
   #
   # Runs as a parallel job to the iOS xcodebuild jobs. The default path (JVM
   # tests + a single-target native klib COMPILE-ONLY) stays shorter than the
-  # iOS build, so it is never the per-PR long-pole. Full native build +
-  # XCFramework assembly are the nightly workflow's job (#501 PR-3); this job
-  # only promotes to full-native on PRs that touch the KMP build config (see
-  # the classify step).
+  # iOS build, so it is never the per-PR long-pole. This job is also the
+  # PRODUCER of the content-keyed `PasturaSharedEngine.xcframework` cache the
+  # iOS lanes restore from (ADR-023 §6 Stage-5 ruling (a), #1635): it promotes
+  # to full-native + XCFramework assembly on a build-config PR, on an umbrella
+  # cache miss, and on every push to `main` (see the classify step). The
+  # nightly workflow keeps the deep K/N test rung and the gate-spike build.
   kmp-build-test:
     name: KMP build & test (#501)
     needs: changes
@@ -846,14 +848,73 @@ jobs:
       - name: Validate Gradle wrapper integrity
         uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
 
-      # Step-level path promotion (#501 D-B). A PR that touches the KMP build
-      # config (Gradle build scripts / version catalog / wrapper / cinterop
-      # `.def`) promotes from compile-only to a FULL native build + XCFramework
-      # assembly, because link / XCFramework breakage is localized to those
-      # files and the compile-only default would miss it. Every OTHER case —
-      # the common one, incl. all Swift-only PRs, docs PRs, and non-PR events —
-      # runs JVM tests + single-target klib compile-only (full-native on main is
-      # owned by the nightly workflow, #501 PR-3).
+      # KMP umbrella cache — PRODUCER side (ADR-023 §6 Stage-5 ruling (a);
+      # #1635 PR-B). The staged `PasturaSharedEngine.xcframework` is cached
+      # under a CONTENT key: everything that can change the umbrella's bytes is
+      # hashed into it — `shared/**` sources (minus Gradle's own `build/`
+      # output, which is a product of those sources, not an input), `gradle/**`
+      # (the version catalog, hence the K/N toolchain version, and the wrapper),
+      # every `*.gradle.kts`, and `scripts/kmp/**` (the staging script picks the
+      # Gradle task, config and dest path). So a HIT can never be stale.
+      #
+      # NO `restore-keys`, deliberately — a content key must never fall back.
+      # A prefix fallback would restore an umbrella built from DIFFERENT sources
+      # and the consuming iOS lane would link it with nothing to notice: exactly
+      # the silently-stale binary the content key exists to make impossible. A
+      # miss must STAY a miss, so the assembly below (and, in PR-B2, the in-lane
+      # fallback) runs and refills the key.
+      #
+      # ⚠️ PR-B2 wires the CONSUMER side (`lint-and-test`, `ui-test`,
+      # `release-build`) and MUST reuse the key literal below VERBATIM in all
+      # three lanes — producer and consumers addressing the same bytes is the
+      # entire mechanism. Change it in one place, change it in four.
+      #
+      # `-debug-` in the key is the config this job assembles (the full-native
+      # step is Debug-only, see its comment); a release umbrella would be a
+      # different key, not a different entry.
+      - name: Cache KMP umbrella (PasturaSharedEngine.xcframework)
+        id: kmp-umbrella-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Pastura/Frameworks/PasturaSharedEngine.xcframework
+          key: kmp-umbrella-${{ runner.os }}-${{ runner.arch }}-debug-${{ hashFiles('shared/**', '!shared/**/build/**', 'gradle/**', '**/*.gradle.kts', 'scripts/kmp/**') }}
+
+      # Step-level path promotion (#501 D-B), widened by ADR-023 §6 Stage-5
+      # ruling (a) (#1635 PR-B) from one promoter to three. The step below runs
+      # a FULL native build + XCFramework assembly when ANY of these holds:
+      #
+      #   (i)   build-config touch — a PR touching Gradle build scripts /
+      #         version catalog / wrapper / a cinterop `.def`. Link and
+      #         XCFramework breakage is localized to those files and the
+      #         compile-only default would miss it. (#501 D-B, unchanged.)
+      #         Every such touch also changes the content hash, so (ii) now
+      #         subsumes (i) in practice; (i) is kept as the documented
+      #         intent, not as an independent trigger.
+      #   (ii)  umbrella cache MISS — `steps.kmp-umbrella-cache.outputs.cache-hit
+      #         != 'true'`. This job is the PRODUCER for the content-keyed cache
+      #         the iOS lanes restore from; an unfilled key must be filled here,
+      #         whatever the run touched.
+      #   (iii) push to `main` — always assemble, so the entry exists on the
+      #         default branch, which is the only scope every later PR branch
+      #         can restore from.
+      #
+      # Otherwise (the common case: Swift-only PRs, docs PRs on a warm key) the
+      # step below is skipped and the job runs JVM tests + a single-target klib
+      # compile-only.
+      #
+      # What each of the four event shapes does under the widened condition
+      # (ci-workflows.md invariant 2 — enumerate all four):
+      #   - pull_request: full-native iff (i) build-config touch OR (ii) cache
+      #     miss; otherwise compile-only. Both promoters are per-PR-branch, so a
+      #     typical Swift-only PR on a warm key still pays only the 8-min
+      #     compile-only path.
+      #   - push (refs/heads/main): ALWAYS full-native, by (iii) — and by (ii)
+      #     as well whenever the key is unfilled. This is the publish path.
+      #   - push (any other ref): full-native only on a cache miss (ii); no
+      #     build-config classification runs off a PR.
+      #   - schedule / workflow_dispatch (the daily canary): full-native only on
+      #     a cache miss (ii). The nightly workflow, not this job, owns the deep
+      #     K/N test rung and the gate-spike build.
       #
       # Decided HERE at STEP level, never via `on.<event>.paths`: a trigger-level
       # path filter leaves a required status check stuck "Pending" forever when
@@ -864,14 +925,55 @@ jobs:
         id: kmp-changes
         env:
           GH_TOKEN: ${{ github.token }}
+          # Read via env, never interpolated into the script body: a ref name
+          # may contain `"`, `;` or `$`, which `${{ github.ref }}` inside `run:`
+          # would execute (GHA script-injection shape).
+          EVENT_NAME: ${{ github.event_name }}
+          REF: ${{ github.ref }}
         run: |
-          if [ "${{ github.event_name }}" != "pull_request" ]; then
-            # Non-PR (push→main / schedule / dispatch): compile-only default.
-            # Deep full-native coverage on main is the nightly's job (PR-3);
-            # keeping main pushes on compile-only avoids a cold-native tax on
-            # every merge.
+          # The three promoters are OR-ed HERE, in the single `full_native`
+          # output, not in the consuming step's `if:` — the compile-only step
+          # keys off the inverse (`full_native != 'true'`), so widening only the
+          # full-native step's `if:` would run BOTH steps on a promoted run.
+          #
+          # Promoter (ii) — umbrella cache MISS, any event. Checked FIRST because
+          # it is the producer obligation: if the content key has no entry, the
+          # iOS lanes (PR-B2) will each pay an in-lane fallback assembly, so this
+          # job fills it regardless of what the run touched.
+          if [ "${{ steps.kmp-umbrella-cache.outputs.cache-hit }}" != "true" ]; then
+            echo "full_native=true" >> "$GITHUB_OUTPUT"
+            echo "KMP umbrella cache MISS → full native build + XCFramework (producer refills the key)."
+            exit 0
+          fi
+          # Promoter (iii) — every push to `main` assembles.
+          #
+          # This REVERSES, for the assembly alone, the routing this comment used
+          # to state ("deep full-native coverage on main is the nightly's job
+          # (PR-3)"): per ADR-023 §6 ruling (a), assembly on a main push now
+          # happens HERE, because a cache entry written from a PR branch is
+          # scoped to that PR and unreadable by the next one — only a
+          # default-branch run publishes an entry every later branch can
+          # restore. The nightly keeps everything else it owned: the K/N *test*
+          # rung and the gate-spike build. It is not a duplicate of this step.
+          #
+          # Cost note: reaching this line means the key was already HIT, so the
+          # assembly re-publishes nothing (`actions/cache` skips the save on an
+          # exact-key hit). It is kept because ruling (a) specifies main pushes
+          # "always assemble", and because a hit here only proves the entry
+          # exists, not that it is restorable at the moment the next PR reads it.
+          # If merge-time wall clock becomes the complaint, that is the ruling's
+          # documented re-open trigger, not a local tweak.
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF" = "refs/heads/main" ]; then
+            echo "full_native=true" >> "$GITHUB_OUTPUT"
+            echo "Push to main → full native build + XCFramework (publish the umbrella cache entry)."
+            exit 0
+          fi
+          if [ "$EVENT_NAME" != "pull_request" ]; then
+            # Remaining non-PR shapes (schedule / workflow_dispatch / a push to
+            # a non-main ref) with the key already warm: compile-only. Nothing
+            # here needs an assembly the cache does not already hold.
             echo "full_native=false" >> "$GITHUB_OUTPUT"
-            echo "Non-PR event → JVM + klib compile-only (nightly owns full-native)."
+            echo "Non-PR event, umbrella cache warm → JVM + klib compile-only."
             exit 0
           fi
           # `|| FILES=""` keeps GHA's default `set -e` from aborting on a
@@ -935,7 +1037,7 @@ jobs:
         # strict superset of this one.
         run: ./gradlew :shared:models:compileKotlinIosSimulatorArm64 :shared:engine:compileKotlinIosSimulatorArm64 :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
 
-      - name: Full native build + XCFramework (build-config touch)
+      - name: Full native build + XCFramework (producer)
         if: steps.kmp-changes.outputs.full_native == 'true'
         # 18 kept from before the #1135 umbrella addition: that PR measured this
         # step at 5m19s (warm konan / gradle-caches restore-key fallback), so
@@ -969,8 +1071,27 @@ jobs:
         # dependency errors this step exists to catch fire identically on debug.
         # The both-config engine umbrella runs nightly, off the critical path.
         #
-        # Task name has the config infix AFTER the umbrella name — verified via
-        # `./gradlew :shared:engine:tasks --all`, not inferred. The intuitive
+        # The assembly itself is invoked through
+        # `scripts/kmp/assemble-xcframework.sh --config debug`, NOT by listing
+        # the Gradle task here: that script is the single staging
+        # implementation (its header records why), it runs exactly
+        # `:shared:engine:assemblePasturaSharedEngineDebugXCFramework`, and it
+        # copies the output to `Pastura/Frameworks/PasturaSharedEngine.xcframework`
+        # — the path the cache step above addresses. Without that copy the cache
+        # would save an empty path and every consumer would miss.
+        #
+        # The umbrella task token is therefore GONE from the `./gradlew` line
+        # below, which now runs only the two metadata compiles. Listing it in
+        # both places would assemble twice: the script has no filesystem
+        # short-circuit (`--if-missing` only quiets Gradle's output — see its
+        # header), and the umbrella-assembly task is not UP-TO-DATE-able, so the
+        # second invocation re-links and re-copies ~76 MB for nothing. `--config
+        # debug` (the script's default) is passed explicitly so the config this
+        # step builds is readable at the call site and matches the `-debug-`
+        # infix in the cache key.
+        #
+        # That task name has the config infix AFTER the umbrella name — verified
+        # via `./gradlew :shared:engine:tasks --all`, not inferred. The intuitive
         # `assembleDebugPasturaSharedEngineXCFramework` does NOT exist; Gradle
         # rejects it as an ambiguous abbreviation of the per-platform
         # `assembleDebug<Platform>FatFrameworkFor…` tasks.
@@ -982,7 +1103,9 @@ jobs:
         # this step too — breaking the strict-superset invariant that the
         # full-native step covers everything the compile-only step does. Both
         # task tokens verified present via `:shared:{models,engine}:tasks --all`.
-        run: ./gradlew :shared:engine:assemblePasturaSharedEngineDebugXCFramework :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
+        run: |
+          ./gradlew :shared:models:compileCommonMainKotlinMetadata :shared:engine:compileCommonMainKotlinMetadata --no-daemon --stacktrace
+          scripts/kmp/assemble-xcframework.sh --config debug
 
       - name: Upload Gradle reports (on failure)
         if: failure()
