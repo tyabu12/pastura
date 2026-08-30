@@ -31,3 +31,34 @@ git config core.hooksPath scripts/git-hooks
 echo "✓ git hooks activated (core.hooksPath = scripts/git-hooks)"
 echo "  Pre-commit gates: swiftlint, xcodebuild build, blocklist, gallery, p8, navigation-map"
 echo "  Bypass (discouraged): \`git commit --no-verify\` — CLAUDE.md prohibits."
+
+# KMP umbrella first-build (ADR-023 Stage 5, S5-1 — #1635; PR-B2 links
+# `PasturaSharedEngine.xcframework` into the app build). `--if-missing` still
+# runs Gradle — its up-to-date check is the short-circuit, see the script's
+# header. A cold `~/.konan` first run also downloads the Kotlin/Native
+# toolchain: several minutes, roughly a gigabyte.
+#
+# Exit 1 (missing JDK 17+ / gradlew) WARNS and continues, the opposite of
+# the pre-commit hook: this script's job is activating the hooks above, and
+# an iOS-only contributor must not be blocked over a toolchain they do not
+# have yet. Any other non-zero code is a real failure and aborts.
+# `|| rc=$?` captures the code under `set -e` without aborting.
+rc=0
+./scripts/kmp/assemble-xcframework.sh --if-missing || rc=$?
+case "$rc" in
+  0)
+    echo "✓ PasturaSharedEngine.xcframework ready"
+    ;;
+  1)
+    echo "⚠️  JDK 17+ not found — KMP build skipped." >&2
+    echo "   Required to stage PasturaSharedEngine.xcframework; the" >&2
+    echo "   pre-commit hook and scripts/xcodebuild.sh will need it once" >&2
+    echo "   PR-B2 links the framework into the Pastura.app build:" >&2
+    echo "     brew install --cask temurin@17" >&2
+    echo "   (Git hooks above were activated successfully.)" >&2
+    ;;
+  *)
+    echo "✗ KMP wrapper failed (exit $rc). Fix before continuing." >&2
+    exit "$rc"
+    ;;
+esac
