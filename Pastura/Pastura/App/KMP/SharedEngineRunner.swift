@@ -7,8 +7,11 @@ import Synchronization
 // `ChatTurnMarkers` — is spelled `PasturaSharedEngine.X`. An in-module
 // declaration shadows the import, so a bare name binds to the *Swift* type and
 // the file either fails to build or, worse, builds against the wrong one. No
-// typealias: a bare alias would hide the shadowing from the next reader. See
-// `.claude/rules/kmp-interop.md`.
+// typealias: a bare alias would hide the shadowing from the next reader. The
+// bare names (`SimulationEngine`, `LLMBackend`, `RunHandle`, `StreamCallbacks`,
+// …) are bare only because Kotlin exports no twin for them today — a Kotlin
+// bump that adds one rebinds silently, so re-run the count in
+// `.claude/rules/kmp-interop.md` Pattern 1b after each bump.
 
 // Kotlin/Native does not emit Swift `Sendable` conformances, but these types
 // cross threads by design: `onEvent` fires from a Kotlin worker context

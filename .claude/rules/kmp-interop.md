@@ -36,7 +36,7 @@ instead — Pattern 1b.
 ## Pattern 1b — a Kotlin type with a Swift twin is shadowed inside the app module
 
 An in-module declaration shadows an imported one, so inside the `Pastura` module a bare
-`SimulationEvent` binds to the **Swift** enum, not the Kotlin export. 40 exported type names collide
+`SimulationEvent` binds to the **Swift** enum, not the Kotlin export. 42 exported type names collide
 today (`Scenario`, `SimulationEvent`, `SimulationError`, `PhaseType`, `Persona`, `ScenarioLoader`,
 `EngineLogger`, `RandomSource`, `OutputSchema`, …); re-run the count after a Kotlin bump with:
 

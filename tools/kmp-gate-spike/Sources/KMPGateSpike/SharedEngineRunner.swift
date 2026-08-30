@@ -33,16 +33,19 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// callback boundary, and owns the suspension relay — the two responsibilities
 /// ADR-023 §5.1 assigns to this adapter.
 ///
-/// This is one of the two §10 *permanent* adapters: it is written here for the
-/// Stage-2 gate but is intended to replace the shell role of today's
-/// `Pastura/Pastura/Engine/SimulationRunner.swift` at Stage 5, keeping the
-/// App-facing surface (`SimulationViewModel`) unchanged.
+/// This is one of the two §10 *permanent* adapters, written here for the
+/// Stage-2 gate. Its home is `Pastura/Pastura/App/KMP/SharedEngineRunner.swift`
+/// (ADR-023 §6 ruling (c) — `App/KMP/`, not `Engine/`), rehomed at S5-1; that
+/// copy replaces the shell role of `Engine/SimulationRunner.swift` at S5-4/S5-5,
+/// keeping the App-facing surface (`SimulationViewModel`) unchanged. This copy
+/// stays until S5-5 for the nightly rung, so a change to the §5.2 relay
+/// contract must land in both — there is no drift guard between the two.
 ///
 /// **Threading.** `onEvent` fires from a Kotlin worker context. Nothing here may
 /// assume `MainActor` — `continuation.yield` is thread-agnostic, which is why
 /// the reconstruction costs nothing. This type is deliberately `nonisolated`
 /// even though the package compiles under default-`MainActor` isolation, so it
-/// keeps the same semantics it will have inside `Engine/`.
+/// keeps the same semantics as its `App/KMP/` twin.
 nonisolated public final class SharedEngineRunner: Sendable {
   // All three arguments are spelled out because Kotlin default arguments do not
   // survive the K/N export (`.claude/rules/kmp-interop.md` Pattern 3): the
