@@ -67,4 +67,40 @@ struct StructuralBoundaryTests {
       !SourceTreeProbe.swiftFilesContaining("Scenario", under: models).isEmpty,
       "a needle every Models file carries matched nothing — the filter is nullifying")
   }
+
+  /// Executable form of ADR-023 §6 Stage-5 ruling (c) / CLAUDE.md § Dependency
+  /// Rules: `PasturaSharedEngine` (the KMP umbrella) is imported from `App/`
+  /// only — never from `Models`, `LLM`, `Engine`, `Data`, `Views`, or
+  /// `Utilities`.
+  ///
+  /// Matches the exact token `import PasturaSharedEngine`, not just the
+  /// module name, so prose mentioning the umbrella (this file's doc comment
+  /// included) does not false-positive.
+  @Test func sharedEngineNotImportedOutsideApp() {
+    let restrictedDirs = ["Models", "LLM", "Engine", "Data", "Views", "Utilities"].map {
+      SourceTreeProbe.appSourceRoot.appending(path: $0)
+    }
+
+    var hits: [String] = []
+    for dirURL in restrictedDirs {
+      // Non-vacuity floor, asserted per layer — see the guard above for why
+      // this must be per-layer rather than summed across all six.
+      let layer = SourceTreeProbe.swiftFiles(under: dirURL)
+      #expect(!layer.isEmpty, "\(dirURL.lastPathComponent) resolved to no sources")
+
+      hits += SourceTreeProbe.swiftFilesContaining("import PasturaSharedEngine", under: dirURL)
+    }
+
+    #expect(
+      hits.isEmpty,
+      "import PasturaSharedEngine found outside App/: \(hits)")
+
+    // Positive arm: a probe that scans nothing passes vacuously. App/KMP
+    // must actually contain the import, or the restricted-layer assertion
+    // above is meaningless.
+    let appDir = SourceTreeProbe.appSourceRoot.appending(path: "App")
+    #expect(
+      !SourceTreeProbe.swiftFilesContaining("import PasturaSharedEngine", under: appDir).isEmpty,
+      "no file under App/ imports PasturaSharedEngine — positive control lost its fixture")
+  }
 }

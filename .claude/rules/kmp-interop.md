@@ -2,15 +2,19 @@
 paths:
   - "shared/**"
   - "tools/kmp-gate-spike/**"
+  - "Pastura/Pastura/App/KMP/**"
 ---
 
 # KMP Interop Rules
 
 Traps of the ADR-023 KMP Engine migration at the Kotlin/Native (K/N) ↔ Swift boundary and inside
-the Kotlin port. The iOS app does not consume the generated XCFramework yet; the only Swift
-consumer, `tools/kmp-gate-spike/**`, builds nightly rather than per-PR, so a Swift-side break's
-first signal is a red nightly. The Wave B checklist in `docs/kmp-migration-status.md` is gated by
-`check-kmp-status.py`; its stage table and pointers are hand-maintained and are not.
+the Kotlin port. Since S5-1 (#1635) the iOS app links and embeds the `PasturaSharedEngine`
+umbrella, and `App/KMP/` is the only place it may be imported (CLAUDE.md § Dependency Rules) — so
+a Swift-side export break now reddens every per-PR iOS lane, not only the nightly gate-spike build
+(`tools/kmp-gate-spike/**`, which keeps its own copy of the adapters until S5-5). Nothing under
+`App/KMP/` is on the app's run path until S5-4 flips the switch. The Wave B checklist in
+`docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage table and pointers are
+hand-maintained and are not.
 
 ## Pattern 1 — K/N exports carry no Swift `Sendable` conformance
 

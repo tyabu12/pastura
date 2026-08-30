@@ -59,6 +59,20 @@
 # CI bypasses this code path entirely; drift is detected separately by
 # the i18n leak audit (#292).
 #
+# Both subcommands ALSO stage the KMP umbrella
+# (`Pastura/Frameworks/PasturaSharedEngine.xcframework`) via
+# `scripts/kmp/assemble-xcframework.sh --if-missing` before xcodebuild runs
+# — the app target links and embeds it (ADR-023 §6 Stage 5, ruling (a)'s
+# dev iOS lane; #1635). Gradle's UP-TO-DATE check is the fast path (~7 s
+# on a warm tree), so a Swift-only edit pays seconds and a `shared/` edit
+# pays one assembly. JDK 17+ is therefore an iOS-build prerequisite
+# (`scripts/setup.sh` says so). Opt out with `PASTURA_SKIP_KMP_STAGE=1`
+# when a bundle is already staged and you want the seconds back — but note
+# that a LEADING env assignment (`PASTURA_SKIP_KMP_STAGE=1 scripts/…`) is
+# not matched by the agent Bash allowlist prefix
+# (`.claude/rules/xcodebuild-cli.md`), so the opt-out is for human shells
+# and hooks; agent sessions just let the fast path run.
+#
 # Streams output directly to the terminal — no tee, no log file. Exit
 # code is xcodebuild's exit code (preserved through `pipefail` when
 # `--tail` is used; `set -x` xtrace is suppressed in `--tail` mode so
@@ -413,6 +427,40 @@ sync_xcstrings() {
 }
 
 sync_xcstrings
+
+# Stage the KMP umbrella the app target links (ADR-023 §6 Stage 5, ruling (a)
+# — dev iOS lane; #1635). Runs AFTER the xcstrings sync and BEFORE xcodebuild
+# because a missing bundle fails the build at link time with a bare
+# "framework 'PasturaSharedEngine' not found", which reads like a project-file
+# bug; the staging script's own exit codes name the real cause (1 = JDK 17+
+# or gradlew missing, 2 = Gradle failed, 3 = copy failed).
+#
+# Hard failure on purpose, unlike the advisory xcstrings sync above: nothing
+# downstream can succeed without the bundle, so stopping here with the
+# script's message is the shorter path to the fix. The pre-commit hook reaches
+# this through `scripts/xcodebuild.sh build`, so it needs no staging line of
+# its own — keep it that way, two callers would drift.
+stage_kmp_umbrella() {
+  if [[ "${PASTURA_SKIP_KMP_STAGE:-0}" == "1" ]]; then
+    echo "PASTURA_SKIP_KMP_STAGE=1: skipping KMP umbrella staging (the build" \
+         "links whatever is already under Pastura/Frameworks/)." >&2
+    return 0
+  fi
+  local rc=0
+  "$REPO_ROOT/scripts/kmp/assemble-xcframework.sh" --if-missing || rc=$?
+  if [[ "$rc" -ne 0 ]]; then
+    {
+      echo "error: KMP umbrella staging failed (exit $rc) — the app target links"
+      echo "  Pastura/Frameworks/PasturaSharedEngine.xcframework, so xcodebuild"
+      echo "  cannot succeed without it. Re-run"
+      echo "  'scripts/kmp/assemble-xcframework.sh' to see the full Gradle output;"
+      echo "  exit 1 means JDK 17+ / gradlew is missing (scripts/setup.sh)."
+    } >&2
+    exit "$rc"
+  fi
+}
+
+stage_kmp_umbrella
 
 # Build the xcodebuild command as an array so the two execution paths
 # (with / without `--tail`) share a single source of truth.

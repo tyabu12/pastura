@@ -132,11 +132,19 @@ probe_rc=0
 # combined stdout+stderr / exit status via the `printf '__RC__%s' "$?"` trick
 # (mirrors simdest-errexit-test.sh's run_probe): this suite itself runs under
 # `set -e`, and several arms probe a deliberate non-zero exit.
+#
+# PASTURA_SKIP_KMP_STAGE=1: since S5-1 (#1635) the wrapper stages the KMP
+# umbrella via Gradle before xcodebuild. That is a real Kotlin/Native build
+# needing a JDK and Xcode — on the ubuntu shell-tests runner it fails (exit 2)
+# before the stub is ever reached, and on a developer Mac it costs a Gradle
+# run per probe. The opt-out is the wrapper's own contract, and N1 asserts
+# the skip arm actually fired rather than the staging call being silently
+# absent.
 run_wrapper() {
   : > "$log"
   probe_out="$(cd "$ROOT" && env -i PATH="$TMP/bin:$PATH" HOME="$HOME" \
       PASTURA_SKIP_SIM_WAIT=1 PASTURA_SKIP_XCSTRINGS_SYNC=1 XCB_STUB_LOG="$log" \
-      PASTURA_SIM_NAME="$STUB_SIM_NAME" \
+      PASTURA_SKIP_KMP_STAGE=1 PASTURA_SIM_NAME="$STUB_SIM_NAME" \
       ${EXTRA_ENV[@]+"${EXTRA_ENV[@]}"} /bin/bash "$WRAPPER" "$@" 2>&1; printf '__RC__%s' "$?")"
   probe_rc="${probe_out##*__RC__}"
   probe_out="${probe_out%__RC__*}"
@@ -244,8 +252,9 @@ expected_n1="$(join_tab build -scheme Pastura -project "$ROOT/Pastura/Pastura.xc
   -destination "generic/platform=iOS Simulator" -derivedDataPath "$ROOT/Pastura/DerivedData" -quiet)"
 last_line="$(tail -n 1 "$log")"
 if [ "$probe_rc" = "0" ] && [ "$last_line" = "$expected_n1" ] \
-    && has "Selected simulator: $STUB_SIM_NAME (iOS 26.0) [id=STUB-UDID]" "$probe_out"; then
-  ok "N1 build -quiet (pre-commit shape): accepted, argv matches, stub-driven sim-dest.sh success path proven"
+    && has "Selected simulator: $STUB_SIM_NAME (iOS 26.0) [id=STUB-UDID]" "$probe_out" \
+    && has "PASTURA_SKIP_KMP_STAGE=1: skipping KMP umbrella staging" "$probe_out"; then
+  ok "N1 build -quiet (pre-commit shape): accepted, argv matches, stub-driven sim-dest.sh success path proven, KMP staging skip arm fired"
 else
   bad "N1 rc=$probe_rc last_line=[$last_line] expected=[$expected_n1] output: $probe_out"
 fi

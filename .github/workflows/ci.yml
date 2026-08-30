@@ -223,7 +223,9 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
-    timeout-minutes: 15
+    # 22 (was 15): the KMP umbrella cache-miss fallback has a measured lower
+    # bound of 6m11s (ADR-023 §6 ruling (a)) on top of this lane's own work.
+    timeout-minutes: 22
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
@@ -236,6 +238,86 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # ── KMP umbrella (PasturaSharedEngine.xcframework) — CONSUMER side ──
+      # ADR-023 §6 Stage-5 ruling (a) (#1635 PR-B2). The app target links and
+      # embeds `Pastura/Frameworks/PasturaSharedEngine.xcframework`, which is
+      # gitignored, so every iOS lane must have it on disk before xcodebuild
+      # runs or the link fails.
+      #
+      # The key literal below is copied VERBATIM from the PRODUCER step in
+      # `kmp-build-test` ("Cache KMP umbrella"). It is a CONTENT key over
+      # `shared/**`, `gradle/**`, every `*.gradle.kts` and `scripts/kmp/**`, so
+      # a HIT can never be stale — nothing that changes the umbrella's bytes
+      # leaves the key unchanged. No `restore-keys`, for the same reason the
+      # producer has none: a prefix fallback would restore an umbrella built
+      # from DIFFERENT sources and this lane would link it with nothing to
+      # notice.
+      #
+      # `actions/cache/restore`, NOT `actions/cache`: a consumer must never
+      # attempt a post-job SAVE. Three iOS lanes racing to save the same key on
+      # every run is wasted work at best, and it would let a consumer publish
+      # the entry the producer is supposed to own. It is a sub-action of the
+      # same repo as the producer's `actions/cache`, so the pin must match it
+      # exactly (`scripts/check-action-pin-consistency.py` enforces that).
+      #
+      # On a MISS the lane assembles in place: the fallback is the CORRECTNESS
+      # path, the cache only the fast path. The `::warning::` it emits is the
+      # signal to fix the PRODUCER — recurring across PRs is the re-open
+      # trigger in ADR-023 §6 ruling (a). The lanes deliberately carry NO
+      # `needs: kmp-build-test`: per the ruling, serialising that job ahead of
+      # every iOS job costs more wall-clock on every PR than the in-lane
+      # fallback costs on the few that miss.
+      #
+      # Everything behind the miss gate — JDK, the three Gradle / K/N caches,
+      # the assembly — is skipped on a hit, the common case, leaving the hit
+      # path at one cache restore.
+      - name: Restore KMP umbrella (PasturaSharedEngine.xcframework)
+        id: kmp-umbrella
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Pastura/Frameworks/PasturaSharedEngine.xcframework
+          key: kmp-umbrella-${{ runner.os }}-${{ runner.arch }}-debug-${{ hashFiles('shared/**', '!shared/**/build/**', 'gradle/**', '**/*.gradle.kts', 'scripts/kmp/**') }}
+
+      - name: Setup JDK 17
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Plain `actions/cache` (not `/restore`) for these three: unlike the
+      # umbrella they are shared, prefix-keyed toolchain caches that any job
+      # may legitimately refill.
+      - name: Cache Kotlin/Native (~/.konan)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Assemble KMP umbrella (cache miss fallback)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        run: |
+          echo "::warning::KMP umbrella cache MISS in this lane — assembling in-lane (ADR-023 ruling (a) fallback). If this recurs across PRs, the producer (kmp-build-test) is not publishing; see the re-open trigger in ADR-023 §6 (a)."
+          scripts/kmp/assemble-xcframework.sh --config debug
 
       - name: Select Xcode and Simulator
         run: |
@@ -376,8 +458,11 @@ jobs:
     # observed 24-min tail: a timeout produces a `timed_out` conclusion, which
     # ci-retry.yml deliberately does NOT retry, so the ceiling must clear the
     # worst legitimate run. The per-test execution-time cap in the test step
-    # bounds a first-clone infra-flake stall on top of that.
-    timeout-minutes: 30
+    # bounds a first-clone infra-flake stall on top of that. 37 (was 30): the
+    # KMP umbrella cache-miss fallback below adds a measured 6m11s lower bound
+    # (ADR-023 §6 ruling (a)) on top of the 24-min tail — same bump as
+    # lint-and-test / release-build, one decision.
+    timeout-minutes: 37
     outputs:
       test-passed: ${{ steps.test.outputs.passed }}
       test-failed: ${{ steps.test.outputs.failed }}
@@ -388,6 +473,57 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # KMP umbrella (PasturaSharedEngine.xcframework) — CONSUMER side, same as
+      # lint-and-test; see the comment there for the whole contract (verbatim
+      # content key, `actions/cache/restore` so no consumer ever saves, miss =
+      # in-lane fallback + `::warning::`, no `needs:` on the producer).
+      - name: Restore KMP umbrella (PasturaSharedEngine.xcframework)
+        id: kmp-umbrella
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Pastura/Frameworks/PasturaSharedEngine.xcframework
+          key: kmp-umbrella-${{ runner.os }}-${{ runner.arch }}-debug-${{ hashFiles('shared/**', '!shared/**/build/**', 'gradle/**', '**/*.gradle.kts', 'scripts/kmp/**') }}
+
+      - name: Setup JDK 17
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Plain `actions/cache` (not `/restore`) for these three: unlike the
+      # umbrella they are shared, prefix-keyed toolchain caches that any job
+      # may legitimately refill.
+      - name: Cache Kotlin/Native (~/.konan)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Assemble KMP umbrella (cache miss fallback)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        run: |
+          echo "::warning::KMP umbrella cache MISS in this lane — assembling in-lane (ADR-023 ruling (a) fallback). If this recurs across PRs, the producer (kmp-build-test) is not publishing; see the re-open trigger in ADR-023 §6 (a)."
+          scripts/kmp/assemble-xcframework.sh --config debug
 
       - name: Select Xcode and Simulator
         run: |
@@ -528,13 +664,73 @@ jobs:
     needs: changes
     if: ${{ !cancelled() && needs.changes.outputs.ios != 'false' }}
     runs-on: macos-26
-    timeout-minutes: 15
+    # 22 (was 15): the KMP umbrella cache-miss fallback has a measured lower
+    # bound of 6m11s (ADR-023 §6 ruling (a)) on top of this lane's own work.
+    timeout-minutes: 22
     env:
       DEVELOPER_DIR: /Applications/Xcode_26.4.app/Contents/Developer
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # KMP umbrella (PasturaSharedEngine.xcframework) — CONSUMER side, same as
+      # lint-and-test; see the comment there for the whole contract (verbatim
+      # content key, `actions/cache/restore` so no consumer ever saves, miss =
+      # in-lane fallback + `::warning::`, no `needs:` on the producer).
+      #
+      # The key keeps `-debug-` VERBATIM even though this lane builds the app
+      # in Release: the Release app links the DEBUG-config umbrella, which is
+      # the only config anything assembles today. Whether the release pipeline
+      # (`scripts/release.sh`) should link a release-config umbrella — a
+      # different key, not a different entry — is an S5-3 question, not a
+      # local tweak here.
+      - name: Restore KMP umbrella (PasturaSharedEngine.xcframework)
+        id: kmp-umbrella
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: Pastura/Frameworks/PasturaSharedEngine.xcframework
+          key: kmp-umbrella-${{ runner.os }}-${{ runner.arch }}-debug-${{ hashFiles('shared/**', '!shared/**/build/**', 'gradle/**', '**/*.gradle.kts', 'scripts/kmp/**') }}
+
+      - name: Setup JDK 17
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 17
+
+      # Plain `actions/cache` (not `/restore`) for these three: unlike the
+      # umbrella they are shared, prefix-keyed toolchain caches that any job
+      # may legitimately refill.
+      - name: Cache Kotlin/Native (~/.konan)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.konan
+          key: konan-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: konan-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle dependencies (~/.gradle/caches)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/caches
+          key: gradle-caches-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml', '**/*.gradle.kts') }}
+          restore-keys: gradle-caches-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache Gradle wrapper (~/.gradle/wrapper)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.gradle/wrapper
+          key: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-wrapper-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Assemble KMP umbrella (cache miss fallback)
+        if: steps.kmp-umbrella.outputs.cache-hit != 'true'
+        run: |
+          echo "::warning::KMP umbrella cache MISS in this lane — assembling in-lane (ADR-023 ruling (a) fallback). If this recurs across PRs, the producer (kmp-build-test) is not publishing; see the re-open trigger in ADR-023 §6 (a)."
+          scripts/kmp/assemble-xcframework.sh --config debug
 
       - name: Select Xcode
         run: xcodebuild -version
@@ -612,6 +808,42 @@ jobs:
             exit 1
           fi
           echo "OK: zero ollama symbols in Release-iphoneos binary"
+
+      # ADR-023 §6 Stage-5 ruling (b) — the single-umbrella guard, placed at the
+      # only spot a second copy could actually appear: the embedded Frameworks
+      # directory of the built Release app. The spike branch (f73bc48) shipped
+      # this as H6 warning-only; ruling (b) makes it a HARD failure, since the
+      # models-only `PasturaShared` export is dropped rather than retargeted and
+      # a reappearing second umbrella is the §9.7 landmine, not a nuisance.
+      #
+      # Count by EXACT NAME, never "number of frameworks in Frameworks/":
+      # `Pastura.app/Frameworks/` legitimately also holds `llama.framework`
+      # from the llama.swift SPM binary target.
+      #
+      # Portable while/read loop — `mapfile` is bash 4+ and GHA macOS runners
+      # default to /bin/bash 3.2 (same shape as the ADR-005 step above).
+      - name: Verify H6 — exactly one PasturaSharedEngine.framework embedded
+        run: |
+          FWS=()
+          while IFS= read -r -d '' d; do
+            FWS+=("$d")
+          done < <(find ~/Library/Developer/Xcode/DerivedData \
+            -type d \
+            -name 'PasturaSharedEngine.framework' \
+            -path '*/Build/Products/Release-iphoneos/Pastura.app/Frameworks/*' \
+            -print0)
+          if [ "${#FWS[@]}" -ne 1 ]; then
+            echo "::error::Expected exactly 1 PasturaSharedEngine.framework in Pastura.app/Frameworks, found ${#FWS[@]}"
+            printf '%s\n' "${FWS[@]}"
+            exit 1
+          fi
+          FW="${FWS[0]}"
+          # Informational only — no `set -o pipefail` needed here, unlike the
+          # Release build step above: a failed `du` degrades the size line,
+          # not the verdict (the count check already passed).
+          SIZE=$(du -sh "$FW" | cut -f1)
+          echo "$FW"
+          echo "OK: exactly one PasturaSharedEngine.framework embedded ($SIZE)"
 
       - name: Upload Release build log (on failure)
         if: failure()
@@ -861,13 +1093,15 @@ jobs:
       # A prefix fallback would restore an umbrella built from DIFFERENT sources
       # and the consuming iOS lane would link it with nothing to notice: exactly
       # the silently-stale binary the content key exists to make impossible. A
-      # miss must STAY a miss, so the assembly below (and, in PR-B2, the in-lane
-      # fallback) runs and refills the key.
+      # miss must STAY a miss, so the assembly below (and the consumers' own
+      # in-lane fallback) runs and refills the key.
       #
-      # ⚠️ PR-B2 wires the CONSUMER side (`lint-and-test`, `ui-test`,
-      # `release-build`) and MUST reuse the key literal below VERBATIM in all
-      # three lanes — producer and consumers addressing the same bytes is the
-      # entire mechanism. Change it in one place, change it in four.
+      # ⚠️ The CONSUMER side lives in the three iOS lanes (`lint-and-test`,
+      # `ui-test`, `release-build`), which restore this entry with
+      # `actions/cache/restore` — restore-only, so no consumer ever saves —
+      # and reuse the key literal below VERBATIM. Producer and consumers
+      # addressing the same bytes is the entire mechanism. Change it in one
+      # place, change it in four.
       #
       # `-debug-` in the key is the config this job assembles (the full-native
       # step is Debug-only, see its comment); a release umbrella would be a
@@ -1322,17 +1556,27 @@ jobs:
       - name: Run ScenarioEditor funnel drift guard
         run: bash scripts/scenario-editor-funnel-gate.sh --check
 
-  # ADR-023 §6 decision B′: "No per-PR lane acquires an XCFramework dependency
-  # — not the iOS xcodebuild, not the root Package.swift harness build, not a
-  # dev `swift build`." The root manifest is the commonest leak, since
-  # `harness-build` runs a bare `swift build` and that builds every target the
-  # root declares. The gate spike therefore lives in its own nested manifest.
+  # ADR-023 §6 decision B′, as amended by the Stage-5 rulings (#1633, S5-1
+  # #1635): the root Package.swift harness build and a dev `swift build`
+  # acquire NO XCFramework dependency, and the iOS xcodebuild lane acquires
+  # EXACTLY ONE — the `PasturaSharedEngine` umbrella, restored from the
+  # content-keyed cache the `kmp-build-test` job produces (in-lane assembly is
+  # the cache-miss fallback only). The root manifest is the commonest leak,
+  # since `harness-build` runs a bare `swift build` and that builds every
+  # target the root declares. The gate spike therefore lives in its own nested
+  # manifest.
   #
-  # The guard covers the iOS lane too — the pbxproj, and a tracked
-  # `.xcframework` under `Pastura/` that the project's synchronized root groups
-  # would sweep in without any pbxproj entry. Its header states the one lane it
-  # cannot see and what B′ is really protecting; read it before widening or
-  # trusting the scope.
+  # The guard covers the iOS lane too — the pbxproj must reference exactly the
+  # one ruled umbrella (zero = the link was lost, any other name = the §9.7
+  # two-umbrella landmine), and no tracked `.xcframework` may sit under
+  # `Pastura/` where the project's synchronized root groups would sweep it in
+  # without any pbxproj entry. Its header states the one lane it cannot see
+  # and what B′ is really protecting; read it before widening or trusting the
+  # scope.
+  #
+  # The job `name` predates the amendment and is a required status check in
+  # the repository ruleset — renaming it would leave that context permanently
+  # unreported and block every merge, so it stays as-is.
   #
   # Ungated (ubuntu, seconds): a gated guard would skip on exactly the PRs that
   # only touch the manifest.

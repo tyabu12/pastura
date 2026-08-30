@@ -198,6 +198,24 @@ LATEST_TF="$(cat "$TF_OUT")"
 
 # ── archive ──────────────────────────────────────────────────────────────
 ARCHIVE="$WORK/$APP_NAME.xcarchive"
+
+# Stage the KMP umbrella the app target links (ADR-023 §6 Stage 5, #1635).
+# This script calls xcodebuild directly, not via scripts/xcodebuild.sh, so
+# it must stage on its own or the archive dies at link time with a bare
+# "framework 'PasturaSharedEngine' not found". `--config release` so the
+# archived K/N code is the optimized build rather than whatever the last
+# dev run left staged (debug by default) — S5-3 (H5/H7) owns the fuller
+# question of the release umbrella's provenance; this only keeps the
+# pipeline runnable. The next wrapper run re-stages debug on its own.
+log "Staging PasturaSharedEngine.xcframework (release config)"
+scripts/kmp/assemble-xcframework.sh --config release \
+  || die "KMP umbrella staging failed — see the script's output above (exit 1 = JDK 17+ / gradlew missing)."
+# The staging script exits 0 as a deliberate no-op on a ref with no
+# `shared/engine/build.gradle.kts`; on such a ref the archive would still die
+# at link, so assert the bundle rather than trust the exit code.
+[ -d "Pastura/Frameworks/PasturaSharedEngine.xcframework" ] \
+  || die "staging reported success but Pastura/Frameworks/PasturaSharedEngine.xcframework is absent — is this ref pre-ADR-023 Stage 5?"
+
 log "Archiving (Release, build $BUILD)"
 # -allowProvisioningUpdates: distribution signing is cloud-managed (the cert's
 # private key is not in the local keychain), so headless xcodebuild must be
