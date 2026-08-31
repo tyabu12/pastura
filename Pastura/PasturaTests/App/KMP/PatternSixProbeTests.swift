@@ -41,6 +41,14 @@ import Testing
 /// it genuinely pins the MainActor, which starves neighbouring `@MainActor`
 /// suites, so the blast radius is kept short.
 ///
+/// **CI headroom** (`testing.md` § "Wall-clock test bounds need CI headroom"):
+/// the paced run measured 0.78 s locally (pacing floor 2 deltas × 24
+/// inferences × 10 ms ≈ 0.5 s), so even at the measured worst-case ~30× CI
+/// slowdown the suite sits near ~25 s against the 1-minute `.timeLimit`
+/// minimum. If a CI run approaches the cap, trim the per-delta pacing first —
+/// the liveness measurement stays meaningful well below 10 ms — before
+/// touching the fixture.
+///
 /// **Duplicated helpers.** `Heartbeat`, `BlockingProbe`, `ThreadObservations`
 /// and friends are file-local copies of the gate spike's
 /// (`tools/kmp-gate-spike/Tests/KMPGateSpikeTests/PatternSixProbeTests.swift`),
@@ -315,6 +323,12 @@ nonisolated private final class ThreadObservations: Sendable {
 /// Deliberately test-side: the observation is a property of the *seam*, and
 /// baking a thread counter into the permanent adapter would add production
 /// state that only this probe reads.
+///
+/// `@unchecked` (unlike ``PacedLLMService``'s plain `Sendable`) because the
+/// stored `any PasturaSharedEngine.LLMBackend` is a K/N-exported Obj-C
+/// protocol carrying no `Sendable` conformance for the compiler to check
+/// (`.claude/rules/kmp-interop.md` Pattern 1); both stored members are
+/// immutable `let`s — do not add mutable state under this annotation.
 nonisolated private final class ThreadObservingBackend: PasturaSharedEngine.LLMBackend,
   @unchecked Sendable {
   private let wrapped: any PasturaSharedEngine.LLMBackend
@@ -344,6 +358,10 @@ nonisolated private final class ThreadObservingBackend: PasturaSharedEngine.LLMB
 }
 
 /// Forwards every callback untouched, sampling the calling thread first.
+///
+/// `@unchecked` for the same reason as ``ThreadObservingBackend``: the stored
+/// `any PasturaSharedEngine.StreamCallbacks` existential carries no checkable
+/// `Sendable`; both members are immutable `let`s.
 nonisolated private final class ThreadObservingCallbacks: PasturaSharedEngine.StreamCallbacks,
   @unchecked Sendable {
   private let wrapped: any PasturaSharedEngine.StreamCallbacks

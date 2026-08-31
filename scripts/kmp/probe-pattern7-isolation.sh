@@ -129,7 +129,7 @@ convert_errors=$(grep -c ": error: cannot convert value of type " "$OUT" || [ $?
 verdicts=""
 lines=""
 for req in "${REQUIREMENTS[@]}"; do
-  probe_line=$(grep -n "// REQ:${req}\$" "$PROBE" | cut -d: -f1)
+  probe_line=$(grep -n "// REQ:${req}\$" "$PROBE" | cut -d: -f1 || [ $? -eq 1 ])
   [ -n "$probe_line" ] || fail "probe.swift has no line marked REQ:${req}"
 
   diag=$(grep "probe.swift:${probe_line}:" "$OUT" | grep ": error: cannot convert value of type " || [ $? -eq 1 ])
