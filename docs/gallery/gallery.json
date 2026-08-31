@@ -815,9 +815,9 @@
       ],
       "language": "en",
       "yaml_url": "shachiku_senryu_v1_en.yaml",
-      "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2",
+      "yaml_sha256": "7a4c8291bf2a6946ee406c4dbd33d8616e2fa29436838a79bf4ced682dd74f88",
       "highlight_url": "highlights/shachiku_senryu_v1_en.json",
-      "highlight_sha256": "58c222f79fa0b2b643996f51df71931e1faaed120e599558d3a49de0ac47d452",
+      "highlight_sha256": "fa25f235d86399cd8927916a9ec8f437d320f2e559bddd250f84ba4dc84951eb",
       "added_at": "2026-07-01"
     },
     {
