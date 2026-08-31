@@ -248,6 +248,7 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
   }
 }
 
+// Internal, not private, so the terminated flag is testable — `RunHandleBox` above has the reasoning.
 /// Tracks the in-flight relay task so stream termination can cancel a parked
 /// one instead of leaking it — and **remembers that termination already
 /// happened**, so a relay armed after that point is cancelled on arrival.
@@ -265,7 +266,7 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
 /// (What cannot happen is the run loop emitting a terminal and *then* taking a
 /// `.suspended` — `onEvent` runs synchronously on the loop's own thread and the
 /// terminal is its last event.)
-nonisolated private final class RelayTaskBox: @unchecked Sendable {
+nonisolated final class RelayTaskBox: @unchecked Sendable {
   private struct State {
     var task: Task<Void, Never>?
     var terminated = false

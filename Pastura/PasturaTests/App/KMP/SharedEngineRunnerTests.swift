@@ -14,10 +14,18 @@ import Testing
 /// closes it is a plain object, so the window can be reproduced exactly by
 /// signalling before `store`.
 ///
+/// The same reasoning covers ``RelayTaskBox``'s terminated flag, tested below,
+/// and the §5.1 early-termination clause — a consumer walking away must reach
+/// the *far* end of the cancellation chain, which is asserted here through a
+/// real Kotlin run rather than through a box.
+///
 /// App-target twin of the `RunHandleBoxLatchTests` suite in
 /// `tools/kmp-gate-spike/Tests/KMPGateSpikeTests/BoundaryContractTests.swift`,
 /// which the nightly gate-spike rung keeps running until S5-5.
-@Suite("run-handle latch", .timeLimit(.minutes(1)))
+/// `.serialized`: the cancellation test drives a real Kotlin run and spawns
+/// `Task` + `AsyncStream` teardown, which
+/// `.claude/rules/swift-testing-parallelism.md` keeps off the parallel path.
+@Suite("SharedEngineRunner boxes and cancellation", .timeLimit(.minutes(1)), .serialized)
 struct SharedEngineRunnerTests {
 
   @Test("a resume arriving before the handle is replayed, not dropped")
@@ -84,6 +92,91 @@ struct SharedEngineRunnerTests {
 
     #expect(handle.log == ["resume", "cancel"])
   }
+
+  // MARK: - RelayTaskBox — the terminated flag
+
+  @Test("a relay armed after termination is cancelled instead of stored")
+  func relayArmedAfterTerminationIsCancelled() async throws {
+    // The reachable shape this flag exists for: the consumer has already
+    // walked away (`cancelPending`), and a backend call still in flight then
+    // delivers `.suspended`, arming a relay that awaits a resume nobody will
+    // send. Without the flag the task below parks for its full sleep and the
+    // suite `.timeLimit` is what fails, which is precisely the leak.
+    let box = RelayTaskBox()
+    box.cancelPending()
+
+    let cancelled = Mutex(false)
+    let relay = Task<Void, Never> {
+      do {
+        try await Task.sleep(for: .seconds(30))
+      } catch {
+        cancelled.withLock { $0 = true }
+      }
+    }
+    box.replace(with: relay)
+    // Returns as soon as the sleep is cancelled — the assertion is that this
+    // does not wait 30 s.
+    await relay.value
+
+    #expect(cancelled.withLock { $0 }, "a relay armed after termination must be cancelled at once")
+  }
+
+  // MARK: - §5.1 — early termination cancels the run
+
+  @Test("abandoning the stream cancels the inference in flight")
+  func earlyTerminationCancelsTheRun() async throws {
+    let scenario = try SharedEngineFixtures.loadedPreset()
+    let mock = MockLLMService(responses: SharedEngineFixtures.scriptedResponses(for: scenario))
+    try await mock.loadModel()
+    // Wrap mode on purpose: `BlockGate` gates `generate`, and only a wrap-mode
+    // `generateStream` goes through it — a `setStreamChunks` script would sail
+    // straight past the park (`LLMServiceBackendTests` says the same). The gate
+    // is what makes the run *provably* mid-flight when the consumer walks away:
+    // the gate-spike twin paces its script instead, and its comment explains
+    // why an instant run measures nothing.
+    mock.blockGenerateUntilSignal()
+    let service = CancellationObservingLLMService(wrapping: mock)
+    let runner = SharedEngineRunner()
+
+    let events = runner.run(scenario: scenario, backend: LLMServiceBackend(service: service))
+    // A cancelled *consumer task*, not a `break`. Two measured reasons:
+    //
+    //   - The run is parked at its first inference, so no further event is
+    //     coming; a loop waiting for one to break on would hang instead.
+    //   - `break` only terminates the stream when the last reference to it dies
+    //     with the iterator. Holding it in a local `let` — which polling before
+    //     consuming forces — keeps the storage alive, so `onTermination` never
+    //     fires and the whole chain below is silently skipped. (Measured on
+    //     iOS 26.5: a plain buffered `AsyncStream` broken out of while a local
+    //     binding survives reports no termination at all.) Cancelling the
+    //     consumer fires `onTermination(.cancelled)` regardless of references,
+    //     and is the same shape `RelayTaskBox`'s doc comment describes.
+    let consumer = Task { for await _ in events {} }
+    try await pollUntilBackendCondition { service.parkedCalls >= 1 }
+    consumer.cancel()
+
+    // The gate is deliberately NOT released before the assertion.
+    // `RunHandle.cancel()` only *requests* the Kotlin job stop, so the far end
+    // of the chain arrives a few hops later; unblocking first lets the parked
+    // `generate` return a scripted answer and the call complete normally in
+    // that window — measured, and it makes the test pass through the
+    // uncancelled path. Cancellation unparks the gate on its own
+    // (`awaitBlockReleaseIfArmed`'s cancel handler), which is the signal being
+    // observed here.
+    //
+    // `onTermination` → `RunHandle.cancel()` → Kotlin cancels the coroutine →
+    // `invokeOnCancellation` → `StreamHandle.cancel()` → the Swift task stops.
+    // Observing the *far* end of that chain is what makes this a composition
+    // test rather than a "did we call cancel" test — and it is asserted as a
+    // positive count, because an absence passes just as well when nothing was
+    // wired at all.
+    try await pollUntilBackendCondition { service.observedCancellations >= 1 }
+    #expect(service.observedCancellations >= 1)
+
+    // Teardown only: releases the gate's latch so nothing is left parked if the
+    // chain above did not reach the mock.
+    mock.unblockGenerate()
+  }
 }
 
 /// Records what the latch delivers, **in order** — counts alone cannot express
@@ -105,4 +198,97 @@ nonisolated private final class RecordingRunHandle: RunHandle, Sendable {
   func resume() {}
   func cancel() { calls.withLock { $0.append("cancel") } }
   func notifyLLMResumed() { calls.withLock { $0.append("resume") } }
+}
+
+/// Decorates a ``MockLLMService`` with the two observations the mock itself
+/// cannot report: that a call has reached the block gate, and that a call's
+/// drain ended in cancellation.
+///
+/// App-target analogue of the gate spike's
+/// `ScriptedStreamingBackend.observedCancellations`, one layer lower: there the
+/// counter sits on a Kotlin `LLMBackend`, here on a Swift `LLMService`, so the
+/// real ``LLMServiceBackend`` relay is *inside* what the test observes.
+///
+/// `nonisolated` + `Mutex`-guarded because Kotlin drives `generateStream` from
+/// `Dispatchers.Default` (`.claude/rules/swift-isolation.md` Pattern 7). Plain
+/// `Sendable`, not `@unchecked`: both stored members are immutable and
+/// `Sendable`, so a later `var` fails the build.
+///
+/// Swift twins are spelled `Pastura.X` — `PasturaSharedEngine` is imported
+/// here too, so a bare `OutputSchema` / `ChatTurnMarkers` is ambiguous rather
+/// than merely shadowed (`.claude/rules/kmp-interop.md` Pattern 1b).
+nonisolated final class CancellationObservingLLMService: LLMService, Sendable {
+  private struct Counters {
+    var entered = 0
+    var cancellations = 0
+  }
+
+  private let wrapped: MockLLMService
+  private let counters = Mutex(Counters())
+
+  init(wrapping wrapped: MockLLMService) {
+    self.wrapped = wrapped
+  }
+
+  /// Calls that have entered ``generateStream(system:user:schema:antiRepetitionSeeds:)``.
+  ///
+  /// With ``MockLLMService/blockGenerateUntilSignal()`` armed, entry *is* the
+  /// park: the wrapped mock's very next move is `awaitBlockReleaseIfArmed`,
+  /// which has no observable hook of its own. So this reads "a call is parked"
+  /// only for a gate-armed mock — which is the only way this double is used.
+  var parkedCalls: Int { counters.withLock { $0.entered } }
+
+  /// Calls whose drain ended because the task was cancelled.
+  var observedCancellations: Int { counters.withLock { $0.cancellations } }
+
+  var isModelLoaded: Bool { wrapped.isModelLoaded }
+  var modelIdentifier: String { wrapped.modelIdentifier }
+  var backendIdentifier: String { wrapped.backendIdentifier }
+  var knownTurnMarkers: [Pastura.ChatTurnMarkers] { wrapped.knownTurnMarkers }
+
+  func loadModel() async throws { try await wrapped.loadModel() }
+  func unloadModel() async throws { try await wrapped.unloadModel() }
+
+  func attachSuspendController(_ controller: Pastura.SuspendController?) async {
+    await wrapped.attachSuspendController(controller)
+  }
+
+  func generate(
+    system: String, user: String, schema: Pastura.OutputSchema?,
+    antiRepetitionSeeds: [String]
+  ) async throws -> String {
+    try await wrapped.generate(
+      system: system, user: user, schema: schema, antiRepetitionSeeds: antiRepetitionSeeds)
+  }
+
+  func generateStream(
+    system: String, user: String, schema: Pastura.OutputSchema?,
+    antiRepetitionSeeds: [String]
+  ) -> AsyncThrowingStream<LLMStreamChunk, Error> {
+    counters.withLock { $0.entered += 1 }
+    let inner = wrapped.generateStream(
+      system: system, user: user, schema: schema, antiRepetitionSeeds: antiRepetitionSeeds)
+    return AsyncThrowingStream { continuation in
+      let task = Task {
+        do {
+          for try await chunk in inner { continuation.yield(chunk) }
+          // Cancellation reaches a drain by two paths and only one throws
+          // (``LLMServiceBackend/drain(_:into:)`` documents the same split):
+          // the mock's parked `generate` rethrows `CancellationError`, but a
+          // stream cancelled between chunks simply *finishes*.
+          noteCancellationIfCancelled()
+          continuation.finish()
+        } catch {
+          noteCancellationIfCancelled(error)
+          continuation.finish(throwing: error)
+        }
+      }
+      continuation.onTermination = { _ in task.cancel() }
+    }
+  }
+
+  private func noteCancellationIfCancelled(_ error: (any Error)? = nil) {
+    guard error is CancellationError || Task.isCancelled else { return }
+    counters.withLock { $0.cancellations += 1 }
+  }
 }
