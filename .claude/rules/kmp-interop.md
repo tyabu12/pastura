@@ -62,7 +62,9 @@ K/N emits **no `@optional` section**: every member of an exported `interface` la
 in Kotlin while breaking every Swift conformer, with no Swift author present and no per-PR lane to
 catch it — fix the conformers in the same PR. Re-grep `@optional` in the regenerated
 `PasturaSharedEngine.h` after a Kotlin bump: a section appearing flips this rule, and that edit
-loads no rule file. See `LLMBackend.kt`.
+loads no rule file. See `LLMBackend.kt`; the app conformer `App/KMP/LLMServiceBackend.swift`
+restates `knownTurnMarkers` as a computed forward for exactly this reason (the Kotlin default
+does not cross K/N, #1472).
 
 **A defaulted Kotlin parameter is not a default in Swift.** K/N drops default arguments and exports
 one full-arity selector, so adding a defaulted constructor / function parameter stays

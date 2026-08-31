@@ -231,6 +231,12 @@ is imported from `App/` only.
   has no spike counterpart, so there is no export-facing shape to mirror —
   and `ScriptedStreamingBackend` remains this package's scripted stand-in
   until S5-5.
+- **The isolation audits** moved app-side with S5-2 PR-C (#1647):
+  `scripts/kmp/probe-pattern7-isolation.sh` measures the four exported seam
+  protocols against the staged simulator slice (Pattern 7), and
+  `Pastura/PasturaTests/App/KMP/PatternSixProbeTests.swift` re-runs the
+  Pattern 6 audit on the app adapters. This package's `PatternSixProbeTests`
+  stays the nightly rung's copy until S5-5.
 
 The Stage-5 two-umbrella landmine recorded in ADR-004 §9.7 — `PasturaShared`
 (models-only) and `PasturaSharedEngine` must never link into one binary — is
