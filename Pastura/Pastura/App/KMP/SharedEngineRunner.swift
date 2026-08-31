@@ -42,11 +42,11 @@ extension PasturaSharedEngine.SimulationEvent: @retroactive @unchecked Sendable 
 extension SimulationEngine: @retroactive @unchecked Sendable {}
 // The two Kotlin defaults `init` below hands to `SimulationEngine` when a caller names no
 // seam. Both are K/N-exported classes, so neither arrives `Sendable` (Pattern 1) nor satisfies
-// its parameter's `& Sendable` composition without this — measured: the build otherwise fails
-// with "type 'NoopEngineLogger' does not conform to the 'Sendable' protocol". `@unchecked` is
-// checked-by-contract as above, on the narrowest claim available: `NoopEngineLogger` has no
-// state at all (its `log` is an empty body) and `SystemRandomSource` none either, drawing from
-// Kotlin's documented-thread-safe `Random.Default` — a field on either invalidates both.
+// its parameter's `& Sendable` composition without this — measured: "type 'NoopEngineLogger'
+// does not conform to the 'Sendable' protocol". Checked-by-contract on the narrowest claim:
+// `NoopEngineLogger` has no state (`log` is an empty body), `SystemRandomSource` none either
+// (delegates to Kotlin's thread-safe `Random.Default`). A field on either invalidates both, and
+// nothing detects one being added — this sentence is the detector until upstreamed to `commonMain`.
 extension PasturaSharedEngine.NoopEngineLogger: @retroactive @unchecked Sendable {}
 extension PasturaSharedEngine.SystemRandomSource: @retroactive @unchecked Sendable {}
 

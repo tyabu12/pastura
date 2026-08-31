@@ -23,7 +23,11 @@ import Testing
 /// Kotlin twins are spelled `PasturaSharedEngine.X`, Swift ones `Pastura.X` —
 /// both modules are in scope here, so a bare name is ambiguous rather than
 /// merely shadowed (`.claude/rules/kmp-interop.md` Pattern 1b).
-@Suite("Kotlin engine end-to-end", .timeLimit(.minutes(1)))
+///
+/// `.serialized` because a real Kotlin run is `Task` + `AsyncStream` teardown
+/// (`.claude/rules/swift-testing-parallelism.md`); it is intra-suite only —
+/// `SharedEngineRunnerTests` still runs concurrently with this suite.
+@Suite("Kotlin engine end-to-end", .timeLimit(.minutes(1)), .serialized)
 struct SharedEngineEndToEndTests {
 
   @Test("a bundled preset runs to SimulationCompleted through the injected seams")
@@ -73,7 +77,11 @@ struct SharedEngineEndToEndTests {
     // `logger.log` call site in `LLMCaller` is a parse failure, a retry, a
     // repair, a template-token leak or a skipped language check — so
     // `recorder.lines.isEmpty` is the *expected* happy-path shape and would
-    // make a logger assertion vacuous.
+    // make a logger assertion vacuous. It is OS-version-sensitive by design:
+    // the fixture's Japanese answers pass through `NLLanguageDetector`, so an
+    // OS revision that classifies one as non-`ja` makes ADR-010 Step E log and
+    // retry, shifting the positional script — read a non-empty log first, it
+    // names the retry; the other two failures below are its consequence.
     #expect(detector.callCount > 0)
     #expect(recorder.lines.isEmpty, "a clean run logs nothing; a non-empty log means a retry ran")
   }
@@ -109,7 +117,7 @@ struct SharedEngineEndToEndTests {
 /// `Dispatchers.Default`, so unlike the direct-call doubles in
 /// `SeamBridgeTests` this one genuinely runs off the main actor
 /// (`.claude/rules/swift-isolation.md` Pattern 7).
-nonisolated final class CountingLanguageDetector: Pastura.LanguageDetector, Sendable {
+nonisolated private final class CountingLanguageDetector: Pastura.LanguageDetector, Sendable {
   private let wrapped: any Pastura.LanguageDetector
   private let calls = Mutex(0)
 

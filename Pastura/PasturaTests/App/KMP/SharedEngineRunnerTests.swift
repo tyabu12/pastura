@@ -100,8 +100,10 @@ struct SharedEngineRunnerTests {
     // The reachable shape this flag exists for: the consumer has already
     // walked away (`cancelPending`), and a backend call still in flight then
     // delivers `.suspended`, arming a relay that awaits a resume nobody will
-    // send. Without the flag the task below parks for its full sleep and the
-    // suite `.timeLimit` is what fails, which is precisely the leak.
+    // send. Without the flag the task below runs its full 30 s sleep and
+    // `cancelled` stays false — the `#expect` fails, not the suite `.timeLimit`
+    // (the sleep is deliberately under it); the sleep length only has to
+    // exceed the cancel-propagation window, not reach the limit.
     let box = RelayTaskBox()
     box.cancelPending()
 
@@ -152,7 +154,10 @@ struct SharedEngineRunnerTests {
     //     consumer fires `onTermination(.cancelled)` regardless of references,
     //     and is the same shape `RelayTaskBox`'s doc comment describes.
     let consumer = Task { for await _ in events {} }
-    try await pollUntilBackendCondition { service.parkedCalls >= 1 }
+    // 20 s each, not the 30 s default: two sequential polls at 30 s would trip
+    // the 1-minute `.timeLimit` on a real regression and discard the
+    // `Issue.record` message this test exists to produce.
+    try await pollUntilBackendCondition(timeout: .seconds(20)) { service.parkedCalls >= 1 }
     consumer.cancel()
 
     // The gate is deliberately NOT released before the assertion.
@@ -170,7 +175,9 @@ struct SharedEngineRunnerTests {
     // test rather than a "did we call cancel" test — and it is asserted as a
     // positive count, because an absence passes just as well when nothing was
     // wired at all.
-    try await pollUntilBackendCondition { service.observedCancellations >= 1 }
+    try await pollUntilBackendCondition(timeout: .seconds(20)) {
+      service.observedCancellations >= 1
+    }
     #expect(service.observedCancellations >= 1)
 
     // Teardown only: releases the gate's latch so nothing is left parked if the
@@ -217,7 +224,7 @@ nonisolated private final class RecordingRunHandle: RunHandle, Sendable {
 /// Swift twins are spelled `Pastura.X` — `PasturaSharedEngine` is imported
 /// here too, so a bare `OutputSchema` / `ChatTurnMarkers` is ambiguous rather
 /// than merely shadowed (`.claude/rules/kmp-interop.md` Pattern 1b).
-nonisolated final class CancellationObservingLLMService: LLMService, Sendable {
+nonisolated private final class CancellationObservingLLMService: LLMService, Sendable {
   private struct Counters {
     var entered = 0
     var cancellations = 0

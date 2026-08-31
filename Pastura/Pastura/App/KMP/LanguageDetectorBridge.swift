@@ -26,11 +26,15 @@ import PasturaSharedEngine
 /// free of `NaturalLanguage` besides). This file is §10-permanent: it does not
 /// retire when the Kotlin port completes.
 ///
-/// **Isolation.** `nonisolated` because `LanguageDetector` imports as an
-/// *unannotated* Obj-C protocol whose `detect` Kotlin calls from
-/// `Dispatchers.Default` — without it the `@objc` thunk carries a MainActor
+/// **Isolation.** `nonisolated` because Kotlin calls `detect` from
+/// `Dispatchers.Default` — stated by the interface's own KDoc in
+/// `shared/engine`, not yet by the Pattern 7 probe against the staged
+/// framework (S5-2 PR-C runs it). K/N exports the interface as an Obj-C
+/// protocol that is expected to import unannotated, in which case a
+/// default-MainActor conformer's `@objc` thunk carries a MainActor
 /// precondition that compiles clean and traps at runtime
-/// (`.claude/rules/swift-isolation.md` Pattern 7).
+/// (`.claude/rules/swift-isolation.md` Pattern 7). `nonisolated` is the safe
+/// direction whichever way the probe lands.
 ///
 /// **Plain `Sendable`, not `@unchecked`.** The only stored member is an
 /// immutable `any LanguageDetector`, which the Swift protocol already refines
