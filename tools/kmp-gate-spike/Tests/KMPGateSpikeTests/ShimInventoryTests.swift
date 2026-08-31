@@ -37,12 +37,18 @@ struct ShimInventoryTests {
     let inventory = try ShimInventory.scan(roots: Self.roots)
 
     #expect(inventory.total > 0)
-    // The two retroactive vouches are the boundary's signature cost and are
-    // named in the ADR record; if they vanish, either the adapters changed
-    // shape or the scanner stopped seeing them.
+    // The retroactive vouches are the boundary's signature cost; if they
+    // vanish, either the adapters changed shape or the scanner stopped seeing
+    // them. Four since S5-2b (#1655): the original `SimulationEvent` and
+    // `SimulationEngine` pair named in ADR-023 §6's 2026-07-18 budget, plus
+    // `NoopEngineLogger` and `SystemRandomSource` — the seam defaults `init`
+    // hands to `SimulationEngine`, which K/N exports without `Sendable` like
+    // every other class. So a rising count here is the measurement working, not
+    // a defect: raise it deliberately, alongside the vouch that caused it. The
+    // ADR's figure is a point-in-time gate measurement and is left as recorded.
     let retroactive = try #require(
       inventory.categories.first { $0.name == "retroactive Sendable vouch" })
-    #expect(retroactive.count == 2)
+    #expect(retroactive.count == 4)
     #expect(retroactive.hits.allSatisfy { $0.file == "SharedEngineRunner.swift" })
   }
 
