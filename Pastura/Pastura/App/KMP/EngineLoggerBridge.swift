@@ -38,13 +38,12 @@ import PasturaSharedEngine
 ///
 /// **Isolation.** `nonisolated` because Kotlin calls `log` from
 /// `Dispatchers.Default` — stated by the interface's own KDoc in
-/// `shared/engine`, not yet by the Pattern 7 probe against the staged
-/// framework (S5-2 PR-C runs it). K/N exports the interface as an Obj-C
-/// protocol that is expected to import unannotated, in which case a
-/// default-MainActor conformer's `@objc` thunk carries a MainActor
-/// precondition that compiles clean and traps at runtime
-/// (`.claude/rules/swift-isolation.md` Pattern 7). `nonisolated` is the safe
-/// direction whichever way the probe lands.
+/// `shared/engine` and confirmed by the Pattern 7 probe against the staged
+/// framework (`scripts/kmp/probe-pattern7-isolation.sh`, measured 2026-08-31:
+/// the interface imports unannotated). A default-MainActor conformer's
+/// `@objc` thunk would carry a MainActor precondition that compiles clean and
+/// traps at runtime (`.claude/rules/swift-isolation.md` Pattern 7). Re-run
+/// the probe after a Kotlin bump regenerates the header.
 ///
 /// **Plain `Sendable`, not `@unchecked`.** The only stored member is an
 /// immutable `any EngineLogger`, which the Swift protocol already refines as

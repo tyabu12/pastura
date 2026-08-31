@@ -50,11 +50,13 @@ Reference: `Views/Components/ShareCaptionItemSource.swift` (`UIActivityItemSourc
 
 A Kotlin/Native-exported protocol is the same case, not a UIKit one: `LLMBackend` imports as an
 unannotated Obj-C protocol and `knownTurnMarkers` is read from `Dispatchers.Default`, so a
-Stage-5 adapter in `LLM/` conforming to it must be `nonisolated`. The gate-spike conformers all
-carry it (`tools/kmp-gate-spike/Sources/KMPGateSpike/ScriptedStreamingBackend.swift`) — follow
-that precedent, not the compiler's silence. Stated from the KDoc on `knownTurnMarkers` in
-`shared/engine/.../LLMBackend.kt`, not yet from the probe above — run it against the staged
-framework before relying on it.
+Stage-5 adapter in `App/KMP/` conforming to it must be `nonisolated`. The conformers all carry it
+(`Pastura/Pastura/App/KMP/LLMServiceBackend.swift` and the gate-spike twins) — follow that
+precedent, not the compiler's silence. Measured 2026-08-31 by
+`scripts/kmp/probe-pattern7-isolation.sh`, which automates the probe above against the staged
+framework for all four seam protocols (`LLMBackend`, `LanguageDetector`, `EngineLogger`,
+`RandomSource`), control line included — all four import unannotated. Re-run the script after a
+Kotlin bump regenerates the umbrella header.
 
 ## Pattern 8 — MainActor-inferred closure handed to a framework callback
 
