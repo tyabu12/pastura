@@ -32,7 +32,7 @@
   "yaml_hook": {
     "kind": "persona",
     "fragment": "  - name: Byron the Bard\n    description: >\n      [Role] A pretentious Romantic poet drunk on his own melancholy.\n      [Goal] Inflate the pettiest office trifle into grand tragic poetry.\n      e.g. \"O, three hundred unread in my Slack / and my soul, it shall never come back.\"\n  - name: Synergy Steve\n    description: >\n      [Role] A LinkedIn-brained middle manager who crams corporate jargon into the\n      old verse form.\n      [Goal] Pack the sort of words that fill a LinkedIn post — synergy, bandwidth,\n      deliverables, circling back — into the limerick's bouncy meter; the laugh is\n      that the verse scans perfectly and says nothing whatsoever.\n      e.g. \"We'll leverage the north star we drew / and the low-hanging fruit is in view.\"",
-    "caption": "Same five lines, opposite afflictions: a Romantic poet who mourns his slippers as if they were a grave, and a middle manager whose verse scans flawlessly and means nothing at all."
+    "caption": "Byron pines for the office's harsh glare as though he had been exiled from it; Steve fills the same five lines with synergy and bandwidth and manages to say nothing at all."
   },
   "teaser": "Once every limerick is in, they vote for the funniest that is not their own, and a second prompt is still waiting.",
   "window_override": false,
