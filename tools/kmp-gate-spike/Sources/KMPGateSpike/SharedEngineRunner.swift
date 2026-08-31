@@ -28,6 +28,18 @@ extension SimulationEvent: @retroactive @unchecked Sendable {}
 // the injected instances must themselves be `Sendable` / internally
 // thread-safe, or this conformance launders a real race into a checked claim.
 extension SimulationEngine: @retroactive @unchecked Sendable {}
+// The two Kotlin defaults `init` below hands to `SimulationEngine` when a
+// caller names no seam. Both are K/N-exported classes, so neither arrives
+// `Sendable` (Pattern 1) and neither satisfies the `& Sendable` compositions on
+// their parameters without this.
+//
+// `@unchecked` is checked-by-contract here as above, and on the narrowest
+// possible claim: `NoopEngineLogger` has no state at all — its `log` is an
+// empty body — and `SystemRandomSource` holds none either, drawing from
+// Kotlin's `kotlin.random.Random.Default`, which is documented thread-safe.
+// A field appearing on either type invalidates both claims.
+extension NoopEngineLogger: @retroactive @unchecked Sendable {}
+extension SystemRandomSource: @retroactive @unchecked Sendable {}
 
 /// Reconstructs an `AsyncStream<SimulationEvent>` over the KMP engine's
 /// callback boundary, and owns the suspension relay — the two responsibilities
@@ -47,25 +59,46 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// even though the package compiles under default-`MainActor` isolation, so it
 /// keeps the same semantics as its `App/KMP/` twin.
 nonisolated public final class SharedEngineRunner: Sendable {
-  // All three arguments are spelled out because Kotlin default arguments do not
-  // survive the K/N export (`.claude/rules/kmp-interop.md` Pattern 3): the
-  // header declares exactly one initializer,
-  // `init(detector:logger:random:)`, with no no-arg overload. `nil` keeps the
+  // All three arguments are spelled out at the construction site below because
+  // Kotlin default arguments do not survive the K/N export
+  // (`.claude/rules/kmp-interop.md` Pattern 3): the header declares exactly one
+  // initializer, `init(detector:logger:random:)`, with no no-arg overload. The
+  // Swift-side defaults restate the Kotlin ones — `nil` keeps the
   // language-adherence check off, `NoopEngineLogger` swallows diagnostics, and
-  // `SystemRandomSource` is the production RNG — the Kotlin defaults, restated
-  // here. The spike deliberately injects none of the three seams; Stage 5 hands
-  // in `NLLanguageDetector` / `OSLogEngineLogger` from the App layer, and a
-  // parity fixture would hand in a `SplitMix64RandomSource` (ADR-023 S3b).
-  private let engine = SimulationEngine(
-    detector: nil, logger: NoopEngineLogger(), random: SystemRandomSource())
+  // `SystemRandomSource` is the production RNG — so a caller that names none of
+  // them gets the pre-S5-2 behaviour unchanged, which is every caller in this
+  // package: the spike deliberately injects none of the three seams. Stage 5
+  // hands in `NLLanguageDetector` / `OSLogEngineLogger` from the App layer, and
+  // a parity fixture would hand in a `SplitMix64RandomSource` (ADR-023 S3b).
+  private let engine: SimulationEngine
   private let suspendController: SuspendController
 
-  /// - Parameter suspendController: The controller the platform signals on
-  ///   app-lifecycle suspend/resume. Ownership sits on the Swift side per
-  ///   ADR-023 §5.2 invariant 4 — post-port it is created here rather than
-  ///   reaching the engine through `PhaseContext`.
-  public init(suspendController: SuspendController = SuspendController()) {
+  /// - Parameters:
+  ///   - suspendController: The controller the platform signals on
+  ///     app-lifecycle suspend/resume. Ownership sits on the Swift side per
+  ///     ADR-023 §5.2 invariant 4 — post-port it is created here rather than
+  ///     reaching the engine through `PhaseContext`.
+  ///   - detector: ADR-010 Step E output-language detector. `nil` disables the
+  ///     adherence check, which is the Kotlin default.
+  ///   - logger: Diagnostic seam reaching `LLMCaller`'s `StreamingDiag` channel.
+  ///   - random: The `assign random_one` / `event_inject` randomness seam.
+  ///
+  /// Each seam parameter is a `& Sendable` **composition**, deliberately. The
+  /// K/N protocol existentials carry no `Sendable` conformance of their own
+  /// (Pattern 1), and the `@retroactive @unchecked Sendable` on
+  /// `SimulationEngine` above would otherwise launder a non-thread-safe
+  /// conformer into a checked claim — Kotlin calls all three from
+  /// `Dispatchers.Default`. With the composition it is the conformer's own
+  /// declared `Sendable` that satisfies the parameter, so a future one that
+  /// cannot claim it fails the build here rather than racing in production.
+  public init(
+    suspendController: SuspendController = SuspendController(),
+    detector: (any LanguageDetector & Sendable)? = nil,
+    logger: any EngineLogger & Sendable = NoopEngineLogger(),
+    random: any RandomSource & Sendable = SystemRandomSource()
+  ) {
     self.suspendController = suspendController
+    self.engine = SimulationEngine(detector: detector, logger: logger, random: random)
   }
 
   /// Starts a run and returns its event stream.

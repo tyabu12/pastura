@@ -4,7 +4,8 @@ import Synchronization
 
 // Every Kotlin type below that also has a Swift twin declared in this module —
 // `Scenario`, `SimulationEvent`, `NoopEngineLogger`, `SystemRandomSource`,
-// `ChatTurnMarkers` — is spelled `PasturaSharedEngine.X`. An in-module
+// `ChatTurnMarkers`, `LanguageDetector`, `EngineLogger`, `RandomSource` — is
+// spelled `PasturaSharedEngine.X`. An in-module
 // declaration shadows the import, so a bare name binds to the *Swift* type and
 // the file either fails to build or, worse, builds against the wrong one. No
 // typealias: a bare alias would hide the shadowing from the next reader. The
@@ -39,6 +40,15 @@ extension PasturaSharedEngine.SimulationEvent: @retroactive @unchecked Sendable 
 // the injected instances must themselves be `Sendable` / internally
 // thread-safe, or this conformance launders a real race into a checked claim.
 extension SimulationEngine: @retroactive @unchecked Sendable {}
+// The two Kotlin defaults `init` below hands to `SimulationEngine` when a caller names no
+// seam. Both are K/N-exported classes, so neither arrives `Sendable` (Pattern 1) nor satisfies
+// its parameter's `& Sendable` composition without this — measured: "type 'NoopEngineLogger'
+// does not conform to the 'Sendable' protocol". Checked-by-contract on the narrowest claim:
+// `NoopEngineLogger` has no state (`log` is an empty body), `SystemRandomSource` none either
+// (delegates to Kotlin's thread-safe `Random.Default`). A field on either invalidates both, and
+// nothing detects one being added — this sentence is the detector until upstreamed to `commonMain`.
+extension PasturaSharedEngine.NoopEngineLogger: @retroactive @unchecked Sendable {}
+extension PasturaSharedEngine.SystemRandomSource: @retroactive @unchecked Sendable {}
 
 /// Reconstructs an `AsyncStream<SimulationEvent>` over the KMP engine's
 /// callback boundary, and owns the suspension relay — the two responsibilities
@@ -59,26 +69,45 @@ extension SimulationEngine: @retroactive @unchecked Sendable {}
 /// the reconstruction costs nothing. This type is deliberately `nonisolated`
 /// even though the target compiles under default-`MainActor` isolation.
 nonisolated final class SharedEngineRunner: Sendable {
-  // All three arguments are spelled out because Kotlin default arguments do not
-  // survive the K/N export (`.claude/rules/kmp-interop.md` Pattern 3): the
-  // header declares exactly one initializer,
-  // `init(detector:logger:random:)`, with no no-arg overload. `nil` keeps the
-  // language-adherence check off, `NoopEngineLogger` swallows diagnostics, and
-  // `SystemRandomSource` is the production RNG — the Kotlin defaults, restated
-  // here. The spike deliberately injects none of the three seams; Stage 5 hands
-  // in `NLLanguageDetector` / `OSLogEngineLogger` from the App layer, and a
-  // parity fixture would hand in a `SplitMix64RandomSource` (ADR-023 S3b).
-  private let engine = SimulationEngine(
-    detector: nil, logger: PasturaSharedEngine.NoopEngineLogger(),
-    random: PasturaSharedEngine.SystemRandomSource())
+  // All three arguments are spelled out at the construction site below because
+  // Kotlin default arguments do not survive the K/N export
+  // (`.claude/rules/kmp-interop.md` Pattern 3): the header declares exactly one
+  // initializer, `init(detector:logger:random:)`, with no no-arg overload. The
+  // Swift-side defaults restate the Kotlin ones — `nil` keeps the
+  // language-adherence check off, `NoopEngineLogger` swallows diagnostics,
+  // `SystemRandomSource` is the production RNG — so a caller naming none of them
+  // gets the pre-S5-2 behaviour unchanged. This is where Stage 5 hands in
+  // `NLLanguageDetector` / `OSLogEngineLogger` through `LanguageDetectorBridge` /
+  // `EngineLoggerBridge`, and a parity fixture a `SplitMix64RandomSource` (S3b).
+  private let engine: SimulationEngine
   private let suspendController: SuspendController
 
-  /// - Parameter suspendController: The controller the platform signals on
-  ///   app-lifecycle suspend/resume. Ownership sits on the Swift side per
-  ///   ADR-023 §5.2 invariant 4 — post-port it is created here rather than
-  ///   reaching the engine through `PhaseContext`.
-  init(suspendController: SuspendController = SuspendController()) {
+  /// - Parameters:
+  ///   - suspendController: The controller the platform signals on app-lifecycle
+  ///     suspend/resume. Ownership sits on the Swift side per ADR-023 §5.2
+  ///     invariant 4 — post-port it is created here, not reached via `PhaseContext`.
+  ///   - detector: ADR-010 Step E output-language detector; `nil` (the Kotlin
+  ///     default) disables the adherence check.
+  ///   - logger: Diagnostic seam reaching `LLMCaller`'s `StreamingDiag` channel.
+  ///   - random: The `assign random_one` / `event_inject` randomness seam.
+  ///
+  /// Each seam parameter is a `& Sendable` **composition**, deliberately: the
+  /// K/N protocol existentials carry no `Sendable` of their own (Pattern 1),
+  /// and the `@retroactive @unchecked Sendable` on `SimulationEngine` above
+  /// would otherwise launder a non-thread-safe conformer into a checked claim —
+  /// Kotlin calls all three from `Dispatchers.Default`. With the composition it
+  /// is the bridge's own declared `Sendable` that satisfies the parameter, so a
+  /// conformer that cannot claim it fails the build instead.
+  init(
+    suspendController: SuspendController = SuspendController(),
+    detector: (any PasturaSharedEngine.LanguageDetector & Sendable)? = nil,
+    logger: any PasturaSharedEngine.EngineLogger & Sendable =
+      PasturaSharedEngine.NoopEngineLogger(),
+    random: any PasturaSharedEngine.RandomSource & Sendable =
+      PasturaSharedEngine.SystemRandomSource()
+  ) {
     self.suspendController = suspendController
+    self.engine = SimulationEngine(detector: detector, logger: logger, random: random)
   }
 
   /// Starts a run and returns its event stream.
@@ -219,6 +248,7 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
   }
 }
 
+// Internal, not private, so the terminated flag is testable — `RunHandleBox` above has the reasoning.
 /// Tracks the in-flight relay task so stream termination can cancel a parked
 /// one instead of leaking it — and **remembers that termination already
 /// happened**, so a relay armed after that point is cancelled on arrival.
@@ -236,7 +266,7 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
 /// (What cannot happen is the run loop emitting a terminal and *then* taking a
 /// `.suspended` — `onEvent` runs synchronously on the loop's own thread and the
 /// terminal is its last event.)
-nonisolated private final class RelayTaskBox: @unchecked Sendable {
+nonisolated final class RelayTaskBox: @unchecked Sendable {
   private struct State {
     var task: Task<Void, Never>?
     var terminated = false

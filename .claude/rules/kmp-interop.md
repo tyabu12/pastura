@@ -24,7 +24,8 @@ table and pointers are hand-maintained and are not.
 The fix is Kotlin-side (upstream the conformance to `commonMain`). A retroactive
 `extension Foo: @retroactive @unchecked Sendable` is sound **only** when every Kotlin field is
 `val`, and exactly one declaration **per type** may exist per module (`App/KMP/SharedEngineRunner.swift`
-carries the app module's two). Spell it on the qualified Kotlin type when a Swift twin exists, or
+carries the app module's four — `SimulationEvent`, `SimulationEngine`, `NoopEngineLogger`,
+`SystemRandomSource`). Spell it on the qualified Kotlin type when a Swift twin exists, or
 the conformance lands on the twin — Pattern 1b.
 
 ## Pattern 1b — a Kotlin type with a Swift twin is shadowed inside the app module

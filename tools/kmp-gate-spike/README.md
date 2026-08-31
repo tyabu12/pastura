@@ -220,7 +220,12 @@ is imported from `App/` only.
 - **`SharedEngineRunner`** is rehomed as of S5-1 (#1635, PR-C):
   `Pastura/Pastura/App/KMP/SharedEngineRunner.swift` is the app-side twin. This
   package's copy stays until S5-5 and is still what the nightly gate-spike rung
-  builds, so a change to the §5.2 relay contract must land in both.
+  builds, so a change to the §5.2 relay contract must land in both. As of
+  S5-2 PR-B (#1647) both twins take the §5 seams —
+  `init(suspendController:detector:logger:random:)`, defaults restating the
+  Kotlin ones — but only the app-side twin is ever handed a real conformer
+  (`EngineLoggerBridge` / `LanguageDetectorBridge` under `App/KMP/`); this
+  package still injects none of the three.
 - **The `LLMBackend` actual** is `Pastura/Pastura/App/KMP/LLMServiceBackend.swift`
   (S5-2 PR-A, #1647), wrapping `LLMService`. It has no twin here — `LLMService`
   has no spike counterpart, so there is no export-facing shape to mirror —
