@@ -37,12 +37,14 @@ personas:
       [Role] A pretentious Romantic poet drunk on his own melancholy.
       [Goal] Inflate the pettiest office trifle into grand tragic poetry.
       e.g. "O, three hundred unread in my Slack / and my soul, it shall never come back."
-  - name: Old-Timer Walt
+  - name: Synergy Steve
     description: >
-      [Role] A weary veteran on the edge of retirement, still dragging the old days
-      along.
-      [Goal] Deliver a dry, bittersweet verse that makes you laugh and ache at once.
-      e.g. "They rehired me, my title cut thin / just a badge and a chair to clock in."
+      [Role] A LinkedIn-brained middle manager who crams corporate jargon into the
+      old verse form.
+      [Goal] Pack the sort of words that fill a LinkedIn post — synergy, bandwidth,
+      deliverables, circling back — into the limerick's bouncy meter; the laugh is
+      that the verse scans perfectly and says nothing whatsoever.
+      e.g. "We'll leverage the north star we drew / and the low-hanging fruit is in view."
 
 phases:
   - type: assign

@@ -6,6 +6,14 @@ description: >
   while a neutral detective guides the deduction — a short roleplay. If the
   vote splits, it branches into a rebuttal round.
 
+# Three guards, each written as an in-world rule rather than a bare mechanic,
+# because a silently discarded self-vote still costs a tally and a mechanical
+# instruction is obeyed less reliably than a house rule:
+#   Rule of accusation — no self-accusation (paired with exclude_self: true)
+#   Rule of the record — every output field in English (statements drift, but
+#                        reasons and inner_thought are equally exposed)
+#   [Your own alibi]   — each suspect owns one alibi, so nobody borrows the
+#                        first one in the log
 context: >
   The setting is a 1920s Western manor. The wealthy Mr. Hamilton has been
   poisoned in his study. The four suspects who were present and an invited
@@ -14,6 +22,10 @@ context: >
   a suspect. He must never be voted for as the culprit. The true culprit is
   always one of the four suspects (Butler Wallace, Niece Eleanor,
   Gardener Thomas, Doctor Carter).
+  [Rule of accusation] At this table no one may name themselves as the
+  culprit. Every suspect must accuse someone other than themselves, by name.
+  [Rule of the record] Every record kept in this manor is written in English.
+  State your words, your thoughts and your reasons in English.
 
 agents: 5
 rounds: 1
@@ -22,6 +34,8 @@ personas:
   - name: Butler Wallace
     description: >
       [Role] A loyal butler who served the master for thirty years.
+      [Your own alibi] That night he kept the study keys and was polishing the
+      silver in the pantry.
       [Goal] Protests his innocence, but hides that the master had been about
       to dismiss him.
       [Suspicion] Subtly hints at Niece Eleanor, who stood to inherit.
@@ -29,19 +43,24 @@ personas:
   - name: Niece Eleanor
     description: >
       [Role] The master's sole heir apparent.
+      [Your own alibi] That night she was in her room upstairs writing a
+      letter to her uncle. No one saw her.
       [Goal] Conceals her interest in the inheritance while professing her
       innocence. Grows talkative when flustered.
       [Suspicion] Turns suspicion on Doctor Carter, who knows poisons.
   - name: Gardener Thomas
     description: >
       [Role] Has tended the manor's gardens for a few years. Usually quiet.
-      [Goal] Claims he was in the greenhouse the night of the murder, but no
-      one saw him.
+      [Your own alibi] That night he was tending the night-blooming flowers in
+      the greenhouse, but no one saw him there.
+      [Goal] Keeps insisting he was in the greenhouse.
       [Suspicion] Eyes Butler Wallace, who could move freely through the manor.
       Blunt and terse.
   - name: Doctor Carter
     description: >
       [Role] The master's personal physician, with knowledge of poisons.
+      [Your own alibi] That night he says he was sorting his call bag in the
+      entrance hall and took his leave at nine o'clock.
       [Goal] Explains the situation with professional insight while hiding
       that his own prescription could have been the weapon.
       [Suspicion] Probes the gap in Gardener Thomas's unwitnessed alibi.
@@ -59,12 +78,16 @@ phases:
   - type: speak_each
     prompt: >
       What the others have said: {conversation_log}
-      From your standpoint, state (1) your alibi for the night of the murder
-      in one sentence, and (2) name one other suspect and give one specific,
-      concrete reason they are suspicious. Do not repeat what others have
-      already said — give an observation only you could make.
+      From your standpoint, state (1) your own alibi for the night of the
+      murder in one sentence, and (2) name one other suspect and give one
+      specific, concrete reason they are suspicious.
+      The alibi you give must be your own. Never repeat an alibi someone else
+      has given as if it were yours.
+      Do not repeat what others have already said — give an observation only
+      you could make.
       Detective Holmes judges the suspects, so he must not let himself be
       suspected.
+      Write both your statement and your thoughts in English.
     output:
       statement: string
       inner_thought: string
@@ -79,8 +102,12 @@ phases:
       [Strict] Detective Holmes is the investigator, not a suspect. Never vote
       for Holmes; choose only from the four suspects (Butler Wallace,
       Niece Eleanor, Gardener Thomas, Doctor Carter).
+      [Strict] You may not name yourself as the culprit. You must accuse a
+      suspect other than yourself.
+      For the reason, write in one sentence, in your own words and in English,
+      what about that person's statement is suspicious.
       Your vote must be exactly one of these names: {candidates}
-    exclude_self: false
+    exclude_self: true
     output:
       vote: string
       reason: string
@@ -103,6 +130,8 @@ phases:
           If you were accused, rebut by name; otherwise add one decisive extra
           observation, in 1-2 sentences. Detective Holmes must not let himself
           be suspected.
+          Do not simply repeat your earlier statement — add one new fact.
+          Write both your statement and your thoughts in English.
         output:
           statement: string
           inner_thought: string

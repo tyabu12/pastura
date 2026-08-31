@@ -545,7 +545,7 @@
       ],
       "language": "en",
       "yaml_url": "detective_scene_v1_en.yaml",
-      "yaml_sha256": "42eb3ced910ee60efb8a659c18270f8472753bcc0b19554d36c63698fbc86240",
+      "yaml_sha256": "e3e6ea6cba9be67f057cc0776ad9db599bd425e3a4d3a70b1383fb2c33a034a0",
       "added_at": "2026-07-01"
     },
     {
@@ -567,7 +567,7 @@
       ],
       "language": "en",
       "yaml_url": "kasei_sanso_touban_v1_en.yaml",
-      "yaml_sha256": "d01d3b84dbe3c2a2312134cb9923e786fdbc378cb78bdc8e67b07cb7212907e8",
+      "yaml_sha256": "30768fbd6c05ecd92627803e86311075e7952b968bc7349f687b4aa439428bdf",
       "added_at": "2026-07-01"
     },
     {
@@ -716,14 +716,14 @@
       "rounds": 2,
       "phases": [
         "assign",
-        "choose",
+        "speak_all",
         "vote",
         "score_calc",
         "summarize"
       ],
       "language": "en",
       "yaml_url": "chinwaza_saiyo_v1_en.yaml",
-      "yaml_sha256": "88314dd77267a5364c49324dfa31e3360c89b31cb387145d48778b67673d8502",
+      "yaml_sha256": "7e3edd087cb0c3b340091e0c35e504e742a576af6d4a613f63b45310697232f5",
       "added_at": "2026-07-01"
     },
     {
@@ -815,9 +815,9 @@
       ],
       "language": "en",
       "yaml_url": "shachiku_senryu_v1_en.yaml",
-      "yaml_sha256": "72fa4456f8576b1290f819dfb9561f786884ac99c50f1d88237795a7674c06e2",
+      "yaml_sha256": "7a4c8291bf2a6946ee406c4dbd33d8616e2fa29436838a79bf4ced682dd74f88",
       "highlight_url": "highlights/shachiku_senryu_v1_en.json",
-      "highlight_sha256": "58c222f79fa0b2b643996f51df71931e1faaed120e599558d3a49de0ac47d452",
+      "highlight_sha256": "2fbecc37867c1c413c9d6acf097ef29ea2d1a6002565e04ad4e46feeb66aaa72",
       "added_at": "2026-07-01"
     },
     {

@@ -15,6 +15,9 @@ context: >
   someone else).
   Then you vote for whoever, other than yourself, you think is "most fit for
   the repair duty".
+  Colony regulation forbids nominating, two rounds in a row, whoever received
+  the most nominations in the previous round. No one can be pinned with the
+  duty indefinitely.
   The longer this drags on, the worse things get.
 agents: 5
 rounds: 2
@@ -55,6 +58,7 @@ phases:
     source: crisis_events
     target: all
   - type: speak_all
+    max_sentences: 2
     prompt: >
       Round {current_round}. What is happening right now: {assigned_topic}
 
@@ -75,6 +79,9 @@ phases:
   # {vote_results} cannot be used here: VoteHandler writes that variable AFTER
   # the vote, so it is undefined at round 1's vote and expandTemplate leaves an
   # unknown key untouched — the literal `{vote_results}` would reach the LLM.
+  # {scoreboard} is the ONLY source of information for the "no nominating the
+  # previous round's top nominee two rounds in a row" rule below. The 08-28 v2
+  # candidate dropped this, but without it the rule cannot be honored.
   - type: vote
     prompt: >
       What is happening right now: {assigned_topic}
@@ -87,6 +94,8 @@ phases:
       Vote for whoever, other than yourself, you think is "most fit for the
       repair duty".
       In your reason, refer to what that person just said in their own words.
+      Colony regulation forbids nominating whoever received the most
+      nominations in the previous round. Choose someone else this time.
       Your vote must be exactly one of these names: {candidates}
     output:
       vote: string
