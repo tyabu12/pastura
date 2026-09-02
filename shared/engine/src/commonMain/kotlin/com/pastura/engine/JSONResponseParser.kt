@@ -161,7 +161,9 @@ internal class JSONResponseParser {
      * closes the quote and brace and persists a truncated value, but this port has no repair
      * pipeline yet (Stage-3 freight), so the same cut merely fails the parse here. (2) a
      * *leading* `.chatML.end` still cuts at index 0 and destroys the payload — gating it would
-     * make `<|im_end|>{"fake":1}` an accepted fabricated object, the #1422 counter-example.
+     * make `<|im_end|>{"fake":1}` an accepted fabricated object, the #1422 counter-example;
+     * on llama.cpp the `stopSequence` ends generation at `<|im_end|>` anyway, so the shape
+     * reaches this parser only through a backend with no stop sequence.
      * (3) for a non-ChatML marker, `<turn|>{"fake":1}` — marker, then an object with nothing
      * before it — is accepted: the object is the only candidate, and rejecting it
      * deterministically is the #1452 skip again; it is also what pre-#1422 Gemma did, having had
@@ -188,7 +190,9 @@ internal class JSONResponseParser {
         // needed (only ChatML's end marker can fire then, and it is ungated) or when the text
         // has no structural brace — nothing parses in that case, so the non-ChatML end arm
         // falls back to a from-0 search rather than going inert.
-        val firstBrace = insideString?.let { flags -> text.indices.firstOrNull { text[it] == '{' && !flags[it] } }
+        val firstBrace = insideString?.let { flags ->
+            text.indices.firstOrNull { text[it] == '{' && !flags[it] }
+        }
 
         for (marker in markers) {
             // `String.indexOf("")` returns 0, so an empty marker string would cut at index 0 and
@@ -204,7 +208,7 @@ internal class JSONResponseParser {
                 if (marker.end == ChatTurnMarkers.chatML.end || insideString == null) {
                     text.indexOf(marker.end)
                 } else {
-                    indexOfOutsideStrings(text, marker.end, (firstBrace?.plus(1)) ?: 0, insideString)
+                    indexOfOutsideStrings(text, marker.end, firstBrace?.plus(1) ?: 0, insideString)
                 }
             if (index >= 0 && index < cut) cut = index
         }

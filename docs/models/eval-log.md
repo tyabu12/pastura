@@ -143,6 +143,12 @@ negative today does not generalize to tomorrow's GGUF.
 Re-run this at each onboarding rather than copying the numbers forward — the step
 lives in [`onboarding.md`](onboarding.md) § "Stage 0".
 
+**A decision hangs off this table.** #1452 gated the non-ChatML end arm of
+`JSONResponseParser+Truncate.swift` on the first structural `{` and rejected the
+finer "no balanced object after the marker" rule on this evidence — no leading
+marker of either kind had been observed. A re-measurement that finds a leading
+`<turn|>` followed by a fabricated object is the input that reopens that choice.
+
 ### DRY sampler construction — 2026-08-15 (b8694 baseline)
 
 **Scope**: two `word_wolf.yaml` (ja) harness runs on the incumbent
