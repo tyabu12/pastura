@@ -44,6 +44,10 @@ app. Fields:
       "language": "ja | en",                 // ISO 639-1, mirrors the YAML `language:` — Browse language filter (ADR-010)
       "yaml_url": "<filename or absolute https URL>",  // resolved relative to gallery.json
       "yaml_sha256": "<lowercase hex>",      // SHA-256 of the YAML body
+      "highlight_url": "highlights/<id>.json", // optional; ADR-029 curated run excerpt, resolved relative to gallery.json (see § Highlights)
+      "highlight_sha256": "<lowercase hex>", // optional; present iff `highlight_url` is; SHA-256 of that file
+      "min_engine_version": <int>,           // optional; ADR-020 D3 declared engine floor — an app whose `EngineSchemaVersion.current` is lower greys the card (D4); raising it past `GallerySeedYAMLTests.maxGalleryFloorWithoutDeepLink` trips a test on purpose (ADR-020 §12) — the first entry to declare `2` is tracked in #1662
+      "featured": <int>,                     // optional; curator-assigned pin rank (ADR-025) — lower number sorts higher in Browse; `nil` = not pinned, falls through to added_at-descending order
       "added_at": "YYYY-MM-DD"
     }
   ]
@@ -52,6 +56,10 @@ app. Fields:
 
 Unknown `category` values cause the app to reject the whole index — add a
 new case to the Swift enum before shipping a JSON that uses it.
+
+`add-gallery-entry.sh --update` does not manage `highlight_url` /
+`highlight_sha256` / `min_engine_version` / `featured` — see
+§ "Updating an existing scenario" for exactly how it carries them forward.
 
 ## Per-scenario YAML schema
 
@@ -687,6 +695,18 @@ it **in the same PR**, one of two ways:
 - Re-run the harness and re-extract, then re-register the new hash. The excerpt
   text will differ, so it needs a fresh sign-off.
 - Delete `docs/gallery/highlights/<id>.json` and both `highlight_*` fields.
+- Re-extract from the existing transcript, admissible only when the YAML
+  edit provably cannot affect any excerpted line — every pick's round/phase
+  is unaffected (e.g. `event_inject no_repeat: true` changes only round-2+
+  draws while the excerpt is round 1). Edit the YAML, run
+  `add-gallery-entry.sh --update <id>` so `yaml_sha256` matches the file,
+  then re-run `scripts/gallery_highlight_extract.py` with the same picks
+  against the kept `data/highlight-runs/<id>.jsonl`. The extractor pins the
+  *current* file's hash, so the new pin is honest about bytes but not about
+  the run. Re-register `highlight_sha256`. The PR body must state the
+  argument for why no picked line could differ — the gate hashes only the
+  current file and cannot check this. If the teaser changes too, it needs a
+  fresh sign-off like any other.
 
 `--update` itself preserves the `highlight_*` fields, so a metadata-only change
 (a tighter card description, say) needs none of this.
