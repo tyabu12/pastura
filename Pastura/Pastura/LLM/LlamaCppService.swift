@@ -107,15 +107,33 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // normal turn — that is EOG, for every model. String-based rather than
   // token-ID because what it must catch is text, which has no single token id.
   //
-  // Shipped values: Qwen 3's `<|im_end|>` is 151645 (CONTROL, and its EOG).
-  // Both Gemma 4 descriptors hold that same ChatML string, absent from their
-  // 262k vocabularies — their own markers are `<|turn>` (105, CONTROL, NOT EOG)
-  // and `<turn|>` (106, EOG). `<turn|>` reaches EOG by a different field in each
-  // (`eos_token_id` on the Q4_K_M build, `eot_token_id` on the QAT one);
-  // `llama_vocab_is_eog` covers both, but a claim copied between them would not.
-  // Left as-is rather than replaced by a guess at what a
-  // Gemma hallucination would spell (#1417; behaviour half #1422). Read from
-  // the descriptor at construction time; future models may differ.
+  // Decided in #1451: every shipped descriptor carries the SAME ChatML string
+  // `"<|im_end|>"`, by design — not a per-model marker. Qwen 3's copy is
+  // 151645 (CONTROL, and its EOG). Both Gemma 4 descriptors hold that same
+  // string too, though it is absent from their 262k vocabularies; their own
+  // markers are `<|turn>` (105, CONTROL, NOT EOG) and `<turn|>` (106, EOG).
+  // `<turn|>` reaches EOG by a different field in each (`eos_token_id` on the
+  // Q4_K_M build, `eot_token_id` on the QAT one); `llama_vocab_is_eog` covers
+  // both, but a claim copied between them would not.
+  //
+  // Repointing Gemma's copy to its own `turnMarkers.end` was considered and
+  // rejected: the model's own end marker is CONTROL + EOG, so on a correct
+  // export it never decodes into text (double guard above) and a per-model
+  // literal here can never truncate — the field was never per-model IN
+  // EFFECT. Deriving from `turnMarkers.end` would only re-arm the stop from
+  // an observed hallucination class (spelled-out ChatML, corpus-measured) to
+  // an unobserved one (Gemma spelling its own marker, corpus 0 as of
+  // 2026-08-13, `docs/models/eval-log.md`) — zero upside, new risk. This
+  // match has no first-`{` gate (unlike `JSONResponseParser.truncateAtTurnMarkers`
+  // since #1452), so a *leading* spelled-out marker still ends generation at
+  // 0 chars for whichever literal is chosen — an accepted gap shared with the
+  // parser, not an argument for either value. Not inert in every sense, even
+  // though it never truncates: `stopSequenceHoldbackLength` reads this literal
+  // every streamed token, so the emission holdback window depends on it.
+  // Reopen only if a corpus re-measurement shows Gemma spelling `<turn|>`
+  // trailing after a completed payload. History: false-rationale comment
+  // #1417, parser-side half #1422. Read from the descriptor at construction
+  // time; a future model carries the same literal unless that reopens.
   // TODO: A generation-side stop on the turn-START marker would end a hallucinated next
   // turn at its first token instead of burning the remaining budget (#65). Parser-side
   // truncation (#1422) does NOT supersede this — it discards the turn after the fact, so
@@ -210,8 +228,9 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   /// - Parameters:
   ///   - modelPath: Absolute path to the GGUF model file on disk (provided by
   ///     `ModelManager.modelFileURL(for:).path` at the call-site).
-  ///   - stopSequence: Per-model plaintext stop sentinel, matched only against
-  ///     text the model spelled out (e.g., `<|im_end|>` for ChatML models).
+  ///   - stopSequence: The ChatML-hallucination guard, `<|im_end|>` for every
+  ///     shipped model by decision (#1451) — matched only against text the
+  ///     model spelled out, never the model's own token-level EOG marker.
   ///   - turnMarkers: This model's own plaintext turn-boundary sentinels
   ///     (`ModelDescriptor.turnMarkers`). **No default**: a wrong pair inherited in
   ///     silence is exactly the #1422 bug. Pass ``ChatTurnMarkers/chatML`` explicitly

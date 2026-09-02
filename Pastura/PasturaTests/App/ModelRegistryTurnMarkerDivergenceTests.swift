@@ -4,7 +4,9 @@ import Testing
 @testable import Pastura
 
 /// Pins the per-model turn markers in `ModelRegistry`, and the one place where
-/// they **deliberately disagree** with the older `stopSequence` field (#1422).
+/// they **deliberately disagree** with the older `stopSequence` field — a
+/// disagreement that is now the decided rule (#1451), not a carve-out
+/// (#1422).
 ///
 /// Own suite, not a `ModelRegistryTests` extension: the subject is a
 /// cross-field invariant, findable by name. Safe alongside that suite since
@@ -41,35 +43,44 @@ struct ModelRegistryTurnMarkerDivergenceTests {
     #expect(ModelRegistry.qwen34B.turnMarkers == .chatML)
   }
 
-  /// **Deliberate divergence, deferred to #1451.** For a Gemma descriptor,
-  /// `stopSequence` is a ChatML string absent from the vocabulary, so it's
-  /// inert; repointing it would activate a behaviour on an assumption, and a
-  /// false positive there truncates a real payload — worse than today's no-op.
+  /// **Decided in #1451.** `stopSequence` is the generation-side
+  /// ChatML-hallucination guard, shared across every model by design — not a
+  /// per-model marker. A model's own end marker is CONTROL + EOG, so on a
+  /// correct export it never decodes into text (`decodePiece(special: false)`
+  /// renders it `""`, and `llama_vocab_is_eog` stops the turn first anyway),
+  /// meaning a per-model literal here could never truncate — repointing
+  /// `stopSequence` to `turnMarkers.end` was considered and rejected as zero
+  /// upside, new risk (canonical rationale: `LlamaCppService.stopSequence`).
   ///
-  /// Asserted over the whole catalog rather than on `gemma4E2B` alone. The
-  /// inertness is a property of each **export's** vocabulary, so every divergent
-  /// descriptor owes its own header measurement — and both `stopSequence`
-  /// comments in `ModelRegistry` promise that `grep -rn '#1451'` enumerates
-  /// every site, which a per-descriptor test cannot keep true. (Run that
-  /// command rather than trusting a quoted phrase here: the promise is
-  /// hard-wrapped across comment lines, so it does not grep as one string.)
-  /// The id set is what makes a newly-divergent entry redden instead of landing
-  /// unmarked; it is order-independent, since order is not the invariant.
+  /// So under the #1451 rule, EVERY catalog entry — Gemma family included —
+  /// must carry the ChatML string, and a NEW non-ChatML model is *expected* to
+  /// diverge from its own `turnMarkers.end` and still pass here, as long as it
+  /// carries the ChatML guard. The second assertion below is the intent pin in
+  /// the other direction: for a descriptor whose `turnMarkers` genuinely IS
+  /// ChatML (Qwen), the two fields necessarily agree, so it is excluded there
+  /// by construction rather than asserted unequal.
   ///
-  /// A failure here is **not** automatically a bug: read #1451 first. Adding a
-  /// Gemma-family descriptor legitimately extends the set; anything else
-  /// diverging means the pair drifted by accident.
+  /// A failure in the first loop means some descriptor stopped carrying the
+  /// ChatML guard at all — a real regression. A failure in the second loop
+  /// means a descriptor was repointed to its own `turnMarkers.end` — read
+  /// #1451 before "fixing" that; it is the deliberately-reverted case, not a
+  /// missed consistency fix. Both `stopSequence` comments in `ModelRegistry`
+  /// promise that `grep -rn '#1451'` enumerates every decision site; this
+  /// doc comment is one of them. (Run that command rather than trusting a
+  /// quoted phrase here: the promise is hard-wrapped across comment lines, so
+  /// it does not grep as one string.)
   ///
-  /// This sweep reaches only descriptors still **in** `catalog`. If a divergent
-  /// entry is later dropped from `catalog` entirely (rather than hidden via
+  /// This sweep reaches only descriptors still **in** `catalog`. If an entry
+  /// is later dropped from `catalog` entirely (rather than hidden via
   /// `ModelManager.visibleCatalog`, `ModelRegistry` § "ADD-and-keep"), that
   /// reddens `catalog_hasExpectedModels` — which pins all three ids — before
   /// this sweep's coverage silently narrows.
-  @Test func everyDivergentDescriptorIsTheDeliberateChatMLCase() {
-    let divergent = ModelRegistry.catalog.filter { $0.stopSequence != $0.turnMarkers.end }
-    #expect(Set(divergent.map(\.id)) == ["gemma-4-e2b-q4-k-m", "gemma-4-e2b-qat-q4-k-xl"])
-    for descriptor in divergent {
+  @Test func everyCatalogEntryCarriesTheChatMLGuard_notItsOwnEndMarker() {
+    for descriptor in ModelRegistry.catalog {
       #expect(descriptor.stopSequence == ChatTurnMarkers.chatML.end, "\(descriptor.id)")
+    }
+    for descriptor in ModelRegistry.catalog where descriptor.turnMarkers != .chatML {
+      #expect(descriptor.stopSequence != descriptor.turnMarkers.end, "\(descriptor.id)")
     }
   }
 

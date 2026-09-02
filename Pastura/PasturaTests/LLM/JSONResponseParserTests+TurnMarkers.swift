@@ -118,7 +118,7 @@ extension JSONResponseParserTests {
   /// **Regression.** A non-ChatML end marker inside a string value is payload,
   /// not a boundary — pre-fix measured as `["statement": "テンプレートは"]` with
   /// `action` gone. Reachable because `stopSequence` strips only `<|im_end|>`
-  /// (#1451), so `<turn|>` survives un-stripped.
+  /// by decision (#1451), so `<turn|>` survives un-stripped.
   @Test func endMarker_insideStringValue_isNotATurnBoundary() throws {
     let input = #"{"statement": "テンプレートは <turn|> で終わる", "action": "cooperate"}"#
 

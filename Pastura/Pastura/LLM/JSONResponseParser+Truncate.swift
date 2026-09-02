@@ -89,8 +89,8 @@ nonisolated extension JSONResponseParser {
     // End arm — see the doc comment for the per-literal split and the three accepted
     // gaps. String-blindness measured on `{"note": "… <turn|> …"}`: accepted, repair
     // `unclosed_string+unclosed_brace`. Reachable for a *newly* added marker because
-    // `stopSequence` still strips only `<|im_end|>` (#1451), so `<turn|>` is the first
-    // end marker that survives generation.
+    // `stopSequence` strips only `<|im_end|>` by decision (#1451), so `<turn|>` is the
+    // first end marker that survives generation.
     for marker in markers where !marker.end.isEmpty {
       let index: Int? =
         if marker.end == ChatTurnMarkers.chatML.end || machine == nil {
