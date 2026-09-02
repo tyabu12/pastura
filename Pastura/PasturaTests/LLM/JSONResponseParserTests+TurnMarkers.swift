@@ -41,26 +41,77 @@ extension JSONResponseParserTests {
     #expect(unfixed.fields["statement"] == "偽物")
   }
 
-  /// **A pin on an accepted trade-off, not desired behaviour.** Read
-  /// [#1452](https://github.com/tyabu12/pastura/issues/1452) before changing —
-  /// a failure means the unguarded cut moved, not that this is stale.
+  /// **The end arm's own header-echo case (#1452).** A *leading* non-ChatML end
+  /// marker is the model echoing its template's turn boundary with the payload
+  /// still behind it. Cutting at index 0 destroyed the payload deterministically
+  /// (the template reproduces on every retry) → an ADR-021 turn skip.
   ///
-  /// The end arm cuts at the first occurrence with no `firstBrace` gate, so a *leading*
-  /// end marker discards the whole payload the model then writes.
-  /// The symmetric-looking fix — reusing the start arm's `> firstBrace` gate —
-  /// is not strictly safer: the second `#expect` shows `<|im_end|>{"fake":1}`
-  /// would then be accepted rather than failing and retrying.
-  @Test func endMarker_leadingMarkerDestroysPayload_acceptedGap() throws {
-    let leadingEcho = """
+  /// Revert the non-ChatML end arm's search origin to `0` and this test throws.
+  @Test func endMarker_leadingHeaderEcho_isNotATurnBoundary() throws {
+    let input = """
       <turn|>
+      <|turn>model
       {"statement": "本物", "action": "cooperate"}
       """
-    #expect(throws: LLMError.self) { try parser.parse(leadingEcho, turnMarkers: gemma) }
 
-    // The counter-example that blocks the `> firstBrace` gate: gating the end
-    // arm would turn this throw into an accepted fabricated object.
+    let output = try parser.parse(input, turnMarkers: gemma)
+    #expect(output.fields["statement"] == "本物")
+    #expect(output.fields["action"] == "cooperate")
+  }
+
+  /// The gate is a search *origin*, not a per-text skip: a leading marker is
+  /// stepped over and the next occurrence after the first structural `{` still
+  /// cuts, so a fabricated continuation behind a header echo is not accepted.
+  @Test func endMarker_leadingEchoThenFabricatedContinuation_cutsAtSecond() throws {
+    let input = """
+      <turn|>
+      <|turn>model
+      {"statement": "本物", "action": "cooperate"}<turn|>
+      <|turn>model
+      ```json
+      {"statement": "偽物", "action": "betray"}
+      ```
+      """
+
+    let output = try parser.parse(input, turnMarkers: gemma)
+    #expect(output.fields["statement"] == "本物")
+
+    // Negative control — without the Gemma pair the fenced continuation wins.
+    let unfixed = try parser.parse(input, turnMarkers: [.chatML])
+    #expect(unfixed.fields["statement"] == "偽物")
+  }
+
+  /// **Control — byte-identical-for-ChatML criterion.** ChatML's own end marker
+  /// is *not* gated: a leading `<|im_end|>` still cuts at index 0 under either
+  /// set, so `<|im_end|>{"fake":1}` keeps failing and retrying rather than
+  /// becoming an accepted fabricated object (#1422's reason for not gating
+  /// every marker). A failure here means someone widened the gate to ChatML.
+  @Test func endMarker_chatMLLeadingMarker_stillDestroysPayload() throws {
     #expect(throws: LLMError.self) {
       try parser.parse(#"<|im_end|>{"fake":1}"#, turnMarkers: [.chatML])
+    }
+    // Same marker under Gemma's effective set: the gate keys on the marker
+    // literal, not on which model is loaded.
+    #expect(throws: LLMError.self) {
+      try parser.parse("<|im_end|>\n{\"statement\": \"本物\"}", turnMarkers: gemma)
+    }
+  }
+
+  /// **A pin on the accepted trade, not desired behaviour.** For a non-ChatML
+  /// marker the fabricated-turn shape — end marker, then an object with nothing
+  /// before it — is accepted: the object is the only candidate, and failing it
+  /// deterministically would be the #1452 skip again. Pre-#1422 Gemma had no
+  /// end arm at all, so this is also the behaviour that shipped before that PR.
+  @Test func endMarker_leadingMarkerThenObject_isAccepted_acceptedTrade() throws {
+    let output = try parser.parse(#"<turn|>{"statement": "偽物"}"#, turnMarkers: gemma)
+    #expect(output.fields["statement"] == "偽物")
+  }
+
+  /// With no structural `{` anywhere the gate has no origin and the arm falls
+  /// back to the from-0 search; there is nothing to salvage either way.
+  @Test func endMarker_noStructuralBrace_stillFails() throws {
+    #expect(throws: LLMError.self) {
+      try parser.parse("<turn|>\n<|turn>model\nただの文章", turnMarkers: gemma)
     }
   }
 

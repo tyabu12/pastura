@@ -15,12 +15,6 @@ nonisolated extension JSONResponseParser {
   /// The markers mean different things where they appear, so one predicate for both would
   /// be wrong in one direction or the other.
   ///
-  /// - **End marker** — a boundary wherever it occurs: cut from the first occurrence to
-  ///   end-of-string, no `firstBrace` gate. String-aware for every end marker **except
-  ///   `.chatML.end`**, keyed on that literal so a ChatML backend stays byte-identical to
-  ///   pre-#1422. Everything else is guarded because a mid-value cut fails silently: the
-  ///   repair pipeline closes the quote and brace and persists a truncated value.
-  ///
   /// - **Start marker** — cut **only** after the first structural `{`. A *leading* one is
   ///   a template-header echo with the payload still behind it; cutting there deletes the
   ///   payload deterministically (the template config reproduces on every retry) →
@@ -29,14 +23,33 @@ nonisolated extension JSONResponseParser {
   ///   `extractFromCodeBlock` runs **before** the balanced-brace scan and takes `firstMatch`
   ///   unconditionally, so a fenced continuation would be accepted silently.
   ///
-  /// Two accepted gaps remain, both ChatML-only by construction:
+  /// - **End marker** — split on the marker literal, because #1422 holds a ChatML backend
+  ///   byte-identical to the pre-#1422 hardcoded `<|im_end|>` cut:
+  ///   - **`.chatML.end`**: cut from the first occurrence anywhere, string-blind.
+  ///   - **Every other end marker**: string-aware, and cut only **after** the first
+  ///     structural `{` — the same gate as the start arm, for the same reason. A leading
+  ///     `<turn|>` is Gemma echoing its template's turn boundary, and the index-0 cut was
+  ///     deterministic payload destruction (#1452). The gate is a search *origin*, so a
+  ///     second occurrence after the `{` still truncates a fabricated continuation.
+  ///     String-awareness matters here because a mid-value cut fails silently: the repair
+  ///     pipeline closes the quote and brace and persists a truncated value.
+  ///
+  /// Three accepted gaps remain:
   ///
   /// 1. `<|im_end|>` inside a string value still cuts mid-value. Pre-existing; closing it
   ///    would move ChatML behaviour, which #1422 holds fixed.
-  /// 2. A *leading* end marker cuts at that index and destroys the payload →
-  ///    `parse_failed` → retry. Left as-is: a `> firstBrace` guard is not strictly safer,
-  ///    because it makes `<|im_end|>{"fake":1}` an accepted fabricated object where today
-  ///    it fails and retries. Tracked in #1452.
+  /// 2. A *leading* `<|im_end|>` still cuts at index 0 and destroys the payload →
+  ///    `parse_failed` → retry. Gating it would make `<|im_end|>{"fake":1}` an accepted
+  ///    fabricated object, the #1422 counter-example; on llama.cpp the `stopSequence` ends
+  ///    generation at `<|im_end|>` anyway, so the shape reaches this parser only through
+  ///    a backend with no stop sequence.
+  /// 3. For a non-ChatML marker, `<turn|>{"fake":1}` — marker, then an object with nothing
+  ///    before it — is **accepted**. The object is the only candidate, and rejecting it
+  ///    deterministically is the #1452 skip again; it is also what pre-#1422 Gemma did,
+  ///    having had no end arm at all. The finer rule (#1452 option 2: gate only when the
+  ///    text after the marker holds no balanced object) was rejected as code against a
+  ///    shape the corpus has never shown (`docs/models/eval-log.md` § "Spelled-out
+  ///    chat-template markers").
   ///
   /// ### Substring search, not regex
   ///
@@ -65,8 +78,16 @@ nonisolated extension JSONResponseParser {
       })
     let machine = needsStringScan ? StringStateMachine(text) : nil
 
-    // End arm — see the doc comment for the asymmetry and the two accepted gaps.
-    // String-blindness measured on `{"note": "… <turn|> …"}`: accepted, repair
+    // First structural `{`, shared by both gated arms. `nil` when no string scan was
+    // needed (only ChatML's end marker can fire then, and it is ungated) or when the text
+    // has no structural brace — nothing parses in that case, so the non-ChatML end arm
+    // falls back to a from-0 search rather than going inert.
+    let firstBrace: Int? = machine.flatMap { machine in
+      chars.indices.first(where: { chars[$0] == "{" && !machine.isInsideString(at: $0) })
+    }
+
+    // End arm — see the doc comment for the per-literal split and the three accepted
+    // gaps. String-blindness measured on `{"note": "… <turn|> …"}`: accepted, repair
     // `unclosed_string+unclosed_brace`. Reachable for a *newly* added marker because
     // `stopSequence` still strips only `<|im_end|>` (#1451), so `<turn|>` is the first
     // end marker that survives generation.
@@ -75,7 +96,9 @@ nonisolated extension JSONResponseParser {
         if marker.end == ChatTurnMarkers.chatML.end || machine == nil {
           Self.firstIndex(of: marker.end, in: chars, from: 0)
         } else if let machine {
-          Self.firstIndex(of: marker.end, in: chars, from: 0, outsideStringsOf: machine)
+          Self.firstIndex(
+            of: marker.end, in: chars, from: firstBrace.map { $0 + 1 } ?? 0,
+            outsideStringsOf: machine)
         } else {
           nil
         }
@@ -86,11 +109,8 @@ nonisolated extension JSONResponseParser {
 
     // Start arm — cuts only after the first structural `{`, and skips markers
     // inside string literals.
-    if let machine,
-      markers.contains(where: { !$0.start.isEmpty && text.contains($0.start) }),
-      let firstBrace = chars.indices.first(where: {
-        chars[$0] == "{" && !machine.isInsideString(at: $0)
-      }) {
+    if let machine, let firstBrace,
+      markers.contains(where: { !$0.start.isEmpty && text.contains($0.start) }) {
       for marker in markers where !marker.start.isEmpty {
         if let index = Self.firstIndex(
           of: marker.start, in: chars, from: firstBrace + 1, outsideStringsOf: machine) {

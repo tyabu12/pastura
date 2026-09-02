@@ -140,8 +140,13 @@ internal class JSONResponseParser {
      * **no gate enforces that** — `check-prompt-literal-parity.py` covers `pickLanguage` only —
      * so the crafted-string fixtures in `JSONResponseParserTurnMarkerTests` are the guard.
      *
-     * - **End marker**: cut unguarded from the first occurrence anywhere. Pre-#1422 behaviour
-     *   generalized from one literal to a set. See the Swift original for why.
+     * - **End marker**: split on the marker literal, mirroring #1422's byte-identical-ChatML
+     *   promise. `.chatML.end` cuts from the first occurrence anywhere, string-blind. Every
+     *   other end marker is string-aware and cut only **after** the first structural `{` — the
+     *   same gate as the start arm, for the same reason: a leading marker is a template-header
+     *   echo, not a boundary, and cutting there destroys the payload deterministically (#1452).
+     *   The gate is a search *origin*, so a second occurrence after the `{` still truncates a
+     *   fabricated continuation.
      * - **Start marker**: cut only after the first structural `{`, outside a string literal —
      *   a leading one is a template-header echo, not a boundary. See the Swift original.
      *
@@ -150,12 +155,19 @@ internal class JSONResponseParser {
      * output. Same trap as the Swift original, identical in Kotlin's `Regex` constructor.
      *
      * **Known gaps, matching Swift** (enumerated on `JSONResponseParser+Truncate.swift`'s end
-     * arm — keep in step, no gate compares them): (1) the end arm is string-blind for ChatML's
-     * own end marker only, because a mid-value cut is the *silent* kind — on Swift the repair
-     * pipeline closes the quote and brace and persists a truncated value. This port has no
-     * repair pipeline yet (Stage-3 freight), so the same cut merely fails the parse here; the
-     * predicate stays mirrored for when that port lands. (2) a leading end marker cuts at
-     * index 0 and destroys the payload (#1452), deliberately unchanged on both engines.
+     * arm — keep in step, no gate compares them): (1) `<|im_end|>` inside a string value still
+     * cuts mid-value — pre-existing, and moving it would move ChatML behaviour, which #1422
+     * holds fixed; a mid-value cut is the *silent* kind on Swift, where the repair pipeline
+     * closes the quote and brace and persists a truncated value, but this port has no repair
+     * pipeline yet (Stage-3 freight), so the same cut merely fails the parse here. (2) a
+     * *leading* `.chatML.end` still cuts at index 0 and destroys the payload — gating it would
+     * make `<|im_end|>{"fake":1}` an accepted fabricated object, the #1422 counter-example;
+     * on llama.cpp the `stopSequence` ends generation at `<|im_end|>` anyway, so the shape
+     * reaches this parser only through a backend with no stop sequence.
+     * (3) for a non-ChatML marker, `<turn|>{"fake":1}` — marker, then an object with nothing
+     * before it — is accepted: the object is the only candidate, and rejecting it
+     * deterministically is the #1452 skip again; it is also what pre-#1422 Gemma did, having had
+     * no end arm at all.
      */
     private fun truncateAtTurnMarkers(text: String, markers: List<ChatTurnMarkers>): String {
         if (markers.isEmpty() || text.isEmpty()) return text
@@ -174,6 +186,14 @@ internal class JSONResponseParser {
                 }
         val insideString = if (needsStringScan) mapStringSpans(text) else null
 
+        // First structural `{`, shared by both gated arms. `null` when no string scan was
+        // needed (only ChatML's end marker can fire then, and it is ungated) or when the text
+        // has no structural brace — nothing parses in that case, so the non-ChatML end arm
+        // falls back to a from-0 search rather than going inert.
+        val firstBrace = insideString?.let { flags ->
+            text.indices.firstOrNull { text[it] == '{' && !flags[it] }
+        }
+
         for (marker in markers) {
             // `String.indexOf("")` returns 0, so an empty marker string would cut at index 0 and
             // destroy every response. Swift has a third backstop (`firstIndex` on an empty
@@ -181,25 +201,26 @@ internal class JSONResponseParser {
             // sibling) is the only per-marker defence against one empty marker in a mixed set.
             if (marker.end.isEmpty()) continue
             // String-aware for every end marker except ChatML's own — kept blind for byte parity
-            // with pre-#1422. See the Swift original's end arm for why.
+            // with pre-#1422. Every other end marker is gated behind `firstBrace`, the same
+            // origin the start arm uses, so a leading marker (a template-header echo) is
+            // stepped over. See the Swift original's end arm for why.
             val index =
                 if (marker.end == ChatTurnMarkers.chatML.end || insideString == null) {
                     text.indexOf(marker.end)
                 } else {
-                    indexOfOutsideStrings(text, marker.end, 0, insideString)
+                    indexOfOutsideStrings(text, marker.end, firstBrace?.plus(1) ?: 0, insideString)
                 }
             if (index >= 0 && index < cut) cut = index
         }
 
-        if (insideString != null && markers.any { it.start.isNotEmpty() && text.contains(it.start) }) {
-            val firstBrace = text.indices.firstOrNull { text[it] == '{' && !insideString[it] }
-            if (firstBrace != null) {
-                for (marker in markers) {
-                    if (marker.start.isEmpty()) continue
-                    val index =
-                        indexOfOutsideStrings(text, marker.start, firstBrace + 1, insideString)
-                    if (index >= 0 && index < cut) cut = index
-                }
+        if (insideString != null && firstBrace != null &&
+            markers.any { it.start.isNotEmpty() && text.contains(it.start) }
+        ) {
+            for (marker in markers) {
+                if (marker.start.isEmpty()) continue
+                val index =
+                    indexOfOutsideStrings(text, marker.start, firstBrace + 1, insideString)
+                if (index >= 0 && index < cut) cut = index
             }
         }
 
