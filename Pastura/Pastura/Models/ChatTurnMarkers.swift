@@ -26,8 +26,11 @@ nonisolated public struct ChatTurnMarkers: Sendable, Hashable {
 
   /// Plaintext sentinel that closes a turn (e.g. `"<|im_end|>"`).
   ///
-  /// Unlike ``start``, an occurrence *anywhere* is a turn boundary: everything after it
-  /// belongs to a turn that is not this one.
+  /// An occurrence after the response's first structural `{` is a turn boundary: everything
+  /// after it belongs to a turn that is not this one. A *leading* one is, like ``start``, a
+  /// template-boundary echo with the payload still behind it (#1452) — except for
+  /// ``chatML``'s own `<|im_end|>`, which cuts wherever it occurs so a ChatML backend stays
+  /// byte-identical to pre-#1422. See `JSONResponseParser.truncateAtTurnMarkers`.
   public let end: String
 
   /// Creates a marker pair.
