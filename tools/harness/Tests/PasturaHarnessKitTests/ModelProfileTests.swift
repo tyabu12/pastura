@@ -14,9 +14,10 @@ struct ModelProfileTests {
     #expect(profile.id == "gemma-4-e2b-q4-k-m")
     #expect(profile.stopSequence == "<|im_end|>")
     #expect(profile.turnMarkers == ChatTurnMarkers(start: "<|turn>", end: "<turn|>"))
-    // Same deliberate divergence the app registry carries: the generation-side
-    // sentinel is a ChatML string absent from Gemma's vocabulary, so that path
-    // is inert; repointing it is deferred to #1451, not an oversight (#1422).
+    // Same divergence the app registry carries, and it is the decided rule
+    // (#1451), not an oversight: the generation-side sentinel is the ChatML
+    // hallucination guard shared by every profile, so a non-ChatML profile's
+    // `stopSequence` differs from its own `turnMarkers.end` by design (#1422).
     #expect(profile.stopSequence != profile.turnMarkers.end)
     #expect(profile.systemPromptSuffix == nil)
     // Gemma needs no assistant prefill — `<think>...` is Qwen-only.

@@ -104,12 +104,12 @@ enum ModelRegistry {
     fileName: "gemma-4-E2B-it-Q4_K_M.gguf",
     fileSize: 3_106_735_776,
     sha256: "ac0069ebccd39925d836f24a88c0f0c858d20578c29b21ab7cedce66ee576845",
-    // Carries no Gemma marker, deliberately: `<|im_end|>` is a ChatML sentinel
-    // absent from this model's vocabulary, so this generation-side path is
-    // inert here — which is what lets a spelled-out `<turn|>` reach the parser,
-    // keyed on the `turnMarkers` below. Repointing it would activate a behaviour
-    // on an assumption; deferred to #1451, which must change every site
-    // (`grep -rn '#1451'`) (#1417). Canonical note: `LlamaCppService.stopSequence`.
+    // Carries the ChatML guard, not a Gemma marker, by decision (#1451): it
+    // fires only on a spelled-out ChatML hallucination (`<|im_end|>` has no
+    // token form in this vocabulary), and leaving Gemma's own `<turn|>` out
+    // of it is what lets a spelled-out `<turn|>` reach the parser, keyed on
+    // the `turnMarkers` below. Every decision site is enumerated by
+    // `grep -rn '#1451'` (#1417). Canonical note: `LlamaCppService.stopSequence`.
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the exact file pinned above: `<|turn>`
     // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`,
@@ -194,14 +194,15 @@ enum ModelRegistry {
     fileName: "gemma-4-E2B-it-qat-UD-Q4_K_XL.gguf",
     fileSize: 2_620_370_976,
     sha256: "e531007218dfab990486a5de7676a6932d6ea8dea233d1f698d7c21cf8a16889",
-    // Same deliberate divergence as `gemma4E2B`, inert for the same reason — but
-    // that reason is a property of the *export*, not of the model, so it was
-    // re-measured against this file rather than carried across (a wrong pair
-    // fails silently, `docs/models/onboarding.md` § "Stage 0 — Harness profile
-    // (new model family only)" — optional here, run anyway): `<|im_end|>` is
-    // absent from this vocabulary too. Deferred to #1451, which must change
-    // every site (`grep -rn '#1451'`). Canonical note:
-    // `LlamaCppService.stopSequence`.
+    // Same deliberate divergence as `gemma4E2B`, by the same decision (#1451) —
+    // but the absence-from-vocabulary fact is a property of the *export*, not
+    // of the model, so it was re-measured against this file rather than
+    // carried across (a wrong pair fails silently, `docs/models/onboarding.md`
+    // § "Stage 0 — Harness profile (new model family only)" — optional here,
+    // run anyway): `<|im_end|>` is absent from this vocabulary too, which is
+    // why a Gemma *hallucination* is the only route that can ever fire this
+    // guard. Every decision site is enumerated by `grep -rn '#1451'`.
+    // Canonical note: `LlamaCppService.stopSequence`.
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the exact file pinned above: `<|turn>`
     // id 105 / `<turn|>` id 106, both `token_type=3` (CONTROL), vocab 262,144,

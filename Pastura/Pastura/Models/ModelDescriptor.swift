@@ -55,8 +55,10 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// token can never reach the match under llama.cpp:
   /// `LlamaCppService.stopSequence`.
   ///
-  /// `"<|im_end|>"` for ChatML models such as Qwen 3; Gemma 4 carries that same string
-  /// (#1417). It diverges from ``turnMarkers`` deliberately — see there.
+  /// `"<|im_end|>"` on every shipped model, Gemma 4 included (#1417): this is the
+  /// generation-side ChatML-hallucination guard, not a per-model marker, so it is the
+  /// same literal across the catalog by decision (#1451). It diverges from
+  /// ``turnMarkers`` on purpose for a non-ChatML model — see there.
   public let stopSequence: String
 
   /// This model's plaintext turn-boundary sentinels, consumed by parser-side
@@ -66,11 +68,12 @@ nonisolated public struct ModelDescriptor: Sendable, Hashable {
   /// mechanisms keyed on it simply stop firing, with nothing to observe (#1422).
   /// `docs/models/onboarding.md` carries the collection step.
   ///
-  /// For Gemma 4 this and ``stopSequence`` **disagree** on purpose: repointing the
-  /// generation-side sentinel would newly *activate* a behaviour on an assumption rather
-  /// than a demonstration, so it is deferred to #1451.
-  /// `ModelRegistryTurnMarkerDivergenceTests` pins the divergence so a silent
-  /// "consistency fix" reddens.
+  /// For Gemma 4 this and ``stopSequence`` **disagree** by decision (#1451): `stopSequence`
+  /// is the generation-side ChatML-hallucination guard shared by every model, while
+  /// `turnMarkers` is this model's own pair, used parser-side. Repointing `stopSequence`
+  /// to `turnMarkers.end` was considered and rejected — canonical rationale:
+  /// `LlamaCppService.stopSequence`. `ModelRegistryTurnMarkerDivergenceTests` pins the
+  /// divergence so a silent "consistency fix" reddens.
   public let turnMarkers: ChatTurnMarkers
 
   /// Minimum physical RAM required to load and run the model (bytes).

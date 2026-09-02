@@ -149,6 +149,15 @@ finer "no balanced object after the marker" rule on this evidence — no leading
 marker of either kind had been observed. A re-measurement that finds a leading
 `<turn|>` followed by a fabricated object is the input that reopens that choice.
 
+A second decision hangs off the same row pair. #1451 kept `LlamaCppService`'s
+generation-side `stopSequence` at `<|im_end|>` on Gemma rather than repointing it
+to Gemma's own `turnMarkers.end` (`<turn|>`): Sarashina's 99 hits show the
+spelled-out-ChatML class is real, while Gemma spelling its own marker is
+unobserved (0 across both variants), so the generation-side stop stays armed
+against the class it has actually seen. The same re-measurement reopens both
+decisions: a corpus run that finds Gemma spelling `<turn|>` trailing after a
+completed payload is what would justify repointing `stopSequence` for Gemma.
+
 ### DRY sampler construction — 2026-08-15 (b8694 baseline)
 
 **Scope**: two `word_wolf.yaml` (ja) harness runs on the incumbent

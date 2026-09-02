@@ -13,7 +13,9 @@ package struct ModelProfile: Sendable, Equatable {
   package let id: String
   /// Human-readable model label, used as `LlamaCppService.modelIdentifier`.
   package let name: String
-  /// Plaintext stop sentinel, mirroring `ModelDescriptor.stopSequence`.
+  /// Plaintext stop sentinel, mirroring `ModelDescriptor.stopSequence`: the
+  /// generation-side ChatML-hallucination guard, `"<|im_end|>"` on every registry model
+  /// by decision (#1451) — not a per-model marker.
   ///
   /// Ends generation early only when the model spells it out as ordinary text
   /// (a hallucinated turn boundary); a *normal* turn ends on EOG instead. The
@@ -21,7 +23,8 @@ package struct ModelProfile: Sendable, Equatable {
   package let stopSequence: String
   /// This model's plaintext turn-boundary sentinels, mirroring
   /// `ModelDescriptor.turnMarkers` (#1422). No default — a wrong inherited
-  /// pair fails silently, same reason as there; see that doc for #1451.
+  /// pair fails silently, same reason as there; see the canonical note on
+  /// `LlamaCppService.stopSequence` for the #1451 decision.
   package let turnMarkers: ChatTurnMarkers
   /// Optional suffix appended to every system prompt.
   package let systemPromptSuffix: String?
@@ -57,10 +60,10 @@ package struct ModelProfile: Sendable, Equatable {
   package static let gemma4E2B = ModelProfile(
     id: "gemma-4-e2b-q4-k-m",
     name: "Gemma 4 E2B (Q4_K_M)",
-    // Carries no Gemma marker, deliberately — mirrors `ModelRegistry.gemma4E2B`;
-    // the measurement is in the canonical note on `LlamaCppService.stopSequence`.
-    // `ModelProfileTests` pins the literal, so it cannot be changed here alone
-    // (#1417).
+    // Carries the ChatML guard, not a Gemma marker, by decision (#1451) —
+    // mirrors `ModelRegistry.gemma4E2B`; the canonical note is on
+    // `LlamaCppService.stopSequence`. `ModelProfileTests` pins the literal, so
+    // it cannot be changed here alone (#1417).
     stopSequence: "<|im_end|>",
     // Measured from the GGUF header of the pinned file: `<|turn>` id 105 /
     // `<turn|>` id 106, both `token_type=3` (CONTROL), `eos = 106`, vocab 262,144.
@@ -118,6 +121,15 @@ package struct ModelProfile: Sendable, Equatable {
     // has no thinking mode — so, unlike Qwen (#366), it needs neither a
     // `/no_think` suffix nor a `<think>` assistant prefill. The stop sequence
     // is the plain eos `</s>`; suffix and prefix are nil.
+    //
+    // Unmeasured, and it never fired in the 2026-07 runs: what Sarashina
+    // actually spelled out was `<|im_end|>`, 99× trailing after a completed
+    // payload (`docs/models/eval-log.md` § "Spelled-out chat-template
+    // markers"). Under the #1451 rule — every profile carries the ChatML
+    // guard — `<|im_end|>` is the value this field should hold if this
+    // NO-GO candidate is ever revived; dropping `</s>` should lose nothing,
+    // since as the declared eos it is expected to be CONTROL + EOG and so
+    // could never truncate — expected, not measured (same caveat as below).
     stopSequence: "</s>",
     // Derived from the turn format on `stopSequence` above, NOT a fresh GGUF
     // header read — NO-GO candidate, no registry entry; re-verify at Gate-2
