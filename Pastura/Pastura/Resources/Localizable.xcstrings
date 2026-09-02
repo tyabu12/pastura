@@ -4497,12 +4497,12 @@
         }
       }
     },
-    "Needs a newer version of Pastura to run." : {
+    "Needs a newer version of Pastura to run. Shows how to update." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "実行にはより新しいバージョンの Pastura が必要です。"
+            "value" : "実行にはより新しいバージョンの Pastura が必要です。更新方法を表示します。"
           }
         }
       }

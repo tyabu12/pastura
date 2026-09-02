@@ -19,10 +19,7 @@ struct GalleryScenarioDetailView: View {
   @Environment(AppRouter.self) private var router
   @Environment(ModelManager.self) var modelManager
   @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
-  // Not `private`: read by the sibling extension in
-  // `GalleryScenarioDetailView+AppStore.swift` — `private` blocks cross-file
-  // extension access.
-  @Environment(\.openURL) var openURL
+  @Environment(\.openURL) private var openURL
   @State private var viewModel: SharedScenariosViewModel?
   // Read by the sibling extension in `GalleryScenarioDetailView+Highlight.swift`
   // — `private` would block cross-file extension access.
@@ -78,7 +75,7 @@ struct GalleryScenarioDetailView: View {
       }
       await highlightLoader?.load(for: scenario)
     }
-    .alert(item: $outcomeAlert) { alert in outcomeAlertView(for: alert) }
+    .alert(item: $outcomeAlert) { alert in alert.makeAlert(openURL: openURL) }
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()

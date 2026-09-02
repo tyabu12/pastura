@@ -7,6 +7,11 @@ import SwiftUI
 struct SharedScenariosListView: View {
   @Environment(AppDependencies.self) private var dependencies
   @State private var viewModel: SharedScenariosViewModel?
+  @Environment(\.openURL) private var openURL
+  /// The ADR-020 D4 "update required" alert a greyed card presents on tap —
+  /// the same `OutcomeAlert` the detail's D5 path builds, so both surfaces
+  /// share copy and the App Store deep-link.
+  @State private var updateRequiredAlert: OutcomeAlert?
 
   var body: some View {
     Group {
@@ -217,9 +222,14 @@ struct SharedScenariosListView: View {
 
   /// One catalog cell. A **compatible** scenario is a tappable
   /// ``Route/galleryScenarioDetail(scenario:)`` push; an **engine-incompatible**
-  /// one (ADR-020 D4) is a dimmed, non-interactive card — rendered as a plain
-  /// sibling (no `NavigationLink`, no `.disabled`) so the whole card, badge
-  /// included, keeps VoiceOver focus and reads its "update app" state.
+  /// one (ADR-020 D4) is a dimmed card that does not navigate — tapping it
+  /// presents the `.updateRequired` alert (explanation + "Open App Store",
+  /// ADR-020 §12) instead of pushing a detail the user could not install from.
+  /// It is a plain `Button` rather than a `.disabled` one so the whole card,
+  /// badge included, keeps VoiceOver focus and reads its "update app" state.
+  /// Its accessibility identifier carries an `.incompatible` suffix so the UI
+  /// tests that tap `sharedScenarios.galleryCell.<id>` expecting a detail push
+  /// can never retarget onto a greyed card.
   @ViewBuilder
   private func galleryCell(
     scenario: GalleryScenario, viewModel: SharedScenariosViewModel
@@ -234,12 +244,17 @@ struct SharedScenariosListView: View {
       .buttonStyle(.plain)
       .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
     } else {
-      row
-        .opacity(GalleryCatalogMetrics.incompatibleCardOpacity)
-        .accessibilityHint(
-          Text(String(localized: "Needs a newer version of Pastura to run."))
-        )
-        .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id)")
+      Button {
+        updateRequiredAlert = GalleryScenarioDetailFormat.installAlert(for: .updateRequired)
+      } label: {
+        row.opacity(GalleryCatalogMetrics.incompatibleCardOpacity)
+      }
+      .buttonStyle(.plain)
+      .accessibilityHint(
+        Text(String(localized: "Needs a newer version of Pastura to run. Shows how to update."))
+      )
+      .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id).incompatible")
+      .alert(item: $updateRequiredAlert) { alert in alert.makeAlert(openURL: openURL) }
     }
   }
 
