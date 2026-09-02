@@ -4801,6 +4801,16 @@
         }
       }
     },
+    "Open App Store" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store を開く"
+          }
+        }
+      }
+    },
     "Open Report Form" : {
       "localizations" : {
         "ja" : {

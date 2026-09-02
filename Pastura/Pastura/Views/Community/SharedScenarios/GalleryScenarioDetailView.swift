@@ -19,6 +19,10 @@ struct GalleryScenarioDetailView: View {
   @Environment(AppRouter.self) private var router
   @Environment(ModelManager.self) var modelManager
   @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
+  // Not `private`: read by the sibling extension in
+  // `GalleryScenarioDetailView+AppStore.swift` — `private` blocks cross-file
+  // extension access.
+  @Environment(\.openURL) var openURL
   @State private var viewModel: SharedScenariosViewModel?
   // Read by the sibling extension in `GalleryScenarioDetailView+Highlight.swift`
   // — `private` would block cross-file extension access.
@@ -74,9 +78,7 @@ struct GalleryScenarioDetailView: View {
       }
       await highlightLoader?.load(for: scenario)
     }
-    .alert(item: $outcomeAlert) { alert in
-      Alert(title: Text(alert.title), message: Text(alert.message))
-    }
+    .alert(item: $outcomeAlert) { alert in outcomeAlertView(for: alert) }
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
@@ -350,4 +352,16 @@ struct OutcomeAlert: Identifiable {
   let id = UUID()
   let title: String
   let message: String
+
+  /// The App Store product page to open from an "Open App Store" button, or
+  /// `nil` for every outcome but the ADR-020 D5 `.updateRequired` one. Kept as
+  /// data — no closure — so this struct stays a plain value the Format layer
+  /// can build and a unit test can compare (ADR-009).
+  let appStoreURL: URL?
+
+  init(title: String, message: String, appStoreURL: URL? = nil) {
+    self.title = title
+    self.message = message
+    self.appStoreURL = appStoreURL
+  }
 }

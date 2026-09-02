@@ -249,6 +249,9 @@ enum GalleryScenarioDetailFormat {
   /// instead of alerting). Extracted from the View so the copy — including the
   /// ADR-020 D5 `.updateRequired` forward-guidance (deliberately *not* a
   /// "download"/"parse" dead-end) — is unit-testable without rendering.
+  /// `.updateRequired` additionally carries ``AppStoreLinks/productPage`` as
+  /// the alert's App Store deep link (ADR-020 D5); every other case leaves
+  /// ``OutcomeAlert/appStoreURL`` at its `nil` default.
   static func installAlert(
     for outcome: SharedScenariosViewModel.TryOutcome
   ) -> OutcomeAlert? {
@@ -279,7 +282,8 @@ enum GalleryScenarioDetailFormat {
         title: String(localized: "Update required"),
         message: String(
           localized:
-            "This scenario needs a newer version of Pastura. Update the app to run it."))
+            "This scenario needs a newer version of Pastura. Update the app to run it."),
+        appStoreURL: AppStoreLinks.productPage)
     }
   }
 }
