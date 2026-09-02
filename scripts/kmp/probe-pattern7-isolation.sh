@@ -7,6 +7,12 @@
 # Usage:
 #   scripts/kmp/probe-pattern7-isolation.sh
 #
+# Environment:
+#   PASTURA_PROBE_SLICE_DIR  override the simulator slice directory (default:
+#                            the app-tree staging under `Pastura/Frameworks/`).
+#                            `kmp-nightly.yml` sets it — see the comment at the
+#                            assignment below.
+#
 # WHAT THIS PROVES
 #   `.claude/rules/swift-isolation.md` Pattern 7: an Obj-C protocol imported
 #   *unannotated* may be called by its owner from any thread, so a Swift

@@ -138,4 +138,5 @@ machine-checked — see the maintenance invariant above.
   #1650 the `LLMBackend` actual, #1655 the §5 seam bridges + Kotlin `ScenarioLoader`'s first
   caller, plus the isolation-audit PR — Pattern-7 probe measured, Pattern-6 audit re-run; the
   probe now also runs nightly as a regression step,
-  [#1661](https://github.com/tyabu12/pastura/issues/1661)). S5-3 onward need Phase-3 entry. See [ADR-023](decisions/ADR-023.md) §6 Stage 5.
+  [#1661](https://github.com/tyabu12/pastura/issues/1661)). S5-3 onward need Phase-3 entry.
+  See [ADR-023](decisions/ADR-023.md) §6 Stage 5.
