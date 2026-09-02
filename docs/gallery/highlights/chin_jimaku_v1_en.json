@@ -2,14 +2,23 @@
   "schema_version": 1,
   "scenario_ref": {
     "id": "chin_jimaku_v1_en",
-    "yaml_sha256": "e9b3e2b71cf7427656c30f58528a2c77b4ddfeea0cbf0f6ee84cd7fd40885971"
+    "yaml_sha256": "05c55f6a8dd5a50a8ae737eff55204882a117dc1fb6f0692acc6a498b25aec0a"
   },
   "source": {
     "model": "gemma-4-e2b-q4-k-m",
-    "run_id": "20260827-134331-5f91",
-    "generated_at": "2026-08-27"
+    "run_id": "20260902-233736-ab55",
+    "generated_at": "2026-09-02"
   },
   "excerpt": [
+    {
+      "agent": "Literal Larry",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "Us need to go, is now! Run fast and then we must leave place."
+    },
     {
       "agent": "Over-Local Ollie",
       "round": 1,
@@ -17,7 +26,7 @@
       "phase_index": 1,
       "persona_index": 1,
       "source_field": "statement",
-      "text": "Yo, gotta bounce right now, no cap!"
+      "text": "Yo, gotta bounce ASAP!"
     },
     {
       "agent": "Spoiler Queen Sofia",
@@ -26,13 +35,13 @@
       "phase_index": 1,
       "persona_index": 2,
       "source_field": "statement",
-      "text": "Run fast, or you'll miss the crucial scene where the hero accidentally finds the secret treasure map."
+      "text": "Run! Everyone needs to escape before the giant robot crushes the last survivor (The hero wins and marries the princess in the epilogue)."
     }
   ],
   "yaml_hook": {
     "kind": "persona",
-    "fragment": "  - name: Over-Local Ollie\n    description: >\n      [Role] A localizer who drags everything into hyper-casual modern slang.\n      [Goal] Make it so breezily colloquial that the original is unrecognizable.\n      e.g. \"Lowkey, this dude's been sus since day one.\"\n  - name: Spoiler Queen Sofia\n    description: >\n      [Role] A translator who carelessly leaks the ending in the subtitle.\n      [Goal] Slip an unrelated ending or plot twist into this line's subtitle.\n      e.g. \"Nice to meet you. (Anyway, she's the killer — you'll find out.)\"",
-    "caption": "The slang machine and the spoiler leak: two of the four translators. Their [Role] and [Goal] sentences are the entire act — the e.g. underneath is only one sample of it, and nothing here is tied to any particular film."
+    "fragment": "  - name: Over-Local Ollie\n    description: >\n      [Role] A localizer who drags everything into hyper-casual modern slang.\n      [Goal] Make it so breezily colloquial that the original is unrecognizable.\n      e.g. \"Lowkey, this dude's been sus since day one.\"\n  - name: Spoiler Queen Sofia\n    description: >\n      [Role] A translator who carelessly leaks the ending in the subtitle.\n      [Goal] Translate the line, then always end the subtitle with a spoiler in\n      parentheses, \"(...)\", that leaks the ending or a later twist of some\n      unrelated film. Inside the parentheses, state the outcome itself as a\n      fact — who dies, who the villain really is, what happens in the final\n      scene — with no lead-in: open directly on the fact, and open differently\n      every time. A subtitle with no parenthetical, or whose spoiler only hints\n      at what is coming, has failed.",
+    "caption": "Two of the four translators, the slang machine and the spoiler leak. Sofia's block has no example line: her [Goal] describes the parenthetical and names what counts as failing, and that is what put the bracketed ending after her subtitle above."
   },
   "teaser": "Four subtitles, one vote each, and another famous scene still waiting to be ruined.",
   "window_override": false,
