@@ -6,11 +6,13 @@ import SwiftUI
 /// stack (ADR-016 D4).
 struct SharedScenariosListView: View {
   @Environment(AppDependencies.self) private var dependencies
-  @State private var viewModel: SharedScenariosViewModel?
   @Environment(\.openURL) private var openURL
+  @State private var viewModel: SharedScenariosViewModel?
   /// The ADR-020 D4 "update required" alert a greyed card presents on tap —
   /// the same `OutcomeAlert` the detail's D5 path builds, so both surfaces
-  /// share copy and the App Store deep-link.
+  /// share copy and the App Store deep-link. One binding for every greyed
+  /// row; the `.alert` modifier that observes it lives on `body`, not in the
+  /// `ForEach` (see there).
   @State private var updateRequiredAlert: OutcomeAlert?
 
   var body: some View {
@@ -37,6 +39,13 @@ struct SharedScenariosListView: View {
     // across `state` transitions. Gated to the loaded states: searching the
     // loading / network-unavailable / error screens is meaningless.
     .modifier(GallerySearchable(enabled: isSearchEnabled, text: searchQueryBinding))
+    // Grounded on the container like `.searchable`, NOT inside `galleryCell`:
+    // every greyed row shares `updateRequiredAlert`, and N per-row `.alert`
+    // modifiers on one non-nil binding is undefined presentation (an
+    // arbitrary one wins, or none with an "already presenting" log). Latent
+    // with a single incompatible entry, live the first time a floor greys
+    // several rows at once.
+    .alert(item: $updateRequiredAlert) { alert in alert.makeAlert(openURL: openURL) }
     .task {
       // Re-fires every time this tab root re-appears — measured on iOS 26.5
       // (#1565): pushing the detail route fires the root's onDisappear, and
@@ -229,7 +238,9 @@ struct SharedScenariosListView: View {
   /// badge included, keeps VoiceOver focus and reads its "update app" state.
   /// Its accessibility identifier carries an `.incompatible` suffix so the UI
   /// tests that tap `sharedScenarios.galleryCell.<id>` expecting a detail push
-  /// can never retarget onto a greyed card.
+  /// can never retarget onto a greyed card. No UI test reads the suffixed
+  /// identifier yet (the canary fixture is compatible), so a typo in it goes
+  /// unnoticed until a greyed-row fixture exists — #1662 is the first.
   @ViewBuilder
   private func galleryCell(
     scenario: GalleryScenario, viewModel: SharedScenariosViewModel
@@ -254,7 +265,6 @@ struct SharedScenariosListView: View {
         Text(String(localized: "Needs a newer version of Pastura to run. Shows how to update."))
       )
       .accessibilityIdentifier("sharedScenarios.galleryCell.\(scenario.id).incompatible")
-      .alert(item: $updateRequiredAlert) { alert in alert.makeAlert(openURL: openURL) }
     }
   }
 

@@ -698,7 +698,9 @@ it **in the same PR**, one of two ways:
 - Re-extract from the existing transcript, admissible only when the YAML
   edit provably cannot affect any excerpted line — every pick's round/phase
   is unaffected (e.g. `event_inject no_repeat: true` changes only round-2+
-  draws while the excerpt is round 1). Edit the YAML, run
+  draws while the excerpt is round 1), **and** the flattened phase list and
+  `personas:` order are unchanged, since the extractor re-derives each pick's
+  `phase_index` and `persona_index` from the current YAML. Edit the YAML, run
   `add-gallery-entry.sh --update <id>` so `yaml_sha256` matches the file,
   then re-run `scripts/gallery_highlight_extract.py` with the same picks
   against the kept `data/highlight-runs/<id>.jsonl`. The extractor pins the

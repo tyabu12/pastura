@@ -103,7 +103,7 @@ struct GalleryScenarioDetailFormatTests {
     #expect(alert?.message.contains("newer version of Pastura") == true)
     // ADR-020 D5 — the only outcome carrying an App Store deep link.
     #expect(alert?.appStoreURL == AppStoreLinks.productPage)
-    #expect(alert?.appStoreURL != nil)
+    #expect(alert?.hasStoreAction == true)
   }
 
   @Test func installAlertNetworkErrorPassesDescriptionThrough() {
@@ -111,6 +111,7 @@ struct GalleryScenarioDetailFormatTests {
     #expect(alert?.message == "boom")
     // Non-updateRequired outcomes never carry the deep link.
     #expect(alert?.appStoreURL == nil)
+    #expect(alert?.hasStoreAction == false)
   }
 
   // MARK: - Highlight excerpt rows

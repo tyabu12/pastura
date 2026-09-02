@@ -356,6 +356,10 @@ struct OutcomeAlert: Identifiable {
   /// can build and a unit test can compare (ADR-009).
   let appStoreURL: URL?
 
+  /// Whether ``makeAlert(openURL:)`` renders the two-button form. `Alert` is
+  /// opaque, so this is the testable discriminator for that branch.
+  var hasStoreAction: Bool { appStoreURL != nil }
+
   init(title: String, message: String, appStoreURL: URL? = nil) {
     self.title = title
     self.message = message

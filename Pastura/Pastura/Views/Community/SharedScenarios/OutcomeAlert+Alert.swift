@@ -11,7 +11,8 @@ extension OutcomeAlert {
   ///
   /// Only an alert carrying ``appStoreURL`` renders the two-button form with
   /// **Open App Store**; every other outcome keeps the plain single-dismiss
-  /// form. `openURL` is the presenting view's `\.openURL` environment action.
+  /// form (``hasStoreAction`` is the unit-testable name for that branch).
+  /// `openURL` is the presenting view's `\.openURL` environment action.
   func makeAlert(openURL: OpenURLAction) -> Alert {
     guard let appStoreURL else {
       return Alert(title: Text(title), message: Text(message))
@@ -20,22 +21,9 @@ extension OutcomeAlert {
       title: Text(title),
       message: Text(message),
       primaryButton: .default(Text(String(localized: "Open App Store"))) {
-        Self.openAppStore(appStoreURL, with: openURL)
+        openURL.callLogged(appStoreURL, logger: Self.linkLogger)
       },
       secondaryButton: .cancel())
-  }
-
-  /// Uses the `openURL(_:completion:)` overload rather than the fire-and-forget
-  /// form, mirroring `SettingsView+Feedback.swift`'s `externalLinkRow`:
-  /// `openURL` reports nothing on a URL the system cannot route, so a broken
-  /// link would be indistinguishable from a tester not noticing. The log line
-  /// is the only signal such a regression would leave.
-  private static func openAppStore(_ url: URL, with openURL: OpenURLAction) {
-    openURL(url) { accepted in
-      guard !accepted else { return }
-      linkLogger.error(
-        "openURL declined for \(url.absoluteString, privacy: .public)")
-    }
   }
 
   private static let linkLogger = Logger(
