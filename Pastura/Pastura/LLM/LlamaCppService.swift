@@ -121,15 +121,17 @@ nonisolated public final class LlamaCppService: LLMService, @unchecked Sendable 
   // export it never decodes into text (double guard above) and a per-model
   // literal here can never truncate — the field was never per-model IN
   // EFFECT. Deriving from `turnMarkers.end` would only re-arm the stop from
-  // an observed hallucination class (spelled-out ChatML, corpus-measured) to
-  // an unobserved one (Gemma spelling its own marker, corpus 0 as of
-  // 2026-08-13, `docs/models/eval-log.md`) — zero upside, new risk. This
-  // match has no first-`{` gate (unlike `JSONResponseParser.truncateAtTurnMarkers`
-  // since #1452), so a *leading* spelled-out marker still ends generation at
-  // 0 chars for whichever literal is chosen — an accepted gap shared with the
-  // parser, not an argument for either value. Not inert in every sense, even
-  // though it never truncates: `stopSequenceHoldbackLength` reads this literal
-  // every streamed token, so the emission holdback window depends on it.
+  // a hallucination class observed across models (spelled-out ChatML: 99 on
+  // Sarashina, 0 on Gemma, as of 2026-08-13, `docs/models/eval-log.md`) to
+  // one never observed on any model (a model spelling its own marker) — zero
+  // upside, new risk. This match has no first-`{` gate — unlike the non-ChatML
+  // end arm of `JSONResponseParser.truncateAtTurnMarkers` since #1452; its
+  // ChatML arm is ungated too, which is why the gap is shared — so a *leading*
+  // spelled-out marker still ends generation at 0 chars for whichever literal
+  // is chosen, not an argument for either value. Not inert in every sense,
+  // even though it has never been observed to truncate on a shipped model:
+  // `stopSequenceHoldbackLength` reads this literal every streamed token, so
+  // the emission holdback window depends on it.
   // Reopen only if a corpus re-measurement shows Gemma spelling `<turn|>`
   // trailing after a completed payload. History: false-rationale comment
   // #1417, parser-side half #1422. Read from the descriptor at construction

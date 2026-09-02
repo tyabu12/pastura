@@ -127,7 +127,9 @@ package struct ModelProfile: Sendable, Equatable {
     // payload (`docs/models/eval-log.md` § "Spelled-out chat-template
     // markers"). Under the #1451 rule — every profile carries the ChatML
     // guard — `<|im_end|>` is the value this field should hold if this
-    // NO-GO candidate is ever revived.
+    // NO-GO candidate is ever revived; dropping `</s>` should lose nothing,
+    // since as the declared eos it is expected to be CONTROL + EOG and so
+    // could never truncate — expected, not measured (same caveat as below).
     stopSequence: "</s>",
     // Derived from the turn format on `stopSequence` above, NOT a fresh GGUF
     // header read — NO-GO candidate, no registry entry; re-verify at Gate-2

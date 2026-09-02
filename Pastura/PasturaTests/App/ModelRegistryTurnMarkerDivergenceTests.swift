@@ -55,16 +55,20 @@ struct ModelRegistryTurnMarkerDivergenceTests {
   /// So under the #1451 rule, EVERY catalog entry — Gemma family included —
   /// must carry the ChatML string, and a NEW non-ChatML model is *expected* to
   /// diverge from its own `turnMarkers.end` and still pass here, as long as it
-  /// carries the ChatML guard. The second assertion below is the intent pin in
-  /// the other direction: for a descriptor whose `turnMarkers` genuinely IS
-  /// ChatML (Qwen), the two fields necessarily agree, so it is excluded there
-  /// by construction rather than asserted unequal.
+  /// carries the ChatML guard. The pre-#1451 id allowlist (`Set(divergent
+  /// ids) == [the two Gemma ids]`) was dropped knowingly: divergence is now
+  /// the rule, so an allowlist would redden on every legitimate non-ChatML
+  /// onboarding; the price is that a newly-divergent entry no longer has to
+  /// be named here. Do not re-add it.
   ///
-  /// A failure in the first loop means some descriptor stopped carrying the
-  /// ChatML guard at all — a real regression. A failure in the second loop
-  /// means a descriptor was repointed to its own `turnMarkers.end` — read
-  /// #1451 before "fixing" that; it is the deliberately-reverted case, not a
-  /// missed consistency fix. Both `stopSequence` comments in `ModelRegistry`
+  /// Any failure here — including the "consistency fix" of repointing Gemma
+  /// to `<turn|>`, which reddens the first loop with that id in the message —
+  /// means read #1451 before "fixing": the repoint is the deliberately
+  /// rejected case. The second loop is deliberately thin: given the first, it
+  /// can only fire for a future non-ChatML pair whose `end` happens to equal
+  /// `<|im_end|>`; it stays as the intent pin in the other direction (a
+  /// genuinely ChatML descriptor such as Qwen agrees by construction and is
+  /// excluded). Both `stopSequence` comments in `ModelRegistry`
   /// promise that `grep -rn '#1451'` enumerates every decision site; this
   /// doc comment is one of them. (Run that command rather than trusting a
   /// quoted phrase here: the promise is hard-wrapped across comment lines, so
