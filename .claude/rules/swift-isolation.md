@@ -55,8 +55,9 @@ Stage-5 adapter in `App/KMP/` conforming to it must be `nonisolated`. The confor
 precedent, not the compiler's silence. Measured 2026-08-31 by
 `scripts/kmp/probe-pattern7-isolation.sh`, which automates the probe above against the staged
 framework for all four seam protocols (`LLMBackend`, `LanguageDetector`, `EngineLogger`,
-`RandomSource`), control line included — all four import unannotated. Re-run the script after a
-Kotlin bump regenerates the umbrella header.
+`RandomSource`), control line included — all four import unannotated. Re-run the script by hand
+before merging a Kotlin bump that regenerates the umbrella header; `kmp-nightly.yml` also runs it
+nightly as a regression step (#1661), a backstop up to 24 h late, not the pre-merge check.
 
 ## Pattern 8 — MainActor-inferred closure handed to a framework callback
 
