@@ -167,7 +167,7 @@ init in `Pastura/Pastura/App/ModelRegistry.swift`:
 | `downloadURL` | **Pins a specific HF commit SHA** (`resolve/<commit>/...`), not `main`. A `-qat-` repo is **not** a drop-in swap for its non-QAT sibling — see `.claude/rules/engine.md` § "GGUF source *and variant* matter". |
 | `fileName` | GGUF filename; unique across the catalog. |
 | `fileSize` / `sha256` | From `curl -sIL` `X-Linked-Size` / `X-Linked-ETag` (Gate 1 note). |
-| `stopSequence` | Prompt-format field — must match the Stage-0 profile. |
+| `stopSequence` | `ChatTurnMarkers.chatML.end` (`<|im_end|>`) for **every** model — this is the generation-side ChatML-hallucination guard, not the model's own turn marker (which is CONTROL+EOG on any correct export and never decodes into text, so a per-model literal here could never truncate). Carry a different literal only when a re-measured corpus shows the model spelling *that* string trailing after a completed payload (#1451). Must still match the Stage-0 profile. |
 | `minRAM` | Device RAM floor. |
 | `modelInfoURL` | HF model card. |
 | `systemPromptSuffix` | Prompt-format field — must match the profile (`nil` for none). |
@@ -178,7 +178,8 @@ Then, in the same `/orchestrate` run:
 
 - **Prompt-format handoff.** The three format fields (`stopSequence`,
   `systemPromptSuffix`, `assistantPrefix`) must agree with the Stage-0
-  `ModelProfile`; the pin test enforces the harness side.
+  `ModelProfile` (for `stopSequence`, see the rule in the field table above,
+  #1451); the pin test enforces the harness side.
 - **`LicenseCatalog` entry** — add the model's license block
   (`Pastura/Pastura/Views/Settings/LicenseCatalog.swift`).
 - **README mirror** — update "Supported LLM models" per the mirror note under
