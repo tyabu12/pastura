@@ -236,7 +236,12 @@ is imported from `App/` only.
   protocols against the staged simulator slice (Pattern 7), and
   `Pastura/PasturaTests/App/KMP/PatternSixProbeTests.swift` re-runs the
   Pattern 6 audit on the app adapters. This package's `PatternSixProbeTests`
-  stays the nightly rung's copy until S5-5.
+  stays the nightly rung's copy until S5-5. **The nightly runs the Pattern 7
+  probe against *this package's* staged copy** (`Frameworks/`, via
+  `PASTURA_PROBE_SLICE_DIR`, #1661) to avoid a second assembly — so retiring
+  this package at S5-5 also removes the slice that step reads. Re-point the
+  `kmp-nightly.yml` step at `scripts/kmp/assemble-xcframework.sh --if-missing`
+  plus the script's default app-tree slice in the same PR.
 
 The Stage-5 two-umbrella landmine recorded in ADR-004 §9.7 — `PasturaShared`
 (models-only) and `PasturaSharedEngine` must never link into one binary — is
