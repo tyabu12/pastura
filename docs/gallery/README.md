@@ -530,9 +530,18 @@ call, and these are what the batches so far have taught.
   “X”だ」 in every draw (his 【目的】 asks for exactly that voice, so it is
   the persona, not a defect); `seriffu_knockout_v1`'s `大袈裟役者ガラ` closes
   on 「〜のだァァ！」, which his new `例:` also uses; `chin_jimaku_v1`'s
-  `ネタバレ女王` opens her spoiler parenthetical with 「(なお、」 in every
+  `ネタバレ女王` opened her spoiler parenthetical with 「(なお、」 in every
   draw, borrowed from her `例:` (the parenthetical itself is what her 【目的】
-  mandates, the 「なお」 is not). Note that `assign` with
+  mandates, the 「なお」 was not) — #1626 removed the `例:` and wrote the
+  opener as a property (no lead-in, start from the outcome fact, differ every
+  time), after which she opened on the fact in 4 of 4 rounds. The same fix
+  showed that a property alone can lose the *shape*: with no example left
+  to show the parenthetical, she dropped it in 3 of 4 rounds and put the
+  spoiler in `inner_thought` instead. What restored it was borrowing the
+  footnote persona's shape wording — 「必ず字幕の末尾に「(〜)」」 plus
+  「括弧書きが無い字幕は失敗」 — so when an `例:` goes, check whether it was
+  also the only statement of the output's *form*, and say the form
+  explicitly. Note that `assign` with
   `target: all` hands out `topics:` in file order, one per round
   (`AssignHandler`), not at random — so an example that shadows a later topic
   (`熱血真面目バン`'s 二度寝 against `seriffu_knockout_v1` topic 4) is outside
@@ -624,9 +633,12 @@ call, and these are what the batches so far have taught.
   highlight (§ "Updating a scenario that has a highlight", second route) beat
   publishing it. #1581's persona rewrite earned it back two days later: all
   four held their 【目的】 in round 1 of both check draws, and the re-published hook
-  quotes `直訳マシーンのボブ` and `余計な情報のスズキ` — `ネタバレ女王` stays
+  quoted `直訳マシーンのボブ` and `余計な情報のスズキ` — `ネタバレ女王` stayed
   excerpt-only, because she opened her parenthetical with her `例:`'s 「(なお、」
-  in both draws (see the frame list above).
+  in both draws (see the frame list above). #1626 then rewrote her opener as
+  a property and re-published from a draw where all four held 【目的】 in
+  round 1; the hook now quotes ボブ and 女王 (still two of four), and 女王's
+  block is the first hooked persona with no `例:` at all.
   Count the *surviving* slices before spending draws: one persona out can
   eliminate every legal one.
 
