@@ -541,7 +541,19 @@ call, and these are what the batches so far have taught.
   shape phrasing — 「必ず字幕の末尾に「(〜)」」 plus 「括弧書きが無い字幕は
   失敗」 — and under it she kept the parenthetical and opened on the fact in
   4 of 4 rounds. So when an `例:` goes, check whether it was also the only
-  statement of the output's *form*, and say the form explicitly. Note that
+  statement of the output's *form*, and say the form explicitly.
+  `chin_jimaku_v1_en`'s `Spoiler Queen Sofia` carried the same opener,
+  latent, in her `e.g.` (`(Anyway,` — never borrowed in a shipped draw);
+  #1667 removed it and ported the ja three-property wording. On en the
+  persona wording alone did not land: she kept the parenthetical in 1 round
+  of 4 under the first port and 0 of 4 under a second that spelled out the
+  two-part form (once relocating the spoiler to `inner_thought`). The
+  variable was not her block but the `speak_all` prompt — ja's says 「自分の
+  【目的】に書かれた芸風を必ず守り」, en's only said "Keep it short and commit
+  to the bit." Adding the same clause ("Stick to the act written in your
+  [Goal]") restored the parenthetical in 4 of 4 rounds, each opening on the
+  fact. So before spending draws on persona wording, diff the *phase prompt*
+  against the sibling language's. Note that
   `assign` with
   `target: all` hands out `topics:` in file order, one per round
   (`AssignHandler`), not at random — so an example that shadows a later topic
@@ -581,7 +593,10 @@ call, and these are what the batches so far have taught.
   hook would have printed its own example beside the excerpt. That batch
   published a `raw` hook of the `speak_all` phase instead, which is what the
   excerpt actually answers. #1577 then re-pointed all four examples at lines
-  neither topic uses, and the entry is back on a `persona` hook. Reach for
+  neither topic uses, and the entry is back on a `persona` hook; #1667 then
+  removed `Spoiler Queen Sofia`'s example outright (its opener was
+  borrowable, see the frame list above), so her block is the en entry's
+  first with no `e.g.` at all. Reach for
   `raw` only while the YAML is still wrong: ADR-029 § Amendment 2026-08-08
   makes `persona` the default precisely so the app can draw the hook in the
   editor's vocabulary rather than as a monospace block. Fixing the YAML
@@ -603,7 +618,13 @@ call, and these are what the batches so far have taught.
 - **A persona that drops its own gimmick is not quotable, however good the
   line is.** `chin_jimaku_v1_en`'s `Trivia Todd` is defined entirely by the
   `(Note: …)` footnote his `[Goal]` calls his whole gimmick, and he has now
-  omitted it in four draws across two YAML revisions. Quoting him would put a
+  omitted it in four draws across two YAML revisions, then in #1667's six
+  draws across three more kept it in `statement` in 2 rounds of 12 — and in
+  0 of the 4 rounds under the shipped wording, where the `speak_all` prompt
+  now points at `[Goal]` and `Literal Larry` and `Spoiler Queen Sofia` held
+  theirs 4 of 4; twice the footnote landed in `inner_thought` instead. The
+  prompt clause that fixed the other three did not reach him. Quoting him
+  would put a
   line that contradicts his own declared gimmick on the page. Its ja sibling's
   `直訳マシーンのボブ` fails the same way from the other side — in six draws
   across two revisions, the excerpt shipped before #1577 included, he wrote
