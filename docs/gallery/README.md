@@ -530,9 +530,19 @@ call, and these are what the batches so far have taught.
   “X”だ」 in every draw (his 【目的】 asks for exactly that voice, so it is
   the persona, not a defect); `seriffu_knockout_v1`'s `大袈裟役者ガラ` closes
   on 「〜のだァァ！」, which his new `例:` also uses; `chin_jimaku_v1`'s
-  `ネタバレ女王` opens her spoiler parenthetical with 「(なお、」 in every
+  `ネタバレ女王` opened her spoiler parenthetical with 「(なお、」 in every
   draw, borrowed from her `例:` (the parenthetical itself is what her 【目的】
-  mandates, the 「なお」 is not). Note that `assign` with
+  mandates, the 「なお」 was not) — #1626 removed the `例:` and wrote the
+  opener as a property (no lead-in, start from the outcome fact, differ every
+  time). Its first, property-only wording showed that a property alone can
+  lose the *shape*: with no example left to show the parenthetical, she
+  dropped it in 3 of 4 rounds (2 draws × 2) and put the spoiler in
+  `inner_thought` instead. The shipped wording adds the footnote persona's
+  shape phrasing — 「必ず字幕の末尾に「(〜)」」 plus 「括弧書きが無い字幕は
+  失敗」 — and under it she kept the parenthetical and opened on the fact in
+  4 of 4 rounds. So when an `例:` goes, check whether it was also the only
+  statement of the output's *form*, and say the form explicitly. Note that
+  `assign` with
   `target: all` hands out `topics:` in file order, one per round
   (`AssignHandler`), not at random — so an example that shadows a later topic
   (`熱血真面目バン`'s 二度寝 against `seriffu_knockout_v1` topic 4) is outside
@@ -596,7 +606,8 @@ call, and these are what the batches so far have taught.
   omitted it in four draws across two YAML revisions. Quoting him would put a
   line that contradicts his own declared gimmick on the page. Its ja sibling's
   `直訳マシーンのボブ` fails the same way from the other side — in six draws
-  across two revisions, the shipped one included, he wrote fluent Japanese
+  across two revisions, the excerpt shipped before #1577 included, he wrote
+  fluent Japanese
   where his 【目的】 demands collapsed word-for-word translationese. A `[Goal]`
   the model quietly ignores is a scenario-design problem, not a draw problem,
   so **an emphatic instruction is not evidence that it lands** — `Trivia Todd`
@@ -606,7 +617,8 @@ call, and these are what the batches so far have taught.
   subjects and possessives never elided, idioms split word by word) and names
   the failure condition (natural Japanese = failed), and topic 1 grew from a
   four-word shout to a two-sentence line with enough words to mangle. Under
-  that wording he held the gimmick in 2 draws of 2, as did all four personas
+  that wording he held the gimmick in 2 draws of 2 (#1581's check draws), as
+  did all four personas
   in round 1 of both draws — the pickable window; `ネタバレ女王` dropped hers
   in run 2's round 2, outside it. The six-of-six count above is the old
   wording's record and stays.
@@ -624,9 +636,13 @@ call, and these are what the batches so far have taught.
   highlight (§ "Updating a scenario that has a highlight", second route) beat
   publishing it. #1581's persona rewrite earned it back two days later: all
   four held their 【目的】 in round 1 of both check draws, and the re-published hook
-  quotes `直訳マシーンのボブ` and `余計な情報のスズキ` — `ネタバレ女王` stays
+  quoted `直訳マシーンのボブ` and `余計な情報のスズキ` — `ネタバレ女王` stayed
   excerpt-only, because she opened her parenthetical with her `例:`'s 「(なお、」
-  in both draws (see the frame list above).
+  in both draws (see the frame list above). #1626 then rewrote her opener as
+  a property and re-published from a draw where all four held 【目的】 in
+  round 1; the hook now quotes ボブ and 女王 (still two of four). Her block
+  joins `天然のんき子` (#1592) and the two `asch_conformity` subjects as a
+  hooked persona with no `例:` — here because the example was the defect.
   Count the *surviving* slices before spending draws: one persona out can
   eliminate every legal one.
 
