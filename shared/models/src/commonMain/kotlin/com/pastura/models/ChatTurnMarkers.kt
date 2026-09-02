@@ -24,7 +24,12 @@ package com.pastura.models
  * with Swift is covered by the ported truncation tests instead.
  *
  * @property start Plaintext sentinel that opens a turn (e.g. `"<|im_start|>"`).
- * @property end   Plaintext sentinel that closes a turn (e.g. `"<|im_end|>"`).
+ * @property end   Plaintext sentinel that closes a turn (e.g. `"<|im_end|>"`). An occurrence
+ *   after the response's first structural `{` is a turn boundary: everything after it belongs
+ *   to a turn that is not this one. A *leading* one is, like [start], a template-boundary echo
+ *   with the payload still behind it (#1452) — except for [chatML]'s own `<|im_end|>`, which
+ *   cuts wherever it occurs so a ChatML backend stays byte-identical to pre-#1422. See
+ *   `JSONResponseParser.truncateAtTurnMarkers`.
  */
 public data class ChatTurnMarkers(
     val start: String,

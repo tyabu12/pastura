@@ -56,30 +56,96 @@ class JSONResponseParserTurnMarkerTests {
     }
 
     /**
-     * **A pin on an accepted trade-off, not desired behaviour** — Kotlin half of
-     * Swift's `endMarker_leadingMarkerDestroysPayload_acceptedGap`. Read
-     * [#1452](https://github.com/tyabu12/pastura/issues/1452) before changing.
-     * The symmetric-looking fix — the start arm's `> firstBrace` gate — is not
-     * strictly safer: it would accept `<|im_end|>{"fake":1}` instead of throwing.
+     * **The end arm's own header-echo case (#1452).** A *leading* non-ChatML end
+     * marker is the model echoing its template's turn boundary with the payload
+     * still behind it. Cutting at index 0 destroyed the payload deterministically
+     * (the template reproduces on every retry) → an ADR-021 turn skip.
+     *
+     * Revert the non-ChatML end arm's search origin to `0` and this test fails.
      */
     @Test
-    fun endMarkerLeadingMarkerDestroysPayloadAcceptedGap() {
-        val leadingEcho = """
+    fun endMarkerLeadingHeaderEchoIsNotATurnBoundary() {
+        val input = """
             <turn|>
+            <|turn>model
             {"statement": "本物", "action": "cooperate"}
         """.trimIndent()
-        // `assertIs` on the payload — a bare `assertFailsWith` would pass even if
-        // the throw site moved to a different `SimulationException`.
-        val leading = assertFailsWith<SimulationException> {
-            parser.parse(leadingEcho, turnMarkers = gemma)
-        }
-        assertIs<SimulationError.JsonParseFailed>(leading.error)
 
-        // The counter-example that blocks the `> firstBrace` gate.
+        val output = parser.parse(input, turnMarkers = gemma)
+        assertEquals("本物", output.fields["statement"])
+        assertEquals("cooperate", output.fields["action"])
+    }
+
+    /**
+     * The gate is a search *origin*, not a per-text skip: a leading marker is
+     * stepped over and the next occurrence after the first structural `{` still
+     * cuts, so a fabricated continuation behind a header echo is not accepted.
+     */
+    @Test
+    fun endMarkerLeadingEchoThenFabricatedContinuationCutsAtSecond() {
+        val input = """
+            <turn|>
+            <|turn>model
+            {"statement": "本物", "action": "cooperate"}<turn|>
+            <|turn>model
+            ```json
+            {"statement": "偽物", "action": "betray"}
+            ```
+        """.trimIndent()
+
+        val output = parser.parse(input, turnMarkers = gemma)
+        assertEquals("本物", output.fields["statement"])
+
+        // Negative control — without the Gemma pair the fenced continuation wins.
+        val unfixed = parser.parse(input, turnMarkers = chatMLOnly)
+        assertEquals("偽物", unfixed.fields["statement"])
+    }
+
+    /**
+     * **Control — byte-identical-for-ChatML criterion.** ChatML's own end marker
+     * is *not* gated: a leading `<|im_end|>` still cuts at index 0 under either
+     * set, so `<|im_end|>{"fake":1}` keeps failing and retrying rather than
+     * becoming an accepted fabricated object (#1422's reason for not gating
+     * every marker). A failure here means someone widened the gate to ChatML.
+     */
+    @Test
+    fun endMarkerChatMLLeadingMarkerStillDestroysPayload() {
         val fabricated = assertFailsWith<SimulationException> {
             parser.parse("""<|im_end|>{"fake":1}""", turnMarkers = chatMLOnly)
         }
         assertIs<SimulationError.JsonParseFailed>(fabricated.error)
+
+        // Same marker under Gemma's effective set: the gate keys on the marker
+        // literal, not on which model is loaded.
+        val underGemma = assertFailsWith<SimulationException> {
+            parser.parse("<|im_end|>\n{\"statement\": \"本物\"}", turnMarkers = gemma)
+        }
+        assertIs<SimulationError.JsonParseFailed>(underGemma.error)
+    }
+
+    /**
+     * **A pin on the accepted trade, not desired behaviour.** For a non-ChatML
+     * marker the fabricated-turn shape — end marker, then an object with nothing
+     * before it — is accepted: the object is the only candidate, and failing it
+     * deterministically would be the #1452 skip again. Pre-#1422 Gemma had no
+     * end arm at all, so this is also the behaviour that shipped before that PR.
+     */
+    @Test
+    fun endMarkerLeadingMarkerThenObjectIsAcceptedAcceptedTrade() {
+        val output = parser.parse("""<turn|>{"statement": "偽物"}""", turnMarkers = gemma)
+        assertEquals("偽物", output.fields["statement"])
+    }
+
+    /**
+     * With no structural `{` anywhere the gate has no origin and the arm falls
+     * back to the from-0 search; there is nothing to salvage either way.
+     */
+    @Test
+    fun endMarkerNoStructuralBraceStillFails() {
+        val error = assertFailsWith<SimulationException> {
+            parser.parse("<turn|>\n<|turn>model\nただの文章", turnMarkers = gemma)
+        }
+        assertIs<SimulationError.JsonParseFailed>(error.error)
     }
 
     /**
