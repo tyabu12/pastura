@@ -62,14 +62,26 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
-# Overridable so the exit-2 branch can be exercised without touching the staged
-# bundle. Not a user-facing knob.
-SLICE_DIR="${PASTURA_PROBE_SLICE_DIR:-$REPO_ROOT/Pastura/Frameworks/PasturaSharedEngine.xcframework/ios-arm64_x86_64-simulator}"
+# Overridable for two callers: the exit-2 branch can be exercised without
+# touching the staged bundle, and `kmp-nightly.yml` (#1661) points it at the
+# slice the gate-spike step has already staged under
+# `tools/kmp-gate-spike/Frameworks/` so the job pays no second assembly. Same
+# assembler, same bundle name, and the header the probe typechecks does not
+# vary by config, so the measurement is the same either way. Not a user-facing
+# knob otherwise — run it bare and the app-tree slice is used.
+DEFAULT_SLICE_DIR="$REPO_ROOT/Pastura/Frameworks/PasturaSharedEngine.xcframework/ios-arm64_x86_64-simulator"
+SLICE_DIR="${PASTURA_PROBE_SLICE_DIR:-$DEFAULT_SLICE_DIR}"
 
 if [ ! -d "$SLICE_DIR/PasturaSharedEngine.framework" ]; then
   echo "error: staged simulator slice not found at:" >&2
   echo "  $SLICE_DIR/PasturaSharedEngine.framework" >&2
-  echo "remedy: scripts/kmp/assemble-xcframework.sh --if-missing" >&2
+  if [ -n "${PASTURA_PROBE_SLICE_DIR:-}" ]; then
+    # The override names the slice; the remedy is whatever was supposed to
+    # stage it (in CI, the gate-spike step), not the app-tree assembler.
+    echo "remedy: PASTURA_PROBE_SLICE_DIR is set — fix the step that stages that path" >&2
+  else
+    echo "remedy: scripts/kmp/assemble-xcframework.sh --if-missing" >&2
+  fi
   exit 2
 fi
 

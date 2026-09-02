@@ -63,11 +63,18 @@ jobs:
     #
     #   9m06s   scheduled baseline (measured, pre-#501-PR-C)
     # +   31s   gate-spike build+test step (measured x1.25; UNCAPPED by design)
+    # +    2s   Pattern 7 isolation probe (measured 1.35s cold x1.25; UNCAPPED,
+    #           same reasoning as the gate spike — it is a regression check)
     # +  15m    Stage-5 probe, at its cap        (workflow_dispatch only)
     # +   2m    gate measurements, at its cap    (workflow_dispatch only)
-    # = 26m37s  worst-case dispatch path, against the 30-minute cap
+    # = 26m39s  worst-case dispatch path, against the 30-minute cap
     #
-    # ~3m23s of margin. The earlier version of this note omitted the new steps
+    # The observed figures above (run 29509388191) predate both the gate-spike
+    # step and the Pattern 7 probe; on the scheduled path both now add to that
+    # baseline (9m06s + 31s + 2s = 9m39s). Do not re-derive the sum from the
+    # observed totals — derive it from the term list.
+    #
+    # ~3m21s of margin. The earlier version of this note omitted the new steps
     # and still concluded "9m06s + 15 = ~24 min", which at the measurement
     # step's original 5-minute cap actually composed to 29m37s — 23s of margin,
     # i.e. the cap was effectively already breached and the note said otherwise.
@@ -258,6 +265,51 @@ jobs:
           swift build --package-path tools/kmp-gate-spike
           swift test --package-path tools/kmp-gate-spike --no-parallel
 
+      # ADR-023 §5 / Stage 5 (S5-2c, #1647 → wired by #1661): the Pattern 7
+      # isolation audit of the four K/N-exported seam protocols (`LLMBackend`,
+      # `LanguageDetector`, `EngineLogger`, `RandomSource`). Asks the compiler
+      # to print each requirement's real type from the staged simulator slice
+      # and fails if any imports `@MainActor` — the `App/KMP/` adapters are
+      # `nonisolated` on the strength of this measurement, and a Kotlin/KMP bump
+      # that regenerates the umbrella header can silently change it
+      # (`.claude/rules/swift-isolation.md` Pattern 7).
+      #
+      # UNGUARDED, like the gate-spike step and unlike the measurements below:
+      # this is a deterministic REGRESSION check. A protocol that newly imports
+      # `@MainActor` is exactly "a native-path regression the per-PR job could
+      # not catch" — decision B′ keeps the XCFramework out of the per-PR lanes,
+      # so nothing else on `main` can observe the header. The script cannot
+      # pass vacuously: it requires exactly five keyed `cannot convert`
+      # diagnostics and a `@MainActor` control line, so an import failure or a
+      # renamed requirement is a red, not a silent green.
+      #
+      # Points at the slice the gate-spike step just staged
+      # (`tools/kmp-gate-spike/Frameworks/`) instead of the app-tree default
+      # (`Pastura/Frameworks/`) so the job pays no second Gradle assembly. The
+      # two are the same assembler (`scripts/kmp/assemble-xcframework.sh`),
+      # same bundle name, same debug config, and the Obj-C header the probe
+      # typechecks against does not vary by config. The path is repository-
+      # relative: every `run:` in this job executes from the checkout root.
+      # ⚠️ S5-5 retires the gate spike and with it the staging step above; at
+      # that point re-point this step at `scripts/kmp/assemble-xcframework.sh
+      # --if-missing` + the script's default slice (tools/kmp-gate-spike/README.md
+      # § "Where this code goes at Stage 5").
+      #
+      # Ordering: after the gate spike (which stages the slice), before the
+      # dispatch-only measurements (so the `clean` in the sizing probe cannot
+      # run first). No `if:` — the implicit `success()` keeps it off an
+      # already-failed run.
+      #
+      # Sizing: 1.35s cold / 0.22s warm locally, x1.25 => ~2s; a term in the
+      # job-level composition on both paths. Non-determinism: the gate keys on
+      # swiftc diagnostic wording, so an Xcode pin bump (`DEVELOPER_DIR`) is the
+      # one event that can redden it without a K/N change — re-run the script
+      # locally against the new toolchain before blaming the header.
+      - name: Pattern 7 isolation probe (ADR-023 §5, S5-2)
+        env:
+          PASTURA_PROBE_SLICE_DIR: tools/kmp-gate-spike/Frameworks/PasturaSharedEngine.xcframework/ios-arm64_x86_64-simulator
+        run: scripts/kmp/probe-pattern7-isolation.sh
+
       # Stage-5 sizing probe (#1135) — NOT a regression check.
       #
       # ADR-023 §6 Stage 5 must decide whether the iOS app's per-PR CI can
@@ -405,7 +457,14 @@ jobs:
             printf '#501 Stage 1: it runs the full Kotlin/Native rung '
             printf '(iOS-simulator native tests + XCFramework assembly) that the '
             printf 'per-PR CI runs compile-only. A red run here points at a '
-            printf 'native-path regression the per-PR job could not catch.\n\n'
+            printf 'native-path regression the per-PR job could not catch. Since '
+            printf '#1661 it also runs the Pattern 7 isolation probe '
+            # shellcheck disable=SC2016
+            printf '(`scripts/kmp/probe-pattern7-isolation.sh`): if that step is '
+            printf 'the red one, a K/N seam protocol now imports differently — '
+            # shellcheck disable=SC2016
+            printf 'fix the `App/KMP/` adapter, or if only the Xcode pin moved, '
+            printf 're-run the script locally against the new toolchain.\n\n'
             printf '### Recent commits on main (triage starting points)\n'
             printf '%s\n\n' "$COMMITS"
             printf -- '---\n'
