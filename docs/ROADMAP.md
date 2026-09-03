@@ -247,7 +247,7 @@ Entering Phase 3 was a separate step, gated on the Phase 3 prerequisite (an acti
 
 **Goal:** Build a user community around scenario creation and sharing.
 
-**Prerequisite:** Phase 2 features stabilized, active user base.
+**Prerequisite:** Phase 2 features stabilized, active user base — *the user-base half was waived 2026-09-04, see below.*
 
 **Entered 2026-09-04** by operator decision ([#1671](https://github.com/tyabu12/pastura/issues/1671)). The "active user base" prerequisite was waived rather than met: it never carried a quantitative threshold, and the tracks that matter first do not depend on it. What forced the timing: since ADR-023 S5-1 (#1636) `scripts/release.sh` stages the release `PasturaSharedEngine.xcframework`, so the next App Store release carries Kotlin/Native code regardless — S5-3's App Store Connect upload check (ADR-004 H5, risk R7) belongs on a TestFlight cycle before that release, not inside it.
 
@@ -282,13 +282,13 @@ Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluati
          See ADR-004 (Accepted, Conditional GO) — platform-specific UI (SwiftUI / Compose / Compose Desktop)
          and unified llama.cpp LLM backend across all platforms
          during Phase 3.0 (via a llama.cpp KMP binding on Android / Desktop;
-         ADR-004 §3.6). Migration to LiteRT-LM deferred until Google's
-         iOS Swift SDK + GPU ships; at that point synchronised migration
-         across platforms is the default, with per-platform timing
-         reconsiderable after Phase 3.0 stabilises (ADR-002 §8.1).
-         Final decision at Phase 2 → Phase 3 transition — **still open** at the
-         2026-09-04 entry: the LiteRT-LM sequencing question is deferred until
-         Phase 3.0 (ADR-023 S5-5) closes, tracked at ADR-004 §9.6 / #496.
+         ADR-004 §3.6). Migration to LiteRT-LM: sequencing resolved to
+         **conditional iOS-first** (ADR-004 §3.6 "iOS-migration sequencing",
+         2026-07-10, #496 OQ#1), gated on the #496 / #969 readiness gate —
+         its second conjunct (constrained-decoding exposure or prompt-only
+         acceptability) is what remains open at the 2026-09-04 Phase 3 entry,
+         and per-platform timing stays reconsiderable after Phase 3.0
+         stabilises (ADR-002 §8.1).
 ```
 
 ## Scope Decision Quick Reference
