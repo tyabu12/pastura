@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-09-02T00:00:00Z",
+  "updated_at": "2026-09-03T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -791,9 +791,9 @@
       ],
       "language": "en",
       "yaml_url": "chin_jimaku_v1_en.yaml",
-      "yaml_sha256": "e9b3e2b71cf7427656c30f58528a2c77b4ddfeea0cbf0f6ee84cd7fd40885971",
+      "yaml_sha256": "05c55f6a8dd5a50a8ae737eff55204882a117dc1fb6f0692acc6a498b25aec0a",
       "highlight_url": "highlights/chin_jimaku_v1_en.json",
-      "highlight_sha256": "42e5b09fbe177f77b34f5798ceed6efa1f7ce919169fed87762926ad6a5c17b9",
+      "highlight_sha256": "8005674567065139cfa15269a5d0aa8f8748952d3251d0069823c065c45e2dc3",
       "added_at": "2026-07-01"
     },
     {

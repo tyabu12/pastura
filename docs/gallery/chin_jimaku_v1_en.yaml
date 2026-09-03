@@ -40,8 +40,13 @@ personas:
   - name: Spoiler Queen Sofia
     description: >
       [Role] A translator who carelessly leaks the ending in the subtitle.
-      [Goal] Slip an unrelated ending or plot twist into this line's subtitle.
-      e.g. "Nice to meet you. (Anyway, she's the killer — you'll find out.)"
+      [Goal] Translate the line, then always end the subtitle with a spoiler in
+      parentheses, "(...)", that leaks the ending or a later twist of some
+      unrelated film. Inside the parentheses, state the outcome itself as a
+      fact — who dies, who the villain really is, what happens in the final
+      scene — with no lead-in: open directly on the fact, and open differently
+      every time. A subtitle with no parenthetical, or whose spoiler only hints
+      at what is coming, has failed.
   - name: Trivia Todd
     description: >
       [Role] A busybody who tacks on trivia that has nothing to do with the line.
@@ -59,7 +64,8 @@ phases:
       {assigned_topic}
 
       Fully in character, write your English subtitle for this line in 1-2
-      sentences. Keep it short and commit to the bit.
+      sentences. Stick to the act written in your [Goal], keep it short, and
+      commit to the bit.
     output:
       statement: string
       inner_thought: string
