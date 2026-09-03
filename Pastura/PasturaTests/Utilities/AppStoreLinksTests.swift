@@ -75,6 +75,21 @@ struct AppStoreLinksTests {
     #expect(badgeCount >= 6, "found only \(badgeCount) store badges — did the scan break?")
   }
 
+  @Test func productPageURLIsConstructible() throws {
+    let url = try #require(AppStoreLinks.productPage)
+    #expect(url.scheme == "https")
+    #expect(url.host() == "apps.apple.com")
+  }
+
+  @Test func productPageURLCarriesTheItemIDAndNoQuery() throws {
+    let url = try #require(AppStoreLinks.productPage)
+    let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+
+    #expect(components.path == "/app/id\(AppStoreLinks.appStoreItemID)")
+    // Plain product page — no `action=` query, unlike `writeReview`.
+    #expect(components.queryItems == nil)
+  }
+
   /// `…/Pastura/PasturaTests/Utilities/<this file>` → four levels up.
   private static let repoRoot = URL(fileURLWithPath: #filePath)
     .deletingLastPathComponent()  // Utilities

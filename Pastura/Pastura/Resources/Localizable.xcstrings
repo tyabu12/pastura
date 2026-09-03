@@ -4497,12 +4497,12 @@
         }
       }
     },
-    "Needs a newer version of Pastura to run." : {
+    "Needs a newer version of Pastura to run. Shows how to update." : {
       "localizations" : {
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "実行にはより新しいバージョンの Pastura が必要です。"
+            "value" : "実行にはより新しいバージョンの Pastura が必要です。更新方法を表示します。"
           }
         }
       }
@@ -4797,6 +4797,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "端末に取り込めば、この YAML はそのまま書き換えられます。設定を変えて、自分だけの展開を確かめてみてください。"
+          }
+        }
+      }
+    },
+    "Open App Store" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Store を開く"
           }
         }
       }

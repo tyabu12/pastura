@@ -28,4 +28,12 @@ nonisolated enum AppStoreLinks {
   /// device QA cannot distinguish from a tester simply not noticing.
   static let writeReview = URL(
     string: "https://apps.apple.com/app/id\(appStoreItemID)?action=write-review")
+
+  /// The plain product page — no `action=` query. Deep-link target for the
+  /// ADR-020 D4/D5 "update the app" affordance: the `.updateRequired` install
+  /// outcome's alert opens this so the user can update from the App Store
+  /// rather than being told and left to find it themselves.
+  ///
+  /// `https` rather than `itms-apps://` for the same reason as ``writeReview``.
+  static let productPage = URL(string: "https://apps.apple.com/app/id\(appStoreItemID)")
 }

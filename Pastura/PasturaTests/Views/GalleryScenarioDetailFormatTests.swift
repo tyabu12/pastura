@@ -101,11 +101,17 @@ struct GalleryScenarioDetailFormatTests {
     #expect(alert?.title == "Update required")
     // Forward-guidance, not a "download"/"parse" dead-end.
     #expect(alert?.message.contains("newer version of Pastura") == true)
+    // ADR-020 D5 — the only outcome carrying an App Store deep link.
+    #expect(alert?.appStoreURL == AppStoreLinks.productPage)
+    #expect(alert?.hasStoreAction == true)
   }
 
   @Test func installAlertNetworkErrorPassesDescriptionThrough() {
     let alert = GalleryScenarioDetailFormat.installAlert(for: .networkError("boom"))
     #expect(alert?.message == "boom")
+    // Non-updateRequired outcomes never carry the deep link.
+    #expect(alert?.appStoreURL == nil)
+    #expect(alert?.hasStoreAction == false)
   }
 
   // MARK: - Highlight excerpt rows

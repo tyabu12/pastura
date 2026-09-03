@@ -19,6 +19,7 @@ struct GalleryScenarioDetailView: View {
   @Environment(AppRouter.self) private var router
   @Environment(ModelManager.self) var modelManager
   @Environment(\.lastDeepLinkedScenarioId) private var lastDeepLinkedScenarioId
+  @Environment(\.openURL) private var openURL
   @State private var viewModel: SharedScenariosViewModel?
   // Read by the sibling extension in `GalleryScenarioDetailView+Highlight.swift`
   // — `private` would block cross-file extension access.
@@ -74,9 +75,7 @@ struct GalleryScenarioDetailView: View {
       }
       await highlightLoader?.load(for: scenario)
     }
-    .alert(item: $outcomeAlert) { alert in
-      Alert(title: Text(alert.title), message: Text(alert.message))
-    }
+    .alert(item: $outcomeAlert) { alert in alert.makeAlert(openURL: openURL) }
     .toolbar {
       ToolbarItem(placement: .topBarLeading) {
         PasturaBackButton()
@@ -350,4 +349,20 @@ struct OutcomeAlert: Identifiable {
   let id = UUID()
   let title: String
   let message: String
+
+  /// The App Store product page to open from an "Open App Store" button, or
+  /// `nil` for every outcome but the ADR-020 D5 `.updateRequired` one. Kept as
+  /// data — no closure — so this struct stays a plain value the Format layer
+  /// can build and a unit test can compare (ADR-009).
+  let appStoreURL: URL?
+
+  /// Whether ``makeAlert(openURL:)`` renders the two-button form. `Alert` is
+  /// opaque, so this is the testable discriminator for that branch.
+  var hasStoreAction: Bool { appStoreURL != nil }
+
+  init(title: String, message: String, appStoreURL: URL? = nil) {
+    self.title = title
+    self.message = message
+    self.appStoreURL = appStoreURL
+  }
 }

@@ -47,10 +47,8 @@ extension SettingsView {
   /// A row that leaves the app: green `Color.link` text plus the external-link
   /// glyph, no chevron (Theme D — see the `body` comment).
   ///
-  /// Uses the `openURL(_:completion:)` overload rather than the fire-and-forget
-  /// form: `openURL` reports nothing on a URL the system cannot route, so a
-  /// broken link would be indistinguishable from a tester not noticing. The
-  /// log line is the only signal such a regression would leave.
+  /// Opens through ``OpenURLAction/callLogged(_:logger:)`` so a URL the
+  /// system declines leaves a log line (see that helper for why).
   ///
   /// ⚠️ **`title` MUST be a `String(localized:)` value.** It renders through
   /// `Text(_:)` as a plain `String`, invisible to both the SwiftLint tripwire
@@ -68,11 +66,7 @@ extension SettingsView {
   ) -> some View {
     Button {
       guard let url else { return }
-      openURL(url) { accepted in
-        guard !accepted else { return }
-        Self.linkLogger.error(
-          "openURL declined for \(url.absoluteString, privacy: .public)")
-      }
+      openURL.callLogged(url, logger: Self.linkLogger)
     } label: {
       HStack {
         Text(title)

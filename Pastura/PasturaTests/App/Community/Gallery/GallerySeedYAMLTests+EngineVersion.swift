@@ -6,33 +6,34 @@ import Testing
 extension GallerySeedYAMLTests {
 
   /// The highest `min_engine_version` a **gallery** scenario may declare
-  /// while ADR-020 §8 item-4's deep-link sequencing obligation is still
-  /// undischarged.
+  /// without a curator re-reading ADR-020 §8 item-4 / §12.
   ///
   /// A gallery entry whose declared floor exceeds `EngineSchemaVersion` on an
   /// **older installed app** greys out (ADR-020 D4) and, on Try, hits the
-  /// `.updateRequired` alert (D5). Until the App Store deep-link — or an
-  /// explicit forward-guidance path — lands on that badge/alert, such a row
-  /// **dead-ends with no way forward** (the exact failure D5 exists to
-  /// prevent; the App Store ID is not yet minted). The safe floor every
-  /// installed app can still run is therefore the pre-`no_repeat` baseline:
-  /// `1`. This is a **literal, deliberately decoupled from
-  /// `EngineSchemaVersion.current`** — whatever that constant currently is,
-  /// tying this to it would auto-raise the cap on the next bump and silently
-  /// defeat the tripwire. (Deliberately not restated as a number here: the
-  /// earlier parenthetical said "= 2" and went stale across three bumps.)
-  static let maxGalleryFloorWithoutDeepLink = 1
+  /// `.updateRequired` alert (D5). The App Store deep-link on both surfaces
+  /// landed 2026-09-02 (#1648, ADR-020 §12), which discharged the original
+  /// obligation and raised this from `1` to `2`. It stays a **literal,
+  /// deliberately decoupled from `EngineSchemaVersion.current`** — whatever
+  /// that constant currently is, tying this to it would auto-raise the cap on
+  /// the next bump and turn the tripwire into a no-op. Each further raise is a
+  /// deliberate edit: the deep-link protects only builds that carry it, so
+  /// before declaring a higher floor confirm which installed builds would grey
+  /// the row and whether they have the link (ADR-020 §12's table by tag is the
+  /// template). (Deliberately not restated as a number in prose: an earlier
+  /// parenthetical said "= 2" and went stale across three bumps.)
+  static let maxGalleryFloorWithoutDeepLink = 2
 
-  /// Tripwire enforcing ADR-020 §8 item-4: **no gallery scenario may declare
-  /// `min_engine_version` above ``maxGalleryFloorWithoutDeepLink`` until the
-  /// deep-link/forward-guidance obligation is discharged.**
+  /// Tripwire enforcing ADR-020 §8 item-4 / §12: **no gallery scenario may
+  /// declare `min_engine_version` above ``maxGalleryFloorWithoutDeepLink``
+  /// without a curator raising that constant on purpose.**
   ///
-  /// This is the mechanical companion to the ADR's prose obligation
-  /// ("revisit before any gallery scenario declares `min_engine_version: 2`"):
-  /// the first curation PR that raises a floor must touch this test, which
-  /// forces its author to read the obligation and land the deep-link first.
+  /// This is the mechanical companion to the ADR's prose obligation: the first
+  /// curation PR that raises a floor past the constant must touch this test,
+  /// which forces its author to read the obligation. The deep-link itself has
+  /// landed (§12); what the tripwire now guards is the *rollout* question —
+  /// which installed builds would grey the row, and whether they have it.
   /// Green today — every current `gallery.json` entry decodes `nil` (see
-  /// `GalleryScenario.minEngineVersion`).
+  /// `GalleryScenario.minEngineVersion`); the first floor-2 entry is #1662.
   ///
   /// **Bounded scope (does NOT cover the D2 path).** There are two greying
   /// paths in ADR-020: D3 (a **declared** `min_engine_version`, checked here)
@@ -62,10 +63,10 @@ extension GallerySeedYAMLTests {
         """
         gallery.json entry id=\(entry.id) declares min_engine_version=\(floor), \
         above the deep-link baseline \(Self.maxGalleryFloorWithoutDeepLink). \
-        An older installed app would grey this row (ADR-020 D4/D5) with no way \
-        forward. Land the App Store deep-link (or explicit forward-guidance) on \
-        the "Update app" badge / "Update required" alert FIRST (ADR-020 §8 \
-        item-4, issue #976), then raise maxGalleryFloorWithoutDeepLink.
+        An older installed app would grey this row (ADR-020 D4/D5). Before \
+        raising maxGalleryFloorWithoutDeepLink, confirm which installed builds \
+        grey it and whether they carry the App Store deep-link (ADR-020 §12, \
+        #1648) — then raise the constant in the same PR.
         """)
     }
   }

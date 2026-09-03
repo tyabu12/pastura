@@ -17,9 +17,9 @@ nonisolated enum ScenarioBadge: Equatable {
   case update
   /// The scenario needs a newer engine than this build provides (ADR-020
   /// D2/D3) — surfaced by Browse on an incompatible, non-tappable (dimmed)
-  /// card in place of the install/update badges. A distinct warning colour +
-  /// an App Store deep-link are deferred to the first post-baseline release
-  /// that can actually grey a row (ADR-020 § deferred scope).
+  /// card in place of the install/update badges. Tapping that card presents
+  /// the `.updateRequired` alert with its App Store deep-link (ADR-020 §12,
+  /// #1648); a distinct warning colour remains deferred.
   case updateRequired
   /// Recently added to the gallery (within
   /// ``GalleryCatalogRowFormat/newBadgeWindowDays``) — a discovery highlight
