@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-09-02._
+_Last updated: 2026-09-04._
 
 ## Stages
 
@@ -33,7 +33,7 @@ _Last updated: 2026-09-02._
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | ✅ done | ↓ Stage 3 breakdown |
 | 4 | Cross-language parity harness | ✅ done (2026-08-30) | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) [#1615](https://github.com/tyabu12/pastura/issues/1615) landed; S3b-2 (seeded fixtures) [#1618](https://github.com/tyabu12/pastura/issues/1618) landed; S4 (cancellation tail) [#1622](https://github.com/tyabu12/pastura/issues/1622) landed; S5 (suspend parity) [#1625](https://github.com/tyabu12/pastura/issues/1625) landed; S6 (divergence-6 ruling) [#1629](https://github.com/tyabu12/pastura/issues/1629) landed — Stage-4 residue cleared · [#501](https://github.com/tyabu12/pastura/issues/501) |
-| 5 | iOS consumption switch + code-merge | 🔄 in progress | rulings + slices S5-1…S5-5 [#1633](https://github.com/tyabu12/pastura/issues/1633) · [ADR-023 §6 Stage 5](decisions/ADR-023.md) · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · message localization leaf landed [#1631](https://github.com/tyabu12/pastura/issues/1631) (Apple actual: in-app `ja` check → S5-4) · S5-1 link landed [#1636](https://github.com/tyabu12/pastura/issues/1636) [#1639](https://github.com/tyabu12/pastura/issues/1639) [#1640](https://github.com/tyabu12/pastura/issues/1640) [#1635](https://github.com/tyabu12/pastura/issues/1635) · S5-2 adapters + isolation audits landed [#1647](https://github.com/tyabu12/pastura/issues/1647) (#1650 #1655 + audits PR; probe nightly-wired [#1661](https://github.com/tyabu12/pastura/issues/1661)) — S5-3 onward need Phase-3 entry |
+| 5 | iOS consumption switch + code-merge | 🔄 in progress | rulings + slices S5-1…S5-5 [#1633](https://github.com/tyabu12/pastura/issues/1633) · [ADR-023 §6 Stage 5](decisions/ADR-023.md) · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · message localization leaf landed [#1631](https://github.com/tyabu12/pastura/issues/1631) (Apple actual: in-app `ja` check → S5-4) · S5-1 link landed [#1636](https://github.com/tyabu12/pastura/issues/1636) [#1639](https://github.com/tyabu12/pastura/issues/1639) [#1640](https://github.com/tyabu12/pastura/issues/1640) [#1635](https://github.com/tyabu12/pastura/issues/1635) · S5-2 adapters + isolation audits landed [#1647](https://github.com/tyabu12/pastura/issues/1647) (#1650 #1655 + audits PR; probe nightly-wired [#1661](https://github.com/tyabu12/pastura/issues/1661)) · Phase 3 entered 2026-09-04 ([#1671](https://github.com/tyabu12/pastura/issues/1671)) — S5-3 next |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 
@@ -127,8 +127,8 @@ machine-checked — see the maintenance invariant above.
 - **Stage 5** (iOS switch + code-merge): 🔄 in progress — the three deferred questions were ruled on
   2026-08-30 ([#1633](https://github.com/tyabu12/pastura/issues/1633)) and the stage is sliced
   S5-1 link · S5-2 adapters + isolation audits (gives the Kotlin loader its first caller) ·
-  S5-3 H5/H7 · S5-4 flag-gated switch + soak · S5-5 code-merge; S5-1/S5-2 are pre-Phase-3
-  infrastructure, S5-3 onward need Phase-3 entry. **S5-1 has landed**
+  S5-3 H5/H7 · S5-4 flag-gated switch + soak · S5-5 code-merge; S5-1/S5-2 were pre-Phase-3
+  infrastructure, S5-3 onward needed Phase-3 entry. **S5-1 has landed**
   ([#1636](https://github.com/tyabu12/pastura/issues/1636),
   [#1639](https://github.com/tyabu12/pastura/issues/1639),
   [#1640](https://github.com/tyabu12/pastura/issues/1640),
@@ -138,5 +138,6 @@ machine-checked — see the maintenance invariant above.
   #1650 the `LLMBackend` actual, #1655 the §5 seam bridges + Kotlin `ScenarioLoader`'s first
   caller, plus the isolation-audit PR — Pattern-7 probe measured, Pattern-6 audit re-run; the
   probe now also runs nightly as a regression step,
-  [#1661](https://github.com/tyabu12/pastura/issues/1661)). S5-3 onward need Phase-3 entry.
+  [#1661](https://github.com/tyabu12/pastura/issues/1661)). **Phase 3 entered 2026-09-04**
+  ([#1671](https://github.com/tyabu12/pastura/issues/1671)) — S5-3 is next.
   See [ADR-023](decisions/ADR-023.md) §6 Stage 5.
