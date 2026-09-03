@@ -542,8 +542,15 @@ call, and these are what the batches so far have taught.
   失敗」 — and under it she kept the parenthetical and opened on the fact in
   4 of 4 rounds. So when an `例:` goes, check whether it was also the only
   statement of the output's *form*, and say the form explicitly.
-  `chin_jimaku_v1_en`'s `Spoiler Queen Sofia` carried the same opener,
-  latent, in her `e.g.` (`(Anyway,` — never borrowed in a shipped draw);
+  Note that
+  `assign` with
+  `target: all` hands out `topics:` in file order, one per round
+  (`AssignHandler`), not at random — so an example that shadows a later topic
+  (`熱血真面目バン`'s 二度寝 against `seriffu_knockout_v1` topic 4) is outside
+  the window and safe, and a round-1 collision cannot be re-drawn away.
+  `chin_jimaku_v1_en`, the en twin, carried the same opener latent in
+  `Spoiler Queen Sofia`'s `e.g.` (`(Anyway,` — never borrowed in a shipped
+  draw);
   #1667 removed it and ported the ja three-property wording. On en the
   persona wording alone did not land: she kept the parenthetical in 1 round
   of 4 under the first port and 0 of 4 under a second that spelled out the
@@ -553,12 +560,7 @@ call, and these are what the batches so far have taught.
   to the bit." Adding the same clause ("Stick to the act written in your
   [Goal]") restored the parenthetical in 4 of 4 rounds, each opening on the
   fact. So before spending draws on persona wording, diff the *phase prompt*
-  against the sibling language's. Note that
-  `assign` with
-  `target: all` hands out `topics:` in file order, one per round
-  (`AssignHandler`), not at random — so an example that shadows a later topic
-  (`熱血真面目バン`'s 二度寝 against `seriffu_knockout_v1` topic 4) is outside
-  the window and safe, and a round-1 collision cannot be re-drawn away.
+  against the sibling language's.
   The one carve-out is a
   scripted speaker who is *not* the hook: `asch_conformity_v1` / `_en` quote
   the confederates' literal lines (「答えはCです」, `It's C, no doubt.`) because
