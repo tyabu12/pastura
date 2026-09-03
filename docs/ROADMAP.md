@@ -1,6 +1,6 @@
 # Pastura — Product Roadmap
 
-> Last updated: 2026-08-25
+> Last updated: 2026-09-04
 > This document defines phase boundaries and scope. When in doubt whether a feature
 > belongs in the current phase, check here first.
 
@@ -101,7 +101,7 @@ creation observed. Decision: ship to App Store to gauge wider public reaction.
 
 **Prerequisite:** Phase 1 Go decision from TestFlight feedback. ✅ Conditional Go (2026-04-13)
 
-**Completed 2026-07-23** — the Phase 2 → Phase 3 Go gate is met: v1.0 was approved and released to the App Store (see § "Phase 2 → Phase 3 Go Criteria"). Phase 3 (Community) is **not yet entered** — its prerequisite (an active user base) is unmet at launch. The `Custom score_calc logic` row below (now `Deferred → P3`) was never a Go-gate item.
+**Completed 2026-07-23** — the Phase 2 → Phase 3 Go gate is met: v1.0 was approved and released to the App Store (see § "Phase 2 → Phase 3 Go Criteria"). Phase 3 (Community) was **entered 2026-09-04** by operator decision (#1671) — see § "Phase 3: Community" for the prerequisite disposition and the priority order. The `Custom score_calc logic` row below (now `Deferred → P3`) was never a Go-gate item.
 
 ### Planned Features
 
@@ -239,7 +239,7 @@ Phase 2 is complete when: **✅ met 2026-07-23 (v1.0 approved & released to the 
 - [x] Phase 2 features already shipped (Visual Editor, BG execution, Multi-model, Shared Scenarios, DL Demo Replay, ...) have no critical regressions.
 - Step E (Cross-language simulation) may run in parallel within Phase 2 but is **not** a completion gate.
 
-Entering Phase 3 is a separate step, gated on the Phase 3 prerequisite (an active user base) — unmet at launch.
+Entering Phase 3 was a separate step, gated on the Phase 3 prerequisite (an active user base) — unmet at launch, waived 2026-09-04 (see § "Phase 3: Community").
 
 ---
 
@@ -247,7 +247,15 @@ Entering Phase 3 is a separate step, gated on the Phase 3 prerequisite (an activ
 
 **Goal:** Build a user community around scenario creation and sharing.
 
-**Prerequisite:** Phase 2 features stabilized, active user base.
+**Prerequisite:** Phase 2 features stabilized, active user base — *the user-base half was waived 2026-09-04, see below.*
+
+**Entered 2026-09-04** by operator decision ([#1671](https://github.com/tyabu12/pastura/issues/1671)). The "active user base" prerequisite was waived rather than met: it never carried a quantitative threshold, and the tracks that matter first do not depend on it. What forced the timing: since ADR-023 S5-1 (#1636) `scripts/release.sh` stages the release `PasturaSharedEngine.xcframework`, so the next App Store release carries Kotlin/Native code regardless — S5-3's App Store Connect upload check (ADR-004 H5, risk R7) belongs on a TestFlight cycle before that release, not inside it.
+
+**Priority order within Phase 3:**
+
+1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 → S5-4 flag-gated switch + soak → S5-5 code-merge). Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. Takes precedence over every row below until S5-5 closes.
+2. **In-app scenario generation (Cloud API)** — still gated on ADR-006 (ADR-005 §7.5): writing ADR-006 is the first deliverable; engineering beyond API-contract exploration stays out of scope until it merges.
+3. **Community features** (marketplace, rankings, auto-summary, relationship graph) — sequenced after 1 and 2; each still needs its own plan.
 
 ### Planned Features
 
@@ -274,18 +282,21 @@ Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluati
          See ADR-004 (Accepted, Conditional GO) — platform-specific UI (SwiftUI / Compose / Compose Desktop)
          and unified llama.cpp LLM backend across all platforms
          during Phase 3.0 (via a llama.cpp KMP binding on Android / Desktop;
-         ADR-004 §3.6). Migration to LiteRT-LM deferred until Google's
-         iOS Swift SDK + GPU ships; at that point synchronised migration
-         across platforms is the default, with per-platform timing
-         reconsiderable after Phase 3.0 stabilises (ADR-002 §8.1).
-         Final decision at Phase 2 → Phase 3 transition.
+         ADR-004 §3.6). Migration to LiteRT-LM: sequencing resolved to
+         **conditional iOS-first** (ADR-004 §3.6 "iOS-migration sequencing",
+         2026-07-10, #496 OQ#1), gated on the #496 / #969 readiness gate —
+         its second conjunct (constrained-decoding exposure or prompt-only
+         acceptability) is what remains open at the 2026-09-04 Phase 3 entry,
+         and per-platform timing stays reconsiderable after Phase 3.0
+         stabilises (ADR-002 §8.1).
 ```
 
 ## Scope Decision Quick Reference
 
 When evaluating whether to include a feature:
 
-1. Is it in the Phase 2 planned features table with status "In progress"? → **Do it**
-2. Is it in the Phase 2 table with status "Planned" but not started? → **Ask first**
-3. Is it a Phase 3 feature? → **Don't do it, reference this doc**
-4. Is it unlisted? → **Ask before implementing.** Default to deferring.
+1. Is it Phase 3.0 KMP work (ADR-023 Stage 5 slices, #501)? → **Do it** — the priority track
+2. Is it the Cloud API? → **Ask first**, and only ADR-006 authoring or API-contract exploration until ADR-006 merges (ADR-005 §7.5)
+3. Is it another row of the Phase 3 planned features table? → **Ask first** — sequenced after the KMP track; reference the priority order above
+4. Is it a Phase 2 row still `Deferred → P3` or a Phase 2 follow-up? → **Ask first**
+5. Is it unlisted? → **Ask before implementing.** Default to deferring.

@@ -4,7 +4,7 @@
 
 ## Current Phase
 
-Phase 2 (Expansion) complete — v1.0 released to the App Store 2026-07-23. Phase 3 (Community) not entered. If a requested feature is listed under Phase 3 in `docs/ROADMAP.md`, defer it and say so.
+Phase 3 (Community) entered 2026-09-04. KMP Stage 5 (ADR-023, S5-3 → S5-5) is the priority track; everything else follows the `docs/ROADMAP.md` § Phase 3 ordering (Cloud API stays gated on ADR-006). Say so before pulling work ahead of it.
 
 ## Language Rules
 
