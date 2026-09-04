@@ -1,31 +1,30 @@
 import Foundation
+import StoreKit
 import Testing
 
 @testable import Pastura
 
-/// Covers `BuildChannel.isSandboxReceipt(_:)`, the pure half of the channel
-/// hint (ADR-023 §6 S5-3 H7 prerequisite).
+/// Covers `BuildChannel.isSandboxEnvironment(_:)`, the pure half of the
+/// channel hint (ADR-023 §6 S5-3 H7 prerequisite).
 ///
-/// Only the pure function is exercised here: `BuildChannel.isSandboxOrDebug`
-/// is hard-wired to `true` under `#if DEBUG` and the unit suite only ever
-/// runs in a Debug build, so the receipt branch is unreachable from the
-/// suite. That is exactly why the receipt classification is factored out.
+/// Only the pure function is exercised here: `resolveIsSandboxOrDebug()` is
+/// hard-wired to `true` under `#if DEBUG` and the unit suite only ever runs in
+/// a Debug build, so the StoreKit branch is unreachable from the suite. That
+/// is exactly why the environment classification is factored out.
 @Suite(.timeLimit(.minutes(1)))
 struct BuildChannelTests {
-  @Test("a sandboxReceipt path is the TestFlight / App Review / local-Release channel")
-  func sandboxReceiptIsRecognised() {
-    let url = URL(fileURLWithPath: "/private/var/mobile/Containers/Data/StoreKit/sandboxReceipt")
-    #expect(BuildChannel.isSandboxReceipt(url) == true)
+  @Test("sandbox is the TestFlight / App Review / local-Release channel")
+  func sandboxIsRecognised() {
+    #expect(BuildChannel.isSandboxEnvironment(.sandbox) == true)
   }
 
-  @Test("a production receipt path is not the sandbox channel")
-  func productionReceiptIsNotSandbox() {
-    let url = URL(fileURLWithPath: "/private/var/mobile/Containers/Data/StoreKit/receipt")
-    #expect(BuildChannel.isSandboxReceipt(url) == false)
+  @Test("xcode (local StoreKit configuration) is a non-production channel")
+  func xcodeIsRecognised() {
+    #expect(BuildChannel.isSandboxEnvironment(.xcode) == true)
   }
 
-  @Test("a missing receipt URL is not the sandbox channel")
-  func missingReceiptIsNotSandbox() {
-    #expect(BuildChannel.isSandboxReceipt(nil) == false)
+  @Test("production is not the sandbox channel")
+  func productionIsNotSandbox() {
+    #expect(BuildChannel.isSandboxEnvironment(.production) == false)
   }
 }

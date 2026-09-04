@@ -105,6 +105,11 @@ struct SettingsView: View {
   /// Bound to the H7 crash-confirmation `.alert`. Not `private` — read/
   /// written by the `+Diagnostics.swift` sibling extension.
   @State var isShowingH7CrashConfirm = false
+  /// Resolved channel hint (`BuildChannel.resolveIsSandboxOrDebug()`), loaded
+  /// by the `.task` below. Defaults to `false` — the App Store shape — so the
+  /// H7 gesture, section, and alert do not exist until StoreKit answers.
+  /// Not `private` — read by the `+Diagnostics.swift` sibling extension.
+  @State var isSandboxOrDebug = false
 
   #if !targetEnvironment(simulator)
     // `internal` (not `private`): the device-only helpers in the sibling
@@ -191,6 +196,7 @@ struct SettingsView: View {
     // async context for the off-main read; it re-fires when the view is
     // recreated, and `clearAllResults()` re-loads explicitly after a purge.
     .task { await loadStorageUsage() }
+    .task { isSandboxOrDebug = await BuildChannel.resolveIsSandboxOrDebug() }
     .onChange(of: keepRunningOnLeave) { _, newValue in
       FeatureFlags.setKeepRunningOnLeave(newValue)
     }
@@ -211,7 +217,12 @@ struct SettingsView: View {
         onConfirm: { await clearAllResults() }
       )
     )
-    .modifier(H7CrashConfirmationModifier(isPresented: $isShowingH7CrashConfirm))
+    .modifier(
+      H7CrashConfirmationModifier(
+        channelHint: isSandboxOrDebug,
+        isPresented: $isShowingH7CrashConfirm
+      )
+    )
     #if !targetEnvironment(simulator)
       // `.alert` (not `.confirmationDialog`): iOS 26 renders a Menu-
       // triggered confirmationDialog as a popover whose arrow anchors to

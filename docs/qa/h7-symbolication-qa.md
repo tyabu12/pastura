@@ -89,7 +89,7 @@ The probe itself (Kotlin `H7CrashProbe`, `H7CrashTrigger`, the Diagnostics
 section and its state, `FeatureFlags.h7CrashProbeEnabled`, the five H7 catalog
 keys — `About` stays with its section —, `settings.h7CrashButton`) is deleted in **S5-5**, and that deletion must
 land **before the next App Store submission**: the reveal gesture is gated on
-`sandboxReceipt`, which an App Review install also carries, and a deliberate
+the `.sandbox` StoreKit environment, which an App Review install also reports, and a deliberate
 crash reachable by a reviewer is a Guideline 2.1 rejection.
 
 ## If the upload lacks the K/N symbols (`kn-symbols` warned)

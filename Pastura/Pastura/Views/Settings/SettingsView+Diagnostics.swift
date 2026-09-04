@@ -18,8 +18,8 @@ extension SettingsView {
   /// hosts the hidden 5-tap reveal gesture for the Diagnostics section
   /// (TestFlight users have no shell to run `defaults write` from, so this
   /// is the only flip path there) — the tap counter itself only exists on a
-  /// `BuildChannel.isSandboxOrDebug` build, so an App Store install carries
-  /// no gesture at all, not merely a no-op one.
+  /// `isSandboxOrDebug` build, so an App Store install carries no gesture at
+  /// all, not merely a no-op one.
   ///
   /// Not `private`: `private` is file-scoped, and `SettingsView.body` lives
   /// in the sibling file.
@@ -39,7 +39,13 @@ extension SettingsView {
       .padding(.vertical, 15)
       .contentShape(Rectangle())
       .accessibilityIdentifier("settings.versionRow")
-      .modifier(H7RevealGestureModifier(tapCount: $versionTapCount, revealed: $isH7ProbeRevealed))
+      .modifier(
+        H7RevealGestureModifier(
+          channelHint: isSandboxOrDebug,
+          tapCount: $versionTapCount,
+          revealed: $isH7ProbeRevealed
+        )
+      )
     }
   }
 
@@ -62,14 +68,14 @@ extension SettingsView {
 
   /// H7 crash-probe section (ADR-023 §6 S5-3, ADR-004 §9.2). Rendered only
   /// once both the channel hint and the explicit opt-in flag are true — see
-  /// `BuildChannel.isSandboxOrDebug`'s type-level doc for why the channel
-  /// hint alone is never a sufficient gate.
+  /// `BuildChannel`'s type-level doc for why the channel hint alone is never
+  /// a sufficient gate.
   ///
   /// Not `private`: `private` is file-scoped, and `SettingsView.body` lives
   /// in the sibling file.
   @ViewBuilder
   var diagnosticsSection: some View {
-    if BuildChannel.isSandboxOrDebug && isH7ProbeRevealed {
+    if isSandboxOrDebug && isH7ProbeRevealed {
       PasturaSection(String(localized: "Diagnostics"), style: .grouped) {
         VStack(alignment: .leading, spacing: 7) {
           Text(
@@ -107,12 +113,15 @@ extension SettingsView {
 /// the 5th, but only when the build channel hint is true — the counter
 /// itself must not exist on an App Store build path, not merely no-op, so
 /// the gate wraps the gesture rather than sitting inside the tap handler.
+/// The hint is passed in (resolved once by `SettingsView`'s `.task`) because
+/// `BuildChannel` is async under StoreKit 2.
 private struct H7RevealGestureModifier: ViewModifier {
+  let channelHint: Bool
   @Binding var tapCount: Int
   @Binding var revealed: Bool
 
   func body(content: Content) -> some View {
-    if BuildChannel.isSandboxOrDebug {
+    if channelHint {
       content.onTapGesture {
         tapCount += 1
         // Exactly the fifth tap: later taps must not keep re-writing the key.
@@ -141,11 +150,12 @@ private struct H7RevealGestureModifier: ViewModifier {
 /// reveal gesture: an App Store build path carries no crash call site at all,
 /// not merely an unreachable one.
 struct H7CrashConfirmationModifier: ViewModifier {
+  let channelHint: Bool
   @Binding var isPresented: Bool
 
   @ViewBuilder
   func body(content: Content) -> some View {
-    if BuildChannel.isSandboxOrDebug {
+    if channelHint {
       gated(content)
     } else {
       content

@@ -159,8 +159,8 @@ nonisolated enum FeatureFlags {
   /// (ADR-004 §9.2 H7).
   ///
   /// **Opt-in flag — defaults to `false`.** The row's other gate,
-  /// `BuildChannel.isSandboxOrDebug`, is only a channel *hint*: a
-  /// `sandboxReceipt` is also what an **App Review** install and a
+  /// `BuildChannel.resolveIsSandboxOrDebug()`, is only a channel *hint*: a
+  /// `.sandbox` environment is also what an **App Review** install and a
   /// locally-signed Release build carry, so the channel gate alone would put a
   /// deliberate crash one tap away for a reviewer. This flag is the second
   /// conjunct — it narrows accidental discovery (the 5-tap gesture flips it),
