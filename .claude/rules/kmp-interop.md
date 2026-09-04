@@ -15,7 +15,9 @@ reddens every per-PR iOS lane. `tools/kmp-gate-spike/**` keeps a twin of each ad
 nightly rung until S5-5: **a change to the §5.2 relay contract or an adapter's export-facing shape
 lands in both copies in the same PR** — only `SuspendController` has a drift guard
 (`tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh`); for the rest this sentence is
-the detector. Nothing under `App/KMP/` is on the app's run path until S5-4 flips the switch. The
+the detector. Nothing under `App/KMP/` is on the app's *engine* run path until S5-4 flips the switch;
+the one exception is `H7CrashTrigger.fire()`, the S5-3 diagnostics-only crash probe reached from a
+double-gated Settings row (deleted in S5-5). The
 Wave B checklist in `docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage
 table and pointers are hand-maintained and are not.
 
@@ -197,3 +199,11 @@ hand-kept**: a new throwing public entry point needs its pin added. `ScenarioCod
 reach `Json.encodeToString`'s throwing path, judged 2026-08-26, and invisible to any KDoc-triggered
 check regardless. That is a reading of today's `Scenario` shape, so revisit it if the schema gains a
 polymorphic field or a non-finite `Double`.
+
+**`H7CrashProbe.crash` is the inverse carve-out (ADR-023 §6 S5-3, until S5-5).** Its whole
+mechanism is the un-annotated throw this pattern warns about — the K/N termination *is* the probe.
+Do not "fix" it with `@Throws`: the Swift call would become a catchable `throws`, `H7CrashTrigger`
+would fall through to its `fatalError`, and the TestFlight crash would carry no Kotlin frame. The
+same gate pins it the other way round (`exportedNonThrowingSelectors` asserts the selector exports
+**without** `error:`), so the regression reddens — but the fix the gate's forward message prescribes
+is the wrong one here; read the KDoc on `H7CrashProbe` first.
