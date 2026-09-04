@@ -344,6 +344,17 @@ val exportedThrowingSelectors = mapOf(
     "decode(yaml:)" to "YamlCodec.decode (shared/models, re-exported)",
 )
 
+// The inverse pin. `H7CrashProbe.crash` is the ADR-023 §6 S5-3 H7 probe: its
+// whole mechanism is the un-annotated throw that terminates the process, so a
+// well-meant `@Throws` (the fix this task's own error message prescribes)
+// would silently disable it — Swift would get a catchable `throws` and no
+// crash. The forward check above cannot see that regression (it inspects only
+// pinned selectors), so this map asserts the selector exports WITHOUT `error:`.
+// Deleted with the probe in S5-5.
+val exportedNonThrowingSelectors = mapOf(
+    "crash(reason:)" to "H7CrashProbe.crash (ADR-023 §6 S5-3 H7 probe — must stay un-annotated)",
+)
+
 val verifyExportedThrowsAnnotations by tasks.registering {
     group = "verification"
     description = "Fails if a pinned throwing entry point lost its @Throws export (#1553)."
@@ -374,6 +385,24 @@ val verifyExportedThrowsAnnotations by tasks.registering {
             }
         }
 
+        exportedNonThrowingSelectors.forEach { (swiftName, origin) ->
+            val marker = "swift_name(\"$swiftName\")"
+            val matches = codeLines.filter { it.value.contains(marker) }
+            when {
+                matches.isEmpty() -> failures +=
+                    "  $origin — no exported selector carries swift_name(\"$swiftName\"). " +
+                        "Renamed or deleted; update this pin deliberately."
+                matches.size > 1 -> failures +=
+                    "  $origin — swift_name(\"$swiftName\") matched ${matches.size} declarations " +
+                        "(lines ${matches.joinToString { (it.index + 1).toString() }}). " +
+                        "The pin no longer identifies one declaration."
+                matches.single().value.contains("error:(NSError") -> failures +=
+                    "  $origin — line ${matches.single().index + 1} exports swift_name(\"$swiftName\") " +
+                        "WITH an error: parameter, so @Throws was added and the H7 probe no longer crashes. " +
+                        "Remove the annotation (see the KDoc on H7CrashProbe)."
+            }
+        }
+
         if (failures.isNotEmpty()) {
             throw GradleException(
                 buildString {
@@ -390,7 +419,8 @@ val verifyExportedThrowsAnnotations by tasks.registering {
             )
         }
         logger.lifecycle(
-            "K/N @Throws contract: ${exportedThrowingSelectors.size} pinned selectors export error:.",
+            "K/N @Throws contract: ${exportedThrowingSelectors.size} pinned selectors export error:; " +
+                "${exportedNonThrowingSelectors.size} pinned un-annotated selector(s) export none.",
         )
     }
 }
