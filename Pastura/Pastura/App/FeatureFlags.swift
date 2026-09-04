@@ -162,8 +162,9 @@ nonisolated enum FeatureFlags {
   /// `BuildChannel.isSandboxOrDebug`, is only a channel *hint*: a
   /// `sandboxReceipt` is also what an **App Review** install and a
   /// locally-signed Release build carry, so the channel gate alone would put a
-  /// deliberate crash one tap away for a reviewer. This flag is the second,
-  /// deliberate gate.
+  /// deliberate crash one tap away for a reviewer. This flag is the second
+  /// conjunct — it narrows accidental discovery (the 5-tap gesture flips it),
+  /// not App Review; the S5-5 deletion before the next submission does that.
   ///
   /// **Primary flip path — the hidden 5-tap gesture on the Settings version
   /// row**, which writes this key via ``setH7CrashProbeEnabled(_:)``. That is

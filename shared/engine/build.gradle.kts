@@ -368,51 +368,65 @@ val verifyExportedThrowsAnnotations by tasks.registering {
         val codeLines = strippedCodeLines(headerFile.get().asFile)
         val failures = mutableListOf<String>()
 
-        exportedThrowingSelectors.forEach { (swiftName, origin) ->
-            val marker = "swift_name(\"$swiftName\")"
-            val matches = codeLines.filter { it.value.contains(marker) }
-            when {
-                matches.isEmpty() -> failures +=
-                    "  $origin — no exported selector carries swift_name(\"$swiftName\"). " +
-                        "Renamed, un-exported, or deleted; update this pin deliberately."
-                matches.size > 1 -> failures +=
-                    "  $origin — swift_name(\"$swiftName\") matched ${matches.size} declarations " +
-                        "(lines ${matches.joinToString { (it.index + 1).toString() }}). " +
-                        "The pin no longer identifies one declaration."
-                !matches.single().value.contains("error:(NSError") -> failures +=
-                    "  $origin — line ${matches.single().index + 1} exports swift_name(\"$swiftName\") " +
-                        "without an error: parameter, so @Throws is missing."
+        // One walk per pin map; the polarity decides which `error:` outcome is
+        // the failure. The header-parsing contract (one declaration per line,
+        // swift_name and error: on the same line) lives once, here.
+        fun pin(map: Map<String, String>, expectError: Boolean, polarityFailure: String) {
+            map.forEach { (swiftName, origin) ->
+                val marker = "swift_name(\"$swiftName\")"
+                val matches = codeLines.filter { it.value.contains(marker) }
+                val hasError = matches.singleOrNull()?.value?.contains("error:(NSError") == true
+                when {
+                    matches.isEmpty() -> failures +=
+                        "  $origin — no exported selector carries swift_name(\"$swiftName\"). " +
+                            "Renamed, un-exported, or deleted; update this pin deliberately."
+                    matches.size > 1 -> failures +=
+                        "  $origin — swift_name(\"$swiftName\") matched ${matches.size} declarations " +
+                            "(lines ${matches.joinToString { (it.index + 1).toString() }}). " +
+                            "The pin no longer identifies one declaration."
+                    hasError != expectError -> failures +=
+                        "  $origin — line ${matches.single().index + 1} exports swift_name(\"$swiftName\") " +
+                            polarityFailure
+                }
             }
         }
-
-        exportedNonThrowingSelectors.forEach { (swiftName, origin) ->
-            val marker = "swift_name(\"$swiftName\")"
-            val matches = codeLines.filter { it.value.contains(marker) }
-            when {
-                matches.isEmpty() -> failures +=
-                    "  $origin — no exported selector carries swift_name(\"$swiftName\"). " +
-                        "Renamed or deleted; update this pin deliberately."
-                matches.size > 1 -> failures +=
-                    "  $origin — swift_name(\"$swiftName\") matched ${matches.size} declarations " +
-                        "(lines ${matches.joinToString { (it.index + 1).toString() }}). " +
-                        "The pin no longer identifies one declaration."
-                matches.single().value.contains("error:(NSError") -> failures +=
-                    "  $origin — line ${matches.single().index + 1} exports swift_name(\"$swiftName\") " +
-                        "WITH an error: parameter, so @Throws was added and the H7 probe no longer crashes. " +
-                        "Remove the annotation (see the KDoc on H7CrashProbe)."
-            }
-        }
+        val forwardBefore = failures.size
+        pin(
+            exportedThrowingSelectors,
+            expectError = true,
+            polarityFailure = "without an error: parameter, so @Throws is missing.",
+        )
+        val forwardFailed = failures.size > forwardBefore
+        val inverseBefore = failures.size
+        pin(
+            exportedNonThrowingSelectors,
+            expectError = false,
+            polarityFailure = "WITH an error: parameter, so @Throws was added and the H7 probe " +
+                "no longer crashes. Remove the annotation (see the KDoc on H7CrashProbe).",
+        )
+        val inverseFailed = failures.size > inverseBefore
 
         if (failures.isNotEmpty()) {
             throw GradleException(
                 buildString {
                     appendLine("The K/N @Throws contract is broken (#1553).")
                     appendLine()
-                    appendLine("An un-annotated Kotlin throw does NOT reach Swift as a catchable")
-                    appendLine("error at this boundary — it terminates the calling process. Add")
-                    appendLine("`@Throws(<ErrorType>::class)` to the Kotlin declaration; a KDoc")
-                    appendLine("`@throws` line does not count.")
-                    appendLine()
+                    // The two polarities prescribe OPPOSITE fixes, so the preamble
+                    // names only the one(s) that fired — a reader must never see
+                    // "add @Throws" for the inverse pin.
+                    if (forwardFailed) {
+                        appendLine("An un-annotated Kotlin throw does NOT reach Swift as a catchable")
+                        appendLine("error at this boundary — it terminates the calling process. Add")
+                        appendLine("`@Throws(<ErrorType>::class)` to the Kotlin declaration; a KDoc")
+                        appendLine("`@throws` line does not count.")
+                        appendLine()
+                    }
+                    if (inverseFailed) {
+                        appendLine("One pinned selector must STAY un-annotated: the H7 crash probe's")
+                        appendLine("mechanism is the process termination this gate otherwise guards")
+                        appendLine("against. Remove the @Throws — see the KDoc on H7CrashProbe.")
+                        appendLine()
+                    }
                     appendLine("Failures (${failures.size}):")
                     failures.forEach { appendLine(it) }
                 },

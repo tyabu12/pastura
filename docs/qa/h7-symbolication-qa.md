@@ -86,8 +86,8 @@ frame satisfies.
 - `docs/kmp-migration-status.md` Stage-5 paragraph.
 
 The probe itself (Kotlin `H7CrashProbe`, `H7CrashTrigger`, the Diagnostics
-section and its state, `FeatureFlags.h7CrashProbeEnabled`, the six catalog
-keys, `settings.h7CrashButton`) is deleted in **S5-5**, and that deletion must
+section and its state, `FeatureFlags.h7CrashProbeEnabled`, the five H7 catalog
+keys — `About` stays with its section —, `settings.h7CrashButton`) is deleted in **S5-5**, and that deletion must
 land **before the next App Store submission**: the reveal gesture is gated on
 `sandboxReceipt`, which an App Review install also carries, and a deliberate
 crash reachable by a reviewer is a Guideline 2.1 rejection.

@@ -103,8 +103,13 @@ check_kn_dsym_in_archive() {
   # field 2 is the UUID token. Capture-then-test, never `| grep -q`: an
   # early-exiting reader under pipefail turns a match into a pipeline failure
   # (.claude/rules/ci-workflows.md § "Rule 3").
+  # `|| true`: the producer's OWN exit status is the other hazard. A file that
+  # exists but is not a readable Mach-O makes dwarfdump exit non-zero, pipefail
+  # promotes it, and `set -e` would abort the release after a finished archive
+  # — the exact outcome the warning-only design forbids. The empty-UUID branch
+  # below is the intended landing.
   local uuids
-  uuids="$(dwarfdump --uuid "$dwarf" 2>/dev/null | awk '/^UUID:/ { print $2 }')"
+  uuids="$(dwarfdump --uuid "$dwarf" 2>/dev/null | awk '/^UUID:/ { print $2 }' || true)"
   if [ -z "$uuids" ]; then
     err "warning: dwarfdump reported no UUID for $dwarf — cannot verify the ASC symbol upload."
     return 0
@@ -136,6 +141,8 @@ check_kn_symbols_in_ipa() {
     # here, so there is no upstream producer for -q to SIGPIPE (Rule 3).
     norm="$(printf '%s' "$u" | tr '[:lower:]' '[:upper:]')"
     if grep -Fiq "Symbols/$norm.symbols" "$listing"; then
+      # stdout is free here — unlike check_kn_dsym_in_archive, nothing
+      # captures this helper's output, so `log` needs no >&2.
       log "  ✓ Symbols/$norm.symbols present in the .ipa"
     else
       err "warning: no Symbols/$norm.symbols in $(basename "$ipa") — Kotlin/Native frames for UUID $norm will NOT symbolicate on App Store Connect / TestFlight. Organizer will still symbolicate them from the preserved local archive copy."
@@ -156,6 +163,10 @@ preserve_archive() {
   local dest_dir dest
   dest_dir="$HOME/Library/Developer/Xcode/Archives/$(date +%Y-%m-%d)"
   dest="$dest_dir/$APP_NAME $version+$build.xcarchive"
+  # A same-day re-cut at the same version+build would make `cp -R` nest the
+  # archive INSIDE the existing destination (unindexable by Organizer) while
+  # still reporting success, so an existing destination gets a time suffix.
+  [ ! -e "$dest" ] || dest="${dest%.xcarchive}-$(date +%H%M%S).xcarchive"
   if mkdir -p "$dest_dir" && cp -R "$archive" "$dest"; then
     log "Archive preserved at $dest (Organizer indexes it for H7 symbolication)"
   else
@@ -258,6 +269,20 @@ self_test() {
     fi
   else
     bad "A6 preserve_archive returned non-zero on a writable destination"
+  fi
+
+  # A8 a file at the dSYM path that dwarfdump cannot read: the producer exits
+  # non-zero, and the helper must still warn and return 0 — this is the arm
+  # that would otherwise abort a finished archive under pipefail + set -e.
+  mkdir -p "$root/junk.xcarchive/dSYMs/PasturaSharedEngine.framework.dSYM/Contents/Resources/DWARF"
+  printf 'not a mach-o\n' > "$root/junk.xcarchive/dSYMs/PasturaSharedEngine.framework.dSYM/Contents/Resources/DWARF/PasturaSharedEngine"
+  if out="$(check_kn_dsym_in_archive "$root/junk.xcarchive" 2>&1)"; then
+    case "$out" in
+      *"reported no UUID"*) ok "A8 unreadable dSYM warns without failing" ;;
+      *) bad "A8 expected a no-UUID warning, got: $out" ;;
+    esac
+  else
+    bad "A8 the archive check returned non-zero on an unreadable dSYM"
   fi
 
   # A7 an unwritable destination warns instead of exiting — the arm that pins
@@ -495,7 +520,7 @@ log "  ✓ zero Ollama symbols"
 
 # ── ADR-023 §6 S5-3 (H7): Kotlin/Native dSYM in the archive ──────────────
 log "Checking the Kotlin/Native dSYM in the archive (ADR-023 §6 S5-3, H7)"
-KN_UUIDS="$(check_kn_dsym_in_archive "$ARCHIVE")"
+KN_UUIDS="$(check_kn_dsym_in_archive "$ARCHIVE" || true)"
 
 # ── export ───────────────────────────────────────────────────────────────
 EXPORT_DIR="$WORK/export"

@@ -8,8 +8,11 @@ import Foundation
 /// be the only gate on a destructive or embarrassing diagnostic: pair it with
 /// an explicit opt-in `FeatureFlags` key (the ADR-023 §6 S5-3 H7 crash probe
 /// gates on `BuildChannel.isSandboxOrDebug && FeatureFlags.h7CrashProbeEnabled`
-/// for exactly this reason). Treated as a sole gate, a reviewer tapping around
-/// Settings could trip the diagnostic during review.
+/// for exactly this reason). The pair narrows *accidental* discovery — the
+/// reveal gesture flips the opt-in itself, so it is not defence in depth
+/// against a reviewer who taps the version row five times; the probe's
+/// deletion before the next App Store submission (ADR-023 §6 S5-5) is what
+/// closes that.
 ///
 /// The `#if DEBUG` arm of ``isSandboxOrDebug`` makes the receipt branch
 /// unreachable from the unit suite, which only ever runs in a Debug build —

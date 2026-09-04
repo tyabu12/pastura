@@ -7,7 +7,8 @@ import SwiftUI
 // extension needs no `nonisolated` annotation.
 //
 // Sunset (ADR-023 §6 S5-5): the Diagnostics section, its state
-// (`isH7ProbeRevealed`, `isShowingH7CrashConfirm`), `FeatureFlags.h7CrashProbeEnabled`,
+// (`isH7ProbeRevealed`, `versionTapCount`, `isShowingH7CrashConfirm`),
+// `FeatureFlags.h7CrashProbeEnabled`,
 // and `H7CrashTrigger` are deleted together with the Kotlin `H7CrashProbe`.
 // The About section and its version row stay — the 5-tap gesture host is
 // removed, not the row itself.
@@ -114,7 +115,8 @@ private struct H7RevealGestureModifier: ViewModifier {
     if BuildChannel.isSandboxOrDebug {
       content.onTapGesture {
         tapCount += 1
-        if tapCount >= 5 {
+        // Exactly the fifth tap: later taps must not keep re-writing the key.
+        if tapCount == 5 {
           FeatureFlags.setH7CrashProbeEnabled(true)
           revealed = true
         }
@@ -127,16 +129,30 @@ private struct H7RevealGestureModifier: ViewModifier {
 
 /// Extracted `ViewModifier` (mirrors `ClearAllConfirmationModifier`) for the
 /// H7 crash-confirmation alert. `.alert` (not `.confirmationDialog`) for the
-/// same iOS 26 popover-anchor reason as the model-delete confirmation
-/// (`SettingsView.body` ~line 194) — but deliberately without that block's
-/// `#if !targetEnvironment(simulator)` wrapper: that guard is model-
-/// deletion-specific (device-only model lifecycle), while the Diagnostics
-/// button is reachable on the simulator too. Not `private` — attached from
-/// `SettingsView.body` in the sibling file.
+/// same iOS 26 popover-anchor reason as the model-delete confirmation (the
+/// `pendingDelete` alert in `SettingsView.body`) — but deliberately without
+/// that block's `#if !targetEnvironment(simulator)` wrapper: that guard is
+/// model-deletion-specific (device-only model lifecycle), while the
+/// Diagnostics button is reachable on the simulator too. Not `private` —
+/// attached from `SettingsView.body` in the sibling file.
+///
+/// The alert — and with it the only call site of `H7CrashTrigger.fire()` —
+/// is attached only behind the channel gate, by the same mechanism as the
+/// reveal gesture: an App Store build path carries no crash call site at all,
+/// not merely an unreachable one.
 struct H7CrashConfirmationModifier: ViewModifier {
   @Binding var isPresented: Bool
 
+  @ViewBuilder
   func body(content: Content) -> some View {
+    if BuildChannel.isSandboxOrDebug {
+      gated(content)
+    } else {
+      content
+    }
+  }
+
+  private func gated(_ content: Content) -> some View {
     content
       .alert(
         String(localized: "Crash the app now?"),
