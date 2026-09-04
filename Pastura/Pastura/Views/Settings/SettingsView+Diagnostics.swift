@@ -32,7 +32,7 @@ extension SettingsView {
           .foregroundStyle(Color.ink)
         Spacer()
         Text(Self.appVersionString)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
       }
       .padding(.horizontal, 17)
       .padding(.vertical, 15)
@@ -78,7 +78,7 @@ extension SettingsView {
             )
           )
           .font(.caption)
-          .foregroundStyle(Color.muted)
+          .foregroundStyle(Color.inkSecondary)
           .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
 
           Button {
