@@ -32,6 +32,7 @@ nonisolated enum FeatureFlags {
   private static let backgroundContinuationKey = "backgroundContinuationEnabled"
   private static let keepRunningOnLeaveKey = "keepRunningOnLeaveEnabled"
   private static let viewerPredictionKey = "viewerPredictionEnabled"
+  private static let h7CrashProbeKey = "h7CrashProbeEnabled"
 
   // MARK: - Read accessors
 
@@ -151,6 +152,37 @@ nonisolated enum FeatureFlags {
     defaultsReadBool(key: viewerPredictionKey, default: true)
   }
 
+  /// Whether the Settings "Diagnostics" row that fires the ADR-023 §6 S5-3 H7
+  /// crash probe is revealed. The row calls `H7CrashTrigger.fire()`, which
+  /// terminates the process through the Kotlin/Native uncaught-exception path
+  /// so a real TestFlight crash report can prove K/N dSYM symbolication works
+  /// (ADR-004 §9.2 H7).
+  ///
+  /// **Opt-in flag — defaults to `false`.** The row's other gate,
+  /// `BuildChannel.isSandboxOrDebug`, is only a channel *hint*: a
+  /// `sandboxReceipt` is also what an **App Review** install and a
+  /// locally-signed Release build carry, so the channel gate alone would put a
+  /// deliberate crash one tap away for a reviewer. This flag is the second,
+  /// deliberate gate.
+  ///
+  /// **Primary flip path — the hidden 5-tap gesture on the Settings version
+  /// row**, which writes this key via ``setH7CrashProbeEnabled(_:)``. That is
+  /// the *only* path that works on TestFlight, where there is no shell to run
+  /// `defaults write` from — which is precisely where the probe must be
+  /// exercised.
+  ///
+  /// Secondary local path (simulator / attached dev build only):
+  /// ```
+  /// defaults write app.pastura.Pastura.dev h7CrashProbeEnabled -bool true
+  /// ```
+  /// (the `.dev` suffix is the Debug bundle ID — see the type-level note.)
+  ///
+  /// Sunset: deleted in ADR-023 §6 S5-5 together with the probe — the Kotlin
+  /// `H7CrashProbe`, `App/KMP/H7CrashTrigger.swift`, and the Settings row.
+  static var h7CrashProbeEnabled: Bool {
+    defaultsReadBool(key: h7CrashProbeKey, default: false)
+  }
+
   // MARK: - Write accessors
 
   /// Persists the user's choice for ``keepRunningOnLeaveEnabled`` (Settings
@@ -163,6 +195,13 @@ nonisolated enum FeatureFlags {
   /// toggle). Read on demand (no caching), so the next run honours it.
   static func setViewerPredictionEnabled(_ enabled: Bool) {
     UserDefaults.standard.set(enabled, forKey: viewerPredictionKey)
+  }
+
+  /// Persists the user's choice for ``h7CrashProbeEnabled`` (the hidden 5-tap
+  /// gesture on the Settings version row). Read on demand (no caching), so the
+  /// Diagnostics row appears on the next Settings render.
+  static func setH7CrashProbeEnabled(_ enabled: Bool) {
+    UserDefaults.standard.set(enabled, forKey: h7CrashProbeKey)
   }
 
   // MARK: - Helpers
