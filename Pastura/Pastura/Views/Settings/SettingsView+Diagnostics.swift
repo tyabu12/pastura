@@ -106,7 +106,7 @@ extension SettingsView {
                 )
               )
               .font(.caption)
-              .foregroundStyle(Color.muted)
+              .foregroundStyle(Color.inkSecondary)
             }
           }
           .tint(Color.link)
