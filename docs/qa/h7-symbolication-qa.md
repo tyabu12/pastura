@@ -55,7 +55,11 @@ frame satisfies.
    version row **five times**. A **Diagnostics** section appears above About.
    (Debug builds can also `defaults write app.pastura.Pastura.dev
    h7CrashProbeEnabled -bool true`; TestFlight has no such path — the gesture
-   is the only one.)
+   is the only one.) If nothing happens, the channel gate resolved `false`:
+   connect the device and read Console.app (process `Pastura`, category
+   `BuildChannel`) — since #1677 the gate falls back to the receipt file name
+   when `AppTransaction.shared` throws, and that log line carries the error
+   and the receipt name it saw (`sandboxReceipt` expected on TestFlight).
 4. **Fire the probe.** Diagnostics → *Crash the shared engine* → confirm
    *Crash*. The app terminates immediately. Relaunch it once so the crash
    report is submitted (TestFlight submits on next launch; the device must
