@@ -1550,7 +1550,8 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
       startOwnedRun(parsed, armIntroBackstop: introBackstop) { model in
         await model.run(
           scenario: parsed, llm: deps.llmService,
-          scenarioCategorySnapshot: categorySnapshot)
+          scenarioCategorySnapshot: categorySnapshot,
+          yamlDefinition: record.yamlDefinition)
       }
     } catch {
       loadError = error.localizedDescription
@@ -1603,6 +1604,15 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     let deps = dependencies
     return SimulationViewModel(
       runner: SimulationRunner(detector: NLLanguageDetector(), logger: OSLogEngineLogger()),
+      // ADR-023 §6 S5-4: the Kotlin engine behind the Diagnostics toggle. One
+      // runner per run, built around that run's SuspendController (the VM owns
+      // the call), with the same two production seams bridged across K/N.
+      makeSharedRunner: { controller in
+        SharedEngineRunner(
+          suspendController: controller,
+          detector: LanguageDetectorBridge(detector: NLLanguageDetector()),
+          logger: EngineLoggerBridge(logger: OSLogEngineLogger()))
+      },
       simulationRepository: deps.simulationRepository,
       turnRepository: deps.turnRepository,
       codePhaseEventRepository: deps.codePhaseEventRepository,

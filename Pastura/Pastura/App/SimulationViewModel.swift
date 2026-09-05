@@ -575,6 +575,21 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Dependencies
 
   private let runner: SimulationRunner
+  /// ADR-023 §6 S5-4: builds the Kotlin-engine runner for ONE fresh run, around
+  /// that run's `SuspendController` (the same instance `prepareRunInfrastructure`
+  /// attaches to the LLM), so the app-lifecycle park reaches the Kotlin relay
+  /// exactly as it reaches the Swift runner. A runner per run, never per VM:
+  /// `SharedEngineRunner` stores its controller, and a VM-lifetime runner would
+  /// keep driving a stale one. `nil` wherever the switch is not wired (tests,
+  /// previews) — the Swift runner then serves every run.
+  private let makeSharedRunner: (@Sendable (SuspendController) -> SharedEngineRunner)?
+  /// Reads the S5-4 flag. Injected rather than read inline so a test can pick
+  /// the engine without flipping `UserDefaults`, which parallel suites share.
+  private let isSharedEngineEnabled: @Sendable () -> Bool
+  /// The Kotlin runner of the run in flight, so ``setRunnerPaused(_:)`` can
+  /// forward pause / resume to it. Set only by ``makeEventStream``; cleared by
+  /// `run()`'s cleanup `defer`.
+  @ObservationIgnored private var activeSharedRunner: SharedEngineRunner?
   private let contentFilter: ContentFilter
   private let simulationRepository: any SimulationRepository
   private let turnRepository: any TurnRepository
@@ -982,6 +997,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   init(
     runner: SimulationRunner = SimulationRunner(),
+    makeSharedRunner: (@Sendable (SuspendController) -> SharedEngineRunner)? = nil,
+    isSharedEngineEnabled: @escaping @Sendable () -> Bool = { FeatureFlags.sharedEngineEnabled },
     contentFilter: ContentFilter = ContentFilter(),
     simulationRepository: any SimulationRepository,
     turnRepository: any TurnRepository,
@@ -992,6 +1009,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     simulationActivityRegistry: SimulationActivityRegistry? = nil
   ) {
     self.runner = runner
+    self.makeSharedRunner = makeSharedRunner
+    self.isSharedEngineEnabled = isSharedEngineEnabled
     self.contentFilter = contentFilter
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
@@ -1037,9 +1056,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     if let reason {
       logEntries.append(LogEntry(kind: .summary(text: reason)))
     }
-    withMutation(keyPath: \.isPaused) {
-      runner.isPaused = true
-    }
+    setRunnerPaused(true)
     routePark(reason: .userPause)
     // Persist `.paused` so the run survives navigating away and surfaces on
     // the Home "paused" card. The full state snapshot is already persisted by
@@ -1054,9 +1071,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// the runner's phase-boundary checkpoint.
   func resumeSimulation() {
     lifecycleLogger.info("resumeSimulation: isPaused=\(self.isPaused)")
-    withMutation(keyPath: \.isPaused) {
-      runner.isPaused = false
-    }
+    setRunnerPaused(false)
     routeUnpark(reason: .userPause)
     // Restore `.running` and clear the survival flag so a subsequent normal
     // completion writes `.completed` rather than leaving a stale `.paused`.
@@ -1094,6 +1109,43 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
+  /// The one place `runner.isPaused` flips. Wraps the `@Observable` bridge (see
+  /// ``isPaused``) and, when a Kotlin run is in flight (S5-4), forwards the same
+  /// signal to its `RunHandle`. The Swift runner's flag stays the observable
+  /// source of truth on both engines — the Kotlin path never reads it, but the
+  /// UI does, and one flag means one `withMutation` site to keep honest.
+  private func setRunnerPaused(_ paused: Bool) {
+    withMutation(keyPath: \.isPaused) {
+      runner.isPaused = paused
+    }
+    if paused {
+      activeSharedRunner?.pause()
+    } else {
+      activeSharedRunner?.resume()
+    }
+  }
+
+  /// ADR-023 §6 S5-4 engine selection — **fresh runs only**. The Kotlin engine
+  /// runs when the flag is on, the switch is wired (``makeSharedRunner``) and the
+  /// caller handed in the scenario's YAML (the Kotlin `ScenarioLoader` owns the
+  /// parse; the Swift `Scenario` is not convertible). `resume(record:scenario:llm:)`
+  /// never comes here: the Kotlin engine exports no resume-from-state, so a
+  /// paused run — even one the Kotlin engine produced, via the translated
+  /// `.roundCheckpoint` — continues on the Swift runner.
+  private func makeEventStream(
+    scenario: Scenario, yamlDefinition: String?, llm: any LLMService,
+    controller: SuspendController
+  ) -> AsyncStream<SimulationEvent> {
+    if isSharedEngineEnabled(), let yamlDefinition, let makeSharedRunner {
+      let shared = makeSharedRunner(controller)
+      activeSharedRunner = shared
+      lifecycleLogger.info("run() engine=kotlin (ADR-023 S5-4 flag on)")
+      return shared.run(yaml: yamlDefinition, llm: llm)
+    }
+    lifecycleLogger.info("run() engine=swift")
+    return runner.run(scenario: scenario, llm: llm, suspendController: controller)
+  }
+
   func cancelSimulation(caller: String = #function) {
     lifecycleLogger.info(
       "cancelSimulation called by \(caller, privacy: .public): isRunning=\(self.isRunning), isOnCPU=\(self.isOnCPU), isReloadingModel=\(self.isReloadingModel)"
@@ -1122,9 +1174,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     //     this clear, a cancelled run would render the play icon as
     //     if waiting for the user to resume. The status pill's
     //     precedence does not cover this widget.
-    withMutation(keyPath: \.isPaused) {
-      runner.isPaused = false
-    }
+    setRunnerPaused(false)
     // Release a generate currently parked in `awaitResume()` so cancellation
     // propagates promptly from a suspended state. Idempotent per contract.
     suspendController?.resume()
@@ -1199,9 +1249,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // load, but that is not a documented invariant. A VM reused after a
     // pause-then-cancel sequence would otherwise start the next run with
     // `runner.isPaused == true` and show the resume icon on Round 1.
-    withMutation(keyPath: \.isPaused) {
-      runner.isPaused = false
-    }
+    setRunnerPaused(false)
     #if DEBUG
       inflightInferenceAttempts = [:]
       lastRawStreamingPrimary = [:]
@@ -1230,8 +1278,13 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// the YAML, so it is threaded in here rather than reached for from the
   /// repository (which would reintroduce the refetch-by-id drift the snapshot
   /// design deliberately avoids). `nil` for local / self-made scenarios.
+  ///
+  /// `yamlDefinition` is the scenario's source YAML (`ScenarioRecord.yamlDefinition`),
+  /// required by the Kotlin engine's own loader when the S5-4 flag selects it —
+  /// see ``makeEventStream``. `nil` pins the run to the Swift runner.
   func run(  // swiftlint:disable:this function_body_length
-    scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil
+    scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil,
+    yamlDefinition: String? = nil
   ) async {
     // Defensive: a fresh run must never start frozen. The persona sheet's
     // dismiss normally clears this, but a hold left stale across an ADR-017
@@ -1276,6 +1329,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       isLoadingModel = false
       currentLLM = nil
       suspendController = nil
+      // S5-4: the Kotlin runner is per run; a stale one must not receive the
+      // next run's pause signals. (Also in resume()'s defer — the matched pair.)
+      activeSharedRunner = nil
       // Intro-gate teardown (#853): cancel the reveal backstop so it can't
       // outlive the run, and disarm so `isPlayingIntro` settles to false on
       // EVERY exit (normal / load-failure early-return / cancel — the last two
@@ -1319,9 +1375,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // code-phase results) get a small fixed delay so they stay on-screen
     // long enough to read. `.instant` skips both.
     let readingScript = ReadingScript.resolve(engineLanguage: scenario.engineLanguage)
-    for await event in runner.run(
-      scenario: scenario, llm: llm, suspendController: controller
-    ) {
+    let eventStream = makeEventStream(
+      scenario: scenario, yamlDefinition: yamlDefinition, llm: llm, controller: controller)
+    for await event in eventStream {
       // Playback park (#942 PR2): stop consuming while the persona sheet is up
       // so the on-screen log freezes coherently with AgentOutputRow's own
       // reveal park. The producer keeps running (Option A); the AsyncStream
@@ -1554,6 +1610,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       isLoadingModel = false
       currentLLM = nil
       suspendController = nil
+      // S5-4: the Kotlin runner is per run; a stale one must not receive the
+      // next run's pause signals. (Also in resume()'s defer — the matched pair.)
+      activeSharedRunner = nil
       // Intro-gate teardown (#853): cancel the reveal backstop so it can't
       // outlive the run, and disarm so `isPlayingIntro` settles to false on
       // EVERY exit (normal / load-failure early-return / cancel — the last two
@@ -1580,9 +1639,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       lifecycleLogger.error(
         "resume: loadModel failed, leaving run resumable: \(String(describing: error), privacy: .public)"
       )
-      withMutation(keyPath: \.isPaused) {
-        runner.isPaused = true
-      }
+      setRunnerPaused(true)
       return
     }
     isLoadingModel = false
