@@ -22,7 +22,7 @@ At-a-glance progress for the KMP Engine migration (ADR-023 / [#501](https://gith
 > other section is hand-maintained; refresh it when a KMP PR merges (see
 > [`.claude/rules/kmp-interop.md`](../.claude/rules/kmp-interop.md)).
 
-_Last updated: 2026-09-04._
+_Last updated: 2026-09-05._
 
 ## Stages
 
@@ -33,7 +33,7 @@ _Last updated: 2026-09-04._
 | 2 | Two-boundary vertical slice = GO/NO-GO gate | ✅ **GO** (2026-07-18) | #1063 #1137 #1172 · [ADR-023 §12](decisions/ADR-023.md) |
 | 3 | Bulk port to `commonMain` | ✅ done | ↓ Stage 3 breakdown |
 | 4 | Cross-language parity harness | ✅ done (2026-08-30) | 1a #1387 · 1b #1458 · S3a [#1605](https://github.com/tyabu12/pastura/issues/1605) landed; S3b (RNG seam) [#1615](https://github.com/tyabu12/pastura/issues/1615) landed; S3b-2 (seeded fixtures) [#1618](https://github.com/tyabu12/pastura/issues/1618) landed; S4 (cancellation tail) [#1622](https://github.com/tyabu12/pastura/issues/1622) landed; S5 (suspend parity) [#1625](https://github.com/tyabu12/pastura/issues/1625) landed; S6 (divergence-6 ruling) [#1629](https://github.com/tyabu12/pastura/issues/1629) landed — Stage-4 residue cleared · [#501](https://github.com/tyabu12/pastura/issues/501) |
-| 5 | iOS consumption switch + code-merge | 🔄 in progress | rulings + slices S5-1…S5-5 [#1633](https://github.com/tyabu12/pastura/issues/1633) · [ADR-023 §6 Stage 5](decisions/ADR-023.md) · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · message localization leaf landed [#1631](https://github.com/tyabu12/pastura/issues/1631) (Apple actual: in-app `ja` check → S5-4) · S5-1 link landed [#1636](https://github.com/tyabu12/pastura/issues/1636) [#1639](https://github.com/tyabu12/pastura/issues/1639) [#1640](https://github.com/tyabu12/pastura/issues/1640) [#1635](https://github.com/tyabu12/pastura/issues/1635) · S5-2 adapters + isolation audits landed [#1647](https://github.com/tyabu12/pastura/issues/1647) (#1650 #1655 + audits PR; probe nightly-wired [#1661](https://github.com/tyabu12/pastura/issues/1661)) · Phase 3 entered 2026-09-04 ([#1671](https://github.com/tyabu12/pastura/issues/1671)) · S5-3 prerequisites landed [#1673](https://github.com/tyabu12/pastura/issues/1673), H5/H7 cycle open ([runbook](qa/h7-symbolication-qa.md)) |
+| 5 | iOS consumption switch + code-merge | 🔄 in progress | rulings + slices S5-1…S5-5 [#1633](https://github.com/tyabu12/pastura/issues/1633) · [ADR-023 §6 Stage 5](decisions/ADR-023.md) · adapter traps: [`kmp-interop.md`](../.claude/rules/kmp-interop.md) · message localization leaf landed [#1631](https://github.com/tyabu12/pastura/issues/1631) (Apple actual: in-app `ja` check → S5-4) · S5-1 link landed [#1636](https://github.com/tyabu12/pastura/issues/1636) [#1639](https://github.com/tyabu12/pastura/issues/1639) [#1640](https://github.com/tyabu12/pastura/issues/1640) [#1635](https://github.com/tyabu12/pastura/issues/1635) · S5-2 adapters + isolation audits landed [#1647](https://github.com/tyabu12/pastura/issues/1647) (#1650 #1655 + audits PR; probe nightly-wired [#1661](https://github.com/tyabu12/pastura/issues/1661)) · Phase 3 entered 2026-09-04 ([#1671](https://github.com/tyabu12/pastura/issues/1671)) · S5-3 prerequisites landed [#1673](https://github.com/tyabu12/pastura/issues/1673) · **S5-3 H5/H7 landed 2026-09-05** on `v1.3+886` — both PASS ([#501 evidence](https://github.com/tyabu12/pastura/issues/501#issuecomment-5550162180), close-out [#1679](https://github.com/tyabu12/pastura/issues/1679)); Decision 6 (ii) discharged, ADR-004 → GO · next: S5-4 |
 
 Legend: ✅ done · 🔄 in progress · 🟡 partial · ⬜ not started.
 
@@ -143,6 +143,12 @@ machine-checked — see the maintenance invariant above.
   ([#1673](https://github.com/tyabu12/pastura/issues/1673): the Kotlin `H7CrashProbe` with its
   inverse `@Throws` pin, the double-gated Settings Diagnostics row, the `release.sh` K/N dSYM /
   `Symbols/` checks and archive preservation, and the runbook
-  [`docs/qa/h7-symbolication-qa.md`](qa/h7-symbolication-qa.md)); **the H5/H7 TestFlight cycle
-  itself is open** — its evidence lands on #501 and a follow-up docs PR amends ADR-004 §9.2 and
-  discharges Decision 6 (ii). See [ADR-023](decisions/ADR-023.md) §6 Stage 5.
+  [`docs/qa/h7-symbolication-qa.md`](qa/h7-symbolication-qa.md)). **S5-3 has landed**
+  (2026-09-05, `v1.3+886`; [#501 evidence](https://github.com/tyabu12/pastura/issues/501#issuecomment-5550162180),
+  close-out [#1679](https://github.com/tyabu12/pastura/issues/1679)): H5 passed on the upload,
+  H7 on two named `H7CrashProbe` frames in App Store Connect's own crash view plus the archive
+  dSYM resolving the same addresses locally. Decision 6 (ii) is discharged and ADR-004 graduated
+  from Conditional GO to GO (§11); `release.sh`'s K/N dSYM / `Symbols/` checks are now fail-fast.
+  The first cut, `v1.3+885`, could not reveal Diagnostics (#1677 → #1678). **Next: S5-4** — the
+  flag-gated switch + soak, which discharges Decision 6 (i)/(iii). See
+  [ADR-023](decisions/ADR-023.md) §6 Stage 5.
