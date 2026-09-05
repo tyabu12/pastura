@@ -37,12 +37,22 @@ enum SharedEngineFixtures {
   /// `xcodebuild test` the main bundle is the test runner, which carries no
   /// presets (the same lookup `PresetLoaderTests` uses).
   static func loadedPreset() throws -> PasturaSharedEngine.Scenario {
+    try PasturaSharedEngine.ScenarioLoader().load(yaml: presetYaml())
+  }
+
+  /// The same preset's **raw YAML**, for the callers that parse it themselves.
+  ///
+  /// ``SharedEngineRunner``'s S5-4 app-run-path overload takes a YAML string
+  /// rather than a parsed scenario (it owns the parse so it can report a
+  /// validation failure as a `SimulationEvent`), so its tests need the text
+  /// while still using ``loadedPreset()`` to derive the scripted answers.
+  /// One file lookup, two shapes.
+  static func presetYaml() throws -> String {
     let bundle = Bundle(for: DatabaseManager.self)
     guard let url = bundle.url(forResource: presetFileName, withExtension: "yaml") else {
       throw FixtureError.presetNotBundled(presetFileName)
     }
-    let yaml = try String(contentsOf: url, encoding: .utf8)
-    return try PasturaSharedEngine.ScenarioLoader().load(yaml: yaml)
+    return try String(contentsOf: url, encoding: .utf8)
   }
 
   /// How many LLM calls a complete run of `scenario` costs.
