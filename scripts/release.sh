@@ -15,11 +15,11 @@
 #                CURRENT_PROJECT_VERSION override (no pbxproj edit)
 #   symbol     → re-run the ADR-005 §8.5 Ollama-symbol guard on the
 #                ARCHIVED binary (CI only checks the unsigned build product)
-#   kn-dsym    → WARN if the Kotlin/Native PasturaSharedEngine dSYM is absent
+#   kn-dsym    → FAIL if the Kotlin/Native PasturaSharedEngine dSYM is absent
 #                from the archive (ADR-023 §6 S5-3, H7 symbolication)
 #   export     → xcodebuild -exportArchive, method app-store-connect, with an
 #                exportOptions.plist generated at cut time (never committed)
-#   kn-symbols → WARN if the exported .ipa carries no Symbols/<UUID>.symbols
+#   kn-symbols → FAIL if the exported .ipa carries no Symbols/<UUID>.symbols
 #                for the K/N dSYM UUIDs (ASC would not symbolicate K/N frames)
 #   upload     → fastlane upload_to_testflight
 #   tag        → annotated tag v<version>+<build>, pushed ONLY after the
@@ -81,38 +81,40 @@ die()  { err "$*"; exit 1; }
 # symbolicate BOTH on App Store Connect and locally in Organizer. The three
 # helpers below cover that.
 #
-# ALL THREE ARE WARNING-ONLY THIS CYCLE. They assert Xcode behaviour nobody has
-# observed on this project yet — whether the K/N dSYM lands in the xcarchive at
-# all, and whether `-exportArchive` writes a matching `.symbols` into the .ipa.
-# A wrong assumption baked into a `die` would block a release over a check that
-# is itself unverified, which is strictly worse than shipping and reading the
-# warning. FOLLOW-UP: promote the two checks to `die` in a separate PR once the
-# S5-3 release cycle has observed the real paths (#1673, ADR-023 §6 S5-3).
+# `check_kn_dsym_in_archive` and `check_kn_symbols_in_ipa` now `die` on
+# failure. They started warning-only because nobody had observed the real
+# Xcode paths on this project; on 2026-09-05, `v1.3+886` archived with the K/N
+# dSYM present (a single UUID, single arm64 slice), the exported .ipa carried
+# its Symbols/<UUID>.symbols, and App Store Connect symbolicated the Kotlin
+# crash frames (#501 comment 5550162180). Both checks now fail the release
+# before upload instead of shipping a build nobody can symbolicate. Note
+# honestly: that one observation covered a single UUID and a single arm64
+# slice — the multi-UUID branch in `check_kn_symbols_in_ipa` is still
+# exercised only by --self-test, not by a real cycle. `preserve_archive`
+# stays warning-only; see its own why-comment below.
 
 # Locate the Kotlin/Native dSYM inside an xcarchive and print its UUID(s) on
 # stdout, one per line (progress/diagnostics go to stderr, so the caller can
-# capture the UUIDs with a plain command substitution). Never fails the script.
+# capture the UUIDs with a plain command substitution). Dies if the dSYM is
+# absent or unreadable.
 check_kn_dsym_in_archive() {
   local archive="$1"
   local dwarf="$archive/dSYMs/PasturaSharedEngine.framework.dSYM/Contents/Resources/DWARF/PasturaSharedEngine"
   if [ ! -f "$dwarf" ]; then
-    err "warning: Kotlin/Native dSYM not found at $dwarf — H7 Kotlin frames may not symbolicate anywhere. (warning-only this cycle; see the FOLLOW-UP note above)"
-    return 0
+    die "Kotlin/Native dSYM not found at $dwarf — H7 Kotlin frames would not symbolicate anywhere."
   fi
   # `dwarfdump --uuid` prints one `UUID: <uuid> (<arch>) <path>` line per slice;
   # field 2 is the UUID token. Capture-then-test, never `| grep -q`: an
   # early-exiting reader under pipefail turns a match into a pipeline failure
   # (.claude/rules/ci-workflows.md § "Rule 3").
-  # `|| true`: the producer's OWN exit status is the other hazard. A file that
-  # exists but is not a readable Mach-O makes dwarfdump exit non-zero, pipefail
-  # promotes it, and `set -e` would abort the release after a finished archive
-  # — the exact outcome the warning-only design forbids. The empty-UUID branch
-  # below is the intended landing.
+  # `|| true`: still needed even though a dwarfdump failure now dies too — it
+  # keeps this line's own exit status from short-circuiting the assignment
+  # under pipefail, so we reach OUR die below with a clear message instead of
+  # an opaque pipefail abort at this line.
   local uuids
   uuids="$(dwarfdump --uuid "$dwarf" 2>/dev/null | awk '/^UUID:/ { print $2 }' || true)"
   if [ -z "$uuids" ]; then
-    err "warning: dwarfdump reported no UUID for $dwarf — cannot verify the ASC symbol upload."
-    return 0
+    die "dwarfdump reported no UUID for $dwarf — cannot verify the ASC symbol upload."
   fi
   log "  ✓ K/N dSYM present; UUID(s): $(printf '%s' "$uuids" | tr '\n' ' ')" >&2
   printf '%s\n' "$uuids"
@@ -120,24 +122,22 @@ check_kn_dsym_in_archive() {
 
 # Assert the exported .ipa carries a Symbols/<UUID>.symbols entry for every K/N
 # dSYM UUID — that payload is what App Store Connect symbolicates crash reports
-# from. Never fails the script.
+# from. Dies if any UUID's payload is missing.
 check_kn_symbols_in_ipa() {
   local ipa="$1"
   shift
   if [ "$#" -eq 0 ]; then
-    err "warning: ASC symbol check skipped — no Kotlin/Native dSYM UUID was found in the archive."
-    return 0
+    die "ASC symbol check cannot run — no Kotlin/Native dSYM UUID was found in the archive."
   fi
   local listing="$WORK/ipa-listing.txt"
   if ! unzip -l "$ipa" > "$listing" 2>/dev/null; then
-    err "warning: could not list $ipa — ASC symbol check skipped."
-    return 0
+    die "could not list $ipa — ASC symbol check cannot run."
   fi
   local u norm missing=0 count="$#"
   for u in "$@"; do
     # Xcode names each file Symbols/<UUID>.symbols with uppercase hex + dashes.
     # Normalise the UUID and match case-insensitively, so neither side's casing
-    # can turn a present payload into a spurious warning. grep reads a FILE
+    # can turn a present payload into a spurious failure. grep reads a FILE
     # here, so there is no upstream producer for -q to SIGPIPE (Rule 3).
     norm="$(printf '%s' "$u" | tr '[:lower:]' '[:upper:]')"
     if grep -Fiq "Symbols/$norm.symbols" "$listing"; then
@@ -145,11 +145,11 @@ check_kn_symbols_in_ipa() {
       # captures this helper's output, so `log` needs no >&2.
       log "  ✓ Symbols/$norm.symbols present in the .ipa"
     else
-      err "warning: no Symbols/$norm.symbols in $(basename "$ipa") — Kotlin/Native frames for UUID $norm will NOT symbolicate on App Store Connect / TestFlight. Organizer will still symbolicate them from the preserved local archive copy."
+      err "no Symbols/$norm.symbols in $(basename "$ipa") — Kotlin/Native frames for UUID $norm will NOT symbolicate on App Store Connect / TestFlight."
       missing=$((missing + 1))
     fi
   done
-  [ "$missing" -eq 0 ] || err "  ($missing of $count K/N UUID(s) missing from the ASC symbol payload; warning-only this cycle)"
+  [ "$missing" -eq 0 ] || die "$missing of $count K/N UUID(s) missing from the ASC symbol payload."
   return 0
 }
 
@@ -203,15 +203,15 @@ self_test() {
     *) bad "A1 expected a UUID, got '$uuid'" ;;
   esac
 
-  # A2 an archive without the dSYM warns and still returns 0.
+  # A2 an archive without the dSYM fails the release.
   mkdir -p "$root/empty.xcarchive"
-  if out="$(check_kn_dsym_in_archive "$root/empty.xcarchive" 2>&1)"; then
-    case "$out" in
-      *"Kotlin/Native dSYM not found"*) ok "A2 absent dSYM warns without failing" ;;
-      *) bad "A2 wrong output on an absent dSYM: $out" ;;
-    esac
+  if out="$( (check_kn_dsym_in_archive "$root/empty.xcarchive") 2>&1 )"; then
+    bad "A2 absent dSYM did not fail"
   else
-    bad "A2 the archive check returned non-zero on an absent dSYM"
+    case "$out" in
+      *"Kotlin/Native dSYM not found"*) ok "A2 absent dSYM fails the release" ;;
+      *) bad "A2 wrong message: $out" ;;
+    esac
   fi
 
   # Fixture .ipa pair: one carrying the Symbols payload, one without it.
@@ -223,7 +223,9 @@ self_test() {
   ( cd "$root/good" && zip -q -r "$root/good.ipa" Payload Symbols )
   ( cd "$root/bad" && zip -q -r "$root/bad.ipa" Payload )
 
-  # A3 an .ipa carrying the payload passes with no warning.
+  # A3 an .ipa carrying the payload passes with no warning/failure — asserting
+  # non-zero exit is covered by the `if` itself, so the `*warning*` arm here
+  # only needs to rule out a stray failure message riding along on success.
   # shellcheck disable=SC2086  # deliberate split: one argument per UUID.
   if out="$(check_kn_symbols_in_ipa "$root/good.ipa" $uuid 2>&1)"; then
     case "$out" in
@@ -235,26 +237,28 @@ self_test() {
     bad "A3 the .ipa check returned non-zero on a good .ipa"
   fi
 
-  # A4 an .ipa with no Symbols/ warns, names the UUID, and still returns 0.
+  # A4 an .ipa with no Symbols/ fails the release, naming the UUID.
   # shellcheck disable=SC2086  # deliberate split: one argument per UUID.
-  if out="$(check_kn_symbols_in_ipa "$root/bad.ipa" $uuid 2>&1)"; then
-    case "$out" in
-      *"will NOT symbolicate"*) ok "A4 .ipa without Symbols/ warns and returns 0" ;;
-      *) bad "A4 expected a symbolication warning, got: $out" ;;
-    esac
+  if out="$( (check_kn_symbols_in_ipa "$root/bad.ipa" $uuid) 2>&1 )"; then
+    bad "A4 .ipa without Symbols/ did not fail"
   else
-    bad "A4 the .ipa check returned non-zero instead of warning"
+    case "$out" in
+      *"will NOT symbolicate"*) ok "A4 .ipa without Symbols/ fails the release" ;;
+      *) bad "A4 expected a symbolication failure message, got: $out" ;;
+    esac
   fi
 
-  # A5 no UUIDs (the archive check having failed) degrades to a skip — not a
-  # vacuous pass, and not an abort.
-  if out="$(check_kn_symbols_in_ipa "$root/good.ipa" 2>&1)"; then
-    case "$out" in
-      *skipped*) ok "A5 no UUIDs → skip warning, no failure" ;;
-      *) bad "A5 expected a skip warning, got: $out" ;;
-    esac
+  # A5 no UUIDs (the archive check having failed) also fails — this arm is
+  # production-unreachable now, since check_kn_dsym_in_archive dies before
+  # this helper is ever called with zero UUIDs; kept as a guard against a
+  # future caller that passes no UUIDs.
+  if out="$( (check_kn_symbols_in_ipa "$root/good.ipa") 2>&1 )"; then
+    bad "A5 no UUIDs did not fail"
   else
-    bad "A5 the .ipa check returned non-zero with no UUIDs"
+    case "$out" in
+      *"cannot run"*) ok "A5 no UUIDs → fails the release" ;;
+      *) bad "A5 expected a cannot-run message, got: $out" ;;
+    esac
   fi
 
   # A6 preserve_archive copies into a HOME-overridden destination.
@@ -272,17 +276,17 @@ self_test() {
   fi
 
   # A8 a file at the dSYM path that dwarfdump cannot read: the producer exits
-  # non-zero, and the helper must still warn and return 0 — this is the arm
-  # that would otherwise abort a finished archive under pipefail + set -e.
+  # non-zero, and the helper must still fail the release with a clear message
+  # rather than an opaque pipefail abort.
   mkdir -p "$root/junk.xcarchive/dSYMs/PasturaSharedEngine.framework.dSYM/Contents/Resources/DWARF"
   printf 'not a mach-o\n' > "$root/junk.xcarchive/dSYMs/PasturaSharedEngine.framework.dSYM/Contents/Resources/DWARF/PasturaSharedEngine"
-  if out="$(check_kn_dsym_in_archive "$root/junk.xcarchive" 2>&1)"; then
-    case "$out" in
-      *"reported no UUID"*) ok "A8 unreadable dSYM warns without failing" ;;
-      *) bad "A8 expected a no-UUID warning, got: $out" ;;
-    esac
+  if out="$( (check_kn_dsym_in_archive "$root/junk.xcarchive") 2>&1 )"; then
+    bad "A8 unreadable dSYM did not fail"
   else
-    bad "A8 the archive check returned non-zero on an unreadable dSYM"
+    case "$out" in
+      *"reported no UUID"*) ok "A8 unreadable dSYM fails the release" ;;
+      *) bad "A8 expected a no-UUID message, got: $out" ;;
+    esac
   fi
 
   # A7 an unwritable destination warns instead of exiting — the arm that pins
@@ -520,7 +524,12 @@ log "  ✓ zero Ollama symbols"
 
 # ── ADR-023 §6 S5-3 (H7): Kotlin/Native dSYM in the archive ──────────────
 log "Checking the Kotlin/Native dSYM in the archive (ADR-023 §6 S5-3, H7)"
-KN_UUIDS="$(check_kn_dsym_in_archive "$ARCHIVE" || true)"
+# A plain assignment's exit status IS the command substitution's, so a `die`
+# inside `$(...)` propagates here and `|| die` fires — unlike `|| true`, which
+# would swallow it and let a dSYM-less archive continue to upload. The
+# helper's own stderr (via `err`) still reaches the terminal even though its
+# stdout is captured.
+KN_UUIDS="$(check_kn_dsym_in_archive "$ARCHIVE")" || die "Kotlin/Native dSYM check failed — see the message above."
 
 # ── export ───────────────────────────────────────────────────────────────
 EXPORT_DIR="$WORK/export"

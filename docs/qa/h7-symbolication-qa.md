@@ -1,5 +1,7 @@
 # H5 / H7 Distribution-Verification Runbook (ADR-023 §6 S5-3)
 
+> **Executed 2026-09-05 — `v1.3+886`, both halves PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5550162180)). Kept as the reference procedure; the two `release.sh` checks below are now fail-fast, not warnings.
+
 Operator steps for the one TestFlight cycle that executes **H5** (an App Store
 Connect upload of a build carrying the Kotlin/Native `PasturaSharedEngine`
 umbrella) and **H7** (a Kotlin crash from that build symbolicated through the
@@ -38,14 +40,14 @@ frame satisfies.
 ## Steps
 
 1. **Cut the build.** Run `/release` (or `scripts/release.sh --version X.Y
-   --notes-file …`). Read the two new checks in the output — both are
-   **warning-only on this first cycle**:
+   --notes-file …`). Read the two checks in the output — both are now
+   **fail-fast**, aborting the release before the upload:
    - `kn-dsym`: the xcarchive's `dSYMs/` holds
      `PasturaSharedEngine.framework.dSYM`; the script logs its UUID(s).
    - `kn-symbols`: the exported `.ipa` carries a `Symbols/<UUID>.symbols`
-     entry for each of those UUIDs. **If this warns, the ASC half of H7 will
-     fail regardless of what the device does** — stop, and treat the warning
-     as the S5-3 finding (see "If the upload lacks the K/N symbols" below).
+     entry for each of those UUIDs. **If either check dies, the script stops
+     before upload — the ASC half of H7 cannot pass this cycle** (see "If the
+     upload lacks the K/N symbols" below for what to read and do next).
    - The tag push is the H5 verdict (table above). Record the tag and the
      build number.
    - After the tag, the script copies the xcarchive to
@@ -82,6 +84,8 @@ frame satisfies.
 
 ## Follow-up PR after the cycle
 
+All four landed in #1679; the list stays as the record of what the cycle owed:
+
 - ADR-004 §9.2 amendment: H5 and H7 outcomes; Conditional GO → GO, or voided
   on R7 / non-symbolicating frames (the two named voiding conditions).
 - ADR-023 §6: Decision 6 (ii) discharged; the S5-3 bullet marked landed.
@@ -96,18 +100,19 @@ land **before the next App Store submission**: the reveal gesture is gated on
 the `.sandbox` StoreKit environment, which an App Review install also reports, and a deliberate
 crash reachable by a reviewer is a Guideline 2.1 rejection.
 
-## If the upload lacks the K/N symbols (`kn-symbols` warned)
+## If the upload lacks the K/N symbols (`kn-symbols` died)
 
 The archive had the dSYM but the exported `.ipa` did not carry its
-`.symbols`. App Store Connect symbolicates TestFlight crashes only from the
-symbols packaged into the upload itself — there is no separate "upload a
-dSYM" path for TestFlight builds — so the fix is on the export side
-(`-exportArchive` with `uploadSymbols` true, which the script now makes
-explicit; check whether Xcode drops symbols for an *embedded prebuilt*
+`.symbols`, so `kn-symbols` died and the script stopped before upload — no
+build shipped without symbols. App Store Connect symbolicates TestFlight
+crashes only from the symbols packaged into the upload itself — there is no
+separate "upload a dSYM" path for TestFlight builds — so the fix is on the
+export side (`-exportArchive` with `uploadSymbols` true, which the script
+makes explicit; check whether Xcode drops symbols for an *embedded prebuilt*
 XCFramework as opposed to its own build products). Do not spend a second
-cycle guessing: inspect the export directory and the `.ipa` listing, and
-record the finding on #501 as the S5-3 outcome — the property ADR-004 named
-is exactly this path.
+cycle guessing: inspect the export directory and the `.ipa` listing from the
+failed run, fix the export, and re-run `scripts/release.sh` — record the
+finding on #501 if it recurs.
 
 ## If the frames do not symbolicate
 
