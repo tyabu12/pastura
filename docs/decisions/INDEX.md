@@ -35,7 +35,7 @@ BG execution (iOS 26 BGContinuedProcessingTask)
 
 ## ADR-004 — Multi-platform strategy
 
-Multi-platform strategy — Accepted (Conditional GO) on #220 KMP spike; §9 GO/NO-GO synthesis (H5/H7 distribution-verification deferred)
+Multi-platform strategy — Accepted (GO) on #220 KMP spike; §9 GO/NO-GO synthesis (H5/H7 distribution-verification deferred at acceptance, discharged 2026-09-05 — §11)
 
 ## ADR-005 — Content safety architecture
 
