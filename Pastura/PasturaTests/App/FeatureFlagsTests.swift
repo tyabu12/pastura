@@ -83,4 +83,29 @@ struct FeatureFlagsTests {
       FeatureFlags.h7CrashProbeEnabled == false,
       "an explicit off is distinguished from unset and honoured")
   }
+
+  // MARK: - sharedEngineEnabled (ADR-023 §6 S5-4) — opt-in flag (default false)
+
+  private static let sharedEngineKey = "sharedEngineEnabled"
+
+  @Test func sharedEngineDefaultsToFalseWhenUnset() {
+    UserDefaults.standard.removeObject(forKey: Self.sharedEngineKey)
+    defer { UserDefaults.standard.removeObject(forKey: Self.sharedEngineKey) }
+
+    #expect(
+      FeatureFlags.sharedEngineEnabled == false,
+      "a fresh run stays on the Swift SimulationRunner until the flag opts in")
+  }
+
+  @Test func sharedEngineReflectsPersistedValue() {
+    defer { UserDefaults.standard.removeObject(forKey: Self.sharedEngineKey) }
+
+    FeatureFlags.setSharedEngineEnabled(true)
+    #expect(FeatureFlags.sharedEngineEnabled == true)
+
+    FeatureFlags.setSharedEngineEnabled(false)
+    #expect(
+      FeatureFlags.sharedEngineEnabled == false,
+      "an explicit off is distinguished from unset and honoured")
+  }
 }

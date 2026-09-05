@@ -33,6 +33,7 @@ nonisolated enum FeatureFlags {
   private static let keepRunningOnLeaveKey = "keepRunningOnLeaveEnabled"
   private static let viewerPredictionKey = "viewerPredictionEnabled"
   private static let h7CrashProbeKey = "h7CrashProbeEnabled"
+  private static let sharedEngineKey = "sharedEngineEnabled"
 
   // MARK: - Read accessors
 
@@ -184,6 +185,29 @@ nonisolated enum FeatureFlags {
     defaultsReadBool(key: h7CrashProbeKey, default: false)
   }
 
+  /// Whether `SimulationViewModel` runs a *fresh* simulation on the Kotlin
+  /// `PasturaSharedEngine` (ADR-023) instead of the Swift `SimulationRunner`.
+  /// Resume of a paused run always stays on the Swift runner — the Kotlin
+  /// engine exports no resume-from-state.
+  ///
+  /// **Opt-in flag — defaults to `false`.** This is the ADR-023 §6 **S5-4**
+  /// flag, the second conjunct behind the `BuildChannel.resolveIsSandboxOrDebug()`
+  /// channel hint — the same pairing as ``h7CrashProbeEnabled``. Flipped by a
+  /// Toggle in the Settings Diagnostics section (revealed by the 5-tap
+  /// gesture), which writes this key via ``setSharedEngineEnabled(_:)``.
+  ///
+  /// Secondary local path (simulator / attached dev build only):
+  /// ```
+  /// defaults write app.pastura.Pastura.dev sharedEngineEnabled -bool true
+  /// ```
+  /// (the `.dev` suffix is the Debug bundle ID — see the type-level note.)
+  ///
+  /// Sunset: at S5-5 the default flips to the Kotlin engine and the Swift run
+  /// path is deleted, so this flag and its Toggle go with it.
+  static var sharedEngineEnabled: Bool {
+    defaultsReadBool(key: sharedEngineKey, default: false)
+  }
+
   // MARK: - Write accessors
 
   /// Persists the user's choice for ``keepRunningOnLeaveEnabled`` (Settings
@@ -203,6 +227,13 @@ nonisolated enum FeatureFlags {
   /// Diagnostics row appears on the next Settings render.
   static func setH7CrashProbeEnabled(_ enabled: Bool) {
     UserDefaults.standard.set(enabled, forKey: h7CrashProbeKey)
+  }
+
+  /// Persists the user's choice for ``sharedEngineEnabled`` (the Settings
+  /// Diagnostics Toggle). Read on demand (no caching), so the next fresh run
+  /// honours it.
+  static func setSharedEngineEnabled(_ enabled: Bool) {
+    UserDefaults.standard.set(enabled, forKey: sharedEngineKey)
   }
 
   // MARK: - Helpers
