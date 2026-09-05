@@ -96,7 +96,8 @@ extension SharedEngineRunner {
           continuation.yield(
             .error(
               .llmGenerationFailed(
-                description: "shared engine ended without a translatable terminal event")))
+                description: String(
+                  localized: "The shared engine ended without a result."))))
         }
         continuation.finish()
       }

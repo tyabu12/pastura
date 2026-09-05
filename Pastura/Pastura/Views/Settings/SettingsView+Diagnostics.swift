@@ -72,8 +72,6 @@ extension SettingsView {
     return "\(short) (\(build))"
   }
 
-  /// One Kotlin-rendered validation message for the S5-4 acceptance row.
-
   /// H7 crash-probe section (ADR-023 §6 S5-3, ADR-004 §9.2). Rendered only
   /// once both the channel hint and the explicit opt-in flag are true — see
   /// `BuildChannel`'s type-level doc for why the channel hint alone is never

@@ -97,12 +97,13 @@ struct SimulationViewModelSharedEngineTests {
         try await Task.sleep(for: .milliseconds(10))
       }
     }
-    #expect(parked, "the run reached its first inference and parked on the armed suspend")
-    #expect(env.sut.isCompleted == false, "parked, not finished")
     if !parked {
-      // Do not hand back a task the caller would block on forever.
+      // Do not hand back a task the caller would block on forever — before
+      // the expectations, so this holds even if one later becomes #require.
       runTask.cancel()
     }
+    #expect(parked, "the run reached its first inference and parked on the armed suspend")
+    #expect(env.sut.isCompleted == false, "parked, not finished")
     return runTask
   }
 
