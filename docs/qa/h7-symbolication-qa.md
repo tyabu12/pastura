@@ -84,7 +84,7 @@ frame satisfies.
 
 ## Follow-up PR after the cycle
 
-All four landed in #1679; the list stays as the record of what the cycle owed:
+All four are tracked by the close-out issue #1679; the list stays as the record of what the cycle owed:
 
 - ADR-004 §9.2 amendment: H5 and H7 outcomes; Conditional GO → GO, or voided
   on R7 / non-symbolicating frames (the two named voiding conditions).
