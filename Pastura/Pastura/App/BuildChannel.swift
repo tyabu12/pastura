@@ -31,9 +31,12 @@ import StoreKit
 /// `client-environment-type=Sandbox`), which left the H7 gesture unattached
 /// and the S5-3 cycle blocked. `sandboxReceipt` is what TestFlight, App
 /// Review, and a locally-signed Release build carry; an App Store install
-/// carries `receipt`, so the safe default survives. The fallback widens
-/// nothing: App Review already resolves `.sandbox` on the StoreKit path.
-/// The deprecated API is read only inside ``receiptURL()`` (see its note).
+/// carries `receipt`, so the safe default survives. App Review resolves
+/// `.sandbox` on the StoreKit path and `sandboxReceipt` on the fallback, so
+/// the reveal gesture is reachable there either way — the opt-in flag plus
+/// the S5-5 deletion, not the channel hint, are what keep the probe out of a
+/// reviewer's hands. The deprecated API is read only inside ``receiptURL()``
+/// (see its note), and only once StoreKit has already failed.
 ///
 /// The `#if DEBUG` arm of ``resolveIsSandboxOrDebug()`` makes the StoreKit
 /// branch unreachable from the unit suite, which only ever runs in a Debug
@@ -80,20 +83,25 @@ nonisolated enum BuildChannel {
       // An unverified transaction still names the environment it came from,
       // and this is a hint, not an entitlement check — so do not discard it.
       var environment: AppStore.Environment?
+      // Read only on the failure path, and once: the deprecated KVC read stays
+      // off every App Store user's success path, and the logged name is
+      // provably the one the decision used.
+      var receipt: URL?
       do {
         switch try await AppTransaction.shared {
         case .verified(let transaction), .unverified(let transaction, _):
           environment = transaction.environment
         }
       } catch {
-        let receiptName = receiptURL()?.lastPathComponent ?? "<none>"
+        receipt = receiptURL()
+        let receiptName = receipt?.lastPathComponent ?? "<none>"
         // `.info` so the next "the gesture does nothing" report can be read
         // off Console.app without spending another TestFlight build number.
         logger.info(
           "AppTransaction failed (\(String(describing: error), privacy: .public)); receipt name \(receiptName, privacy: .public)"
         )
       }
-      return resolve(environment: environment, receiptURL: receiptURL())
+      return resolve(environment: environment, receiptURL: receipt)
     #endif
   }
 
@@ -108,9 +116,14 @@ nonisolated enum BuildChannel {
     /// deployment target, so it suppresses nothing (measured 2026-09-05).
     /// No `fileExists` check on purpose: the URL names the environment whether
     /// or not the file has been written yet, and a missing file would
-    /// otherwise read as App Store.
+    /// otherwise read as App Store. The `responds(to:)` guard is the
+    /// compile-time check KVC gave up: if a future SDK removes the property,
+    /// this returns `nil` instead of raising `NSUnknownKeyException`, which
+    /// Swift cannot catch.
     private static func receiptURL() -> URL? {
-      Bundle.main.value(forKey: "appStoreReceiptURL") as? URL
+      let selector = NSSelectorFromString("appStoreReceiptURL")
+      guard Bundle.main.responds(to: selector) else { return nil }
+      return Bundle.main.value(forKey: "appStoreReceiptURL") as? URL
     }
   #endif
 }
