@@ -277,9 +277,16 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
       state.pendingPause = false
       state.pendingResume = false
       state.pendingCancel = false
+      // Pause is replayed INSIDE the lock, unlike the two below: a
+      // `releasePause()` landing between publishing the handle and this
+      // replay would otherwise `resume()` first and be undone by the replayed
+      // `pause()`, parking the run behind a running-looking UI with the latch
+      // already drained. `RunHandle.pause()` is documented thread-safe and
+      // non-blocking, so holding the mutex across it is safe. The resume /
+      // cancel pair stays outside — their race is benign (see the doc comment).
+      if carried.pause { handle.pause() }
       return carried
     }
-    if pending.pause { handle.pause() }
     if pending.resume { handle.notifyLLMResumed() }
     if pending.cancel { handle.cancel() }
   }

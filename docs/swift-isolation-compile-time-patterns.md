@@ -56,11 +56,8 @@ nonisolated extension Foo {
 
 Reference: `Pastura/Pastura/Engine/ConditionEvaluator+Parser.swift`.
 
-The call-site diagnostic fires only when a `nonisolated` caller exists; with MainActor-only callers
-the plain-`extension` version compiles clean and traps at runtime if the inherited-MainActor
-member's body escapes the main actor (measured 2026-09-05,
-`App/KMP/SharedEngineRunner+AppRunPath.swift`) — restate `nonisolated` on the extension's members
-regardless of who calls it today.
+The runtime half of this trap — MainActor-only callers, no diagnostic, trap when the body escapes
+the main actor — is in `.claude/rules/swift-isolation.md` § Pattern 6 note.
 
 ## Pattern 4 — Reference type adding sync methods alongside `Sendable` protocol async
 

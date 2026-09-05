@@ -74,9 +74,16 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
       state.pendingPause = false
       state.pendingResume = false
       state.pendingCancel = false
+      // Pause is replayed INSIDE the lock, unlike the two below: a
+      // `releasePause()` landing between publishing the handle and this
+      // replay would otherwise `resume()` first and be undone by the replayed
+      // `pause()`, parking the run behind a running-looking UI with the latch
+      // already drained. `RunHandle.pause()` is documented thread-safe and
+      // non-blocking, so holding the mutex across it is safe. The resume /
+      // cancel pair stays outside — their race is benign (see the doc comment).
+      if carried.pause { handle.pause() }
       return carried
     }
-    if pending.pause { handle.pause() }
     if pending.resume { handle.notifyLLMResumed() }
     if pending.cancel { handle.cancel() }
   }
@@ -158,6 +165,9 @@ nonisolated final class RelayTaskBox: @unchecked Sendable {
   // this only because it runs neither check.
   private typealias ReplaceOutcome = (previous: Task<Void, Never>?, alreadyTerminated: Bool)
 
+  /// Installs the relay task for the current suspension cycle: cancels any
+  /// previous one (a contract violation, not a supported state) and cancels
+  /// the incoming one immediately if the stream already terminated.
   func replace(with task: Task<Void, Never>) {
     let outcome: ReplaceOutcome = storage.withLock { state in
       let previous = state.task
@@ -173,6 +183,8 @@ nonisolated final class RelayTaskBox: @unchecked Sendable {
     if outcome.alreadyTerminated { task.cancel() }
   }
 
+  /// Marks the stream terminated and cancels a parked relay; a relay armed
+  /// after this point is cancelled on arrival (`replace(with:)`).
   func cancelPending() {
     let pending: Task<Void, Never>? = storage.withLock { state in
       state.terminated = true

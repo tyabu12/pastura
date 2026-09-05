@@ -1114,6 +1114,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// signal to its `RunHandle`. The Swift runner's flag stays the observable
   /// source of truth on both engines — the Kotlin path never reads it, but the
   /// UI does, and one flag means one `withMutation` site to keep honest.
+  ///
+  /// Every caller forwards, including the cancel path and the new-run reset:
+  /// on cancel, releasing a Kotlin pause before `RunHandle.cancel()` is
+  /// harmless (cancel also releases a paused run) and keeps the two engines'
+  /// flags in step; on the reset, `activeSharedRunner` is already `nil`
+  /// (cleared by the previous run's `defer`), so the forward is a no-op.
   private func setRunnerPaused(_ paused: Bool) {
     withMutation(keyPath: \.isPaused) {
       runner.isPaused = paused
@@ -1140,7 +1146,17 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       let shared = makeSharedRunner(controller)
       activeSharedRunner = shared
       lifecycleLogger.info("run() engine=kotlin (ADR-023 S5-4 flag on)")
-      return shared.run(yaml: yamlDefinition, llm: llm)
+      let stream = shared.run(yaml: yamlDefinition, llm: llm)
+      // A pause taken between `prepareRunInfrastructure` and this point (the
+      // model-load / intro-reveal window — reachable from leaving the screen
+      // or a BG-task expiry) only reached the Swift flag, because no Kotlin
+      // runner existed to forward to. Replay it now — AFTER `run`, since the
+      // runner's `pause()` is a no-op with no active run; `run` publishes the
+      // box synchronously, and `RunHandleBox` latches the request until the
+      // Kotlin handle arrives — so the run stops at its next checkpoint
+      // instead of running behind a paused-looking screen.
+      if runner.isPaused { shared.pause() }
+      return stream
     }
     lifecycleLogger.info("run() engine=swift")
     return runner.run(scenario: scenario, llm: llm, suspendController: controller)
@@ -1330,7 +1346,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       currentLLM = nil
       suspendController = nil
       // S5-4: the Kotlin runner is per run; a stale one must not receive the
-      // next run's pause signals. (Also in resume()'s defer — the matched pair.)
+      // next run's pause signals. resume() never sets it (Swift runner only);
+      // cleared there too for symmetry with run() — the matched pair.
       activeSharedRunner = nil
       // Intro-gate teardown (#853): cancel the reveal backstop so it can't
       // outlive the run, and disarm so `isPlayingIntro` settles to false on
@@ -1611,7 +1628,8 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       currentLLM = nil
       suspendController = nil
       // S5-4: the Kotlin runner is per run; a stale one must not receive the
-      // next run's pause signals. (Also in resume()'s defer — the matched pair.)
+      // next run's pause signals. resume() never sets it (Swift runner only);
+      // cleared there too for symmetry with run() — the matched pair.
       activeSharedRunner = nil
       // Intro-gate teardown (#853): cancel the reveal backstop so it can't
       // outlive the run, and disarm so `isPlayingIntro` settles to false on
@@ -2364,11 +2382,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // wiring is broken (`output.rawText` was nil), not that the model
       // emitted nothing.
       let rawOutput = output.rawText ?? ""
-      if output.rawText == nil {
+      if output.rawText == nil, activeSharedRunner == nil {
         // Defence-in-depth: logs in Release too so a TestFlight regression
         // that drops `rawText` wiring surfaces in production logs (not just
-        // debug builds). The condition is expected to be unreachable —
+        // debug builds). On the Swift runner the condition is unreachable —
         // `LLMCaller` always populates `rawText` via `JSONResponseParser`.
+        // On the Kotlin runner (S5-4) it is expected on every turn: Kotlin's
+        // `TurnOutput` stores only `fields`, so the audit column is empty
+        // there by design until S5-5 settles it (ADR-023 §6 S5-4) — logging
+        // it per turn would bury the wiring signal this branch exists for.
         lifecycleLogger.error(
           "rawText nil on agentOutput for agent=\(agent, privacy: .public); audit trail will be empty"
         )

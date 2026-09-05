@@ -114,7 +114,8 @@ struct SettingsView: View {
   /// S5-4, #1681). Mirrors the `FeatureFlags` value at init and persists every
   /// flip via its setter, so the flag stays the single source of truth. Not
   /// `private` — bound by the Diagnostics Toggle in the `+Diagnostics.swift`
-  /// sibling extension.
+  /// sibling extension. Mirrored once at init (same as the other toggles), so
+  /// a `defaults write` against a running dev build shows only after relaunch.
   @State var isSharedEngineEnabled = FeatureFlags.sharedEngineEnabled
 
   #if !targetEnvironment(simulator)

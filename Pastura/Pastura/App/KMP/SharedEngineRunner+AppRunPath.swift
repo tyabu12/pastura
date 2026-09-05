@@ -71,6 +71,7 @@ extension SharedEngineRunner {
       // `RunHandle.cancel()`. Mirrors the shape of
       // `SimulationRunner.run(scenario:llm:suspendController:)`.
       let task = Task {
+        var sawTerminal = false
         for await event in inner {
           guard let translated = SimulationEvent(shared: event) else {
             // A Kotlin subclass this build predates
@@ -84,7 +85,18 @@ extension SharedEngineRunner {
             )
             continue
           }
+          if case .simulationCompleted = translated { sawTerminal = true }
+          if case .error = translated { sawTerminal = true }
           continuation.yield(translated)
+        }
+        // The contract above promises a terminal; if the one Kotlin emitted
+        // was the unmappable event just dropped, floor it so the ViewModel
+        // does not read a bare stream end as a normal completion.
+        if !sawTerminal, !Task.isCancelled {
+          continuation.yield(
+            .error(
+              .llmGenerationFailed(
+                description: "shared engine ended without a translatable terminal event")))
         }
         continuation.finish()
       }

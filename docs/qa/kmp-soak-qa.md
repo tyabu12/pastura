@@ -47,11 +47,15 @@ nothing here is checked by CI.
    section appears.
 3. **Enable the switch.** Diagnostics → toggle "Run simulations on the shared engine" on.
 4. **Run the bundled presets.** Start each of the following from the gallery and let it run to
-   completion, confirming the log fills and the result card appears (`Pastura/Pastura/Resources/Presets/`):
+   completion, confirming the log fills and the result card appears (`Pastura/Pastura/Resources/Presets/`).
+   Each preset has an `_en.yaml` twin; on a Japanese device the gallery shows the `ja` titles, so
+   run the `ja` variants (no `_en` suffix) below.
    - `target_score_race.yaml` — exercises the `conditional` phase type.
    - `word_wolf.yaml` — vote-heavy (elimination + majority vote), also exercises `conditional` and
      `event_inject`.
    - `last_fable.yaml` — exercises `event_inject` on a different scenario shape.
+   - `prisoners_dilemma.yaml` — the only preset exercising `pairing` + the ADR-027
+     `pairwise_payoff` scoring logic.
 5. **Pause/resume cycle.** On one of the three runs above, pause mid-run and resume — confirm it
    continues on the Kotlin engine and completes.
 6. **Background cycle.** On another run, lock the screen (or switch to another app) mid-run and

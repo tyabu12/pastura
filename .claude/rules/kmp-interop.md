@@ -54,13 +54,11 @@ silent compile against the wrong type where the shapes coincide. The gate spike 
 
 ## Pattern 2 — `swift_name("Parent.Child")` does not reach Swift nested-type lookup
 
-Constructing a Kotlin sealed-class subtype from Swift fails on the dot syntax; Swift cannot work
-around it — add a parent-typed `object …Factory` in `commonMain` and call that. Casting (`as?` /
-`is`) does compile under the engine umbrella; construction was measured under the models one.
-Re-measured 2026-09-05: constructing via the nested Swift name (e.g.
-`PasturaSharedEngine.SimulationEvent.RoundStarted(round:totalRounds:)`) **compiles** under the
-engine umbrella (`SimulationEventBridgeTests`) — the factory workaround applies only where
-construction actually fails, not by default.
+Constructing a Kotlin sealed-class subtype through its nested Swift name
+(`PasturaSharedEngine.SimulationEvent.RoundStarted(round:totalRounds:)`) **compiles** under the
+engine umbrella (measured 2026-09-05, `SimulationEventBridgeTests`); the parent-typed
+`object …Factory` workaround is for the case where construction actually fails, measured under
+the retired models umbrella. Casting (`as?` / `is`) has always compiled.
 
 ## Pattern 3 — grep the K/N type shape at plan time
 
@@ -220,7 +218,10 @@ is the wrong one here; read the KDoc on `H7CrashProbe` first.
 
 `NSError.localizedDescription` on a bridged Kotlin throw carries the Kotlin exception's message,
 not a `ScenarioValidationMessage`'s rendered, localized text — reading it directly silently
-degrades the `ja` acceptance surface to English (or gibberish) instead of failing loudly. The
-rendered message sits in `(error as NSError).userInfo["KotlinException"] as? SimulationException`;
-unwrap that and call `.error` to get it. See `SharedEngineRunner.renderedValidationMessage(for:)`
-and `SharedEngineAppRunPathTests`.
+degrades the `ja` acceptance surface to English (or gibberish) instead of failing loudly. Reach
+the rendered message by unwrapping
+`(error as NSError).userInfo["KotlinException"] as? SimulationException`, mapping its `.error`
+through `SimulationError(shared:)`, and reading the mapped Swift error's `errorDescription` — for
+`.scenarioValidationFailed` that is the Kotlin-rendered message. See
+`SharedEngineRunner.renderedValidationMessage(for:)`, the one implementation of this chain, and
+`SharedEngineAppRunPathTests`.

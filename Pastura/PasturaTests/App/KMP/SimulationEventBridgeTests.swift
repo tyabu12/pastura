@@ -43,6 +43,14 @@ struct SimulationEventBridgeTests {
       "TurnSkipped", "VoteResults"
     ]
     #expect(coveredCaseNames.count == Self.knownSubclassCount)
+    // The half a literal-vs-literal count cannot do: each covered name must
+    // still be an exported Obj-C class (`PSE` prefix), so a Kotlin rename or
+    // removal reddens here. An *addition* still needs the hand re-grep above.
+    for name in coveredCaseNames {
+      #expect(
+        NSClassFromString("PSESimulationEvent" + name) != nil,
+        "\(name) is no longer exported by the umbrella")
+    }
   }
 
   // MARK: - Round lifecycle

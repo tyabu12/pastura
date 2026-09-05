@@ -29,6 +29,10 @@ extension SimulationEvent {
 
   /// Builds the Swift event from its Kotlin counterpart, or `nil` if
   /// `shared` is a subclass this build predates (see the type-level doc).
+  /// Every `nil` path in this file is unreachable from Swift today — an
+  /// unknown subclass, error subclass or enum constant cannot be synthesized
+  /// against the exported header — so they are untested; the green suite
+  /// covers the mapping, not the fallback.
   ///
   /// Split into six per-category mappers (round/phase lifecycle, agent
   /// output, code-phase results, vote/pairing/control-flow, simulation
@@ -177,19 +181,26 @@ extension SimulationEvent {
 extension PhaseType {
   /// Maps a Kotlin `PhaseType` enum constant by its `name` (K/N's
   /// `SPEAK_ALL` / `VOTE` / … form), lowercased to match the Swift raw
-  /// values (`speak_all`, `vote`, …). Failable so an enum constant this
-  /// build predates degrades to "unknown event" at the call site rather
-  /// than trapping.
+  /// values (`speak_all`, `vote`, …). That coincides with each entry's
+  /// `@SerialName` today, and `@SerialName` is the authoritative spelling —
+  /// `SimulationEventBridgeTests.phaseTypeRosterMapsCompletely` is the
+  /// detector for an entry whose serial name diverges. Failable so an enum
+  /// constant this build predates degrades to "unknown event" at the call
+  /// site rather than trapping.
   nonisolated init?(shared: PasturaSharedEngine.PhaseType) {
     self.init(rawValue: shared.name.lowercased())
   }
 }
 
 extension TurnOutput {
-  /// Kotlin's `TurnOutput` carries only `fields` — `rawText` is parser
-  /// provenance metadata the Kotlin port deliberately omits (Engine-layer
-  /// concern, not part of the wire shape) — so `rawText` is always `nil`
-  /// here; the ViewModel only reads `fields` via the typed accessors.
+  /// Kotlin's `TurnOutput` stores only `fields` (its `statement` / `vote` /
+  /// `action` / `reason` / `innerThought` are computed over it) — `rawText`
+  /// is parser provenance the Kotlin port omits — so `rawText` is always
+  /// `nil` here. The ViewModel DOES read it: it is the `TurnRecord.rawOutput`
+  /// audit column (ADR-015), which is therefore empty for every Kotlin-engine
+  /// turn; `SimulationViewModel` suppresses its "wiring broken" log on this
+  /// path, and S5-5 settles whether to port the field or drop the column
+  /// (ADR-023 §6 S5-4, #501).
   nonisolated init(shared: PasturaSharedEngine.TurnOutput) {
     self.init(fields: shared.fields, rawText: nil)
   }
@@ -206,6 +217,7 @@ extension ConversationEntry {
 }
 
 extension Pairing {
+  /// Total — every Kotlin field maps 1:1, both actions nullable on both sides.
   nonisolated init(shared: PasturaSharedEngine.Pairing) {
     self.init(
       agent1: shared.agent1, agent2: shared.agent2, action1: shared.action1,
@@ -219,7 +231,11 @@ extension SimulationState {
   /// `PhaseType`. An entry this build cannot map fails the whole state
   /// conversion rather than silently dropping conversation history —
   /// `.roundCheckpoint`'s caller (pause/resume persistence) needs the state
-  /// it stores to be complete, not a best-effort subset.
+  /// it stores to be complete, not a best-effort subset. Blast radius of the
+  /// drop: the runner logs it at `.error` and the previous round's checkpoint
+  /// stays the persisted one, so a later resume replays a round rather than
+  /// failing loudly — unreachable from Swift today (no unknown `PhaseType`
+  /// can be built), hence untested.
   nonisolated init?(shared: PasturaSharedEngine.SimulationState) {
     var conversationLog: [ConversationEntry] = []
     conversationLog.reserveCapacity(shared.conversationLog.count)

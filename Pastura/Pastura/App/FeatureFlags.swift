@@ -195,6 +195,10 @@ nonisolated enum FeatureFlags {
   /// channel hint — the same pairing as ``h7CrashProbeEnabled``. Flipped by a
   /// Toggle in the Settings Diagnostics section (revealed by the 5-tap
   /// gesture), which writes this key via ``setSharedEngineEnabled(_:)``.
+  /// The read accessor carries no channel conjunct (the hint is async); the
+  /// conjunct is enforced at launch instead — `PasturaApp.initialize()` clears
+  /// this key when the channel resolves to "not sandbox / Debug", because
+  /// `UserDefaults` survives a TestFlight → App Store upgrade.
   ///
   /// Secondary local path (simulator / attached dev build only):
   /// ```

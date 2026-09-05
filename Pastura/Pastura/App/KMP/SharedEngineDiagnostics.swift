@@ -26,17 +26,25 @@ nonisolated enum SharedEngineDiagnostics {
   /// string on a `ja` device means the actual fell back to the key, which is
   /// exactly the regression this row exists to make visible.
   ///
-  /// The message is *provoked* rather than constructed because a Kotlin
-  /// sealed subtype cannot be built from Swift at all
-  /// (`.claude/rules/kmp-interop.md` Pattern 2) — there is no
-  /// `ScenarioValidationMessage.InvalidYaml(...)` to call.
+  /// The message is *provoked* rather than constructed because the header
+  /// exports no `ScenarioValidationMessage.InvalidYAMLFormat` initializer to
+  /// call from Swift (`.claude/rules/kmp-interop.md` Pattern 2 covers what
+  /// does and does not construct) — the loader's own throw is the one path
+  /// that yields a rendered message.
+  ///
+  /// Cached (`static let`): the value cannot change within a process, and
+  /// the View reads it on every body evaluation of the section — a K/N
+  /// loader construction, parse, `Throwable` (stack capture) and `NSError`
+  /// bridge per render, on the MainActor, buys nothing after the first.
+  static let cachedSampleRenderedMessage: String = sampleRenderedMessage()
+
   static func sampleRenderedMessage() -> String {
     do {
       _ = try PasturaSharedEngine.ScenarioLoader().load(yaml: "agents: [")
       // Unreachable with this input; a Kotlin change that made the loader
-      // accept it would leave the row with nothing to show, which is the
-      // honest thing to display rather than a fabricated sample.
-      return ""
+      // accept it would leave the row with a bare prefix on device, where no
+      // test runs — so show a non-localized tell instead of an empty string.
+      return "(loader accepted malformed YAML)"
     } catch {
       return SharedEngineRunner.renderedValidationMessage(for: error)
     }

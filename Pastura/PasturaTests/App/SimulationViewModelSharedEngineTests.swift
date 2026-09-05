@@ -84,7 +84,10 @@ struct SimulationViewModelSharedEngineTests {
     // suspend still standing. The mock's call counters do not move on a
     // suspended throw, so they cannot serve here (same shape as
     // `parkRunMidFlight` in the status-tests suite).
-    let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+    // 30 s, not 5: CI runs with coverage on a shared runner and has turned
+    // ~120 ms into ~3 s (`testing.md` § "Wall-clock test bounds"); the suite
+    // `.timeLimit` is the real backstop.
+    let deadline = ContinuousClock.now.advanced(by: .seconds(30))
     var parked = false
     while ContinuousClock.now < deadline, !parked {
       if env.sut.isRunning, !env.sut.isLoadingModel, !env.sut.thinkingAgents.isEmpty,
@@ -96,6 +99,10 @@ struct SimulationViewModelSharedEngineTests {
     }
     #expect(parked, "the run reached its first inference and parked on the armed suspend")
     #expect(env.sut.isCompleted == false, "parked, not finished")
+    if !parked {
+      // Do not hand back a task the caller would block on forever.
+      runTask.cancel()
+    }
     return runTask
   }
 
@@ -146,6 +153,45 @@ struct SimulationViewModelSharedEngineTests {
     await runTask.value
 
     #expect(env.sut.isCompleted, "a paused-then-resumed Kotlin run still completes")
+    #expect(env.sut.errorMessage == nil)
+  }
+
+  @Test("flag on: a pause taken before the Kotlin runner exists is replayed to it")
+  func flagOnPauseBeforeStreamCreationIsReplayed() async throws {
+    let env = try makeEnv(flagOn: true)
+    // Arm the intro gate: run() parks at `awaitIntroReveal()` after the model
+    // load and BEFORE `makeEventStream` — the window in which a pause reaches
+    // only the Swift flag because no Kotlin runner exists yet.
+    env.sut.beginIntro(revealBackstop: 60)
+    let runTask = Task {
+      await env.sut.run(scenario: env.scenario, llm: env.mock, yamlDefinition: env.yaml)
+    }
+    env.sut.runTask = runTask
+    let deadline = ContinuousClock.now.advanced(by: .seconds(30))
+    while ContinuousClock.now < deadline, !(env.sut.isRunning && !env.sut.isLoadingModel) {
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(env.sut.isRunning && !env.sut.isLoadingModel, "parked at the intro gate")
+
+    env.sut.pauseSimulation()
+    #expect(env.sut.isPaused)
+    #expect(env.probe.invocations == 0, "no Kotlin runner exists yet — that is the point")
+
+    // Release the gate: `makeEventStream` builds the Kotlin runner and must
+    // replay the standing pause. `pauseSimulation` also parked the suspend
+    // controller; release THAT half directly so the only thing holding the
+    // run is the Kotlin pause — with the replay the run halts at its next
+    // checkpoint and cannot finish, without it the instant mock completes the
+    // whole preset in well under the wait below.
+    env.sut.introRevealDidComplete()
+    env.sut.suspendController?.resume()
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(env.probe.invocations == 1)
+    #expect(env.sut.isCompleted == false, "the Kotlin run honoured the replayed pause")
+
+    env.sut.resumeSimulation()
+    await runTask.value
+    #expect(env.sut.isCompleted, "the replayed pause was released by resume")
     #expect(env.sut.errorMessage == nil)
   }
 
