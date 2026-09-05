@@ -56,6 +56,12 @@ nonisolated extension Foo {
 
 Reference: `Pastura/Pastura/Engine/ConditionEvaluator+Parser.swift`.
 
+The call-site diagnostic fires only when a `nonisolated` caller exists; with MainActor-only callers
+the plain-`extension` version compiles clean and traps at runtime if the inherited-MainActor
+member's body escapes the main actor (measured 2026-09-05,
+`App/KMP/SharedEngineRunner+AppRunPath.swift`) — restate `nonisolated` on the extension's members
+regardless of who calls it today.
+
 ## Pattern 4 — Reference type adding sync methods alongside `Sendable` protocol async
 
 An App/ `final class` conforming to a `Sendable` protocol compiles fine while all methods are `async` — the hop conceals implicit MainActor binding. **Adding new synchronous instance methods** forces the class to MainActor and breaks `nonisolated` callers; the class can compile for a long time until someone adds a sync accessor.

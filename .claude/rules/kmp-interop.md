@@ -15,9 +15,13 @@ reddens every per-PR iOS lane. `tools/kmp-gate-spike/**` keeps a twin of each ad
 nightly rung until S5-5: **a change to the §5.2 relay contract or an adapter's export-facing shape
 lands in both copies in the same PR** — only `SuspendController` has a drift guard
 (`tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh`); for the rest this sentence is
-the detector. Nothing under `App/KMP/` is on the app's *engine* run path until S5-4 flips the switch;
-the one exception is `H7CrashTrigger.fire()`, the S5-3 diagnostics-only crash probe reached from a
-double-gated Settings row (deleted in S5-5). The
+the detector. Since S5-4 (#1681) the Kotlin engine runs **fresh** simulations behind
+`FeatureFlags.sharedEngineEnabled` (a Diagnostics toggle, default off); the Swift `SimulationRunner`
+stays the default run path until S5-5 flips it. `H7CrashTrigger.fire()` remains the S5-3
+diagnostics-only crash probe reached from a double-gated Settings row (deleted in S5-5).
+`App/KMP/SharedEngineRunner+AppRunPath.swift` and `SimulationEvent+SharedEngine.swift` are
+app-module-only by construction — they name Swift twins the gate spike lacks, so they carry no
+twin-parity obligation. The
 Wave B checklist in `docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage
 table and pointers are hand-maintained and are not.
 
@@ -53,6 +57,10 @@ silent compile against the wrong type where the shapes coincide. The gate spike 
 Constructing a Kotlin sealed-class subtype from Swift fails on the dot syntax; Swift cannot work
 around it — add a parent-typed `object …Factory` in `commonMain` and call that. Casting (`as?` /
 `is`) does compile under the engine umbrella; construction was measured under the models one.
+Re-measured 2026-09-05: constructing via the nested Swift name (e.g.
+`PasturaSharedEngine.SimulationEvent.RoundStarted(round:totalRounds:)`) **compiles** under the
+engine umbrella (`SimulationEventBridgeTests`) — the factory workaround applies only where
+construction actually fails, not by default.
 
 ## Pattern 3 — grep the K/N type shape at plan time
 
@@ -207,3 +215,12 @@ would fall through to its `fatalError`, and the TestFlight crash would carry no 
 same gate pins it the other way round (`exportedNonThrowingSelectors` asserts the selector exports
 **without** `error:`), so the regression reddens — but the fix the gate's forward message prescribes
 is the wrong one here; read the KDoc on `H7CrashProbe` first.
+
+## Pattern 6 — a Kotlin throw's `localizedDescription` is the exception text, not the rendered message
+
+`NSError.localizedDescription` on a bridged Kotlin throw carries the Kotlin exception's message,
+not a `ScenarioValidationMessage`'s rendered, localized text — reading it directly silently
+degrades the `ja` acceptance surface to English (or gibberish) instead of failing loudly. The
+rendered message sits in `(error as NSError).userInfo["KotlinException"] as? SimulationException`;
+unwrap that and call `.error` to get it. See `SharedEngineRunner.renderedValidationMessage(for:)`
+and `SharedEngineAppRunPathTests`.
