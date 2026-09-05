@@ -28,3 +28,37 @@ struct BuildChannelTests {
     #expect(BuildChannel.isSandboxEnvironment(.production) == false)
   }
 }
+
+/// Covers `BuildChannel.resolve(environment:receiptURL:)`, the pure
+/// decision behind `resolveIsSandboxOrDebug()`'s Release arm (#1677).
+///
+/// The branch that *reaches* the receipt fallback — `AppTransaction.shared`
+/// throwing — is unreachable from the suite for the same `#if DEBUG` reason
+/// as above, so the decision is factored into a pure function and the
+/// StoreKit-failure input is modelled as `environment == nil`.
+@Suite(.timeLimit(.minutes(1)))
+struct BuildChannelResolveTests {
+  private static let sandboxReceipt = URL(fileURLWithPath: "/app/StoreKit/sandboxReceipt")
+  private static let productionReceipt = URL(fileURLWithPath: "/app/StoreKit/receipt")
+
+  @Test("a StoreKit answer wins over the receipt name, in both directions")
+  func environmentWins() {
+    #expect(BuildChannel.resolve(environment: .sandbox, receiptURL: Self.productionReceipt) == true)
+    #expect(BuildChannel.resolve(environment: .production, receiptURL: Self.sandboxReceipt) == false)
+  }
+
+  @Test("StoreKit failure + sandboxReceipt → sandbox (the TestFlight shape)")
+  func fallbackSandboxReceipt() {
+    #expect(BuildChannel.resolve(environment: nil, receiptURL: Self.sandboxReceipt) == true)
+  }
+
+  @Test("StoreKit failure + production receipt → App Store shape")
+  func fallbackProductionReceipt() {
+    #expect(BuildChannel.resolve(environment: nil, receiptURL: Self.productionReceipt) == false)
+  }
+
+  @Test("StoreKit failure + no receipt URL → safe default")
+  func fallbackNoReceipt() {
+    #expect(BuildChannel.resolve(environment: nil, receiptURL: nil) == false)
+  }
+}

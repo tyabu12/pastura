@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import StoreKit
 
 /// Which distribution channel the running build most likely came from.
@@ -15,19 +16,30 @@ import StoreKit
 /// version row five times; the probe's deletion before the next App Store
 /// submission (ADR-023 §6 S5-5) is what closes that.
 ///
-/// StoreKit 2 (`AppTransaction.shared`) rather than
+/// StoreKit 2 (`AppTransaction.shared`) is the primary signal rather than
 /// `Bundle.main.appStoreReceiptURL`: the receipt URL is deprecated from iOS
 /// 18.0 — our minimum — and the Release lane compiles with
-/// `-warnings-as-errors`, so the deprecated call only fails the build in the
+/// `-warnings-as-errors`, so a deprecated call only fails the build in the
 /// `#else` arm that Debug never compiles. The price is that the hint is
 /// `async`: callers hold it in `@State` and resolve it from `.task`, and the
 /// gated UI simply does not exist until the answer arrives (defaults to
 /// `false`, i.e. the App Store shape).
 ///
+/// **The receipt name is the fallback when StoreKit throws** (#1677): the
+/// v1.3+885 TestFlight install failed `AppTransaction.shared` with
+/// `SKInternalErrorDomain Code=13` (its own UserInfo saying
+/// `client-environment-type=Sandbox`), which left the H7 gesture unattached
+/// and the S5-3 cycle blocked. `sandboxReceipt` is what TestFlight, App
+/// Review, and a locally-signed Release build carry; an App Store install
+/// carries `receipt`, so the safe default survives. The fallback widens
+/// nothing: App Review already resolves `.sandbox` on the StoreKit path.
+/// The deprecated API is read only inside ``receiptURL()`` (see its note).
+///
 /// The `#if DEBUG` arm of ``resolveIsSandboxOrDebug()`` makes the StoreKit
 /// branch unreachable from the unit suite, which only ever runs in a Debug
 /// build — that is why the environment classification lives in the pure,
-/// injectable ``isSandboxEnvironment(_:)`` and is tested there.
+/// injectable ``isSandboxEnvironment(_:)`` / ``resolve(environment:receiptURL:)``
+/// and is tested there.
 nonisolated enum BuildChannel {
   /// Whether `environment` is a **non-production** App Store environment —
   /// `.sandbox` is what a TestFlight build, an App Review install, and a
@@ -39,24 +51,66 @@ nonisolated enum BuildChannel {
     environment == .sandbox || environment == .xcode
   }
 
+  /// Pure decision behind ``resolveIsSandboxOrDebug()``'s Release arm: a
+  /// StoreKit answer wins; when StoreKit gave none (`environment == nil`)
+  /// the receipt file name decides — `sandboxReceipt` is the non-production
+  /// shape, anything else (`receipt`, or no URL at all) the App Store one.
+  static func resolve(environment: AppStore.Environment?, receiptURL: URL?) -> Bool {
+    if let environment {
+      return isSandboxEnvironment(environment)
+    }
+    return receiptURL?.lastPathComponent == "sandboxReceipt"
+  }
+
   /// `true` for a Debug build, or for a Release build whose `AppTransaction`
-  /// environment is a sandbox one. Never a sufficient gate on its own — pair
-  /// it with an opt-in `FeatureFlags` key (type-level note).
+  /// environment is a sandbox one — falling back to the receipt file name
+  /// when StoreKit throws (type-level note). Never a sufficient gate on its
+  /// own — pair it with an opt-in `FeatureFlags` key.
   ///
-  /// Any StoreKit failure (no transaction, verification error, offline
-  /// first launch) resolves to `false`: the safe default is the App Store
-  /// shape, where the gated diagnostics do not exist.
+  /// Not tried on failure: `AppTransaction.refresh()` — it can present an
+  /// App Store sign-in prompt, and this runs from `SettingsView`'s `.task`
+  /// for every App Store user, not from a user-initiated action. Also not a
+  /// signal: the absence of `embedded.mobileprovision`, which App Store and
+  /// TestFlight installs share, so it cannot tell the two apart and would
+  /// flip the default toward the unsafe side.
   static func resolveIsSandboxOrDebug() async -> Bool {
     #if DEBUG
       return true
     #else
-      guard let result = try? await AppTransaction.shared else { return false }
       // An unverified transaction still names the environment it came from,
       // and this is a hint, not an entitlement check — so do not discard it.
-      switch result {
-      case .verified(let transaction), .unverified(let transaction, _):
-        return isSandboxEnvironment(transaction.environment)
+      var environment: AppStore.Environment?
+      do {
+        switch try await AppTransaction.shared {
+        case .verified(let transaction), .unverified(let transaction, _):
+          environment = transaction.environment
+        }
+      } catch {
+        let receiptName = receiptURL()?.lastPathComponent ?? "<none>"
+        // `.info` so the next "the gesture does nothing" report can be read
+        // off Console.app without spending another TestFlight build number.
+        logger.info(
+          "AppTransaction failed (\(String(describing: error), privacy: .public)); receipt name \(receiptName, privacy: .public)"
+        )
       }
+      return resolve(environment: environment, receiptURL: receiptURL())
     #endif
   }
+
+  #if !DEBUG
+    private static let logger = Logger(subsystem: "app.pastura.Pastura", category: "BuildChannel")
+
+    /// The only reader of the deprecated `appStoreReceiptURL`, through KVC so
+    /// the compiler never sees the deprecated reference — the Release lane
+    /// builds with `-warnings-as-errors`, and neither `@available` shape
+    /// confines the warning: `deprecated: 18.0` on this helper re-raises it
+    /// at the call site, and a far-future version is not "deprecated" at the
+    /// deployment target, so it suppresses nothing (measured 2026-09-05).
+    /// No `fileExists` check on purpose: the URL names the environment whether
+    /// or not the file has been written yet, and a missing file would
+    /// otherwise read as App Store.
+    private static func receiptURL() -> URL? {
+      Bundle.main.value(forKey: "appStoreReceiptURL") as? URL
+    }
+  #endif
 }
