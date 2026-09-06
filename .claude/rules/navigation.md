@@ -21,7 +21,7 @@ Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map
 | `router.push(.X)` | Programmatic push from synchronous code, onto the current tab's stack. |
 | `router.pushIfOnTop(expected:next:)` | Programmatic push **after `await`** — guards against pushing onto an unrelated screen if the user popped back during the suspension. |
 | `router.pop()` / `router.popToRoot()` | Programmatic back / unwind within the current tab's stack. |
-| `PasturaBackButton()` | Custom back chevron for views pushed onto a tab's stack. Wraps `router.pop()`. |
+| `PasturaBackButton()` | Custom back chevron for views pushed onto a tab's stack. Wraps `router.pop()`, falling back to `dismiss()` when the environment carries no router. |
 | `@Environment(\.dismiss)` | Dismissing a sheet / modal that is **not** part of a tab's stack. |
 
 ## Forbidden inside a tab's stack
@@ -33,6 +33,8 @@ Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map
 Every view pushed onto a tab's `NavigationStack` MUST use `PasturaBackButton()` together with **both** `.navigationBarBackButtonHidden(true)` and `.preservesPasturaSwipeBackGesture()` — omitting either breaks silently (no back affordance, or no swipe-back on iOS 26).
 
 Callsite template, the reason the pairing is load-bearing, toolbar action-button styling, and the title display-mode convention: `docs/design/design-system.md` § 5.8.1 / § 5.8.2 / § 5.11.
+
+**Its router is read as an optional `@Environment(AppRouter.self)`, and must stay optional.** iOS 26 can size a toolbar item from inside the push transition (`UIKitBarItemHost.initializeSize()` via `BarAppearanceBridge.didMoveToWindow`), reaching the item's environment read before `TabNavigationStack`'s `.environment(router)` propagates to that separate view graph; the non-optional form then trips the `EnvironmentValues.subscript` assertion and terminates the app (TestFlight 1.3 (888) / iOS 26.6, #1683 — one report, never reproduced). Nothing in the build or the test suite catches a regression here: ADR-009 rules out render tests, and the failure needs a real push transition. The nil arm logs and calls `dismiss()` rather than returning silently, so a router that never arrives shows up in the log instead of as a dead back button.
 
 ## Sheets, popovers, fullScreenCover — out of scope
 
