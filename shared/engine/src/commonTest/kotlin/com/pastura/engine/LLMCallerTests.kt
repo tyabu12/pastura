@@ -630,6 +630,30 @@ class LLMCallerTests {
     }
 
     @Test
+    fun aNullSchemaFallsBackToInnerThoughtForTheSnapshotThoughtKey() = runTest {
+        // The other arm of `request.schema?.thoughtFieldName ?: thoughtKey` —
+        // no constrained decoding at all, as a code-adjacent phase would issue.
+        val events = mutableListOf<SimulationEvent>()
+        call(
+            ScriptedLLMBackend(listOf(script("""{"statement": "yo", "inner_thought": "hm"}"""))),
+            schema = null,
+            events = events,
+        )
+
+        val snap = events.filterIsInstance<SimulationEvent.AgentOutputStream>().single()
+        assertEquals("yo", snap.primary)
+        assertEquals("hm", snap.thought)
+    }
+
+    @Test
+    fun theFallbackThoughtKeyIsOneTheSchemaVocabularyKnows() {
+        // `LLMCaller` streams `PartialOutputExtractor.thoughtKey` whenever the
+        // schema declares no secondary key; if the two modules ever renamed it on
+        // one side only, the caller would stream a key no schema declares, silently.
+        assertTrue(OutputSchema.knownSecondaryKeys.contains(PartialOutputExtractor.thoughtKey))
+    }
+
+    @Test
     fun voteSnapshotsSourceThoughtFromTheSchemaDeclaredReasonKey() = runTest {
         // #609 twin: the thought key is `schema.thoughtFieldName`, so a vote phase
         // streams `reason` into the live THINKING section, not only `inner_thought`.
