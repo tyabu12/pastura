@@ -1489,9 +1489,10 @@ jobs:
       # Duplicate Swift base filename check (#1513) — two Swift files sharing a
       # base name in one target fail the build outright, but the pre-commit
       # `xcodebuild build` compiles the app scheme only, so a collision in
-      # PasturaTests / PasturaUITests / tools/harness is first seen here. Self-test first (detector arms plus the two scan
-      # controls — an empty target root and a partial root list, both of which
-      # would otherwise read as "0 duplicates"), then the real tree.
+      # PasturaTests / PasturaUITests / tools/harness is first seen here.
+      # Self-test first (detector arms plus the two scan controls — an empty
+      # target root and a partial root list, both of which would otherwise
+      # read as "0 duplicates"), then the real tree.
       # Unconditional for the same reason as the steps above
       # (`.claude/rules/ci-workflows.md` § "Required-check-safe path gating").
       # Defense-in-depth for scripts/duplicate-basename-gate.sh, which the git

@@ -17,11 +17,11 @@ invariant 3 (lost-wakeup safety), which the spike defended by keeping a byte-ide
 `SuspendController` copy under a drift guard, is now exercised directly against the shipping
 `Pastura/Pastura/LLM/SuspendController.swift` by that suite.
 
-Since S5-5 the Kotlin engine is the sole **fresh**-run path — `SimulationViewModel` reads no flag — and the S5-4 opt-in switch surface (`FeatureFlags.sharedEngineEnabled`, the
-Diagnostics toggle, `SharedEngineDiagnostics.swift`) has been deleted; resume of a paused run stays
+Since S5-5 the Kotlin engine is the sole **fresh**-run path — `SimulationViewModel` reads no
+flag — and the S5-4 opt-in switch surface (`FeatureFlags.sharedEngineEnabled`, the Diagnostics
+toggle, `SharedEngineDiagnostics.swift`) has been deleted; resume of a paused run stays
 on the Swift `SimulationRunner`, which exports no resume-from-state on the Kotlin side. The S5-3 H7
-crash probe (`H7CrashTrigger.fire()` and its double-gated Settings row) was deleted in S5-5.
-The
+crash probe (`H7CrashTrigger.fire()` and its double-gated Settings row) was deleted in S5-5. The
 Wave B checklist in `docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage
 table and pointers are hand-maintained and are not.
 
@@ -29,10 +29,11 @@ table and pointers are hand-maintained and are not.
 
 The fix is Kotlin-side (upstream the conformance to `commonMain`). A retroactive
 `extension Foo: @retroactive @unchecked Sendable` is sound **only** when every Kotlin field is
-`val`, and exactly one declaration **per type** may exist per module (`App/KMP/SharedEngineRunner.swift`
-carries the app module's four — `SimulationEvent`, `SimulationEngine`, `NoopEngineLogger`,
-`SystemRandomSource`). Spell it on the qualified Kotlin type when a Swift twin exists, or
-the conformance lands on the twin — Pattern 1b.
+`val`, or every `var` is write-once before the event is emitted (today only `TurnOutput.rawText`),
+and exactly one declaration **per type** may exist per module
+(`App/KMP/SharedEngineRunner.swift` carries the app module's four — `SimulationEvent`,
+`SimulationEngine`, `NoopEngineLogger`, `SystemRandomSource`). Spell it on the qualified Kotlin type
+when a Swift twin exists, or the conformance lands on the twin — Pattern 1b.
 
 ## Pattern 1b — a Kotlin type with a Swift twin is shadowed inside the app module
 

@@ -206,15 +206,14 @@ if [ "$strip_rc" -eq 3 ]; then
        "(A single-line raw string such as #\"…\"# is handled and is not the" \
        "cause.) Failing closed rather than reporting a clean result it cannot" \
        "vouch for. To unblock: rewrite the literal as single-line strings, or" \
-       "teach strip_swift_comments in" \
-       "scripts/kmp/check-b-prime-isolation.sh to model it and" \
-       "add a case to scripts/tests/kmp-gate-isolation-test.sh."
+       "teach strip_swift_comments in scripts/kmp/check-b-prime-isolation.sh" \
+       "to model it and add a case to scripts/tests/kmp-gate-isolation-test.sh."
   exit 3
 elif [ "$strip_rc" -ne 0 ]; then
   echo "::error file=$(annotate_path "$MANIFEST")::ADR-023 decision B' guard's" \
        "comment stripper failed unexpectedly (exit $strip_rc) — this is a bug in" \
-       "the guard, not a verdict on the manifest. Reproduce with 'bash -x" \
-       "scripts/kmp/check-b-prime-isolation.sh' and report it" \
+       "the guard, not a verdict on the manifest. Reproduce with" \
+       "'bash -x scripts/kmp/check-b-prime-isolation.sh' and report it" \
        "against #1171."
   exit 4
 fi

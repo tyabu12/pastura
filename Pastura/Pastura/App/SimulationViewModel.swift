@@ -1177,6 +1177,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // and `assertionFailure` aborts the whole test process rather than failing
     // one case. Probing the harness rather than `#if DEBUG`, because Debug is
     // also how the app runs on a device, where the trap is exactly what we want.
+    // The probe only covers the unit-test host: under XCUITest the app runs as
+    // its own process, with neither `XCTestConfigurationFilePath` nor XCTest
+    // loaded, so a UI test that reached this branch would trap like a device
+    // does. Unreachable today — the sole production caller always passes YAML.
     if !Self.isRunningUnderTestHarness { assertionFailure(seamMessage) }
     return runner.run(scenario: scenario, llm: llm, suspendController: controller)
   }
@@ -1315,8 +1319,10 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// design deliberately avoids). `nil` for local / self-made scenarios.
   ///
   /// `yamlDefinition` is the scenario's source YAML (`ScenarioRecord.yamlDefinition`),
-  /// required by the Kotlin engine's own loader when the S5-4 flag selects it —
-  /// see ``makeEventStream``. `nil` pins the run to the Swift runner.
+  /// required in production: the Kotlin engine owns the parse and serves every
+  /// fresh run — see ``makeEventStream``. `nil` is the #1687 test seam only, and
+  /// asserts outside the test harness. The `= nil` default stays for now — ~66
+  /// existing test call sites still omit it; #1687 removes it.
   func run(  // swiftlint:disable:this function_body_length
     scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil,
     yamlDefinition: String? = nil

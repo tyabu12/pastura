@@ -153,8 +153,8 @@ pastura/
 ├── tools/
 │   └── harness/             # pastura-harness — headless macOS simulation runner (ADR-013)
 ├── shared/                  # KMP shared modules (ADR-023)
-│   ├── models/              # Mirrors Swift Models/; landed as infra, not production-wired
-│   └── engine/              # Engine port — Stage-2 gate slice landed, bulk port gated
+│   ├── models/              # Mirrors Swift Models/; ships with the Kotlin engine
+│   └── engine/              # Engine port — the fresh-run engine since ADR-023 S5-5
 ├── docs/
 │   ├── ROADMAP.md           # Phase scope and Go / No-Go criteria
 │   ├── release-setup.md     # TestFlight bootstrap — per-machine + account setup

@@ -235,6 +235,10 @@ struct SimulationViewModelSharedEngineTests {
       yamlDefinition: "name: broken\nthis is not a scenario document")
 
     #expect(sut.errorMessage != nil, "the Kotlin loader rejected the YAML it owns the parse of")
+    // "Invalid YAML format" is `ScenarioValidationMessage.InvalidYAMLFormat`'s
+    // fixed English rendering — stable in the test process's locale, unlike a
+    // `ja`-rendered message (`.claude/rules/testing.md` — match with `.contains`).
+    #expect(try #require(sut.errorMessage).contains("Invalid YAML format"))
     #expect(sut.isCompleted == false)
     #expect(mock.generateCallCount == 0, "no engine ran: the parse failed first")
   }

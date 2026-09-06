@@ -200,6 +200,10 @@ extension TurnOutput {
   /// serialization exactly as it is outside Swift's `==` and `Codable`.
   /// Carrying it across is what keeps the `TurnRecord.rawOutput` audit column
   /// (ADR-015) populated on the Kotlin run path (S5-5, ADR-023 §6, #501).
+  ///
+  /// Reading `shared.rawText` reaches a Kotlin `var` through the retroactive
+  /// `Sendable` conformance on `SimulationEvent` — sound because Kotlin writes
+  /// it only before emit (kmp-interop Pattern 1 carve-out).
   nonisolated init(shared: PasturaSharedEngine.TurnOutput) {
     self.init(fields: shared.fields, rawText: shared.rawText)
   }

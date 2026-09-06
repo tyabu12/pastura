@@ -12,12 +12,10 @@ import platform.Foundation.NSBundle
  * the supplied default — the key itself — comes back unchanged, which is what
  * keeps the English `commonTest` pins green on the `macosArm64Test` rung.
  *
- * ⚠️ **Unverified in-app until Stage 5.** No rung exercises the catalog path:
- * `macosArm64Test` hits the fallback above, and the iOS app has no rung that
- * renders a `ja` key through this leaf. The claim that this resolves the same
- * table as `String(localized:)` is therefore a Foundation-documented
- * expectation, not a measurement — the first Stage-5 build must render one
- * key under `ja` from the app before the Stage-5 board row treats it as done.
+ * **Verified on device at S5-4** (soak 2026-09-06): the Diagnostics sample row
+ * rendered a `ja` key through this leaf, reading 「無効な YAML 形式です」
+ * (ADR-023 §6 S5-4 sub-bullet). `macosArm64Test` still hits the fallback
+ * above — no rung exercises the catalog path in CI.
  */
 internal actual fun localizedFormat(key: String): String =
     NSBundle.mainBundle.localizedStringForKey(key, key, null)

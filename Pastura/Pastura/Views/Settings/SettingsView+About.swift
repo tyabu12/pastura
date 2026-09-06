@@ -5,9 +5,8 @@ import SwiftUI
 // is a default-MainActor View, so this extension needs no `nonisolated`
 // annotation.
 //
-// The S5-4 Diagnostics section (the shared-engine opt-in Toggle and its
-// sample-message row) was deleted in S5-5 now that the Kotlin engine is the
-// sole fresh-run path — see ADR-023 §6. Only the About section remains.
+// Only the About section lives here: no shared-engine opt-in surface exists —
+// the Kotlin engine is the sole fresh-run path (ADR-023 §6).
 
 extension SettingsView {
   /// App-identity row: name + version, e.g. "Pastura" / "1.2 (826)".
@@ -28,7 +27,6 @@ extension SettingsView {
       }
       .padding(.horizontal, 17)
       .padding(.vertical, 15)
-      .contentShape(Rectangle())
       .accessibilityIdentifier("settings.versionRow")
     }
   }

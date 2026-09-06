@@ -44,17 +44,21 @@ struct LoaderAcceptanceParityTests {
   /// added later is covered without touching this file.
   private func bundledYAML() throws -> [Corpus] {
     let bundle = Bundle(for: Anchor.self)
+    // Bundle.main first: on a name collision it wins the dedupe as the
+    // production truth — the shipping app bundle — over `Bundle(for:
+    // Anchor.self)` (the test bundle), which is where a stale duplicate
+    // copied by an older build phase would live.
     let urls =
-      (bundle.urls(forResourcesWithExtension: "yaml", subdirectory: nil) ?? [])
-      + (Bundle.main.urls(forResourcesWithExtension: "yaml", subdirectory: nil) ?? [])
+      (Bundle.main.urls(forResourcesWithExtension: "yaml", subdirectory: nil) ?? [])
+      + (bundle.urls(forResourcesWithExtension: "yaml", subdirectory: nil) ?? [])
     var seen: Set<String> = []
     var corpora: [Corpus] = []
-    for url in urls.sorted(by: { $0.lastPathComponent < $1.lastPathComponent }) {
+    for url in urls {
       let name = url.lastPathComponent
       guard seen.insert(name).inserted else { continue }
       corpora.append(Corpus(name: name, yaml: try String(contentsOf: url, encoding: .utf8)))
     }
-    return corpora
+    return corpora.sorted { $0.name < $1.name }
   }
 
   /// The ADR-020 shared-scenario seeds committed under `docs/gallery/` — the
@@ -89,12 +93,18 @@ struct LoaderAcceptanceParityTests {
   /// scenario the Swift loader produced from it. A YAML the *Swift* loader
   /// rejects is skipped rather than recorded: the corpus is enumerated from
   /// disk, and the Swift loader's own acceptance is what other suites pin.
-  private func expectKotlinAccepts(_ corpus: Corpus) {
+  ///
+  /// Returns whether the comparison actually ran (i.e. the Swift loader
+  /// accepted `corpus`), so a caller can assert a floor on comparisons
+  /// *performed* rather than on files merely enumerated — the two diverge
+  /// whenever a file in the corpus is outside this test's premise.
+  @discardableResult
+  private func expectKotlinAccepts(_ corpus: Corpus) -> Bool {
     let scenario: Pastura.Scenario
     do {
-      scenario = try ScenarioLoader().load(yaml: corpus.yaml)
+      scenario = try Pastura.ScenarioLoader().load(yaml: corpus.yaml)
     } catch {
-      return  // not in this test's premise — Swift rejects it, so no run reaches Kotlin
+      return false  // not in this test's premise — Swift rejects it, so no run reaches Kotlin
     }
     do {
       _ = try PasturaSharedEngine.ScenarioLoader().load(yaml: corpus.yaml)
@@ -103,7 +113,7 @@ struct LoaderAcceptanceParityTests {
         Comment(
           rawValue: "Swift accepts '\(corpus.name)' but Kotlin rejects it: \(error)"))
     }
-    let roundTripped = ScenarioSerializer().serialize(scenario)
+    let roundTripped = Pastura.ScenarioSerializer().serialize(scenario)
     do {
       _ = try PasturaSharedEngine.ScenarioLoader().load(yaml: roundTripped)
     } catch {
@@ -112,19 +122,27 @@ struct LoaderAcceptanceParityTests {
           rawValue:
             "Kotlin rejects the editor round-trip of '\(corpus.name)': \(error)"))
     }
+    return true
   }
 
   @Test func kotlinAcceptsEveryBundledYAMLTheSwiftLoaderAccepts() throws {
     let corpora = try bundledYAML()
-    // The bundle really carried the presets — an empty enumeration would make
-    // every assertion below vacuous.
-    #expect(corpora.count >= 12, "expected at least the 12 bundled presets")
-    for corpus in corpora { expectKotlinAccepts(corpus) }
+    var performed = 0
+    for corpus in corpora where expectKotlinAccepts(corpus) { performed += 1 }
+    // Floor is the real corpus size: `Resources/Presets/*.yaml` (12) +
+    // `Resources/DemoPresets/*.yaml` (6) = 18, counted 2026-09-07. A failure
+    // here means the corpus shrank (or the Swift loader started rejecting a
+    // file it used to accept) — update the floor after review, not before.
+    #expect(performed >= 18, "expected at least 18 comparisons performed (bundled + demo presets)")
   }
 
   @Test func kotlinAcceptsEveryGallerySeedTheSwiftLoaderAccepts() throws {
     let corpora = try galleryYAML()
-    #expect(corpora.count >= 3, "expected at least 3 seed gallery YAMLs")
-    for corpus in corpora { expectKotlinAccepts(corpus) }
+    var performed = 0
+    for corpus in corpora where expectKotlinAccepts(corpus) { performed += 1 }
+    // Floor is the real corpus size: `docs/gallery/*.yaml` = 46, counted
+    // 2026-09-07. A failure here means the corpus shrank — update the floor
+    // after review, not before.
+    #expect(performed >= 46, "expected at least 46 comparisons performed (docs/gallery seeds)")
   }
 }

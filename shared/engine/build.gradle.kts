@@ -311,7 +311,7 @@ tasks.matching {
 // this exists to catch — so a missing pin fails as loudly as an un-annotated
 // one. Each pin is required to match EXACTLY once: two matches mean the Swift
 // name is no longer unique and the pin has stopped identifying one declaration.
-// All six were measured unique on the 2026-08-26 header.
+// All seven were measured unique on the 2026-08-26 header.
 //
 // This is not the coroutine gate's concern (that one enforces ADR-023 Decision 2),
 // so it is a separate task with its own failure message. Both read the same
@@ -328,7 +328,7 @@ tasks.matching {
 //
 // M2 is the one worth keeping in mind: it is why absence fails instead of
 // skipping. Without that arm the pin would evaporate on the rename and the gate
-// would report six-of-six green while checking five.
+// would report seven-of-seven green while checking six.
 //
 // Both the `swift_name` marker and the `error:` parameter are looked for on ONE
 // line, because K/N emits each declaration on one. If a future compiler wraps

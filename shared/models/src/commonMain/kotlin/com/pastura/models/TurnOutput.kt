@@ -30,6 +30,14 @@ public data class TurnOutput(
      * Being outside the constructor also puts it **outside [copy]**: a `copy()`
      * returns an output with `rawText == null`, so re-set it explicitly whenever
      * a derived output must keep the provenance (see `WhisperHandler`).
+     *
+     * Written only before the owning event is emitted, never after — that
+     * write-once discipline is what keeps the Swift side's
+     * `@retroactive @unchecked Sendable` on `SimulationEvent` sound despite this
+     * being a `var` (`.claude/rules/kmp-interop.md` Pattern 1).
+     *
+     * `public var` rather than a narrowed setter because `shared/engine`, which
+     * writes it, is a separate Gradle module — `internal set` cannot reach it.
      */
     @Transient
     public var rawText: String? = null

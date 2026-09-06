@@ -62,20 +62,20 @@ jobs:
     # must appear as its cap, and every uncapped one as its measurement:
     #
     #   9m06s   scheduled baseline (measured, pre-#501-PR-C)
-    # +   15s   Pattern 7 isolation probe: 8s measured on run 33576010982 (the
+    # +   17s   Pattern 7 isolation probe: 8s measured on run 33576010982 (the
     #           swiftc typecheck itself is ~1.4s locally, runner step overhead
-    #           is the rest) plus the ~7s `--if-missing` staging copy it now
-    #           does for itself. UNCAPPED by design — it is a regression check,
-    #           not a measurement.
+    #           is the rest) plus the ~9s (7s measured local, x1.25)
+    #           `--if-missing` staging copy it now does for itself. UNCAPPED by
+    #           design — it is a regression check, not a measurement.
     # +  15m    Stage-5 probe, at its cap        (workflow_dispatch only)
-    # = 24m21s  worst-case dispatch path, against the 30-minute cap
+    # = 24m23s  worst-case dispatch path, against the 30-minute cap
     #
     # The observed figures above (run 29509388191) predate the Pattern 7 probe;
-    # on the scheduled path it adds to that baseline (9m06s + 15s = 9m21s). Do
+    # on the scheduled path it adds to that baseline (9m06s + 17s = 9m23s). Do
     # not re-derive the sum from the observed totals — derive it from the term
     # list.
     #
-    # ~5m39s of margin. The earlier version of this note omitted the new steps
+    # ~5m37s of margin. The earlier version of this note omitted the new steps
     # and still concluded "9m06s + 15 = ~24 min", which at the measurement
     # step's original 5-minute cap actually composed to 29m37s — 23s of margin,
     # i.e. the cap was effectively already breached and the note said otherwise.
@@ -86,7 +86,7 @@ jobs:
     # term here for exactly that reason; S5-5 retired the gate spike, so both
     # terms are gone from the sum rather than kept as harmless slack.
     #
-    # Note only the `+ 15` is a BOUND — the 9m06s and 15s terms are
+    # Note only the `+ 15` is a BOUND — the 9m06s and 17s terms are
     # measurements, and the konan clause below is the one known way the first
     # moves. If the cap ever needs raising, relocating the probe to its own
     # workflow is the first lever — the only term the scheduled path does not
@@ -257,15 +257,16 @@ jobs:
       # `PASTURA_PROBE_SLICE_DIR`). The Gradle step above assembles the
       # umbrella into `shared/engine/build/XCFrameworks/`, which is NOT a
       # staged slice, so the staging is done here explicitly. `--if-missing` is
-      # the wrapper-facing form: Gradle is already UP-TO-DATE from the step
-      # above, so this is the ~7s copy, not a second assembly.
+      # the wrapper-facing form: the assemble task re-executes but relinks
+      # nothing (~7s warm, per the assembler's header), so this is that copy,
+      # not a second assembly.
       #
       # Ordering: after the assembly + staging, before the dispatch-only
       # measurements (so the `clean` in the sizing probe cannot run first).
       # No `if:` — the implicit `success()` keeps it off an already-failed run.
       #
       # Sizing: 8s measured on run 33576010982 (the typecheck is ~1.4s locally;
-      # the rest is runner step overhead), plus the ~7s staging copy; a term in
+      # the rest is runner step overhead), plus the ~9s staging copy; a term in
       # the job-level composition on both paths. Non-determinism: the gate keys
       # on swiftc diagnostic wording, so an Xcode pin bump (`DEVELOPER_DIR`) is
       # the one event that can redden it without a K/N change — re-run the
