@@ -48,12 +48,18 @@ import UIKit
 /// item's separate view graph. One such crash was reported on
 /// TestFlight 1.3 (888) / iOS 26.6 and never reproduced (#1683).
 ///
-/// A nil router therefore degrades instead of trapping: the tap falls back to
-/// `dismiss()`, which pops a `NavigationStack` destination the same way, and
-/// logs one fixed-string line so the branch is observable in production. The
-/// fallback is not decoration — five of the six callsites rely on the default
-/// pop and `.navigationBarBackButtonHidden(true)` removes the system button,
-/// so a silent nil arm would leave swipe-back as the only exit.
+/// A nil router therefore degrades instead of trapping: the tap logs one
+/// fixed-string line and falls back to `dismiss()`. Treat that fallback as
+/// best-effort, not as a guaranteed pop — in the very failure mode above the
+/// environment is incompletely propagated, so `dismiss()` may resolve to the
+/// default no-op `DismissAction` rather than to this stack's dismissal. What
+/// the nil arm reliably buys is the absence of a trap plus a line in the log;
+/// the recovery is a bonus when the environment is merely routerless.
+///
+/// It still must not be silent — five of the six callsites rely on the default
+/// pop and `.navigationBarBackButtonHidden(true)` removes the system button, so
+/// a quiet nil arm would leave swipe-back as the only exit with nothing in the
+/// log to say why.
 ///
 /// ## Tap-action override
 ///
