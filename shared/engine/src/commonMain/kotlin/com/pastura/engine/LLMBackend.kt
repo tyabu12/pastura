@@ -92,8 +92,8 @@ public interface LLMBackend {
      * `Dispatchers.Default`, and `LLMBackend` imports into Swift as an **unannotated** Obj-C
      * protocol, so an adapter that omits type-level `nonisolated` under
      * `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor` compiles clean and traps at runtime on the
-     * `@objc` thunk (`.claude/rules/swift-isolation.md` Pattern 7). All three gate-spike
-     * conformers carry it for this reason.
+     * `@objc` thunk (`.claude/rules/swift-isolation.md` Pattern 7). Every conformer under
+     * `Pastura/Pastura/App/KMP/` carries it for this reason.
      */
     public val knownTurnMarkers: List<ChatTurnMarkers>
         get() = listOf(ChatTurnMarkers.chatML)

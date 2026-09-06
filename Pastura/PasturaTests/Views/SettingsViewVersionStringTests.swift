@@ -3,7 +3,7 @@ import Testing
 @testable import Pastura
 
 /// Pins `SettingsView.versionString(from:)` — the pure formatter behind the
-/// About section's version row (ADR-023 §6 S5-3 H7 prerequisite). Parameterized
+/// About section's version row. Parameterized
 /// over an injected info dictionary rather than `Bundle.main` per
 /// `.claude/rules/view-testing.md` § "Extract View logic to unit tests", since
 /// `Bundle.main` in the test process is the test runner's bundle, not the app's.

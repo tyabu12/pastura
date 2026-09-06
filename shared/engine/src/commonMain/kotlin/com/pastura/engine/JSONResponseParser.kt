@@ -32,7 +32,6 @@ import kotlinx.serialization.json.JsonPrimitive
  * | The two-step repair pipeline (`unclosed_string` -> `unclosed_brace`, #194) | hardening, not a boundary concern; the gate never scripts a truncated stream |
  * | Schema-guarded multi-object salvage (#907) | same |
  * | `PartialOutputExtractor` | landed as a sibling commonMain type in PR-3 (#501 Stage 3); this parser still does not consume it — the two share only the duplicated thinking-tag regexes by parity |
- * | `TurnOutput.rawText` passthrough | Kotlin `TurnOutput` has no `rawText`; its only consumer is Data-layer `TurnRecord.rawOutput` audit, outside the Engine port |
  *
  * `expectedKeys` is therefore accepted but **currently unused**. It used to drive a
  * post-parse guard on every successful parse; ADR-021 § Amendment 2026-08-06 removed
@@ -116,7 +115,8 @@ internal class JSONResponseParser {
         turnMarkers: List<ChatTurnMarkers> = listOf(ChatTurnMarkers.chatML),
     ): Pair<TurnOutput, String?> {
         val cleaned = applyCleanupPipeline(text, turnMarkers)
-        val output = tryParse(cleaned) ?: throw SimulationException(SimulationError.JsonParseFailed(raw = text))
+        val output = tryParse(cleaned, originalText = text)
+            ?: throw SimulationException(SimulationError.JsonParseFailed(raw = text))
         return output to null
     }
 
@@ -328,10 +328,16 @@ internal class JSONResponseParser {
         return inside
     }
 
-    private fun tryParse(cleaned: String): TurnOutput? {
+    private fun tryParse(cleaned: String, originalText: String): TurnOutput? {
         val element = runCatching { JSON.parseToJsonElement(cleaned) }.getOrNull() ?: return null
         val obj = element as? JsonObject ?: return null
-        return TurnOutput(fields = normalizeValues(obj))
+        return TurnOutput(fields = normalizeValues(obj)).apply {
+            // Preserve the ORIGINAL pre-cleanup input so it can flow through to
+            // `TurnRecord.rawOutput` for audit (#194), matching the Swift original's
+            // `TurnOutput(fields:rawText:)`. `rawText` is a body property, so it is
+            // set after construction rather than passed in.
+            rawText = originalText
+        }
     }
 
     /**

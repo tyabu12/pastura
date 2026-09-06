@@ -27,14 +27,17 @@
 #   3 — copy / atomic-rename failed
 #  64 — unknown flag (usage error, EX_USAGE)
 #
-# WHY ONE SCRIPT SERVES BOTH THE APP TREE AND THE GATE-SPIKE PACKAGE
+# WHY ONE SCRIPT, AND WHY `--dest` SURVIVES ONE CONSUMER
 #   ADR-023 §6 ruling (b) settled on a *single* umbrella: `PasturaSharedEngine`
 #   re-exports `shared/models`, and the models-only `PasturaShared` export is
-#   dropped rather than retargeted. Two scripts assembling the same umbrella
-#   would drift — a Gradle task rename, a moved output path, or a JDK-probe fix
-#   applied to one and not the other — and the failure mode is a stale staged
-#   framework that still links. So `tools/kmp-gate-spike/scripts/stage-framework.sh`
-#   is a thin wrapper over this file, differing only in `--dest`.
+#   dropped rather than retargeted. Since S5-5 retired the Stage-2 gate spike
+#   there is also a single CONSUMER — the iOS app — so `--dest` has one
+#   caller-visible default and no second staging site. It stays a flag because
+#   the alternative, a second script for any future consumer, is what the
+#   original two-consumer note argued against: two scripts assembling the same
+#   umbrella drift on a Gradle task rename, a moved output path, or a JDK-probe
+#   fix applied to one and not the other, and the failure mode is a stale
+#   staged framework that still links.
 #
 # WHY DEBUG IS THE DEFAULT
 #   Mirrors the per-PR choice in `.github/workflows/ci.yml` (the

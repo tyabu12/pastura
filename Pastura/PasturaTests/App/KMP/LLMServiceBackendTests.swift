@@ -8,10 +8,11 @@ import Testing
 /// S5-2 PR-A acceptance for ``LLMServiceBackend`` — the Stage-5 adapter that
 /// drives Kotlin's `LLMCaller` from a real `LLMService` (#1647).
 ///
-/// The §5.2 clauses asserted here are the ones the gate spike asserts against
-/// its scripted backend (`BoundaryContractTests`); here the source is a
-/// production `LLMService`, so what is under test is the real
-/// `AsyncThrowingStream` → callback relay rather than a canned script.
+/// The §5.2 clauses asserted here were first asserted by the Stage-2 gate
+/// spike against a scripted backend; that package is retired (S5-5) and this
+/// suite is the only one left holding them. The source here is a production
+/// `LLMService`, so what is under test is the real `AsyncThrowingStream` →
+/// callback relay rather than a canned script.
 ///
 /// Kotlin twins are spelled `PasturaSharedEngine.X`
 /// (`.claude/rules/kmp-interop.md` Pattern 1b).
@@ -202,7 +203,7 @@ struct LLMServiceBackendTests {
 ///
 /// `maxConcurrentEntries` is the clause-4 assertion: a plain lock-guarded array
 /// would *serialize* the very overlap the clause forbids, making a concurrency
-/// bug invisible. Ported from the gate spike's `RecordingCallbacks`.
+/// bug invisible. Ported from the retired gate spike's `RecordingCallbacks`.
 nonisolated final class RecordingBackendCallbacks: StreamCallbacks, @unchecked Sendable {
   struct Chunk: Sendable, Equatable {
     let delta: String
@@ -268,8 +269,8 @@ nonisolated final class RecordingBackendCallbacks: StreamCallbacks, @unchecked S
 /// Polls `condition` until it holds, or fails the test on timeout.
 ///
 /// The boundary is callback-driven with no continuation to await, so polling is
-/// the honest primitive. Named distinctly from the gate spike's `pollUntil`
-/// because the app test target is one module.
+/// the honest primitive. Named distinctly (rather than `pollUntil`) because the
+/// app test target is one module and file-local helpers share its namespace.
 func pollUntilBackendCondition(
   // ≥30 s: CI + coverage runs ~20× slower (`testing.md`); the suite's
   // `.timeLimit` is the real hang diagnostic.

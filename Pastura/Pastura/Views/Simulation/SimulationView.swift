@@ -1604,9 +1604,12 @@ struct SimulationView: View {  // swiftlint:disable:this type_body_length
     let deps = dependencies
     return SimulationViewModel(
       runner: SimulationRunner(detector: NLLanguageDetector(), logger: OSLogEngineLogger()),
-      // ADR-023 §6 S5-4: the Kotlin engine behind the Diagnostics toggle. One
-      // runner per run, built around that run's SuspendController (the VM owns
-      // the call), with the same two production seams bridged across K/N.
+      // ADR-023 §6 S5-5: the Kotlin engine is the fresh-run path. Passed here
+      // rather than left to the VM's default because only the View boundary
+      // bridges the two production seams across K/N (the VM default keeps the
+      // silent Noop logger, per the same rule as `runner` above). One runner
+      // per run, built around that run's SuspendController (the VM owns the
+      // call).
       makeSharedRunner: { controller in
         SharedEngineRunner(
           suspendController: controller,

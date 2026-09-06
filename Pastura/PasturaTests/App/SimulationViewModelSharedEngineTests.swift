@@ -4,20 +4,21 @@ import Testing
 
 @testable import Pastura
 
-/// ADR-023 §6 S5-4 — the flag-gated engine switch, driven through the real
-/// `SimulationViewModel.run` path with the bundled `target_score_race` preset
-/// and a scripted `MockLLMService`.
+/// ADR-023 §6 S5-5 — the Kotlin engine as the sole fresh-run path, driven
+/// through the real `SimulationViewModel.run` path with the bundled
+/// `target_score_race` preset and a scripted `MockLLMService`.
 ///
 /// The Kotlin runner is injected through the same factory `SimulationView`
 /// wires, so what is under test is the ViewModel's selection and plumbing, not
 /// a test-only shortcut: the per-run `SuspendController` reaching the Kotlin
 /// relay is the critic finding this suite exists to pin.
 @MainActor
-@Suite("SimulationViewModel × shared engine (S5-4)", .timeLimit(.minutes(1)), .serialized)
+@Suite("SimulationViewModel × shared engine (S5-5)", .timeLimit(.minutes(1)), .serialized)
 struct SimulationViewModelSharedEngineTests {
 
   /// Counts how often the ViewModel asked for a Kotlin runner — the observable
-  /// that distinguishes "flag honoured" from "Swift runner ran the same script".
+  /// that distinguishes "Kotlin ran it" from "the Swift runner ran the same
+  /// script" (both complete the preset, so completion alone proves nothing).
   nonisolated private final class FactoryProbe: Sendable {
     private let count = Mutex(0)
     var invocations: Int { count.withLock { $0 } }
@@ -33,7 +34,7 @@ struct SimulationViewModelSharedEngineTests {
     let probe: FactoryProbe
   }
 
-  private func makeEnv(flagOn: Bool) throws -> Env {
+  private func makeEnv() throws -> Env {
     let db = try DatabaseManager.inMemory()
     let simRepo = GRDBSimulationRepository(dbWriter: db.dbWriter)
     let turnRepo = GRDBTurnRepository(dbWriter: db.dbWriter)
@@ -58,7 +59,6 @@ struct SimulationViewModelSharedEngineTests {
         probe.note()
         return SharedEngineRunner(suspendController: controller)
       },
-      isSharedEngineEnabled: { flagOn },
       simulationRepository: simRepo,
       turnRepository: turnRepo
     )
@@ -107,9 +107,9 @@ struct SimulationViewModelSharedEngineTests {
     return runTask
   }
 
-  @Test("flag on: a fresh run goes to the Kotlin engine and persists its turns")
-  func flagOnRunsOnTheKotlinEngine() async throws {
-    let env = try makeEnv(flagOn: true)
+  @Test("a fresh run goes to the Kotlin engine and persists its turns")
+  func aFreshRunGoesToTheKotlinEngine() async throws {
+    let env = try makeEnv()
 
     await env.sut.run(scenario: env.scenario, llm: env.mock, yamlDefinition: env.yaml)
 
@@ -123,9 +123,9 @@ struct SimulationViewModelSharedEngineTests {
     #expect(!turns.isEmpty, "agentOutput events from the Kotlin engine reach TurnRepository")
   }
 
-  @Test("flag on: a background park mid-run reaches the Kotlin relay and the run resumes")
-  func flagOnSurvivesABackgroundSuspendCycle() async throws {
-    let env = try makeEnv(flagOn: true)
+  @Test("a background park mid-run reaches the Kotlin relay and the run resumes")
+  func survivesABackgroundSuspendCycle() async throws {
+    let env = try makeEnv()
     let runTask = try await startParkedRun(env)
     #expect(env.sut.suspendController?.isSuspendRequested() == true)
 
@@ -139,9 +139,9 @@ struct SimulationViewModelSharedEngineTests {
     #expect(env.sut.isCompleted, "the relay released the parked Kotlin run")
   }
 
-  @Test("flag on: a user pause is forwarded to the Kotlin run and does not deadlock")
-  func flagOnPauseThenResumeCompletes() async throws {
-    let env = try makeEnv(flagOn: true)
+  @Test("a user pause is forwarded to the Kotlin run and does not deadlock")
+  func pauseThenResumeCompletes() async throws {
+    let env = try makeEnv()
     let runTask = try await startParkedRun(env)
 
     // Pause while parked, then resume: `setRunnerPaused` must reach the Kotlin
@@ -157,9 +157,9 @@ struct SimulationViewModelSharedEngineTests {
     #expect(env.sut.errorMessage == nil)
   }
 
-  @Test("flag on: a pause taken before the Kotlin runner exists is replayed to it")
-  func flagOnPauseBeforeStreamCreationIsReplayed() async throws {
-    let env = try makeEnv(flagOn: true)
+  @Test("a pause taken before the Kotlin runner exists is replayed to it")
+  func pauseBeforeStreamCreationIsReplayed() async throws {
+    let env = try makeEnv()
     // Arm the intro gate: run() parks at `awaitIntroReveal()` after the model
     // load and BEFORE `makeEventStream` — the window in which a pause reaches
     // only the Swift flag because no Kotlin runner exists yet.
@@ -196,25 +196,50 @@ struct SimulationViewModelSharedEngineTests {
     #expect(env.sut.errorMessage == nil)
   }
 
-  @Test("flag off: the Swift runner serves the run and no Kotlin runner is built")
-  func flagOffStaysOnTheSwiftRunner() async throws {
-    let env = try makeEnv(flagOn: false)
-
-    await env.sut.run(scenario: env.scenario, llm: env.mock, yamlDefinition: env.yaml)
-
-    #expect(env.probe.invocations == 0)
-    #expect(env.sut.isCompleted)
-  }
-
-  @Test("flag on but no YAML: the Swift runner serves the run")
-  func flagOnWithoutYamlStaysOnTheSwiftRunner() async throws {
-    let env = try makeEnv(flagOn: true)
+  /// The S5-5 test seam (#1687): `run(scenario:llm:)` with no YAML still runs,
+  /// on the Swift runner, because ~66 existing suites call it that way. It is
+  /// not a production path — `SimulationView` always passes the record's
+  /// `yamlDefinition` — and `makeEventStream` logs plus (outside the test
+  /// harness) asserts when it is taken.
+  @Test("no YAML: the Swift runner serves the run as the #1687 test seam")
+  func withoutYamlFallsBackToTheSwiftSeam() async throws {
+    let env = try makeEnv()
 
     await env.sut.run(scenario: env.scenario, llm: env.mock)
 
     #expect(
       env.probe.invocations == 0,
-      "the Kotlin loader needs the YAML; without it the switch is inert")
+      "the Kotlin loader needs the YAML; without it the seam takes the run")
     #expect(env.sut.isCompleted)
+  }
+
+  /// The S5-5 default itself: a VM built with **no** `makeSharedRunner` must
+  /// still run fresh runs on Kotlin. Asserted through the one behaviour only
+  /// the Kotlin path has — it owns the YAML parse, so YAML the Kotlin
+  /// `ScenarioLoader` rejects surfaces as `.scenarioValidationFailed`. The
+  /// Swift runner ignores the YAML entirely and would happily complete the
+  /// already-parsed `Scenario`, so a green here cannot be the Swift path.
+  @Test("the default makeSharedRunner runs fresh runs on the Kotlin engine")
+  func theDefaultFactoryRunsOnTheKotlinEngine() async throws {
+    let db = try DatabaseManager.inMemory()
+    let sut = SimulationViewModel(
+      simulationRepository: GRDBSimulationRepository(dbWriter: db.dbWriter),
+      turnRepository: GRDBTurnRepository(dbWriter: db.dbWriter)
+    )
+    sut.speed = .instant
+    let scenario = try ScenarioLoader().load(yaml: SharedEngineFixtures.presetYaml())
+    let mock = MockLLMService(responses: ["{}"])
+
+    await sut.run(
+      scenario: scenario, llm: mock,
+      yamlDefinition: "name: broken\nthis is not a scenario document")
+
+    #expect(sut.errorMessage != nil, "the Kotlin loader rejected the YAML it owns the parse of")
+    // "Invalid YAML format" is `ScenarioValidationMessage.InvalidYAMLFormat`'s
+    // fixed English rendering — stable in the test process's locale, unlike a
+    // `ja`-rendered message (`.claude/rules/testing.md` — match with `.contains`).
+    #expect(try #require(sut.errorMessage).contains("Invalid YAML format"))
+    #expect(sut.isCompleted == false)
+    #expect(mock.generateCallCount == 0, "no engine ran: the parse failed first")
   }
 }

@@ -481,9 +481,10 @@ class EngineParityTests {
      * tautological — pinning a constant instead of the mapper's handling of the
      * payload it was handed.
      *
-     * One arm where Swift has two: Swift also strips `agentOutput.rawText`,
-     * which Kotlin's `TurnOutput` has no property for. That asymmetry is the
-     * point of the Swift arm, not an omission here.
+     * One arm where Swift has two: Swift also strips `agentOutput.rawText`.
+     * Kotlin's `TurnOutput` has the property now, but [EventLineMapper] never
+     * projects it into a `raw_text` field, so this side needs no strip to match —
+     * if that ever changes, add the strip here too.
      */
     private fun normalize(event: SimulationEvent): SimulationEvent =
         if (event is SimulationEvent.InferenceCompleted) {

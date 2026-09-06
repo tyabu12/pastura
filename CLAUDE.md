@@ -4,7 +4,7 @@
 
 ## Current Phase
 
-Phase 3 (Community) entered 2026-09-04. KMP Stage 5 (ADR-023, S5-3 → S5-5) is the priority track; everything else follows the `docs/ROADMAP.md` § Phase 3 ordering (Cloud API stays gated on ADR-006). Say so before pulling work ahead of it.
+Phase 3 (Community) entered 2026-09-04. KMP Stage 5 (ADR-023) closed 2026-09-07 with S5-5 (#1685), so nothing holds a priority track any more: work follows the `docs/ROADMAP.md` § Phase 3 ordering (Cloud API stays gated on ADR-006). Say so before pulling work ahead of it.
 
 ## Language Rules
 

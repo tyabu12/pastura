@@ -84,10 +84,9 @@ internal object EventLineMapper {
                 "phase_type" to JsonPrimitive(event.phaseType.serialName()),
                 "phase_path" to path(event.phasePath),
             )
-            // No `raw_text` arm: Kotlin's `TurnOutput` carries no `rawText`, an
-            // omission its own class KDoc records as deliberate. The Swift
-            // emitter strips its own in `ParityFixtureEmitter.normalize` so the
-            // two sides compare like for like — see that function for what the
+            // No `raw_text` arm: the mapper projects no `raw_text` field because
+            // the Swift emitter strips its own in `ParityFixtureEmitter.normalize`,
+            // so both sides compare like for like — see that function for what the
             // stripping costs.
             is SimulationEvent.AgentOutput -> fields(
                 "event" to JsonPrimitive("agent_output"),

@@ -2573,36 +2573,6 @@
         }
       }
     },
-    "Crash" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "クラッシュ"
-          }
-        }
-      }
-    },
-    "Crash the app now?" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今すぐアプリをクラッシュさせますか？"
-          }
-        }
-      }
-    },
-    "Crash the shared engine" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有エンジンをクラッシュさせる"
-          }
-        }
-      }
-    },
     "Creative" : {
       "localizations" : {
         "ja" : {
@@ -2839,16 +2809,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開発者向け"
-          }
-        }
-      }
-    },
-    "Diagnostics" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "診断"
           }
         }
       }
@@ -4613,16 +4573,6 @@
         }
       }
     },
-    "New runs use the Kotlin engine. Resuming a paused run always uses the Swift engine." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "新しい実行は Kotlin エンジンを使います。一時停止した実行の再開は常に Swift エンジンです。"
-          }
-        }
-      }
-    },
     "Next demo: %@" : {
       "localizations" : {
         "ja" : {
@@ -6099,16 +6049,6 @@
         }
       }
     },
-    "Run simulations on the shared engine" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有エンジンでシミュレーションを実行"
-          }
-        }
-      }
-    },
     "Running" : {
       "localizations" : {
         "en" : {
@@ -6634,16 +6574,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "その他で共有…"
-          }
-        }
-      }
-    },
-    "Shared engine says: %@" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有エンジンの出力: %@"
           }
         }
       }
@@ -7379,16 +7309,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "数秒かかる場合があります"
-          }
-        }
-      }
-    },
-    "This crashes the app on purpose, to verify crash reporting works for the shared engine." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有エンジンのクラッシュレポートが機能するかを確認するため、意図的にアプリをクラッシュさせます。"
           }
         }
       }
