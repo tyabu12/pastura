@@ -253,7 +253,7 @@ Entering Phase 3 was a separate step, gated on the Phase 3 prerequisite (an acti
 
 **Priority order within Phase 3:**
 
-1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 ✅ 2026-09-05 → S5-4 switch ✅ 2026-09-05 (#1681), soak pending → S5-5 code-merge). Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. Takes precedence over every row below until S5-5 closes.
+1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 ✅ 2026-09-05 → S5-4 switch ✅ 2026-09-05 (#1681) + soak ✅ 2026-09-06 on `v1.3+888` → S5-5 code-merge ([#1685](https://github.com/tyabu12/pastura/issues/1685))). Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. Takes precedence over every row below until S5-5 closes.
 2. **In-app scenario generation (Cloud API)** — still gated on ADR-006 (ADR-005 §7.5): writing ADR-006 is the first deliverable; engineering beyond API-contract exploration stays out of scope until it merges.
 3. **Community features** (marketplace, rankings, auto-summary, relationship graph) — sequenced after 1 and 2; each still needs its own plan.
 

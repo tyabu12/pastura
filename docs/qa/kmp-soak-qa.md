@@ -1,5 +1,7 @@
 # Shared-Engine Soak Runbook (ADR-023 §6 S5-4)
 
+> **Executed 2026-09-06 — `v1.3+888`, iPhone 16e, PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5559576459)). Decision 6 (iii) is discharged (ADR-004 §12); the S5-5 close-out is issue [#1685](https://github.com/tyabu12/pastura/issues/1685). Kept as the reference procedure — re-run it if a later change reopens the Kotlin run path before S5-5 lands.
+
 > One TestFlight soak cycle for the S5-4 flag-gated Kotlin run path
 > ([#1681](https://github.com/tyabu12/pastura/issues/1681)). This runbook mirrors
 > `docs/qa/h7-symbolication-qa.md` in structure — read that one first if this is your first
@@ -78,6 +80,8 @@ nothing here is checked by CI.
     - The App Store Connect crash-view check result.
 
 ## Follow-up PR after the cycle
+
+*Done for the 2026-09-06 cycle — this is the checklist that PR worked from.*
 
 Once the soak evidence is on #501:
 
