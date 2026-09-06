@@ -20,8 +20,9 @@ extension SharedEngineRunner {
   /// `SimulationEvent` stream `SimulationViewModel` already knows how to
   /// consume — the S5-4 app run path (ADR-023 §6, #1681).
   ///
-  /// This overload is what the `FeatureFlags.sharedEngineEnabled` switch
-  /// selects in place of `SimulationRunner.run(scenario:llm:suspendController:)`.
+  /// Since S5-5 this overload — not
+  /// `SimulationRunner.run(scenario:llm:suspendController:)` — serves every
+  /// production fresh run.
   /// It owns the parse (so a scenario the Kotlin loader rejects arrives as a
   /// `.error(.scenarioValidationFailed)` event rather than a `throws` the
   /// ViewModel has no arm for) and the Kotlin→Swift event translation, leaving

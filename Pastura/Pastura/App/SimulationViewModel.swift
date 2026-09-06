@@ -575,17 +575,23 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   // MARK: - Dependencies
 
   private let runner: SimulationRunner
-  /// ADR-023 §6 S5-4: builds the Kotlin-engine runner for ONE fresh run, around
+  /// ADR-023 §6 S5-5: builds the Kotlin-engine runner for ONE fresh run, around
   /// that run's `SuspendController` (the same instance `prepareRunInfrastructure`
   /// attaches to the LLM), so the app-lifecycle park reaches the Kotlin relay
   /// exactly as it reaches the Swift runner. A runner per run, never per VM:
   /// `SharedEngineRunner` stores its controller, and a VM-lifetime runner would
-  /// keep driving a stale one. `nil` wherever the switch is not wired (tests,
-  /// previews) — the Swift runner then serves every run.
-  private let makeSharedRunner: (@Sendable (SuspendController) -> SharedEngineRunner)?
-  /// Reads the S5-4 flag. Injected rather than read inline so a test can pick
-  /// the engine without flipping `UserDefaults`, which parallel suites share.
-  private let isSharedEngineEnabled: @Sendable () -> Bool
+  /// keep driving a stale one. Non-optional since S5-5: the Kotlin engine is
+  /// the sole fresh-run path, so the default below builds a real runner and a
+  /// test that does not care about the seams inherits it untouched. Injection
+  /// stays for the suites that need to observe or decorate the runner, and for
+  /// `SimulationView`, which bridges the production detector / logger.
+  private let makeSharedRunner: @Sendable (SuspendController) -> SharedEngineRunner
+  /// True when this process is an `xcodebuild test` run (XCTest or Swift
+  /// Testing — both are hosted by the XCTest harness). Read only by
+  /// ``makeEventStream``'s test-seam assertion; see the why-comment there.
+  private static let isRunningUnderTestHarness =
+    ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    || NSClassFromString("XCTestCase") != nil
   /// The Kotlin runner of the run in flight, so ``setRunnerPaused(_:)`` can
   /// forward pause / resume to it. Set only by ``makeEventStream``; cleared by
   /// `run()`'s cleanup `defer`.
@@ -997,8 +1003,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
 
   init(
     runner: SimulationRunner = SimulationRunner(),
-    makeSharedRunner: (@Sendable (SuspendController) -> SharedEngineRunner)? = nil,
-    isSharedEngineEnabled: @escaping @Sendable () -> Bool = { FeatureFlags.sharedEngineEnabled },
+    makeSharedRunner: @escaping @Sendable (SuspendController) -> SharedEngineRunner = {
+      SharedEngineRunner(suspendController: $0)
+    },
     contentFilter: ContentFilter = ContentFilter(),
     simulationRepository: any SimulationRepository,
     turnRepository: any TurnRepository,
@@ -1010,7 +1017,6 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   ) {
     self.runner = runner
     self.makeSharedRunner = makeSharedRunner
-    self.isSharedEngineEnabled = isSharedEngineEnabled
     self.contentFilter = contentFilter
     self.simulationRepository = simulationRepository
     self.turnRepository = turnRepository
@@ -1131,21 +1137,26 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     }
   }
 
-  /// ADR-023 §6 S5-4 engine selection — **fresh runs only**. The Kotlin engine
-  /// runs when the flag is on, the switch is wired (``makeSharedRunner``) and the
-  /// caller handed in the scenario's YAML (the Kotlin `ScenarioLoader` owns the
-  /// parse; the Swift `Scenario` is not convertible). `resume(record:scenario:llm:)`
-  /// never comes here: the Kotlin engine exports no resume-from-state, so a
-  /// paused run — even one the Kotlin engine produced, via the translated
-  /// `.roundCheckpoint` — continues on the Swift runner.
+  /// ADR-023 §6 S5-5 engine selection — **fresh runs only**. The Kotlin engine
+  /// is the sole production fresh-run path: every fresh run hands in the
+  /// scenario's YAML (the Kotlin `ScenarioLoader` owns the parse; the Swift
+  /// `Scenario` is not convertible), so the Swift branch below is unreachable
+  /// from the app. `resume(record:scenario:llm:)` never comes here: the Kotlin
+  /// engine exports no resume-from-state, so a paused run — even one the Kotlin
+  /// engine produced, via the translated `.roundCheckpoint` — continues on the
+  /// Swift runner, which is why ``runner`` stays a dependency.
+  ///
+  /// The `yamlDefinition == nil` branch survives only as the **test seam** for
+  /// the suites still calling `run(scenario:llm:)` without YAML; #1687 migrates
+  /// them, after which this branch and ``runner``'s fresh-run use go away.
   private func makeEventStream(
     scenario: Scenario, yamlDefinition: String?, llm: any LLMService,
     controller: SuspendController
   ) -> AsyncStream<SimulationEvent> {
-    if isSharedEngineEnabled(), let yamlDefinition, let makeSharedRunner {
+    if let yamlDefinition {
       let shared = makeSharedRunner(controller)
       activeSharedRunner = shared
-      lifecycleLogger.info("run() engine=kotlin (ADR-023 S5-4 flag on)")
+      lifecycleLogger.info("run() engine=kotlin")
       let stream = shared.run(yaml: yamlDefinition, llm: llm)
       // A pause taken between `prepareRunInfrastructure` and this point (the
       // model-load / intro-reveal window — reachable from leaving the screen
@@ -1158,7 +1169,15 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       if runner.isPaused { shared.pause() }
       return stream
     }
-    lifecycleLogger.info("run() engine=swift")
+    let seamMessage =
+      "run() without yamlDefinition fell back to the Swift engine — test seam only (#1687)"
+    lifecycleLogger.error("\(seamMessage, privacy: .public)")
+    // Loud in Debug on a developer's device, a log line in Release — but NOT a
+    // trap under `xcodebuild test`: ~66 existing suites still reach this branch
+    // and `assertionFailure` aborts the whole test process rather than failing
+    // one case. Probing the harness rather than `#if DEBUG`, because Debug is
+    // also how the app runs on a device, where the trap is exactly what we want.
+    if !Self.isRunningUnderTestHarness { assertionFailure(seamMessage) }
     return runner.run(scenario: scenario, llm: llm, suspendController: controller)
   }
 
@@ -2382,15 +2401,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
       // wiring is broken (`output.rawText` was nil), not that the model
       // emitted nothing.
       let rawOutput = output.rawText ?? ""
-      if output.rawText == nil, activeSharedRunner == nil {
+      if output.rawText == nil {
         // Defence-in-depth: logs in Release too so a TestFlight regression
         // that drops `rawText` wiring surfaces in production logs (not just
-        // debug builds). On the Swift runner the condition is unreachable —
-        // `LLMCaller` always populates `rawText` via `JSONResponseParser`.
-        // On the Kotlin runner (S5-4) it is expected on every turn: Kotlin's
-        // `TurnOutput` stores only `fields`, so the audit column is empty
-        // there by design until S5-5 settles it (ADR-023 §6 S5-4) — logging
-        // it per turn would bury the wiring signal this branch exists for.
+        // debug builds). Unreachable on both engines — the Swift `LLMCaller`
+        // populates `rawText` via `JSONResponseParser`, and S5-5 ported the
+        // same field to Kotlin's `TurnOutput`.
         lifecycleLogger.error(
           "rawText nil on agentOutput for agent=\(agent, privacy: .public); audit trail will be empty"
         )
