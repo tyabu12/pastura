@@ -11,7 +11,8 @@
 
 S5-4 landed a Debug/TestFlight-only toggle (`FeatureFlags.sharedEngineEnabled`, Settings ›
 Diagnostics) that selects the Kotlin `PasturaSharedEngine` run path for **fresh** simulation runs.
-Before Decision 6 (iii) can discharge, one operator soak cycle on a real TestFlight build must
+Decision 6 (iii) discharged on one operator soak cycle run against a real TestFlight build
+(done 2026-09-06 — see the banner above). That cycle must
 exercise the Kotlin engine end to end — including pause/resume, backgrounding, and an app-kill
 mid-run — and confirm the `ja` localization surface renders through the Kotlin `appleMain` actual
 rather than falling back to its key. This is an operator cycle: nothing here runs unattended, and
@@ -59,7 +60,7 @@ nothing here is checked by CI.
    - `last_fable.yaml` — exercises `event_inject` on a different scenario shape.
    - `prisoners_dilemma.yaml` — the only preset exercising `pairing` + the ADR-027
      `pairwise_payoff` scoring logic.
-5. **Pause/resume cycle.** On one of the three runs above, pause mid-run and resume — confirm it
+5. **Pause/resume cycle.** On one of the runs above, pause mid-run and resume — confirm it
    continues on the Kotlin engine and completes.
 6. **Background cycle.** On another run, lock the screen (or switch to another app) mid-run and
    return after at least 30 seconds — confirm the run resumes and completes.

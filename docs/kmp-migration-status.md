@@ -151,8 +151,8 @@ machine-checked — see the maintenance invariant above.
   from Conditional GO to GO (§11); `release.sh`'s K/N dSYM / `Symbols/` checks are now fail-fast.
   The first cut, `v1.3+885`, could not reveal Diagnostics (#1677 → #1678). **S5-4 switch landed**
   ([#1681](https://github.com/tyabu12/pastura/issues/1681)) and its **soak passed** 2026-09-06 on
-  `v1.3+888` — one operator cycle on an iPhone 16e in `ja`, all four bundled presets completed on
-  the Kotlin engine, pause / background / kill-resume as specified, the `appleMain`
+  `v1.3+888` — one operator cycle on an iPhone 16e in `ja`, the runbook's four presets (of six
+  bundled) completed on the Kotlin engine, pause / background / kill-resume as specified, the `appleMain`
   `localizedFormat` actual rendering Japanese on device, no new crash in App Store Connect
   ([#501 evidence](https://github.com/tyabu12/pastura/issues/501#issuecomment-5559576459),
   [runbook](qa/kmp-soak-qa.md)). Decision 6 (iii) is discharged (ADR-004 §12), so all three
