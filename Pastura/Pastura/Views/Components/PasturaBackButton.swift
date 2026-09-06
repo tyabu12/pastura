@@ -1,9 +1,12 @@
+import OSLog
 import SwiftUI
 import UIKit
 
 /// Pastura's flat back chevron, replacing the iOS-26 Liquid Glass system
 /// back button on root-stack pushed views. SF Symbol `chevron.backward`
-/// tinted via `Color.ink`; tap routes through ``AppRouter/pop()``.
+/// tinted via `Color.ink`; tap routes through ``AppRouter/pop()`` when the
+/// environment carries a router, and through `dismiss()` when it does not
+/// (see "Missing router" below).
 ///
 /// ## Why custom
 ///
@@ -33,13 +36,38 @@ import UIKit
 /// `@Environment(\.dismiss)` directly — `PasturaBackButton` will NOT
 /// dismiss a sheet. See `.claude/rules/navigation.md`.
 ///
+/// ## Missing router
+///
+/// The router is read as an **optional** `@Environment(AppRouter.self)`. The
+/// non-optional form traps (`EnvironmentValues.subscript` assertion) when the
+/// environment carries no router, and iOS 26 can reach this view's environment
+/// read from `UIKitBarItemHost.initializeSize()` during the push transition
+/// itself — `BarAppearanceBridge.didMoveToWindow` →
+/// `NavigationButtonBar.ItemLayout.updateItemView`, before
+/// `TabNavigationStack`'s `.environment(router)` has propagated to the bar
+/// item's separate view graph. One such crash was reported on
+/// TestFlight 1.3 (888) / iOS 26.6 and never reproduced (#1683).
+///
+/// A nil router therefore degrades instead of trapping: the tap logs one
+/// fixed-string line and falls back to `dismiss()`. Treat that fallback as
+/// best-effort, not as a guaranteed pop — in the very failure mode above the
+/// environment is incompletely propagated, so `dismiss()` may resolve to the
+/// default no-op `DismissAction` rather than to this stack's dismissal. What
+/// the nil arm reliably buys is the absence of a trap plus a line in the log;
+/// the recovery is a bonus when the environment is merely routerless.
+///
+/// It still must not be silent — five of the six callsites rely on the default
+/// pop and `.navigationBarBackButtonHidden(true)` removes the system button, so
+/// a quiet nil arm would leave swipe-back as the only exit with nothing in the
+/// log to say why.
+///
 /// ## Tap-action override
 ///
 /// Pass `action:` to intercept the tap instead of popping — e.g.
 /// SimulationView routes it to a confirm-on-leave dialog before popping
 /// an in-flight run (#673). The override owns the pop: it must call
 /// `router.pop()` itself once it decides to leave. Default `nil` keeps the
-/// plain `router.pop()` behaviour, so every existing callsite is unchanged.
+/// plain pop behaviour, so every existing callsite is unchanged.
 ///
 /// **Swipe-back bypasses the override.** The edge-pan gesture pops via the
 /// UIKit `interactivePopGestureRecognizer` (see below), never through this
@@ -66,7 +94,11 @@ import UIKit
 /// with a delegate gating on `viewControllers.count > 1`, preserving
 /// the swipe-back affordance without re-enabling pop on the root.
 struct PasturaBackButton: View {
-  @Environment(AppRouter.self) private var router
+  /// Optional by design — see the type doc-comment's "Missing router" section.
+  /// Do not drop the `?`: the non-optional form traps instead of degrading, and
+  /// nothing in the build or the test suite can catch that regression.
+  @Environment(AppRouter.self) private var router: AppRouter?
+  @Environment(\.dismiss) private var dismiss
 
   /// Optional tap interceptor. When non-nil, the tap invokes `action` instead
   /// of `router.pop()` — the override is then responsible for popping once it
@@ -77,8 +109,11 @@ struct PasturaBackButton: View {
     Button {
       if let action {
         action()
-      } else {
+      } else if let router {
         router.pop()
+      } else {
+        Self.logger.error("PasturaBackButton: no AppRouter in environment; dismissing")
+        dismiss()
       }
     } label: {
       Image(systemName: Self.iconName)
@@ -92,6 +127,11 @@ struct PasturaBackButton: View {
     .accessibilityLabel(Self.accessibilityLabel)
     .accessibilityIdentifier("pasturaBackButton")
   }
+
+  /// Records the `dismiss()` fallback. Fixed string, no interpolation, so the
+  /// line survives Release redaction without a `privacy:` annotation.
+  private static let logger = Logger(
+    subsystem: "app.pastura.Pastura", category: "PasturaBackButton")
 
   /// SF Symbol name. `chevron.backward` (RTL-aware) over `chevron.left`
   /// per Apple HIG — the back affordance flips with reading direction.

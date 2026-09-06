@@ -507,3 +507,25 @@ surface changes in areas the automated tests do not exercise.
       (announced "Back, button" — the chevron-only a11y regression from
       scenario 2 applies) plus the swipe-back gesture. The tab bar is
       absent, so it is correctly not in the VoiceOver rotor.
+
+19. **Back button with no router in the environment (#1683)** — Not
+    reproducible on demand: the crash it guards against needed iOS 26 to
+    size the toolbar item inside the push transition before
+    `TabNavigationStack`'s `.environment(router)` reached it. There is
+    nothing to *stage*, so this scenario is a **triage recipe**, not a
+    walkthrough.
+
+    During TestFlight triage, filter Console.app (or the device log) on
+    `subsystem:app.pastura.Pastura category:PasturaBackButton`. A line
+    reading `no AppRouter in environment; dismissing` means the nil arm was
+    taken on a real device — the branch exists precisely because neither CI
+    nor the unit suite can observe it (ADR-009 rules out render tests). File
+    it against #1683 with the screen and the preceding navigation, since a
+    second occurrence turns a one-off into a pattern worth fixing at the
+    propagation end rather than tolerating at the read.
+
+    While there, confirm the normal path on each of the six
+    `PasturaBackButton` screens — `ScenarioDetailView`, `ResultsView`,
+    `ResultDetailView`, `GalleryScenarioDetailView`, `ScenarioEditorView`,
+    `SimulationView` — pops exactly one screen by tap and by edge swipe-back.
+

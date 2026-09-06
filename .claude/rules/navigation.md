@@ -21,7 +21,7 @@ Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map
 | `router.push(.X)` | Programmatic push from synchronous code, onto the current tab's stack. |
 | `router.pushIfOnTop(expected:next:)` | Programmatic push **after `await`** — guards against pushing onto an unrelated screen if the user popped back during the suspension. |
 | `router.pop()` / `router.popToRoot()` | Programmatic back / unwind within the current tab's stack. |
-| `PasturaBackButton()` | Custom back chevron for views pushed onto a tab's stack. Wraps `router.pop()`. |
+| `PasturaBackButton()` | Custom back chevron for views pushed onto a tab's stack. Wraps `router.pop()`, falling back to `dismiss()` when the environment carries no router. |
 | `@Environment(\.dismiss)` | Dismissing a sheet / modal that is **not** part of a tab's stack. |
 
 ## Forbidden inside a tab's stack
@@ -33,6 +33,8 @@ Screen graph: [`docs/design/navigation-map.md`](../../docs/design/navigation-map
 Every view pushed onto a tab's `NavigationStack` MUST use `PasturaBackButton()` together with **both** `.navigationBarBackButtonHidden(true)` and `.preservesPasturaSwipeBackGesture()` — omitting either breaks silently (no back affordance, or no swipe-back on iOS 26).
 
 Callsite template, the reason the pairing is load-bearing, toolbar action-button styling, and the title display-mode convention: `docs/design/design-system.md` § 5.8.1 / § 5.8.2 / § 5.11.
+
+A router read from inside a `ToolbarItem` must be `AppRouter?` — iOS 26 can size the item before the pushed environment reaches its separate view graph, and the non-optional read traps (#1683; `PasturaBackButton` carries the details). Body-level reads stay non-optional.
 
 ## Sheets, popovers, fullScreenCover — out of scope
 
