@@ -19,9 +19,8 @@ import Testing
 /// the *far* end of the cancellation chain, which is asserted here through a
 /// real Kotlin run rather than through a box.
 ///
-/// App-target twin of the `RunHandleBoxLatchTests` suite in
-/// `tools/kmp-gate-spike/Tests/KMPGateSpikeTests/BoundaryContractTests.swift`,
-/// which the nightly gate-spike rung keeps running until S5-5.
+/// Began as the app-target twin of the retired gate spike's
+/// `RunHandleBoxLatchTests`; since S5-5 it is the only copy.
 /// `.serialized`: the cancellation test drives a real Kotlin run and spawns
 /// `Task` + `AsyncStream` teardown, which
 /// `.claude/rules/swift-testing-parallelism.md` keeps off the parallel path.
@@ -214,9 +213,8 @@ struct SharedEngineRunnerTests {
     // Wrap mode on purpose: `BlockGate` gates `generate`, and only a wrap-mode
     // `generateStream` goes through it — a `setStreamChunks` script would sail
     // straight past the park (`LLMServiceBackendTests` says the same). The gate
-    // is what makes the run *provably* mid-flight when the consumer walks away:
-    // the gate-spike twin paces its script instead, and its comment explains
-    // why an instant run measures nothing.
+    // is what makes the run *provably* mid-flight when the consumer walks away.
+    // An instant run measures nothing.
     mock.blockGenerateUntilSignal()
     let service = CancellationObservingLLMService(wrapping: mock)
     let runner = SharedEngineRunner()
@@ -300,10 +298,11 @@ nonisolated private final class RecordingRunHandle: RunHandle, Sendable {
 /// cannot report: that a call has reached the block gate, and that a call's
 /// drain ended in cancellation.
 ///
-/// App-target analogue of the gate spike's
+/// App-target analogue of the retired gate spike's
 /// `ScriptedStreamingBackend.observedCancellations`, one layer lower: there the
-/// counter sits on a Kotlin `LLMBackend`, here on a Swift `LLMService`, so the
-/// real ``LLMServiceBackend`` relay is *inside* what the test observes.
+/// counter sat on a Kotlin `LLMBackend`, here it sits on a Swift `LLMService`,
+/// so the real ``LLMServiceBackend`` relay is *inside* what the test
+/// observes.
 ///
 /// `nonisolated` + `Mutex`-guarded because Kotlin drives `generateStream` from
 /// `Dispatchers.Default` (`.claude/rules/swift-isolation.md` Pattern 7). Plain

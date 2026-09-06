@@ -188,7 +188,7 @@ LOG_FILE=""
 # semantics of .gitignore's own `build/`, `DerivedData/` and `.build/` rules
 # (which match at any depth).
 # `PasturaSharedEngine.xcframework` is what `scripts/kmp/assemble-xcframework.sh`
-# stages (app tree and gate-spike package alike); before ADR-023 S5-1 only the
+# stages into the app tree; before ADR-023 S5-1 only the
 # models-only name was listed, so a worktree holding the staged engine umbrella
 # failed toward KEEP and never pruned. `PasturaShared.xcframework` stays for the
 # retained `feature/kmp-spike-models` branch, which still stages that name.

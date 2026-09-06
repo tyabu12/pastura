@@ -7,12 +7,13 @@ import PasturaCore
 /// `Canonicalizer` normalization, since its tag form diverges by design (see
 /// `SwiftGoldenParityTests`).
 ///
-/// **Why the harness and not the gate spike.** `tools/kmp-gate-spike` cannot
-/// reach these types: SwiftPM forbids a target's `path:` / `sources:` from
-/// escaping its package root, and the `Codable` conformances live in
-/// `Pastura/Pastura/Models/`. This package already reuses that directory in
-/// place (`PasturaCore`), so it is the only Swift build in the repo that can
-/// encode the real types rather than a transcription of them.
+/// **Why the harness owns this.** The `Codable` conformances live in
+/// `Pastura/Pastura/Models/`, and this package already reuses that directory
+/// in place (`PasturaCore`), so it is the only SwiftPM build in the repo that
+/// can encode the real types rather than a transcription of them. (SwiftPM
+/// forbids a target's `path:` / `sources:` from escaping its package root, so
+/// a package that does not already reach into the app tree cannot get at
+/// them.)
 ///
 /// **Why goldens rather than a two-sided round trip.** Measurement (v) as
 /// written in ADR-023 §6 is a *parity* claim, which needs both encoders in one

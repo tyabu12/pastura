@@ -151,8 +151,7 @@ pastura/
 │   ├── PasturaTests/        # Unit and integration tests
 │   └── PasturaUITests/      # UI tests
 ├── tools/
-│   ├── harness/             # pastura-harness — headless macOS simulation runner (ADR-013)
-│   └── kmp-gate-spike/      # ADR-023 Stage-2 gate spike consumer (builds nightly only)
+│   └── harness/             # pastura-harness — headless macOS simulation runner (ADR-013)
 ├── shared/                  # KMP shared modules (ADR-023)
 │   ├── models/              # Mirrors Swift Models/; landed as infra, not production-wired
 │   └── engine/              # Engine port — Stage-2 gate slice landed, bulk port gated

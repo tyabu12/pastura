@@ -127,10 +127,10 @@ public data class Phase(
     // ⚠️ Tail-appending does NOT keep Swift consumers valid: the K/N-generated
     // Swift memberwise init carries no default-arg values (kmp-interop.md
     // Pattern 3 "Default args don't cross"), so every Swift `Phase(...)` site
-    // — today only the nightly-built gate-spike (`tools/kmp-gate-spike`, the
-    // sole K/N↔Swift consumer, ADR-023 §6) — must pass the new args explicitly.
-    // Adding a field here therefore requires updating those sites in the same
-    // change, or the KMP nightly (not per-PR CI) goes red (#1204).
+    // — today only the iOS app, the sole K/N-to-Swift consumer (ADR-023 §6) —
+    // must pass the new args explicitly. Adding a field here therefore requires
+    // updating those sites in the same change, or the iOS build goes red
+    // (#1204).
     public val voteAgainst: Int? = null,
     public val actionDeltas: Map<String, Int>? = null,
     public val noRepeat: Boolean? = null,

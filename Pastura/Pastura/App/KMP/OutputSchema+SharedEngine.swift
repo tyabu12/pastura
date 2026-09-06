@@ -15,10 +15,10 @@ import PasturaSharedEngine
 /// Converts the Kotlin `OutputSchema` carried on a `GenerationRequest` into the
 /// Swift ``OutputSchema`` the LLM layer's backends consume.
 ///
-/// **Why this exists.** The gate spike's `ScriptedStreamingBackend` replays
-/// canned text, so it read the request's `schema` off and never needed a
-/// converter — none existed when the Stage-5 `LLMBackend` adapter arrived. But
-/// the schema is what each real backend translates into its native
+/// **Why this exists.** No converter existed when the Stage-5 `LLMBackend`
+/// adapter arrived: the Stage-2 gate spike's scripted backend (retired at S5-5)
+/// replayed canned text, so it read the request's `schema` off and never needed
+/// one. But the schema is what each real backend translates into its native
 /// constrained-decoding mechanism (llama.cpp: a GBNF grammar; Ollama:
 /// `format:"json"`), so dropping it at the K/N boundary would silently disable
 /// constrained decoding: no compile error, no runtime signal, just free-form

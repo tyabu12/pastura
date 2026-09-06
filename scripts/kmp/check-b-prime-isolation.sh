@@ -8,6 +8,14 @@
 # export dropped (ruling (b)). Before S5-1 the third clause read "not the iOS
 # xcodebuild" either; check (3) below is the inverted form.
 #
+# After S5-5 the Stage-2 gate spike (`tools/kmp-gate-spike/`) no longer exists —
+# the iOS app is the only XCFramework consumer. So what B' still protects is
+# narrower than its original wording: the harness-build (`swift build` /
+# `swift test` on the ROOT manifest, which is the ADR-013 `pastura-harness`
+# package) and a dev `swift build` must never end up assembling the KMP
+# XCFramework. The old check (2), "the root manifest does not reference the
+# gate spike", is moot and has been dropped with the package.
+#
 # This is the gate LOGIC. The perturbation tests that exercise it against
 # synthetic fixtures + the real files live in
 # `scripts/tests/kmp-gate-isolation-test.sh` (the CI "Shell gate tests" job),
@@ -25,8 +33,6 @@
 #                 and dev-`swift build` lanes. `swift build` builds every target
 #                 a manifest declares, so a binary target here bills every
 #                 iOS-touching PR for an assembled XCFramework.
-#   COVERED (2) root manifest does not reference the gate spike — the same two
-#                 lanes, via a path dependency rather than a binary one.
 #   COVERED (3) pbxproj references EXACTLY ONE `.xcframework` basename and it
 #                 is `PasturaSharedEngine.xcframework` — the iOS xcodebuild
 #                 lane, for a framework added the way Xcode's UI adds one.
@@ -59,18 +65,18 @@
 # artifact. llama.swift does not violate B′ — it is downloaded, not built.
 # Post-S5-1 the iOS lane's umbrella is likewise RESTORED (content-keyed cache;
 # the in-lane assembly is the cache-miss fallback, `.github/workflows/ci.yml`),
-# so read checks (1)/(2) as "no SwiftPM lane acquires a dependency on the
+# so read check (1) as "no SwiftPM lane acquires a dependency on the
 # KMP-assembled framework" and (3)/(4) as "the iOS lane acquires exactly the
 # one ruled umbrella, and only by staging".
 #
-# Checks (1) and (2) strip comments from the manifest first: a comment
-# EXPLAINING that the root deliberately has no binary target must not trip the
-# gate. The stripper is quote-aware on purpose — see `strip_swift_comments`.
+# Check (1) strips comments from the manifest first: a comment EXPLAINING that
+# the root deliberately has no binary target must not trip the gate. The
+# stripper is quote-aware on purpose — see `strip_swift_comments`.
 set -euo pipefail
 
+# scripts/kmp/check-b-prime-isolation.sh -> repo root is two levels up.
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PACKAGE_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-REPO_ROOT="$(cd "$PACKAGE_ROOT/../.." && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 MANIFEST="$REPO_ROOT/Package.swift"
 PBXPROJ="$REPO_ROOT/Pastura/Pastura.xcodeproj/project.pbxproj"
@@ -201,14 +207,14 @@ if [ "$strip_rc" -eq 3 ]; then
        "cause.) Failing closed rather than reporting a clean result it cannot" \
        "vouch for. To unblock: rewrite the literal as single-line strings, or" \
        "teach strip_swift_comments in" \
-       "tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh to model it and" \
+       "scripts/kmp/check-b-prime-isolation.sh to model it and" \
        "add a case to scripts/tests/kmp-gate-isolation-test.sh."
   exit 3
 elif [ "$strip_rc" -ne 0 ]; then
   echo "::error file=$(annotate_path "$MANIFEST")::ADR-023 decision B' guard's" \
        "comment stripper failed unexpectedly (exit $strip_rc) — this is a bug in" \
        "the guard, not a verdict on the manifest. Reproduce with 'bash -x" \
-       "tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh' and report it" \
+       "scripts/kmp/check-b-prime-isolation.sh' and report it" \
        "against #1171."
   exit 4
 fi
@@ -221,7 +227,7 @@ fail() {
   exit 1
 }
 
-# (1) + (2) — the two manifest-borne lanes.
+# (1) — the manifest-borne lanes: the harness build and a dev `swift build`.
 #
 # The hits are captured rather than piped so the first line number can go into
 # the annotation. The stripper emits exactly one line per input line, so
@@ -230,16 +236,9 @@ hits="$(grep -n 'binaryTarget' "$STRIPPED" || true)"
 if [ -n "$hits" ]; then
   echo "$hits"
   fail "$MANIFEST" "${hits%%:*}" "the root manifest declares a .binaryTarget, so \
-every per-PR 'swift build' now requires an assembled XCFramework. Keep the gate \
-consumer in tools/kmp-gate-spike/Package.swift."
-fi
-
-hits="$(grep -n 'kmp-gate-spike' "$STRIPPED" || true)"
-if [ -n "$hits" ]; then
-  echo "$hits"
-  fail "$MANIFEST" "${hits%%:*}" "the root manifest references \
-tools/kmp-gate-spike. Depend on it from nowhere — the gate spike is consumed \
-only by its own nested manifest."
+every per-PR 'swift build' now requires an assembled XCFramework. The KMP \
+umbrella belongs to the iOS app target alone (staged into \
+Pastura/Frameworks/), never to this manifest."
 fi
 
 # (3) — the iOS xcodebuild lane, explicit-reference form. INVERTED at S5-1:

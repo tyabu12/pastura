@@ -49,11 +49,9 @@ import Testing
 /// the liveness measurement stays meaningful well below 10 ms — before
 /// touching the fixture.
 ///
-/// **Duplicated helpers.** `Heartbeat`, `BlockingProbe`, `ThreadObservations`
-/// and friends are file-local copies of the gate spike's
-/// (`tools/kmp-gate-spike/Tests/KMPGateSpikeTests/PatternSixProbeTests.swift`),
-/// which the nightly rung keeps running until S5-5 — the two copies are
-/// deliberately parallel, not shared.
+/// `Heartbeat`, `BlockingProbe`, `ThreadObservations` and friends began as
+/// file-local copies of the retired gate spike's probe helpers; this is now the
+/// only copy.
 ///
 /// Kotlin twins are spelled `PasturaSharedEngine.X`, Swift ones `Pastura.X` —
 /// both modules are in scope here (`.claude/rules/kmp-interop.md` Pattern 1b).
@@ -133,8 +131,7 @@ struct PatternSixProbeTests {
 
     let observations = ThreadObservations()
     // Pacing is the load-bearing part, and it has to live in a decorator:
-    // `MockLLMService` has no delay hook (the gate spike gets one from
-    // `ScriptedResponse.chunkDelay`). An instantly-draining script finishes
+    // `MockLLMService` has no delay hook. An instantly-draining script finishes
     // before a frozen MainActor could be caught at it, so an unpaced version of
     // this test would pass against an adapter that *did* freeze the UI.
     let paced = PacedLLMService(wrapping: mock)
@@ -389,8 +386,7 @@ nonisolated private final class ThreadObservingCallbacks: PasturaSharedEngine.St
 /// Decorates a ``MockLLMService`` so its stream arrives **paced** — a 10 ms gap
 /// between deltas.
 ///
-/// The mock has no delay hook of its own (the gate spike gets one from
-/// `ScriptedResponse.chunkDelay`), and pacing is what makes the liveness
+/// The mock has no delay hook of its own, and pacing is what makes the liveness
 /// measurement mean anything: a script that drains instantly finishes before a
 /// frozen MainActor could be observed at all.
 ///

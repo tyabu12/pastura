@@ -10,17 +10,15 @@
 # `filename "<Name>.swift" used twice`, duplicate `.o` producers under SwiftPM.
 # What it is not is early or complete: the pre-commit `xcodebuild build`
 # compiles the app scheme only, so a collision in PasturaTests / PasturaUITests
-# / tools/harness / tools/kmp-gate-spike first shows minutes later in CI with
-# no rename advice attached. Xcode's PBXFileSystemSynchronizedRootGroup makes
+# / tools/harness first shows minutes later in CI with no rename advice
+# attached. Xcode's PBXFileSystemSynchronizedRootGroup makes
 # the app case easy to hit: a new file anywhere under Pastura/Pastura/ joins
 # the target automatically, so the clash can be cross-layer.
 #
-# PER TARGET, NOT REPO-WIDE — load-bearing, not pedantry.
-# `Pastura/Pastura/LLM/SuspendController.swift` and
-# `tools/kmp-gate-spike/Sources/KMPGateSpike/SuspendController.swift` coexist
-# today in different targets and must keep doing so; a repo-wide
-# `find | sort | uniq -d` reddens on that pair and on the two `Package.swift`
-# manifests. --self-test pins both directions against those real paths.
+# PER TARGET, NOT REPO-WIDE — load-bearing, not pedantry. Same-named files in
+# DIFFERENT targets are legal and must stay so: a repo-wide
+# `find | sort | uniq -d` reddens on every such pair. --self-test pins both
+# directions against real paths.
 #
 # ONE ROW PER TARGET, NEVER PER DIRECTORY. Subdividing a row keeps coverage
 # complete and every population floor satisfied, so nothing below notices —
@@ -62,7 +60,7 @@ cd "$ROOT"
 
 # One entry per BUILD TARGET. The app and test rows are the Xcode project's
 # synchronized root groups; the rest are the `path:` values of the SwiftPM
-# targets in Package.swift and tools/kmp-gate-spike/Package.swift. Two SwiftPM
+# targets in the root Package.swift. Two SwiftPM
 # targets are deliberately absent because the app row is a strict superset of
 # each: PasturaCore (`Pastura/Pastura`, sources Models/LLM/Engine) and
 # PasturaSafeSampler (`Pastura/Pastura/LLM/SafeSampler`, which holds no .swift
@@ -73,10 +71,7 @@ Pastura/PasturaTests
 Pastura/PasturaUITests
 tools/harness/Sources/PasturaHarnessKit
 tools/harness/Sources/pastura-harness
-tools/harness/Tests/PasturaHarnessKitTests
-tools/kmp-gate-spike/Sources/KMPGateSpike
-tools/kmp-gate-spike/Sources/kmp-gate-bench
-tools/kmp-gate-spike/Tests/KMPGateSpikeTests'
+tools/harness/Tests/PasturaHarnessKitTests'
 
 # TEST HOOK, not a production knob. --self-test needs to perturb the SCAN and
 # not just the detector, but an override honoured unconditionally would also
@@ -92,7 +87,7 @@ fi
 
 # Tracked .swift belonging to no build target: SwiftPM reads the manifests
 # itself, and the skill fixtures are inert text a drift test diffs.
-NON_TARGET_SWIFT='^Package\.swift$|^tools/kmp-gate-spike/Package\.swift$|^\.claude/skills/scenario-factory/tests/fixtures/[^/]+\.swift$'
+NON_TARGET_SWIFT='^Package\.swift$|^\.claude/skills/scenario-factory/tests/fixtures/[^/]+\.swift$'
 
 TMP="$(mktemp -d)"
 # A8 plants a fixture inside the working tree, so it needs removing even if the
@@ -221,13 +216,43 @@ self_test() {
   if [ "$out" = "Foo.swift" ]; then ok "A4 a triple reports once"
   else bad "A4 expected one line, got '$out'"; fi
 
-  # A5 END-TO-END POSITIVE on real tracked paths: scanning the whole repo as one
-  # pseudo-target must flag the two cross-target pairs that legitimately
-  # coexist. This is the arm that reddens if the per-target split is ever
-  # "simplified" into a repo-wide scan. It also asserts BOTH members of the
-  # root-level pair are listed — a report that names a duplicate and prints one
-  # path is how a broken path matcher looks.
-  if out="$(PASTURA_DUP_GATE_SELFTEST=1 PASTURA_DUP_GATE_ROOTS='.' bash "$SELF" --check 2>&1)"; then
+  # A5 END-TO-END POSITIVE through the real plumbing: scanning the whole repo as
+  # one pseudo-target must flag two cross-target pairs. This is the arm that
+  # reddens if the per-target split is ever "simplified" into a repo-wide scan.
+  # It also asserts BOTH members of the root-level pair are listed — a report
+  # that names a duplicate and prints one path is how a broken path matcher
+  # looks.
+  #
+  # THE PAIRS ARE SYNTHETIC, and were not always. Until S5-5 they were real:
+  # `Pastura/Pastura/LLM/SuspendController.swift` had a verbatim twin in the
+  # Stage-2 gate spike, and the spike's nested `Package.swift` twinned the root
+  # manifest. Retiring `tools/kmp-gate-spike/` removed the last legal
+  # cross-target duplicates in the repo, so with real paths alone this arm can
+  # no longer fire and would pass vacuously — the exact failure the file header
+  # argues against.
+  #
+  # Planted in a TEMPORARY INDEX rather than the checkout. Both scan primitives
+  # read `git ls-files`, which honours `GIT_INDEX_FILE`, so a copy of the real
+  # index plus two `update-index` entries makes the gate see tracked duplicates
+  # while the worktree and the real index stay byte-identical — no tracked
+  # fixture to commit, and nothing a mid-test failure could leave behind for the
+  # sibling shell tests (the header's standing constraint). The two paths mirror
+  # the pairs that used to be real, so the assertions below are unchanged.
+  #
+  # `git rev-parse --git-path index`, never `.git/index`: this repo is worked on
+  # through `git worktree`, where `.git` is a FILE and the index lives under
+  # `.git/worktrees/<name>/`.
+  a5_index="$TMP/a5-index"
+  cp "$(git rev-parse --git-path index)" "$a5_index"
+  # `hash-object` without `-w` only computes; the empty blob is what every
+  # `--cacheinfo` entry points at, since the gate reads path names and never
+  # opens the content.
+  a5_blob="$(git hash-object -t blob --stdin </dev/null)"
+  GIT_INDEX_FILE="$a5_index" git update-index --add \
+    --cacheinfo "100644,$a5_blob,tools/harness/Sources/PasturaHarnessKit/SuspendController.swift" \
+    --cacheinfo "100644,$a5_blob,tools/harness/Package.swift"
+  if out="$(GIT_INDEX_FILE="$a5_index" PASTURA_DUP_GATE_SELFTEST=1 \
+      PASTURA_DUP_GATE_ROOTS='.' bash "$SELF" --check 2>&1)"; then
     bad "A5 a repo-wide scan passed — the duplicate path never fires"
   else
     case "$out" in
@@ -239,6 +264,7 @@ self_test() {
       *) bad "A5 omitted the repo-root Package.swift from its own evidence: $out" ;;
     esac
   fi
+  rm -f "$a5_index"
 
   # A6 SCAN CONTROL — a root matching nothing must trip the population floor
   # rather than read as "0 duplicates".
@@ -268,10 +294,15 @@ self_test() {
   # committing. The fixture must live inside a target root or the arm controls
   # nothing: an earlier version planted it under Pastura/DerivedData/, which no
   # root contains, and stayed green under the `find` mutation it claimed to
-  # catch. kmp-gate-spike is the root chosen because it is SwiftPM-only — a
+  # catch. `tools/harness` is the root chosen because it is SwiftPM-only — a
   # fixture under Pastura/Pastura/ would join the Xcode target the moment a
-  # concurrent build looked.
-  SCOPE_PROBE="tools/kmp-gate-spike/Sources/KMPGateSpike/scope-probe"
+  # concurrent build looked. It does NOT have the nested-manifest property the
+  # retired gate spike had: `tools/harness`'s targets are declared in the ROOT
+  # Package.swift, so a stray .swift here IS inside a root-manifest target. The
+  # fixtures are empty files, planted and removed under the cleanup trap above,
+  # and this self-test never runs a root-manifest build — so the window in
+  # which they could reach a build is a concurrent `swift build` only.
+  SCOPE_PROBE="tools/harness/Sources/PasturaHarnessKit/scope-probe"
   mkdir -p "$SCOPE_PROBE/a" "$SCOPE_PROBE/b"
   : > "$SCOPE_PROBE/a/ScopeProbe.swift"
   : > "$SCOPE_PROBE/b/ScopeProbe.swift"

@@ -28,14 +28,12 @@ extension SharedEngineRunner {
   /// ViewModel has no arm for) and the Kotlin→Swift event translation, leaving
   /// the App-facing surface identical to the Swift runner's.
   ///
-  /// **App-module-only by construction — deliberately not mirrored into
-  /// `tools/kmp-gate-spike`.** `kmp-interop.md` requires an adapter's
-  /// export-facing shape to land in the spike too; that does not apply here,
-  /// because both of this overload's own types — the Swift `SimulationEvent`
-  /// enum and `LLMService` — have no twin in the spike, which declares neither.
-  /// A mirror would have to invent both and would then be testing the
-  /// invention. The Kotlin-facing half it delegates to,
-  /// ``SharedEngineRunner/run(scenario:backend:)``, *is* mirrored.
+  /// **App-module-only by construction.** Both of this overload's own types —
+  /// the Swift `SimulationEvent` enum and `LLMService` — exist only in the app
+  /// module, so this path can be exercised only from `PasturaTests`. The
+  /// Kotlin-facing half it delegates to,
+  /// ``SharedEngineRunner/run(scenario:backend:)``, is where the K/N boundary
+  /// contract itself is asserted.
   ///
   /// **No resume-from-state.** The Swift runner takes `resumingFrom:` /
   /// `startRound:`; the Kotlin engine exports no seeded-start entry point, so

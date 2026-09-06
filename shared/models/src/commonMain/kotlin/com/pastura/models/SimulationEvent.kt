@@ -394,9 +394,10 @@ public sealed class SimulationEvent {
      * consumer. A consumer-side `is SimulationCompleted || is ErrorEvent`
      * chain is invisible to ADR-022's no-default gate, which reaches `when` /
      * `switch` projections but not `is` / `==` predicates (ADR-027 records the
-     * same carve-out for `==`). The gate spike's `SharedEngineRunner` had
-     * exactly that shape: a new terminal case would have left its
-     * reconstructed `AsyncStream` never finishing, with nothing red.
+     * same carve-out for `==`). The Swift `SharedEngineRunner` (now
+     * `Pastura/Pastura/App/KMP/`) once had exactly that shape: a new terminal
+     * case would have left its reconstructed `AsyncStream` never finishing,
+     * with nothing red.
      *
      * The `when` below is an expression over a sealed class with no `else`, so
      * the compiler rejects it the moment a subclass is added — and
