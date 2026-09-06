@@ -273,6 +273,24 @@ class JSONResponseParserTests {
         assertEquals("x", out.fields["anything"])
     }
 
+    // MARK: - rawText provenance
+
+    @Test
+    fun rawTextCarriesTheOriginalPreCleanupText() {
+        // The Data layer's `TurnRecord.rawOutput` audit column wants what the model
+        // actually emitted, not what survived the cleanup pipeline — so the thinking
+        // block and the code fence must both still be there.
+        val original = """
+            <think>I should greet them.</think>
+            ```json
+            {"statement": "hi"}
+            ```
+        """.trimIndent()
+        val out = parser.parse(original)
+        assertEquals("hi", out.fields["statement"])
+        assertEquals(original, out.rawText)
+    }
+
     // MARK: - Swift/Kotlin multi-object salvage asymmetry (#907)
 
     /**

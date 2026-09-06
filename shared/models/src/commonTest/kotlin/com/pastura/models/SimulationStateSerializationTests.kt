@@ -4,6 +4,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -72,6 +73,38 @@ class SimulationStateSerializationTests {
         assertEquals("Alice", decoded.lastOutputs["Bob"]?.vote)
         assertEquals(PhaseType.VOTE, decoded.conversationLog[1].phaseType)
         assertEquals("cooperate", decoded.pairings[0].action1)
+    }
+
+    @Test
+    fun turnOutputRawTextIsExcludedFromTheWireShape() {
+        // `rawText` is a body property annotated `@Transient`, mirroring the Swift
+        // twin's `CodingKeys` omission: `TurnRecord.rawOutput` already stores the
+        // ~1-2 KB of raw text, so `parsedOutputJSON` must not duplicate it.
+        val withRaw = TurnOutput(fields = mapOf("statement" to "Hello."))
+            .apply { rawText = """<think>reasoning</think>{"statement": "Hello."}""" }
+        val withoutRaw = TurnOutput(fields = mapOf("statement" to "Hello."))
+
+        assertEquals(json.encodeToString(withoutRaw), json.encodeToString(withRaw))
+        // Nor does it survive a roundtrip — a decoded output is provenance-free.
+        assertNull(json.decodeFromString<TurnOutput>(json.encodeToString(withRaw)).rawText)
+    }
+
+    @Test
+    fun turnOutputEqualityIgnoresRawText() {
+        // Provenance metadata is not part of the domain value: two outputs with
+        // identical fields but different raw inputs are the same value. Declaring
+        // `rawText` in the body rather than the constructor is what keeps it out of
+        // `equals` / `hashCode`, matching Swift's hand-written `==`.
+        val a = TurnOutput(fields = mapOf("statement" to "Hello.")).apply { rawText = "raw A" }
+        val b = TurnOutput(fields = mapOf("statement" to "Hello.")).apply { rawText = "raw B" }
+        val bare = TurnOutput(fields = mapOf("statement" to "Hello."))
+
+        assertEquals(a, b)
+        assertEquals(a, bare)
+        assertEquals(a.hashCode(), bare.hashCode())
+        // `copy()` cannot carry a body property either — pinned here so the
+        // hand re-set in `WhisperHandler` stays obviously load-bearing.
+        assertNull(a.copy().rawText)
     }
 
     @Test

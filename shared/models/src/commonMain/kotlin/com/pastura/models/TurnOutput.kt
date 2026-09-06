@@ -1,6 +1,7 @@
 package com.pastura.models
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.Transient
 
 /**
  * Parsed output from a single LLM inference turn.
@@ -10,20 +11,29 @@ import kotlinx.serialization.Serializable
  * the original JSON type.
  *
  * Kotlin port of `Pastura/Pastura/Models/TurnOutput.swift`.
- *
- * **Divergence from Swift:**
- * Swift's `TurnOutput` carries a `rawText: String?` property that is excluded
- * from `Codable` (custom `CodingKeys`) and from `==`. It holds parser provenance
- * metadata (the unfiltered LLM emission stored by `TurnRecord.rawOutput`) and
- * is an Engine-layer concern — not part of the wire-shape contract. The Kotlin
- * port omits `rawText` entirely; if the Engine port (W3+) requires it, it can
- * be re-added as an `@Transient` property scoped to the Engine layer.
  */
 @Serializable
 public data class TurnOutput(
     /** The raw parsed fields from the LLM's JSON response. */
     public val fields: Map<String, String>,
 ) {
+    /**
+     * The original pre-cleanup LLM text, kept so the Data layer can persist it in
+     * the `TurnRecord.rawOutput` audit column. Populated by `JSONResponseParser`;
+     * `null` for synthetic outputs built straight from [fields] (tests, replay).
+     *
+     * Declared in the class body rather than the primary constructor, so — exactly
+     * like the Swift twin, which omits it from `CodingKeys` and from `==` — it is
+     * excluded from [equals]/[hashCode] and from the serialized wire shape
+     * (`@Transient`). Provenance metadata is not part of the domain value.
+     *
+     * Being outside the constructor also puts it **outside [copy]**: a `copy()`
+     * returns an output with `rawText == null`, so re-set it explicitly whenever
+     * a derived output must keep the provenance (see `WhisperHandler`).
+     */
+    @Transient
+    public var rawText: String? = null
+
     /** Agent's spoken statement (canonical primary field for speak phases). */
     public val statement: String? get() = fields["statement"]
 

@@ -193,16 +193,15 @@ extension PhaseType {
 }
 
 extension TurnOutput {
-  /// Kotlin's `TurnOutput` stores only `fields` (its `statement` / `vote` /
-  /// `action` / `reason` / `innerThought` are computed over it) — `rawText`
-  /// is parser provenance the Kotlin port omits — so `rawText` is always
-  /// `nil` here. The ViewModel DOES read it: it is the `TurnRecord.rawOutput`
-  /// audit column (ADR-015), which is therefore empty for every Kotlin-engine
-  /// turn; `SimulationViewModel` suppresses its "wiring broken" log on this
-  /// path, and S5-5 settles whether to port the field or drop the column
-  /// (ADR-023 §6 S5-4, #501).
+  /// Total. Kotlin's `TurnOutput` mirrors the Swift shape field for field: its
+  /// `statement` / `vote` / `action` / `reason` / `innerThought` are computed
+  /// over `fields`, and `rawText` is the same parser provenance — a `@Transient`
+  /// body property there, so it is outside Kotlin's `equals` / `copy` /
+  /// serialization exactly as it is outside Swift's `==` and `Codable`.
+  /// Carrying it across is what keeps the `TurnRecord.rawOutput` audit column
+  /// (ADR-015) populated on the Kotlin run path (S5-5, ADR-023 §6, #501).
   nonisolated init(shared: PasturaSharedEngine.TurnOutput) {
-    self.init(fields: shared.fields, rawText: nil)
+    self.init(fields: shared.fields, rawText: shared.rawText)
   }
 }
 

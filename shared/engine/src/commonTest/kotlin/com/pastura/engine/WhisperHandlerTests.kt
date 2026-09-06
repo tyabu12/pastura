@@ -150,6 +150,32 @@ class WhisperHandlerTests {
         assertTrue(next.lastOutputs.isEmpty())
     }
 
+    @Test
+    fun attributedOutputKeepsTheParserRawTextProvenance() = runTest {
+        // The `whisper_to` attribution goes through `copy()`, which cannot carry a
+        // body property — so `WhisperHandler` re-sets `rawText` by hand. Drop that
+        // `.apply` and every whisper turn persists a null `TurnRecord.rawOutput`.
+        val s = scenario(listOf("Alice", "Bob"))
+        val backend = ScriptedLLMBackend(listOf(stmt("A to B"), stmt("B to A")))
+        val events = mutableListOf<SimulationEvent>()
+        handler.execute(context(s, backend, events), initial(s))
+
+        val outputs = events.filterIsInstance<SimulationEvent.AgentOutput>()
+            .filter { it.phaseType == PhaseType.WHISPER }
+        assertEquals(2, outputs.size)
+        assertEquals("Bob", outputs[0].output.fields["whisper_to"], "attribution survives")
+        // The parser stored the whole scripted response, so this reddens on a null
+        // rawText as well as on a cleaned-up (post-pipeline) one.
+        assertEquals(
+            """{"statement": "A to B", "inner_thought": "t"}""",
+            outputs[0].output.rawText,
+        )
+        assertEquals(
+            """{"statement": "B to A", "inner_thought": "t"}""",
+            outputs[1].output.rawText,
+        )
+    }
+
     // MARK: - Per-participant channels
 
     @Test
