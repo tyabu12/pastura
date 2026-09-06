@@ -1,5 +1,7 @@
 # Shared-Engine Soak Runbook (ADR-023 §6 S5-4)
 
+> **Executed 2026-09-06 — `v1.3+888`, iPhone 16e, PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5559576459)). Decision 6 (iii) is discharged (ADR-004 §12); the S5-5 close-out is issue [#1685](https://github.com/tyabu12/pastura/issues/1685). Kept as the reference procedure — re-run it if a later change reopens the Kotlin run path before S5-5 lands.
+
 > One TestFlight soak cycle for the S5-4 flag-gated Kotlin run path
 > ([#1681](https://github.com/tyabu12/pastura/issues/1681)). This runbook mirrors
 > `docs/qa/h7-symbolication-qa.md` in structure — read that one first if this is your first
@@ -9,7 +11,8 @@
 
 S5-4 landed a Debug/TestFlight-only toggle (`FeatureFlags.sharedEngineEnabled`, Settings ›
 Diagnostics) that selects the Kotlin `PasturaSharedEngine` run path for **fresh** simulation runs.
-Before Decision 6 (iii) can discharge, one operator soak cycle on a real TestFlight build must
+Decision 6 (iii) discharged on one operator soak cycle run against a real TestFlight build
+(done 2026-09-06 — see the banner above). That cycle must
 exercise the Kotlin engine end to end — including pause/resume, backgrounding, and an app-kill
 mid-run — and confirm the `ja` localization surface renders through the Kotlin `appleMain` actual
 rather than falling back to its key. This is an operator cycle: nothing here runs unattended, and
@@ -57,7 +60,7 @@ nothing here is checked by CI.
    - `last_fable.yaml` — exercises `event_inject` on a different scenario shape.
    - `prisoners_dilemma.yaml` — the only preset exercising `pairing` + the ADR-027
      `pairwise_payoff` scoring logic.
-5. **Pause/resume cycle.** On one of the three runs above, pause mid-run and resume — confirm it
+5. **Pause/resume cycle.** On one of the runs above, pause mid-run and resume — confirm it
    continues on the Kotlin engine and completes.
 6. **Background cycle.** On another run, lock the screen (or switch to another app) mid-run and
    return after at least 30 seconds — confirm the run resumes and completes.
@@ -78,6 +81,8 @@ nothing here is checked by CI.
     - The App Store Connect crash-view check result.
 
 ## Follow-up PR after the cycle
+
+*Done for the 2026-09-06 cycle — this is the checklist that PR worked from.*
 
 Once the soak evidence is on #501:
 
