@@ -36,6 +36,28 @@ import kotlinx.serialization.Serializable
 public data class OutputSchema(
     public val fields: List<Field>,
 ) {
+    /**
+     * The declared private-thought (secondary) field name for this schema, or
+     * `null` if it declares none. Picks the schema's secondary field in
+     * [knownSecondaryKeys] priority order (`inner_thought` before `reason`).
+     * Real scenarios author exactly one secondary key per phase (speak →
+     * `inner_thought`, vote → `reason`), so the order only disambiguates the
+     * degenerate both-present case.
+     *
+     * Consumed by `LLMCaller` to feed `PartialOutputExtractor` the phase's
+     * thought key, so the live streaming THINKING section surfaces the vote
+     * `reason` (not only `inner_thought`) — the Kotlin twin of #609. A computed
+     * getter, not a constructor property, so it stays off the serialized wire
+     * shape the Swift golden-parity fixtures pin.
+     *
+     * Swift original: `OutputSchema.thoughtFieldName`.
+     */
+    public val thoughtFieldName: String?
+        get() {
+            val declared = fields.mapTo(HashSet()) { it.name }
+            return knownSecondaryKeys.firstOrNull { it in declared }
+        }
+
     public companion object {
         /**
          * Known primary-output field names, in the order they should appear in
