@@ -7,8 +7,14 @@ import SwiftUI
 // extension needs no `nonisolated` annotation.
 //
 // Sunset (ADR-023 §6 S5-5): the Diagnostics section, its state
-// (`isH7ProbeRevealed`, `versionTapCount`, `isShowingH7CrashConfirm`),
-// `FeatureFlags.h7CrashProbeEnabled`,
+// (`isH7ProbeRevealed`, `versionTapCount`, `isShowingH7CrashConfirm`,
+// `isSharedEngineEnabled` and its `.onChange` in `SettingsView`),
+// `FeatureFlags.h7CrashProbeEnabled`, `FeatureFlags.sharedEngineEnabled`
+// (the S5-4 engine switch, whose default flips at S5-5),
+// `SharedEngineDiagnostics` + `SharedEngineDiagnosticsTests` (after which
+// `SharedEngineRunner.renderedValidationMessage(for:)` can go back to
+// `private`), the three S5-4 catalog keys (`Run simulations on the shared
+// engine`, `New runs use the Kotlin engine. …`, `Shared engine says: %@`),
 // and `H7CrashTrigger` are deleted together with the Kotlin `H7CrashProbe`.
 // The About section and its version row stay — the 5-tap gesture host is
 // removed, not the row itself.
@@ -78,6 +84,45 @@ extension SettingsView {
     if isSandboxOrDebug && isH7ProbeRevealed {
       PasturaSection(String(localized: "Diagnostics"), style: .grouped) {
         VStack(alignment: .leading, spacing: 7) {
+          // Label-closure form per the i18n convenience-init convention
+          // (`.claude/rules/i18n-ui.md`).
+          Toggle(isOn: $isSharedEngineEnabled) {
+            VStack(alignment: .leading, spacing: 3) {
+              Text(String(localized: "Run simulations on the shared engine"))
+                .foregroundStyle(Color.ink)
+              Text(
+                String(
+                  localized:
+                    "New runs use the Kotlin engine. Resuming a paused run always uses the Swift engine."
+                )
+              )
+              .font(.caption)
+              .foregroundStyle(Color.inkSecondary)
+            }
+          }
+          .tint(Color.link)
+          .padding(.horizontal, 17)
+          .padding(.vertical, 13)
+          .accessibilityIdentifier("settings.sharedEngineToggle")
+
+          // The S5-4 `ja` acceptance row: on a `ja` device this must render
+          // the Kotlin-rendered message in Japanese
+          // (`SharedEngineDiagnostics.sampleRenderedMessage()`'s doc comment
+          // has the why).
+          Text(
+            String(
+              format: String(localized: "Shared engine says: %@"),
+              // Read through `App/KMP/` (cached there) rather than importing
+              // `PasturaSharedEngine` here — the umbrella is `App/`-only
+              // (CLAUDE.md § Dependency Rules).
+              SharedEngineDiagnostics.cachedSampleRenderedMessage
+            )
+          )
+          .font(.caption)
+          .foregroundStyle(Color.inkSecondary)
+          .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
+          .accessibilityIdentifier("settings.sharedEngineSampleMessage")
+
           Text(
             String(
               localized:

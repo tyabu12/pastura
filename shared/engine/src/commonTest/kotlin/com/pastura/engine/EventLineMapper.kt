@@ -55,9 +55,10 @@ internal object EventLineMapper {
         val payload: Map<String, JsonElement> = when (event) {
             // Redundant with the final `AgentOutput` and orders of magnitude
             // larger; the Swift original skips it for the same reason. Both
-            // engines emit it, with payloads that differ by construction —
-            // Swift runs a partial-output extractor over each chunk, Kotlin
-            // forwards raw text — so it could not be compared even if kept.
+            // engines now run the same partial-output extractor per chunk, but
+            // the snapshot sequence still tracks the backend's chunking — a
+            // per-backend, non-deterministic boundary — so it could not be
+            // compared even if kept.
             is SimulationEvent.AgentOutputStream -> return null
             // Internal resume-persistence snapshot (a whole SimulationState),
             // not part of the transcript surface.

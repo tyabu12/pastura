@@ -37,7 +37,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  *
  * | Absent | Why |
  * |---|---|
- * | `PartialOutputExtractor` | the type landed in PR-3 (#501 Stage 3), but this slice does not consume it yet — snapshots still carry raw accumulated text; wiring is deferred to a later Wave B step (see [emitSnapshot]) |
  * | `StreamFailure` taxonomy + ADR-021 D3 classification | named Stage-3 freight; [TerminalStatus.Failed] maps straight to [SimulationError.LlmGenerationFailed] |
  *
  * Swift original: `Pastura/Pastura/Engine/LLMCaller.swift` (+ its sibling
@@ -53,6 +52,7 @@ internal class LLMCaller(
     private val parser: JSONResponseParser = JSONResponseParser(),
     private val logger: EngineLogger = NoopEngineLogger(),
 ) {
+    private val extractor = PartialOutputExtractor()
 
     companion object {
         /**
@@ -271,6 +271,11 @@ internal class LLMCaller(
         agentName: String,
         emitter: (SimulationEvent) -> Unit,
     ): Pair<StreamResult, TerminalStatus> = suspendCancellableCoroutine { continuation ->
+        // Surface the phase's private-thought field in the live snapshot: vote
+        // streams `reason`, speak/choose stream `inner_thought`. Derived from the
+        // schema so the streaming THINKING section matches the committed-display
+        // resolver (`TurnOutput.secondaryText(for:)` on the Swift side) — #609.
+        val thoughtKey = request.schema?.thoughtFieldName ?: PartialOutputExtractor.thoughtKey
         val callbacks = object : StreamCallbacks {
             private val accumulated = StringBuilder()
             private var tokens: Int? = null
@@ -283,7 +288,7 @@ internal class LLMCaller(
                 if (!continuation.isActive) return
                 if (delta.isNotEmpty()) {
                     accumulated.append(delta)
-                    emitSnapshot(agentName, accumulated.toString(), emitter)
+                    emitSnapshot(agentName, accumulated.toString(), thoughtKey, emitter)
                 }
                 // Only the final chunk carries a token count (the §5.2 contract), so
                 // a non-final chunk's null must not clobber it.
@@ -310,24 +315,32 @@ internal class LLMCaller(
     }
 
     /**
-     * Emit a live progress snapshot.
+     * Emit a live progress snapshot: the [PartialOutputExtractor] split of the
+     * accumulated buffer, never the raw buffer itself.
      *
-     * **Carries RAW accumulated text, not an extracted primary/thought split.**
-     * `PartialOutputExtractor` — which computes that split — landed in PR-3
-     * (ADR-023 §6 Stage 3) but is not consumed here yet. The event is still
-     * emitted per chunk on purpose: it is
-     * the highest-frequency Kotlin->Swift crossing, and §6 measurement (i)/(ii)
-     * measure exactly that boundary at realistic token rates. Dropping it would
-     * leave the gate measuring the event boundary at ~3 crossings per turn instead
-     * of the real 10-50/s, biasing a GO optimistic.
-     *
-     * `thought` is null rather than guessed: a wrong split would be worse than an
-     * honest absence, and PR-C's consumer only counts and times these.
+     * Emitted once per non-empty chunk **even while both halves are still null**
+     * (no primary key yet, or an unclosed thinking tag). That keeps this — the
+     * highest-frequency Kotlin->Swift crossing — at the real 10-50/s the §6
+     * measurements were taken at; the consumer drops a null primary and keeps its
+     * thinking indicator, exactly as it does for the Swift engine's snapshots.
+     * The Stage-2 gate slice forwarded the raw buffer here; the S5-4 device QA
+     * saw that raw JSON typed into the live row (#1681), which is what this
+     * wiring fixes.
      */
-    private fun emitSnapshot(agentName: String, raw: String, emitter: (SimulationEvent) -> Unit) {
-        // TODO(#501 Stage 3): `primary` is RAW accumulated text. PartialOutputExtractor
-        // supplies the real primary/thought split — do NOT render this to users as-is.
-        emitter(SimulationEvent.AgentOutputStream(agent = agentName, primary = raw, thought = null))
+    private fun emitSnapshot(
+        agentName: String,
+        raw: String,
+        thoughtKey: String,
+        emitter: (SimulationEvent) -> Unit,
+    ) {
+        val snapshot = extractor.extract(raw, thoughtKey)
+        emitter(
+            SimulationEvent.AgentOutputStream(
+                agent = agentName,
+                primary = snapshot.primary,
+                thought = snapshot.thought,
+            ),
+        )
     }
 
     private fun emitInferenceCompleted(

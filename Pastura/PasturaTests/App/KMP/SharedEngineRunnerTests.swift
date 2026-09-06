@@ -90,7 +90,88 @@ struct SharedEngineRunnerTests {
     box.cancel()
     box.store(handle)
 
-    #expect(handle.log == ["resume", "cancel"])
+    #expect(handle.log == ["llmResume", "cancel"])
+  }
+
+  // MARK: - RunHandleBox — the pause latch
+
+  @Test("a pause arriving before the handle is replayed, not dropped")
+  func pauseBeforeStoreIsReplayed() {
+    // Reachable from the UI: the user taps pause while the model is still
+    // loading, so `requestPause()` lands between `engine.run` launching the run
+    // loop and `store` handing the handle over. Dropping it would let the run
+    // walk past the very checkpoint the UI already shows as paused.
+    let box = RunHandleBox()
+    let handle = RecordingRunHandle()
+
+    box.requestPause()
+    #expect(handle.pauses == 0, "nothing to deliver to yet")
+
+    box.store(handle)
+    #expect(handle.pauses == 1, "the latched pause must fire on store")
+    #expect(handle.unpauses == 0, "a replayed pause must not be followed by an unpause")
+  }
+
+  @Test("a pause released before the handle arrives is not replayed")
+  func pauseReleasedBeforeStoreIsNotReplayed() {
+    // Pause then resume inside the pre-`store` window is a round trip to the
+    // same state, so the correct replay is *nothing* — replaying the pause
+    // would park a run the user has already un-paused.
+    let box = RunHandleBox()
+    let handle = RecordingRunHandle()
+
+    box.requestPause()
+    box.releasePause()
+    box.store(handle)
+
+    #expect(handle.log.isEmpty, "a pause released before the handle must leave no trace")
+  }
+
+  @Test("pause and resume arriving after the handle go straight through")
+  func pauseSignalsAfterStorePassThrough() {
+    let box = RunHandleBox()
+    let handle = RecordingRunHandle()
+
+    box.store(handle)
+    box.requestPause()
+    box.releasePause()
+
+    #expect(handle.log == ["pause", "unpause"])
+  }
+
+  @Test("all three signals latched together are replayed pause-resume-cancel")
+  func allThreeLatchedReplayInOrder() {
+    // `store(_:)` documents this ordering. Pause goes first so a run paused
+    // before its handle existed stops at its first checkpoint rather than at
+    // whichever one it happened to reach; cancel goes last so a run cancelled
+    // while parked is released before it is torn down.
+    let box = RunHandleBox()
+    let handle = RecordingRunHandle()
+
+    box.requestPause()
+    box.notifyResumed()
+    box.cancel()
+    box.store(handle)
+
+    #expect(handle.log == ["pause", "llmResume", "cancel"])
+  }
+
+  // MARK: - SharedEngineRunner — pause with no active run
+
+  @Test("pause and resume with no active run are no-ops, not traps")
+  func pauseWithNoActiveRunIsANoOp() {
+    // `SimulationViewModel` may flip its pause flag between runs — nothing ties
+    // a tap to a live Kotlin run — so the runner has to absorb both signals
+    // while its box slot is empty.
+    let runner = SharedEngineRunner()
+
+    runner.pause()
+    runner.resume()
+
+    // Reaching here at all is the assertion: a force-unwrap or a precondition
+    // on the empty slot would have trapped above. The trailing pause proves the
+    // no-op left behind no latched state a later call could trip over.
+    runner.pause()
   }
 
   // MARK: - RelayTaskBox — the terminated flag
@@ -187,7 +268,13 @@ struct SharedEngineRunnerTests {
 }
 
 /// Records what the latch delivers, **in order** — counts alone cannot express
-/// `store(_:)`'s resume-before-cancel replay claim.
+/// `store(_:)`'s pause-then-resume-then-cancel replay claim.
+///
+/// The recorded names deliberately avoid reusing "resume" for two unrelated
+/// signals. `RunHandle` exports both `resume()` — the *unpause* half of
+/// cooperative pause control — and `notifyLLMResumed()` — the §5.2 suspension
+/// relay's wakeup. An assertion reading `["resume", …]` could not say which
+/// one fired, so they log as `"unpause"` and `"llmResume"`.
 ///
 /// Plain `Sendable`, not `@unchecked`: the only stored property is a `let
 /// Mutex`, so the compiler can check it. `@unchecked` here would silently
@@ -195,16 +282,18 @@ struct SharedEngineRunnerTests {
 nonisolated private final class RecordingRunHandle: RunHandle, Sendable {
   private let calls = Mutex<[String]>([])
 
-  /// Delivery order, e.g. `["resume", "cancel"]`.
+  /// Delivery order, e.g. `["pause", "llmResume", "cancel"]`.
   var log: [String] { calls.withLock { $0 } }
 
-  var resumeSignals: Int { log.filter { $0 == "resume" }.count }
+  var pauses: Int { log.filter { $0 == "pause" }.count }
+  var unpauses: Int { log.filter { $0 == "unpause" }.count }
+  var resumeSignals: Int { log.filter { $0 == "llmResume" }.count }
   var cancels: Int { log.filter { $0 == "cancel" }.count }
 
-  func pause() {}
-  func resume() {}
+  func pause() { calls.withLock { $0.append("pause") } }
+  func resume() { calls.withLock { $0.append("unpause") } }
   func cancel() { calls.withLock { $0.append("cancel") } }
-  func notifyLLMResumed() { calls.withLock { $0.append("resume") } }
+  func notifyLLMResumed() { calls.withLock { $0.append("llmResume") } }
 }
 
 /// Decorates a ``MockLLMService`` with the two observations the mock itself

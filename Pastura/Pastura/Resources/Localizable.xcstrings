@@ -4613,6 +4613,16 @@
         }
       }
     },
+    "New runs use the Kotlin engine. Resuming a paused run always uses the Swift engine." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しい実行は Kotlin エンジンを使います。一時停止した実行の再開は常に Swift エンジンです。"
+          }
+        }
+      }
+    },
     "Next demo: %@" : {
       "localizations" : {
         "ja" : {
@@ -6089,6 +6099,16 @@
         }
       }
     },
+    "Run simulations on the shared engine" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有エンジンでシミュレーションを実行"
+          }
+        }
+      }
+    },
     "Running" : {
       "localizations" : {
         "en" : {
@@ -6614,6 +6634,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "その他で共有…"
+          }
+        }
+      }
+    },
+    "Shared engine says: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有エンジンの出力: %@"
           }
         }
       }
@@ -7229,6 +7259,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "投票の裏にある理由（心の声）"
+          }
+        }
+      }
+    },
+    "The shared engine ended without a result." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有エンジンが結果を返さずに終了しました。"
           }
         }
       }

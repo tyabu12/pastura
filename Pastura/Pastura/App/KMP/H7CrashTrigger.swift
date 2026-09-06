@@ -5,9 +5,9 @@ import PasturaSharedEngine
 /// crash report can prove the Kotlin/Native dSYM symbolication path works
 /// (ADR-004 §9.2 H7).
 ///
-/// This is the first `App/KMP/` symbol reachable from the app's run path
-/// before S5-4 flips the engine switch — everything else under this directory
-/// is compiled but never called. It is a diagnostics-only path, gated twice at
+/// This was the first `App/KMP/` symbol reachable from the app's run path;
+/// since S5-4 (#1681) the rest of this directory is reached behind
+/// `FeatureFlags.sharedEngineEnabled`. It is a diagnostics-only path, gated twice at
 /// its single call site: `BuildChannel.resolveIsSandboxOrDebug()` (channel hint) **and**
 /// `FeatureFlags.h7CrashProbeEnabled` (explicit opt-in), because the channel
 /// hint alone also fires under App Review.

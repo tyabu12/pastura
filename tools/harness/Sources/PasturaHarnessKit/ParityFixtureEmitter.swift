@@ -19,10 +19,11 @@ import Synchronization
 /// as parameters rather than reading a clock, so pinning both to zero removes
 /// every timestamp and identity source from the transcript. The two events the
 /// mapper drops are dropped for cause, not convenience: both engines emit
-/// `agentOutputStream` with payloads that differ by construction (Swift runs a
-/// partial-output extractor over each chunk, Kotlin forwards the raw text), and
-/// both emit `roundCheckpoint` carrying a full `SimulationState` whose parity
-/// the Models rung already covers.
+/// `agentOutputStream` whose snapshot sequence tracks the backend's chunking
+/// (a per-backend, non-deterministic boundary, even though both engines now
+/// run the same partial-output extractor per chunk), and both emit
+/// `roundCheckpoint` carrying a full `SimulationState` whose parity the Models
+/// rung already covers.
 ///
 /// **Why the scenario crosses as JSON.** `ScenarioLoader` has no Kotlin port
 /// yet (ADR-023 Stage 3), so re-parsing the YAML on the Kotlin side would

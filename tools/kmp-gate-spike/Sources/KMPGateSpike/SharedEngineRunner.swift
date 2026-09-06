@@ -73,6 +73,14 @@ nonisolated public final class SharedEngineRunner: Sendable {
   private let engine: SimulationEngine
   private let suspendController: SuspendController
 
+  // The active run's handle box, so `pause()` / `resume()` can reach a run this
+  // object did not hand back to its caller — `run` returns a stream, never a
+  // handle, and the App-facing surface (`SimulationViewModel`) drives pause off
+  // the runner itself. One box per run as before: this only names the current
+  // one. A `Mutex` rather than a bare `var` is what keeps the type's plain
+  // `Sendable` conformance checkable instead of `@unchecked`.
+  private let activeHandleBox = Mutex<RunHandleBox?>(nil)
+
   /// - Parameters:
   ///   - suspendController: The controller the platform signals on
   ///     app-lifecycle suspend/resume. Ownership sits on the Swift side per
@@ -113,6 +121,11 @@ nonisolated public final class SharedEngineRunner: Sendable {
     AsyncStream { continuation in
       let handleBox = RunHandleBox()
       let relayBox = RelayTaskBox()
+      // Published before `engine.run` so a `pause()` landing in the pre-`store`
+      // window reaches the box that will replay it, rather than a nil slot that
+      // would swallow it. (`AsyncStream`'s build closure runs eagerly, so this
+      // is set by the time `run` returns.)
+      activeHandleBox.withLock { $0 = handleBox }
 
       // The engine needs the backend before it can hand back a handle, but the
       // relay needs the handle to call `notifyLLMResumed()`. The box closes
@@ -139,13 +152,22 @@ nonisolated public final class SharedEngineRunner: Sendable {
       // lines below and hitting `continuation.finish()` on an immediate
       // terminal, while both boxes are still empty. (Consumer termination is
       // the dominant trigger *after* `run` returns — see `RelayTaskBox`.)
-      continuation.onTermination = { _ in
+      // `[self]` because the slot is cleared here: `Mutex` is non-copyable, so
+      // it cannot be captured as a local the way `handleBox` / `relayBox` are.
+      // No cycle — the runner does not own the continuation.
+      continuation.onTermination = { [self] _ in
         // Fires on normal finish AND on early consumer termination. `cancel()`
         // is idempotent, so the normal path costs a no-op rather than needing
         // a "did it already finish?" flag. Both calls latch when they land
         // before the thing they cancel exists.
         handleBox.cancel()
         relayBox.cancelPending()
+        // Clear only if this run is still the current one: a caller that
+        // started a replacement run before this one's teardown fired would
+        // otherwise have its new box unpublished, leaving `pause()` inert.
+        activeHandleBox.withLock { current in
+          if current === handleBox { current = nil }
+        }
       }
 
       let handle = engine.run(scenario: scenario, backend: relayingBackend) { event in
@@ -163,6 +185,31 @@ nonisolated public final class SharedEngineRunner: Sendable {
       handleBox.store(handle)
     }
   }
+
+  /// Requests that the active run stop at its next checkpoint.
+  ///
+  /// **Cooperative and coarse**, mirroring Swift `SimulationRunner.isPaused`:
+  /// Kotlin honours the request at round / phase boundaries, so an inference
+  /// already in flight finishes first and the run halts *after* it. The Kotlin
+  /// runner emits `SimulationEvent.SimulationPaused` exactly once per pause
+  /// cycle, which is the observable confirmation — not this call returning.
+  ///
+  /// Latches through ``RunHandleBox`` when the handle has not arrived yet, so a
+  /// tap during model load is honoured at the run's first checkpoint rather
+  /// than dropped.
+  ///
+  /// **A `pause()` with no active run is a no-op.** `SimulationViewModel` owns
+  /// the pause flag across a whole session and may flip it between runs; there
+  /// is nothing to latch onto then, and the next run starts unpaused.
+  public func pause() {
+    activeHandleBox.withLock { $0 }?.requestPause()
+  }
+
+  /// Releases a pause requested by ``pause()``. Idempotent, and a no-op when no
+  /// run is active — see ``pause()`` for both.
+  public func resume() {
+    activeHandleBox.withLock { $0 }?.releasePause()
+  }
 }
 
 /// Holds the `RunHandle` the engine returns, so the relay and the termination
@@ -172,8 +219,12 @@ nonisolated public final class SharedEngineRunner: Sendable {
 /// The latch is not defensive padding. `SimulationEngine.run` launches the run
 /// loop on `Dispatchers.Default` *before* returning the handle, so there is a
 /// real window in which the engine is running while this box is still empty. A
-/// resume dropped in that window parks the run forever, and a cancel dropped in
-/// it leaks the Kotlin coroutine. Both are replayed on `store`.
+/// resume dropped in that window parks the run forever, a cancel dropped in it
+/// leaks the Kotlin coroutine, and a **pause** dropped in it lets the run walk
+/// past the boundary the UI is already showing as paused — the user taps pause
+/// during model load, the tap lands between `engine.run` and `store`, and the
+/// run keeps producing turns behind a paused-looking screen. All three are
+/// replayed on `store`.
 ///
 /// `@unchecked Sendable`: all state is guarded by the mutex, and the Kotlin
 /// handle's own methods are documented idempotent and thread-safe.
@@ -192,30 +243,77 @@ nonisolated final class RunHandleBox: @unchecked Sendable {
 
   private struct State: @unchecked Sendable {
     var handle: Boxed?
+    var pendingPause = false
     var pendingResume = false
     var pendingCancel = false
   }
 
   private let storage = Mutex(State())
 
+  // A struct rather than a 3-tuple: SwiftLint's `large_tuple` caps tuples at
+  // two members. The spike runs no lint of its own; this keeps the twin
+  // byte-comparable with the app copy.
+  private struct PendingSignals {
+    var pause = false
+    var resume = false
+    var cancel = false
+  }
+
   /// Stores the handle and replays anything that arrived before it.
   ///
-  /// When both were latched, cancel is replayed after resume so a run cancelled
-  /// while parked is first released and then torn down. This orders the *replay*
-  /// only — a live `cancel()` racing this method can still land before the
-  /// replayed `notifyLLMResumed()`. That is harmless (a resume on a cancelled
-  /// `Job` is a no-op), and no stronger guarantee is claimed.
+  /// Replay order is pause → resume → cancel. Pause first, so a run paused
+  /// before its handle existed halts at its *first* checkpoint rather than at
+  /// whichever one it happened to reach while this box was empty; cancel last,
+  /// so a run cancelled while parked is released and then torn down. This
+  /// orders the *replay* only — a live `cancel()` racing this method can still
+  /// land before the replayed `notifyLLMResumed()`. That is harmless (a resume
+  /// on a cancelled `Job` is a no-op), and no stronger guarantee is claimed.
   func store(_ handle: any RunHandle) {
     let boxed = Boxed(value: handle)
-    let pending: (resume: Bool, cancel: Bool) = storage.withLock { state in
+    let pending: PendingSignals = storage.withLock { state in
       state.handle = boxed
-      let carried = (state.pendingResume, state.pendingCancel)
+      let carried = PendingSignals(
+        pause: state.pendingPause, resume: state.pendingResume, cancel: state.pendingCancel)
+      state.pendingPause = false
       state.pendingResume = false
       state.pendingCancel = false
+      // Pause is replayed INSIDE the lock, unlike the two below: a
+      // `releasePause()` landing between publishing the handle and this
+      // replay would otherwise `resume()` first and be undone by the replayed
+      // `pause()`, parking the run behind a running-looking UI with the latch
+      // already drained. `RunHandle.pause()` is documented thread-safe and
+      // non-blocking, so holding the mutex across it is safe. The resume /
+      // cancel pair stays outside — their race is benign (see the doc comment).
+      if carried.pause { handle.pause() }
       return carried
     }
     if pending.resume { handle.notifyLLMResumed() }
     if pending.cancel { handle.cancel() }
+  }
+
+  /// Requests a cooperative pause, latching if the handle has not arrived yet.
+  ///
+  /// Distinct from ``notifyResumed()``'s signal despite the neighbouring names:
+  /// this pair drives `RunHandle.pause()` / `resume()`, the round/phase-boundary
+  /// halt, while `notifyResumed` drives `notifyLLMResumed()`, the ADR-023 §5.2
+  /// app-lifecycle suspension relay.
+  func requestPause() {
+    let handle: Boxed? = storage.withLock { state in
+      if state.handle == nil { state.pendingPause = true }
+      return state.handle
+    }
+    handle?.value.pause()
+  }
+
+  /// Releases a pause. With no handle yet this *clears* the latch rather than
+  /// setting one: a pause requested and released inside the pre-`store` window
+  /// is a round trip to the same state, so nothing should be replayed.
+  func releasePause() {
+    let handle: Boxed? = storage.withLock { state in
+      if state.handle == nil { state.pendingPause = false }
+      return state.handle
+    }
+    handle?.value.resume()
   }
 
   /// Releases a parked inference, latching if the handle has not arrived yet.

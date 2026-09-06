@@ -20,6 +20,54 @@ class OutputSchemaSerializationTests {
 
     private val json = Json { ignoreUnknownKeys = true }
 
+    // ── thoughtFieldName ────────────────────────────────────────────────────
+
+    @Test
+    fun thoughtFieldNamePicksTheDeclaredSecondaryKey() {
+        val speak = OutputSchema(
+            listOf(
+                OutputSchema.Field("statement", OutputSchema.Kind.StringKind),
+                OutputSchema.Field("inner_thought", OutputSchema.Kind.StringKind),
+            ),
+        )
+        assertEquals("inner_thought", speak.thoughtFieldName)
+
+        val vote = OutputSchema(
+            listOf(
+                OutputSchema.Field("vote", OutputSchema.Kind.StringKind),
+                OutputSchema.Field("reason", OutputSchema.Kind.StringKind),
+            ),
+        )
+        assertEquals("reason", vote.thoughtFieldName)
+    }
+
+    @Test
+    fun thoughtFieldNameIsNullWithoutASecondaryKeyAndPrefersInnerThought() {
+        val primaryOnly = OutputSchema(listOf(OutputSchema.Field("statement", OutputSchema.Kind.StringKind)))
+        assertNull(primaryOnly.thoughtFieldName)
+
+        // Degenerate both-present case: knownSecondaryKeys order decides.
+        val both = OutputSchema(
+            listOf(
+                OutputSchema.Field("statement", OutputSchema.Kind.StringKind),
+                OutputSchema.Field("reason", OutputSchema.Kind.StringKind),
+                OutputSchema.Field("inner_thought", OutputSchema.Kind.StringKind),
+            ),
+        )
+        assertEquals("inner_thought", both.thoughtFieldName)
+    }
+
+    @Test
+    fun thoughtFieldNameStaysOffTheWire() {
+        val schema = OutputSchema(
+            listOf(
+                OutputSchema.Field("vote", OutputSchema.Kind.StringKind),
+                OutputSchema.Field("reason", OutputSchema.Kind.StringKind),
+            ),
+        )
+        assertFalse(json.encodeToString(schema).contains("thoughtFieldName"))
+    }
+
     // ── Field / Kind serialization ──────────────────────────────────────────
 
     @Test

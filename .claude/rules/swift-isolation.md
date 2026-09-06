@@ -21,6 +21,14 @@ nonisolated final class LlamaCppService: ... {
 
 Reference: `LLM/LlamaCppService.swift` — `loadModelInternal` and `unloadModel`.
 
+**Sibling-file extensions of a `nonisolated` type re-open this.** `nonisolated` on the type governs
+members declared in its body; an `extension` in another file defaults back to MainActor. With a
+`nonisolated` caller the compiler says so (`docs/swift-isolation-compile-time-patterns.md`
+Pattern 3); with MainActor-only callers it compiles clean and traps (`swift_task_isCurrentExecutor`)
+the moment the body runs off the main actor — an `AsyncStream` build closure, a `Task`. Restate
+`nonisolated` on every member of the extension. Measured 2026-09-05,
+`App/KMP/SharedEngineRunner+AppRunPath.swift`.
+
 ## Pattern 7 — Conforming to an *unannotated* ObjC protocol from a default-MainActor layer
 
 "It's UIKit" does **not** imply MainActor. Many ObjC delegate / data-source protocols are imported **nonisolated**, so the framework may call the witness from any thread. A `Views/` or `App/` type conforming to one inherits default MainActor isolation, which puts an executor precondition on the `@objc` thunk: compiles clean, traps at runtime the first time the framework calls off-main.

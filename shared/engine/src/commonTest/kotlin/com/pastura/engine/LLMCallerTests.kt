@@ -592,20 +592,88 @@ class LLMCallerTests {
     }
 
     @Test
-    fun emitsOneSnapshotPerNonEmptyChunkCarryingRawAccumulatedText() = runTest {
+    fun emitsOneSnapshotPerNonEmptyChunkCarryingTheExtractedPrimary() = runTest {
         // The highest-frequency Kotlin->Swift crossing, and what §6 measurement
-        // (i)/(ii) actually measure. `primary` is RAW accumulated text — the
-        // primary/thought split needs PartialOutputExtractor (Stage 3).
+        // (i)/(ii) actually measure: the count stays one-per-non-empty-chunk even
+        // while the extractor has nothing to show yet. `primary` is the
+        // PartialOutputExtractor split, never the raw buffer — the raw JSON was
+        // what the S5-4 device QA saw typed into the live row (#1681).
         val events = mutableListOf<SimulationEvent>()
         call(ScriptedLLMBackend(listOf(script("""{"stat""", """ement":""", """ "hi"}"""))), events = events)
 
         val snaps = events.filterIsInstance<SimulationEvent.AgentOutputStream>()
-        assertEquals(3, snaps.size)
-        assertEquals("""{"stat""", snaps[0].primary)
-        assertEquals("""{"statement":""", snaps[1].primary)
-        assertEquals("""{"statement": "hi"}""", snaps[2].primary)
-        assertTrue(snaps.all { it.thought == null }, "no extractor in this slice — thought must be honestly null")
+        assertEquals(3, snaps.size, "one crossing per non-empty chunk, null-primary chunks included")
+        assertNull(snaps[0].primary, "no primary key yet — the consumer keeps its thinking indicator")
+        assertNull(snaps[1].primary, "key seen but its opening quote has not arrived")
+        assertEquals("hi", snaps[2].primary)
+        assertTrue(snaps.all { it.thought == null }, "the speak schema's inner_thought never streamed")
         assertTrue(snaps.all { it.agent == "Alice" })
+    }
+
+    @Test
+    fun snapshotsStayEmptyInsideAnUnclosedThinkingTag() = runTest {
+        // Mirrors PartialOutputExtractor's rule 2: nothing is safe to display
+        // while the model is still reasoning, so both halves stay null — but the
+        // crossing still happens (count invariant above).
+        val events = mutableListOf<SimulationEvent>()
+        call(
+            ScriptedLLMBackend(listOf(script("<think>pondering", """</think>{"statement": "yo", "inner_thought": "hm"}"""))),
+            events = events,
+        )
+
+        val snaps = events.filterIsInstance<SimulationEvent.AgentOutputStream>()
+        assertEquals(2, snaps.size)
+        assertNull(snaps[0].primary)
+        assertNull(snaps[0].thought)
+        assertEquals("yo", snaps[1].primary)
+        assertEquals("hm", snaps[1].thought)
+    }
+
+    @Test
+    fun aNullSchemaFallsBackToInnerThoughtForTheSnapshotThoughtKey() = runTest {
+        // The other arm of `request.schema?.thoughtFieldName ?: thoughtKey` —
+        // no constrained decoding at all, as a code-adjacent phase would issue.
+        val events = mutableListOf<SimulationEvent>()
+        call(
+            ScriptedLLMBackend(listOf(script("""{"statement": "yo", "inner_thought": "hm"}"""))),
+            schema = null,
+            events = events,
+        )
+
+        val snap = events.filterIsInstance<SimulationEvent.AgentOutputStream>().single()
+        assertEquals("yo", snap.primary)
+        assertEquals("hm", snap.thought)
+    }
+
+    @Test
+    fun theFallbackThoughtKeyIsOneTheSchemaVocabularyKnows() {
+        // `LLMCaller` streams `PartialOutputExtractor.thoughtKey` whenever the
+        // schema declares no secondary key; if the two modules ever renamed it on
+        // one side only, the caller would stream a key no schema declares, silently.
+        assertTrue(OutputSchema.knownSecondaryKeys.contains(PartialOutputExtractor.thoughtKey))
+    }
+
+    @Test
+    fun voteSnapshotsSourceThoughtFromTheSchemaDeclaredReasonKey() = runTest {
+        // #609 twin: the thought key is `schema.thoughtFieldName`, so a vote phase
+        // streams `reason` into the live THINKING section, not only `inner_thought`.
+        val voteSchema = OutputSchema(
+            listOf(
+                OutputSchema.Field(name = "vote", kind = OutputSchema.Kind.StringKind),
+                OutputSchema.Field(name = "reason", kind = OutputSchema.Kind.StringKind),
+            ),
+        )
+        val events = mutableListOf<SimulationEvent>()
+        call(
+            ScriptedLLMBackend(listOf(script("""{"vote": "Rio", "rea""", """son": "su""", """s"}"""))),
+            schema = voteSchema,
+            phaseType = PhaseType.VOTE,
+            events = events,
+        )
+
+        val snaps = events.filterIsInstance<SimulationEvent.AgentOutputStream>()
+        assertEquals(listOf("Rio", "Rio", "Rio"), snaps.map { it.primary })
+        assertEquals(listOf(null, "su", "sus"), snaps.map { it.thought })
     }
 
     @Test

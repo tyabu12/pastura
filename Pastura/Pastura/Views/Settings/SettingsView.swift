@@ -110,6 +110,13 @@ struct SettingsView: View {
   /// H7 gesture, section, and alert do not exist until StoreKit answers.
   /// Not `private` — read by the `+Diagnostics.swift` sibling extension.
   @State var isSandboxOrDebug = false
+  /// Opt-in: run *fresh* simulations on the Kotlin shared engine (ADR-023 §6
+  /// S5-4, #1681). Mirrors the `FeatureFlags` value at init and persists every
+  /// flip via its setter, so the flag stays the single source of truth. Not
+  /// `private` — bound by the Diagnostics Toggle in the `+Diagnostics.swift`
+  /// sibling extension. Mirrored once at init (same as the other toggles), so
+  /// a `defaults write` against a running dev build shows only after relaunch.
+  @State var isSharedEngineEnabled = FeatureFlags.sharedEngineEnabled
 
   #if !targetEnvironment(simulator)
     // `internal` (not `private`): the device-only helpers in the sibling
@@ -202,6 +209,9 @@ struct SettingsView: View {
     }
     .onChange(of: viewerPredictionEnabled) { _, newValue in
       FeatureFlags.setViewerPredictionEnabled(newValue)
+    }
+    .onChange(of: isSharedEngineEnabled) { _, newValue in
+      FeatureFlags.setSharedEngineEnabled(newValue)
     }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)
