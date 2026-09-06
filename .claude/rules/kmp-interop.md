@@ -17,8 +17,8 @@ lands in both copies in the same PR** — only `SuspendController` has a drift g
 (`tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh`); for the rest this sentence is
 the detector. Since S5-4 (#1681) the Kotlin engine runs **fresh** simulations behind
 `FeatureFlags.sharedEngineEnabled` (a Diagnostics toggle, default off); the Swift `SimulationRunner`
-stays the default run path until S5-5 flips it. `H7CrashTrigger.fire()` remains the S5-3
-diagnostics-only crash probe reached from a double-gated Settings row (deleted in S5-5).
+stays the default run path until S5-5 flips it. The S5-3 H7 crash probe (`H7CrashTrigger.fire()`
+and its double-gated Settings row) was deleted in S5-5.
 `App/KMP/SharedEngineRunner+AppRunPath.swift` and `SimulationEvent+SharedEngine.swift` are
 app-module-only by construction — they name Swift twins the gate spike lacks, so they carry no
 twin-parity obligation. The
@@ -205,14 +205,6 @@ hand-kept**: a new throwing public entry point needs its pin added. `ScenarioCod
 reach `Json.encodeToString`'s throwing path, judged 2026-08-26, and invisible to any KDoc-triggered
 check regardless. That is a reading of today's `Scenario` shape, so revisit it if the schema gains a
 polymorphic field or a non-finite `Double`.
-
-**`H7CrashProbe.crash` is the inverse carve-out (ADR-023 §6 S5-3, until S5-5).** Its whole
-mechanism is the un-annotated throw this pattern warns about — the K/N termination *is* the probe.
-Do not "fix" it with `@Throws`: the Swift call would become a catchable `throws`, `H7CrashTrigger`
-would fall through to its `fatalError`, and the TestFlight crash would carry no Kotlin frame. The
-same gate pins it the other way round (`exportedNonThrowingSelectors` asserts the selector exports
-**without** `error:`), so the regression reddens — but the fix the gate's forward message prescribes
-is the wrong one here; read the KDoc on `H7CrashProbe` first.
 
 ## Pattern 6 — a Kotlin throw's `localizedDescription` is the exception text, not the rendered message
 

@@ -9,12 +9,8 @@ import StoreKit
 /// what **App Review** and a locally-signed Release build see. So
 /// ``resolveIsSandboxOrDebug()`` must never be the only gate on a destructive
 /// or embarrassing diagnostic: pair it with an explicit opt-in `FeatureFlags`
-/// key (the ADR-023 §6 S5-3 H7 crash probe gates on the resolved hint `&&
-/// FeatureFlags.h7CrashProbeEnabled` for exactly this reason). The pair
-/// narrows *accidental* discovery — the reveal gesture flips the opt-in
-/// itself, so it is not defence in depth against a reviewer who taps the
-/// version row five times; the probe's deletion before the next App Store
-/// submission (ADR-023 §6 S5-5) is what closes that.
+/// key (the Settings Diagnostics section gates on the resolved hint plus its
+/// own opt-in flag for exactly this reason).
 ///
 /// StoreKit 2 (`AppTransaction.shared`) is the primary signal rather than
 /// `Bundle.main.appStoreReceiptURL`: the receipt URL is deprecated from iOS
@@ -28,13 +24,13 @@ import StoreKit
 /// **The receipt name is the fallback when StoreKit throws** (#1677): the
 /// v1.3+885 TestFlight install failed `AppTransaction.shared` with
 /// `SKInternalErrorDomain Code=13` (its own UserInfo saying
-/// `client-environment-type=Sandbox`), which left the H7 gesture unattached
-/// and the S5-3 cycle blocked. `sandboxReceipt` is what TestFlight, App
-/// Review, and a locally-signed Release build carry; an App Store install
-/// carries `receipt`, so the safe default survives. App Review resolves
-/// `.sandbox` on the StoreKit path and `sandboxReceipt` on the fallback, so
-/// the reveal gesture is reachable there either way — the opt-in flag plus
-/// the S5-5 deletion, not the channel hint, are what keep the probe out of a
+/// `client-environment-type=Sandbox`), which left the Diagnostics section
+/// unreachable there. `sandboxReceipt` is what TestFlight, App Review, and a
+/// locally-signed Release build carry; an App Store install carries
+/// `receipt`, so the safe default survives. App Review resolves `.sandbox`
+/// on the StoreKit path and `sandboxReceipt` on the fallback, so the
+/// Diagnostics section is reachable there either way — the opt-in flag, not
+/// the channel hint alone, is what keeps a destructive diagnostic out of a
 /// reviewer's hands. The deprecated API is read only inside ``receiptURL()``
 /// (see its note), and only once StoreKit has already failed.
 ///

@@ -59,31 +59,6 @@ struct FeatureFlagsTests {
     #expect(FeatureFlags.viewerPredictionEnabled == true)
   }
 
-  // MARK: - h7CrashProbeEnabled (ADR-023 §6 S5-3 H7) — opt-in flag (default false)
-
-  private static let h7CrashProbeKey = "h7CrashProbeEnabled"
-
-  @Test func h7CrashProbeDefaultsToFalseWhenUnset() {
-    UserDefaults.standard.removeObject(forKey: Self.h7CrashProbeKey)
-    defer { UserDefaults.standard.removeObject(forKey: Self.h7CrashProbeKey) }
-
-    #expect(
-      FeatureFlags.h7CrashProbeEnabled == false,
-      "the diagnostics row stays hidden until the 5-tap gesture opts in")
-  }
-
-  @Test func h7CrashProbeReflectsPersistedValue() {
-    defer { UserDefaults.standard.removeObject(forKey: Self.h7CrashProbeKey) }
-
-    FeatureFlags.setH7CrashProbeEnabled(true)
-    #expect(FeatureFlags.h7CrashProbeEnabled == true)
-
-    FeatureFlags.setH7CrashProbeEnabled(false)
-    #expect(
-      FeatureFlags.h7CrashProbeEnabled == false,
-      "an explicit off is distinguished from unset and honoured")
-  }
-
   // MARK: - sharedEngineEnabled (ADR-023 §6 S5-4) — opt-in flag (default false)
 
   private static let sharedEngineKey = "sharedEngineEnabled"

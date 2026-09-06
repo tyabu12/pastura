@@ -1,31 +1,26 @@
 import SwiftUI
 
-// About section (app name + version, hosting the hidden H7-probe-reveal
-// gesture) and the Diagnostics section (ADR-023 §6 S5-3 H7) for
+// About section (app name + version) and the Diagnostics section for
 // `SettingsView`. Split into this sibling to keep `SettingsView` under the
 // file_length cap. `SettingsView` is a default-MainActor View, so this
 // extension needs no `nonisolated` annotation.
 //
-// Sunset (ADR-023 §6 S5-5): the Diagnostics section, its state
-// (`isH7ProbeRevealed`, `versionTapCount`, `isShowingH7CrashConfirm`,
-// `isSharedEngineEnabled` and its `.onChange` in `SettingsView`),
-// `FeatureFlags.h7CrashProbeEnabled`, `FeatureFlags.sharedEngineEnabled`
-// (the S5-4 engine switch, whose default flips at S5-5),
-// `SharedEngineDiagnostics` + `SharedEngineDiagnosticsTests` (after which
-// `SharedEngineRunner.renderedValidationMessage(for:)` can go back to
-// `private`), the three S5-4 catalog keys (`Run simulations on the shared
-// engine`, `New runs use the Kotlin engine. …`, `Shared engine says: %@`),
-// and `H7CrashTrigger` are deleted together with the Kotlin `H7CrashProbe`.
-// The About section and its version row stay — the 5-tap gesture host is
-// removed, not the row itself.
+// The S5-3 H7 crash probe (its reveal gesture, confirmation alert, and
+// crash button) was deleted in S5-5 together with the Kotlin
+// `H7CrashProbe`. The Diagnostics section is now gated solely on
+// `isSandboxOrDebug`.
+//
+// Sunset (still pending, tracked separately from H7): `isSharedEngineEnabled`
+// and its `.onChange` in `SettingsView`, `FeatureFlags.sharedEngineEnabled`
+// (the S5-4 engine switch, whose default flips at S5-5), the Diagnostics
+// section itself, `SharedEngineDiagnostics` + `SharedEngineDiagnosticsTests`
+// (after which `SharedEngineRunner.renderedValidationMessage(for:)` can go
+// back to `private`), and the three S5-4 catalog keys (`Run simulations on
+// the shared engine`, `New runs use the Kotlin engine. …`, `Shared engine
+// says: %@`). The About section and its version row stay.
 
 extension SettingsView {
-  /// App-identity row: name + version, e.g. "Pastura" / "1.2 (826)". Also
-  /// hosts the hidden 5-tap reveal gesture for the Diagnostics section
-  /// (TestFlight users have no shell to run `defaults write` from, so this
-  /// is the only flip path there) — the tap counter itself only exists on a
-  /// `isSandboxOrDebug` build, so an App Store install carries no gesture at
-  /// all, not merely a no-op one.
+  /// App-identity row: name + version, e.g. "Pastura" / "1.2 (826)".
   ///
   /// Not `private`: `private` is file-scoped, and `SettingsView.body` lives
   /// in the sibling file.
@@ -45,13 +40,6 @@ extension SettingsView {
       .padding(.vertical, 15)
       .contentShape(Rectangle())
       .accessibilityIdentifier("settings.versionRow")
-      .modifier(
-        H7RevealGestureModifier(
-          channelHint: isSandboxOrDebug,
-          tapCount: $versionTapCount,
-          revealed: $isH7ProbeRevealed
-        )
-      )
     }
   }
 
@@ -72,16 +60,15 @@ extension SettingsView {
     return "\(short) (\(build))"
   }
 
-  /// H7 crash-probe section (ADR-023 §6 S5-3, ADR-004 §9.2). Rendered only
-  /// once both the channel hint and the explicit opt-in flag are true — see
-  /// `BuildChannel`'s type-level doc for why the channel hint alone is never
-  /// a sufficient gate.
+  /// Diagnostics section (ADR-004 §9.2). Rendered only on a sandbox/debug
+  /// build — see `BuildChannel`'s type-level doc for why the channel hint
+  /// alone is never a sufficient gate for anything more sensitive than this.
   ///
   /// Not `private`: `private` is file-scoped, and `SettingsView.body` lives
   /// in the sibling file.
   @ViewBuilder
   var diagnosticsSection: some View {
-    if isSandboxOrDebug && isH7ProbeRevealed {
+    if isSandboxOrDebug {
       PasturaSection(String(localized: "Diagnostics"), style: .grouped) {
         VStack(alignment: .leading, spacing: 7) {
           // Label-closure form per the i18n convenience-init convention
@@ -122,101 +109,10 @@ extension SettingsView {
           .foregroundStyle(Color.inkSecondary)
           .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
           .accessibilityIdentifier("settings.sharedEngineSampleMessage")
-
-          Text(
-            String(
-              localized:
-                "This crashes the app on purpose, to verify crash reporting works for the shared engine."
-            )
-          )
-          .font(.caption)
-          .foregroundStyle(Color.inkSecondary)
-          .padding(.horizontal, PasturaCardMetrics.horizontalMargin + 6)
-
-          Button {
-            isShowingH7CrashConfirm = true
-          } label: {
-            HStack {
-              Text(String(localized: "Crash the shared engine"))
-                .foregroundStyle(Color.danger)
-              Spacer()
-            }
-            .padding(.horizontal, 17)
-            .padding(.vertical, 15)
-            .contentShape(Rectangle())
-          }
-          .accessibilityIdentifier("settings.h7CrashButton")
         }
         .padding(.vertical, 8)
       }
     }
   }
 
-}
-
-/// Counts taps on the version row and reveals the Diagnostics section on
-/// the 5th, but only when the build channel hint is true — the counter
-/// itself must not exist on an App Store build path, not merely no-op, so
-/// the gate wraps the gesture rather than sitting inside the tap handler.
-/// The hint is passed in (resolved once by `SettingsView`'s `.task`) because
-/// `BuildChannel` is async under StoreKit 2.
-private struct H7RevealGestureModifier: ViewModifier {
-  let channelHint: Bool
-  @Binding var tapCount: Int
-  @Binding var revealed: Bool
-
-  func body(content: Content) -> some View {
-    if channelHint {
-      content.onTapGesture {
-        tapCount += 1
-        // Exactly the fifth tap: later taps must not keep re-writing the key.
-        if tapCount == 5 {
-          FeatureFlags.setH7CrashProbeEnabled(true)
-          revealed = true
-        }
-      }
-    } else {
-      content
-    }
-  }
-}
-
-/// Extracted `ViewModifier` (mirrors `ClearAllConfirmationModifier`) for the
-/// H7 crash-confirmation alert. `.alert` (not `.confirmationDialog`) for the
-/// same iOS 26 popover-anchor reason as the model-delete confirmation (the
-/// `pendingDelete` alert in `SettingsView.body`) — but deliberately without
-/// that block's `#if !targetEnvironment(simulator)` wrapper: that guard is
-/// model-deletion-specific (device-only model lifecycle), while the
-/// Diagnostics button is reachable on the simulator too. Not `private` —
-/// attached from `SettingsView.body` in the sibling file.
-///
-/// The alert — and with it the only call site of `H7CrashTrigger.fire()` —
-/// is attached only behind the channel gate, by the same mechanism as the
-/// reveal gesture: an App Store build path carries no crash call site at all,
-/// not merely an unreachable one.
-struct H7CrashConfirmationModifier: ViewModifier {
-  let channelHint: Bool
-  @Binding var isPresented: Bool
-
-  @ViewBuilder
-  func body(content: Content) -> some View {
-    if channelHint {
-      gated(content)
-    } else {
-      content
-    }
-  }
-
-  private func gated(_ content: Content) -> some View {
-    content
-      .alert(
-        String(localized: "Crash the app now?"),
-        isPresented: $isPresented
-      ) {
-        Button(String(localized: "Crash"), role: .destructive) {
-          H7CrashTrigger.fire()
-        }
-        Button(String(localized: "Cancel"), role: .cancel) {}
-      }
-  }
 }

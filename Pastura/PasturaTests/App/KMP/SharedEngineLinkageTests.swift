@@ -19,11 +19,4 @@ struct SharedEngineLinkageTests {
     #expect(
       SharedEngineLinkage.objcRuntimeNames == ["PSESimulationEngine", "PSEGenerationRequest"])
   }
-
-  @Test("the S5-3 H7 crash probe links and keeps its PSE prefix")
-  func h7CrashProbeLinks() {
-    // Metatype reference only — calling `H7CrashTrigger.fire()` would
-    // terminate the test process by design (that is the probe).
-    #expect(String(describing: PasturaSharedEngine.H7CrashProbe.self) == "PSEH7CrashProbe")
-  }
 }

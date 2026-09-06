@@ -90,24 +90,9 @@ struct SettingsView: View {
   /// `+PastResults.swift` extension.
   @State var pastResultsByteCount: Int64?
 
-  /// Whether the Diagnostics section (ADR-023 §6 S5-3 H7) is revealed.
-  /// Mirrors `FeatureFlags.h7CrashProbeEnabled` at init so a probe enabled
-  /// via the hidden gesture on a prior launch (or via `defaults write`)
-  /// stays revealed; flipped to `true` directly by the gesture so the
-  /// section appears without relaunch. Not `private` — read/written by the
-  /// `+Diagnostics.swift` sibling extension.
-  @State var isH7ProbeRevealed: Bool = FeatureFlags.h7CrashProbeEnabled
-  /// Hidden 5-tap counter on the About section's version row (ADR-023 §6
-  /// S5-3 H7) — the only flip path on TestFlight, which has no shell to run
-  /// `defaults write` from. Not `private` — read/written by the
-  /// `+Diagnostics.swift` sibling extension.
-  @State var versionTapCount = 0
-  /// Bound to the H7 crash-confirmation `.alert`. Not `private` — read/
-  /// written by the `+Diagnostics.swift` sibling extension.
-  @State var isShowingH7CrashConfirm = false
   /// Resolved channel hint (`BuildChannel.resolveIsSandboxOrDebug()`), loaded
   /// by the `.task` below. Defaults to `false` — the App Store shape — so the
-  /// H7 gesture, section, and alert do not exist until StoreKit answers.
+  /// Diagnostics section does not exist until StoreKit answers.
   /// Not `private` — read by the `+Diagnostics.swift` sibling extension.
   @State var isSandboxOrDebug = false
   /// Opt-in: run *fresh* simulations on the Kotlin shared engine (ADR-023 §6
@@ -189,9 +174,6 @@ struct SettingsView: View {
         }
 
         pastResultsSection
-        // Diagnostics (ADR-023 §6 S5-3 H7) sits just above About so the
-        // reveal gesture's target (the version row, in About) stays the
-        // last row on screen even once Diagnostics appears above it.
         diagnosticsSection
         aboutSection
       }
@@ -225,12 +207,6 @@ struct SettingsView: View {
         isPresented: $isShowingClearAllConfirm,
         error: $clearAllError,
         onConfirm: { await clearAllResults() }
-      )
-    )
-    .modifier(
-      H7CrashConfirmationModifier(
-        channelHint: isSandboxOrDebug,
-        isPresented: $isShowingH7CrashConfirm
       )
     )
     #if !targetEnvironment(simulator)

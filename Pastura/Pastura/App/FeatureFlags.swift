@@ -32,7 +32,6 @@ nonisolated enum FeatureFlags {
   private static let backgroundContinuationKey = "backgroundContinuationEnabled"
   private static let keepRunningOnLeaveKey = "keepRunningOnLeaveEnabled"
   private static let viewerPredictionKey = "viewerPredictionEnabled"
-  private static let h7CrashProbeKey = "h7CrashProbeEnabled"
   private static let sharedEngineKey = "sharedEngineEnabled"
 
   // MARK: - Read accessors
@@ -153,38 +152,6 @@ nonisolated enum FeatureFlags {
     defaultsReadBool(key: viewerPredictionKey, default: true)
   }
 
-  /// Whether the Settings "Diagnostics" row that fires the ADR-023 §6 S5-3 H7
-  /// crash probe is revealed. The row calls `H7CrashTrigger.fire()`, which
-  /// terminates the process through the Kotlin/Native uncaught-exception path
-  /// so a real TestFlight crash report can prove K/N dSYM symbolication works
-  /// (ADR-004 §9.2 H7).
-  ///
-  /// **Opt-in flag — defaults to `false`.** The row's other gate,
-  /// `BuildChannel.resolveIsSandboxOrDebug()`, is only a channel *hint*: a
-  /// `.sandbox` environment is also what an **App Review** install and a
-  /// locally-signed Release build carry, so the channel gate alone would put a
-  /// deliberate crash one tap away for a reviewer. This flag is the second
-  /// conjunct — it narrows accidental discovery (the 5-tap gesture flips it),
-  /// not App Review; the S5-5 deletion before the next submission does that.
-  ///
-  /// **Primary flip path — the hidden 5-tap gesture on the Settings version
-  /// row**, which writes this key via ``setH7CrashProbeEnabled(_:)``. That is
-  /// the *only* path that works on TestFlight, where there is no shell to run
-  /// `defaults write` from — which is precisely where the probe must be
-  /// exercised.
-  ///
-  /// Secondary local path (simulator / attached dev build only):
-  /// ```
-  /// defaults write app.pastura.Pastura.dev h7CrashProbeEnabled -bool true
-  /// ```
-  /// (the `.dev` suffix is the Debug bundle ID — see the type-level note.)
-  ///
-  /// Sunset: deleted in ADR-023 §6 S5-5 together with the probe — the Kotlin
-  /// `H7CrashProbe`, `App/KMP/H7CrashTrigger.swift`, and the Settings row.
-  static var h7CrashProbeEnabled: Bool {
-    defaultsReadBool(key: h7CrashProbeKey, default: false)
-  }
-
   /// Whether `SimulationViewModel` runs a *fresh* simulation on the Kotlin
   /// `PasturaSharedEngine` (ADR-023) instead of the Swift `SimulationRunner`.
   /// Resume of a paused run always stays on the Swift runner — the Kotlin
@@ -192,9 +159,8 @@ nonisolated enum FeatureFlags {
   ///
   /// **Opt-in flag — defaults to `false`.** This is the ADR-023 §6 **S5-4**
   /// flag, the second conjunct behind the `BuildChannel.resolveIsSandboxOrDebug()`
-  /// channel hint — the same pairing as ``h7CrashProbeEnabled``. Flipped by a
-  /// Toggle in the Settings Diagnostics section (revealed by the 5-tap
-  /// gesture), which writes this key via ``setSharedEngineEnabled(_:)``.
+  /// channel hint. Flipped by a Toggle in the Settings Diagnostics section,
+  /// which writes this key via ``setSharedEngineEnabled(_:)``.
   /// The read accessor carries no channel conjunct (the hint is async); the
   /// conjunct is enforced at launch instead — `PasturaApp.initialize()` clears
   /// this key when the channel resolves to "not sandbox / Debug", because
@@ -224,13 +190,6 @@ nonisolated enum FeatureFlags {
   /// toggle). Read on demand (no caching), so the next run honours it.
   static func setViewerPredictionEnabled(_ enabled: Bool) {
     UserDefaults.standard.set(enabled, forKey: viewerPredictionKey)
-  }
-
-  /// Persists the user's choice for ``h7CrashProbeEnabled`` (the hidden 5-tap
-  /// gesture on the Settings version row). Read on demand (no caching), so the
-  /// Diagnostics row appears on the next Settings render.
-  static func setH7CrashProbeEnabled(_ enabled: Bool) {
-    UserDefaults.standard.set(enabled, forKey: h7CrashProbeKey)
   }
 
   /// Persists the user's choice for ``sharedEngineEnabled`` (the Settings

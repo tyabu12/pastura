@@ -2573,36 +2573,6 @@
         }
       }
     },
-    "Crash" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "クラッシュ"
-          }
-        }
-      }
-    },
-    "Crash the app now?" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今すぐアプリをクラッシュさせますか？"
-          }
-        }
-      }
-    },
-    "Crash the shared engine" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有エンジンをクラッシュさせる"
-          }
-        }
-      }
-    },
     "Creative" : {
       "localizations" : {
         "ja" : {
@@ -7379,16 +7349,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "数秒かかる場合があります"
-          }
-        }
-      }
-    },
-    "This crashes the app on purpose, to verify crash reporting works for the shared engine." : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "共有エンジンのクラッシュレポートが機能するかを確認するため、意図的にアプリをクラッシュさせます。"
           }
         }
       }
