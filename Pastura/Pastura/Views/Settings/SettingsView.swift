@@ -90,19 +90,6 @@ struct SettingsView: View {
   /// `+PastResults.swift` extension.
   @State var pastResultsByteCount: Int64?
 
-  /// Resolved channel hint (`BuildChannel.resolveIsSandboxOrDebug()`), loaded
-  /// by the `.task` below. Defaults to `false` — the App Store shape — so the
-  /// Diagnostics section does not exist until StoreKit answers.
-  /// Not `private` — read by the `+Diagnostics.swift` sibling extension.
-  @State var isSandboxOrDebug = false
-  /// Opt-in: run *fresh* simulations on the Kotlin shared engine (ADR-023 §6
-  /// S5-4, #1681). Mirrors the `FeatureFlags` value at init and persists every
-  /// flip via its setter, so the flag stays the single source of truth. Not
-  /// `private` — bound by the Diagnostics Toggle in the `+Diagnostics.swift`
-  /// sibling extension. Mirrored once at init (same as the other toggles), so
-  /// a `defaults write` against a running dev build shows only after relaunch.
-  @State var isSharedEngineEnabled = FeatureFlags.sharedEngineEnabled
-
   #if !targetEnvironment(simulator)
     // `internal` (not `private`): the device-only helpers in the sibling
     // `SettingsView+Models.swift` extension read these. `dependencies` is
@@ -174,7 +161,6 @@ struct SettingsView: View {
         }
 
         pastResultsSection
-        diagnosticsSection
         aboutSection
       }
       .padding(.vertical, PasturaCardMetrics.interCardSpacing)
@@ -185,15 +171,11 @@ struct SettingsView: View {
     // async context for the off-main read; it re-fires when the view is
     // recreated, and `clearAllResults()` re-loads explicitly after a purge.
     .task { await loadStorageUsage() }
-    .task { isSandboxOrDebug = await BuildChannel.resolveIsSandboxOrDebug() }
     .onChange(of: keepRunningOnLeave) { _, newValue in
       FeatureFlags.setKeepRunningOnLeave(newValue)
     }
     .onChange(of: viewerPredictionEnabled) { _, newValue in
       FeatureFlags.setViewerPredictionEnabled(newValue)
-    }
-    .onChange(of: isSharedEngineEnabled) { _, newValue in
-      FeatureFlags.setSharedEngineEnabled(newValue)
     }
     .navigationTitle(String(localized: "Settings"))
     .navigationBarTitleDisplayMode(.inline)

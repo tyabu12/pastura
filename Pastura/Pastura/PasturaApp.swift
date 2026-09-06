@@ -554,22 +554,6 @@ private struct RootView: View {
 
   // MARK: - Lifecycle
 
-  /// ADR-023 §6 S5-4: the shared-engine opt-in lives in UserDefaults and
-  /// survives a TestFlight → App Store upgrade under the same bundle ID, so a
-  /// tester's flip must not ship the unvalidated engine into production. Clear
-  /// it whenever the channel hint says "not sandbox / Debug" — the Diagnostics
-  /// toggle that sets it is unreachable there anyway. Fire and forget: StoreKit
-  /// answers asynchronously and `initialize()` does not wait on it. Extracted
-  /// so `initialize()` stays under SwiftLint's cyclomatic-complexity cap.
-  private func clearSharedEngineOptInOffSandbox() {
-    Task {
-      let isSandboxOrDebug = await BuildChannel.resolveIsSandboxOrDebug()
-      if !isSandboxOrDebug, FeatureFlags.sharedEngineEnabled {
-        FeatureFlags.setSharedEngineEnabled(false)
-      }
-    }
-  }
-
   private func initialize() async {
     #if DEBUG
       // Capture-tooling / UI-test launch overrides. Extracted to a helper so
@@ -580,7 +564,6 @@ private struct RootView: View {
     // duplicate ids / fileNames crash in dev rather than corrupting
     // ModelManager.state lookups or filesystem paths silently at runtime.
     ModelRegistry.validateNoCollisions()
-    clearSharedEngineOptInOffSandbox()
     #if targetEnvironment(simulator)
       // On simulator, use OllamaService directly — no model download needed.
       do {

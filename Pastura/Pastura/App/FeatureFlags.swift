@@ -32,7 +32,6 @@ nonisolated enum FeatureFlags {
   private static let backgroundContinuationKey = "backgroundContinuationEnabled"
   private static let keepRunningOnLeaveKey = "keepRunningOnLeaveEnabled"
   private static let viewerPredictionKey = "viewerPredictionEnabled"
-  private static let sharedEngineKey = "sharedEngineEnabled"
 
   // MARK: - Read accessors
 
@@ -152,32 +151,6 @@ nonisolated enum FeatureFlags {
     defaultsReadBool(key: viewerPredictionKey, default: true)
   }
 
-  /// Whether `SimulationViewModel` runs a *fresh* simulation on the Kotlin
-  /// `PasturaSharedEngine` (ADR-023) instead of the Swift `SimulationRunner`.
-  /// Resume of a paused run always stays on the Swift runner — the Kotlin
-  /// engine exports no resume-from-state.
-  ///
-  /// **Opt-in flag — defaults to `false`.** This is the ADR-023 §6 **S5-4**
-  /// flag, the second conjunct behind the `BuildChannel.resolveIsSandboxOrDebug()`
-  /// channel hint. Flipped by a Toggle in the Settings Diagnostics section,
-  /// which writes this key via ``setSharedEngineEnabled(_:)``.
-  /// The read accessor carries no channel conjunct (the hint is async); the
-  /// conjunct is enforced at launch instead — `PasturaApp.initialize()` clears
-  /// this key when the channel resolves to "not sandbox / Debug", because
-  /// `UserDefaults` survives a TestFlight → App Store upgrade.
-  ///
-  /// Secondary local path (simulator / attached dev build only):
-  /// ```
-  /// defaults write app.pastura.Pastura.dev sharedEngineEnabled -bool true
-  /// ```
-  /// (the `.dev` suffix is the Debug bundle ID — see the type-level note.)
-  ///
-  /// Sunset: at S5-5 the default flips to the Kotlin engine and the Swift run
-  /// path is deleted, so this flag and its Toggle go with it.
-  static var sharedEngineEnabled: Bool {
-    defaultsReadBool(key: sharedEngineKey, default: false)
-  }
-
   // MARK: - Write accessors
 
   /// Persists the user's choice for ``keepRunningOnLeaveEnabled`` (Settings
@@ -190,13 +163,6 @@ nonisolated enum FeatureFlags {
   /// toggle). Read on demand (no caching), so the next run honours it.
   static func setViewerPredictionEnabled(_ enabled: Bool) {
     UserDefaults.standard.set(enabled, forKey: viewerPredictionKey)
-  }
-
-  /// Persists the user's choice for ``sharedEngineEnabled`` (the Settings
-  /// Diagnostics Toggle). Read on demand (no caching), so the next fresh run
-  /// honours it.
-  static func setSharedEngineEnabled(_ enabled: Bool) {
-    UserDefaults.standard.set(enabled, forKey: sharedEngineKey)
   }
 
   // MARK: - Helpers

@@ -15,10 +15,11 @@ reddens every per-PR iOS lane. `tools/kmp-gate-spike/**` keeps a twin of each ad
 nightly rung until S5-5: **a change to the §5.2 relay contract or an adapter's export-facing shape
 lands in both copies in the same PR** — only `SuspendController` has a drift guard
 (`tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh`); for the rest this sentence is
-the detector. Since S5-4 (#1681) the Kotlin engine runs **fresh** simulations behind
-`FeatureFlags.sharedEngineEnabled` (a Diagnostics toggle, default off); the Swift `SimulationRunner`
-stays the default run path until S5-5 flips it. The S5-3 H7 crash probe (`H7CrashTrigger.fire()`
-and its double-gated Settings row) was deleted in S5-5.
+the detector. Since S5-5 the Kotlin engine is the sole **fresh**-run path — `SimulationViewModel`
+reads no flag — and the S5-4 opt-in switch surface (`FeatureFlags.sharedEngineEnabled`, the
+Diagnostics toggle, `SharedEngineDiagnostics.swift`) has been deleted; resume of a paused run stays
+on the Swift `SimulationRunner`, which exports no resume-from-state on the Kotlin side. The S5-3 H7
+crash probe (`H7CrashTrigger.fire()` and its double-gated Settings row) was deleted in S5-5.
 `App/KMP/SharedEngineRunner+AppRunPath.swift` and `SimulationEvent+SharedEngine.swift` are
 app-module-only by construction — they name Swift twins the gate spike lacks, so they carry no
 twin-parity obligation. The

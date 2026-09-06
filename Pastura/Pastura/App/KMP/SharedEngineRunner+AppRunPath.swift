@@ -116,11 +116,7 @@ extension SharedEngineRunner {
   /// instead. The fallback covers a throwable that is not a
   /// `SimulationException` at all — nothing K/N exports here should produce
   /// one, so it is a shape guard, not an expected path.
-  ///
-  /// Not `private`: `SharedEngineDiagnostics.sampleRenderedMessage()` reuses
-  /// it for the S5-4 `ja` acceptance row, and `private` is file-scoped. Still
-  /// `internal` — no wider than the rest of `App/KMP/`.
-  nonisolated static func renderedValidationMessage(for error: any Error) -> String {
+  nonisolated private static func renderedValidationMessage(for error: any Error) -> String {
     guard
       let exception = (error as NSError).userInfo["KotlinException"]
         as? PasturaSharedEngine.SimulationException,
