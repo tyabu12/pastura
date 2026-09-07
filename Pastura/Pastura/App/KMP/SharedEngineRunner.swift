@@ -60,9 +60,9 @@ extension PasturaSharedEngine.SystemRandomSource: @retroactive @unchecked Sendab
 /// shell role of `Pastura/Pastura/Engine/SimulationRunner.swift`, keeping the
 /// App-facing surface (`SimulationViewModel`) unchanged.
 ///
-/// `tools/kmp-gate-spike/Sources/KMPGateSpike/SharedEngineRunner.swift` is this
-/// file's twin, still built by the nightly gate-spike rung until S5-5 — a
-/// change to the §5.2 relay contract must land in both.
+/// It began as the app-side twin of a copy in the Stage-2 gate spike; that
+/// package was retired at S5-5, so this is the only copy of the §5.2 relay
+/// contract and `Pastura/PasturaTests/App/KMP/` the only suite behind it.
 ///
 /// **Threading.** `onEvent` fires from a Kotlin worker context. Nothing here may
 /// assume `MainActor` — `continuation.yield` is thread-agnostic, which is why

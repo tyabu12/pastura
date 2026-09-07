@@ -1,6 +1,6 @@
 # Shared-Engine Soak Runbook (ADR-023 §6 S5-4)
 
-> **Executed 2026-09-06 — `v1.3+888`, iPhone 16e, PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5559576459)). Decision 6 (iii) is discharged (ADR-004 §12); the S5-5 close-out is issue [#1685](https://github.com/tyabu12/pastura/issues/1685). Kept as the reference procedure — re-run it if a later change reopens the Kotlin run path before S5-5 lands.
+> **Executed 2026-09-06 — `v1.3+888`, iPhone 16e, PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5559576459)). Decision 6 (iii) is discharged (ADR-004 §12); the S5-5 close-out is issue [#1685](https://github.com/tyabu12/pastura/issues/1685). **Since S5-5 the Kotlin engine is the default (and only) fresh-run path — the Diagnostics toggle and the reveal gesture described below no longer exist.** Kept as the reference procedure for a future soak cycle (e.g. after a Kotlin engine bump); skip the steps that reference the removed toggle.
 
 > One TestFlight soak cycle for the S5-4 flag-gated Kotlin run path
 > ([#1681](https://github.com/tyabu12/pastura/issues/1681)). This runbook mirrors
@@ -10,7 +10,9 @@
 ## Purpose
 
 S5-4 landed a Debug/TestFlight-only toggle (`FeatureFlags.sharedEngineEnabled`, Settings ›
-Diagnostics) that selects the Kotlin `PasturaSharedEngine` run path for **fresh** simulation runs.
+Diagnostics) that selected the Kotlin `PasturaSharedEngine` run path for **fresh** simulation runs.
+Since S5-5 that toggle is gone and the Kotlin engine is the default for every fresh run — this
+Purpose section is kept for historical context on why the original soak cycle was needed.
 Decision 6 (iii) discharged on one operator soak cycle run against a real TestFlight build
 (done 2026-09-06 — see the banner above). That cycle must
 exercise the Kotlin engine end to end — including pause/resume, backgrounding, and an app-kill
@@ -20,16 +22,15 @@ nothing here is checked by CI.
 
 ## Prerequisites
 
-- `main` at or after the S5-4 switch PR (#1681): `FeatureFlags.sharedEngineEnabled`, the
-  Diagnostics Toggle + sample-message row, `SharedEngineDiagnostics.swift`, and the
-  `SimulationViewModel` Kotlin run-path plumbing.
+- `main` at or after the S5-5 code-merge PR (#1685): the Kotlin engine is the sole fresh-run
+  path (`SimulationViewModel` no longer reads any flag), and the S5-4 toggle,
+  `SharedEngineDiagnostics.swift`, and the Settings Diagnostics section have all been deleted.
+  **Steps 2, 3, and 8 below (which reference that toggle / section) no longer apply** — a fresh run
+  is on the Kotlin engine unconditionally, with nothing to enable.
 - A `/release` TestFlight cut carrying that PR, installed on a real device (the simulator cannot
   stand in for backgrounding / app-kill behavior).
 - A device set to Japanese — either the device's own language, or a per-app language override
   (Settings → Pastura → Language) if the device stays in English for other reasons.
-- The S5-3 reveal gesture is still present: the version row on the About screen still needs five
-  taps to reveal Diagnostics. If it has been removed, this runbook does not apply — check whether
-  S5-5 has already landed.
 
 ## What counts as evidence
 
@@ -40,16 +41,17 @@ nothing here is checked by CI.
 | Background → foreground mid-run | Lock the screen or switch apps mid-run, then return — the run resumes and completes | Backgrounding after the run has already finished |
 | Kill-and-resume via the Swift runner | Start a run on the Kotlin engine, background it, force-quit the app, reopen from the Home screen — the app offers to resume the in-progress simulation and it completes on the **Swift** runner (the Kotlin engine has no resume-from-state — ADR-023 §6 S5-4) | Expecting the resumed run to still be on the Kotlin engine — it is not, by design |
 | Live streaming row | While an agent is generating, the typing row shows the statement text alone, and a vote phase's THINKING section shows the `reason` field | Raw JSON typed into the row (`{"statement": "…`) — that is the Kotlin caller forwarding the unextracted buffer, the S5-4 device-QA finding fixed on [#1681](https://github.com/tyabu12/pastura/issues/1681); a row that only becomes readable once the turn commits |
-| `ja` localization surface | Settings › Diagnostics shows the sample rendered message in Japanese: 「無効な YAML 形式です」 | The same row in English — that means the `appleMain` `localizedFormat` actual fell back to the untranslated key, and is itself a finding to record, not a pass |
+| `ja` localization surface | A run that hits a scenario-validation error on a `ja` device shows the Kotlin-rendered message in Japanese (e.g. 「無効な YAML 形式です」) | The same message in English — that means the `appleMain` `localizedFormat` actual fell back to the untranslated key, and is itself a finding to record, not a pass |
 | No crash | App Store Connect's crash view shows nothing new for this build during the cycle | A crash you cannot attribute to the build (check the build number in the crash report first) |
 | **Does NOT count as evidence** | — | Simulator runs (no real backgrounding/app-kill signal); Debug builds (App Store Connect's crash view only carries TestFlight/App Store builds) |
 
 ## Steps
 
 1. **Confirm the build.** Note the version/build number of the TestFlight cut under test.
-2. **Reveal Diagnostics.** Settings → About → tap the version row five times → the Diagnostics
-   section appears.
-3. **Enable the switch.** Diagnostics → toggle "Run simulations on the shared engine" on.
+2. *(No longer applicable since S5-5 — the Diagnostics section and its reveal gesture were
+   deleted along with the toggle.)*
+3. *(No longer applicable since S5-5 — every fresh run is on the Kotlin engine unconditionally,
+   with nothing to enable.)*
 4. **Run the bundled presets.** Start each of the following from the gallery and let it run to
    completion, confirming the log fills and the result card appears (`Pastura/Pastura/Resources/Presets/`).
    Each preset has an `_en.yaml` twin; on a Japanese device the gallery shows the `ja` titles, so
@@ -68,8 +70,9 @@ nothing here is checked by CI.
    switcher. Reopen from the Home screen icon (not from a notification or deep link) and confirm
    the app offers to resume the in-progress simulation. Let it finish — this leg runs on the Swift
    runner, which is expected (Step "Kill-and-resume via the Swift runner" above).
-8. **Check the `ja` row.** With the device in Japanese, open Diagnostics and read the sample
-   rendered message row. Confirm it reads 「無効な YAML 形式です」, not the English fallback.
+8. **Check the `ja` surface.** With the device in Japanese, trigger a scenario-validation error
+   (e.g. run a scenario with invalid YAML) and confirm the rendered error message reads in
+   Japanese, not the English fallback.
 9. **Check App Store Connect.** After the cycle, check the build's crash view in App Store Connect
    for anything new.
 10. **Record on [#501](https://github.com/tyabu12/pastura/issues/501)** as one comment:
@@ -94,11 +97,11 @@ Once the soak evidence is on #501:
 
 ## If a run fails on the Kotlin engine
 
-The Swift runner is one toggle away — turn "Run simulations on the shared engine" off in
-Diagnostics and the app falls back to the existing, shipped run path; no user data or in-progress
-run needs to be discarded to recover.
+Since S5-5 there is no toggle to fall back to the Swift runner for a fresh run — the Kotlin engine
+is the only fresh-run path. No user data or in-progress run needs to be discarded to recover; the
+run simply surfaces the failure.
 
-Before turning it off, capture what you can:
+Before moving on, capture what you can:
 
 - The `run() engine=kotlin` log line (Console.app, process `Pastura`) marking which engine the run
   selected.
@@ -106,6 +109,3 @@ Before turning it off, capture what you can:
 - The preset that was running and how far it got (which phase/round).
 
 File the finding against [#501](https://github.com/tyabu12/pastura/issues/501) with those details.
-The flag defaults to off, so App Store users are unaffected by a failure found during this cycle —
-there is no user-facing urgency, but do not let the finding go unrecorded before re-attempting the
-cycle.

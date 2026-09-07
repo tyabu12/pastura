@@ -132,7 +132,7 @@ conforming type must be `nonisolated` or the `@objc` thunk traps at runtime —
 `.claude/rules/swift-isolation.md` Pattern 7, K/N instance. The rest of the K/N boundary (every
 Kotlin-defaulted member lands `@required`, so `knownTurnMarkers` must be stated; no Swift
 `Sendable` on exports) is `.claude/rules/kmp-interop.md`, which loads for `shared/**` and
-`tools/kmp-gate-spike/**` only — read it before writing the adapter. Reference: the KDoc on
+`Pastura/Pastura/App/KMP/**` only — read it before writing the adapter. Reference: the KDoc on
 `knownTurnMarkers` in `shared/engine/src/commonMain/kotlin/com/pastura/engine/LLMBackend.kt`.
 
 ## SimulationEvent & the projection contract

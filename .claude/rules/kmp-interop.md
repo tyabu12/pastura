@@ -1,7 +1,6 @@
 ---
 paths:
   - "shared/**"
-  - "tools/kmp-gate-spike/**"
   - "Pastura/Pastura/App/KMP/**"
 ---
 
@@ -11,17 +10,18 @@ Traps of the ADR-023 KMP Engine migration at the Kotlin/Native (K/N) ↔ Swift b
 the Kotlin port. Since S5-1 the iOS app links and embeds the `PasturaSharedEngine` umbrella;
 `Pastura/Pastura/App/KMP/` is the home of the K/N boundary adapters (ADR-023 §6 ruling (c)) and the
 only place the umbrella may be imported (CLAUDE.md § Dependency Rules), so a Swift-side export break
-reddens every per-PR iOS lane. `tools/kmp-gate-spike/**` keeps a twin of each adapter for the
-nightly rung until S5-5: **a change to the §5.2 relay contract or an adapter's export-facing shape
-lands in both copies in the same PR** — only `SuspendController` has a drift guard
-(`tools/kmp-gate-spike/scripts/check-suspendcontroller-drift.sh`); for the rest this sentence is
-the detector. Since S5-4 (#1681) the Kotlin engine runs **fresh** simulations behind
-`FeatureFlags.sharedEngineEnabled` (a Diagnostics toggle, default off); the Swift `SimulationRunner`
-stays the default run path until S5-5 flips it. `H7CrashTrigger.fire()` remains the S5-3
-diagnostics-only crash probe reached from a double-gated Settings row (deleted in S5-5).
-`App/KMP/SharedEngineRunner+AppRunPath.swift` and `SimulationEvent+SharedEngine.swift` are
-app-module-only by construction — they name Swift twins the gate spike lacks, so they carry no
-twin-parity obligation. The
+reddens every per-PR iOS lane. The adapters have no twin anywhere: S5-5 retired the Stage-2 gate
+spike (`tools/kmp-gate-spike/`) that used to carry one of each for the nightly rung, so the app tree
+is the single copy and `Pastura/PasturaTests/App/KMP/` is the single suite behind it. ADR-023 §5.2
+invariant 3 (lost-wakeup safety), which the spike defended by keeping a byte-identical
+`SuspendController` copy under a drift guard, is now exercised directly against the shipping
+`Pastura/Pastura/LLM/SuspendController.swift` by that suite.
+
+Since S5-5 the Kotlin engine is the sole **fresh**-run path — `SimulationViewModel` reads no
+flag — and the S5-4 opt-in switch surface (`FeatureFlags.sharedEngineEnabled`, the Diagnostics
+toggle, `SharedEngineDiagnostics.swift`) has been deleted; resume of a paused run stays
+on the Swift `SimulationRunner`, which exports no resume-from-state on the Kotlin side. The S5-3 H7
+crash probe (`H7CrashTrigger.fire()` and its double-gated Settings row) was deleted in S5-5. The
 Wave B checklist in `docs/kmp-migration-status.md` is gated by `check-kmp-status.py`; its stage
 table and pointers are hand-maintained and are not.
 
@@ -29,10 +29,11 @@ table and pointers are hand-maintained and are not.
 
 The fix is Kotlin-side (upstream the conformance to `commonMain`). A retroactive
 `extension Foo: @retroactive @unchecked Sendable` is sound **only** when every Kotlin field is
-`val`, and exactly one declaration **per type** may exist per module (`App/KMP/SharedEngineRunner.swift`
-carries the app module's four — `SimulationEvent`, `SimulationEngine`, `NoopEngineLogger`,
-`SystemRandomSource`). Spell it on the qualified Kotlin type when a Swift twin exists, or
-the conformance lands on the twin — Pattern 1b.
+`val`, or every `var` is write-once before the event is emitted (today only `TurnOutput.rawText`),
+and exactly one declaration **per type** may exist per module
+(`App/KMP/SharedEngineRunner.swift` carries the app module's four — `SimulationEvent`,
+`SimulationEngine`, `NoopEngineLogger`, `SystemRandomSource`). Spell it on the qualified Kotlin type
+when a Swift twin exists, or the conformance lands on the twin — Pattern 1b.
 
 ## Pattern 1b — a Kotlin type with a Swift twin is shadowed inside the app module
 
@@ -49,8 +50,8 @@ comm -12 /tmp/kn.txt /tmp/sw.txt
 Write `PasturaSharedEngine.X` at **every** use in `App/KMP/`, no typealias (an alias hides the
 shadowing). Failure modes: a type-mismatch / redundant-conformance error at the call site (measured
 on the retroactive extension in `App/KMP/SharedEngineRunner.swift`), or — the dangerous half — a
-silent compile against the wrong type where the shapes coincide. The gate spike never hits this
-(`KMPGateSpike` declares no twins), so a green nightly proves nothing about the app module.
+silent compile against the wrong type where the shapes coincide. Only the app module declares Swift
+twins of exported Kotlin names, so this trap is app-tree-only.
 
 ## Pattern 2 — `swift_name("Parent.Child")` does not reach Swift nested-type lookup
 
@@ -81,7 +82,7 @@ source-compatible in Kotlin while breaking **every** Swift construction site —
 PR. Measured on `SimulationEngine(detector:logger:)` (#1603), where the previously no-arg
 `SimulationEngine()` gained two defaulted seams and each Swift caller had to spell out
 `SimulationEngine(detector: nil, logger: NoopEngineLogger())`. Re-measured on `random:` (#1615): the
-third seam moved the same gate-spike call site again, to
+third seam moved the same call site again, to
 `SimulationEngine(detector:logger:random:)`. The same export shape also decides where a Kotlin
 *top-level extension function* lands: it exports on a `<File>Kt` file facade rather than on the
 protocol it extends, so a Swift conformer owes only the declared members — measured on
@@ -205,14 +206,6 @@ hand-kept**: a new throwing public entry point needs its pin added. `ScenarioCod
 reach `Json.encodeToString`'s throwing path, judged 2026-08-26, and invisible to any KDoc-triggered
 check regardless. That is a reading of today's `Scenario` shape, so revisit it if the schema gains a
 polymorphic field or a non-finite `Double`.
-
-**`H7CrashProbe.crash` is the inverse carve-out (ADR-023 §6 S5-3, until S5-5).** Its whole
-mechanism is the un-annotated throw this pattern warns about — the K/N termination *is* the probe.
-Do not "fix" it with `@Throws`: the Swift call would become a catchable `throws`, `H7CrashTrigger`
-would fall through to its `fatalError`, and the TestFlight crash would carry no Kotlin frame. The
-same gate pins it the other way round (`exportedNonThrowingSelectors` asserts the selector exports
-**without** `error:`), so the regression reddens — but the fix the gate's forward message prescribes
-is the wrong one here; read the KDoc on `H7CrashProbe` first.
 
 ## Pattern 6 — a Kotlin throw's `localizedDescription` is the exception text, not the rendered message
 

@@ -6,6 +6,7 @@ import com.pastura.models.PhaseType
 import com.pastura.models.Scenario
 import com.pastura.models.SimulationEvent
 import com.pastura.models.SimulationState
+import com.pastura.models.TurnOutput
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -148,6 +149,45 @@ class WhisperHandlerTests {
 
         assertTrue(next.conversationLog.isEmpty())
         assertTrue(next.lastOutputs.isEmpty())
+    }
+
+    @Test
+    fun attributedOutputKeepsTheParserRawTextProvenance() = runTest {
+        // The `whisper_to` attribution goes through `copy()`, which cannot carry a
+        // body property — so `WhisperHandler` re-sets `rawText` by hand. Drop that
+        // `.apply` and every whisper turn persists a null `TurnRecord.rawOutput`.
+        val s = scenario(listOf("Alice", "Bob"))
+        val backend = ScriptedLLMBackend(listOf(stmt("A to B"), stmt("B to A")))
+        val events = mutableListOf<SimulationEvent>()
+        handler.execute(context(s, backend, events), initial(s))
+
+        val outputs = events.filterIsInstance<SimulationEvent.AgentOutput>()
+            .filter { it.phaseType == PhaseType.WHISPER }
+        assertEquals(2, outputs.size)
+        assertEquals("Bob", outputs[0].output.fields["whisper_to"], "attribution survives")
+        // Pins the null case (dropping the `.apply` re-set loses rawText through
+        // `copy()`). The pre-cleanup pin lives in
+        // JSONResponseParserTests.rawTextCarriesTheOriginalPreCleanupText.
+        assertEquals(
+            """{"statement": "A to B", "inner_thought": "t"}""",
+            outputs[0].output.rawText,
+        )
+        assertEquals(
+            """{"statement": "B to A", "inner_thought": "t"}""",
+            outputs[1].output.rawText,
+        )
+    }
+
+    // MARK: - Mood capture (#913)
+
+    @Test
+    fun moodCaptureBuildsASyntheticTurnOutputWithNoRawText() {
+        // WhisperHandler.kt:115 builds this TurnOutput fresh, straight from `fields`,
+        // never touching `rawText` — mirrors Swift `WhisperHandler.swift:85`. That
+        // keeps it the documented default for a synthetic output (`TurnOutput.kt`),
+        // distinct from the parser-built output this phase actually emits.
+        val synthetic = TurnOutput(fields = mapOf("mood" to "わくわく"))
+        assertNull(synthetic.rawText)
     }
 
     // MARK: - Per-participant channels

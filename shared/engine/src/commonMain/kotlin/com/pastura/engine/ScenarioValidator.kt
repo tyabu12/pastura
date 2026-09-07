@@ -229,15 +229,11 @@ public class ScenarioValidator {
      * un-annotated Kotlin throw does not reach Swift as a catchable error at the
      * K/N boundary — it terminates the process.
      *
-     * Do not assume the resulting export is CI-protected. It has no Swift
-     * consumer yet, and the only Swift consumer there will ever be is the gate
-     * spike under `tools/kmp-gate-spike`, which builds **nightly**
-     * (`.claude/rules/kmp-interop.md`). A later rename or signature change here
-     * reddens a nightly run, not the PR that breaks it. (The spike's path is
-     * written without its usual trailing `-slash-star-star` glob on purpose:
-     * Kotlin block comments **nest**, so that sequence inside a KDoc opens a
-     * second comment, and the next close-marker ends only the inner one —
-     * silently commenting out the rest of the file. Measured here, the hard way.)
+     * Do not assume the resulting export is CI-protected: it has no Swift
+     * consumer. The iOS app is the only Swift consumer of this umbrella
+     * (`.claude/rules/kmp-interop.md`) and it does not call this overload, so a
+     * rename or signature change here compiles clean everywhere until someone
+     * adopts it.
      *
      * @return the [ValidationResult] produced by [validate].
      * @throws SimulationException carrying

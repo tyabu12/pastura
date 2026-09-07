@@ -16,9 +16,9 @@ import PasturaSharedEngine
 ///    change to the export prefix fails loudly here rather than surfacing as a
 ///    confusing symbol mismatch at Stage 5.
 ///
-/// This is the app-target twin of `tools/kmp-gate-spike`'s copy of the same
-/// file, rehomed under `App/KMP/` per ADR-023 §6 ruling (c) — the spike keeps
-/// its own copy until S5-5.
+/// Rehomed under `App/KMP/` per ADR-023 §6 ruling (c). It began as the
+/// app-target twin of a copy in the Stage-2 gate spike; that package was
+/// retired at S5-5, so this is now the only copy.
 nonisolated enum SharedEngineLinkage {
   /// Objective-C runtime names of the §5.1 entry point and a §5.2 payload
   /// type. Referencing the metatypes is the linkage check — it does not run

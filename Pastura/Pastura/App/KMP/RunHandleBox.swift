@@ -3,9 +3,7 @@ import Synchronization
 
 // The two run-scoped boxes `SharedEngineRunner` closes its callback/handle
 // cycle with. They sit in their own file only because that adapter is at
-// SwiftLint's `file_length` cap; the gate-spike twin
-// (`tools/kmp-gate-spike/Sources/KMPGateSpike/SharedEngineRunner.swift`) keeps
-// them inline, which is a layout difference and not a contract one.
+// SwiftLint's `file_length` cap — a layout split, not a contract boundary.
 
 // Internal rather than private so the latch can be tested directly: the window
 // it closes is a genuine thread race that a black-box test cannot force
@@ -161,8 +159,7 @@ nonisolated final class RelayTaskBox: @unchecked Sendable {
   // Named rather than spelled inline so the `withLock` closure's parameter
   // still fits on the opening-brace line: swift-format rewraps the inline
   // annotation onto a `state in` continuation, which SwiftLint's
-  // `closure_parameter_position` then rejects. The gate-spike twin escapes
-  // this only because it runs neither check.
+  // `closure_parameter_position` then rejects.
   private typealias ReplaceOutcome = (previous: Task<Void, Never>?, alreadyTerminated: Bool)
 
   /// Installs the relay task for the current suspension cycle: cancels any

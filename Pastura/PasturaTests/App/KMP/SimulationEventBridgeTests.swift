@@ -102,6 +102,38 @@ struct SimulationEventBridgeTests {
           phaseType: .speakAll))
   }
 
+  @Test("AgentOutput carries the Kotlin TurnOutput's rawText provenance")
+  func carriesRawTextAcrossTheBoundary() {
+    // Asserted separately from `convertsAgentOutput` because `TurnOutput.==`
+    // deliberately ignores `rawText` on BOTH sides — an equality-only check stays
+    // green with the field dropped, which is exactly how the S5-4 `rawText: nil`
+    // hardcode went unnoticed. `rawText` is a Kotlin body property, so it is set
+    // after construction rather than passed to the initializer.
+    let sharedOutput = PasturaSharedEngine.TurnOutput(fields: ["statement": "hi"])
+    sharedOutput.rawText = #"<think>hmm</think>{"statement": "hi"}"#
+    let shared = PasturaSharedEngine.SimulationEvent.AgentOutput(
+      agent: "Alice", output: sharedOutput, phaseType: .speakAll)
+
+    guard case .agentOutput(_, let output, _) = SimulationEvent(shared: shared) else {
+      Issue.record("expected .agentOutput")
+      return
+    }
+    #expect(output.rawText == #"<think>hmm</think>{"statement": "hi"}"#)
+  }
+
+  @Test("A Kotlin TurnOutput with no rawText maps to nil, not an empty string")
+  func mapsAbsentRawTextToNil() {
+    let sharedOutput = PasturaSharedEngine.TurnOutput(fields: ["statement": "hi"])
+    let shared = PasturaSharedEngine.SimulationEvent.AgentOutput(
+      agent: "Alice", output: sharedOutput, phaseType: .speakAll)
+
+    guard case .agentOutput(_, let output, _) = SimulationEvent(shared: shared) else {
+      Issue.record("expected .agentOutput")
+      return
+    }
+    #expect(output.rawText == nil)
+  }
+
   @Test("AgentOutputStream converts, nil primary preserved")
   func convertsAgentOutputStream() {
     let shared = PasturaSharedEngine.SimulationEvent.AgentOutputStream(

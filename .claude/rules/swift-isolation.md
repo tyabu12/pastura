@@ -58,9 +58,9 @@ Reference: `Views/Components/ShareCaptionItemSource.swift` (`UIActivityItemSourc
 
 A Kotlin/Native-exported protocol is the same case, not a UIKit one: `LLMBackend` imports as an
 unannotated Obj-C protocol and `knownTurnMarkers` is read from `Dispatchers.Default`, so a
-Stage-5 adapter in `App/KMP/` conforming to it must be `nonisolated`. The conformers all carry it
-(`Pastura/Pastura/App/KMP/LLMServiceBackend.swift` and the gate-spike twins) — follow that
-precedent, not the compiler's silence. Measured 2026-08-31 by
+Stage-5 adapter in `App/KMP/` conforming to it must be `nonisolated`. Every conformer under
+`Pastura/Pastura/App/KMP/` carries it (`LLMServiceBackend.swift`, `EngineLoggerBridge` /
+`LanguageDetectorBridge`) — follow that precedent, not the compiler's silence. Measured 2026-08-31 by
 `scripts/kmp/probe-pattern7-isolation.sh`, which automates the probe above against the staged
 framework for all four seam protocols (`LLMBackend`, `LanguageDetector`, `EngineLogger`,
 `RandomSource`), control line included — all four import unannotated. Re-run the script by hand

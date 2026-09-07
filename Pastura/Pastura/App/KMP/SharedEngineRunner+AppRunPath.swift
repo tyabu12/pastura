@@ -20,21 +20,20 @@ extension SharedEngineRunner {
   /// `SimulationEvent` stream `SimulationViewModel` already knows how to
   /// consume — the S5-4 app run path (ADR-023 §6, #1681).
   ///
-  /// This overload is what the `FeatureFlags.sharedEngineEnabled` switch
-  /// selects in place of `SimulationRunner.run(scenario:llm:suspendController:)`.
+  /// Since S5-5 this overload — not
+  /// `SimulationRunner.run(scenario:llm:suspendController:)` — serves every
+  /// production fresh run.
   /// It owns the parse (so a scenario the Kotlin loader rejects arrives as a
   /// `.error(.scenarioValidationFailed)` event rather than a `throws` the
   /// ViewModel has no arm for) and the Kotlin→Swift event translation, leaving
   /// the App-facing surface identical to the Swift runner's.
   ///
-  /// **App-module-only by construction — deliberately not mirrored into
-  /// `tools/kmp-gate-spike`.** `kmp-interop.md` requires an adapter's
-  /// export-facing shape to land in the spike too; that does not apply here,
-  /// because both of this overload's own types — the Swift `SimulationEvent`
-  /// enum and `LLMService` — have no twin in the spike, which declares neither.
-  /// A mirror would have to invent both and would then be testing the
-  /// invention. The Kotlin-facing half it delegates to,
-  /// ``SharedEngineRunner/run(scenario:backend:)``, *is* mirrored.
+  /// **App-module-only by construction.** Both of this overload's own types —
+  /// the Swift `SimulationEvent` enum and `LLMService` — exist only in the app
+  /// module, so this path can be exercised only from `PasturaTests`. The
+  /// Kotlin-facing half it delegates to,
+  /// ``SharedEngineRunner/run(scenario:backend:)``, is where the K/N boundary
+  /// contract itself is asserted.
   ///
   /// **No resume-from-state.** The Swift runner takes `resumingFrom:` /
   /// `startRound:`; the Kotlin engine exports no seeded-start entry point, so
@@ -115,11 +114,7 @@ extension SharedEngineRunner {
   /// instead. The fallback covers a throwable that is not a
   /// `SimulationException` at all — nothing K/N exports here should produce
   /// one, so it is a shape guard, not an expected path.
-  ///
-  /// Not `private`: `SharedEngineDiagnostics.sampleRenderedMessage()` reuses
-  /// it for the S5-4 `ja` acceptance row, and `private` is file-scoped. Still
-  /// `internal` — no wider than the rest of `App/KMP/`.
-  nonisolated static func renderedValidationMessage(for error: any Error) -> String {
+  nonisolated private static func renderedValidationMessage(for error: any Error) -> String {
     guard
       let exception = (error as NSError).userInfo["KotlinException"]
         as? PasturaSharedEngine.SimulationException,

@@ -261,9 +261,12 @@ internal class WhisperHandler : PhaseHandler {
         // Skipped (ADR-021 D2): emit nothing; the caller ends the pair's exchange.
             ?: return null
 
-        // Attribute the partner via the reserved `whisper_to` field. Kotlin TurnOutput
-        // carries only `fields` (no Swift `rawText`), so the merge is a plain copy.
+        // Attribute the partner via the reserved `whisper_to` field, preserving the
+        // original `rawText` provenance per the design contract. `rawText` is a body
+        // property and therefore outside `copy()`, so it must be re-set by hand —
+        // dropping it would blank `TurnRecord.rawOutput` for every whisper turn.
         val attributed = output.copy(fields = output.fields + ("whisper_to" to partner.name))
+            .apply { rawText = output.rawText }
         context.emitter(
             SimulationEvent.AgentOutput(
                 agent = speaker.name,

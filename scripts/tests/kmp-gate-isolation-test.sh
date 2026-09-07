@@ -2,7 +2,7 @@
 #
 # scripts/tests/kmp-gate-isolation-test.sh — perturbation tripwire for the
 # ADR-023 decision B′ isolation guard
-# (tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh).
+# (scripts/kmp/check-b-prime-isolation.sh).
 #
 # CI-wired: the `*-test.sh` naming convention makes this a gate under the
 # .github/workflows/ci.yml "Shell gate tests" job ("Run scripts/tests/*-test.sh").
@@ -38,7 +38,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-GUARD="$REPO_ROOT/tools/kmp-gate-spike/scripts/check-b-prime-isolation.sh"
+GUARD="$REPO_ROOT/scripts/kmp/check-b-prime-isolation.sh"
 
 [ -x "$GUARD" ] || {
   echo "FAIL: B' isolation guard missing or not executable at $GUARD" >&2
@@ -89,10 +89,9 @@ mkdir -p "$CLEAN_APPDIR/Pastura"
 # run_case <expect:yes|no|unparseable> <label> <manifest> <pbxproj> <app-dir> [expect_msg]
 #
 # `expect_msg` is REQUIRED for `yes`: a fragment unique to the check that
-# should fire — "declares a .binaryTarget" (1), "references tools/kmp-gate-spike"
-# (2), "references no .xcframework" / "other than (or in addition to)" (3),
-# "tracked .xcframework is committed" (4). See the header for why "some
-# violation" is not enough.
+# should fire — "declares a .binaryTarget" (1), "references no .xcframework" /
+# "other than (or in addition to)" (3), "tracked .xcframework is committed"
+# (4). See the header for why "some violation" is not enough.
 #
 # Exit codes are checked EXACTLY, not just for non-zero. The guard exits 1 on a
 # violation, 2 on bad inputs (missing file, unknown flag) and 3 when it cannot
@@ -192,18 +191,18 @@ run_case no "whole-line comment naming .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CL
 
 # The gap #1171 item 1 names: whole-line stripping alone left this tripping.
 m="$TMP/n-trailing-comment.swift"; cp "$CLEAN_MANIFEST" "$m"
-echo 'let unrelated = 1  // no .binaryTarget here, and none in tools/kmp-gate-spike' >>"$m"
-run_case no "trailing comment naming .binaryTarget + the spike" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+echo 'let unrelated = 1  // no .binaryTarget here either' >>"$m"
+run_case no "trailing comment naming .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
 
 # Block comments span lines, so the stripper carries state across them.
 m="$TMP/n-block-comment.swift"; cp "$CLEAN_MANIFEST" "$m"
 cat >>"$m" <<'SWIFT'
 /*
-  Historical note: an earlier draft used .binaryTarget and referenced
-  tools/kmp-gate-spike from here. ADR-023 B' rejected that shape.
+  Historical note: an earlier draft declared a .binaryTarget here.
+  ADR-023 B' rejected that shape.
 */
 SWIFT
-run_case no "multi-line block comment naming both tokens" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
+run_case no "multi-line block comment naming .binaryTarget" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
 
 # ---------------------------------------------------------------- positives --
 # The guard must fire on all of these.
@@ -263,11 +262,6 @@ m="$TMP/e-multiline-balanced.swift"; cp "$CLEAN_MANIFEST" "$m"
 printf 'let doc = """\nplain multi-line, no block-comment opener\n"""\n' >>"$m"
 run_case unparseable "multi-line string with no /* inside (lost-flag control)" \
   "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR"
-
-m="$TMP/p-spike-reference.swift"; cp "$CLEAN_MANIFEST" "$m"
-echo '    .target(name: "Consumer", path: "tools/kmp-gate-spike/Sources/KMPGateSpike"),' >>"$m"
-run_case yes "root manifest reaches into tools/kmp-gate-spike" "$m" "$CLEAN_PBXPROJ" "$CLEAN_APPDIR" \
-  "references tools/kmp-gate-spike"
 
 # iOS xcodebuild lane, explicit-reference form — check (3), inverted at S5-1
 # to "exactly one `.xcframework`, named PasturaSharedEngine". Three ways to

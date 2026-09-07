@@ -138,7 +138,7 @@ bash ./scripts/measurement-transcript-precommit-gate.sh
 # .swift or the checker; fails-fast inside. Formerly a manual `find` step in
 # .claude/rules/build-traps.md. The collision is already a hard build error,
 # but step 2 above compiles the app scheme only, so one in PasturaTests /
-# PasturaUITests / tools/harness / tools/kmp-gate-spike would surface in CI
+# PasturaUITests / tools/harness would surface in CI
 # minutes later with no rename advice. Mirrors the CI shell-tests
 # "Duplicate Swift base filename check" step locally.
 bash ./scripts/duplicate-basename-gate.sh

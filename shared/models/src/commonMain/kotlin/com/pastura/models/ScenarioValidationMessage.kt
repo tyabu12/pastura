@@ -305,7 +305,7 @@ public sealed class ScenarioValidationMessage {
      * `MessageRendering.kt` — an `expect`/`actual` with one `jvmMain` actual
      * (identity: returns the English key unchanged) and one `appleMain` actual
      * (`NSBundle.mainBundle.localizedStringForKey`). So the JVM and catalog-less
-     * Apple hosts (macOS harness, `tools/kmp-gate-spike`) get the English key
+     * Apple hosts (the macOS parity harness) get the English key
      * back — the commonTest pins below are still the detector on both rungs —
      * while the iOS app resolves the same `Localizable.xcstrings` `ja` value
      * Swift does, because the format string doubles as the catalog key.

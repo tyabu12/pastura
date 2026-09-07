@@ -135,7 +135,6 @@ private func makeProbeEnv() async throws -> ProbeEnv {
 
   let sut = SimulationViewModel(
     makeSharedRunner: { SharedEngineRunner(suspendController: $0) },
-    isSharedEngineEnabled: { true },
     simulationRepository: simRepo,
     turnRepository: turnRepo
   )

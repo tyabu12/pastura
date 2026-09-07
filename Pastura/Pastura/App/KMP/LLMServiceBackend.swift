@@ -10,15 +10,12 @@ import PasturaSharedEngine
 /// unaware of the umbrella. So the adapter, not the service, owns the
 /// translation.
 ///
-/// **No gate-spike twin.** `kmp-interop.md` requires an adapter's export-facing
-/// shape to land in `tools/kmp-gate-spike/**` in the same PR. Judged not to
-/// apply here: the spike has no `LLMService` counterpart (its
-/// `ScriptedStreamingBackend` replays canned text instead of wrapping a
-/// service), so there is no shape to mirror — a twin would have to invent a
-/// second `LLMService`, and would then be testing the invention. The relay
-/// machinery this class shares with the spike (one `Task` per call, the
-/// error → `TerminalStatus` mapping, `TaskStreamHandle`) *is* mirrored, in the
-/// spike copy that already exists.
+/// **Single copy.** The Stage-2 gate spike that once carried a twin of each
+/// adapter is retired (S5-5), so this file is the only `LLMBackend` actual and
+/// `Pastura/PasturaTests/App/KMP/LLMServiceBackendTests.swift` the only suite
+/// behind it. The spike never had a counterpart for this adapter anyway — its
+/// `ScriptedStreamingBackend` replayed canned text instead of wrapping a
+/// service.
 ///
 /// **`SuspendController` never crosses the boundary** (`LLMBackend.kt`,
 /// ADR-023 Decision 3). Suspension reaches this adapter the same way it reaches

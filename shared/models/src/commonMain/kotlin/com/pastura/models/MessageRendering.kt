@@ -7,7 +7,7 @@ package com.pastura.models
  * `Pastura/Pastura/Resources/Localizable.xcstrings` (the Swift side's
  * `String(localized:)` argument), so a platform with no catalog can honour the
  * contract by returning the key itself — which is exactly what the JVM and the
- * catalog-less Apple hosts (macOS harness, gate spike) do.
+ * catalog-less Apple hosts (the macOS parity harness) do.
  *
  * @param key the English format string used as the catalog key.
  * @return the localized format string, or [key] when no catalog entry exists.

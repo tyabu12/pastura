@@ -1,6 +1,10 @@
 # H5 / H7 Distribution-Verification Runbook (ADR-023 §6 S5-3)
 
-> **Executed 2026-09-05 — `v1.3+886`, both halves PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5550162180)). Kept as the reference procedure; the two `release.sh` checks below are now fail-fast, not warnings.
+> **Executed 2026-09-05 — `v1.3+886`, both halves PASS** (evidence: [#501](https://github.com/tyabu12/pastura/issues/501#issuecomment-5550162180)), ADR-004 §11. Kept as the reference procedure; the two `release.sh` checks below are now fail-fast, not warnings.
+>
+> **Historical record — cannot be re-run as written.** The reveal gesture, the
+> Diagnostics section, and the crash-trigger button this runbook drives were
+> all deleted at ADR-023 S5-5 ([#1685](https://github.com/tyabu12/pastura/issues/1685)). The body below is left unedited.
 
 Operator steps for the one TestFlight cycle that executes **H5** (an App Store
 Connect upload of a build carrying the Kotlin/Native `PasturaSharedEngine`

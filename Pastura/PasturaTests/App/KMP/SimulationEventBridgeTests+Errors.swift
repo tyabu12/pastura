@@ -81,8 +81,10 @@ extension SimulationEventBridgeTests {
 
   // MARK: - TurnOutput
 
-  @Test("TurnOutput conversion always yields a nil rawText")
+  @Test("TurnOutput conversion yields a nil rawText when the Kotlin output carries no provenance")
   func turnOutputHasNilRawText() {
+    // The positive case — rawText carried across when the Kotlin output has
+    // one — lives in SimulationEventBridgeTests.carriesRawTextAcrossTheBoundary.
     let shared = PasturaSharedEngine.TurnOutput(fields: ["statement": "hi"])
     let converted = TurnOutput(shared: shared)
     #expect(converted.fields == ["statement": "hi"])

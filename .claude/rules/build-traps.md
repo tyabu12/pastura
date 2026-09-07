@@ -5,7 +5,6 @@ paths:
   - "Pastura/PasturaTests/**"
   - "Pastura/PasturaUITests/**"
   - "tools/harness/**"
-  - "tools/kmp-gate-spike/**"
 ---
 
 # Build & Lint Traps
