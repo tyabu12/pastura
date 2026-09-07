@@ -8,6 +8,20 @@ import Testing
 // new `@Suite` (which would run in parallel and race shared state).
 extension ScenarioSerializerTests {
 
+  /// An empty phase list must serialize as `phases: []`, not a bare `phases:`
+  /// (YAML null), which the loader rejects as `fieldWrongType`. The App-layer
+  /// test suites build phase-less scenarios and hand the serializer's output to
+  /// the Kotlin engine (#1687), so the round-trip has to hold for them too.
+  @Test func roundTripEmptyPhases() throws {
+    let scenario = makeTestScenario(phases: [])
+    let yaml = serializer.serialize(scenario)
+    #expect(yaml.contains("phases: []"))
+    let loaded = try loader.load(yaml: yaml)
+    #expect(loaded.phases.isEmpty)
+    #expect(loaded.agentCount == scenario.agentCount)
+    #expect(loaded.personas.map(\.name) == scenario.personas.map(\.name))
+  }
+
   // Round-trip-correctness guard for the inline-scalar fields, independent of
   // output *style*. `extraData` strings still render through `yamlScalar`
   // (inline) — only `description` / persona `description` moved to the

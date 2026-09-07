@@ -66,9 +66,15 @@ nonisolated struct ScenarioSerializer: Sendable {
 
     // Phases
     lines.append("")
-    lines.append("phases:")
-    for phase in scenario.phases {
-      lines.append(contentsOf: serializePhase(phase))
+    // A bare `phases:` with no items is YAML null, which both loaders reject
+    // as a type mismatch — an empty list must round-trip as `[]`.
+    if scenario.phases.isEmpty {
+      lines.append("phases: []")
+    } else {
+      lines.append("phases:")
+      for phase in scenario.phases {
+        lines.append(contentsOf: serializePhase(phase))
+      }
     }
 
     return lines.joined(separator: "\n") + "\n"
