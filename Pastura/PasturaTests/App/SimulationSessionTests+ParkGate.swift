@@ -232,7 +232,10 @@ extension SimulationSessionTests {
       scenario: scenario,
       tab: .home,
       makeViewModel: { viewModel },
-      body: { model in await model.run(scenario: scenario, llm: mock) })
+      body: { model in
+        await model.run(
+          scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+      })
 
     while viewModel.suspendController == nil {
       await Task.yield()
@@ -285,7 +288,10 @@ extension SimulationSessionTests {
       scenario: scenario,
       tab: .home,
       makeViewModel: { viewModel },
-      body: { model in await model.run(scenario: scenario, llm: mock) })
+      body: { model in
+        await model.run(
+          scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+      })
 
     while viewModel.suspendController == nil {
       await Task.yield()
@@ -334,7 +340,10 @@ extension SimulationSessionTests {
       scenario: scenario,
       tab: .home,
       makeViewModel: { viewModel },
-      body: { model in await model.run(scenario: scenario, llm: mock) })
+      body: { model in
+        await model.run(
+          scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+      })
 
     while viewModel.suspendController == nil {
       await Task.yield()

@@ -159,7 +159,9 @@ struct SimulationViewModelStatusTests {
       #"{"statement": "second"}"#
     ])
 
-    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    let runTask = Task {
+      await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+    }
     sut.runTask = runTask
 
     // Wait until the run is in-flight (suspendController attached).

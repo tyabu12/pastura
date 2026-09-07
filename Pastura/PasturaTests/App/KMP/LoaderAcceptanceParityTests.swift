@@ -125,6 +125,30 @@ struct LoaderAcceptanceParityTests {
     return true
   }
 
+  /// The App-layer suites (#1687) build synthetic `Scenario`s through
+  /// `makeTestScenario` and hand `ScenarioSerializer`'s output to the Kotlin
+  /// engine — shapes no bundled file covers: an empty phase list, and the
+  /// helper's defaults with a single phase.
+  @Test func kotlinAcceptsSyntheticTestScenarioRoundTrips() {
+    let synthetic: [(String, Pastura.Scenario)] = [
+      ("makeTestScenario(phases: [])", makeTestScenario(phases: [])),
+      (
+        "makeTestScenario(speakAll)",
+        makeTestScenario(phases: [
+          Phase(
+            type: .speakAll, prompt: "Speak.",
+            outputSchema: ["statement": "string", "inner_thought": "string"])
+        ])
+      )
+    ]
+    for (name, scenario) in synthetic {
+      let yaml = Pastura.ScenarioSerializer().serialize(scenario)
+      #expect(
+        expectKotlinAccepts(Corpus(name: name, yaml: yaml)),
+        "the Swift loader rejected the round-trip of \(name)")
+    }
+  }
+
   @Test func kotlinAcceptsEveryBundledYAMLTheSwiftLoaderAccepts() throws {
     let corpora = try bundledYAML()
     var performed = 0

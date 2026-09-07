@@ -34,7 +34,8 @@ extension SimulationViewModelLifecycleTests {
 
     #expect(!registry.isActive, "idle before run")
 
-    await sut.run(scenario: scenario, llm: FailingLLMService())
+    await sut.run(
+      scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
 
     // If enter() were missing, `leave()` inside the defer would trap on
     // the `activeCount > 0` precondition — so reaching this assertion
@@ -73,7 +74,7 @@ extension SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.isCompleted, "sanity: simulation should complete with valid responses")
     #expect(!registry.isActive, "defer must leave() on completion path")

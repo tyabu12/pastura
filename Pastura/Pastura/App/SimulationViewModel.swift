@@ -586,12 +586,6 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// stays for the suites that need to observe or decorate the runner, and for
   /// `SimulationView`, which bridges the production detector / logger.
   private let makeSharedRunner: @Sendable (SuspendController) -> SharedEngineRunner
-  /// True when this process is an `xcodebuild test` run (XCTest or Swift
-  /// Testing — both are hosted by the XCTest harness). Read only by
-  /// ``makeEventStream``'s test-seam assertion; see the why-comment there.
-  private static let isRunningUnderTestHarness =
-    ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-    || NSClassFromString("XCTestCase") != nil
   /// The Kotlin runner of the run in flight, so ``setRunnerPaused(_:)`` can
   /// forward pause / resume to it. Set only by ``makeEventStream``; cleared by
   /// `run()`'s cleanup `defer`.
@@ -1144,45 +1138,26 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// from the app. `resume(record:scenario:llm:)` never comes here: the Kotlin
   /// engine exports no resume-from-state, so a paused run — even one the Kotlin
   /// engine produced, via the translated `.roundCheckpoint` — continues on the
-  /// Swift runner, which is why ``runner`` stays a dependency.
-  ///
-  /// The `yamlDefinition == nil` branch survives only as the **test seam** for
-  /// the suites still calling `run(scenario:llm:)` without YAML; #1687 migrates
-  /// them, after which this branch and ``runner``'s fresh-run use go away.
+  /// Swift runner, which is why ``runner`` stays a dependency: it is the
+  /// `resume()` engine (its fresh-run use ended with #1687), and it also holds
+  /// the pause flag this method replays and ``isPaused`` bridges.
   private func makeEventStream(
-    scenario: Scenario, yamlDefinition: String?, llm: any LLMService,
-    controller: SuspendController
+    yamlDefinition: String, llm: any LLMService, controller: SuspendController
   ) -> AsyncStream<SimulationEvent> {
-    if let yamlDefinition {
-      let shared = makeSharedRunner(controller)
-      activeSharedRunner = shared
-      lifecycleLogger.info("run() engine=kotlin")
-      let stream = shared.run(yaml: yamlDefinition, llm: llm)
-      // A pause taken between `prepareRunInfrastructure` and this point (the
-      // model-load / intro-reveal window — reachable from leaving the screen
-      // or a BG-task expiry) only reached the Swift flag, because no Kotlin
-      // runner existed to forward to. Replay it now — AFTER `run`, since the
-      // runner's `pause()` is a no-op with no active run; `run` publishes the
-      // box synchronously, and `RunHandleBox` latches the request until the
-      // Kotlin handle arrives — so the run stops at its next checkpoint
-      // instead of running behind a paused-looking screen.
-      if runner.isPaused { shared.pause() }
-      return stream
-    }
-    let seamMessage =
-      "run() without yamlDefinition fell back to the Swift engine — test seam only (#1687)"
-    lifecycleLogger.error("\(seamMessage, privacy: .public)")
-    // Loud in Debug on a developer's device, a log line in Release — but NOT a
-    // trap under `xcodebuild test`: ~66 existing suites still reach this branch
-    // and `assertionFailure` aborts the whole test process rather than failing
-    // one case. Probing the harness rather than `#if DEBUG`, because Debug is
-    // also how the app runs on a device, where the trap is exactly what we want.
-    // The probe only covers the unit-test host: under XCUITest the app runs as
-    // its own process, with neither `XCTestConfigurationFilePath` nor XCTest
-    // loaded, so a UI test that reached this branch would trap like a device
-    // does. Unreachable today — the sole production caller always passes YAML.
-    if !Self.isRunningUnderTestHarness { assertionFailure(seamMessage) }
-    return runner.run(scenario: scenario, llm: llm, suspendController: controller)
+    let shared = makeSharedRunner(controller)
+    activeSharedRunner = shared
+    lifecycleLogger.info("run() engine=kotlin")
+    let stream = shared.run(yaml: yamlDefinition, llm: llm)
+    // A pause taken between `prepareRunInfrastructure` and this point (the
+    // model-load / intro-reveal window — reachable from leaving the screen
+    // or a BG-task expiry) only reached the Swift flag, because no Kotlin
+    // runner existed to forward to. Replay it now — AFTER `run`, since the
+    // runner's `pause()` is a no-op with no active run; `run` publishes the
+    // box synchronously, and `RunHandleBox` latches the request until the
+    // Kotlin handle arrives — so the run stops at its next checkpoint
+    // instead of running behind a paused-looking screen.
+    if runner.isPaused { shared.pause() }
+    return stream
   }
 
   func cancelSimulation(caller: String = #function) {
@@ -1319,13 +1294,12 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// design deliberately avoids). `nil` for local / self-made scenarios.
   ///
   /// `yamlDefinition` is the scenario's source YAML (`ScenarioRecord.yamlDefinition`),
-  /// required in production: the Kotlin engine owns the parse and serves every
-  /// fresh run — see ``makeEventStream``. `nil` is the #1687 test seam only, and
-  /// asserts outside the test harness. The `= nil` default stays for now — ~66
-  /// existing test call sites still omit it; #1687 removes it.
+  /// and the Kotlin engine owns the parse — the Swift `scenario` is not
+  /// convertible, so every fresh run hands both in; see ``makeEventStream``.
+  /// Tests derive it from a synthetic `Scenario` via `yamlDefinition(for:)`.
   func run(  // swiftlint:disable:this function_body_length
     scenario: Scenario, llm: any LLMService, scenarioCategorySnapshot: String? = nil,
-    yamlDefinition: String? = nil
+    yamlDefinition: String
   ) async {
     // Defensive: a fresh run must never start frozen. The persona sheet's
     // dismiss normally clears this, but a hold left stale across an ADR-017
@@ -1418,7 +1392,7 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
     // long enough to read. `.instant` skips both.
     let readingScript = ReadingScript.resolve(engineLanguage: scenario.engineLanguage)
     let eventStream = makeEventStream(
-      scenario: scenario, yamlDefinition: yamlDefinition, llm: llm, controller: controller)
+      yamlDefinition: yamlDefinition, llm: llm, controller: controller)
     for await event in eventStream {
       // Playback park (#942 PR2): stop consuming while the persona sheet is up
       // so the on-screen log freezes coherently with AgentOutputRow's own

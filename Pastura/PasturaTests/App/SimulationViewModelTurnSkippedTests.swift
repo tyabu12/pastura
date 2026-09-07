@@ -80,7 +80,9 @@ struct SimulationViewModelTurnSkippedTests {
       #"{"statement": "fourth"}"#
     ])
 
-    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    let runTask = Task {
+      await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+    }
     sut.runTask = runTask
 
     // Wait for the reset (run() applies it synchronously near entry,
@@ -120,7 +122,7 @@ struct SimulationViewModelTurnSkippedTests {
       agentNames: ["Alice", "Bob"], rounds: 1,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])])
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.degradedTurnCount == 1)
     let sims = try simRepo.fetchByScenarioId("test")

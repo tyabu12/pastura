@@ -179,7 +179,10 @@ private func startSuspendedFreshRun(rounds: Int = 3) async throws -> SuspendedFr
   mock.suspendOnControllerAttach()
   env.sut.speed = .instant
 
-  let runTask = Task { await env.sut.run(scenario: env.scenario, llm: mock) }
+  let runTask = Task {
+    await env.sut.run(
+      scenario: env.scenario, llm: mock, yamlDefinition: yamlDefinition(for: env.scenario))
+  }
   env.sut.runTask = runTask
 
   // By the time this returns, run() has parked at its first generate, so
