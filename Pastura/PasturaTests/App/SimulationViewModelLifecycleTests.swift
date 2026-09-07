@@ -307,6 +307,12 @@ struct SimulationViewModelLifecycleTests {
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
     #expect(sims.first?.simulationStatus == .failed)
+    // Pins the mechanism in play today — the D4 breaker: two skips, then the
+    // third failure trips it with no `.turnSkipped` of its own. Fails the day
+    // #1689 lands D3 on the Kotlin side (a systemic error skips nothing), so
+    // the re-tightening has a red to work from. Engine-independent D3 coverage
+    // lives in `LLMCallerTests+FailureTaxonomy` / `TurnFailureGateTests`.
+    #expect(sut.degradedTurnCount == 2)
   }
 
   @Test func runCompletesWhenTransientFailuresStayUnderBreakerLimit() async throws {

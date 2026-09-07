@@ -67,7 +67,9 @@ nonisolated struct ScenarioSerializer: Sendable {
     // Phases
     lines.append("")
     // A bare `phases:` with no items is YAML null, which both loaders reject
-    // as a type mismatch — an empty list must round-trip as `[]`.
+    // as a type mismatch — an empty list must round-trip as `[]`. `personas`
+    // above needs no such branch: `agentCount` is `personas.count` at every
+    // construction site, and a zero-agent scenario fails validation anyway.
     if scenario.phases.isEmpty {
       lines.append("phases: []")
     } else {

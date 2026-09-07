@@ -34,7 +34,8 @@ extension SimulationViewModelLifecycleTests {
 
     #expect(!registry.isActive, "idle before run")
 
-    await sut.run(scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
+    await sut.run(
+      scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
 
     // If enter() were missing, `leave()` inside the defer would trap on
     // the `activeCount > 0` precondition — so reaching this assertion

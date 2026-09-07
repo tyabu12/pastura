@@ -1138,8 +1138,9 @@ final class SimulationViewModel {  // swiftlint:disable:this type_body_length
   /// from the app. `resume(record:scenario:llm:)` never comes here: the Kotlin
   /// engine exports no resume-from-state, so a paused run — even one the Kotlin
   /// engine produced, via the translated `.roundCheckpoint` — continues on the
-  /// Swift runner, which is why ``runner`` stays a dependency — for `resume()`
-  /// only, since #1687 moved the last YAML-less test caller to this path.
+  /// Swift runner, which is why ``runner`` stays a dependency: it is the
+  /// `resume()` engine (its fresh-run use ended with #1687), and it also holds
+  /// the pause flag this method replays and ``isPaused`` bridges.
   private func makeEventStream(
     yamlDefinition: String, llm: any LLMService, controller: SuspendController
   ) -> AsyncStream<SimulationEvent> {

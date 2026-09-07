@@ -80,7 +80,9 @@ struct SimulationViewModelTurnSkippedTests {
       #"{"statement": "fourth"}"#
     ])
 
-    let runTask = Task { await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario)) }
+    let runTask = Task {
+      await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+    }
     sut.runTask = runTask
 
     // Wait for the reset (run() applies it synchronously near entry,

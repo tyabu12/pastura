@@ -80,7 +80,8 @@ struct SimulationViewModelExportTests {
     sut.speed = .instant
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
-    await sut.run(scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
+    await sut.run(
+      scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
 
     let payload = try await sut.fetchExportPayload(exportEnvironment: env)
     #expect(payload == nil)
