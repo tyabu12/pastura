@@ -141,7 +141,7 @@ struct SimulationSessionTests {
       scenario: scenario,
       tab: .home,
       makeViewModel: { viewModel },
-      body: { model in await model.run(scenario: scenario, llm: mock) })
+      body: { model in await model.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario)) })
     #expect(decision == .started)
     #expect(
       registry.isActive == true || viewModel.suspendController == nil,

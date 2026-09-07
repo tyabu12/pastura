@@ -75,7 +75,7 @@ private func startInFlight(
   repo: GRDBSimulationRepository
 ) async -> Task<Void, Never> {
   sut.speed = .instant
-  let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+  let runTask = Task { await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario)) }
   sut.runTask = runTask
   let deadline = ContinuousClock.now.advanced(by: .seconds(2))
   while ContinuousClock.now < deadline {
