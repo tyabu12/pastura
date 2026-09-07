@@ -88,7 +88,7 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.isRunning == false)
     #expect(sut.isCompleted == true)
@@ -127,7 +127,7 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     // run() drains the persistence queue before returning.
     let simId = try #require(try simRepo.fetchByScenarioId("test").first?.id)
@@ -166,7 +166,7 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.errorMessage == nil)
     #expect(sut.isCompleted == true)
@@ -186,7 +186,8 @@ struct SimulationViewModelLifecycleTests {
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
 
-    await sut.run(scenario: scenario, llm: FailingLLMService())
+    await sut.run(
+      scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.isRunning == false)
     #expect(sut.isCompleted == false)
@@ -224,7 +225,7 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
@@ -282,18 +283,24 @@ struct SimulationViewModelLifecycleTests {
       simulationRepository: simRepo, turnRepository: turnRepo)
     sut.speed = .instant
 
-    // ADR-021 D3: a SYSTEMIC error (.notLoaded escapes LLMCaller typed and
-    // the turn gate rethrows) still fails the whole run. A merely-exhausted
-    // mock (transient class) no longer does — see the companion test below.
+    // An engine error the run cannot contain still fails the whole run. A
+    // merely-exhausted mock (transient class) no longer does — see the
+    // companion test below.
+    //
+    // Two rounds and a `.notLoaded` on every turn, rather than one turn: the
+    // Kotlin engine does not yet carry ADR-021 D3's systemic classification
+    // across the K/N boundary (#1689), so `.notLoaded` degrades turn-by-turn
+    // there until the D4 breaker trips on the 3rd consecutive skip. With four
+    // turns both engines reach `.failed`; re-tighten to one turn with #1689.
     let mock = MockLLMService(responses: [])
-    mock.throwErrorOnNextGenerate(.notLoaded)
+    mock.throwErrorOnNextGenerate(.notLoaded, count: 4)
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
-      rounds: 1,
+      rounds: 2,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.errorMessage != nil)
     let sims = try simRepo.fetchByScenarioId("test")
@@ -328,7 +335,7 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.errorMessage == nil)
     let sims = try simRepo.fetchByScenarioId("test")
@@ -351,7 +358,8 @@ struct SimulationViewModelLifecycleTests {
     sut.speed = .instant
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
-    await sut.run(scenario: scenario, llm: FailingLLMService())
+    await sut.run(
+      scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.errorMessage != nil)
     let sims = try simRepo.fetchByScenarioId("test")
@@ -378,7 +386,7 @@ struct SimulationViewModelLifecycleTests {
       ]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.isCompleted == true)
     #expect(sut.errorMessage == nil)
@@ -430,7 +438,7 @@ struct SimulationViewModelLifecycleTests {
       ]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.isCompleted == true)
     #expect(sut.errorMessage == nil)
@@ -478,7 +486,7 @@ struct SimulationViewModelLifecycleTests {
       ]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     #expect(sut.isCompleted == true)
 
@@ -542,7 +550,9 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    let runTask = Task {
+      await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+    }
     sut.runTask = runTask
 
     // Wait for run() to attach the SuspendController (happens synchronously
@@ -616,7 +626,9 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    let runTask = Task {
+      await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+    }
     sut.runTask = runTask
 
     // Wait for run() to attach the SuspendController.
@@ -683,7 +695,9 @@ struct SimulationViewModelLifecycleTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    let runTask = Task { await sut.run(scenario: scenario, llm: mock) }
+    let runTask = Task {
+      await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
+    }
     sut.runTask = runTask
 
     // Wait for run() to attach the SuspendController — proxy for "run is
@@ -722,7 +736,7 @@ struct SimulationViewModelLifecycleTests {
     )
 
     #expect(sut.suspendController == nil)
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
     // Defer block in run() clears the controller regardless of exit path.
     #expect(sut.suspendController == nil)
   }

@@ -51,7 +51,7 @@ struct SimulationViewModelExportTests {
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     let payload = try await sut.fetchExportPayload(exportEnvironment: env)
     let unwrapped = try #require(payload)
@@ -80,7 +80,7 @@ struct SimulationViewModelExportTests {
     sut.speed = .instant
 
     let scenario = makeTestScenario(agentNames: ["Alice", "Bob"], rounds: 1)
-    await sut.run(scenario: scenario, llm: FailingLLMService())
+    await sut.run(scenario: scenario, llm: FailingLLMService(), yamlDefinition: yamlDefinition(for: scenario))
 
     let payload = try await sut.fetchExportPayload(exportEnvironment: env)
     #expect(payload == nil)
@@ -106,7 +106,7 @@ struct SimulationViewModelExportTests {
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"], rounds: 1,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])])
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     let payload = try await sut.fetchExportPayload(exportEnvironment: env)
     #expect(payload == nil)
@@ -137,7 +137,7 @@ struct SimulationViewModelExportTests {
       agentNames: ["Alice", "Bob"], rounds: 1,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])])
 
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     let simId = try #require(sut.simulationId)
     let afterRun = try #require(try simRepo.fetchById(simId))
@@ -175,7 +175,7 @@ struct SimulationViewModelExportTests {
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"], rounds: 1,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])])
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     // Delete the source scenario — the run is now orphaned (scenarioId nil).
     try scenarioRepo.delete("test")
@@ -205,7 +205,7 @@ struct SimulationViewModelExportTests {
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"], rounds: 1,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])])
-    await sut.run(scenario: scenario, llm: mock)
+    await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
     // Edit the live scenario after the run completes (upsert same id, new name).
     try scenarioRepo.save(
