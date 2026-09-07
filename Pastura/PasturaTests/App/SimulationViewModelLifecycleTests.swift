@@ -262,7 +262,8 @@ struct SimulationViewModelLifecycleTests {
 
     await sut.run(
       scenario: scenario, llm: mock,
-      scenarioCategorySnapshot: GalleryCategory.gameTheory.rawValue)
+      scenarioCategorySnapshot: GalleryCategory.gameTheory.rawValue,
+      yamlDefinition: yamlDefinition(for: scenario))
 
     let sims = try simRepo.fetchByScenarioId(scenario.id)
     #expect(sims.first?.scenarioCategorySnapshot == GalleryCategory.gameTheory.rawValue)

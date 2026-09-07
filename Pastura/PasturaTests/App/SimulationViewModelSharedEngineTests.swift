@@ -196,23 +196,6 @@ struct SimulationViewModelSharedEngineTests {
     #expect(env.sut.errorMessage == nil)
   }
 
-  /// The S5-5 test seam (#1687): `run(scenario:llm:)` with no YAML still runs,
-  /// on the Swift runner, because ~66 existing suites call it that way. It is
-  /// not a production path — `SimulationView` always passes the record's
-  /// `yamlDefinition` — and `makeEventStream` logs plus (outside the test
-  /// harness) asserts when it is taken.
-  @Test("no YAML: the Swift runner serves the run as the #1687 test seam")
-  func withoutYamlFallsBackToTheSwiftSeam() async throws {
-    let env = try makeEnv()
-
-    await env.sut.run(scenario: env.scenario, llm: env.mock)
-
-    #expect(
-      env.probe.invocations == 0,
-      "the Kotlin loader needs the YAML; without it the seam takes the run")
-    #expect(env.sut.isCompleted)
-  }
-
   /// The S5-5 default itself: a VM built with **no** `makeSharedRunner` must
   /// still run fresh runs on Kotlin. Asserted through the one behaviour only
   /// the Kotlin path has — it owns the YAML parse, so YAML the Kotlin
