@@ -96,6 +96,13 @@ AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,
 | Marketing URL | `https://pastura.app/` |
 | Privacy Policy URL | `https://pastura.app/legal/privacy-policy/` |
 
+Support and Marketing URLs are fields on each version localization. The
+Privacy Policy URL is **not** on the version page — it lives in App Information
+(app-level) but is still **per locale**: `en-US` and `ja` hold different values
+there (`appInfoLocalizations.privacyPolicyUrl`, read back from the ASC API on
+2026-09-08). The ja value is in `listing-ja.md`; there is no en → ja
+inheritance.
+
 ## App-level fields (not locale-specific)
 
 | Field | Value | Source |
@@ -114,7 +121,7 @@ AI agents,on-device,offline,multi-agent,roleplay,Gemma,Qwen,private AI,scenario,
 | # | Screen | Caption |
 |---|---|---|
 | 1 | Observation transcript (speech + inner-voice bubbles) | Every word, and the thought behind it |
-| 2 | Home — scenario list | A pasture of scenarios to run |
-| 3 | Visual scenario editor | Write your own world, no code needed |
-| 4 | Vote / score results | Votes, scores, and the reveal |
-| 5 | Past Results | Every run, saved to revisit |
+| 2 | Gallery scenario detail (curated run excerpt) | See a real run before you download |
+| 3 | Browse — shared-scenario gallery | Pick a scenario, start watching |
+| 4 | Visual scenario editor | Write your own world, no code needed |
+| 5 | Vote / score results | Votes, scores, and the reveal |
