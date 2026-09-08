@@ -83,7 +83,11 @@ PR. Measured on `SimulationEngine(detector:logger:)` (#1603), where the previous
 `SimulationEngine()` gained two defaulted seams and each Swift caller had to spell out
 `SimulationEngine(detector: nil, logger: NoopEngineLogger())`. Re-measured on `random:` (#1615): the
 third seam moved the same call site again, to
-`SimulationEngine(detector:logger:random:)`. The same export shape also decides where a Kotlin
+`SimulationEngine(detector:logger:random:)`. Re-measured on a data-class field (#1689): adding
+`kind: StreamFailureKind = TRANSIENT` to `TerminalStatus.Failed` left every `commonTest` construction
+site untouched and moved the single Swift one in `App/KMP/LLMServiceBackend.swift` to
+`TerminalStatusFailed(errorCode:message:kind:)` — so the Kotlin and Swift halves of such a change
+must land in one commit. The same export shape also decides where a Kotlin
 *top-level extension function* lands: it exports on a `<File>Kt` file facade rather than on the
 protocol it extends, so a Swift conformer owes only the declared members — measured on
 `RandomSource.index` / `unit`, which reach Swift as `RandomSourceKt` (#1615).

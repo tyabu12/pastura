@@ -253,7 +253,7 @@ Entering Phase 3 was a separate step, gated on the Phase 3 prerequisite (an acti
 
 **Priority order within Phase 3:**
 
-1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 ✅ 2026-09-05 → S5-4 switch ✅ 2026-09-06 (#1681) + soak ✅ 2026-09-06 on `v1.3+888` → S5-5 code-merge ✅ 2026-09-07 ([#1685](https://github.com/tyabu12/pastura/issues/1685))). **Stage 5 is closed** — Decision 6 fired and the Kotlin engine ships for every fresh run; the test-seam follow-up [#1687](https://github.com/tyabu12/pastura/issues/1687) was discharged 2026-09-08 (ADR-023 §17). The one open KMP item is the ADR-021 D3 parity gap it surfaced, [#1689](https://github.com/tyabu12/pastura/issues/1689), which takes no precedence. Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. With the track closed, the ordering below applies as written: row 2 (Cloud API, still gated on ADR-006) is next.
+1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 ✅ 2026-09-05 → S5-4 switch ✅ 2026-09-06 (#1681) + soak ✅ 2026-09-06 on `v1.3+888` → S5-5 code-merge ✅ 2026-09-07 ([#1685](https://github.com/tyabu12/pastura/issues/1685))). **Stage 5 is closed** — Decision 6 fired and the Kotlin engine ships for every fresh run; the test-seam follow-up [#1687](https://github.com/tyabu12/pastura/issues/1687) was discharged 2026-09-08 (ADR-023 §17), and the ADR-021 D3 parity gap it surfaced, [#1689](https://github.com/tyabu12/pastura/issues/1689), closed the same day. No KMP item is open. Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. With the track closed, the ordering below applies as written: row 2 (Cloud API, still gated on ADR-006) is next.
 2. **In-app scenario generation (Cloud API)** — still gated on ADR-006 (ADR-005 §7.5): writing ADR-006 is the first deliverable; engineering beyond API-contract exploration stays out of scope until it merges.
 3. **Community features** (marketplace, rankings, auto-summary, relationship graph) — sequenced after 1 and 2; each still needs its own plan.
 
@@ -295,7 +295,7 @@ Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluati
 
 When evaluating whether to include a feature:
 
-1. Is it Phase 3.0 KMP work (ADR-023 Stage 5 slices, #501)? → Stage 5 closed 2026-09-07 (#1685) and the test seam discharged 2026-09-08 (#1687); only the D3 parity gap #1689 is left, and it takes no precedence — **ask first**, sequenced by the priority order above like any other row
+1. Is it Phase 3.0 KMP work (ADR-023 Stage 5 slices, #501)? → Stage 5 closed 2026-09-07 (#1685), the test seam discharged 2026-09-08 (#1687) and the D3 parity gap closed the same day (#1689); nothing KMP is open — **ask first**, sequenced by the priority order above like any other row
 2. Is it the Cloud API? → **Ask first**, and only ADR-006 authoring or API-contract exploration until ADR-006 merges (ADR-005 §7.5)
 3. Is it another row of the Phase 3 planned features table? → **Ask first** — sequenced after the KMP track; reference the priority order above
 4. Is it a Phase 2 row still `Deferred → P3` or a Phase 2 follow-up? → **Ask first**

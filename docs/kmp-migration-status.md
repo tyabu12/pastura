@@ -129,8 +129,9 @@ machine-checked — see the maintenance invariant above.
   engine for every fresh run and Decision 6 has fired; the H7 probe, the S5-4 opt-in switch and
   the Stage-2 gate spike are all deleted. The YAML-less test seam was discharged 2026-09-08
   ([#1687](https://github.com/tyabu12/pastura/issues/1687), ADR-023 §17), which surfaced one
-  parity gap — ADR-021 D3 systemic classification does not cross the K/N boundary
-  ([#1689](https://github.com/tyabu12/pastura/issues/1689)). One residue, accepted: the absence
+  parity gap — ADR-021 D3 systemic classification did not cross the K/N boundary — closed
+  2026-09-08 by `StreamFailureKind` on `TerminalStatus.Failed`
+  ([#1689](https://github.com/tyabu12/pastura/issues/1689), ADR-023 §17). One residue, accepted: the absence
   of a Swift fallback for a YAML the Kotlin loader rejects, guarded by
   `LoaderAcceptanceParityTests`. The three deferred questions were ruled on
   2026-08-30 ([#1633](https://github.com/tyabu12/pastura/issues/1633)) and the stage is sliced
