@@ -97,6 +97,35 @@ class TurnFailureGateTests {
     }
 
     @Test
+    fun systemicLLMFailureRethrowsWithoutSkip() = runTest {
+        // ADR-021 D3, the real subject rather than a stand-in: `LLMCaller` throws
+        // SystemicLLMFailure — not a SimulationException — precisely so
+        // `isTurnDegradable` returns false and the run aborts in one throw. If that
+        // type ever became a SimulationException wrapping LlmGenerationFailed, this
+        // reddens.
+        val gate = TurnFailureGate()
+        val events = mutableListOf<SimulationEvent>()
+
+        val thrown = assertFailsWith<SystemicLLMFailure> {
+            gate.attempt(
+                agent = "Alice", phaseType = PhaseType.SPEAK_ALL, emitter = { events.add(it) },
+            ) { throw SystemicLLMFailure("llm.notLoaded", null) }
+        }
+        assertEquals("llm.notLoaded", thrown.errorCode)
+        assertTrue(events.isEmpty())
+
+        // The counter is untouched: two subsequent degradable failures yield two skips,
+        // not a breaker trip at count 3.
+        repeat(2) {
+            val value: String? = gate.attempt(
+                agent = "Alice", phaseType = PhaseType.SPEAK_ALL, emitter = { events.add(it) },
+            ) { throw SimulationException(SimulationError.RetriesExhausted) }
+            assertNull(value)
+        }
+        assertEquals(2, events.skipped().size)
+    }
+
+    @Test
     fun cancellationRethrowsWithoutSkip() = runTest {
         // ADR-021 D3 control-flow class: user cancellation must never be
         // converted into a skipped turn.

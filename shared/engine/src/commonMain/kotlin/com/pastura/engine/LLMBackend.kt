@@ -196,27 +196,44 @@ public sealed interface TerminalStatus {
     /**
      * Generation failed and is not re-issuable by the relay.
      *
-     * **Deliberately untyped**: the Swift `StreamFailure` taxonomy (and its
-     * ADR-021 D3 classification) is Stage-3 freight, so this gate slice carries
-     * an opaque code + message rather than pre-committing to a taxonomy the
-     * deferred work is most likely to reshape. Ratify the shape when
-     * `StreamFailure` lands, not here.
+     * **[kind] is what Kotlin branches on** (ADR-021 D3). A [StreamFailureKind.SYSTEMIC]
+     * failure escapes [LLMCaller] as a typed `SystemicLLMFailure`, which
+     * `TurnFailureGate.isTurnDegradable` refuses to degrade, so the run aborts at once;
+     * a [StreamFailureKind.TRANSIENT] one keeps the
+     * `SimulationException(SimulationError.LlmGenerationFailed)` wrap the gate turns into a
+     * skipped turn plus a D4 breaker increment.
      *
-     *   Migration path, so the deferral stays cheap: Stage 3 adds a `kind` field
-     *   with a default; `errorCode` / `message` stay. Source-additive on both
-     *   sides.
+     * **Why two values and not D3's three.** ADR-021 D3 (`docs/decisions/ADR-021.md` ~line 188)
+     * names three classes — transient, systemic, and control-flow. Control flow (a suspend
+     * request, a cancellation) never reaches a `Failed` terminal at all: a suspend arrives as
+     * [Suspended], and a cancelled call delivers **no** terminal (see
+     * [LLMBackend.generateStream] clause 3). So the terminal carries only the two classes that
+     * can actually land here.
      *
-     * @param errorCode Backend-scoped identifier. **Diagnostic only — never
-     *   display verbatim, and do not branch on it**; the taxonomy that would make
-     *   branching safe does not exist yet. Note [LLMCaller] currently formats it
-     *   into `SimulationError.LlmGenerationFailed(description:)`, whose Swift
-     *   counterpart is a `LocalizedError` that can reach the UI — Stage 3's
-     *   taxonomy is what should terminate that leak.
+     * **Unchanged by this taxonomy: the [errorCode] prefix leak on the transient path.**
+     * [LLMCaller] still formats `"errorCode: message"` into
+     * `SimulationError.LlmGenerationFailed(description:)`, whose Swift counterpart is a
+     * `LocalizedError` that can reach the UI. Only the systemic path drops the prefix
+     * (`SystemicLLMFailure`'s message is `detail ?: errorCode`), matching Swift, which shows
+     * only `readableDescription(error)`.
+     *
+     * ⚠️ **K/N drops the Kotlin default**, exporting one full-arity selector
+     * (`.claude/rules/kmp-interop.md` Pattern 3), so the Swift adapter
+     * `App/KMP/LLMServiceBackend.swift` must pass `kind:` explicitly — the default here serves
+     * Kotlin construction sites (`commonTest`) only.
+     *
+     * @param errorCode Backend-scoped identifier. **Diagnostic only — never display verbatim,
+     *   and do not branch on it**: [kind] is the branchable field, and `errorCode` stays a
+     *   free-form, backend-scoped string with no roster behind it.
      * @param message   Human-readable detail, when the backend has one.
+     * @param kind      The ADR-021 D3 class of this failure. Defaults to
+     *   [StreamFailureKind.TRANSIENT] — the containable class, so a backend that says nothing
+     *   degrades one turn rather than killing the run.
      */
     public data class Failed(
         public val errorCode: String,
         public val message: String? = null,
+        public val kind: StreamFailureKind = StreamFailureKind.TRANSIENT,
     ) : TerminalStatus
 }
 
@@ -243,4 +260,30 @@ public interface StreamHandle {
      * than requiring backends to gate them.
      */
     public fun cancel()
+}
+
+/**
+ * The ADR-021 D3 class of a [TerminalStatus.Failed] generation.
+ *
+ * Two values, not D3's three: control-flow (suspend / cancellation) never reaches a `Failed`
+ * terminal — see [TerminalStatus.Failed]'s KDoc for the full argument and for what each value
+ * costs the run.
+ *
+ * Swift counterpart: the classification `streamFailureError` performs in
+ * `Pastura/Pastura/Engine/LLMCaller+StreamFailure.swift`, where `.notLoaded` / `.invalidGrammar`
+ * are returned typed and everything else is wrapped as `llmGenerationFailed`. The Swift adapter
+ * `App/KMP/LLMServiceBackend.swift` maps the same two cases to [SYSTEMIC].
+ */
+public enum class StreamFailureKind {
+    /**
+     * Containable: skip this turn, count it toward the D4 consecutive-skip breaker, keep going.
+     * Generation noise, an empty stream, a network blip.
+     */
+    TRANSIENT,
+
+    /**
+     * Run-fatal at once: the backend is broken in a way retrying cannot fix — no model loaded,
+     * an invalid grammar. Aborts the run without a skip and without a breaker increment.
+     */
+    SYSTEMIC,
 }

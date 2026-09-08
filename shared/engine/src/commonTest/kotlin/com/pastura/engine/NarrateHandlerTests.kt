@@ -349,6 +349,35 @@ class NarrateHandlerTests {
     }
 
     @Test
+    fun aSystemicBackendFailureEscapesRatherThanDegrading() = runTest {
+        // ADR-021 D3, and a DELIBERATE divergence from Swift: `SystemicLLMFailure` is a
+        // plain RuntimeException, so narrate's `catch (SimulationException)` does not see
+        // it and the run fails. Swift's bare `catch` in `Engine/Phases/NarrateHandler.swift`
+        // instead swallows the typed `LLMError.notLoaded` and continues the round without
+        // narration. The Kotlin behaviour is the one D3 asks for; recorded in ADR-023 §17.
+        val s = scenario()
+        val events = mutableListOf<SimulationEvent>()
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script(
+                    terminal = TerminalStatus.Failed(
+                        errorCode = "llm.notLoaded",
+                        message = "Model is not loaded",
+                        kind = StreamFailureKind.SYSTEMIC,
+                    ),
+                ),
+            ),
+        )
+
+        val e = assertFailsWith<SystemicLLMFailure> {
+            handler.execute(context(s, backend, events), stateWithLog(s))
+        }
+        assertEquals("Model is not loaded", e.message)
+        assertTrue(narrations(events).isEmpty())
+        assertTrue(skips(events).isEmpty())
+    }
+
+    @Test
     fun cancellationEscapesRatherThanBeingSwallowed() = runTest {
         // The motivating case for narrowing the catch. Kotlin cancellation is a
         // *throw*, and narrate has no TurnFailureGate to rethrow it (the gate catches

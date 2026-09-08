@@ -180,6 +180,14 @@ internal class NarrateHandler : PhaseHandler {
             // deliberate, not an oversight — it is the same posture
             // `TurnFailureGate.attempt` takes for every other handler, catching
             // `Throwable` and then re-throwing anything `isTurnDegradable` rejects.
+            //
+            // Nor does it catch a `SystemicLLMFailure` (ADR-021 D3): that is a plain
+            // `RuntimeException`, so a systemic backend failure — no model loaded, an invalid
+            // grammar — passes straight through here and fails the run. Swift's bare `catch` in
+            // `Engine/Phases/NarrateHandler.swift` instead swallows the typed `LLMError.notLoaded`
+            // and continues the round without narration, so the engines DIVERGE here. Deliberate,
+            // and in the Kotlin engine's favour: D3's whole point is that a systemic failure must
+            // not be degraded away. Recorded in ADR-023 §17.
             context.logger.log(
                 level = EngineLogLevel.DEBUG,
                 category = LOG_CATEGORY,

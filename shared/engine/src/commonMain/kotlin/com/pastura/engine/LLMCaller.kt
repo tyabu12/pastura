@@ -11,6 +11,7 @@ import kotlin.coroutines.coroutineContext
 import kotlin.coroutines.resume
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 
@@ -37,7 +38,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  *
  * | Absent | Why |
  * |---|---|
- * | `StreamFailure` taxonomy + ADR-021 D3 classification | named Stage-3 freight; [TerminalStatus.Failed] maps straight to [SimulationError.LlmGenerationFailed] |
+ * | The `samplerCrashCaught` one-retry arm (`shouldRetryStreamFailure` in `LLMCaller+StreamFailure.swift`) | No Kotlin equivalent of the Swift-only error case, and `ScriptedLLMBackend` cannot script it — [TerminalStatus.Failed] carries a failure *class*, not a case |
+ *
+ * The ADR-021 D3 classification itself is no longer absent: [TerminalStatus.Failed] carries
+ * [StreamFailureKind], and a [StreamFailureKind.SYSTEMIC] failure escapes as [SystemicLLMFailure].
  *
  * Swift original: `Pastura/Pastura/Engine/LLMCaller.swift` (+ its sibling
  * `LLMCaller+Logging.swift`, folded into this file's logging helpers below — Kotlin
@@ -117,7 +121,10 @@ internal class LLMCaller(
      * @throws SimulationException wrapping [SimulationError.RetriesExhausted] after
      *   [MAX_RETRIES] parse failures — or on `empty_field` exhaustion when the
      *   declared canonical primary is absent/empty (ADR-021 § Amendment 2026-08-06) —
-     *   or [SimulationError.LlmGenerationFailed] on a backend failure.
+     *   or [SimulationError.LlmGenerationFailed] on a **transient** backend failure.
+     * @throws SystemicLLMFailure — NOT a [SimulationException] — on a
+     *   [StreamFailureKind.SYSTEMIC] backend failure, so `TurnFailureGate` cannot degrade it and
+     *   the run aborts (ADR-021 D3).
      */
     suspend fun call(
         backend: LLMBackend,
@@ -146,8 +153,21 @@ internal class LLMCaller(
 
             val result = try {
                 consumeStreamWithSuspendRetry(backend, request, relay, agentName, emitter)
-            } catch (e: SimulationException) {
+            } catch (e: CancellationException) {
+                // Must precede the Throwable arm. A cancelled call emits NOTHING — the run is
+                // being torn down, and an `InferenceCompleted` for a turn nobody waited for would
+                // be a fabricated measurement. This is what the previous
+                // `catch (e: SimulationException)` gave for free; stated explicitly now that the
+                // arm below is broad.
+                throw e
+            } catch (e: Throwable) {
                 // Tokens are unknown on failure — the backend never completed.
+                //
+                // Deliberately `Throwable`, not `SimulationException`: `SystemicLLMFailure` is
+                // neither, and the paired `InferenceStarted`/`InferenceCompleted` must balance on
+                // the systemic path too. Parity target is Swift's BARE `catch` in
+                // `Engine/LLMCaller.swift:125-134`, which emits before classifying via
+                // `streamFailureError`.
                 emitInferenceCompleted(agentName, startMark, tokens = null, emitter = emitter)
                 throw e
             }
@@ -248,11 +268,20 @@ internal class LLMCaller(
                     // suspend is naturally replaced by the new stream's snapshots
                     // on the consumer side, so no reset event is needed.
                 }
-                is TerminalStatus.Failed -> throw SimulationException(
-                    SimulationError.LlmGenerationFailed(
-                        description = status.message?.let { "${status.errorCode}: $it" } ?: status.errorCode,
-                    ),
-                )
+                // ADR-021 D3 classification, the Kotlin twin of Swift's
+                // `streamFailureError` (`Engine/LLMCaller+StreamFailure.swift`): a systemic
+                // failure escapes TYPED so `TurnFailureGate.isTurnDegradable` refuses it and the
+                // run aborts, while a transient one keeps the `LlmGenerationFailed` wrap the gate
+                // turns into a skipped turn.
+                is TerminalStatus.Failed -> when (status.kind) {
+                    StreamFailureKind.SYSTEMIC ->
+                        throw SystemicLLMFailure(status.errorCode, status.message)
+                    StreamFailureKind.TRANSIENT -> throw SimulationException(
+                        SimulationError.LlmGenerationFailed(
+                            description = status.message?.let { "${status.errorCode}: $it" } ?: status.errorCode,
+                        ),
+                    )
+                }
             }
         }
     }

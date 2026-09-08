@@ -288,31 +288,36 @@ struct SimulationViewModelLifecycleTests {
     // merely-exhausted mock (transient class) no longer does — see the
     // companion test below.
     //
-    // Two rounds and a `.notLoaded` on every turn, rather than one turn: the
-    // Kotlin engine does not yet carry ADR-021 D3's systemic classification
-    // across the K/N boundary (#1689), so `.notLoaded` degrades turn-by-turn
-    // there until the D4 breaker trips on the 3rd consecutive skip. With four
-    // turns both engines reach `.failed`; re-tighten to one turn with #1689.
+    // One `.notLoaded` on the first turn is enough: ADR-021 D3 classifies it
+    // systemic, and since #1689 that class crosses the K/N boundary
+    // (`StreamFailureKind.SYSTEMIC`), so the Kotlin engine fails the run on
+    // the first failure exactly as the Swift runner does — no skipped turns,
+    // no D4 breaker. Bob's turn must never be reached, so the mock carries no
+    // response for it.
     let mock = MockLLMService(responses: [])
-    mock.throwErrorOnNextGenerate(.notLoaded, count: 4)
+    mock.throwErrorOnNextGenerate(.notLoaded)
     let scenario = makeTestScenario(
       agentNames: ["Alice", "Bob"],
-      rounds: 2,
+      rounds: 1,
       phases: [Phase(type: .speakAll, prompt: "Speak", outputSchema: ["statement": "string"])]
     )
 
     await sut.run(scenario: scenario, llm: mock, yamlDefinition: yamlDefinition(for: scenario))
 
-    #expect(sut.errorMessage != nil)
+    // The backend's own text, with no diagnostic `errorCode` prefix: the
+    // systemic path hands `SystemicLLMFailure`'s message straight to
+    // `llmGenerationFailed(description:)`, whose `errorDescription` is a
+    // pass-through (#427). Equality, not `.contains`, so a reintroduced
+    // `"llm.notLoaded: "` prefix reddens this line.
+    #expect(sut.errorMessage == LLMError.notLoaded.localizedDescription)
     let sims = try simRepo.fetchByScenarioId("test")
     #expect(sims.count == 1)
     #expect(sims.first?.simulationStatus == .failed)
-    // Pins the mechanism in play today — the D4 breaker: two skips, then the
-    // third failure trips it with no `.turnSkipped` of its own. Fails the day
-    // #1689 lands D3 on the Kotlin side (a systemic error skips nothing), so
-    // the re-tightening has a red to work from. Engine-independent D3 coverage
-    // lives in `LLMCallerTests+FailureTaxonomy` / `TurnFailureGateTests`.
-    #expect(sut.degradedTurnCount == 2)
+    // A systemic error skips nothing — the D4 breaker never enters the
+    // picture. Engine-independent D3 coverage lives in
+    // `LLMCallerTests+FailureTaxonomy` / `TurnFailureGateTests` and their
+    // Kotlin twins.
+    #expect(sut.degradedTurnCount == 0)
   }
 
   @Test func runCompletesWhenTransientFailuresStayUnderBreakerLimit() async throws {

@@ -20,9 +20,9 @@ import kotlin.test.assertTrue
  * Kotlin sibling of Swift's `SpeakAllHandlerTests` (+ its `…+TurnDegradation`
  * split), scoped to the ported subset.
  *
- * The ADR-021 turn-gate integration is exercised here (transient-skip and the D4
- * circuit breaker). The D3 systemic-error case stays deferred — see the note
- * above those tests — pending the Stage-3 `StreamFailure` taxonomy.
+ * The ADR-021 turn-gate integration is exercised here — transient-skip, the D4
+ * circuit breaker, and (since `TerminalStatus.Failed` carries a `StreamFailureKind`)
+ * the D3 systemic-error case.
  *
  * Ported for the ADR-023 KMP Engine migration (#501); the turn gate is restored
  * in Wave B (B0a).
@@ -294,15 +294,37 @@ class SpeakAllHandlerTests {
     // non-degradable rethrow) are covered by [TurnFailureGateTests]; these pin the
     // HANDLER's integration with the gate.
     //
-    // D3 (`systemicErrorPropagatesTypedWithoutSkip` in the Swift sibling) is
-    // deliberately NOT ported here: the systemic-vs-transient `StreamFailure`
-    // taxonomy is Stage-3 freight (see [LLMCaller]'s absence table), so every
-    // failure a [ScriptedLLMBackend] can produce maps to the degradable
-    // `LlmGenerationFailed` — there is no non-degradable LLM failure to script yet.
-    // The gate-level non-degradable rethrow is already covered by
-    // [TurnFailureGateTests], and this handler adds no catch, so nothing here could
-    // swallow a systemic error into a skip. Restore this case when the taxonomy
-    // lands (#501).
+    @Test
+    fun systemicErrorPropagatesTypedWithoutSkip() = runTest {
+        // ADR-021 D3, mirroring the Swift sibling of the same name in
+        // `SpeakAllHandlerTests+TurnDegradation.swift` (which scripts
+        // `LLMError.invalidGrammar`): a systemic failure aborts the phase in one
+        // typed throw rather than degrading Alice's turn and marching on to Bob.
+        val s = scenario(agents = listOf("Alice", "Bob", "Charlie"))
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script(
+                    terminal = TerminalStatus.Failed(
+                        errorCode = "llm.invalidGrammar",
+                        message = "grammar bug",
+                        kind = StreamFailureKind.SYSTEMIC,
+                    ),
+                ),
+                says("never reached"),
+                says("never reached either"),
+            ),
+        )
+        val events = mutableListOf<SimulationEvent>()
+
+        val error = assertFailsWith<SystemicLLMFailure> {
+            handler.execute(context(s, backend, events), SimulationState.initial(s))
+        }
+        assertEquals("grammar bug", error.message)
+        assertTrue(events.filterIsInstance<SimulationEvent.TurnSkipped>().isEmpty())
+        assertTrue(events.filterIsInstance<SimulationEvent.AgentOutput>().isEmpty())
+        // Spare scripts left unconsumed: Bob and Charlie were never asked.
+        assertEquals(1, backend.callCount)
+    }
 
     @Test
     fun aTransientFailureSkipsTheTurnAndOtherAgentsStillSpeak() = runTest {

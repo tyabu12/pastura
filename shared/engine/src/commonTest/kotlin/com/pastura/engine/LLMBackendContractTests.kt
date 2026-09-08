@@ -117,6 +117,15 @@ class LLMBackendContractTests {
     }
 
     @Test
+    fun failedKindDefaultsToTransient() {
+        // The safety-critical default (ADR-021 D3): a backend that says nothing
+        // degrades one turn rather than killing the run. Kotlin-side only — K/N
+        // drops the default, so the Swift adapter must pass `kind:` explicitly
+        // (kmp-interop Pattern 3).
+        assertEquals(StreamFailureKind.TRANSIENT, TerminalStatus.Failed(errorCode = "unknown").kind)
+    }
+
+    @Test
     fun suspendedAndCompletedAreSingletonsNotValueEqualByAccident() {
         // Sealed `object`s: identity equality is what the relay branches on.
         assertEquals(TerminalStatus.Completed, TerminalStatus.Completed)
