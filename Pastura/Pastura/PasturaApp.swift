@@ -853,7 +853,7 @@ private struct RootView: View {
     /// navigation flows that tap it. Plain `--ui-test` keeps the canary.
     /// `--ui-test-seed-store-gallery` → ten real curated entries (ja + en)
     /// for App Store screenshot capture (#1612), ordered so the entries the
-    /// screenshot tour taps (`shazai_master_v1` / `shazai_master_v1_en`)
+    /// screenshot tour taps (`iiwake_battle_v1` / `iiwake_battle_v1_en`)
     /// sort first without scrolling.
     private static func uiTestGalleryService() -> StubGalleryService {
       let args = CommandLine.arguments

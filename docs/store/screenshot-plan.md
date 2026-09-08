@@ -60,7 +60,7 @@ seams carry this, and both must be checked when adding a shot:
 | Surface | Seam | ja | en |
 |---|---|---|---|
 | Shot 01 transcript | `StoreScreenshotTests.StoreLocale.resultSeedArgument` → `PasturaApp.resultSeedFixture()` | `--ui-test-seed-results-wordwolf` (verbatim Japanese run) | `--ui-test-seed-results` (Alice / Bob) |
-| Shots 02 / 03 gallery entries | `StubGalleryService.uiTestStoreGallery()` carries both languages; `SharedScenariosViewModel` seeds its language chip from `LocaleResolver.deviceDefault()` on first load | ja entries (`shazai_master_v1` first) | en entries (`shazai_master_v1_en` first) |
+| Shots 02 / 03 gallery entries | `StubGalleryService.uiTestStoreGallery()` carries both languages; `SharedScenariosViewModel` seeds its language chip from `LocaleResolver.deviceDefault()` on first load | ja entries (`iiwake_battle_v1` first) | en entries (`iiwake_battle_v1_en` first) |
 | Shot 01 results row copy | `StubScenarioSeeder` + `StubScenarioSeeder+Localized.swift`, selected by `LocaleResolver.deviceDefault()` | Japanese names + descriptions | English |
 
 The row-copy seam deliberately reads the **device locale** rather than taking a
@@ -93,7 +93,7 @@ shape.
 | # | Screen | Reached via | EN caption | JA caption |
 |---|---|---|---|---|
 | 01 | Observation transcript (speech + inner-voice bubbles) | Past Results → seeded run's timeline (`resultDetail.timeline`) | Every word, and the thought behind it | 発言と、その裏にある心の声まで |
-| 02 | Gallery scenario detail with the ADR-029 highlight | Browse → `sharedScenarios.galleryCell.shazai_master_v1[_en]` (`galleryDetail.highlightRunFigure`) | See a real run before you download | 実行前に、本物のやりとりをのぞき見 |
+| 02 | Gallery scenario detail with the ADR-029 highlight | Browse → `sharedScenarios.galleryCell.iiwake_battle_v1[_en]` (`galleryDetail.highlightRunFigure`) | See a real run before you download | 実行前に、本物のやりとりをのぞき見 |
 | 03 | Browse — shared-scenario gallery | Browse tab (`rootTab.search`, `--ui-test-seed-store-gallery`) | Pick a scenario, start watching | ギャラリーから選んで、すぐ観測 |
 | 04 | Visual scenario editor | Home → new scenario (`editor.titleField`) | Write your own world, no code needed | コード不要で、自分の世界を書く |
 | 05 | Scoreboard / vote result | `--ui-test-open-scoreboard` (`scoreboard.list`) | Votes, scores, and the reveal | 投票、スコア、そして結末 |
@@ -107,7 +107,10 @@ shape.
 > information the remaining shots already carry. Shots 02/03 run against
 > `StubGalleryService.uiTestStoreGallery()` (real `gallery.json` entries and
 > real highlight JSON, hand-copied — `App/UITestSupport/StubGalleryService+StoreGallery.swift`),
-> selected by `--ui-test-seed-store-gallery`.
+> selected by `--ui-test-seed-store-gallery`. The hero entry the tour taps is
+> `iiwake_battle_v1[_en]`, not `shazai_master_v1[_en]`: its title fits the
+> detail nav bar in both locales, where the shazai en title
+> ("Apology Master Championship") truncated in a real capture.
 
 > **Caption honesty note (critic Axis 8, App Review 2.3).** Shot 01 is the
 > **Past-Results transcript replay**, not a live run (see the design decision
@@ -150,15 +153,12 @@ matched to a scenario's phases — brittle and out of scope for 1.0.
 - `RootTabView` tabs carry `rootTab.*` accessibility identifiers so tab
   navigation is locale-independent (release-safe; benefits VoiceOver too).
 
-## Status-bar chrome (optional polish)
+## Status-bar chrome
 
-For a clean 9:41 / full-battery status bar, override before capture (not wired
-into the script — the raw simulator status bar is acceptable for ASC):
-
-```bash
-xcrun simctl status_bar "iPhone 17 Pro Max" override \
-  --time "9:41" --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
-```
+`store-shots.sh` pins the status bar to Apple's own 9:41 / full signal / full
+battery (`xcrun simctl status_bar … override`, since the 1.3 set) and clears the
+override in its cleanup trap — the raw simulator clock is acceptable to ASC, so
+a failed override is cosmetic and never aborts the capture.
 
 ## Output location
 

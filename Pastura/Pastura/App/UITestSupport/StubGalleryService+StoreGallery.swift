@@ -7,40 +7,36 @@
   extension StubGalleryService {
     /// A ten-entry gallery fixture used to capture App Store screenshots.
     ///
-    /// This is a **hand copy** of the ten entries below from
-    /// `docs/gallery/gallery.json`, taken as of 2026-09-08. There is no
-    /// automatic sync — when the shots are re-taken against a newer curated
-    /// feed, refresh these literals by hand (`jq` against `gallery.json` and
-    /// `docs/gallery/highlights/*.json` is the fastest way to pull fresh
-    /// values, as done for this fixture).
+    /// This is a **hand copy** of the ten entries below from `docs/gallery/gallery.json`, taken as
+    /// of 2026-09-08. There is no automatic sync — when the shots are re-taken against a newer
+    /// curated feed, refresh these literals by hand (`jq` against `gallery.json` and
+    /// `docs/gallery/highlights/*.json` is the fastest way to pull fresh values, as done for this
+    /// fixture).
     ///
-    /// `yamlSHA256` / `highlightSHA256` here are decorative: the stub never
-    /// verifies a hash (`fetchScenarioYAML` / `fetchHighlightData` serve
-    /// straight from the in-memory dictionaries), so a value going stale
-    /// relative to the real feed has no effect on this fixture.
+    /// `yamlSHA256` / `highlightSHA256` here are decorative: the stub never verifies a hash
+    /// (`fetchScenarioYAML` / `fetchHighlightData` serve straight from the in-memory
+    /// dictionaries), so a value going stale relative to the real feed has no effect on this
+    /// fixture.
     ///
     /// Every entry's `phases` must keep passing
-    /// `EngineSchemaVersion.isCompatible(phases:minEngineVersion:)` on the
-    /// build that ships the screenshots. An incompatible entry gets an
-    /// `.incompatible` suffix appended to its Browse-tab cell identifier
-    /// (`SharedScenariosViewModel+InstallState.swift`), which the screenshot
-    /// UI test's tap-by-identifier lookup does not expect — the tap would
-    /// silently miss.
+    /// `EngineSchemaVersion.isCompatible(phases:minEngineVersion:)` on the build that ships the
+    /// screenshots. An incompatible entry gets an `.incompatible` suffix appended to its
+    /// Browse-tab cell identifier (`SharedScenariosViewModel+InstallState.swift`), which the
+    /// screenshot UI test's tap-by-identifier lookup does not expect — the tap would silently miss.
     public static func uiTestStoreGallery() -> StubGalleryService {
       let index = GalleryIndex(
         version: 1, updatedAt: "2026-09-01", scenarios: storeGalleryScenarios)
       return StubGalleryService(
         index: index,
         highlightsByURL: [
-          shazaiJaHighlightURL: shazaiJaHighlightJSON,
-          shazaiEnHighlightURL: shazaiEnHighlightJSON
+          iiwakeJaHighlightURL: iiwakeJaHighlightJSON,
+          iiwakeEnHighlightURL: iiwakeEnHighlightJSON
         ])
     }
 
-    /// The ten curated entries, ordered as `docs/gallery/gallery.json` lists
-    /// them (ja block, then en block) — not the order the Browse tab will
-    /// render them in, which is `addedAt`-descending (see the `addedAt`
-    /// note below).
+    /// The ten curated entries, ordered as `docs/gallery/gallery.json` lists them (ja block, then
+    /// en block) — not the order the Browse tab will render them in, which is `addedAt`-descending
+    /// (see the `addedAt` note below).
     private static var storeGalleryScenarios: [GalleryScenario] {
       [
         shazaiJa, kinokoTakenokoJa, iiwakeBattleJa, chinJimakuJa, hissatsuNamingJa,
@@ -60,14 +56,7 @@
     // MARK: ja entries
 
     private static let shazaiJaYAMLURL = stubURL("stub://gallery/shazai_master_v1.yaml")
-    private static let shazaiJaHighlightURL = stubURL(
-      "stub://gallery/shazai_master_v1-highlight.json")
 
-    /// `addedAt` is the newest date in this fixture (both `shazai_master_*`
-    /// entries share it) — the Browse list sorts `addedAt` descending then
-    /// `id` (`GalleryScenarioSearch`), and the screenshot UI test taps
-    /// `shazai_master_v1` / `shazai_master_v1_en` without scrolling, so this
-    /// entry must sort to the top of its language.
     private static let shazaiJa = GalleryScenario(
       id: "shazai_master_v1",
       title: "謝罪マスター選手権",
@@ -79,13 +68,11 @@
       estimatedInferences: 40,
       yamlURL: shazaiJaYAMLURL,
       yamlSHA256: "241b8b807be66aa4c37e01971cb7b6187e9e2b1d8ce4b3d7928d8d2c5b865058",
-      addedAt: "2026-09-01",
+      addedAt: "2026-08-25",
       agentCount: 5,
       rounds: 4,
       phases: ["assign", "speak_all", "vote", "score_calc", "eliminate", "summarize"],
-      language: "ja",
-      highlightURL: shazaiJaHighlightURL,
-      highlightSHA256: "4f6ffc60c6bc4eda5d1f4c42ee7e79e010ee017152d01db6e9d686c1c00d5e82"
+      language: "ja"
     )
 
     private static let kinokoTakenokoJa = GalleryScenario(
@@ -106,6 +93,13 @@
       language: "ja"
     )
 
+    private static let iiwakeJaHighlightURL = stubURL(
+      "stub://gallery/iiwake_battle_v1-highlight.json")
+
+    /// `addedAt` is the newest date in this fixture (both `iiwake_battle_*` entries share it) —
+    /// the Browse list sorts `addedAt` descending then `id` (`GalleryScenarioSearch`), and the
+    /// screenshot UI test taps `iiwake_battle_v1` / `iiwake_battle_v1_en` without scrolling, so
+    /// this entry must sort to the top of its language.
     private static let iiwakeBattleJa = GalleryScenario(
       id: "iiwake_battle_v1",
       title: "言い訳エスカレーション",
@@ -117,11 +111,13 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/iiwake_battle_v1.yaml"),
       yamlSHA256: "6b35dbf5ac872170d480ca73f5c088dd34f5c727f21015a7d39eb7032d22ec9d",
-      addedAt: "2026-08-28",
+      addedAt: "2026-09-01",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_each", "vote", "score_calc", "summarize"],
-      language: "ja"
+      language: "ja",
+      highlightURL: iiwakeJaHighlightURL,
+      highlightSHA256: "621a38610ec73d0d981c4f9bdf34cbfd5cc1e300e630541d1efa5773ef7b20cd"
     )
 
     private static let chinJimakuJa = GalleryScenario(
@@ -166,11 +162,7 @@
     // MARK: en entries
 
     private static let shazaiEnYAMLURL = stubURL("stub://gallery/shazai_master_v1_en.yaml")
-    private static let shazaiEnHighlightURL = stubURL(
-      "stub://gallery/shazai_master_v1_en-highlight.json")
 
-    /// See the ja twin's note: shares the newest `addedAt` so it sorts first
-    /// within the en language filter too.
     private static let shazaiEn = GalleryScenario(
       id: "shazai_master_v1_en",
       title: "Apology Master Championship",
@@ -187,13 +179,11 @@
       estimatedInferences: 40,
       yamlURL: shazaiEnYAMLURL,
       yamlSHA256: "b50e9539ef0c5b71332af1fc308fb6a5aff5ad35a62b48427e94d7203f9b91fc",
-      addedAt: "2026-09-01",
+      addedAt: "2026-08-25",
       agentCount: 5,
       rounds: 4,
       phases: ["assign", "speak_all", "vote", "score_calc", "eliminate", "summarize"],
-      language: "en",
-      highlightURL: shazaiEnHighlightURL,
-      highlightSHA256: "e93b32f4ed8811e3c43506fa56d0b6e497b6065721413c74150ae3ae742fb2a9"
+      language: "en"
     )
 
     private static let chinJimakuEn = GalleryScenario(
@@ -217,6 +207,11 @@
       language: "en"
     )
 
+    private static let iiwakeEnHighlightURL = stubURL(
+      "stub://gallery/iiwake_battle_v1_en-highlight.json")
+
+    /// See the ja twin's note: shares the newest `addedAt` so it sorts first
+    /// within the en language filter too.
     private static let iiwakeBattleEn = GalleryScenario(
       id: "iiwake_battle_v1_en",
       title: "Excuse Escalation",
@@ -231,11 +226,13 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/iiwake_battle_v1_en.yaml"),
       yamlSHA256: "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3",
-      addedAt: "2026-08-28",
+      addedAt: "2026-09-01",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_each", "vote", "score_calc", "summarize"],
-      language: "en"
+      language: "en",
+      highlightURL: iiwakeEnHighlightURL,
+      highlightSHA256: "ac1b38ca3a945efdc768f318edf1833baede865fba30d279abdaae4677fc8165"
     )
 
     private static let hissatsuNamingEn = GalleryScenario(
@@ -282,109 +279,118 @@
 
     // MARK: highlight bodies
 
-    /// Verbatim contents of `docs/gallery/highlights/shazai_master_v1.json`.
-    private static let shazaiJaHighlightJSON: Data = Data(
+    /// Verbatim contents of `docs/gallery/highlights/iiwake_battle_v1.json`.
+    private static let iiwakeJaHighlightJSON: Data = Data(
       """
       {
         "schema_version": 1,
         "scenario_ref": {
-          "id": "shazai_master_v1",
-          "yaml_sha256": "241b8b807be66aa4c37e01971cb7b6187e9e2b1d8ce4b3d7928d8d2c5b865058"
+          "id": "iiwake_battle_v1",
+          "yaml_sha256": "6b35dbf5ac872170d480ca73f5c088dd34f5c727f21015a7d39eb7032d22ec9d"
         },
         "source": {
           "model": "gemma-4-e2b-q4-k-m",
-          "run_id": "20260828-090131-bd17",
-          "generated_at": "2026-08-28"
+          "run_id": "20260808-131915-59f5",
+          "generated_at": "2026-08-08"
         },
         "excerpt": [
           {
-            "agent": "論点そらしのソラシ",
+            "agent": "国際派ジョージ",
             "round": 1,
-            "phase": "speak_all",
+            "phase": "speak_each",
+            "phase_index": 1,
+            "persona_index": 0,
+            "source_field": "statement",
+            "text": "サマータイムの廃止決定に伴う世界標準時への移行の混乱が、私のスケジュールに予期せぬ遅延をもたらしました。"
+          },
+          {
+            "agent": "科学者リケ美",
+            "round": 1,
+            "phase": "speak_each",
+            "phase_index": 1,
+            "persona_index": 1,
+            "source_field": "statement",
+            "text": "私の遅刻は、予測不能な量子もつれ状態に陥ったため、時間軸の局所性が崩壊した結果です。"
+          },
+          {
+            "agent": "浪花節たけし",
+            "round": 1,
+            "phase": "speak_each",
             "phase_index": 1,
             "persona_index": 2,
             "source_field": "statement",
-            "text": "この件で、弊社は品質改善のための新たな取り組みを開始します。"
+            "text": "実は、その会議の直前、急な嵐で外が完全に水没し、私は避難するのに時間を費やしてしまいました。"
           },
           {
-            "agent": "責任転嫁のテンカ",
+            "agent": "開き直りマコ",
             "round": 1,
-            "phase": "speak_all",
+            "phase": "speak_each",
             "phase_index": 1,
             "persona_index": 3,
             "source_field": "statement",
-            "text": "私は何も関与していません。現場の作業員の管理体制が不十分だったのが実情です。"
-          },
-          {
-            "agent": "過剰卑屈のヘコム",
-            "round": 1,
-            "phase": "speak_all",
-            "phase_index": 1,
-            "persona_index": 4,
-            "source_field": "statement",
-            "text": "私のような者が、この汚点を生み出したことに対し、存在そのものが許されぬと心より嘆願いたします。"
+            "text": "私の遅刻は、単なる時間感覚の誤作動ではなく、会議そのものが持つべき神聖な儀式を尊重するために必要な儀式的な停滞でした。"
           }
         ],
         "yaml_hook": {
           "kind": "persona",
-          "fragment": "  - name: 責任転嫁のテンカ\\n    description: >\\n      【立場】自分は一切悪くない体で、原因を必ず他へ押し付ける転嫁の名手。\\n      【目的】部下・システム・天候・時代——何にでも罪を着せ、自分は被害者面をする。\\n      例:「これは現場の担当者の判断でして、私はむしろ知らされていなかった側でして」",
-          "caption": "この3人、誰ひとり「すみません」を言っていない。前向きな告知にすり替える者、罪を現場に置いてくる者、卑下が謝罪を追い越してしまう者——謝罪会見の体裁だけが残って、中身が全部よそへ行っている。"
+          "fragment": "  - name: 国際派ジョージ\\n    description: >\\n      【立場】何でも国際問題のせいにするスケール詐欺師\\n      【目的】時差・為替・外交問題など世界規模の理由に責任転嫁して笑いを取る。\\n      例:「サマータイムの廃止が決まった影響で」「円安がここまでとは」\\n  - name: 開き直りマコ\\n    description: >\\n      【立場】言い訳を放棄して堂々と開き直る確信犯\\n      【目的】謝るどころか逆に相手を説得し始める図々しさで笑いを取る。\\n      例:「むしろ感謝してほしい」「これは遅刻ではなく様式美」",
+          "caption": "並んだ4人から、両極の2人を抜き出した設定。スケールで殴る詐欺師と、そもそも謝らない確信犯——芸風の正体は『例』に並ぶ一言だ。差し替えれば、言い訳の流派はまるごと入れ替わる。"
         },
-        "teaser": "不祥事お題は毎ラウンド更新。5つの芸風のうち、最初に『誠意がない』と投票で見切られるのはどれか。",
+        "teaser": "後から言うほど大胆にしないと埋もれる。4人の言い訳バトル、生き残るのは誰か、アプリで確かめよう。",
         "window_override": false,
         "content_filter_applied": true
       }
       """.utf8)
 
-    /// Verbatim contents of `docs/gallery/highlights/shazai_master_v1_en.json`.
-    private static let shazaiEnHighlightJSON: Data = Data(
+    /// Verbatim contents of `docs/gallery/highlights/iiwake_battle_v1_en.json`.
+    private static let iiwakeEnHighlightJSON: Data = Data(
       """
       {
         "schema_version": 1,
         "scenario_ref": {
-          "id": "shazai_master_v1_en",
-          "yaml_sha256": "b50e9539ef0c5b71332af1fc308fb6a5aff5ad35a62b48427e94d7203f9b91fc"
+          "id": "iiwake_battle_v1_en",
+          "yaml_sha256": "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3"
         },
         "source": {
           "model": "gemma-4-e2b-q4-k-m",
-          "run_id": "20260828-095506-8e45",
-          "generated_at": "2026-08-28"
+          "run_id": "20260827-100042-d0e3",
+          "generated_at": "2026-08-27"
         },
         "excerpt": [
           {
-            "agent": "Sidestep Sid",
+            "agent": "Global George",
             "round": 1,
-            "phase": "speak_all",
+            "phase": "speak_each",
+            "phase_index": 1,
+            "persona_index": 0,
+            "source_field": "statement",
+            "text": "I apologize, but the fluctuating global shipping lanes caused an unavoidable delay in my arrival."
+          },
+          {
+            "agent": "Dr. Quantum",
+            "round": 1,
+            "phase": "speak_each",
+            "phase_index": 1,
+            "persona_index": 1,
+            "source_field": "statement",
+            "text": "My temporal coordinates were momentarily entangled with a localized distortion field, resulting in an unavoidable phase shift."
+          },
+          {
+            "agent": "Sentimental Sam",
+            "round": 1,
+            "phase": "speak_each",
             "phase_index": 1,
             "persona_index": 2,
             "source_field": "statement",
-            "text": "We are excited to announce a new line of eco-friendly products launching next Tuesday!"
-          },
-          {
-            "agent": "Blame-Shift Blake",
-            "round": 1,
-            "phase": "speak_all",
-            "phase_index": 1,
-            "persona_index": 3,
-            "source_field": "statement",
-            "text": "This was clearly a lapse in quality control that the external supplier failed to monitor; I was simply trying my best."
-          },
-          {
-            "agent": "Grovel Greg",
-            "round": 1,
-            "phase": "speak_all",
-            "phase_index": 1,
-            "persona_index": 4,
-            "source_field": "statement",
-            "text": "I am eternally sorry for this grievous oversight; my very existence is a stain on the earth."
+            "text": "Oh, the sheer agony of missing that meeting was due to a sudden, heartbreaking realization that I had forgotten my favorite childhood teddy bear at home."
           }
         ],
         "yaml_hook": {
           "kind": "persona",
-          "fragment": "  - name: Grovel Greg\\n    description: >\\n      [Role] The excessive-groveling type who apologizes so much it gets unsettling.\\n      [Goal] Escalate self-abasement to a \\"someone like me has no right to exist\\" level,\\n      overshooting the apology entirely.\\n      e.g. \\"That someone like me was even breathing is itself an apology owed to all humankind.\\"",
-          "caption": "Greg is the only one here who apologizes at all, and he overshoots so far that there is nothing left to forgive. The two beside him have already moved on to product launches and somebody else's paperwork."
+          "fragment": "  - name: Dr. Quantum\\n    description: >\\n      [Role] An excuse-maker armed with pseudo-science.\\n      [Goal] Blind everyone with plausible-sounding jargon.\\n      e.g. \\"Until observed, my lateness remains in superposition.\\" \\"It was the\\n      unanimous verdict of my gut microbiome.\\"\\n  - name: Sentimental Sam\\n    description: >\\n      [Role] A tear-jerking excuse-maker who tugs the heartstrings.\\n      [Goal] Spin a sob story so shamelessly moving the listener wants to forgive\\n      you anyway.\\n      e.g. \\"A stray kitten simply would not let go of me.\\" \\"It was a promise I made\\n      to my late grandmother.\\"",
+          "caption": "Pseudo-science and a sob story: two of the four excuse-makers in the line-up. The act lives in the e.g. lines. Swap those and you have changed the school of excuse-making, not just the wording."
         },
-        "teaser": "Nobody on this stage has said what actually happened. At the end of every round, a vote removes whoever sounded least sincere.",
+        "teaser": "Speaking later means topping the excuse before yours, and laying it on too thick backfires. There is another screw-up to answer for after this one.",
         "window_override": false,
         "content_filter_applied": true
       }

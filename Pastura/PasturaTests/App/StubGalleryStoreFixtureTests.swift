@@ -25,20 +25,20 @@ import Testing
 
   /// The Browse tab sorts `addedAt` descending then `id`
   /// (`GalleryScenarioSearch`), and the screenshot UI test taps
-  /// `shazai_master_v1` / `shazai_master_v1_en` without scrolling. Asserting
+  /// `iiwake_battle_v1` / `iiwake_battle_v1_en` without scrolling. Asserting
   /// each is the max `addedAt` within its language is the simplest way to
   /// pin that ordering without duplicating the sort comparator here.
-  @Test func shazaiSortsFirstInEachLanguage() throws {
+  @Test func iiwakeSortsFirstInEachLanguage() throws {
     let scenarios = try index().scenarios
     for language in ["ja", "en"] {
       let inLanguage = scenarios.filter { $0.effectiveLanguage == language }
       let maxAddedAt = inLanguage.map(\.addedAt).max()
-      let expectedID = language == "ja" ? "shazai_master_v1" : "shazai_master_v1_en"
-      let shazai = try #require(inLanguage.first { $0.id == expectedID })
-      #expect(shazai.addedAt == maxAddedAt)
+      let expectedID = language == "ja" ? "iiwake_battle_v1" : "iiwake_battle_v1_en"
+      let iiwake = try #require(inLanguage.first { $0.id == expectedID })
+      #expect(iiwake.addedAt == maxAddedAt)
       // Every other entry in the language must sort strictly after it.
       for other in inLanguage where other.id != expectedID {
-        #expect(other.addedAt < shazai.addedAt)
+        #expect(other.addedAt < iiwake.addedAt)
       }
     }
   }
@@ -53,10 +53,10 @@ import Testing
     }
   }
 
-  @Test func shazaiHighlightsDecodeThroughTheRealDecoder() async throws {
+  @Test func iiwakeHighlightsDecodeThroughTheRealDecoder() async throws {
     let service = StubGalleryService.uiTestStoreGallery()
     let scenarios = try index().scenarios
-    for id in ["shazai_master_v1", "shazai_master_v1_en"] {
+    for id in ["iiwake_battle_v1", "iiwake_battle_v1_en"] {
       let scenario = try #require(scenarios.first { $0.id == id })
       let highlightURL = try #require(scenario.highlightURL)
       let data = try await service.fetchHighlightData(

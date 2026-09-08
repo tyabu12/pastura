@@ -11,7 +11,7 @@ import XCTest
 /// `ci.yml`.
 ///
 /// #1612's set: 01 observation transcript (History tab replay), 02 gallery
-/// scenario detail with highlight (Browse tab → the seeded `shazai_master_v1`
+/// scenario detail with highlight (Browse tab → the seeded `iiwake_battle_v1`
 /// cell), 03 Browse gallery list (anchored on that same cell), 04 the visual
 /// editor, 05 the fixed-data scoreboard. The old Home-list and Past-Results-
 /// list shots are dropped — `StubGalleryService.uiTestStoreGallery()`
@@ -46,7 +46,7 @@ final class StoreScreenshotTests: XCTestCase {
     /// Browse tab's localized label, same fallback role as `historyTabLabel`.
     /// **Keep in sync with the `Browse` key in `Localizable.xcstrings`.**
     let browseTabLabel: String
-    /// The seeded `shazai_master_v1*` gallery entry's id for this locale —
+    /// The seeded `iiwake_battle_v1*` gallery entry's id for this locale —
     /// `StubGalleryService.uiTestStoreGallery()` sorts it first within its
     /// language filter. Drives the `sharedScenarios.galleryCell.<id>`
     /// identifier for shots 02/03.
@@ -60,7 +60,7 @@ final class StoreScreenshotTests: XCTestCase {
       resultSeedArgument: "--ui-test-seed-results",
       historyTabLabel: "History",
       browseTabLabel: "Browse",
-      galleryCellId: "shazai_master_v1_en"),
+      galleryCellId: "iiwake_battle_v1_en"),
     StoreLocale(
       prefix: "ja", language: "ja", locale: "ja_JP",
       // Word Wolf over `prisoners`: its statement → two votes → tally →
@@ -72,7 +72,7 @@ final class StoreScreenshotTests: XCTestCase {
       resultSeedArgument: "--ui-test-seed-results-wordwolf",
       historyTabLabel: "観察履歴",
       browseTabLabel: "さがす",
-      galleryCellId: "shazai_master_v1")
+      galleryCellId: "iiwake_battle_v1")
   ]
 
   override func setUpWithError() throws {
@@ -115,15 +115,29 @@ final class StoreScreenshotTests: XCTestCase {
     // switch survives a launch that drops the identifier.
     tapTab(app, "rootTab.search", labelFallback: locale.browseTabLabel)
 
-    // 03 Browse gallery list, anchored on the locale's own `shazai_master_v1*`
+    // 03 Browse gallery list, anchored on the locale's own `iiwake_battle_v1*`
     // cell. That cell also carries the highlight, so anchoring on it — rather
     // than the tab's own container — means the capture waits for the
     // language-filter chip (seeded on first index load) to settle too.
     let galleryCellId = "sharedScenarios.galleryCell.\(locale.galleryCellId)"
     captureScreenshot(app, name: "\(prefix)-03-browse", anchorId: galleryCellId, timeout: 10)
 
-    // 02 Gallery scenario detail with highlight.
+    // 02 Gallery scenario detail with highlight. The highlight section sits
+    // below the "What happens" phase list, so once it has rendered, scroll it
+    // into view — measured on the first 1.3 capture, only its first row peeked
+    // out from under the tab bar without a scroll. A fixed-distance, slow drag
+    // with a hold at the end (not `swipeUp()`, whose inertia carried the
+    // section's header under the nav bar on the second capture) parks the
+    // section heading in the upper part of the frame in both locales.
     app.buttons[galleryCellId].tap()
+    let runFigure = app.descendants(matching: .any)["galleryDetail.highlightRunFigure"]
+    XCTAssertTrue(
+      runFigure.waitForExistence(timeout: 10),
+      "Highlight run figure never rendered for \(galleryCellId).")
+    let dragStart = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.85))
+    let dragEnd = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.37))
+    dragStart.press(
+      forDuration: 0.1, thenDragTo: dragEnd, withVelocity: .slow, thenHoldForDuration: 0.3)
     captureScreenshot(
       app, name: "\(prefix)-02-highlight", anchorId: "galleryDetail.highlightRunFigure",
       timeout: 10)

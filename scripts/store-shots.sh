@@ -89,12 +89,20 @@ cleanup() {
   if [ -n "$PRIOR_APPEARANCE" ]; then
     xcrun simctl ui "$SIM_UDID" appearance "$PRIOR_APPEARANCE" > /dev/null 2>&1 || true
   fi
+  xcrun simctl status_bar "$SIM_UDID" clear > /dev/null 2>&1 || true
   [ -n "${EXPORT_DIR:-}" ] && rm -rf "$EXPORT_DIR"
   return 0
 }
 trap cleanup EXIT INT TERM
 
 xcrun simctl ui "$SIM_UDID" appearance light > /dev/null
+
+# Store-clean status bar (Apple's own 9:41, full signal, full battery). The
+# override is per-device state like the appearance pin above, so it is cleared
+# in cleanup(); a failure here is cosmetic and must not abort the capture.
+xcrun simctl status_bar "$SIM_UDID" override \
+  --time "9:41" --batteryState charged --batteryLevel 100 \
+  --cellularBars 4 --wifiBars 3 > /dev/null 2>&1 || true
 
 # xcodebuild refuses to write into a pre-existing result bundle.
 rm -rf "$RESULT_BUNDLE"
