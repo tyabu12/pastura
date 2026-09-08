@@ -219,6 +219,46 @@ class SimulationEngineTests {
         assertFalse(c.snapshot().any { it is SimulationEvent.SimulationCompleted })
     }
 
+    @Test
+    fun aSystemicBackendFailureEndsTheRunWithAnErrorEventCarryingOnlyTheMessage() = runBlockingTest {
+        // ADR-021 D3 end to end. `SystemicLLMFailure` is not a SimulationException, so it
+        // walks past `TurnFailureGate` and lands in `executePhases`' `catch (Throwable)`
+        // arm, which re-wraps it as LlmGenerationFailed — the same ErrorEvent shape
+        // Swift's `SimulationRunner` catch-all produces for a typed LLMError.
+        val s = scenario()
+        val c = Collector()
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script(
+                    terminal = TerminalStatus.Failed(
+                        errorCode = "llm.notLoaded",
+                        message = "Model is not loaded",
+                        kind = StreamFailureKind.SYSTEMIC,
+                    ),
+                ),
+                ScriptedLLMBackend.Script.completing("""{"statement": "never reached"}"""),
+            ),
+        )
+        SimulationEngine().run(s, backend) { c.record(it) }
+        awaitTerminal(c)
+
+        val events = c.snapshot()
+        val error = assertIs<SimulationEvent.ErrorEvent>(events.last())
+        // EXACTLY the backend message: no "llm.notLoaded: " prefix reaches the user.
+        assertEquals(
+            "Model is not loaded",
+            assertIs<SimulationError.LlmGenerationFailed>(error.error).description,
+        )
+        assertEquals(1, backend.callCount, "the run aborts at the first turn — no retry, no next agent")
+        assertTrue(events.none { it is SimulationEvent.TurnSkipped }, "systemic failures are never skips")
+        assertEquals(
+            events.count { it is SimulationEvent.InferenceStarted },
+            events.count { it is SimulationEvent.InferenceCompleted },
+            "the inference pair must balance on the systemic path too",
+        )
+        assertFalse(events.any { it is SimulationEvent.SimulationCompleted })
+    }
+
     // `anUnportedPhaseTypeSurfacesAsAValidationError` lived here, using CONDITIONAL
     // as the last-to-be-ported exemplar. Wave B completed at 14/14 (#1342), so no
     // PhaseType is unported and the case had no subject left. Not repointed: the

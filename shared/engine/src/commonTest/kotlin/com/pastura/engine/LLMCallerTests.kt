@@ -427,6 +427,84 @@ class LLMCallerTests {
         assertEquals("unknown", assertIs<SimulationError.LlmGenerationFailed>(error.error).description)
     }
 
+    // MARK: - ADR-021 D3 failure classification
+
+    // The three `failedTerminal*` tests above script the DEFAULT kind, so they are the
+    // transient half of this taxonomy — the twin of Swift's
+    // `LLMCallerTests+FailureTaxonomy.transientGenerationFailureStaysWrapped`.
+
+    @Test
+    fun systemicFailedTerminalThrowsTypedAndIsNotRetried() = runTest {
+        // Twin of Swift's `nonSamplerErrorIsNotRetried` +
+        // `LLMCallerTests+FailureTaxonomy.notLoadedRethrowsTyped`: a systemic failure
+        // escapes as SystemicLLMFailure — deliberately NOT a SimulationException, so
+        // `TurnFailureGate.isTurnDegradable` cannot degrade it into a skipped turn.
+        //
+        // The spare valid script is what makes the callCount assertion the detector
+        // rather than the harness's exhaustion throw (`.claude/rules/kmp-interop.md`
+        // Pattern 4).
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script(
+                    terminal = TerminalStatus.Failed(
+                        errorCode = "llm.notLoaded",
+                        message = "Model is not loaded",
+                        kind = StreamFailureKind.SYSTEMIC,
+                    ),
+                ),
+                script("""{"statement": "never reached"}"""),
+            ),
+        )
+
+        val error = assertFailsWith<SystemicLLMFailure> { call(backend) }
+        // No "code: " prefix — this message is what the engine catch-all copies into
+        // `LlmGenerationFailed(description)` and thence to the user's errorMessage.
+        assertEquals("Model is not loaded", error.message)
+        assertEquals("llm.notLoaded", error.errorCode)
+        assertEquals(1, backend.callCount, "a systemic failure must not consume the retry budget")
+    }
+
+    @Test
+    fun systemicFailedTerminalWithoutAMessageUsesTheBareCode() = runTest {
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script(
+                    terminal = TerminalStatus.Failed(
+                        errorCode = "llm.invalidGrammar",
+                        kind = StreamFailureKind.SYSTEMIC,
+                    ),
+                ),
+            ),
+        )
+        val error = assertFailsWith<SystemicLLMFailure> { call(backend) }
+        assertEquals("llm.invalidGrammar", error.message)
+    }
+
+    @Test
+    fun systemicFailurePairsInferenceStartedWithInferenceCompleted() = runTest {
+        // THE assertion that catches a narrowed catch in `call`. Before the widening
+        // the failure arm was `catch (e: SimulationException)`, which SystemicLLMFailure
+        // is not — the InferenceCompleted would be skipped and any consumer counting the
+        // pair (a progress spinner) would be left hanging. Revert the widening and this
+        // goes red; the other two systemic tests stay green.
+        val events = mutableListOf<SimulationEvent>()
+        val backend = ScriptedLLMBackend(
+            listOf(
+                ScriptedLLMBackend.Script(
+                    terminal = TerminalStatus.Failed(
+                        errorCode = "llm.notLoaded",
+                        kind = StreamFailureKind.SYSTEMIC,
+                    ),
+                ),
+            ),
+        )
+
+        assertFailsWith<SystemicLLMFailure> { call(backend, events = events) }
+
+        assertEquals(1, events.filterIsInstance<SimulationEvent.InferenceStarted>().size)
+        assertEquals(1, events.filterIsInstance<SimulationEvent.InferenceCompleted>().size)
+    }
+
     // MARK: - §5.2 cancellation composition
 
     @Test

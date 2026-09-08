@@ -153,17 +153,22 @@ nonisolated final class LLMServiceBackend: LLMBackend, Sendable {
       callbacks.onTerminal(
         status: TerminalStatusFailed(
           errorCode: errorCode(for: error),
-          message: error.localizedDescription))
+          message: error.localizedDescription,
+          // Kotlin branches the run on this: `.systemic` aborts at once, `.transient`
+          // degrades one turn. K/N drops Kotlin's default, so it MUST be passed here
+          // (`kmp-interop.md` Pattern 3) — hard-coding `.transient` would restore the
+          // pre-#1689 defect where a dead backend ground through the whole scenario.
+          kind: Self.failureKind(for: error)))
     }
   }
 
   /// A stable, diagnostic-only identifier for a failed generation.
   ///
-  /// `TerminalStatus.Failed.errorCode` is deliberately untyped until the
-  /// Stage-3 `StreamFailure` taxonomy lands, and Kotlin documents that nothing
-  /// may branch on it — so this only has to be stable and greppable, not
-  /// parseable. `LLMError` cases get their case name; anything else gets its
-  /// concrete type, which is the most specific thing available.
+  /// Kotlin documents that nothing may branch on `TerminalStatus.Failed.errorCode`
+  /// — ``failureKind(for:)`` supplies the branchable classification — so this
+  /// only has to be stable and greppable, not parseable. `LLMError` cases get
+  /// their case name; anything else gets its concrete type, which is the most
+  /// specific thing available.
   static func errorCode(for error: Error) -> String {
     guard let llmError = error as? LLMError else {
       return "llm.unmapped.\(type(of: error))"
@@ -179,6 +184,39 @@ nonisolated final class LLMServiceBackend: LLMBackend, Sendable {
     case .suspended: return "llm.suspended"
     case .invalidGrammar: return "llm.invalidGrammar"
     case .samplerCrashCaught: return "llm.samplerCrashCaught"
+    }
+  }
+
+  /// The ADR-021 D3 class of a failed generation — the field Kotlin actually
+  /// branches on.
+  ///
+  /// **Must stay in step with `streamFailureError` in
+  /// `Engine/LLMCaller+StreamFailure.swift`**, which is the Swift engine's copy
+  /// of this same classification: the two cases it returns *typed* (so the Swift
+  /// turn gate cannot degrade them) are exactly the two mapped to `.systemic`
+  /// here. `.notLoaded` means the backend lost its model mid-run and
+  /// `.invalidGrammar` is a deterministic engineering bug — retrying either
+  /// against the next agent only burns inference latency on the way to the same
+  /// failure.
+  ///
+  /// Everything else is `.transient`: containable as a skipped turn, counted
+  /// toward the D4 breaker. That includes every non-`LLMError` throw — an
+  /// unknown failure is not evidence of a systemic one, and the breaker still
+  /// stops a run that keeps producing them.
+  ///
+  /// `.loadFailed` is transient here for the same reason the Swift twin needs no
+  /// arm for it: only `loadModel` throws it, and the App layer handles that
+  /// before a run starts, so it cannot reach a generation stream at all.
+  ///
+  /// Exhaustive over `LLMError` with no `default`, so a new case is a compile
+  /// error here rather than a silent `.transient`.
+  static func failureKind(for error: Error) -> PasturaSharedEngine.StreamFailureKind {
+    guard let llmError = error as? LLMError else { return .transient }
+    switch llmError {
+    case .notLoaded, .invalidGrammar: return .systemic
+    case .loadFailed, .generationFailed, .invalidResponse, .networkError, .suspended,
+      .samplerCrashCaught:
+      return .transient
     }
   }
 }
