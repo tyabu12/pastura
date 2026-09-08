@@ -22,8 +22,8 @@ import Testing
 /// § "Non-base-locale expectations".
 ///
 /// A failure here is not necessarily a bug: it means the ja label moved, and
-/// whoever moved it must also update the `historyTabLabel` literals in
-/// `StoreScreenshotTests.locales` and `MarketingShotTests`.
+/// whoever moved it must also update the `historyTabLabel` / `browseTabLabel`
+/// literals in `StoreScreenshotTests.locales` and `MarketingShotTests`.
 @Suite(.timeLimit(.minutes(1)))
 struct StoreCaptureTabLabelTests {
 
@@ -63,6 +63,29 @@ struct StoreCaptureTabLabelTests {
     // Keep in sync with `MarketingShotTests`' ja literal and the `ja` row of
     // `StoreScreenshotTests.locales`.
     #expect(unit["value"] as? String == "観察履歴")
+    #expect(unit["state"] as? String == "translated")
+  }
+
+  @Test func testBrowseTabJapaneseLabelMatchesTheCaptureFallback() throws {
+    let data = try Data(contentsOf: Self.catalogURL())
+    let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
+    let strings = try #require(json?["strings"] as? [String: Any])
+    let entry = try #require(
+      strings["Browse"] as? [String: Any],
+      "the `Browse` key is gone from the catalog — the tab label moved")
+    // Same stale-entry vacuity `HookHeadingLocalizationTests` guards: a
+    // reworded en literal leaves this key behind as `extractionState: "stale"`
+    // with its ja value intact, so the assertion below would keep passing
+    // against an entry the app no longer resolves.
+    #expect(
+      entry["extractionState"] as? String != "stale",
+      "'Browse' is stale — the en literal moved; re-point this test at the new key")
+    let localizations = try #require(entry["localizations"] as? [String: Any])
+    let ja = try #require(localizations["ja"] as? [String: Any])
+    let unit = try #require(ja["stringUnit"] as? [String: Any])
+
+    // Keep in sync with the `ja` row of `StoreScreenshotTests.locales`.
+    #expect(unit["value"] as? String == "さがす")
     #expect(unit["state"] as? String == "translated")
   }
 }

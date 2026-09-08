@@ -10,7 +10,15 @@ import XCTest
 /// CI-skipped via `-skip-testing:PasturaUITests/StoreScreenshotTests` in
 /// `ci.yml`.
 ///
-/// Shot 1 ("observation") is the Past-Results transcript replay: it renders the
+/// #1612's set: 01 observation transcript (History tab replay), 02 gallery
+/// scenario detail with highlight (Browse tab → the seeded `shazai_master_v1`
+/// cell), 03 Browse gallery list (anchored on that same cell), 04 the visual
+/// editor, 05 the fixed-data scoreboard. The old Home-list and Past-Results-
+/// list shots are dropped — `StubGalleryService.uiTestStoreGallery()`
+/// (`StubGalleryService+StoreGallery.swift`) now supplies the gallery fixture
+/// shots 02/03 read.
+///
+/// Shot 01 ("observation") is the Past-Results transcript replay: it renders the
 /// same `AgentOutputRow` speech + inner-voice bubbles the live simulation uses.
 /// The live `SimulationView` is not reachable under `--ui-test`
 /// (`MockLLMService(responses: [])` throws on any generate), so the
@@ -35,6 +43,14 @@ final class StoreScreenshotTests: XCTestCase {
     /// fails to bridge — see `tapTab`. **Keep in sync with the `History` key in
     /// `Localizable.xcstrings`.**
     let historyTabLabel: String
+    /// Browse tab's localized label, same fallback role as `historyTabLabel`.
+    /// **Keep in sync with the `Browse` key in `Localizable.xcstrings`.**
+    let browseTabLabel: String
+    /// The seeded `shazai_master_v1*` gallery entry's id for this locale —
+    /// `StubGalleryService.uiTestStoreGallery()` sorts it first within its
+    /// language filter. Drives the `sharedScenarios.galleryCell.<id>`
+    /// identifier for shots 02/03.
+    let galleryCellId: String
   }
 
   private static let locales: [StoreLocale] = [
@@ -42,7 +58,9 @@ final class StoreScreenshotTests: XCTestCase {
       prefix: "en", language: "en", locale: "en_US",
       // Alice / Bob, two `speak_all` rounds with `inner_thought`.
       resultSeedArgument: "--ui-test-seed-results",
-      historyTabLabel: "History"),
+      historyTabLabel: "History",
+      browseTabLabel: "Browse",
+      galleryCellId: "shazai_master_v1_en"),
     StoreLocale(
       prefix: "ja", language: "ja", locale: "ja_JP",
       // Word Wolf over `prisoners`: its statement → two votes → tally →
@@ -52,7 +70,9 @@ final class StoreScreenshotTests: XCTestCase {
       // section — so the shot-01 caption ("発言と、その裏にある心の声まで")
       // still holds even though this fixture has no `inner_thought` field.
       resultSeedArgument: "--ui-test-seed-results-wordwolf",
-      historyTabLabel: "観察履歴")
+      historyTabLabel: "観察履歴",
+      browseTabLabel: "さがす",
+      galleryCellId: "shazai_master_v1")
   ]
 
   override func setUpWithError() throws {
@@ -69,34 +89,48 @@ final class StoreScreenshotTests: XCTestCase {
     }
   }
 
-  /// Two launches per locale: launch A walks the seeded home/editor/results/
-  /// transcript screens; launch B opens the fixed-data scoreboard. Tabs are
-  /// switched via `tapTab`, which matches the `rootTab.*` identifier OR the
-  /// locale's label, so the walk works under ja as well as en even on a launch
-  /// where the identifier never bridges.
+  /// Two launches per locale: launch A walks the seeded editor/gallery/
+  /// results/transcript screens; launch B opens the fixed-data scoreboard.
+  /// Tabs are switched via `tapTab`, which matches the `rootTab.*` identifier
+  /// OR the locale's label, so the walk works under ja as well as en even on a
+  /// launch where the identifier never bridges.
   private func captureStoreShots(for locale: StoreLocale) {
     let localeArgs = ["-AppleLanguages", "(\(locale.language))", "-AppleLocale", locale.locale]
     let prefix = locale.prefix
 
     let app = XCUIApplication()
     app.launchArguments =
-      ["--ui-test", "--ui-test-seed-home-rich", locale.resultSeedArgument] + localeArgs
+      [
+        "--ui-test", "--ui-test-seed-home-rich", "--ui-test-seed-store-gallery",
+        locale.resultSeedArgument
+      ] + localeArgs
     app.launch()
 
-    // 02 Home — the seeded row appears once HomeViewModel finishes loading.
-    captureScreenshot(
-      app, name: "\(prefix)-02-home",
-      anchorId: "home.scenarioListCell.ui_test_home_seed", timeout: 10)
-
-    // 03 Editor (new scenario), then back to Home.
+    // 04 Editor (new scenario), then back to Home.
     app.buttons["home.newScenarioButton"].tap()
-    captureScreenshot(app, name: "\(prefix)-03-editor", anchorId: "editor.titleField")
+    captureScreenshot(app, name: "\(prefix)-04-editor", anchorId: "editor.titleField")
     popBack(app)
 
-    // 05 Past Results list — the History tab root (identifier OR localized
-    // label, so the switch survives a launch that drops the identifier).
+    // Browse tab root — the tab bar identifier OR localized label, so the
+    // switch survives a launch that drops the identifier.
+    tapTab(app, "rootTab.search", labelFallback: locale.browseTabLabel)
+
+    // 03 Browse gallery list, anchored on the locale's own `shazai_master_v1*`
+    // cell. That cell also carries the highlight, so anchoring on it — rather
+    // than the tab's own container — means the capture waits for the
+    // language-filter chip (seeded on first index load) to settle too.
+    let galleryCellId = "sharedScenarios.galleryCell.\(locale.galleryCellId)"
+    captureScreenshot(app, name: "\(prefix)-03-browse", anchorId: galleryCellId, timeout: 10)
+
+    // 02 Gallery scenario detail with highlight.
+    app.buttons[galleryCellId].tap()
+    captureScreenshot(
+      app, name: "\(prefix)-02-highlight", anchorId: "galleryDetail.highlightRunFigure",
+      timeout: 10)
+    popBack(app)
+
+    // History tab root (identifier OR localized label).
     tapTab(app, "rootTab.history", labelFallback: locale.historyTabLabel)
-    captureScreenshot(app, name: "\(prefix)-05-results", anchorId: "results.list")
 
     // 01 Observation transcript — speech + inner-voice bubbles. Which field
     // carries the thought is per-phase (`ScenarioConventions.thoughtField(for:)`):
@@ -105,12 +139,12 @@ final class StoreScreenshotTests: XCTestCase {
     app.buttons["results.row.ui_test_result_seed"].tap()
     captureScreenshot(app, name: "\(prefix)-01-observation", anchorId: "resultDetail.timeline")
 
-    // 04 Scoreboard — relaunch with the fixed-data scoreboard flag.
+    // 05 Scoreboard — relaunch with the fixed-data scoreboard flag.
     app.terminate()
     app.launchArguments = ["--ui-test", "--ui-test-open-scoreboard"] + localeArgs
     app.launch()
     captureScreenshot(
-      app, name: "\(prefix)-04-scoreboard", anchorId: "scoreboard.list", timeout: 10)
+      app, name: "\(prefix)-05-scoreboard", anchorId: "scoreboard.list", timeout: 10)
     app.terminate()
   }
 }
