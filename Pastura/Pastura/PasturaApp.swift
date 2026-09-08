@@ -851,6 +851,10 @@ private struct RootView: View {
     /// renders (#1394); kept off the default canary because the section's
     /// height would push `galleryDetail.tryButton` out of reach of the
     /// navigation flows that tap it. Plain `--ui-test` keeps the canary.
+    /// `--ui-test-seed-store-gallery` → ten real curated entries (ja + en)
+    /// for App Store screenshot capture (#1612), ordered so the entries the
+    /// screenshot tour taps (`shazai_master_v1` / `shazai_master_v1_en`)
+    /// sort first without scrolling.
     private static func uiTestGalleryService() -> StubGalleryService {
       let args = CommandLine.arguments
       if args.contains("--ui-test-seed-gallery-offline") {
@@ -858,6 +862,9 @@ private struct RootView: View {
       }
       if args.contains("--ui-test-seed-empty-gallery") {
         return StubGalleryService.uiTestEmptyGallery()
+      }
+      if args.contains("--ui-test-seed-store-gallery") {
+        return StubGalleryService.uiTestStoreGallery()
       }
       if args.contains("--ui-test-seed-highlight") {
         return StubGalleryService.uiTestHighlightGallery()
