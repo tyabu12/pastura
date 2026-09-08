@@ -60,7 +60,8 @@ seams carry this, and both must be checked when adding a shot:
 | Surface | Seam | ja | en |
 |---|---|---|---|
 | Shot 01 transcript | `StoreScreenshotTests.StoreLocale.resultSeedArgument` → `PasturaApp.resultSeedFixture()` | `--ui-test-seed-results-wordwolf` (verbatim Japanese run) | `--ui-test-seed-results` (Alice / Bob) |
-| Shots 02 / 05 row copy | `StubScenarioSeeder` + `StubScenarioSeeder+Localized.swift`, selected by `LocaleResolver.deviceDefault()` | Japanese names + descriptions | English |
+| Shots 02 / 03 gallery entries | `StubGalleryService.uiTestStoreGallery()` carries both languages; `SharedScenariosViewModel` seeds its language chip from `LocaleResolver.deviceDefault()` on first load | ja entries (`shazai_master_v1` first) | en entries (`shazai_master_v1_en` first) |
+| Shot 01 results row copy | `StubScenarioSeeder` + `StubScenarioSeeder+Localized.swift`, selected by `LocaleResolver.deviceDefault()` | Japanese names + descriptions | English |
 
 The row-copy seam deliberately reads the **device locale** rather than taking a
 launch argument of its own: the capture already passes `-AppleLanguages`, and a
@@ -92,10 +93,21 @@ shape.
 | # | Screen | Reached via | EN caption | JA caption |
 |---|---|---|---|---|
 | 01 | Observation transcript (speech + inner-voice bubbles) | Past Results → seeded run's timeline (`resultDetail.timeline`) | Every word, and the thought behind it | 発言と、その裏にある心の声まで |
-| 02 | Home — scenario list | launch root (`home.scenarioListCell.*`) | A pasture of scenarios to run | 実行できるシナリオが並ぶ牧場 |
-| 03 | Visual scenario editor | Home → new scenario (`editor.titleField`) | Write your own world, no code needed | コード不要で、自分の世界を書く |
-| 04 | Scoreboard / vote result | `--ui-test-open-scoreboard` (`scoreboard.list`) | Votes, scores, and the reveal | 投票、スコア、そして結末 |
-| 05 | Past Results list | History tab (`results.list`) | Every run, saved to revisit | すべての実行を、あとから見返す |
+| 02 | Gallery scenario detail with the ADR-029 highlight | Browse → `sharedScenarios.galleryCell.shazai_master_v1[_en]` (`galleryDetail.highlightRunFigure`) | See a real run before you download | 実行前に、本物のやりとりをのぞき見 |
+| 03 | Browse — shared-scenario gallery | Browse tab (`rootTab.search`, `--ui-test-seed-store-gallery`) | Pick a scenario, start watching | ギャラリーから選んで、すぐ観測 |
+| 04 | Visual scenario editor | Home → new scenario (`editor.titleField`) | Write your own world, no code needed | コード不要で、自分の世界を書く |
+| 05 | Scoreboard / vote result | `--ui-test-open-scoreboard` (`scoreboard.list`) | Votes, scores, and the reveal | 投票、スコア、そして結末 |
+
+> **1.3 rework (#1612).** The 1.0–1.2 set was Observation / Home / Editor /
+> Scoreboard / Past Results. Store listings surface the first three portrait
+> shots in search and above the fold, so 1.3 moves the two things a newcomer
+> cannot see anywhere else — a curated excerpt of a real run before the 3 GB
+> download (ADR-029) and the breadth of the gallery (Browse tab, #1567) — into
+> slots 02 and 03. Home and the Past-Results list were dropped: both repeat
+> information the remaining shots already carry. Shots 02/03 run against
+> `StubGalleryService.uiTestStoreGallery()` (real `gallery.json` entries and
+> real highlight JSON, hand-copied — `App/UITestSupport/StubGalleryService+StoreGallery.swift`),
+> selected by `--ui-test-seed-store-gallery`.
 
 > **Caption honesty note (critic Axis 8, App Review 2.3).** Shot 01 is the
 > **Past-Results transcript replay**, not a live run (see the design decision
