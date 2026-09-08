@@ -163,7 +163,7 @@ First App Store submission depends on a set of cross-cutting blockers tracked in
 - [x] Answer the App Privacy Details questionnaire ("Data Not Collected", per `PrivacyInfo.xcprivacy`)
 - [x] Add in-app Settings → "Privacy Policy" link (Guideline 5.1.1: "easily accessible")
 
-Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) auto-applies; revisit if Phase 3 introduces server-side data flows (gated on ADR-006).
+Custom EULA is intentionally deferred — Apple's [Standard EULA](https://www.apple.com/legal/internet-services/itunes/dev/stdeula/) auto-applies; revisit if Phase 3 introduces server-side data flows — ADR-006 (2026-09-08) introduces none (BYOK, no proxy), so the standard EULA stands until its proxy revisit trigger fires.
 
 ### Localization Plan
 
@@ -253,8 +253,8 @@ Entering Phase 3 was a separate step, gated on the Phase 3 prerequisite (an acti
 
 **Priority order within Phase 3:**
 
-1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 ✅ 2026-09-05 → S5-4 switch ✅ 2026-09-06 (#1681) + soak ✅ 2026-09-06 on `v1.3+888` → S5-5 code-merge ✅ 2026-09-07 ([#1685](https://github.com/tyabu12/pastura/issues/1685))). **Stage 5 is closed** — Decision 6 fired and the Kotlin engine ships for every fresh run; the test-seam follow-up [#1687](https://github.com/tyabu12/pastura/issues/1687) was discharged 2026-09-08 (ADR-023 §17), and the ADR-021 D3 parity gap it surfaced, [#1689](https://github.com/tyabu12/pastura/issues/1689), closed the same day. No KMP issue is open beyond the accepted residues (ADR-023 §16–§17) and the `LLMCaller.kt` absence table on #501. Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. With the track closed, the ordering below applies as written: row 2 (Cloud API, still gated on ADR-006) is next.
-2. **In-app scenario generation (Cloud API)** — still gated on ADR-006 (ADR-005 §7.5): writing ADR-006 is the first deliverable; engineering beyond API-contract exploration stays out of scope until it merges.
+1. **Phase 3.0 — KMP Engine migration** (ADR-023 Stage 5: S5-3 H5+H7 ✅ 2026-09-05 → S5-4 switch ✅ 2026-09-06 (#1681) + soak ✅ 2026-09-06 on `v1.3+888` → S5-5 code-merge ✅ 2026-09-07 ([#1685](https://github.com/tyabu12/pastura/issues/1685))). **Stage 5 is closed** — Decision 6 fired and the Kotlin engine ships for every fresh run; the test-seam follow-up [#1687](https://github.com/tyabu12/pastura/issues/1687) was discharged 2026-09-08 (ADR-023 §17), and the ADR-021 D3 parity gap it surfaced, [#1689](https://github.com/tyabu12/pastura/issues/1689), closed the same day. No KMP issue is open beyond the accepted residues (ADR-023 §16–§17) and the `LLMCaller.kt` absence table on #501. Progress: [`docs/kmp-migration-status.md`](kmp-migration-status.md) / #501. With the track closed, the ordering below applies as written: row 2 (Cloud API, ADR-006 Accepted 2026-09-08) is next.
+2. **In-app scenario generation (Cloud API)** — ADR-006 Accepted 2026-09-08 ([#1692](https://github.com/tyabu12/pastura/issues/1692)): BYOK, Claude first behind a provider-neutral client. Implementation follows ADR-006 §8's three slices — (a) key + consent, (b) client + pipeline, (c) the disclosure release gate, which must merge before the release carrying (b).
 3. **Community features** (marketplace, rankings, auto-summary, relationship graph) — sequenced after 1 and 2; each still needs its own plan.
 
 ### Planned Features
@@ -262,7 +262,7 @@ Entering Phase 3 was a separate step, gated on the Phase 3 prerequisite (an acti
 | Feature                              | Notes                                      |
 |--------------------------------------|--------------------------------------------|
 | Scenario marketplace                 | Browse, rate, download community scenarios |
-| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Gated on ADR-006; engineering beyond API-contract exploration is out of scope until ADR-006 merges (ADR-005 §7.5). |
+| In-app scenario generation (Cloud API)| Claude/Gemini API for natural language → YAML. Deferred from Phase 2 (2026-04-21) to avoid cost-runaway / API-key-leakage risk during initial App Store release, and to share server-side infrastructure (identity, rate-limit, quota) with the marketplace. Decided by ADR-006 (2026-09-08): BYOK only, no server (the marketplace-shared infrastructure is its proxy revisit trigger), Claude first. |
 | Scenario rankings / popular templates| Trending, most-run, highest-rated          |
 | Simulation result auto-summary       | LLM-generated summary of what happened     |
 | Relationship graph visualization     | Agent interaction network diagram          |
@@ -296,7 +296,7 @@ Phase 3: iOS + Android + Desktop via KMP shared Engine (direction under evaluati
 When evaluating whether to include a feature:
 
 1. Is it Phase 3.0 KMP work (ADR-023 Stage 5 slices, #501)? → Stage 5 closed 2026-09-07 (#1685), the test seam discharged 2026-09-08 (#1687) and the D3 parity gap closed the same day (#1689); no KMP issue is open beyond the accepted residues and the #501 absence table — **ask first**, sequenced by the priority order above like any other row
-2. Is it the Cloud API? → **Ask first**, and only ADR-006 authoring or API-contract exploration until ADR-006 merges (ADR-005 §7.5)
+2. Is it the Cloud API? → **Ask first**; scope is ADR-006 §8's slices in order, and a change to its decisions is an amendment, not a per-PR choice
 3. Is it another row of the Phase 3 planned features table? → **Ask first** — sequenced after the KMP track; reference the priority order above
 4. Is it a Phase 2 row still `Deferred → P3` or a Phase 2 follow-up? → **Ask first**
 5. Is it unlisted? → **Ask before implementing.** Default to deferring.

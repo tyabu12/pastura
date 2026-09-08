@@ -4,7 +4,7 @@
 
 ## Current Phase
 
-Phase 3 (Community) entered 2026-09-04. KMP Stage 5 (ADR-023) closed 2026-09-07 with S5-5 (#1685), so nothing holds a priority track any more: work follows the `docs/ROADMAP.md` § Phase 3 ordering (Cloud API stays gated on ADR-006). Say so before pulling work ahead of it.
+Phase 3 (Community) entered 2026-09-04. KMP Stage 5 (ADR-023) closed 2026-09-07 with S5-5 (#1685), so nothing holds a priority track any more: work follows the `docs/ROADMAP.md` § Phase 3 ordering (Cloud API: ADR-006 Accepted 2026-09-08; implementation follows its §8 slices, #1692). Say so before pulling work ahead of it.
 
 ## Language Rules
 
@@ -109,10 +109,6 @@ Ask before adding an SPM dependency, changing a public protocol signature, or ma
 ### ADR roster
 
 001 Architecture Overview (Phase 1) · 002 llama.cpp interim LLM backend · 003 Background execution · 004 Multi-platform strategy · 005 Content safety architecture · 006 Cloud API implementation details · 007 DL-time demo replay (iOS lifecycle) · 008 Route identity vs render-time hints · 009 View testing strategy · 010 Localization (i18n: ja/en) · 011 6 GB RAM tier · 012 YAML strategy post-kaml · 013 Headless macOS simulation harness · 014 Release automation toolchain · 015 Execution-log retention posture · 016 Home redesign — bottom-tab IA · 017 Simulation focus mode · 018 Format-preserving visual→YAML boundary sync · 019 Raise minimum deployment target to iOS 18 · 020 Shared-scenario backward-compat · 021 Graceful degradation of LLM turn failures · 022 Phase/event extension contract · 023 KMP Engine migration architecture · 024 Scenario semantic lint layer · 025 Gallery scenario ordering · 026 LLM-dynamic Word Wolf topics (near-term no-go) · 027 Generic `pairwise_payoff` scoring logic · 028 Dark-mode token pairing (trait-resolving `PasturaDynamicColor`) · 029 Shared-scenario highlights (static curated excerpts)
-
-| Document | Content |
-|---|---|
-| `docs/decisions/ADR-006.md` | Cloud API implementation details (Phase 3) — **reserved, not yet written**; a gap in the sequence, not a free slot (ADR-005 §7.5) |
 
 Other documents: README § Documentation, `docs/ROADMAP.md`, `docs/specs/`, `docs/qa/`, `docs/ci/xcodebuild-flakes.md`, `docs/agent-tooling/`.
 

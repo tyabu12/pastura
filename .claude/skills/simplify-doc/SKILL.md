@@ -217,8 +217,8 @@ Treat these as code, not prose. Each fails **open**, so breaking one costs no
 error — only silence:
 
 - **`CLAUDE.md`'s ADR roster** must stay one line alone in its paragraph, and the
-  ADR-006 reservation row needs all three conjuncts of its table row. Both are
-  read by `.claude/skills/consistency-audit/scripts/audit_docs.py`; a reflowed
+  a reserved-ADR row (none today; ADR-006 was one until 2026-09-08) needs all
+  three conjuncts of its table row. Both are read by `.claude/skills/consistency-audit/scripts/audit_docs.py`; a reflowed
   roster makes it skip per-ADR drift detection entirely.
 - **A `.claude/rules/*.md` `paths:` block.** Compressing it changes what the rule
   fires on, *and* re-tiers the file in the trim nudge and footprint sum — both

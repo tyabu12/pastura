@@ -81,4 +81,4 @@ Fields whose location the ASC docs don't make findable:
   on-device). Approved after rebuttal; the rebuttal is kept permanently in
   `review-notes.md` § "No third-party AI service" so every later submission
   pre-empts it. If Phase 3 ever adds a real Cloud API, that posture must be
-  re-derived, not patched (ADR-005 §7.5; ADR-006 when written).
+  re-derived, not patched (ADR-005 §7.5; ADR-006 Decision 6 is the surface-by-surface list, and its slice (c) is the release gate).

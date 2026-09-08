@@ -43,7 +43,15 @@ Content safety architecture (App Store review)
 
 ## ADR-006 — Cloud API implementation details
 
-Cloud API implementation details (Phase 3; reserved — not yet written; see ADR-005 §7.5)
+Cloud API implementation details — BYOK scenario generation behind a
+provider-neutral `App/Cloud/` client (Status: Accepted 2026-09-08; #1692).
+Discharges ADR-005 §7.5. Standing invariants — Decision 5: the generation
+schema is a hand-authored safe subset of `Scenario` (`ScenarioDraft`: no
+`extraData`, app-assigned `id` / locale fields) guarded by a drift test,
+never derived by reflection; Decision 6: every listed disclosure surface updates in the same
+release as the feature or any provider change, and the on-device claim is
+scoped to *simulation*. Still open: the proxy / maintainer-key model waits
+on the marketplace backend (Revisit trigger).
 
 ## ADR-007 — DL-time demo replay (iOS lifecycle)
 
