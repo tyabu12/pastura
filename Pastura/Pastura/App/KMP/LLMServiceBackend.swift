@@ -192,9 +192,11 @@ nonisolated final class LLMServiceBackend: LLMBackend, Sendable {
   ///
   /// **Must stay in step with `streamFailureError` in
   /// `Engine/LLMCaller+StreamFailure.swift`**, which is the Swift engine's copy
-  /// of this same classification: the two cases it returns *typed* (so the Swift
-  /// turn gate cannot degrade them) are exactly the two mapped to `.systemic`
-  /// here. `.notLoaded` means the backend lost its model mid-run and
+  /// of this same classification: of the three arms it returns *typed* (so the
+  /// Swift turn gate cannot degrade them), the two `LLMError` cases are exactly
+  /// the two mapped to `.systemic` here; the third, `CancellationError`, never
+  /// reaches this function because ``drain(_:into:)`` catches it first and
+  /// delivers no terminal at all. `.notLoaded` means the backend lost its model mid-run and
   /// `.invalidGrammar` is a deterministic engineering bug — retrying either
   /// against the next agent only burns inference latency on the way to the same
   /// failure.

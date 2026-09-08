@@ -466,6 +466,9 @@ class LLMCallerTests {
 
     @Test
     fun systemicFailedTerminalWithoutAMessageUsesTheBareCode() = runTest {
+        // Over-scripted (kmp-interop Pattern 4): a regression that retried the
+        // systemic failure must redden via `callCount`, not via the harness's
+        // script-exhaustion throw pre-empting the assertions.
         val backend = ScriptedLLMBackend(
             listOf(
                 ScriptedLLMBackend.Script(
@@ -474,10 +477,33 @@ class LLMCallerTests {
                         kind = StreamFailureKind.SYSTEMIC,
                     ),
                 ),
+                script("""{"statement": "never reached"}"""),
             ),
         )
         val error = assertFailsWith<SystemicLLMFailure> { call(backend) }
         assertEquals("llm.invalidGrammar", error.message)
+        assertEquals(1, backend.callCount)
+    }
+
+    @Test
+    fun cancelledCallEmitsNoInferenceCompleted() = runTest {
+        // The detector for the `catch (e: CancellationException) { throw e }` arm
+        // that precedes the widened `Throwable` catch in `call`. Delete that arm
+        // and a cancelled turn emits a fabricated InferenceCompleted — a duration
+        // measured against a turn nobody waited for — while every other suite
+        // stays green. The §5.2 cancellation tests below collect no events, so
+        // this is the only place that perturbation is visible.
+        val events = mutableListOf<SimulationEvent>()
+        val backend = ManualLLMBackend()
+        val job = launch { call(backend, events = events) }
+        advanceUntilIdle()
+        assertEquals(1, events.filterIsInstance<SimulationEvent.InferenceStarted>().size)
+
+        job.cancel()
+        advanceUntilIdle()
+
+        assertTrue(job.isCancelled)
+        assertTrue(events.filterIsInstance<SimulationEvent.InferenceCompleted>().isEmpty())
     }
 
     @Test
