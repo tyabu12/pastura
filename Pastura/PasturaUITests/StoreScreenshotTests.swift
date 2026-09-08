@@ -149,8 +149,12 @@ final class StoreScreenshotTests: XCTestCase {
     // 01 Observation transcript — speech + inner-voice bubbles. Which field
     // carries the thought is per-phase (`ScenarioConventions.thoughtField(for:)`):
     // `inner_thought` for en's speak_all turns, `reason` for ja's vote turns.
-    // `showAllThoughts` defaults true.
-    app.buttons["results.row.ui_test_result_seed"].tap()
+    // `showAllThoughts` defaults true. The dropped Past-Results-list shot used
+    // to be the wait that let the History store load finish before this tap;
+    // wait on the row explicitly now.
+    let resultRow = app.buttons["results.row.ui_test_result_seed"]
+    XCTAssertTrue(resultRow.waitForExistence(timeout: 10), "Seeded result row never appeared.")
+    resultRow.tap()
     captureScreenshot(app, name: "\(prefix)-01-observation", anchorId: "resultDetail.timeline")
 
     // 05 Scoreboard — relaunch with the fixed-data scoreboard flag.

@@ -5,27 +5,27 @@
   // MARK: - Store-marketing gallery fixture (#1612)
 
   extension StubGalleryService {
-    /// A ten-entry gallery fixture used to capture App Store screenshots.
+    /// A ten-entry gallery fixture used to capture App Store screenshots (#1612).
     ///
-    /// This is a **hand copy** of the ten entries below from `docs/gallery/gallery.json`, taken as
-    /// of 2026-09-08. There is no automatic sync — when the shots are re-taken against a newer
-    /// curated feed, refresh these literals by hand (`jq` against `gallery.json` and
-    /// `docs/gallery/highlights/*.json` is the fastest way to pull fresh values, as done for this
-    /// fixture).
-    ///
-    /// `yamlSHA256` / `highlightSHA256` here are decorative: the stub never verifies a hash
-    /// (`fetchScenarioYAML` / `fetchHighlightData` serve straight from the in-memory
-    /// dictionaries), so a value going stale relative to the real feed has no effect on this
-    /// fixture.
+    /// A **hand copy** of ten `docs/gallery/gallery.json` entries as of 2026-09-08, with no
+    /// automatic sync — refresh the literals by hand (`jq` against `gallery.json` and
+    /// `docs/gallery/highlights/*.json`) when the shots are re-taken. Three fields are deliberately
+    /// **not** faithful:
+    /// - `yamlSHA256` / `highlightSHA256` are decorative — the stub never verifies a hash, and no
+    ///   YAML is served at all because the tour never installs or runs an entry.
+    /// - `addedAt` is synthetic; do not paste the feed's real dates back in. It forces the hero
+    ///   (`iiwake_battle_v1[_en]`) to the top of each language filter (pinned by
+    ///   `StubGalleryStoreFixtureTests`) and keeps all ten outside
+    ///   `GalleryCatalogRowFormat.newBadgeWindowDays`, so shot 03 shows no NEW badge whatever the
+    ///   capture date — matching the real feed, which shows none for these entries.
     ///
     /// Every entry's `phases` must keep passing
-    /// `EngineSchemaVersion.isCompatible(phases:minEngineVersion:)` on the build that ships the
-    /// screenshots. An incompatible entry gets an `.incompatible` suffix appended to its
-    /// Browse-tab cell identifier (`SharedScenariosViewModel+InstallState.swift`), which the
-    /// screenshot UI test's tap-by-identifier lookup does not expect — the tap would silently miss.
+    /// `EngineSchemaVersion.isCompatible(phases:minEngineVersion:)`: an incompatible entry gets an
+    /// `.incompatible` suffix on its Browse-tab cell identifier, and the screenshot test's
+    /// tap-by-identifier would silently miss.
     public static func uiTestStoreGallery() -> StubGalleryService {
       let index = GalleryIndex(
-        version: 1, updatedAt: "2026-09-01", scenarios: storeGalleryScenarios)
+        version: 1, updatedAt: "2026-07-01", scenarios: storeGalleryScenarios)
       return StubGalleryService(
         index: index,
         highlightsByURL: [
@@ -68,7 +68,7 @@
       estimatedInferences: 40,
       yamlURL: shazaiJaYAMLURL,
       yamlSHA256: "241b8b807be66aa4c37e01971cb7b6187e9e2b1d8ce4b3d7928d8d2c5b865058",
-      addedAt: "2026-08-25",
+      addedAt: "2026-06-25",
       agentCount: 5,
       rounds: 4,
       phases: ["assign", "speak_all", "vote", "score_calc", "eliminate", "summarize"],
@@ -86,7 +86,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/kinoko_takenoko_v1.yaml"),
       yamlSHA256: "84eceaff5af19c40f09a298b39854310b8e90883d79fd26b347cda1e58a311be",
-      addedAt: "2026-08-29",
+      addedAt: "2026-06-29",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_all", "vote", "score_calc", "summarize"],
@@ -111,7 +111,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/iiwake_battle_v1.yaml"),
       yamlSHA256: "6b35dbf5ac872170d480ca73f5c088dd34f5c727f21015a7d39eb7032d22ec9d",
-      addedAt: "2026-09-01",
+      addedAt: "2026-07-01",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_each", "vote", "score_calc", "summarize"],
@@ -131,7 +131,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/chin_jimaku_v1.yaml"),
       yamlSHA256: "c234c6dea41a7266a842e9a8728a9c1962e19882efb38f4380fa9f7392b37118",
-      addedAt: "2026-08-27",
+      addedAt: "2026-06-27",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_all", "vote", "score_calc", "summarize"],
@@ -149,7 +149,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/hissatsu_naming_v1.yaml"),
       yamlSHA256: "85ab46895c23dbade22e0850f9775df82cc72295f78989be866eac686110b99a",
-      addedAt: "2026-08-26",
+      addedAt: "2026-06-26",
       agentCount: 4,
       rounds: 2,
       phases: [
@@ -179,7 +179,7 @@
       estimatedInferences: 40,
       yamlURL: shazaiEnYAMLURL,
       yamlSHA256: "b50e9539ef0c5b71332af1fc308fb6a5aff5ad35a62b48427e94d7203f9b91fc",
-      addedAt: "2026-08-25",
+      addedAt: "2026-06-25",
       agentCount: 5,
       rounds: 4,
       phases: ["assign", "speak_all", "vote", "score_calc", "eliminate", "summarize"],
@@ -200,7 +200,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/chin_jimaku_v1_en.yaml"),
       yamlSHA256: "05c55f6a8dd5a50a8ae737eff55204882a117dc1fb6f0692acc6a498b25aec0a",
-      addedAt: "2026-08-29",
+      addedAt: "2026-06-29",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_all", "vote", "score_calc", "summarize"],
@@ -226,7 +226,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/iiwake_battle_v1_en.yaml"),
       yamlSHA256: "b47f37647dcc7890cba6eca655f9a3cbe66d9e0710fa4f76456ba01a466284f3",
-      addedAt: "2026-09-01",
+      addedAt: "2026-07-01",
       agentCount: 4,
       rounds: 2,
       phases: ["assign", "speak_each", "vote", "score_calc", "summarize"],
@@ -249,7 +249,7 @@
       estimatedInferences: 16,
       yamlURL: stubURL("stub://gallery/hissatsu_naming_v1_en.yaml"),
       yamlSHA256: "2cab9d9498fcfe433af1b880ad80c0beb5b8cad4632ab010ea3dc33c2749dc76",
-      addedAt: "2026-08-27",
+      addedAt: "2026-06-27",
       agentCount: 4,
       rounds: 2,
       phases: [
@@ -270,7 +270,7 @@
       estimatedInferences: 15,
       yamlURL: stubURL("stub://gallery/asch_conformity_v1_en.yaml"),
       yamlSHA256: "444d0bd5f66e17b84268fb38ed92696f407335491301d3eadad664e2a6ff0fa5",
-      addedAt: "2026-08-26",
+      addedAt: "2026-06-26",
       agentCount: 5,
       rounds: 3,
       phases: ["speak_each", "summarize"],
@@ -354,7 +354,7 @@
         "source": {
           "model": "gemma-4-e2b-q4-k-m",
           "run_id": "20260827-100042-d0e3",
-          "generated_at": "2026-08-27"
+          "generated_at": "2026-06-27"
         },
         "excerpt": [
           {
