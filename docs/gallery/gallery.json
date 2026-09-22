@@ -358,14 +358,15 @@
       "id": "yusha_kaiko_v1",
       "title": "勇者パーティー 解雇会議",
       "category": "roleplay",
-      "description": "冒険者ギルドの予算削減で、5人パーティーが毎ラウンド一人を解雇しなければならない。各メンバーが「自分こそ不可欠」と芸風全開で訴え、最も要らない者を投票で勝ち抜き脱落させる解雇バトル。",
+      "description": "冒険者ギルドの予算削減で、5人パーティーは毎ラウンド一人をクビにしなければならない。ただし査定基準はラウンドごとに変わる——芸風はそのままに、毎回違う物差しで「自分こそ不可欠」を語り直さねばならない勝ち抜き解雇バトル。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 40,
       "agent_count": 5,
       "rounds": 4,
       "phases": [
-        "speak_all",
+        "assign",
+        "speak_each",
         "vote",
         "score_calc",
         "eliminate",
@@ -373,7 +374,7 @@
       ],
       "language": "ja",
       "yaml_url": "yusha_kaiko_v1.yaml",
-      "yaml_sha256": "429e6bddb4de6b9995cff44ef9e2d5f8278d2f860a9643d4be49d631d9d31f08",
+      "yaml_sha256": "6f51eee198d897714f436329b007bab5fc0f13343156b251460c16ab7e9c1047",
       "added_at": "2026-06-28"
     },
     {
