@@ -80,12 +80,18 @@ phases:
 
       自分以外で「今このラウンドで追放すべき最も危険な相手」に投票してください。
       理由は必ず自分の言葉で、その相手が今回の分け前で示した具体案に触れて書くこと。
+      理由も必ず日本語で書いてください。
       投票先は必ず以下の名前のいずれかを正確に書いてください: {candidates}
     output:
       vote: string
       reason: string
     exclude_self: true
 
+  # With 4 agents and 3 eliminations the final round is a 2-player 1-1 vote
+  # (exclude_self forces each to name the other), resolved by the engine's
+  # deterministic tie-break. Known and accepted: the A/B wins (09-01, 09-15)
+  # were measured on exactly this 4-cast / 3-round shape, and the drama the
+  # scenario sells is rounds 1-2. Changing rounds or cast is an untested variant.
   - type: eliminate
 
   - type: summarize
