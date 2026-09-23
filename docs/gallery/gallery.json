@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-09-03T00:00:00Z",
+  "updated_at": "2026-09-22T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -336,35 +336,37 @@
       "id": "uragiri_entaku_v1",
       "title": "裏切りの円卓",
       "category": "game_theory",
-      "description": "最後の一人になるまで生き残る、同盟と裏切りのサバイバル。協力・裏切り・応報・執念・黒幕——5人が固有のゲーム理論戦略を抱え、毎ラウンド議論で同盟を組み、最も危険な相手を投票で追放する。早すぎる裏切りは自分が標的になり、遅すぎれば出し抜かれる。",
+      "description": "最後の一人になるまで生き残る同盟と裏切りのサバイバル。毎ラウンド、円卓には具体的な「分け前」が乗る——誰が取り、誰が損をするかを巡って同盟が組まれ、揺さぶられ、最も危険な相手が追放される。抽象的な信条ではなく、目の前の分配が毎回の争点になる。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
-      "estimated_inferences": 30,
-      "agent_count": 5,
+      "estimated_inferences": 24,
+      "agent_count": 4,
       "rounds": 3,
       "phases": [
-        "speak_all",
+        "assign",
+        "speak_each",
         "vote",
         "eliminate",
         "summarize"
       ],
       "language": "ja",
       "yaml_url": "uragiri_entaku_v1.yaml",
-      "yaml_sha256": "79e07fb9b147be2f5aab0d5ec85acd2955fefe8c8ccfc9a499fbcf424f9c2925",
+      "yaml_sha256": "c459a0076a5f836264e3125ef059d33108f637b130358e86deb8d0a28f58a870",
       "added_at": "2026-06-27"
     },
     {
       "id": "yusha_kaiko_v1",
       "title": "勇者パーティー 解雇会議",
       "category": "roleplay",
-      "description": "冒険者ギルドの予算削減で、5人パーティーが毎ラウンド一人を解雇しなければならない。各メンバーが「自分こそ不可欠」と芸風全開で訴え、最も要らない者を投票で勝ち抜き脱落させる解雇バトル。",
+      "description": "冒険者ギルドの予算削減で、5人パーティーは毎ラウンド一人をクビにしなければならない。ただし査定基準はラウンドごとに変わる——芸風はそのままに、毎回違う物差しで「自分こそ不可欠」を語り直さねばならない勝ち抜き解雇バトル。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 40,
       "agent_count": 5,
       "rounds": 4,
       "phases": [
-        "speak_all",
+        "assign",
+        "speak_each",
         "vote",
         "score_calc",
         "eliminate",
@@ -372,7 +374,7 @@
       ],
       "language": "ja",
       "yaml_url": "yusha_kaiko_v1.yaml",
-      "yaml_sha256": "429e6bddb4de6b9995cff44ef9e2d5f8278d2f860a9643d4be49d631d9d31f08",
+      "yaml_sha256": "6f51eee198d897714f436329b007bab5fc0f13343156b251460c16ab7e9c1047",
       "added_at": "2026-06-28"
     },
     {
