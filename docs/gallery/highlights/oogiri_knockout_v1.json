@@ -2,12 +2,12 @@
   "schema_version": 1,
   "scenario_ref": {
     "id": "oogiri_knockout_v1",
-    "yaml_sha256": "a30028d4e5091bb7c2562c2b66be8b288c6f900e6ae16e9853bd1f2d394f23b2"
+    "yaml_sha256": "733b4e4b6ab9c3701323398daf6b90e8b7ccc36131e4958ea24df94a56066c04"
   },
   "source": {
     "model": "gemma-4-e2b-q4-k-m",
-    "run_id": "20260822-190704-9efc",
-    "generated_at": "2026-08-22"
+    "run_id": "20260923-121327-9017",
+    "generated_at": "2026-09-23"
   },
   "excerpt": [
     {
@@ -17,7 +17,16 @@
       "phase_index": 1,
       "persona_index": 0,
       "source_field": "statement",
-      "text": "押す。ご飯が食べたい。"
+      "text": "大臣、そのボタンは本当に押すつもりですか？"
+    },
+    {
+      "agent": "不謹慎すれすれ黒岩",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "大臣、そのボタンを押す前に、もう少しマナーを学んでください。"
     },
     {
       "agent": "ほのぼの天然のなぎ",
@@ -26,7 +35,7 @@
       "phase_index": 1,
       "persona_index": 2,
       "source_field": "statement",
-      "text": "世界が終わるより、夕飯がなくなる方がショックだね。"
+      "text": "大臣、そのボタンを押す前に何か美味しいものでも召し上がりましたか？"
     },
     {
       "agent": "理屈っぽい教授モドキ",
@@ -35,15 +44,15 @@
       "phase_index": 1,
       "persona_index": 3,
       "source_field": "statement",
-      "text": "ボタンを押すのは、食料という名の存在の消滅、究極の功利主義的ジレンマだ。"
+      "text": "大臣、その行為の帰結に関する確率論的根拠を提示してもらおうか。"
     }
   ],
   "yaml_hook": {
     "kind": "persona",
-    "fragment": "  - name: 一言必殺のゼロ次\n    description: >\n      【立場】無駄を削ぎ落としたドライな一言職人。\n      【目的】最短の言葉で核心を刺す。説明しない。\n      例:「で?」「以上。」\n  - name: ほのぼの天然のなぎ\n    description: >\n      【立場】本気でズレた発言をする素の天然。\n      【目的】悪気なく的外れなことを言って和ませる。\n      例:「夕飯、私カレーがいいな。」",
-    "caption": "一人は最短で刺し、一人は素で脱線する。説明しない二人の横で、理屈をこねた一人だけが置いていかれる。"
+    "fragment": "  - name: ほのぼの天然のなぎ\n    description: >\n      【立場】本気でズレた発言をする素の天然。\n      【目的】悪気なく的外れなことを相手に尋ねて和ませる。\n      例:「あの、先生、その白衣ってご自宅で洗ってるんですか?」\n  - name: 理屈っぽい教授モドキ\n    description: >\n      【立場】何でも小難しく分析したがる自称インテリ。\n      【目的】大げさな理屈で相手を問い詰める。\n      例:「審判、いまの判定は、認識論的にどの立場から下されたのかね。」",
+    "caption": "同じ相手に同じ呼びかけで始めても、一人は相手の食事を気づかい、一人は根拠の提示を迫る。その差を決めているのは【目的】の一行だけ。"
   },
-  "teaser": "一言だけで戦って、面白くなかった者から消えていく。最後の一人になるまでの3ラウンドをアプリで。",
+  "teaser": "毎回ちがう\"目の前の相手\"に、一言だけ言い放つ。面白くなかった者から消えていく3ラウンドをアプリで。",
   "window_override": false,
   "content_filter_applied": true
 }

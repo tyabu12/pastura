@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-09-22T00:00:00Z",
+  "updated_at": "2026-09-23T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -168,7 +168,7 @@
       "id": "oogiri_knockout_v1",
       "title": "大喜利ノックアウト",
       "category": "creative",
-      "description": "毎ラウンド1つのお題に全員が一言で答え、最も面白くなかった者が投票で 脱落していく勝ち抜き大喜利。最後の一人になるまで、短い一撃で笑いを競う。",
+      "description": "毎ラウンド「場面と、目の前にいる相手」が与えられ、全員がその相手に向かって 一言だけ言い放つ勝ち抜き大喜利。最も面白くなかった者が投票で脱落していく。",
       "author": "tyabu12",
       "recommended_model": "gemma-4-e2b-q4-k-m",
       "estimated_inferences": 24,
@@ -183,9 +183,9 @@
       ],
       "language": "ja",
       "yaml_url": "oogiri_knockout_v1.yaml",
-      "yaml_sha256": "a30028d4e5091bb7c2562c2b66be8b288c6f900e6ae16e9853bd1f2d394f23b2",
+      "yaml_sha256": "733b4e4b6ab9c3701323398daf6b90e8b7ccc36131e4958ea24df94a56066c04",
       "highlight_url": "highlights/oogiri_knockout_v1.json",
-      "highlight_sha256": "64fb38b88688a8a73c17ff2845db5747d37db9b1ddf3a3464e45bb8dc7fe1e4c",
+      "highlight_sha256": "bb8264103fda59f79e4927a30e9d0e27b688cd9dbcc4e8d44111d51cb4dd830a",
       "added_at": "2026-06-13"
     },
     {
