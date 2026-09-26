@@ -1,6 +1,6 @@
 # Swift isolation — the annotation traps the compiler reports
 
-Companion to `.claude/rules/swift-isolation.md`, which keeps only the silent runtime traps (Patterns 6–8). The patterns here (1–5, and 9) all produce a **diagnostic** under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; they are collected so that the message, which fires at the *use* site rather than the declaration, can be mapped back to its cause. Moved out of the always-loaded rule in #1519.
+Companion to `.claude/rules/swift-isolation.md`, which keeps only the silent runtime traps (Patterns 6–8). The patterns here (1–5, and 9) all produce a **diagnostic** under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; they are collected so that the message, which fires at the *use* site rather than the declaration, can be mapped back to its cause. Patterns 1–5 moved out of the always-loaded rule in #1519.
 
 Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference in patterns that share one root cause and surface in two diagnostic forms:
 
@@ -93,7 +93,7 @@ The `let`-read exemption is module-local, so a nonisolated *test* helper needs `
 
 ## Pattern 9 — `Shape` conformer relying on inferred `nonisolated` (toolchain skew)
 
-A `struct X: Shape` in a default-MainActor layer (`Views/`). Xcode 26.4 inferred the type `nonisolated` from the conformance, so it built clean; **Xcode 27 infers MainActor** and rejects it at the declaration with the Pattern-1 conformance-site message. CI pins Xcode 26.4, so **CI cannot see this one** — it fails only on a machine that has moved to Xcode 27.
+A `struct X: Shape` in a default-MainActor layer (`Views/`). Xcode 26.4 inferred the type `nonisolated` from the conformance, so it built clean; **Xcode 27 infers MainActor** and rejects it at the declaration with the Pattern-1 conformance-site message. CI pins Xcode 26.4, so **CI cannot see this one** — it fails only on a machine that has moved to Xcode 27. No gate enforces the explicit annotation until CI moves to Xcode 27; this entry is the only guard.
 
 **Fix**: write `nonisolated struct X: Shape` explicitly. `Shape` is `Sendable` and SwiftUI may call `path(in:)` off the main actor, so an isolated (`@MainActor`) conformance is wrong; `nonisolated` builds on both toolchains. The type then cannot read MainActor-isolated statics in its own static initializers — inline the literal and pin it against the token in a test.
 

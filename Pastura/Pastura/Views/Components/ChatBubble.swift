@@ -37,11 +37,10 @@ nonisolated struct BubbleShape: Shape {
 
   // Values mirror `Radius.bubbleTail` / `Radius.bubbleBody`
   // (design-system §4.2). Inlined as literals here because this type is
-  // nonisolated (see above), while `Radius` inherits
-  // the project's MainActor default and can't be referenced from a
-  // nonisolated static initializer. `ChatBubbleTests` pins equality
-  // against `Radius.*` so the single-source-of-truth invariant still
-  // has a guard.
+  // nonisolated (see above), while `Radius` inherits the project's
+  // MainActor default and can't be referenced from a nonisolated static
+  // initializer. `ChatBubbleTests` pins equality against `Radius.*` so
+  // the single-source-of-truth invariant still has a guard.
   /// Top-leading (tail) corner radius — mirrors `Radius.bubbleTail` (4pt).
   static let topLeadingRadius: CGFloat = 4
   /// Non-tail corners — mirrors `Radius.bubbleBody` (14pt).
