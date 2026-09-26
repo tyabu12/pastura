@@ -690,25 +690,43 @@ real run gives them.
 A highlight pins the exact YAML bytes it was generated from. Editing the
 scenario body and running `--update` therefore fails with
 `highlight: yaml_sha256 mismatch`, which is correct rather than a bug. Resolve
-it **in the same PR**, one of two ways:
+it **in the same PR**, one of three ways (other docs cite these routes by
+position — keep the order):
 
-- Re-run the harness and re-extract, then re-register the new hash. The excerpt
-  text will differ, so it needs a fresh sign-off.
+- Re-run the harness and re-extract, then re-register the new hash, in the
+  re-pin order below. The excerpt text will differ, so it needs a fresh
+  sign-off.
 - Delete `docs/gallery/highlights/<id>.json` and both `highlight_*` fields.
 - Re-extract from the existing transcript, admissible only when the YAML
   edit provably cannot affect any excerpted line — every pick's round/phase
   is unaffected (e.g. `event_inject no_repeat: true` changes only round-2+
   draws while the excerpt is round 1), **and** the flattened phase list and
   `personas:` order are unchanged, since the extractor re-derives each pick's
-  `phase_index` and `persona_index` from the current YAML. Edit the YAML, run
-  `add-gallery-entry.sh --update <id>` so `yaml_sha256` matches the file,
-  then re-run `scripts/gallery_highlight_extract.py` with the same picks
+  `phase_index` and `persona_index` from the current YAML. Edit the YAML, then
+  follow the re-pin order below, running the extractor with the same picks
   against the kept `data/highlight-runs/<id>.jsonl`. The extractor pins the
   *current* file's hash, so the new pin is honest about bytes but not about
-  the run. Re-register `highlight_sha256`. The PR body must state the
-  argument for why no picked line could differ — the gate hashes only the
-  current file and cannot check this. If the teaser changes too, it needs a
-  fresh sign-off like any other.
+  the run. The PR body must state the argument for why no picked line could
+  differ — the gate hashes only the current file and cannot check this. If
+  the teaser changes too, it needs a fresh sign-off like any other.
+
+**Re-pin order** (first and third routes). `--update` cannot go first: its
+post-validate rejects the entry with `highlight: yaml_sha256 mismatch` and
+restores `gallery.json`, while the extractor refuses to pin while
+`gallery.json`'s `yaml_sha256` is stale — each waits on the other (#1706).
+Break the cycle by hand:
+
+1. Set the entry's `yaml_sha256` in `gallery.json` to
+   `shasum -a 256 docs/gallery/<id>.yaml | awk '{print $1}'`.
+2. Run `scripts/gallery_highlight_extract.py` (§ Procedure step 3).
+3. Set `highlight_sha256` to the hash it prints.
+4. Run `bash scripts/add-gallery-entry.sh --update <id> --non-interactive`
+   (add `--description` if that changes too). It refreshes the derived
+   fields (`title`, `rounds`, …) and bumps `updated_at`, and now validates
+   cleanly. Not optional — only it re-derives those fields. If it prints
+   `No change needed`, it has not bumped `updated_at`: bump the top-level
+   field to today (UTC) by hand, as § Procedure step 4 does.
+5. `bash scripts/check-gallery-entry.sh --all` passes.
 
 `--update` itself preserves the `highlight_*` fields, so a metadata-only change
 (a tighter card description, say) needs none of this.
