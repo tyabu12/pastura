@@ -465,7 +465,7 @@
       "yaml_url": "zenin_sansei_ryokou_v1.yaml",
       "yaml_sha256": "6307b3292bcb8e4e5c61865dc1ae7fcddc919c0aaac8dc6f0be46275fdcd623a",
       "highlight_url": "highlights/zenin_sansei_ryokou_v1.json",
-      "highlight_sha256": "1dee47ac0e0f5afbff32d23352a663a38955c4a780cc6d1b8d2b4540b1d0199d",
+      "highlight_sha256": "d45f54b58e3c1454331fcd65a96c7d6b7ef49a6c39ba3424baae60c60e10e96e",
       "added_at": "2026-06-29"
     },
     {
@@ -637,7 +637,7 @@
       "yaml_url": "zenin_sansei_ryokou_v1_en.yaml",
       "yaml_sha256": "7c4923333c1978b25cf56f273035fbb64b2884cf6fe678cd78d245db6f489822",
       "highlight_url": "highlights/zenin_sansei_ryokou_v1_en.json",
-      "highlight_sha256": "e622def194c2dc1288e5c7830da839fe21d0a4a3b623d13ef9effe0311e1c0e4",
+      "highlight_sha256": "e33dd076bedc763bf0854a2ec1868b8c76945bc2f00d3ed5a0f97beeb8b68989",
       "added_at": "2026-07-01"
     },
     {
@@ -733,7 +733,7 @@
       "yaml_url": "chinwaza_saiyo_v1_en.yaml",
       "yaml_sha256": "7e3edd087cb0c3b340091e0c35e504e742a576af6d4a613f63b45310697232f5",
       "highlight_url": "highlights/chinwaza_saiyo_v1_en.json",
-      "highlight_sha256": "3ead3255d9fed4e7d5db11569681f11771bcf09bd14440835197aac11ebdf6ce",
+      "highlight_sha256": "3a9e55035f5ab707054a25069938de3c12a6541e8d6a219503e3f406856b979b",
       "added_at": "2026-07-01"
     },
     {

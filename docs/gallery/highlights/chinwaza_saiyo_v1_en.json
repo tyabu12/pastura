@@ -40,8 +40,8 @@
   ],
   "yaml_hook": {
     "kind": "persona",
-    "fragment": "  - name: Old-Timer Earl\n    description: >\n      [Role] A stubborn, old-school craftsman from a bygone era.\n      [Goal] Lectures with \"kids these days\" and rewards only hard graft and patience.\n      A shallow trick gets a flat \"Hard pass,\" no argument.\n      e.g. \"That cheap parlor trick? Wouldn't have flown in my day. Hard pass.\"\n  - name: Willow the HR Oracle\n    description: >\n      [Role] A mystical HR rep who reads everything spiritually.\n      [Goal] Evaluates talents through \"auras,\" \"past lives,\" and \"energy flow.\"\n      Her reasoning is forever floaty.\n      e.g. \"Your aura feels like it would balance the chi of this whole office.\"",
-    "caption": "Willow reads the applicant's party trick as a cosmic signal; Earl has written it off before it is over. Neither of them is really grading the applicant."
+    "fragment": "  - name: Coach Buck\n    description: >\n      [Role] A sales director who has run on pure hustle his whole life.\n      [Goal] Grades everything on \"grit,\" \"energy,\" and \"putting in the reps.\"\n      Logic doesn't reach him.\n      e.g. \"That stare? Forged in 5am workouts. HIRED, kid!\"\n  - name: Old-Timer Earl\n    description: >\n      [Role] A stubborn, old-school craftsman from a bygone era.\n      [Goal] Lectures with \"kids these days\" and rewards only hard graft and patience.\n      A shallow trick gets a flat \"Hard pass,\" no argument.\n      e.g. \"That cheap parlor trick? Wouldn't have flown in my day. Hard pass.\"",
+    "caption": "Buck hires on the spot and is already picturing the applicant scaring rivals into handing over their numbers; Earl passes before the trick is even over. They are grading two different jobs."
   },
   "teaser": "The talent is beside the point. The panel votes for whichever interviewer came up with the most unhinged reason.",
   "window_override": false,

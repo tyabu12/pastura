@@ -50,9 +50,9 @@
   "yaml_hook": {
     "kind": "persona",
     "fragment": "  - name: Karl the Manager\n    description: >\n      [Role] The manager who floated the idea on a whim and now can't back out.\n      [Goal] Privately finds it a hassle too, but everyone looks keen, so he\n      can't retract it.\n      Speak of this plan in the first person, as the one who proposed it\n      (✗ \"the manager's proposal\" ✓ \"since I'm the one who brought it up\").\n      e.g. (aloud) \"Since I brought it up, I'm glad you're all on board!\"\n      (inside) \"Honestly, I'd love to call it off...\"\n  - name: Ted the Veteran\n    description: >\n      [Role] The old hand who is the most opposed in his heart.\n      [Goal] Desperate not to spoil the harmony, and as the senior he falls\n      silent and agrees all the more.\n      e.g. (aloud) \"If the young folks are excited, I'm fine with anything.\"\n      (inside) \"I absolutely do not want to go.\"",
-    "caption": "The manager who floated the trip and the veteran who least wants to go end up on the same side: book the dates, and fast."
+    "caption": "The manager who floated the trip and the veteran who least wants to go are already on the same side: book the dates, and fast."
   },
-  "teaser": "Nobody has said a word against the twelve-hour bus ride yet. Three rounds of planning are still ahead.",
+  "teaser": "Nobody has said a word against the twelve-hour bus ride yet. Two more rounds of planning are still ahead.",
   "window_override": false,
   "content_filter_applied": true
 }
