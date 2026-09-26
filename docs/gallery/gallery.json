@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-09-23T00:00:00Z",
+  "updated_at": "2026-09-26T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -330,6 +330,8 @@
       "language": "ja",
       "yaml_url": "chinwaza_saiyo_v1.yaml",
       "yaml_sha256": "d41b1587ee39bde843af5fd921f1dff967c50e9de20bae8f2c5b42ebcae6560a",
+      "highlight_url": "highlights/chinwaza_saiyo_v1.json",
+      "highlight_sha256": "6139c17e9fbf29771b377eb4ebae8b1ae6aa6c9c7cac91757e8d531d545079ab",
       "added_at": "2026-06-21"
     },
     {
