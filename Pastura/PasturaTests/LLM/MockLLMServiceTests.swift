@@ -271,6 +271,27 @@ struct MockLLMServiceTests {
     #expect(mock.capturedAntiRepetitionSeeds == [["prior"]])
   }
 
+  @Test func throwsWhenStreamChunksExhausted() async throws {
+    let mock = MockLLMService(responses: [])
+    try await mock.loadModel()
+    mock.setStreamChunks([["only"]])
+
+    for try await _ in mock.generateStream(
+      system: "s", user: "u", schema: nil, antiRepetitionSeeds: []) {}
+
+    do {
+      for try await _ in mock.generateStream(
+        system: "s", user: "u", schema: nil, antiRepetitionSeeds: []) {}
+      Issue.record("Expected LLMError.generationFailed on the second stream call")
+    } catch {
+      guard case .generationFailed(let description) = error as? LLMError else {
+        Issue.record("Expected LLMError.generationFailed, got \(error)")
+        return
+      }
+      #expect(description.contains("streamChunks exhausted"))
+    }
+  }
+
   // Seam back-compat: the seed-less convenience overload forwards `[]`, so
   // pre-#1105 call sites (`generate(system:user:schema:)`) record an empty seed.
   @Test func seedlessConvenienceOverloadForwardsEmpty() async throws {

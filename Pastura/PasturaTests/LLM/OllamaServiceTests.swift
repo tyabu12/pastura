@@ -6,7 +6,10 @@ import Testing
 // MARK: - URLProtocol Mock
 
 /// Intercepts URLSession requests for testing without a live Ollama server.
-private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
+///
+/// Not `private`: shared with `OllamaServiceTests+ErrorHandling.swift`
+/// (`testing.md` § "Splitting a Suite Across Files").
+final class OllamaMockURLProtocol: URLProtocol, @unchecked Sendable {
   // Safe: tests run serialized via @Suite(.serialized), no concurrent access
   nonisolated(unsafe) static var requestHandler: ((URLRequest) throws -> (HTTPURLResponse, Data))?
 
@@ -19,7 +22,7 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
   }
 
   override func startLoading() {
-    guard let handler = MockURLProtocol.requestHandler else {
+    guard let handler = OllamaMockURLProtocol.requestHandler else {
       client?.urlProtocolDidFinishLoading(self)
       return
     }
@@ -41,13 +44,14 @@ private final class MockURLProtocol: URLProtocol, @unchecked Sendable {
 
 @Suite(.serialized, .timeLimit(.minutes(1)))
 struct OllamaServiceTests {
-  private func makeSession() -> URLSession {
+  // Not `private`: shared with `OllamaServiceTests+ErrorHandling.swift`.
+  func makeSession() -> URLSession {
     let config = URLSessionConfiguration.ephemeral
-    config.protocolClasses = [MockURLProtocol.self]
+    config.protocolClasses = [OllamaMockURLProtocol.self]
     return URLSession(configuration: config)
   }
 
-  private func makeService(session: URLSession) -> OllamaService {
+  func makeService(session: URLSession) -> OllamaService {
     OllamaService(
       baseURL: URL(string: "http://localhost:11434")!,
       modelName: "gemma4:e2b",
@@ -55,7 +59,7 @@ struct OllamaServiceTests {
     )
   }
 
-  private func makeSuccessResponse(content: String) -> (HTTPURLResponse, Data) {
+  func makeSuccessResponse(content: String) -> (HTTPURLResponse, Data) {
     let body: [String: Any] = [
       "choices": [
         [
@@ -84,7 +88,7 @@ struct OllamaServiceTests {
     try await service.loadModel()
 
     var capturedRequest: URLRequest?
-    MockURLProtocol.requestHandler = { request in
+    OllamaMockURLProtocol.requestHandler = { request in
       capturedRequest = request
       return self.makeSuccessResponse(content: "test")
     }
@@ -96,36 +100,42 @@ struct OllamaServiceTests {
     #expect(capturedRequest?.httpMethod == "POST")
   }
 
+  /// Drains `httpBody` / `httpBodyStream` (httpBody may be nil when URLSession
+  /// converts it to a stream) and decodes it as a JSON object.
+  ///
+  /// Not `private`: shared with `OllamaServiceTests+ErrorHandling.swift`.
+  static func jsonBody(of request: URLRequest) -> [String: Any]? {
+    let data: Data?
+    if let body = request.httpBody {
+      data = body
+    } else if let stream = request.httpBodyStream {
+      stream.open()
+      let bufferSize = 4096
+      var buffer = [UInt8](repeating: 0, count: bufferSize)
+      var accumulated = Data()
+      while stream.hasBytesAvailable {
+        let read = stream.read(&buffer, maxLength: bufferSize)
+        if read > 0 {
+          accumulated.append(buffer, count: read)
+        }
+      }
+      stream.close()
+      data = accumulated
+    } else {
+      data = nil
+    }
+    guard let data else { return nil }
+    return try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+  }
+
   @Test func requestBodyContainsCorrectFields() async throws {
     let session = makeSession()
     let service = makeService(session: session)
     try await service.loadModel()
 
     var capturedBody: [String: Any]?
-    MockURLProtocol.requestHandler = { request in
-      // httpBody may be nil when URLSession converts it to a stream
-      let data: Data?
-      if let body = request.httpBody {
-        data = body
-      } else if let stream = request.httpBodyStream {
-        stream.open()
-        let bufferSize = 4096
-        var buffer = [UInt8](repeating: 0, count: bufferSize)
-        var accumulated = Data()
-        while stream.hasBytesAvailable {
-          let read = stream.read(&buffer, maxLength: bufferSize)
-          if read > 0 {
-            accumulated.append(buffer, count: read)
-          }
-        }
-        stream.close()
-        data = accumulated
-      } else {
-        data = nil
-      }
-      if let data {
-        capturedBody = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
-      }
+    OllamaMockURLProtocol.requestHandler = { request in
+      capturedBody = Self.jsonBody(of: request)
       return self.makeSuccessResponse(content: "test")
     }
 
@@ -151,7 +161,7 @@ struct OllamaServiceTests {
     let service = makeService(session: session)
     try await service.loadModel()
 
-    MockURLProtocol.requestHandler = { _ in
+    OllamaMockURLProtocol.requestHandler = { _ in
       self.makeSuccessResponse(content: #"{"statement": "hello"}"#)
     }
 
@@ -175,7 +185,7 @@ struct OllamaServiceTests {
     let service = makeService(session: session)
     try await service.loadModel()
 
-    MockURLProtocol.requestHandler = { _ in
+    OllamaMockURLProtocol.requestHandler = { _ in
       let response = HTTPURLResponse(
         url: URL(string: "http://localhost:11434/v1/chat/completions")!,
         statusCode: 400,
@@ -195,7 +205,7 @@ struct OllamaServiceTests {
     let service = makeService(session: session)
     try await service.loadModel()
 
-    MockURLProtocol.requestHandler = { _ in
+    OllamaMockURLProtocol.requestHandler = { _ in
       let response = HTTPURLResponse(
         url: URL(string: "http://localhost:11434/v1/chat/completions")!,
         statusCode: 500,
@@ -205,8 +215,15 @@ struct OllamaServiceTests {
       return (response, Data())
     }
 
-    await #expect(throws: LLMError.self) {
-      try await service.generate(system: "sys", user: "usr")
+    do {
+      _ = try await service.generate(system: "sys", user: "usr")
+      Issue.record("Expected LLMError.networkError to be thrown")
+    } catch {
+      guard case .networkError(let description) = error as? LLMError else {
+        Issue.record("Expected LLMError.networkError, got \(error)")
+        return
+      }
+      #expect(description.contains("HTTP 500"))
     }
   }
 
@@ -238,7 +255,7 @@ struct OllamaServiceTests {
     let service = makeService(session: session)
     try await service.loadModel()
 
-    MockURLProtocol.requestHandler = { _ in
+    OllamaMockURLProtocol.requestHandler = { _ in
       let body: [String: Any] = [
         "choices": [["message": ["content": "hello"]]],
         "usage": ["completion_tokens": 42]
@@ -263,7 +280,7 @@ struct OllamaServiceTests {
     let service = makeService(session: session)
     try await service.loadModel()
 
-    MockURLProtocol.requestHandler = { _ in
+    OllamaMockURLProtocol.requestHandler = { _ in
       self.makeSuccessResponse(content: "ok")
     }
 
@@ -278,7 +295,7 @@ struct OllamaServiceTests {
     let service = makeService(session: session)
     try await service.loadModel()
 
-    MockURLProtocol.requestHandler = { _ in
+    OllamaMockURLProtocol.requestHandler = { _ in
       let body: [String: Any] = [
         "choices": [["message": ["content": "ok"]]],
         "usage": ["completion_tokens": 0]

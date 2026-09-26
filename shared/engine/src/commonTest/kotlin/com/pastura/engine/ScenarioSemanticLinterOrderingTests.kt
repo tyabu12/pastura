@@ -43,9 +43,25 @@ import kotlin.test.assertTrue
  * Mutation 5 is the measurement that justifies the 28th test's existence as a
  * deliberate exception to the one-test-per-rule shape: swapping two
  * `orderingMessage` arms reddens
- * [orderingMessagesMapEachRuleIdToItsLintMessageCase] and nothing else — the
- * other 27 tests assert `ruleId` / `severity` / `phaseIndex` but never
- * `message`, so without it a mis-transcribed arm ships green.
+ * [orderingMessagesMapEachRuleIdToItsLintMessageCase] and nothing else — at
+ * porting time, the other 27 tests asserted `ruleId` / `severity` /
+ * `phaseIndex` but never `message`, so without it a mis-transcribed arm
+ * shipped green.
+ *
+ * ### Addendum 2026-09-26 (CH-043, #1708)
+ *
+ * This file now holds 30 tests: the 28-test porting-time baseline above plus
+ * [relationshipUpdateVoteBrokenActionOkFiresExactlyOneWarning] and
+ * [relationshipUpdateActionBrokenVoteOkFiresExactlyOneWarning], closing a gap
+ * in R4's coverage — `voteBroken || actionBroken` fires a single warning when
+ * only ONE of the two signals is broken, which no porting-time test isolated.
+ * Two further mutations of `ScenarioSemanticLinter.kt`, applied and reverted
+ * the same way as the porting-time five, confirm each new test is load-bearing:
+ *
+ * | # | Mutation of `ScenarioSemanticLinter.kt` | Reddened |
+ * |---|---|---|
+ * | 6 | gated `voteBroken` on `phase.actionDeltas.isNullOrEmpty()` (so a broken vote signal stops firing whenever `actionDeltas` is also declared) | `relationshipUpdateVoteBrokenActionOkFiresExactlyOneWarning` |
+ * | 7 | gated `actionBroken` on `phase.voteAgainst == null` (so a broken action signal stops firing whenever `voteAgainst` is also declared) | `relationshipUpdateActionBrokenVoteOkFiresExactlyOneWarning` |
  */
 class ScenarioSemanticLinterOrderingTests {
 
@@ -512,6 +528,40 @@ class ScenarioSemanticLinterOrderingTests {
             ),
         )
         assertTrue(linter.lint(scenario).isEmpty())
+    }
+
+    @Test
+    fun relationshipUpdateVoteBrokenActionOkFiresExactlyOneWarning() {
+        // Only the vote signal is broken (speak_all drops it) -- a phase declaring BOTH rules where only one is broken still warns exactly once.
+        val scenario = makeLinterScenario(
+            agents = 2, rounds = 1,
+            phases = listOf(
+                Phase(type = PhaseType.CHOOSE, options = listOf("cooperate", "betray"), pairing = PairingStrategy.ROUND_ROBIN),
+                Phase(type = PhaseType.VOTE), Phase(type = PhaseType.SPEAK_ALL),
+                Phase(type = PhaseType.RELATIONSHIP_UPDATE, voteAgainst = -1, actionDeltas = mapOf("cooperate" to 1, "betray" to -1)),
+            ),
+        )
+        val findings = linter.lint(scenario).filter { it.ruleId == "relationship-update-placement" }
+        assertEquals(1, findings.size)
+        assertEquals(LintSeverity.WARNING, findings.first().severity)
+        assertEquals(3, findings.first().phaseIndex)
+    }
+
+    @Test
+    fun relationshipUpdateActionBrokenVoteOkFiresExactlyOneWarning() {
+        // Only action is broken (PD clears pairings first); voteAgainst reads a live vote right before it.
+        val scenario = makeLinterScenario(
+            agents = 2, rounds = 1,
+            phases = listOf(
+                Phase(type = PhaseType.CHOOSE, options = listOf("cooperate", "betray"), pairing = PairingStrategy.ROUND_ROBIN),
+                Phase(type = PhaseType.SCORE_CALC, logic = ScoreCalcLogic.PRISONERS_DILEMMA), Phase(type = PhaseType.VOTE),
+                Phase(type = PhaseType.RELATIONSHIP_UPDATE, voteAgainst = -1, actionDeltas = mapOf("cooperate" to 1, "betray" to -1)),
+            ),
+        )
+        val findings = linter.lint(scenario).filter { it.ruleId == "relationship-update-placement" }
+        assertEquals(1, findings.size)
+        assertEquals(LintSeverity.WARNING, findings.first().severity)
+        assertEquals(3, findings.first().phaseIndex)
     }
 
     // MARK: - Message mapping (deliberate exception to the one-test-per-rule shape)
