@@ -636,6 +636,8 @@
       "language": "en",
       "yaml_url": "zenin_sansei_ryokou_v1_en.yaml",
       "yaml_sha256": "7c4923333c1978b25cf56f273035fbb64b2884cf6fe678cd78d245db6f489822",
+      "highlight_url": "highlights/zenin_sansei_ryokou_v1_en.json",
+      "highlight_sha256": "e622def194c2dc1288e5c7830da839fe21d0a4a3b623d13ef9effe0311e1c0e4",
       "added_at": "2026-07-01"
     },
     {
