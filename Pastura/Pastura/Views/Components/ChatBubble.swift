@@ -28,11 +28,16 @@ import SwiftUI
 /// at top-leading encodes "the speaker is on the left" visually; the
 /// remaining 14pt corners soften the shape to match the wool / paper
 /// palette.
-struct BubbleShape: Shape {
+///
+/// `nonisolated` is explicit because `Shape`'s requirements are nonisolated
+/// and SwiftUI may call `path(in:)` off the main actor. Xcode 26 inferred
+/// it from the conformance; Xcode 27 infers MainActor and rejects the
+/// conformance (#1702).
+nonisolated struct BubbleShape: Shape {
 
   // Values mirror `Radius.bubbleTail` / `Radius.bubbleBody`
-  // (design-system §4.2). Inlined as literals here because `Shape`
-  // conformance forces this type nonisolated, while `Radius` inherits
+  // (design-system §4.2). Inlined as literals here because this type is
+  // nonisolated (see above), while `Radius` inherits
   // the project's MainActor default and can't be referenced from a
   // nonisolated static initializer. `ChatBubbleTests` pins equality
   // against `Radius.*` so the single-source-of-truth invariant still
