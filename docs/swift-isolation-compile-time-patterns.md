@@ -1,10 +1,10 @@
 # Swift isolation — the annotation traps the compiler reports
 
-Companion to `.claude/rules/swift-isolation.md`, which keeps only the silent runtime traps (Patterns 6–8). The five patterns here all produce a **diagnostic** under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; they are collected so that the message, which fires at the *use* site rather than the declaration, can be mapped back to its cause. Moved out of the always-loaded rule in #1519.
+Companion to `.claude/rules/swift-isolation.md`, which keeps only the silent runtime traps (Patterns 6–8). The patterns here (1–5, and 9) all produce a **diagnostic** under `SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor`; they are collected so that the message, which fires at the *use* site rather than the declaration, can be mapped back to its cause. Moved out of the always-loaded rule in #1519.
 
-Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference in five patterns that share one root cause and surface in two diagnostic forms:
+Per CLAUDE.md, types in `Models/`, `LLM/`, `Engine/`, `Data/` are marked `nonisolated` at the type level. Conformances declared in `App/` (and any default-MainActor layer) hit MainActor inference in patterns that share one root cause and surface in two diagnostic forms:
 
-- **Conformance-site** (Pattern 1): `conformance of '<Type>' to protocol '<Protocol>' crosses into main actor-isolated code and can cause data races`.
+- **Conformance-site** (Patterns 1 and 9): `conformance of '<Type>' to protocol '<Protocol>' crosses into main actor-isolated code and can cause data races`.
 - **Use-site** (Patterns 2–5): fires at the test, generic collection, Sendable closure callsite, or conformance-lookup callsite. Patterns 2–4 surface as `Call to main actor-isolated <thing> in a synchronous nonisolated context`; Pattern 5 as `main actor-isolated conformance of '<Type>' to '<Protocol>' cannot be used in nonisolated context`.
 
 ## Pattern 1 — Protocol-extension default impl + escaping closure
@@ -90,3 +90,11 @@ Two production shapes with the same cause, both build errors:
 | `nonisolated enum`/type whose `static let` initializers read MainActor-isolated statics | `Main actor-isolated default value in a nonisolated context` | Don't mark the namespace `nonisolated`; annotate only the closure that needs it. |
 
 The `let`-read exemption is module-local, so a nonisolated *test* helper needs `@MainActor` where the equivalent in-module production closure does not — `DesignTokensTests+DarkMode.swift`'s `sRGBComponentsMatch` is the worked example.
+
+## Pattern 9 — `Shape` conformer relying on inferred `nonisolated` (toolchain skew)
+
+A `struct X: Shape` in a default-MainActor layer (`Views/`). Xcode 26.4 inferred the type `nonisolated` from the conformance, so it built clean; **Xcode 27 infers MainActor** and rejects it at the declaration with the Pattern-1 conformance-site message. CI pins Xcode 26.4, so **CI cannot see this one** — it fails only on a machine that has moved to Xcode 27.
+
+**Fix**: write `nonisolated struct X: Shape` explicitly. `Shape` is `Sendable` and SwiftUI may call `path(in:)` off the main actor, so an isolated (`@MainActor`) conformance is wrong; `nonisolated` builds on both toolchains. The type then cannot read MainActor-isolated statics in its own static initializers — inline the literal and pin it against the token in a test.
+
+Reference: `BubbleShape` in `Views/Components/ChatBubble.swift` (and `ChatBubbleTests`' `Radius` pin), `CheckmarkPath` in `Views/ModelSelection/Components/CheckBadge.swift` (#1702).
