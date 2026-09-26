@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "hitsuji_kaigi_v1_en",
+    "yaml_sha256": "d3b654af703156207c87627880efd0e443e5687a22a5525f11f4b43d1987712a"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260926-193341-29d8",
+    "generated_at": "2026-09-26"
+  },
+  "excerpt": [
+    {
+      "agent": "Wooliet",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "I believe we should leave because the world calls to my dreaming heart, and I cannot bear this endless grass."
+    },
+    {
+      "agent": "Baabara",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "I strongly advise staying because I have counted twenty-two predators lurking near the boundary line."
+    },
+    {
+      "agent": "Woolfred",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "I believe we should stay because the fence is a promise left by the shepherd, and leaving now breaks that sacred trust."
+    },
+    {
+      "agent": "Wooliet",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 2,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "I find Woolfred's focus on the shepherd's promise too tethered to a memory that has faded into mist."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Wooliet\n    description: >\n      [Role] A young dreamer aching for the world outside; the boldest\n      voice for leaving.\n      [Goal] Every day she watches a butterfly cross the fence and come\n      back as if it were nothing. She wants to taste the clover beyond\n      the fence with her own tongue. What frightens her is not the\n      unknown — it is never knowing.\n      Speaks lyrically, half-enchanted. e.g. \"The butterfly flies as if\n      the fence were never built. No one drew a map of our pasture on\n      those wings.\"",
+    "caption": "Wooliet has already decided the pasture is too small for her. When it is her turn to rebut, she goes after Woolfred's faith in the shepherd, not the sheep who counted the predators."
+  },
+  "teaser": "The gate has been open a crack for three days. Before the night is over, each of the five sheep has to say out loud whether they are going.",
+  "window_override": false,
+  "content_filter_applied": true
+}

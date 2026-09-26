@@ -920,6 +920,8 @@
       "language": "en",
       "yaml_url": "hitsuji_kaigi_v1_en.yaml",
       "yaml_sha256": "d3b654af703156207c87627880efd0e443e5687a22a5525f11f4b43d1987712a",
+      "highlight_url": "highlights/hitsuji_kaigi_v1_en.json",
+      "highlight_sha256": "f2ddedf6622a5d08683a2a6acb6fb4a6c039d23998ff494b19e241ece9e17990",
       "added_at": "2026-07-10"
     },
     {
