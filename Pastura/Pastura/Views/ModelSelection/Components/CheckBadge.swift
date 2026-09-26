@@ -66,8 +66,9 @@ struct CheckBadge: View {
 
 /// The check stroke shape inside a unit square, matching the hand-off
 /// path coordinates `M6.5 11.2 l3 3 6,-6.4` (22pt viewBox, padding-adjusted
-/// here to 0..1 unit space).
-private struct CheckmarkPath: Shape {
+/// here to 0..1 unit space). `nonisolated` for the same reason as
+/// `BubbleShape` — Xcode 27 rejects a MainActor-inferred `Shape` (#1702).
+nonisolated private struct CheckmarkPath: Shape {
   func path(in rect: CGRect) -> Path {
     var path = Path()
     // Map the handoff's 22-unit viewBox coordinates (inset to 0..1 by the
