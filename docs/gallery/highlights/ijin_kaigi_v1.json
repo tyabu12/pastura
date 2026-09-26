@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "ijin_kaigi_v1",
+    "yaml_sha256": "d4267289c4329b213fbce7a16b773430155d95ad52ebe114c489325c4cd2ca60"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260926-194225-ead2",
+    "generated_at": "2026-09-26"
+  },
+  "excerpt": [
+    {
+      "agent": "ソクラテス",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "人類よ、その疾走を続ける前に、進む先の地図が本当に確かか否かを問うべきだ。"
+    },
+    {
+      "agent": "レオナルド・ダ・ヴィンチ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "進歩とは、空を飛びたいという衝動そのものだ。立ち止まることは、キャンバスに描く筆を握りしめることを放棄することに等しい。"
+    },
+    {
+      "agent": "マリー・キュリー",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "進歩の奔流は、その熱狂だけでは測れない。"
+    },
+    {
+      "agent": "福沢諭吉",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "人類は、自己の羅針盤を信じ、迷わず前進せよ。"
+    },
+    {
+      "agent": "坂本龍馬",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "進歩とは、船を漕ぎ出すことであり、岸辺で藻掻くことではない。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: ソクラテス\n    description: >\n      【立場】立ち止まる側の柱。何があっても「止まる」を譲らない。\n      【目的】吟味を終えぬまま進むことは、目隠しで崖へ駆けるに等しい\n      大罪だと信じる。「善さの中身」を問い切るまでは断じて一歩も\n      進めてはならない、というのが生涯変わらぬ信念。だから議論が\n      どう転んでも「まず立ち止まって問え」と説き続ける。\n      口調は穏やかで、答えでなく問いを返す。例:「ではまず問おう。\n      君の言う“進歩”とは、そもそも何が善くなることなのだね?」\n  - name: マリー・キュリー\n    description: >\n      【立場】立ち止まる側。代償を身をもって知る静かな科学者。\n      【目的】光をもたらす力は、同じ手で人を焼く。進歩そのものは\n      否まぬが、数え、確かめる前に走れば必ず誰かが灼かれる。実測と\n      代償の両面を冷静に説く。\n      口調は静かで正確、感情を排す。例:「その輝きは美しい。だが私は\n      その輝きに手を灼かれた。数える前に、走ってはいけません」",
+    "caption": "立ち止まる側に並ぶのは、答えの代わりに問いを返す哲学者と、光に手を灼かれた科学者。同じ「止まる」でも、片方は理屈から、片方は火傷の記憶から来ている。"
+  },
+  "teaser": "五人が自分の比喩で最初の一言を放った。反論を一巡させたあと、全員が「進む」か「止まる」かを宣言する。",
+  "window_override": false,
+  "content_filter_applied": true
+}

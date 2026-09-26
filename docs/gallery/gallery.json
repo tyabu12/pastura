@@ -970,6 +970,8 @@
       "language": "ja",
       "yaml_url": "ijin_kaigi_v1.yaml",
       "yaml_sha256": "d4267289c4329b213fbce7a16b773430155d95ad52ebe114c489325c4cd2ca60",
+      "highlight_url": "highlights/ijin_kaigi_v1.json",
+      "highlight_sha256": "686f2b1ec5daf376e7015e3f49e37befe61c970125500770ca0f7d832d2957e3",
       "added_at": "2026-07-15"
     },
     {
