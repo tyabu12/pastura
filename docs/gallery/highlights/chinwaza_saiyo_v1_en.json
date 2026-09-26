@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "chinwaza_saiyo_v1_en",
+    "yaml_sha256": "7e3edd087cb0c3b340091e0c35e504e742a576af6d4a613f63b45310697232f5"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260926-192445-15bd",
+    "generated_at": "2026-09-26"
+  },
+  "excerpt": [
+    {
+      "agent": "Coach Buck",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "Hired on the spot! That three-day stare proves you have the unwavering, relentless focus needed to intimidate the competition into handing over their quarterly reports."
+    },
+    {
+      "agent": "Old-Timer Earl",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "Hard pass, because staring for three days just shows a lack of proper manual dexterity needed for actual craftsmanship."
+    },
+    {
+      "agent": "Willow the HR Oracle",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "Hired on the spot! Your ability to stare for three days straight perfectly aligns with the cosmic alignment needed to absorb all ambient existential dread in this sector."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Old-Timer Earl\n    description: >\n      [Role] A stubborn, old-school craftsman from a bygone era.\n      [Goal] Lectures with \"kids these days\" and rewards only hard graft and patience.\n      A shallow trick gets a flat \"Hard pass,\" no argument.\n      e.g. \"That cheap parlor trick? Wouldn't have flown in my day. Hard pass.\"\n  - name: Willow the HR Oracle\n    description: >\n      [Role] A mystical HR rep who reads everything spiritually.\n      [Goal] Evaluates talents through \"auras,\" \"past lives,\" and \"energy flow.\"\n      Her reasoning is forever floaty.\n      e.g. \"Your aura feels like it would balance the chi of this whole office.\"",
+    "caption": "Willow reads the applicant's party trick as a cosmic signal; Earl has written it off before it is over. Neither of them is really grading the applicant."
+  },
+  "teaser": "The talent is beside the point. The panel votes for whichever interviewer came up with the most unhinged reason.",
+  "window_override": false,
+  "content_filter_applied": true
+}

@@ -728,6 +728,8 @@
       "language": "en",
       "yaml_url": "chinwaza_saiyo_v1_en.yaml",
       "yaml_sha256": "7e3edd087cb0c3b340091e0c35e504e742a576af6d4a613f63b45310697232f5",
+      "highlight_url": "highlights/chinwaza_saiyo_v1_en.json",
+      "highlight_sha256": "3ead3255d9fed4e7d5db11569681f11771bcf09bd14440835197aac11ebdf6ce",
       "added_at": "2026-07-01"
     },
     {
