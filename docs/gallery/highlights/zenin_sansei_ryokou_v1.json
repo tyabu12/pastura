@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "zenin_sansei_ryokou_v1",
+    "yaml_sha256": "6307b3292bcb8e4e5c61865dc1ae7fcddc919c0aaac8dc6f0be46275fdcd623a"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260926-200027-9a5a",
+    "generated_at": "2026-09-26"
+  },
+  "excerpt": [
+    {
+      "agent": "言い出しっぺ部長カツ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "秘境の霧の湿原まで行くのは、最高の思い出になるでしょう。"
+    },
+    {
+      "agent": "空気を読む若手リン",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 1,
+      "source_field": "statement",
+      "text": "部長の提案、すごくロマンチックで魅力的だと思います！私は移動中の移動時間を活用して、湿原の生物に関するミニクイズ大会を企画したいです。"
+    },
+    {
+      "agent": "調整役の中堅ミドリ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "部長の提案は、最高の思い出になると思います。私は移動中の休憩時間を少し長めにとることを提案します。"
+    },
+    {
+      "agent": "本当は反対の古株テツ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "部長の提案は、最高の思い出になると思います。私は移動中のルートについて、途中の景勝地をいくつか組み込むことを提案します。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 空気を読む若手リン\n    description: >\n      【立場】場の空気を壊すのを何より恐れる新人。\n      【目的】反対したいが、最初に水を差す役を絶対に引き受けたくない。\n      例:（表）「いいですね、楽しみです！」（本音）「12時間バス…誰か止めて」\n  - name: 本当は反対の古株テツ\n    description: >\n      【立場】最も内心反対しているベテラン。\n      【目的】和を乱したくない一心で、年長者ゆえに余計に黙って賛成してしまう。\n      例:（表）「若い子が楽しみなら、私は何でもいいよ」（本音）「絶対に行きたくない」",
+    "caption": "いちばん行きたくないはずの古株が、寄り道の名所を足そうと言い出す。新人は新人で、移動中のクイズ大会まで企画している。"
+  },
+  "teaser": "「最高の思い出になる」が三人続いた。本音を口にした人は、まだ一人もいない。",
+  "window_override": false,
+  "content_filter_applied": true
+}
