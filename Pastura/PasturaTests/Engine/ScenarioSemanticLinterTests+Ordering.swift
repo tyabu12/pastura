@@ -352,6 +352,36 @@ extension ScenarioSemanticLinterTests {
     #expect(linter.lint(scenario).isEmpty)
   }
 
+  @Test func relationshipUpdateVoteBrokenActionOkFiresExactlyOneWarning() {
+    // Only the vote signal is broken (speak_all drops it) — a phase declaring BOTH rules where only one is broken still warns exactly once.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .vote), Phase(type: .speakAll),
+        Phase(
+          type: .relationshipUpdate, voteAgainst: -1, actionDeltas: ["cooperate": 1, "betray": -1])
+      ])
+    let findings = linter.lint(scenario).filter { $0.ruleID == "relationship-update-placement" }
+    #expect(findings.count == 1)
+    #expect(findings.first?.severity == .warning && findings.first?.phaseIndex == 3)
+  }
+
+  @Test func relationshipUpdateActionBrokenVoteOkFiresExactlyOneWarning() {
+    // Only action is broken (PD clears pairings first); voteAgainst reads a live vote right before it.
+    let scenario = makeScenario(
+      agents: 2, rounds: 1,
+      phases: [
+        Phase(type: .choose, options: ["cooperate", "betray"], pairing: .roundRobin),
+        Phase(type: .scoreCalc, logic: .prisonersDilemma), Phase(type: .vote),
+        Phase(
+          type: .relationshipUpdate, voteAgainst: -1, actionDeltas: ["cooperate": 1, "betray": -1])
+      ])
+    let findings = linter.lint(scenario).filter { $0.ruleID == "relationship-update-placement" }
+    #expect(findings.count == 1)
+    #expect(findings.first?.severity == .warning && findings.first?.phaseIndex == 3)
+  }
+
   // MARK: - Helper
 
   // Internal factory for scenarios needing `extraData` (R5); the base
