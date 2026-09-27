@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "yusha_kaiko_v1",
+    "yaml_sha256": "6f51eee198d897714f436329b007bab5fc0f13343156b251460c16ab7e9c1047"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260927-102059-d6c1",
+    "generated_at": "2026-09-27"
+  },
+  "excerpt": [
+    {
+      "agent": "回復をケチる守銭奴僧侶ザニ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "戦闘ダメージはコストパフォーマンスで語るべきだ。私の回復力はその後のリソース確保に直結する。"
+    },
+    {
+      "agent": "戦わず歌う吟遊詩人ポロン",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 1,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "俺の歌なしには、戦場はただの無音の石ころだ！士気という名のエネルギーこそが真のダメージ量なんだ。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 回復をケチる守銭奴僧侶ザニ\n    description: >\n      【立場】回復役だが魔法をケチって出し惜しみする守銭奴。\n      【目的】どんな査定基準も金額に換算して語る。ケチを美徳として売り込む。\n      例:「HP1で生き残れるなら全快は無駄。私こそ予算削減の鑑だ」",
+    "caption": "【目的】の書き出しは「どんな査定基準も」。ギルドがどんな物差しを出してきても、ザニはまずそれを値札に掛け替えてから話し始める。"
+  },
+  "teaser": "票はまだ開いていない。ここで自分を売り込めても、次のラウンドには別の物差しが届く。",
+  "window_override": false,
+  "content_filter_applied": true
+}
