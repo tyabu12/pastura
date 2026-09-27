@@ -11,15 +11,6 @@
   },
   "excerpt": [
     {
-      "agent": "詠唱が長い魔法使いメル",
-      "round": 1,
-      "phase": "speak_each",
-      "phase_index": 1,
-      "persona_index": 1,
-      "source_field": "statement",
-      "text": "私のメテオは90秒の詠唱ですが、これは敵の行動予測に対する時間的猶予を生み出す戦略的遅延効果です。"
-    },
-    {
       "agent": "回復をケチる守銭奴僧侶ザニ",
       "round": 1,
       "phase": "speak_each",
