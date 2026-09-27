@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "yusha_kaiko_v1_en",
+    "yaml_sha256": "c2ca5e329c60cfe89d6b76ba909f7cee5fc4f87cce345cf17785649b18db2f9d"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260926-221159-8d99",
+    "generated_at": "2026-09-26"
+  },
+  "excerpt": [
+    {
+      "agent": "Leon the Plot-Armor Hero",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 0,
+      "persona_index": 0,
+      "source_field": "statement",
+      "text": "Look, the plot demands my presence because I am the protagonist, and without me, this entire adventure ceases to exist."
+    },
+    {
+      "agent": "Zane the Stingy Cleric",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 0,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "I am the budget expert; I ensure we don't waste coin on unnecessary healing, which is a true cost-cutting measure."
+    },
+    {
+      "agent": "Kell the Light-Fingered Rogue",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 0,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "Look, I can bypass any lock or empty a purse for the Guild, which is essentially high-level intel gathering and fundraising."
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: Zane the Stingy Cleric\n    description: >\n      [Role] The healer, but a miser who hoards his spells and doles out the\n      bare minimum.\n      [Goal] Bills himself as a cost-cutting expert, selling stinginess as a\n      virtue.\n      e.g. \"If you can survive at 1 HP, a full heal is a waste. I'm the very\n      model of budget discipline.\"\n  - name: Kell the Light-Fingered Rogue\n    description: >\n      [Role] A rogue who picks treasure chests — and his own teammates' purses.\n      [Goal] Rebrands it as \"intel-gathering and fundraising\" to justify himself.\n      e.g. \"I already know the combo to the Guild's vault. Handy, right?\"",
+    "caption": "Two goals that each hand a flaw back as a selling point. At a meeting about payroll cuts, the healer who won't heal pitches himself as a saving and the pickpocket as a fundraiser."
+  },
+  "teaser": "The guild cuts one member every round for four rounds, and only one of these five will still be on the payroll at the end.",
+  "window_override": false,
+  "content_filter_applied": true
+}
