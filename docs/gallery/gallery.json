@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updated_at": "2026-09-26T00:00:00Z",
+  "updated_at": "2026-09-27T00:00:00Z",
   "scenarios": [
     {
       "id": "asch_conformity_v1",
@@ -486,6 +486,8 @@
       "language": "ja",
       "yaml_url": "kyoyu_gyojo_v1.yaml",
       "yaml_sha256": "32a1b9fe8d720f4969227e684134bb4de8be1100c23f840e14a49444b5bcd8a4",
+      "highlight_url": "highlights/kyoyu_gyojo_v1.json",
+      "highlight_sha256": "71b48f80edf588623e8efb08f55ada44d497e0afde125f087fce6368a7ec36f4",
       "added_at": "2026-06-30"
     },
     {
@@ -617,6 +619,8 @@
       "language": "en",
       "yaml_url": "yusha_kaiko_v1_en.yaml",
       "yaml_sha256": "c2ca5e329c60cfe89d6b76ba909f7cee5fc4f87cce345cf17785649b18db2f9d",
+      "highlight_url": "highlights/yusha_kaiko_v1_en.json",
+      "highlight_sha256": "f3e739c58a74f3af88e200d39daeb5d698737270b72b1bf640b1b3d5f1ba9e09",
       "added_at": "2026-07-01"
     },
     {
