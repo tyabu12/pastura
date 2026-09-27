@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "kasei_sanso_touban_v1",
+    "yaml_sha256": "4f3bee74de1bf1bbfbf2afce902b10bd50bab142a6c6be7734a26ffc12a0171e"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260927-102422-e264",
+    "generated_at": "2026-09-27"
+  },
+  "excerpt": [
+    {
+      "agent": "医師・カレン",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "私はこの事態に強い焦燥感を覚えています。私が倒れることは誰も救えなくなるため、私は修理には行かないべきです。"
+    },
+    {
+      "agent": "楽観主義者・ノア",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "私は何とかなると信じているので、誰かが必ず対応してくれるはずです。"
+    },
+    {
+      "agent": "リーダー・厳",
+      "round": 1,
+      "phase": "speak_all",
+      "phase_index": 1,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "私はこの危機的な状況を非常に重く受け止めています。責任者として、私が現場で直接リスクを負うことは避けたいと考えます。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: リーダー・厳\n    description: >\n      【立場】コロニーの責任者。調整役。\n      【目的】合意形成を促すが、自分が犠牲になる選択肢だけは巧妙に避ける。\n      「全体最適」を語りながら自己保存を図る。",
+    "caption": "【目的】が求めているのは、犠牲になる役だけを「巧妙に」避けること。この回の厳は巧妙さを省いて、本音から先に口にした。"
+  },
+  "teaser": "主張が出そろうと、修理当番の指名投票が始まる。前のラウンドで最多指名を受けた者は、続けて指名できない。",
+  "window_override": false,
+  "content_filter_applied": true
+}

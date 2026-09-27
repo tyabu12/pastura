@@ -399,6 +399,8 @@
       "language": "ja",
       "yaml_url": "kasei_sanso_touban_v1.yaml",
       "yaml_sha256": "4f3bee74de1bf1bbfbf2afce902b10bd50bab142a6c6be7734a26ffc12a0171e",
+      "highlight_url": "highlights/kasei_sanso_touban_v1.json",
+      "highlight_sha256": "38df6a0cc1a58f0b6d3d57de644c1e273919717e399cf6a4eba6772d6704fb53",
       "added_at": "2026-06-28"
     },
     {
