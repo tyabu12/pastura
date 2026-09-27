@@ -377,6 +377,8 @@
       "language": "ja",
       "yaml_url": "yusha_kaiko_v1.yaml",
       "yaml_sha256": "6f51eee198d897714f436329b007bab5fc0f13343156b251460c16ab7e9c1047",
+      "highlight_url": "highlights/yusha_kaiko_v1.json",
+      "highlight_sha256": "c7f645b13cded9eea205361d183c2066ce689ee3777ff970c856f582109da99e",
       "added_at": "2026-06-28"
     },
     {
