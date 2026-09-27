@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "scenario_ref": {
+    "id": "kyoyu_gyojo_v1",
+    "yaml_sha256": "32a1b9fe8d720f4969227e684134bb4de8be1100c23f840e14a49444b5bcd8a4"
+  },
+  "source": {
+    "model": "gemma-4-e2b-q4-k-m",
+    "run_id": "20260926-223527-77b7",
+    "generated_at": "2026-09-26"
+  },
+  "excerpt": [
+    {
+      "agent": "日和見・タケ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 2,
+      "source_field": "statement",
+      "text": "私は今期だけは少し手厚く獲っても良いのではないでしょうか。皆が控えめにするのは村全体の利益になると考えます。"
+    },
+    {
+      "agent": "借金漁師・ゲン",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 3,
+      "source_field": "statement",
+      "text": "借金が迫っているから、とにかく今期の収入を確保しなければならない。"
+    },
+    {
+      "agent": "新人・ハマ",
+      "round": 1,
+      "phase": "speak_each",
+      "phase_index": 0,
+      "persona_index": 4,
+      "source_field": "statement",
+      "text": "私はまだ何も持っていないので、少しだけ獲っても大丈夫だと思います。"
+    }
+  ],
+  "yaml_hook": {
+    "kind": "persona",
+    "fragment": "  - name: 日和見・タケ\n    description: >\n      【立場】場の空気に合わせるのが上手い世渡り上手。\n      【目的】議論では「賛成、控えめにしよう」と調子よく同意する。だが本音では\n      「皆が控えめなら、自分が多めに獲っても気づかれないし損もしない」と考える典型的な\n      フリーライダー。建前と本音のギャップが大きい。",
+    "caption": "議論では調子よく賛成し、本音は胸にしまっておくはずのタケ。実際には「今期だけは少し手厚く」と本音が先に口から出て、「皆が控えめに」という建前はそのあとから付いてくる。"
+  },
+  "teaser": "話し合いが終わると、五人は誰にも見られずに今期の漁獲量を一人ずつ決める。三期めの漁場に、魚はどれだけ残っているのか。",
+  "window_override": false,
+  "content_filter_applied": true
+}
