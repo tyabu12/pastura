@@ -1078,7 +1078,7 @@ jobs:
       # Supply-chain guard on the checked-in gradle-wrapper.jar. "Author fresh"
       # must not drop this.
       - name: Validate Gradle wrapper integrity
-        uses: gradle/actions/wrapper-validation@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
 
       # KMP umbrella cache — PRODUCER side (ADR-023 §6 Stage-5 ruling (a);
       # #1635 PR-B). The staged `PasturaSharedEngine.xcframework` is cached
